@@ -228,24 +228,18 @@ export function AppointmentDetailSheet({
             </h3>
             <div className="bg-muted/30 rounded-lg p-4 space-y-3">
               <div className="font-medium text-lg">{contactName}</div>
-              {phone && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-4 w-4" />
-                  {phone}
-                </div>
-              )}
-              {email && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  {email}
-                </div>
-              )}
-              {address && (
-                <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>{address}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="h-4 w-4" />
+                {phone || <span className="italic">No phone number</span>}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Mail className="h-4 w-4" />
+                {email || <span className="italic">No email</span>}
+              </div>
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                {address || <span className="italic">No address</span>}
+              </div>
             </div>
           </div>
 
