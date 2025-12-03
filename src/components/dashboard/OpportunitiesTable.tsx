@@ -44,6 +44,7 @@ interface Contact {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  source: string | null;
   custom_fields?: unknown;
 }
 
