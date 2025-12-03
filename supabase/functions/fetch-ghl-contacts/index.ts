@@ -32,6 +32,7 @@ serve(async (req) => {
     // Fetch all contacts with pagination and deduplication
     let allContacts: any[] = [];
     let startAfterId: string | undefined;
+    let startAfter: number | undefined;
     let hasMore = true;
     const seenContactIds = new Set<string>();
     const seenStartAfterIds = new Set<string>();
@@ -43,8 +44,9 @@ serve(async (req) => {
       });
 
       if (startAfterId) params.append('startAfterId', startAfterId);
+      if (startAfter !== undefined) params.append('startAfter', startAfter.toString());
 
-      console.log(`Fetching contacts batch, startAfterId: ${startAfterId || 'none'}`);
+      console.log(`Fetching contacts batch, startAfterId: ${startAfterId || 'none'}, startAfter: ${startAfter ?? 'none'}`);
 
       const response = await fetch(
         `https://services.leadconnectorhq.com/contacts/?${params.toString()}`,
@@ -90,8 +92,10 @@ serve(async (req) => {
         break;
       }
 
+      console.log('API Response meta:', JSON.stringify(data.meta));
+
       // Check for startAfterId loop
-      if (data.meta?.startAfterId) {
+      if (data.meta?.startAfterId && data.meta?.startAfter !== undefined) {
         if (seenStartAfterIds.has(data.meta.startAfterId)) {
           console.log('Stopping: startAfterId loop detected');
           hasMore = false;
@@ -99,6 +103,7 @@ serve(async (req) => {
         }
         seenStartAfterIds.add(data.meta.startAfterId);
         startAfterId = data.meta.startAfterId;
+        startAfter = data.meta.startAfter;
       } else {
         hasMore = false;
       }
