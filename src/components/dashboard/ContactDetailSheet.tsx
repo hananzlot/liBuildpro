@@ -1,9 +1,7 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, StickyNote } from "lucide-react";
+import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText } from "lucide-react";
 
-// Custom field IDs for extracting data
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
   SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
@@ -67,7 +65,6 @@ interface ContactDetailSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// Helper to extract custom field value by ID
 const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
   if (!customFields || !Array.isArray(customFields)) return null;
   const field = customFields.find((f: any) => f.id === fieldId);
@@ -85,38 +82,37 @@ export function ContactDetailSheet({
   if (!contact) return null;
 
   const formatDateTime = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A";
-    return format(new Date(dateString), "MMM d, yyyy h:mm a");
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    });
   };
 
   const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return "N/A";
-    return format(new Date(dateString), "MMM d, yyyy");
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+    });
   };
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value == null) return "$0";
     return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
+      style: "currency", currency: "USD", minimumFractionDigits: 0,
     }).format(value);
   };
 
   const getStatusColor = (status: string | null | undefined) => {
     switch (status?.toLowerCase()) {
       case "won":
-        return "bg-green-500/10 text-green-500 border-green-500/20";
+      case "confirmed": return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
       case "lost":
-        return "bg-red-500/10 text-red-500 border-red-500/20";
-      case "open":
-        return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-      case "confirmed":
-        return "bg-green-500/10 text-green-500 border-green-500/20";
       case "cancelled":
-        return "bg-red-500/10 text-red-500 border-red-500/20";
-      default:
-        return "bg-muted text-muted-foreground border-border";
+      case "no_show": return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "open":
+      case "showed": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      default: return "bg-amber-500/20 text-amber-400 border-amber-500/30";
     }
   };
 
@@ -129,103 +125,83 @@ export function ContactDetailSheet({
     `${assignedUser?.first_name || ''} ${assignedUser?.last_name || ''}`.trim() || 
     null;
 
-  // Find related opportunities and appointments by contact's ghl_id
-  const relatedOpportunities = opportunities.filter(
-    opp => opp.contact_id === contact.ghl_id
-  );
-  const relatedAppointments = appointments.filter(
-    apt => apt.contact_id === contact.ghl_id
-  );
+  const relatedOpportunities = opportunities.filter(opp => opp.contact_id === contact.ghl_id);
+  const relatedAppointments = appointments.filter(apt => apt.contact_id === contact.ghl_id);
 
-  // Extract custom fields
   const address = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
   const scopeOfWork = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
   const contactNotes = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES);
 
+  // Calculate total opportunity value
+  const totalValue = relatedOpportunities.reduce((sum, opp) => sum + (opp.monetary_value || 0), 0);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader className="space-y-1">
-          <SheetTitle className="text-xl">{contactName}</SheetTitle>
-          {contact.source && (
-            <Badge variant="outline" className="w-fit bg-primary/10 text-primary border-primary/20">
-              {contact.source}
-            </Badge>
-          )}
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
-          {/* Contact Info */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              Contact Information
-            </h4>
-            <div className="space-y-2">
-              {contact.email && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span>{contact.email}</span>
-                </div>
+      <SheetContent className="sm:max-w-md overflow-y-auto p-0">
+        {/* Header */}
+        <div className="sticky top-0 bg-background border-b p-4">
+          <SheetHeader className="space-y-1">
+            <div className="flex items-start justify-between gap-3">
+              <SheetTitle className="text-lg font-semibold leading-tight">
+                {contactName}
+              </SheetTitle>
+              {contact.source && (
+                <Badge variant="outline" className="shrink-0 text-xs bg-primary/10 text-primary border-primary/30">
+                  {contact.source}
+                </Badge>
               )}
-              {contact.phone && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span>{contact.phone}</span>
-                </div>
-              )}
-              {address && (
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{address}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>Added: {formatDate(contact.ghl_date_added)}</span>
+            </div>
+            {totalValue > 0 && (
+              <div className="text-2xl font-bold text-emerald-400">
+                {formatCurrency(totalValue)}
               </div>
-              {assignedUserName && (
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>Assigned to: {assignedUserName}</span>
-                </div>
-              )}
+            )}
+          </SheetHeader>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Key Info Grid */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="bg-muted/40 rounded-md p-2.5">
+              <div className="text-muted-foreground text-xs mb-0.5">Added</div>
+              <div className="font-medium truncate">{formatDate(contact.ghl_date_added)}</div>
+            </div>
+            <div className="bg-muted/40 rounded-md p-2.5">
+              <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
+              <div className="font-medium truncate">{assignedUserName || 'Unassigned'}</div>
             </div>
           </div>
 
-          {/* Scope of Work */}
-          {scopeOfWork && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                Scope of Work
-              </h4>
-              <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
-                <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+          {/* Contact Details */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
+            </div>
+            <div className="p-3 grid gap-1.5 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{contact.phone || <span className="italic text-muted-foreground/60">No phone</span>}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{contact.email || <span className="italic text-muted-foreground/60">No email</span>}</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
               </div>
             </div>
-          )}
-
-          {/* Contact Notes */}
-          {contactNotes && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                <StickyNote className="h-4 w-4" />
-                Notes
-              </h4>
-              <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
-                <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
-              </div>
-            </div>
-          )}
+          </div>
 
           {/* Tags */}
           {contact.tags && contact.tags.length > 0 && (
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                <Tag className="h-4 w-4" />
-                Tags
-              </h4>
-              <div className="flex flex-wrap gap-2">
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tags</span>
+              </div>
+              <div className="p-3 flex flex-wrap gap-1.5">
                 {contact.tags.map((tag, idx) => (
                   <Badge key={idx} variant="secondary" className="text-xs">
                     {tag}
@@ -235,69 +211,93 @@ export function ContactDetailSheet({
             </div>
           )}
 
+          {/* Scope of Work */}
+          {scopeOfWork && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scope of Work</span>
+              </div>
+              <div className="p-3">
+                <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {contactNotes && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</span>
+              </div>
+              <div className="p-3">
+                <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
+              </div>
+            </div>
+          )}
+
           {/* Opportunities */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Opportunities ({relatedOpportunities.length})
-            </h4>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Opportunities ({relatedOpportunities.length})
+              </span>
+            </div>
             {relatedOpportunities.length > 0 ? (
-              <div className="space-y-2">
-                {relatedOpportunities.map((opp) => (
-                  <div
-                    key={opp.id}
-                    className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium text-sm">{opp.name || "Unnamed Opportunity"}</span>
-                      <Badge variant="outline" className={getStatusColor(opp.status)}>
-                        {opp.status || "Unknown"}
-                      </Badge>
+              <div className="divide-y">
+                {relatedOpportunities.slice(0, 5).map((opp) => (
+                  <div key={opp.id} className="p-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm truncate">{opp.name || "Unnamed"}</span>
+                        <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(opp.status)}`}>
+                          {opp.status || "Unknown"}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {opp.pipeline_name || 'Pipeline'} → {opp.stage_name || 'Stage'}
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{opp.pipeline_name} → {opp.stage_name}</span>
-                      <span className="font-semibold text-foreground">
-                        {formatCurrency(opp.monetary_value)}
-                      </span>
-                    </div>
+                    <span className="text-sm font-semibold text-emerald-400 shrink-0">
+                      {formatCurrency(opp.monetary_value)}
+                    </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No opportunities found</p>
+              <div className="p-3 text-sm text-muted-foreground/60 italic">No opportunities</div>
             )}
           </div>
 
           {/* Appointments */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Appointments ({relatedAppointments.length})
-            </h4>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Appointments ({relatedAppointments.length})
+              </span>
+            </div>
             {relatedAppointments.length > 0 ? (
-              <div className="space-y-2">
-                {relatedAppointments.map((apt) => (
-                  <div
-                    key={apt.id}
-                    className="p-3 rounded-lg border border-border/50 bg-muted/30 space-y-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium text-sm">{apt.title || "Untitled Appointment"}</span>
-                      <Badge variant="outline" className={getStatusColor(apt.appointment_status)}>
+              <div className="divide-y">
+                {relatedAppointments.slice(0, 5).map((apt) => (
+                  <div key={apt.id} className="p-3 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-sm truncate">{apt.title || "Untitled"}</span>
+                      <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(apt.appointment_status)}`}>
                         {apt.appointment_status || "Unknown"}
                       </Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
                       {formatDateTime(apt.start_time)}
                     </div>
-                    {apt.notes && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">{apt.notes}</p>
-                    )}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No appointments found</p>
+              <div className="p-3 text-sm text-muted-foreground/60 italic">No appointments</div>
             )}
           </div>
         </div>
