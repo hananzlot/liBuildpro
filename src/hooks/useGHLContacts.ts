@@ -154,6 +154,9 @@ function processMetrics(
   appointments: DBAppointment[];
   contacts: DBContact[];
   users: DBUser[];
+  wonOpportunitiesCount: number;
+  wonOpportunitiesValue: number;
+  wonOpportunities: DBOpportunity[];
 } {
   const filteredContacts = filterByDateRange(contacts, dateRange);
   const filteredOpportunities = filterByDateRange(opportunities, dateRange);
@@ -223,6 +226,13 @@ function processMetrics(
     .filter(o => o.status !== 'lost' && o.status !== 'abandoned')
     .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
+  // Won opportunities metrics
+  const wonOpportunities = filteredOpportunities
+    .filter(o => o.status?.toLowerCase() === 'won')
+    .sort((a, b) => new Date(b.ghl_date_updated || 0).getTime() - new Date(a.ghl_date_updated || 0).getTime());
+  const wonOpportunitiesCount = wonOpportunities.length;
+  const wonOpportunitiesValue = wonOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
+
   // Appointments metrics
   const upcomingAppointments = appointments.filter(a => {
     if (!a.start_time) return false;
@@ -246,6 +256,9 @@ function processMetrics(
       .slice(0, 10),
     contacts: filteredContacts,
     users,
+    wonOpportunitiesCount,
+    wonOpportunitiesValue,
+    wonOpportunities,
   };
 }
 

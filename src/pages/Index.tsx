@@ -1,19 +1,22 @@
 import { useState } from "react";
-import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck } from "lucide-react";
+import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
+import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { LeadsBySourceChart } from "@/components/dashboard/LeadsBySourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
 import { RecentLeadsTable } from "@/components/dashboard/RecentLeadsTable";
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
 import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
+import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const Index = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [wonOpportunitiesSheetOpen, setWonOpportunitiesSheetOpen] = useState(false);
   const { data: metrics, isLoading, error, refetch } = useGHLMetrics(dateRange);
   const syncMutation = useSyncContacts();
 
@@ -156,11 +159,13 @@ const Index = () => {
                 subtitle={dateRange?.from ? "In selected range" : "All time"}
                 icon={DollarSign}
               />
-              <MetricCard
-                title="Pipeline Value"
-                value={formatCurrency(metrics?.totalPipelineValue || 0)}
-                subtitle="Open opportunities"
-                icon={TrendingUp}
+              <ClickableMetricCard
+                title="Won Opportunities"
+                value={metrics?.wonOpportunitiesCount || 0}
+                secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)}
+                subtitle="Closed deals"
+                icon={Trophy}
+                onClick={() => setWonOpportunitiesSheetOpen(true)}
               />
               <MetricCard
                 title="Appointments"
@@ -232,6 +237,15 @@ const Index = () => {
           )}
         </section>
       </main>
+
+      {/* Won Opportunities Sheet */}
+      <WonOpportunitiesSheet
+        open={wonOpportunitiesSheetOpen}
+        onOpenChange={setWonOpportunitiesSheetOpen}
+        opportunities={metrics?.wonOpportunities || []}
+        contacts={metrics?.contacts || []}
+        users={metrics?.users || []}
+      />
     </div>
   );
 };
