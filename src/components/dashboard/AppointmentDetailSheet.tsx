@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, Clock, User, FileText, DollarSign, Target } from "lucide-react";
+import { Calendar, Clock, User, FileText, DollarSign, Target, MapPin, Phone, Mail, Briefcase } from "lucide-react";
 
 interface Appointment {
   ghl_id: string;
@@ -30,6 +30,11 @@ interface Opportunity {
   contact_id: string | null;
 }
 
+interface CustomField {
+  id: string;
+  value?: string;
+}
+
 interface Contact {
   ghl_id: string;
   contact_name: string | null;
@@ -37,6 +42,7 @@ interface Contact {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  custom_fields?: CustomField[] | unknown;
 }
 
 interface GHLUser {
@@ -54,6 +60,19 @@ interface AppointmentDetailSheetProps {
   users: GHLUser[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+// GHL Custom Field IDs
+const CUSTOM_FIELD_IDS = {
+  ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
+  SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
+  NOTES: '588ddQgiGEg3AWtTQB2i',
+};
+
+function extractCustomField(customFields: unknown, fieldId: string): string | null {
+  if (!customFields || !Array.isArray(customFields)) return null;
+  const field = customFields.find((f: CustomField) => f.id === fieldId);
+  return field?.value || null;
 }
 
 export function AppointmentDetailSheet({
@@ -111,9 +130,13 @@ export function AppointmentDetailSheet({
     o => o.contact_id === appointment.contact_id
   );
 
+  // Get primary opportunity (first one, usually most relevant)
+  const primaryOpportunity = relatedOpportunities[0];
+
   // Find assigned user
   const assignedUser = users.find(u => u.ghl_id === appointment.assigned_user_id);
 
+  // Extract contact info
   const contactName = contact?.contact_name || 
     (contact?.first_name && contact?.last_name 
       ? `${contact.first_name} ${contact.last_name}` 
@@ -123,6 +146,15 @@ export function AppointmentDetailSheet({
     (assignedUser?.first_name && assignedUser?.last_name 
       ? `${assignedUser.first_name} ${assignedUser.last_name}` 
       : 'Unassigned');
+
+  // Extract custom fields from contact
+  const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
+  const scopeOfWork = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK) : null;
+  const contactNotes = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES) : null;
+
+  // Get phone and email (from contact)
+  const phone = contact?.phone;
+  const email = contact?.email;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -137,6 +169,37 @@ export function AppointmentDetailSheet({
         </SheetHeader>
 
         <div className="space-y-6 mt-6">
+          {/* Pipeline & Stage Info (from related opportunity) */}
+          {primaryOpportunity && (
+            <>
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Pipeline Status
+                </h3>
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Pipeline</span>
+                    <span className="text-sm font-medium">{primaryOpportunity.pipeline_name || 'Not assigned'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Stage</span>
+                    <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30">
+                      {primaryOpportunity.stage_name || 'Unknown'}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Value</span>
+                    <span className="text-sm font-semibold text-emerald-500">
+                      {formatCurrency(primaryOpportunity.monetary_value)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
+
           {/* Time Details */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
@@ -163,16 +226,44 @@ export function AppointmentDetailSheet({
               <User className="h-4 w-4" />
               Contact
             </h3>
-            <div className="bg-muted/30 rounded-lg p-4 space-y-2">
-              <div className="font-medium">{contactName}</div>
-              {contact?.email && (
-                <div className="text-sm text-muted-foreground">{contact.email}</div>
+            <div className="bg-muted/30 rounded-lg p-4 space-y-3">
+              <div className="font-medium text-lg">{contactName}</div>
+              {phone && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                  {phone}
+                </div>
               )}
-              {contact?.phone && (
-                <div className="text-sm text-muted-foreground">{contact.phone}</div>
+              {email && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                  {email}
+                </div>
+              )}
+              {address && (
+                <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{address}</span>
+                </div>
               )}
             </div>
           </div>
+
+          {/* Scope of Work */}
+          {scopeOfWork && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Scope of Work
+                </h3>
+                <div className="bg-muted/30 rounded-lg p-4">
+                  <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+                </div>
+              </div>
+            </>
+          )}
 
           <Separator />
 
@@ -190,17 +281,33 @@ export function AppointmentDetailSheet({
             </div>
           </div>
 
-          {/* Notes */}
+          {/* Appointment Notes */}
           {appointment.notes && (
             <>
               <Separator />
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  Notes
+                  Appointment Notes
                 </h3>
                 <div className="bg-muted/30 rounded-lg p-4">
                   <p className="text-sm whitespace-pre-wrap">{appointment.notes}</p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Contact Notes */}
+          {contactNotes && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Contact Notes
+                </h3>
+                <div className="bg-muted/30 rounded-lg p-4">
+                  <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
                 </div>
               </div>
             </>
@@ -212,7 +319,7 @@ export function AppointmentDetailSheet({
               <Separator />
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                  <Target className="h-4 w-4" />
+                  <DollarSign className="h-4 w-4" />
                   Related Opportunities ({relatedOpportunities.length})
                 </h3>
                 <div className="space-y-3">
@@ -230,9 +337,9 @@ export function AppointmentDetailSheet({
                           {formatCurrency(opp.monetary_value)}
                         </span>
                       </div>
-                      {opp.pipeline_name && (
+                      {(opp.pipeline_name || opp.stage_name) && (
                         <div className="text-sm text-muted-foreground">
-                          {opp.pipeline_name} → {opp.stage_name || 'Unknown Stage'}
+                          {opp.pipeline_name || 'Unknown Pipeline'} → {opp.stage_name || 'Unknown Stage'}
                         </div>
                       )}
                     </div>

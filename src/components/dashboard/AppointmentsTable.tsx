@@ -41,6 +41,7 @@ interface Contact {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  custom_fields?: unknown;
 }
 
 interface GHLUser {
