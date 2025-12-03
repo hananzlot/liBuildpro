@@ -14,7 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      contacts: {
+        Row: {
+          assigned_to: string | null
+          attributions: Json | null
+          contact_name: string | null
+          created_at: string
+          custom_fields: Json | null
+          email: string | null
+          first_name: string | null
+          ghl_date_added: string | null
+          ghl_date_updated: string | null
+          ghl_id: string
+          id: string
+          last_name: string | null
+          location_id: string
+          phone: string | null
+          source: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          attributions?: Json | null
+          contact_name?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          email?: string | null
+          first_name?: string | null
+          ghl_date_added?: string | null
+          ghl_date_updated?: string | null
+          ghl_id: string
+          id?: string
+          last_name?: string | null
+          location_id: string
+          phone?: string | null
+          source?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          attributions?: Json | null
+          contact_name?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          email?: string | null
+          first_name?: string | null
+          ghl_date_added?: string | null
+          ghl_date_updated?: string | null
+          ghl_id?: string
+          id?: string
+          last_name?: string | null
+          location_id?: string
+          phone?: string | null
+          source?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
