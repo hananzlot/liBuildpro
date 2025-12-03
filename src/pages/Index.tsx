@@ -223,7 +223,12 @@ const Index = () => {
           {isLoading ? (
             <Skeleton className="h-[400px] rounded-2xl" />
           ) : (
-            <RecentLeadsTable leads={metrics?.recentLeads || []} />
+            <RecentLeadsTable 
+              leads={metrics?.contacts || []} 
+              opportunities={metrics?.opportunities || []}
+              appointments={metrics?.appointments || []}
+              users={metrics?.users || []}
+            />
           )}
         </section>
       </main>
