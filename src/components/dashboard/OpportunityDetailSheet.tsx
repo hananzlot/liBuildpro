@@ -228,24 +228,18 @@ export function OpportunityDetailSheet({
             </h3>
             <div className="bg-muted/30 rounded-lg p-4 space-y-2">
               <div className="font-medium">{contactName}</div>
-              {contact?.email && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-3 w-3" />
-                  {contact.email}
-                </div>
-              )}
-              {contact?.phone && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-3 w-3" />
-                  {contact.phone}
-                </div>
-              )}
-              {address && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  {address}
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Phone className="h-3 w-3" />
+                {contact?.phone || <span className="italic">No phone number</span>}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Mail className="h-3 w-3" />
+                {contact?.email || <span className="italic">No email</span>}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-3 w-3" />
+                {address || <span className="italic">No address</span>}
+              </div>
             </div>
           </div>
 
