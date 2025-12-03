@@ -153,6 +153,8 @@ function processMetrics(
   opportunities: DBOpportunity[];
   appointments: DBAppointment[];
   contacts: DBContact[];
+  allContacts: DBContact[];
+  allOpportunities: DBOpportunity[];
   users: DBUser[];
   wonOpportunitiesCount: number;
   wonOpportunitiesValue: number;
@@ -255,6 +257,8 @@ function processMetrics(
       .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime())
       .slice(0, 10),
     contacts: filteredContacts,
+    allContacts: contacts,
+    allOpportunities: opportunities,
     users,
     wonOpportunitiesCount,
     wonOpportunitiesValue,

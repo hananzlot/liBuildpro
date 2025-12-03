@@ -215,8 +215,8 @@ const Index = () => {
               />
               <AppointmentsTable 
                 appointments={metrics?.appointments || []} 
-                opportunities={metrics?.opportunities || []}
-                contacts={metrics?.contacts || []}
+                opportunities={metrics?.allOpportunities || []}
+                contacts={metrics?.allContacts || []}
                 users={metrics?.users || []}
               />
             </>
