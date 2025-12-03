@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database } from "lucide-react";
-import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
+import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { LeadsBySourceChart } from "@/components/dashboard/LeadsBySourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
 import { RecentLeadsTable } from "@/components/dashboard/RecentLeadsTable";
+import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const Index = () => {
-  const { data: metrics, isLoading, error, refetch } = useGHLMetrics();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const { data: metrics, isLoading, error, refetch } = useGHLMetrics(dateRange);
   const syncMutation = useSyncContacts();
 
   const handleSync = async () => {
@@ -46,7 +49,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">GHL Analytics</h1>
             <p className="text-sm text-muted-foreground">CA Pro Builders Dashboard</p>
@@ -74,6 +77,19 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
+        {/* Date Range Filter */}
+        <section className="flex items-center justify-between flex-wrap gap-4">
+          <DateRangeFilter 
+            dateRange={dateRange} 
+            onDateRangeChange={setDateRange} 
+          />
+          {dateRange?.from && (
+            <p className="text-sm text-muted-foreground">
+              Showing {metrics?.totalLeads || 0} leads in selected range
+            </p>
+          )}
+        </section>
+
         {/* Metrics Grid */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {isLoading ? (
@@ -87,7 +103,7 @@ const Index = () => {
               <MetricCard
                 title="Total Leads"
                 value={metrics?.totalLeads || 0}
-                subtitle="Cached in database"
+                subtitle={dateRange?.from ? "In selected range" : "All time"}
                 icon={Users}
               />
               <MetricCard
