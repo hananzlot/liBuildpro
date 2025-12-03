@@ -154,6 +154,7 @@ export function useContacts() {
     queryKey: ['contacts'],
     queryFn: fetchContactsFromDB,
     staleTime: 60 * 1000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
   });
 }
 
