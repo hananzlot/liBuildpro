@@ -15,6 +15,7 @@ interface Contact {
   ghl_date_added?: string | null;
   assigned_to?: string | null;
   attributions?: any;
+  custom_fields?: unknown;
 }
 
 interface Opportunity {

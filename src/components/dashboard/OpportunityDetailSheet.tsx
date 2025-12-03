@@ -6,7 +6,14 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { DollarSign, User, Target, Calendar, Clock, FileText } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, StickyNote } from "lucide-react";
+
+// Custom field IDs for extracting data
+const CUSTOM_FIELD_IDS = {
+  ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
+  SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
+  NOTES: '588ddQgiGEg3AWtTQB2i',
+};
 
 interface Opportunity {
   ghl_id: string;
@@ -40,6 +47,7 @@ interface Contact {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  custom_fields?: unknown;
 }
 
 interface GHLUser {
@@ -58,6 +66,13 @@ interface OpportunityDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+// Helper to extract custom field value by ID
+const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
+  if (!customFields || !Array.isArray(customFields)) return null;
+  const field = customFields.find((f: any) => f.id === fieldId);
+  return field?.value || null;
+};
 
 export function OpportunityDetailSheet({
   opportunity,
@@ -152,6 +167,11 @@ export function OpportunityDetailSheet({
       ? `${assignedUser.first_name} ${assignedUser.last_name}` 
       : 'Unassigned');
 
+  // Extract custom fields from contact
+  const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+  const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+  const contactNotes = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.NOTES);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-lg overflow-y-auto">
@@ -209,13 +229,57 @@ export function OpportunityDetailSheet({
             <div className="bg-muted/30 rounded-lg p-4 space-y-2">
               <div className="font-medium">{contactName}</div>
               {contact?.email && (
-                <div className="text-sm text-muted-foreground">{contact.email}</div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="h-3 w-3" />
+                  {contact.email}
+                </div>
               )}
               {contact?.phone && (
-                <div className="text-sm text-muted-foreground">{contact.phone}</div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-3 w-3" />
+                  {contact.phone}
+                </div>
+              )}
+              {address && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  {address}
+                </div>
               )}
             </div>
           </div>
+
+          {/* Scope of Work */}
+          {scopeOfWork && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" />
+                  Scope of Work
+                </h3>
+                <div className="bg-muted/30 rounded-lg p-4">
+                  <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Contact Notes */}
+          {contactNotes && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                  <StickyNote className="h-4 w-4" />
+                  Notes
+                </h3>
+                <div className="bg-muted/30 rounded-lg p-4">
+                  <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
+                </div>
+              </div>
+            </>
+          )}
 
           <Separator />
 
