@@ -29,10 +29,12 @@ serve(async (req) => {
 
     const { limit = 100, syncToDb = true } = await req.json().catch(() => ({}));
 
-    // Fetch all contacts with pagination
+    // Fetch all contacts with pagination and deduplication
     let allContacts: any[] = [];
     let startAfterId: string | undefined;
     let hasMore = true;
+    const seenContactIds = new Set<string>();
+    const seenStartAfterIds = new Set<string>();
 
     while (hasMore) {
       const params = new URLSearchParams({
@@ -64,15 +66,47 @@ serve(async (req) => {
 
       const data = await response.json();
       const contacts = data.contacts || [];
-      allContacts = allContacts.concat(contacts);
 
-      console.log(`Fetched ${contacts.length} contacts, total: ${allContacts.length}`);
+      // Deduplicate contacts
+      let newCount = 0;
+      let duplicateCount = 0;
+
+      for (const contact of contacts) {
+        if (seenContactIds.has(contact.id)) {
+          duplicateCount++;
+        } else {
+          seenContactIds.add(contact.id);
+          allContacts.push(contact);
+          newCount++;
+        }
+      }
+
+      console.log(`Page results: ${newCount} new, ${duplicateCount} duplicates, total unique: ${allContacts.length}`);
+
+      // Stop if entire page was duplicates
+      if (newCount === 0 && contacts.length > 0) {
+        console.log('Stopping: entire page was duplicates');
+        hasMore = false;
+        break;
+      }
+
+      // Check for startAfterId loop
+      if (data.meta?.startAfterId) {
+        if (seenStartAfterIds.has(data.meta.startAfterId)) {
+          console.log('Stopping: startAfterId loop detected');
+          hasMore = false;
+          break;
+        }
+        seenStartAfterIds.add(data.meta.startAfterId);
+        startAfterId = data.meta.startAfterId;
+      } else {
+        hasMore = false;
+      }
 
       // Check if there are more contacts
-      if (contacts.length < 100 || !data.meta?.startAfterId) {
+      if (contacts.length < 100) {
+        console.log('Stopping: received less than 100 contacts');
         hasMore = false;
-      } else {
-        startAfterId = data.meta.startAfterId;
       }
 
       // Safety limit to prevent infinite loops
