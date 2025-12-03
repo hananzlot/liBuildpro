@@ -210,7 +210,7 @@ const Index = () => {
               <OpportunitiesTable 
                 opportunities={metrics?.opportunities || []} 
                 appointments={metrics?.appointments || []}
-                contacts={metrics?.contacts || []}
+                contacts={metrics?.allContacts || []}
                 users={metrics?.users || []}
               />
               <AppointmentsTable 
@@ -230,7 +230,7 @@ const Index = () => {
           ) : (
             <RecentLeadsTable 
               leads={metrics?.contacts || []} 
-              opportunities={metrics?.opportunities || []}
+              opportunities={metrics?.allOpportunities || []}
               appointments={metrics?.appointments || []}
               users={metrics?.users || []}
             />
@@ -243,7 +243,7 @@ const Index = () => {
         open={wonOpportunitiesSheetOpen}
         onOpenChange={setWonOpportunitiesSheetOpen}
         opportunities={metrics?.wonOpportunities || []}
-        contacts={metrics?.contacts || []}
+        contacts={metrics?.allContacts || []}
         users={metrics?.users || []}
       />
     </div>

@@ -1,7 +1,14 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock } from "lucide-react";
+import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, StickyNote } from "lucide-react";
+
+// Custom field IDs for extracting data
+const CUSTOM_FIELD_IDS = {
+  ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
+  SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
+  NOTES: '588ddQgiGEg3AWtTQB2i',
+};
 
 interface Contact {
   id: string;
@@ -16,6 +23,7 @@ interface Contact {
   ghl_date_added?: string | null;
   assigned_to?: string | null;
   attributions?: any;
+  custom_fields?: unknown;
 }
 
 interface Opportunity {
@@ -58,6 +66,13 @@ interface ContactDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+// Helper to extract custom field value by ID
+const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
+  if (!customFields || !Array.isArray(customFields)) return null;
+  const field = customFields.find((f: any) => f.id === fieldId);
+  return field?.value || null;
+};
 
 export function ContactDetailSheet({
   contact,
@@ -122,6 +137,11 @@ export function ContactDetailSheet({
     apt => apt.contact_id === contact.ghl_id
   );
 
+  // Extract custom fields
+  const address = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+  const scopeOfWork = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+  const contactNotes = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
@@ -153,6 +173,12 @@ export function ContactDetailSheet({
                   <span>{contact.phone}</span>
                 </div>
               )}
+              {address && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{address}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-sm">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 <span>Added: {formatDate(contact.ghl_date_added)}</span>
@@ -165,6 +191,32 @@ export function ContactDetailSheet({
               )}
             </div>
           </div>
+
+          {/* Scope of Work */}
+          {scopeOfWork && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Scope of Work
+              </h4>
+              <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+                <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Contact Notes */}
+          {contactNotes && (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <StickyNote className="h-4 w-4" />
+                Notes
+              </h4>
+              <div className="p-3 rounded-lg border border-border/50 bg-muted/30">
+                <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
+              </div>
+            </div>
+          )}
 
           {/* Tags */}
           {contact.tags && contact.tags.length > 0 && (
