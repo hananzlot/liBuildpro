@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Trophy, MapPin, FileText, User, Phone, Mail, Calendar, DollarSign, StickyNote } from "lucide-react";
+import { Trophy, MapPin, FileText, User, Phone, Mail, Calendar, DollarSign, StickyNote, Megaphone } from "lucide-react";
 import { format } from "date-fns";
 
 interface DBOpportunity {
@@ -28,6 +28,7 @@ interface DBContact {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  source: string | null;
   custom_fields: unknown;
 }
 
@@ -196,6 +197,17 @@ export function WonOpportunitiesSheet({
                             <span className="text-foreground">
                               {opp.pipeline_name}{opp.stage_name && ` • ${opp.stage_name}`}
                             </span>
+                          </div>
+                        )}
+
+                        {/* Source */}
+                        {contact?.source && (
+                          <div className="flex items-center gap-2">
+                            <Megaphone className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div>
+                              <span className="text-muted-foreground">Source: </span>
+                              <span className="text-foreground">{contact.source}</span>
+                            </div>
                           </div>
                         )}
 

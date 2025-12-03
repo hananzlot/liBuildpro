@@ -193,7 +193,13 @@ const Index = () => {
           ) : (
             <>
               <LeadsBySourceChart data={metrics?.leadsBySource || []} />
-              <SalesRepLeaderboard data={metrics?.salesRepPerformance || []} />
+              <SalesRepLeaderboard 
+                data={metrics?.salesRepPerformance || []}
+                opportunities={metrics?.allOpportunities || []}
+                appointments={metrics?.appointments || []}
+                contacts={metrics?.allContacts || []}
+                users={metrics?.users || []}
+              />
             </>
           )}
         </section>
