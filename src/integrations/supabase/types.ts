@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          appointment_status: string | null
+          assigned_user_id: string | null
+          calendar_id: string | null
+          contact_id: string | null
+          created_at: string
+          end_time: string | null
+          ghl_date_added: string | null
+          ghl_date_updated: string | null
+          ghl_id: string
+          id: string
+          location_id: string
+          notes: string | null
+          start_time: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_status?: string | null
+          assigned_user_id?: string | null
+          calendar_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          end_time?: string | null
+          ghl_date_added?: string | null
+          ghl_date_updated?: string | null
+          ghl_id: string
+          id?: string
+          location_id: string
+          notes?: string | null
+          start_time?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_status?: string | null
+          assigned_user_id?: string | null
+          calendar_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          end_time?: string | null
+          ghl_date_added?: string | null
+          ghl_date_updated?: string | null
+          ghl_id?: string
+          id?: string
+          location_id?: string
+          notes?: string | null
+          start_time?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           assigned_to: string | null
@@ -70,6 +124,108 @@ export type Database = {
           phone?: string | null
           source?: string | null
           tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ghl_users: {
+        Row: {
+          created_at: string
+          email: string | null
+          first_name: string | null
+          ghl_id: string
+          id: string
+          last_name: string | null
+          location_id: string
+          name: string | null
+          phone: string | null
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          ghl_id: string
+          id?: string
+          last_name?: string | null
+          location_id: string
+          name?: string | null
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          ghl_id?: string
+          id?: string
+          last_name?: string | null
+          location_id?: string
+          name?: string | null
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      opportunities: {
+        Row: {
+          assigned_to: string | null
+          contact_id: string | null
+          created_at: string
+          custom_fields: Json | null
+          ghl_date_added: string | null
+          ghl_date_updated: string | null
+          ghl_id: string
+          id: string
+          location_id: string
+          monetary_value: number | null
+          name: string | null
+          pipeline_id: string | null
+          pipeline_name: string | null
+          pipeline_stage_id: string | null
+          stage_name: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          contact_id?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          ghl_date_added?: string | null
+          ghl_date_updated?: string | null
+          ghl_id: string
+          id?: string
+          location_id: string
+          monetary_value?: number | null
+          name?: string | null
+          pipeline_id?: string | null
+          pipeline_name?: string | null
+          pipeline_stage_id?: string | null
+          stage_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          contact_id?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          ghl_date_added?: string | null
+          ghl_date_updated?: string | null
+          ghl_id?: string
+          id?: string
+          location_id?: string
+          monetary_value?: number | null
+          name?: string | null
+          pipeline_id?: string | null
+          pipeline_name?: string | null
+          pipeline_stage_id?: string | null
+          stage_name?: string | null
+          status?: string | null
           updated_at?: string
         }
         Relationships: []
