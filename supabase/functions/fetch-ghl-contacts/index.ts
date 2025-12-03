@@ -38,7 +38,8 @@ async function fetchAllFromGHL(
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`GHL API Error (${endpoint}):`, errorText);
-      throw new Error(`GHL API error: ${response.status} - ${errorText}`);
+      // Don't throw for non-critical endpoints, just return empty
+      return allItems;
     }
 
     const data = await response.json();
@@ -73,6 +74,59 @@ async function fetchAllFromGHL(
   }
 
   return allItems;
+}
+
+async function fetchOpportunities(ghlApiKey: string, locationId: string): Promise<any[]> {
+  console.log('Fetching GHL opportunities...');
+  const allOpportunities: any[] = [];
+  const seenIds = new Set<string>();
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const params = new URLSearchParams({
+      location_id: locationId,
+      limit: '100',
+      page: page.toString(),
+    });
+
+    const response = await fetch(`https://services.leadconnectorhq.com/opportunities/search?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${ghlApiKey}`,
+        'Version': '2021-07-28',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('GHL Opportunities API Error:', errorText);
+      return allOpportunities;
+    }
+
+    const data = await response.json();
+    const opportunities = data.opportunities || [];
+
+    let newCount = 0;
+    for (const opp of opportunities) {
+      if (!seenIds.has(opp.id)) {
+        seenIds.add(opp.id);
+        allOpportunities.push(opp);
+        newCount++;
+      }
+    }
+
+    console.log(`Opportunities page ${page}: ${newCount} new, total: ${allOpportunities.length}`);
+
+    if (opportunities.length < 100 || allOpportunities.length >= 10000) {
+      hasMore = false;
+    } else {
+      page++;
+    }
+  }
+
+  return allOpportunities;
 }
 
 async function fetchUsers(ghlApiKey: string, locationId: string): Promise<any[]> {
@@ -156,7 +210,7 @@ serve(async (req) => {
     console.log('Starting full GHL sync...');
     const [contacts, opportunities, appointments, users] = await Promise.all([
       fetchAllFromGHL('contacts/', ghlApiKey, locationId, 'contacts'),
-      fetchAllFromGHL('opportunities/', ghlApiKey, locationId, 'opportunities'),
+      fetchOpportunities(ghlApiKey, locationId),
       fetchAppointments(ghlApiKey, locationId),
       fetchUsers(ghlApiKey, locationId),
     ]);
