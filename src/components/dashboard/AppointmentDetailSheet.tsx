@@ -5,7 +5,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Calendar, Clock, User, FileText, DollarSign, Target, MapPin, Phone, Mail, Briefcase } from "lucide-react";
 
 interface Appointment {
@@ -62,7 +61,6 @@ interface AppointmentDetailSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// GHL Custom Field IDs
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
   SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
@@ -87,260 +85,193 @@ export function AppointmentDetailSheet({
 
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
+    return new Date(dateString).toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+  };
+
+  const formatTime = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleTimeString('en-US', {
+      hour: 'numeric', minute: '2-digit', hour12: true,
     });
   };
 
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
-      case 'confirmed':
-        return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'confirmed': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
       case 'cancelled':
-      case 'no_show':
-        return 'bg-red-500/20 text-red-400 border-red-500/30';
-      case 'showed':
-        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      default:
-        return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+      case 'no_show': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'showed': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      default: return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
     }
   };
 
   const formatCurrency = (value: number | null) => {
     if (!value) return '$0';
     return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
+      style: 'currency', currency: 'USD', minimumFractionDigits: 0,
     }).format(value);
   };
 
-  // Find related contact
   const contact = contacts.find(c => c.ghl_id === appointment.contact_id);
-  
-  // Find related opportunities (same contact)
-  const relatedOpportunities = opportunities.filter(
-    o => o.contact_id === appointment.contact_id
-  );
-
-  // Get primary opportunity (first one, usually most relevant)
+  const relatedOpportunities = opportunities.filter(o => o.contact_id === appointment.contact_id);
   const primaryOpportunity = relatedOpportunities[0];
-
-  // Find assigned user
   const assignedUser = users.find(u => u.ghl_id === appointment.assigned_user_id);
 
-  // Extract contact info
   const contactName = contact?.contact_name || 
     (contact?.first_name && contact?.last_name 
       ? `${contact.first_name} ${contact.last_name}` 
-      : contact?.first_name || contact?.last_name || 'Unknown Contact');
+      : contact?.first_name || contact?.last_name || 'Unknown');
 
   const userName = assignedUser?.name || 
     (assignedUser?.first_name && assignedUser?.last_name 
       ? `${assignedUser.first_name} ${assignedUser.last_name}` 
       : 'Unassigned');
 
-  // Extract custom fields from contact
   const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
   const scopeOfWork = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK) : null;
   const contactNotes = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES) : null;
 
-  // Get phone and email (from contact)
-  const phone = contact?.phone;
-  const email = contact?.email;
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="text-xl">
-            {appointment.title || 'Untitled Appointment'}
-          </SheetTitle>
-          <Badge variant="outline" className={`w-fit ${getStatusColor(appointment.appointment_status)}`}>
-            {appointment.appointment_status || 'Unknown'}
-          </Badge>
-        </SheetHeader>
+      <SheetContent className="sm:max-w-md overflow-y-auto p-0">
+        {/* Header */}
+        <div className="sticky top-0 bg-background border-b p-4">
+          <SheetHeader className="space-y-1">
+            <div className="flex items-start justify-between gap-3">
+              <SheetTitle className="text-lg font-semibold leading-tight">
+                {appointment.title || 'Untitled Appointment'}
+              </SheetTitle>
+              <Badge variant="outline" className={`shrink-0 text-xs ${getStatusColor(appointment.appointment_status)}`}>
+                {appointment.appointment_status || 'Unknown'}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>{formatDateTime(appointment.start_time)}</span>
+              <span>→</span>
+              <span>{formatTime(appointment.end_time)}</span>
+            </div>
+          </SheetHeader>
+        </div>
 
-        <div className="space-y-6 mt-6">
-          {/* Pipeline & Stage Info (from related opportunity) */}
+        <div className="p-4 space-y-4">
+          {/* Pipeline Status (if opportunity exists) */}
           {primaryOpportunity && (
-            <>
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  Pipeline Status
-                </h3>
-                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Pipeline</span>
-                    <span className="text-sm font-medium">{primaryOpportunity.pipeline_name || 'Not assigned'}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Stage</span>
-                    <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30">
-                      {primaryOpportunity.stage_name || 'Unknown'}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Value</span>
-                    <span className="text-sm font-semibold text-emerald-500">
-                      {formatCurrency(primaryOpportunity.monetary_value)}
-                    </span>
-                  </div>
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">{primaryOpportunity.pipeline_name || 'Pipeline'}</span>
                 </div>
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-xs">
+                  {primaryOpportunity.stage_name || 'Unknown'}
+                </Badge>
               </div>
-              <Separator />
-            </>
+              <div className="text-xl font-bold text-emerald-400">
+                {formatCurrency(primaryOpportunity.monetary_value)}
+              </div>
+            </div>
           )}
 
-          {/* Time Details */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Schedule
-            </h3>
-            <div className="bg-muted/30 rounded-lg p-4 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Start</span>
-                <span className="text-sm font-medium">{formatDateTime(appointment.start_time)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">End</span>
-                <span className="text-sm font-medium">{formatDateTime(appointment.end_time)}</span>
-              </div>
+          {/* Key Info Grid */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="bg-muted/40 rounded-md p-2.5">
+              <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
+              <div className="font-medium truncate">{userName}</div>
+            </div>
+            <div className="bg-muted/40 rounded-md p-2.5">
+              <div className="text-muted-foreground text-xs mb-0.5">Contact</div>
+              <div className="font-medium truncate">{contactName}</div>
             </div>
           </div>
 
-          <Separator />
-
-          {/* Contact Info */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-              <User className="h-4 w-4" />
-              Contact
-            </h3>
-            <div className="bg-muted/30 rounded-lg p-4 space-y-3">
-              <div className="font-medium text-lg">{contactName}</div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                {phone || <span className="italic">No phone number</span>}
+          {/* Contact Details */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
+            </div>
+            <div className="p-3 grid gap-1.5 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{contact?.phone || <span className="italic text-muted-foreground/60">No phone</span>}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                {email || <span className="italic">No email</span>}
+              <div className="flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{contact?.email || <span className="italic text-muted-foreground/60">No email</span>}</span>
               </div>
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4 mt-0.5 shrink-0" />
-                {address || <span className="italic">No address</span>}
+              <div className="flex items-start gap-2">
+                <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
               </div>
             </div>
           </div>
 
           {/* Scope of Work */}
           {scopeOfWork && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Scope of Work
-                </h3>
-                <div className="bg-muted/30 rounded-lg p-4">
-                  <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
-                </div>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scope of Work</span>
               </div>
-            </>
-          )}
-
-          <Separator />
-
-          {/* Assigned To */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Assigned To
-            </h3>
-            <div className="bg-muted/30 rounded-lg p-4">
-              <div className="font-medium">{userName}</div>
-              {assignedUser?.email && (
-                <div className="text-sm text-muted-foreground">{assignedUser.email}</div>
-              )}
+              <div className="p-3">
+                <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Appointment Notes */}
           {appointment.notes && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Appointment Notes
-                </h3>
-                <div className="bg-muted/30 rounded-lg p-4">
-                  <p className="text-sm whitespace-pre-wrap">{appointment.notes}</p>
-                </div>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Appointment Notes</span>
               </div>
-            </>
+              <div className="p-3">
+                <p className="text-sm whitespace-pre-wrap">{appointment.notes}</p>
+              </div>
+            </div>
           )}
 
           {/* Contact Notes */}
           {contactNotes && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Contact Notes
-                </h3>
-                <div className="bg-muted/30 rounded-lg p-4">
-                  <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
-                </div>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Notes</span>
               </div>
-            </>
+              <div className="p-3">
+                <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
+              </div>
+            </div>
           )}
 
           {/* Related Opportunities */}
-          {relatedOpportunities.length > 0 && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Related Opportunities ({relatedOpportunities.length})
-                </h3>
-                <div className="space-y-3">
-                  {relatedOpportunities.map((opp) => (
-                    <div key={opp.ghl_id} className="bg-muted/30 rounded-lg p-4 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-medium">{opp.name || 'Unnamed Opportunity'}</div>
-                        <Badge variant="outline" className="shrink-0">
-                          {opp.status || 'Unknown'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <DollarSign className="h-4 w-4 text-emerald-500" />
-                        <span className="font-semibold text-emerald-500">
-                          {formatCurrency(opp.monetary_value)}
-                        </span>
-                      </div>
-                      {(opp.pipeline_name || opp.stage_name) && (
-                        <div className="text-sm text-muted-foreground">
-                          {opp.pipeline_name || 'Unknown Pipeline'} → {opp.stage_name || 'Unknown Stage'}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+          {relatedOpportunities.length > 1 && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Other Opportunities ({relatedOpportunities.length - 1})
+                </span>
               </div>
-            </>
+              <div className="divide-y">
+                {relatedOpportunities.slice(1, 4).map((opp) => (
+                  <div key={opp.ghl_id} className="p-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm truncate">{opp.name || 'Unnamed'}</div>
+                      <div className="text-xs text-muted-foreground">{opp.stage_name || 'Unknown Stage'}</div>
+                    </div>
+                    <span className="text-sm font-semibold text-emerald-400 shrink-0">
+                      {formatCurrency(opp.monetary_value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </SheetContent>
