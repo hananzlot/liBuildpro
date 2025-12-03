@@ -25,18 +25,34 @@ interface DBContact {
   updated_at: string;
 }
 
-// Fetch contacts from Supabase database
+// Fetch all contacts from Supabase database (handles pagination for >1000 rows)
 async function fetchContactsFromDB(): Promise<DBContact[]> {
-  const { data, error } = await supabase
-    .from('contacts')
-    .select('*')
-    .order('ghl_date_added', { ascending: false });
+  const allContacts: DBContact[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  let hasMore = true;
 
-  if (error) {
-    throw new Error(error.message);
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .order('ghl_date_added', { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (data && data.length > 0) {
+      allContacts.push(...data);
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
   }
 
-  return data || [];
+  return allContacts;
 }
 
 // Sync contacts from GHL API to database
