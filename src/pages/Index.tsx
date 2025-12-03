@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database } from "lucide-react";
+import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { LeadsBySourceChart } from "@/components/dashboard/LeadsBySourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
 import { RecentLeadsTable } from "@/components/dashboard/RecentLeadsTable";
+import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
+import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -16,13 +18,22 @@ const Index = () => {
   const syncMutation = useSyncContacts();
 
   const handleSync = async () => {
-    toast.info("Syncing contacts from GHL...");
+    toast.info("Syncing all data from GHL...");
     try {
       const result = await syncMutation.mutateAsync();
-      toast.success(`Synced ${result.total} contacts from GHL`);
+      toast.success(`Sync complete! ${result.total} contacts synced`);
     } catch (err) {
       toast.error(`Sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
   };
 
   if (error) {
@@ -90,7 +101,7 @@ const Index = () => {
           )}
         </section>
 
-        {/* Metrics Grid */}
+        {/* Metrics Grid - Row 1: Leads */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {isLoading ? (
             <>
@@ -129,6 +140,44 @@ const Index = () => {
           )}
         </section>
 
+        {/* Metrics Grid - Row 2: Opportunities & Appointments */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {isLoading ? (
+            <>
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-36 rounded-2xl" />
+              ))}
+            </>
+          ) : (
+            <>
+              <MetricCard
+                title="Opportunities"
+                value={metrics?.totalOpportunities || 0}
+                subtitle={dateRange?.from ? "In selected range" : "All time"}
+                icon={DollarSign}
+              />
+              <MetricCard
+                title="Pipeline Value"
+                value={formatCurrency(metrics?.totalPipelineValue || 0)}
+                subtitle="Open opportunities"
+                icon={TrendingUp}
+              />
+              <MetricCard
+                title="Appointments"
+                value={metrics?.totalAppointments || 0}
+                subtitle="Total scheduled"
+                icon={CalendarCheck}
+              />
+              <MetricCard
+                title="Upcoming"
+                value={metrics?.upcomingAppointments || 0}
+                subtitle="Future appointments"
+                icon={Calendar}
+              />
+            </>
+          )}
+        </section>
+
         {/* Charts Row */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {isLoading ? (
@@ -140,6 +189,21 @@ const Index = () => {
             <>
               <LeadsBySourceChart data={metrics?.leadsBySource || []} />
               <SalesRepLeaderboard data={metrics?.salesRepPerformance || []} />
+            </>
+          )}
+        </section>
+
+        {/* Tables Row - Opportunities & Appointments */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {isLoading ? (
+            <>
+              <Skeleton className="h-[400px] rounded-2xl" />
+              <Skeleton className="h-[400px] rounded-2xl" />
+            </>
+          ) : (
+            <>
+              <OpportunitiesTable opportunities={metrics?.opportunities || []} />
+              <AppointmentsTable appointments={metrics?.appointments || []} />
             </>
           )}
         </section>

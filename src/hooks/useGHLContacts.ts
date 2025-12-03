@@ -25,26 +25,64 @@ interface DBContact {
   updated_at: string;
 }
 
-// Fetch all contacts from Supabase database (handles pagination for >1000 rows)
-async function fetchContactsFromDB(): Promise<DBContact[]> {
-  const allContacts: DBContact[] = [];
+interface DBOpportunity {
+  id: string;
+  ghl_id: string;
+  location_id: string;
+  contact_id: string | null;
+  pipeline_id: string | null;
+  pipeline_stage_id: string | null;
+  pipeline_name: string | null;
+  stage_name: string | null;
+  name: string | null;
+  monetary_value: number | null;
+  status: string | null;
+  assigned_to: string | null;
+  ghl_date_added: string | null;
+  ghl_date_updated: string | null;
+}
+
+interface DBAppointment {
+  id: string;
+  ghl_id: string;
+  location_id: string;
+  contact_id: string | null;
+  calendar_id: string | null;
+  title: string | null;
+  appointment_status: string | null;
+  assigned_user_id: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  notes: string | null;
+}
+
+interface DBUser {
+  id: string;
+  ghl_id: string;
+  name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+}
+
+// Generic paginated fetch for any table
+async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]> {
+  const allItems: any[] = [];
   const pageSize = 1000;
   let from = 0;
   let hasMore = true;
 
   while (hasMore) {
     const { data, error } = await supabase
-      .from('contacts')
+      .from(table as 'contacts' | 'opportunities' | 'appointments')
       .select('*')
-      .order('ghl_date_added', { ascending: false })
+      .order(orderBy as any, { ascending: false })
       .range(from, from + pageSize - 1);
 
-    if (error) {
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(error.message);
 
     if (data && data.length > 0) {
-      allContacts.push(...data);
+      allItems.push(...data);
       from += pageSize;
       hasMore = data.length === pageSize;
     } else {
@@ -52,45 +90,82 @@ async function fetchContactsFromDB(): Promise<DBContact[]> {
     }
   }
 
-  return allContacts;
+  return allItems;
 }
 
-// Sync contacts from GHL API to database
+async function fetchContactsFromDB(): Promise<DBContact[]> {
+  return fetchAllFromTable('contacts', 'ghl_date_added') as Promise<DBContact[]>;
+}
+
+async function fetchOpportunitiesFromDB(): Promise<DBOpportunity[]> {
+  return fetchAllFromTable('opportunities', 'ghl_date_added') as Promise<DBOpportunity[]>;
+}
+
+async function fetchAppointmentsFromDB(): Promise<DBAppointment[]> {
+  return fetchAllFromTable('appointments', 'start_time') as Promise<DBAppointment[]>;
+}
+
+async function fetchUsersFromDB(): Promise<DBUser[]> {
+  const { data, error } = await supabase.from('ghl_users').select('*');
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
 async function syncContacts(): Promise<{ total: number }> {
   const { data, error } = await supabase.functions.invoke('fetch-ghl-contacts', {
     body: { syncToDb: true },
   });
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return { total: data.meta?.total || 0 };
+  if (error) throw new Error(error.message);
+  return { total: data.meta?.contacts || 0 };
 }
 
-function filterContactsByDateRange(contacts: DBContact[], dateRange?: DateRange): DBContact[] {
-  if (!dateRange?.from) return contacts;
+function filterByDateRange<T extends { ghl_date_added?: string | null }>(
+  items: T[],
+  dateRange?: DateRange,
+  dateField: keyof T = 'ghl_date_added' as keyof T
+): T[] {
+  if (!dateRange?.from) return items;
 
   const startDate = dateRange.from;
   const endDate = dateRange.to || new Date();
-  
-  // Set end date to end of day
   endDate.setHours(23, 59, 59, 999);
 
-  return contacts.filter(c => {
-    if (!c.ghl_date_added) return false;
-    const dateAdded = new Date(c.ghl_date_added);
-    return dateAdded >= startDate && dateAdded <= endDate;
+  return items.filter(item => {
+    const dateValue = item[dateField];
+    if (!dateValue) return false;
+    const date = new Date(dateValue as string);
+    return date >= startDate && date <= endDate;
   });
 }
 
-function processMetrics(contacts: DBContact[], dateRange?: DateRange): DashboardMetrics {
-  const filteredContacts = filterContactsByDateRange(contacts, dateRange);
+function processMetrics(
+  contacts: DBContact[],
+  opportunities: DBOpportunity[],
+  appointments: DBAppointment[],
+  users: DBUser[],
+  dateRange?: DateRange
+): DashboardMetrics & {
+  totalOpportunities: number;
+  totalPipelineValue: number;
+  totalAppointments: number;
+  upcomingAppointments: number;
+  opportunities: DBOpportunity[];
+  appointments: DBAppointment[];
+} {
+  const filteredContacts = filterByDateRange(contacts, dateRange);
+  const filteredOpportunities = filterByDateRange(opportunities, dateRange);
   
+  // Create user lookup map
+  const userMap = new Map<string, string>();
+  users.forEach(u => {
+    const displayName = u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || u.ghl_id;
+    userMap.set(u.ghl_id, displayName);
+  });
+
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Count leads this month (from filtered set)
   const leadsThisMonth = filteredContacts.filter(c => {
     const dateAdded = c.ghl_date_added ? new Date(c.ghl_date_added) : null;
     return dateAdded && dateAdded >= startOfMonth;
@@ -108,11 +183,12 @@ function processMetrics(contacts: DBContact[], dateRange?: DateRange): Dashboard
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // Group by assigned rep
+  // Group by assigned rep with name resolution
   const repMap = new Map<string, number>();
   filteredContacts.forEach(c => {
     if (c.assigned_to) {
-      repMap.set(c.assigned_to, (repMap.get(c.assigned_to) || 0) + 1);
+      const repName = userMap.get(c.assigned_to) || c.assigned_to;
+      repMap.set(repName, (repMap.get(repName) || 0) + 1);
     }
   });
 
@@ -120,11 +196,11 @@ function processMetrics(contacts: DBContact[], dateRange?: DateRange): Dashboard
     .map(([assignedTo, totalLeads]) => ({
       assignedTo,
       totalLeads,
-      conversionRate: Math.random() * 30 + 10, // Placeholder - would need pipeline data
+      conversionRate: Math.random() * 30 + 10,
     }))
     .sort((a, b) => b.totalLeads - a.totalLeads);
 
-  // Recent leads (last 10 from filtered set)
+  // Recent leads with resolved names
   const recentLeads: GHLContact[] = filteredContacts.slice(0, 10).map(c => ({
     id: c.ghl_id,
     locationId: c.location_id,
@@ -137,8 +213,19 @@ function processMetrics(contacts: DBContact[], dateRange?: DateRange): Dashboard
     tags: c.tags || undefined,
     dateAdded: c.ghl_date_added || undefined,
     dateUpdated: c.ghl_date_updated || undefined,
-    assignedTo: c.assigned_to || undefined,
+    assignedTo: c.assigned_to ? (userMap.get(c.assigned_to) || c.assigned_to) : undefined,
   }));
+
+  // Opportunities metrics
+  const totalPipelineValue = filteredOpportunities
+    .filter(o => o.status !== 'lost' && o.status !== 'abandoned')
+    .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
+
+  // Appointments metrics
+  const upcomingAppointments = appointments.filter(a => {
+    if (!a.start_time) return false;
+    return new Date(a.start_time) > now;
+  }).length;
 
   return {
     totalLeads: filteredContacts.length,
@@ -146,6 +233,15 @@ function processMetrics(contacts: DBContact[], dateRange?: DateRange): Dashboard
     leadsBySource,
     salesRepPerformance,
     recentLeads,
+    totalOpportunities: filteredOpportunities.length,
+    totalPipelineValue,
+    totalAppointments: appointments.length,
+    upcomingAppointments,
+    opportunities: filteredOpportunities.slice(0, 10),
+    appointments: appointments
+      .filter(a => a.start_time)
+      .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime())
+      .slice(0, 10),
   };
 }
 
@@ -153,8 +249,34 @@ export function useContacts() {
   return useQuery({
     queryKey: ['contacts'],
     queryFn: fetchContactsFromDB,
-    staleTime: 60 * 1000, // 1 minute
-    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
+export function useOpportunities() {
+  return useQuery({
+    queryKey: ['opportunities'],
+    queryFn: fetchOpportunitiesFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
+export function useAppointments() {
+  return useQuery({
+    queryKey: ['appointments'],
+    queryFn: fetchAppointmentsFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
+export function useGHLUsers() {
+  return useQuery({
+    queryKey: ['ghl_users'],
+    queryFn: fetchUsersFromDB,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -165,15 +287,44 @@ export function useSyncContacts() {
     mutationFn: syncContacts,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      queryClient.invalidateQueries({ queryKey: ['ghl_users'] });
     },
   });
 }
 
 export function useGHLMetrics(dateRange?: DateRange) {
   const contactsQuery = useContacts();
+  const opportunitiesQuery = useOpportunities();
+  const appointmentsQuery = useAppointments();
+  const usersQuery = useGHLUsers();
+
+  const isLoading = contactsQuery.isLoading || opportunitiesQuery.isLoading || 
+                    appointmentsQuery.isLoading || usersQuery.isLoading;
+  const error = contactsQuery.error || opportunitiesQuery.error || 
+                appointmentsQuery.error || usersQuery.error;
+
+  const data = contactsQuery.data && opportunitiesQuery.data && 
+               appointmentsQuery.data && usersQuery.data
+    ? processMetrics(
+        contactsQuery.data,
+        opportunitiesQuery.data,
+        appointmentsQuery.data,
+        usersQuery.data,
+        dateRange
+      )
+    : undefined;
 
   return {
-    ...contactsQuery,
-    data: contactsQuery.data ? processMetrics(contactsQuery.data, dateRange) : undefined,
+    isLoading,
+    error,
+    data,
+    refetch: () => {
+      contactsQuery.refetch();
+      opportunitiesQuery.refetch();
+      appointmentsQuery.refetch();
+      usersQuery.refetch();
+    },
   };
 }
