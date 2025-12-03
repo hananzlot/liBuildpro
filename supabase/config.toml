@@ -1,1 +1,4 @@
 project_id = "mspujwrfhbobrxhofxzv"
+
+[functions.fetch-ghl-contacts]
+verify_jwt = false
