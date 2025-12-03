@@ -152,6 +152,8 @@ function processMetrics(
   upcomingAppointments: number;
   opportunities: DBOpportunity[];
   appointments: DBAppointment[];
+  contacts: DBContact[];
+  users: DBUser[];
 } {
   const filteredContacts = filterByDateRange(contacts, dateRange);
   const filteredOpportunities = filterByDateRange(opportunities, dateRange);
@@ -242,6 +244,8 @@ function processMetrics(
       .filter(a => a.start_time)
       .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime())
       .slice(0, 10),
+    contacts: filteredContacts,
+    users,
   };
 }
 

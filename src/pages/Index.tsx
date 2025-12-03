@@ -203,7 +203,12 @@ const Index = () => {
           ) : (
             <>
               <OpportunitiesTable opportunities={metrics?.opportunities || []} />
-              <AppointmentsTable appointments={metrics?.appointments || []} />
+              <AppointmentsTable 
+                appointments={metrics?.appointments || []} 
+                opportunities={metrics?.opportunities || []}
+                contacts={metrics?.contacts || []}
+                users={metrics?.users || []}
+              />
             </>
           )}
         </section>
