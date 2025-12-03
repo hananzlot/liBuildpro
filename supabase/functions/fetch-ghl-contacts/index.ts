@@ -152,20 +152,10 @@ async function fetchUsers(ghlApiKey: string, locationId: string): Promise<any[]>
 }
 
 async function fetchAppointments(ghlApiKey: string, locationId: string): Promise<any[]> {
-  console.log('Fetching GHL appointments...');
-  const allAppointments: any[] = [];
+  console.log('Fetching GHL calendars first...');
   
-  // Fetch appointments for the last 365 days and next 90 days
-  const startTime = Date.now() - (365 * 24 * 60 * 60 * 1000);
-  const endTime = Date.now() + (90 * 24 * 60 * 60 * 1000);
-  
-  const params = new URLSearchParams({
-    locationId,
-    startTime: startTime.toString(),
-    endTime: endTime.toString(),
-  });
-
-  const response = await fetch(`https://services.leadconnectorhq.com/calendars/events?${params.toString()}`, {
+  // First fetch all calendars for the location
+  const calendarsResponse = await fetch(`https://services.leadconnectorhq.com/calendars/?locationId=${locationId}`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${ghlApiKey}`,
@@ -174,15 +164,64 @@ async function fetchAppointments(ghlApiKey: string, locationId: string): Promise
     },
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('GHL Appointments API Error:', errorText);
+  if (!calendarsResponse.ok) {
+    const errorText = await calendarsResponse.text();
+    console.error('GHL Calendars API Error:', errorText);
     return [];
   }
 
-  const data = await response.json();
-  console.log(`Fetched ${data.events?.length || 0} appointments`);
-  return data.events || [];
+  const calendarsData = await calendarsResponse.json();
+  const calendars = calendarsData.calendars || [];
+  console.log(`Found ${calendars.length} calendars`);
+
+  if (calendars.length === 0) {
+    return [];
+  }
+
+  // Fetch appointments for each calendar
+  const allAppointments: any[] = [];
+  const seenIds = new Set<string>();
+  
+  // Fetch appointments for the last 365 days and next 90 days
+  const startTime = Date.now() - (365 * 24 * 60 * 60 * 1000);
+  const endTime = Date.now() + (90 * 24 * 60 * 60 * 1000);
+
+  for (const calendar of calendars) {
+    const params = new URLSearchParams({
+      locationId,
+      calendarId: calendar.id,
+      startTime: startTime.toString(),
+      endTime: endTime.toString(),
+    });
+
+    const response = await fetch(`https://services.leadconnectorhq.com/calendars/events?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${ghlApiKey}`,
+        'Version': '2021-07-28',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`GHL Events API Error for calendar ${calendar.id}:`, errorText);
+      continue;
+    }
+
+    const data = await response.json();
+    const events = data.events || [];
+    
+    for (const event of events) {
+      if (!seenIds.has(event.id)) {
+        seenIds.add(event.id);
+        allAppointments.push(event);
+      }
+    }
+  }
+
+  console.log(`Fetched ${allAppointments.length} total appointments from ${calendars.length} calendars`);
+  return allAppointments;
 }
 
 serve(async (req) => {
