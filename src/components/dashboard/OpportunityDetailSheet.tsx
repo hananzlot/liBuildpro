@@ -5,7 +5,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone } from "lucide-react";
 
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
@@ -45,6 +45,7 @@ interface Contact {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  source: string | null;
   custom_fields?: unknown;
 }
 
@@ -179,6 +180,13 @@ export function OpportunityDetailSheet({
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Created</div>
               <div className="font-medium truncate">{formatDate(opportunity.ghl_date_added)}</div>
+            </div>
+            <div className="bg-muted/40 rounded-md p-2.5 col-span-2">
+              <div className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
+                <Megaphone className="h-3 w-3" />
+                Source
+              </div>
+              <div className="font-medium truncate">{contact?.source || 'No source'}</div>
             </div>
           </div>
 
