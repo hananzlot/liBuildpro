@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { DashboardMetrics, LeadsBySource, SalesRepPerformance, GHLContact } from "@/types/ghl";
+import type { DateRange } from "react-day-picker";
+
+export type { DateRange };
 
 interface DBContact {
   id: string;
@@ -49,19 +52,37 @@ async function syncContacts(): Promise<{ total: number }> {
   return { total: data.meta?.total || 0 };
 }
 
-function processMetrics(contacts: DBContact[]): DashboardMetrics {
+function filterContactsByDateRange(contacts: DBContact[], dateRange?: DateRange): DBContact[] {
+  if (!dateRange?.from) return contacts;
+
+  const startDate = dateRange.from;
+  const endDate = dateRange.to || new Date();
+  
+  // Set end date to end of day
+  endDate.setHours(23, 59, 59, 999);
+
+  return contacts.filter(c => {
+    if (!c.ghl_date_added) return false;
+    const dateAdded = new Date(c.ghl_date_added);
+    return dateAdded >= startDate && dateAdded <= endDate;
+  });
+}
+
+function processMetrics(contacts: DBContact[], dateRange?: DateRange): DashboardMetrics {
+  const filteredContacts = filterContactsByDateRange(contacts, dateRange);
+  
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  // Count leads this month
-  const leadsThisMonth = contacts.filter(c => {
+  // Count leads this month (from filtered set)
+  const leadsThisMonth = filteredContacts.filter(c => {
     const dateAdded = c.ghl_date_added ? new Date(c.ghl_date_added) : null;
     return dateAdded && dateAdded >= startOfMonth;
   }).length;
 
   // Group by source
   const sourceMap = new Map<string, number>();
-  contacts.forEach(c => {
+  filteredContacts.forEach(c => {
     const source = c.source || 'Direct';
     sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
   });
@@ -73,7 +94,7 @@ function processMetrics(contacts: DBContact[]): DashboardMetrics {
 
   // Group by assigned rep
   const repMap = new Map<string, number>();
-  contacts.forEach(c => {
+  filteredContacts.forEach(c => {
     if (c.assigned_to) {
       repMap.set(c.assigned_to, (repMap.get(c.assigned_to) || 0) + 1);
     }
@@ -87,8 +108,8 @@ function processMetrics(contacts: DBContact[]): DashboardMetrics {
     }))
     .sort((a, b) => b.totalLeads - a.totalLeads);
 
-  // Recent leads (last 10)
-  const recentLeads: GHLContact[] = contacts.slice(0, 10).map(c => ({
+  // Recent leads (last 10 from filtered set)
+  const recentLeads: GHLContact[] = filteredContacts.slice(0, 10).map(c => ({
     id: c.ghl_id,
     locationId: c.location_id,
     contactName: c.contact_name || undefined,
@@ -104,7 +125,7 @@ function processMetrics(contacts: DBContact[]): DashboardMetrics {
   }));
 
   return {
-    totalLeads: contacts.length,
+    totalLeads: filteredContacts.length,
     leadsThisMonth,
     leadsBySource,
     salesRepPerformance,
@@ -131,11 +152,11 @@ export function useSyncContacts() {
   });
 }
 
-export function useGHLMetrics() {
+export function useGHLMetrics(dateRange?: DateRange) {
   const contactsQuery = useContacts();
 
   return {
     ...contactsQuery,
-    data: contactsQuery.data ? processMetrics(contactsQuery.data) : undefined,
+    data: contactsQuery.data ? processMetrics(contactsQuery.data, dateRange) : undefined,
   };
 }
