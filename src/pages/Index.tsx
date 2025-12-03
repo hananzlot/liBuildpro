@@ -1,15 +1,26 @@
-import { Users, TrendingUp, Calendar, Activity } from "lucide-react";
-import { useGHLMetrics } from "@/hooks/useGHLContacts";
+import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database } from "lucide-react";
+import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { LeadsBySourceChart } from "@/components/dashboard/LeadsBySourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
 import { RecentLeadsTable } from "@/components/dashboard/RecentLeadsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 const Index = () => {
-  const { data: metrics, isLoading, error, refetch, isFetching } = useGHLMetrics();
+  const { data: metrics, isLoading, error, refetch } = useGHLMetrics();
+  const syncMutation = useSyncContacts();
+
+  const handleSync = async () => {
+    toast.info("Syncing contacts from GHL...");
+    try {
+      const result = await syncMutation.mutateAsync();
+      toast.success(`Synced ${result.total} contacts from GHL`);
+    } catch (err) {
+      toast.error(`Sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
 
   if (error) {
     return (
@@ -17,9 +28,15 @@ const Index = () => {
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-bold text-foreground">Failed to load data</h1>
           <p className="text-muted-foreground">{error.message}</p>
-          <Button onClick={() => refetch()} variant="outline">
-            Try Again
-          </Button>
+          <div className="flex gap-2 justify-center">
+            <Button onClick={() => refetch()} variant="outline">
+              Try Again
+            </Button>
+            <Button onClick={handleSync} disabled={syncMutation.isPending}>
+              <Database className="h-4 w-4 mr-2" />
+              Sync from GHL
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -34,15 +51,25 @@ const Index = () => {
             <h1 className="text-2xl font-bold text-foreground">GHL Analytics</h1>
             <p className="text-sm text-muted-foreground">CA Pro Builders Dashboard</p>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refetch()}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={handleSync}
+              disabled={syncMutation.isPending}
+            >
+              <Database className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-pulse' : ''}`} />
+              {syncMutation.isPending ? 'Syncing...' : 'Sync GHL'}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -60,7 +87,7 @@ const Index = () => {
               <MetricCard
                 title="Total Leads"
                 value={metrics?.totalLeads || 0}
-                subtitle="All time contacts"
+                subtitle="Cached in database"
                 icon={Users}
               />
               <MetricCard

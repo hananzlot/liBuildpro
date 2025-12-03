@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,45 +14,116 @@ serve(async (req) => {
   try {
     const ghlApiKey = Deno.env.get('GHL_API_KEY');
     const locationId = Deno.env.get('GHL_LOCATION_ID');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!ghlApiKey || !locationId) {
       throw new Error('Missing GHL_API_KEY or GHL_LOCATION_ID');
     }
 
-    const { limit = 100, startAfter, startAfterId } = await req.json().catch(() => ({}));
-
-    const params = new URLSearchParams({
-      locationId,
-      limit: String(limit),
-    });
-
-    if (startAfter) params.append('startAfter', startAfter);
-    if (startAfterId) params.append('startAfterId', startAfterId);
-
-    console.log(`Fetching contacts from GHL with limit: ${limit}`);
-
-    const response = await fetch(
-      `https://services.leadconnectorhq.com/contacts/?${params.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${ghlApiKey}`,
-          'Version': '2021-07-28',
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GHL API Error:', errorText);
-      throw new Error(`GHL API error: ${response.status} - ${errorText}`);
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase credentials');
     }
 
-    const data = await response.json();
-    console.log(`Fetched ${data.contacts?.length || 0} contacts`);
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    return new Response(JSON.stringify(data), {
+    const { limit = 100, syncToDb = true } = await req.json().catch(() => ({}));
+
+    // Fetch all contacts with pagination
+    let allContacts: any[] = [];
+    let startAfterId: string | undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params = new URLSearchParams({
+        locationId,
+        limit: '100',
+      });
+
+      if (startAfterId) params.append('startAfterId', startAfterId);
+
+      console.log(`Fetching contacts batch, startAfterId: ${startAfterId || 'none'}`);
+
+      const response = await fetch(
+        `https://services.leadconnectorhq.com/contacts/?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${ghlApiKey}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('GHL API Error:', errorText);
+        throw new Error(`GHL API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const contacts = data.contacts || [];
+      allContacts = allContacts.concat(contacts);
+
+      console.log(`Fetched ${contacts.length} contacts, total: ${allContacts.length}`);
+
+      // Check if there are more contacts
+      if (contacts.length < 100 || !data.meta?.startAfterId) {
+        hasMore = false;
+      } else {
+        startAfterId = data.meta.startAfterId;
+      }
+
+      // Safety limit to prevent infinite loops
+      if (allContacts.length >= 10000) {
+        console.log('Reached 10,000 contacts limit');
+        hasMore = false;
+      }
+    }
+
+    // Sync to database if requested
+    if (syncToDb && allContacts.length > 0) {
+      console.log(`Syncing ${allContacts.length} contacts to database...`);
+
+      const contactsToUpsert = allContacts.map(c => ({
+        ghl_id: c.id,
+        location_id: c.locationId || locationId,
+        contact_name: c.contactName || null,
+        first_name: c.firstName || null,
+        last_name: c.lastName || null,
+        email: c.email || null,
+        phone: c.phone || null,
+        source: c.source || null,
+        tags: c.tags || [],
+        assigned_to: c.assignedTo || null,
+        ghl_date_added: c.dateAdded || null,
+        ghl_date_updated: c.dateUpdated || null,
+        custom_fields: c.customFields || null,
+        attributions: c.attributions || null,
+      }));
+
+      // Upsert in batches of 100
+      for (let i = 0; i < contactsToUpsert.length; i += 100) {
+        const batch = contactsToUpsert.slice(i, i + 100);
+        const { error: upsertError } = await supabase
+          .from('contacts')
+          .upsert(batch, { onConflict: 'ghl_id' });
+
+        if (upsertError) {
+          console.error('Upsert error:', upsertError);
+          throw new Error(`Failed to sync contacts: ${upsertError.message}`);
+        }
+        console.log(`Upserted batch ${Math.floor(i / 100) + 1}`);
+      }
+
+      console.log('Sync complete!');
+    }
+
+    return new Response(JSON.stringify({
+      contacts: allContacts,
+      meta: { total: allContacts.length, synced: syncToDb }
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {

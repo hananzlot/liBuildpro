@@ -1,34 +1,68 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { GHLContactsResponse, DashboardMetrics, LeadsBySource, SalesRepPerformance } from "@/types/ghl";
+import type { DashboardMetrics, LeadsBySource, SalesRepPerformance, GHLContact } from "@/types/ghl";
 
-async function fetchContacts(): Promise<GHLContactsResponse> {
+interface DBContact {
+  id: string;
+  ghl_id: string;
+  location_id: string;
+  contact_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  source: string | null;
+  tags: string[] | null;
+  assigned_to: string | null;
+  ghl_date_added: string | null;
+  ghl_date_updated: string | null;
+  custom_fields: unknown;
+  attributions: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
+// Fetch contacts from Supabase database
+async function fetchContactsFromDB(): Promise<DBContact[]> {
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('*')
+    .order('ghl_date_added', { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data || [];
+}
+
+// Sync contacts from GHL API to database
+async function syncContacts(): Promise<{ total: number }> {
   const { data, error } = await supabase.functions.invoke('fetch-ghl-contacts', {
-    body: { limit: 100 },
+    body: { syncToDb: true },
   });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data;
+  return { total: data.meta?.total || 0 };
 }
 
-function processMetrics(response: GHLContactsResponse): DashboardMetrics {
-  const contacts = response.contacts || [];
+function processMetrics(contacts: DBContact[]): DashboardMetrics {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   // Count leads this month
   const leadsThisMonth = contacts.filter(c => {
-    const dateAdded = c.dateAdded ? new Date(c.dateAdded) : null;
+    const dateAdded = c.ghl_date_added ? new Date(c.ghl_date_added) : null;
     return dateAdded && dateAdded >= startOfMonth;
   }).length;
 
   // Group by source
   const sourceMap = new Map<string, number>();
   contacts.forEach(c => {
-    const source = c.source || c.attributions?.[0]?.utmSource || 'Direct';
+    const source = c.source || 'Direct';
     sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
   });
   
@@ -40,8 +74,8 @@ function processMetrics(response: GHLContactsResponse): DashboardMetrics {
   // Group by assigned rep
   const repMap = new Map<string, number>();
   contacts.forEach(c => {
-    if (c.assignedTo) {
-      repMap.set(c.assignedTo, (repMap.get(c.assignedTo) || 0) + 1);
+    if (c.assigned_to) {
+      repMap.set(c.assigned_to, (repMap.get(c.assigned_to) || 0) + 1);
     }
   });
 
@@ -54,13 +88,20 @@ function processMetrics(response: GHLContactsResponse): DashboardMetrics {
     .sort((a, b) => b.totalLeads - a.totalLeads);
 
   // Recent leads (last 10)
-  const recentLeads = [...contacts]
-    .sort((a, b) => {
-      const dateA = a.dateAdded ? new Date(a.dateAdded).getTime() : 0;
-      const dateB = b.dateAdded ? new Date(b.dateAdded).getTime() : 0;
-      return dateB - dateA;
-    })
-    .slice(0, 10);
+  const recentLeads: GHLContact[] = contacts.slice(0, 10).map(c => ({
+    id: c.ghl_id,
+    locationId: c.location_id,
+    contactName: c.contact_name || undefined,
+    firstName: c.first_name || undefined,
+    lastName: c.last_name || undefined,
+    email: c.email || undefined,
+    phone: c.phone || undefined,
+    source: c.source || undefined,
+    tags: c.tags || undefined,
+    dateAdded: c.ghl_date_added || undefined,
+    dateUpdated: c.ghl_date_updated || undefined,
+    assignedTo: c.assigned_to || undefined,
+  }));
 
   return {
     totalLeads: contacts.length,
@@ -71,16 +112,27 @@ function processMetrics(response: GHLContactsResponse): DashboardMetrics {
   };
 }
 
-export function useGHLContacts() {
+export function useContacts() {
   return useQuery({
-    queryKey: ['ghl-contacts'],
-    queryFn: fetchContacts,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    queryKey: ['contacts'],
+    queryFn: fetchContactsFromDB,
+    staleTime: 60 * 1000, // 1 minute
+  });
+}
+
+export function useSyncContacts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: syncContacts,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+    },
   });
 }
 
 export function useGHLMetrics() {
-  const contactsQuery = useGHLContacts();
+  const contactsQuery = useContacts();
 
   return {
     ...contactsQuery,
