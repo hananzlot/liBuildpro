@@ -202,7 +202,12 @@ const Index = () => {
             </>
           ) : (
             <>
-              <OpportunitiesTable opportunities={metrics?.opportunities || []} />
+              <OpportunitiesTable 
+                opportunities={metrics?.opportunities || []} 
+                appointments={metrics?.appointments || []}
+                contacts={metrics?.contacts || []}
+                users={metrics?.users || []}
+              />
               <AppointmentsTable 
                 appointments={metrics?.appointments || []} 
                 opportunities={metrics?.opportunities || []}
