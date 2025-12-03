@@ -151,6 +151,49 @@ async function fetchUsers(ghlApiKey: string, locationId: string): Promise<any[]>
   return data.users || [];
 }
 
+async function fetchPipelines(ghlApiKey: string, locationId: string): Promise<any[]> {
+  console.log('Fetching GHL pipelines...');
+  const response = await fetch(`https://services.leadconnectorhq.com/opportunities/pipelines?locationId=${locationId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${ghlApiKey}`,
+      'Version': '2021-07-28',
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('GHL Pipelines API Error:', errorText);
+    return [];
+  }
+
+  const data = await response.json();
+  const pipelines = data.pipelines || [];
+  console.log(`Fetched ${pipelines.length} pipelines`);
+  return pipelines;
+}
+
+function buildPipelineLookups(pipelines: any[]): {
+  pipelineNames: Map<string, string>;
+  stageNames: Map<string, string>;
+} {
+  const pipelineNames = new Map<string, string>();
+  const stageNames = new Map<string, string>();
+
+  for (const pipeline of pipelines) {
+    pipelineNames.set(pipeline.id, pipeline.name);
+    
+    // Stages are nested in the pipeline
+    for (const stage of pipeline.stages || []) {
+      stageNames.set(stage.id, stage.name);
+    }
+  }
+
+  console.log(`Built lookup maps: ${pipelineNames.size} pipelines, ${stageNames.size} stages`);
+  return { pipelineNames, stageNames };
+}
+
 async function fetchAppointments(ghlApiKey: string, locationId: string): Promise<any[]> {
   console.log('Fetching GHL calendars first...');
   
@@ -245,14 +288,18 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch all data in parallel
+    // Fetch all data in parallel (including pipelines for name resolution)
     console.log('Starting full GHL sync...');
-    const [contacts, opportunities, appointments, users] = await Promise.all([
+    const [contacts, opportunities, appointments, users, pipelines] = await Promise.all([
       fetchAllFromGHL('contacts/', ghlApiKey, locationId, 'contacts'),
       fetchOpportunities(ghlApiKey, locationId),
       fetchAppointments(ghlApiKey, locationId),
       fetchUsers(ghlApiKey, locationId),
+      fetchPipelines(ghlApiKey, locationId),
     ]);
+
+    // Build pipeline/stage lookup maps
+    const { pipelineNames, stageNames } = buildPipelineLookups(pipelines);
 
     // Sync users first (needed for name resolution)
     if (users.length > 0) {
@@ -304,7 +351,7 @@ serve(async (req) => {
       }
     }
 
-    // Sync opportunities
+    // Sync opportunities with resolved pipeline/stage names
     if (opportunities.length > 0) {
       console.log(`Syncing ${opportunities.length} opportunities...`);
       const oppsToUpsert = opportunities.map(o => ({
@@ -313,8 +360,8 @@ serve(async (req) => {
         contact_id: o.contactId || null,
         pipeline_id: o.pipelineId || null,
         pipeline_stage_id: o.pipelineStageId || null,
-        pipeline_name: o.pipelineName || null,
-        stage_name: o.stageName || o.status || null,
+        pipeline_name: pipelineNames.get(o.pipelineId) || null,
+        stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
         name: o.name || null,
         monetary_value: o.monetaryValue || null,
         status: o.status || null,
@@ -364,6 +411,7 @@ serve(async (req) => {
         opportunities: opportunities.length,
         appointments: appointments.length,
         users: users.length,
+        pipelines: pipelines.length,
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
