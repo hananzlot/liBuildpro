@@ -620,17 +620,23 @@ export function OpportunityDetailSheet({
             );
           })()}
 
-          {/* Related Appointments */}
-          {relatedAppointments.length > 0 && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Appointments ({relatedAppointments.length})
-                </span>
+          {/* Related Appointments - Always show */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Appointment History ({relatedAppointments.length})
+              </span>
+            </div>
+            {relatedAppointments.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+                No appointments found
               </div>
-              <div className="divide-y">
-                {relatedAppointments.slice(0, 3).map((appt) => (
+            ) : (
+              <div className="divide-y max-h-60 overflow-y-auto">
+                {relatedAppointments
+                  .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
+                  .map((appt) => (
                   <div key={appt.ghl_id} className="p-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-sm truncate">{appt.title || 'Untitled'}</span>
@@ -642,11 +648,16 @@ export function OpportunityDetailSheet({
                       <Clock className="h-3 w-3" />
                       {formatDateTime(appt.start_time)}
                     </div>
+                    {appt.notes && (
+                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {appt.notes}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Timeline */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
