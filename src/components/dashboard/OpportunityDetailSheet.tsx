@@ -434,6 +434,36 @@ export function OpportunityDetailSheet({
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Contact Section - Now at the top with opportunity value */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact</span>
+              </div>
+              <div className="text-lg font-bold text-emerald-400">
+                {formatCurrency(opportunity.monetary_value)}
+              </div>
+            </div>
+            <div className="p-3 space-y-2">
+              <div className="font-medium">{contactName}</div>
+              <div className="grid gap-1.5 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{contact?.phone || <span className="italic text-muted-foreground/60">No phone</span>}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{contact?.email || <span className="italic text-muted-foreground/60">No email</span>}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Key Info Grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-muted/40 rounded-md p-2.5">
@@ -516,31 +546,6 @@ export function OpportunityDetailSheet({
                 Source
               </div>
               <div className="font-medium truncate">{contact?.source || 'No source'}</div>
-            </div>
-          </div>
-
-          {/* Contact Section */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact</span>
-            </div>
-            <div className="p-3 space-y-2">
-              <div className="font-medium">{contactName}</div>
-              <div className="grid gap-1.5 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{contact?.phone || <span className="italic text-muted-foreground/60">No phone</span>}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{contact?.email || <span className="italic text-muted-foreground/60">No email</span>}</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
-                </div>
-              </div>
             </div>
           </div>
 
