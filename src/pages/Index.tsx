@@ -16,6 +16,7 @@ import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { GHLTasksTab } from "@/components/dashboard/GHLTasksTab";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
+import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -102,6 +103,7 @@ const Index = () => {
             <p className="text-sm text-muted-foreground">Executive Dashboard</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
+            {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} />}
             {!isLoading && <OpportunitySearch opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} />}
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />

@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.fetch-all-ghl-tasks]
 verify_jwt = false
+
+[functions.create-ghl-entry]
+verify_jwt = false
