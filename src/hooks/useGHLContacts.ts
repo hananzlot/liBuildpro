@@ -440,7 +440,7 @@ function processMetrics(
   }).length;
 
   return {
-    totalLeads: filteredContacts.length,
+    totalLeads: filteredContacts.filter(c => c.source?.toLowerCase() !== 'quickbase').length,
     leadsThisMonth,
     leadsBySource,
     salesRepPerformance,
