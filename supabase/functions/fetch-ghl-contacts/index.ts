@@ -686,6 +686,128 @@ serve(async (req) => {
       }
     }
 
+    // ============ STALE RECORD CLEANUP ============
+    // Delete records from Supabase that no longer exist in GHL
+    console.log('Starting stale record cleanup...');
+
+    // Build sets of GHL IDs for fast lookup
+    const ghlContactIds = new Set(contacts.map(c => c.id));
+    const ghlOpportunityIds = new Set(opportunities.map(o => o.id));
+    const ghlAppointmentIds = new Set(appointments.map(a => a.id));
+    const ghlTaskIds = new Set(tasks.map(t => t.id));
+    const ghlConversationIds = new Set(conversations.map(c => c.id));
+    const ghlCallMessageIds = new Set(callLogs.map(c => c.messageId));
+
+    // Helper function to fetch all ghl_ids from a table
+    async function fetchAllGhlIds(table: string): Promise<string[]> {
+      const allIds: string[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from(table)
+          .select('ghl_id')
+          .eq('location_id', locationId)
+          .range(from, from + batchSize - 1);
+
+        if (error) {
+          console.error(`Error fetching ${table} IDs:`, error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allIds.push(...data.map(r => r.ghl_id));
+          from += batchSize;
+          if (data.length < batchSize) hasMore = false;
+        } else {
+          hasMore = false;
+        }
+      }
+      return allIds;
+    }
+
+    // Cleanup stale opportunities
+    const existingOppIds = await fetchAllGhlIds('opportunities');
+    const staleOppIds = existingOppIds.filter(id => !ghlOpportunityIds.has(id));
+    if (staleOppIds.length > 0) {
+      console.log(`Deleting ${staleOppIds.length} stale opportunities...`);
+      for (let i = 0; i < staleOppIds.length; i += 100) {
+        const batch = staleOppIds.slice(i, i + 100);
+        const { error } = await supabase.from('opportunities').delete().in('ghl_id', batch);
+        if (error) console.error('Opportunities delete error:', error);
+      }
+    }
+
+    // Cleanup stale contacts
+    const existingContactIds = await fetchAllGhlIds('contacts');
+    const staleContactIds = existingContactIds.filter(id => !ghlContactIds.has(id));
+    if (staleContactIds.length > 0) {
+      console.log(`Deleting ${staleContactIds.length} stale contacts...`);
+      for (let i = 0; i < staleContactIds.length; i += 100) {
+        const batch = staleContactIds.slice(i, i + 100);
+        const { error } = await supabase.from('contacts').delete().in('ghl_id', batch);
+        if (error) console.error('Contacts delete error:', error);
+      }
+    }
+
+    // Cleanup stale appointments
+    const existingApptIds = await fetchAllGhlIds('appointments');
+    const staleApptIds = existingApptIds.filter(id => !ghlAppointmentIds.has(id));
+    if (staleApptIds.length > 0) {
+      console.log(`Deleting ${staleApptIds.length} stale appointments...`);
+      for (let i = 0; i < staleApptIds.length; i += 100) {
+        const batch = staleApptIds.slice(i, i + 100);
+        const { error } = await supabase.from('appointments').delete().in('ghl_id', batch);
+        if (error) console.error('Appointments delete error:', error);
+      }
+    }
+
+    // Cleanup stale tasks
+    const existingTaskIds = await fetchAllGhlIds('ghl_tasks');
+    const staleTaskIds = existingTaskIds.filter(id => !ghlTaskIds.has(id));
+    if (staleTaskIds.length > 0) {
+      console.log(`Deleting ${staleTaskIds.length} stale tasks...`);
+      for (let i = 0; i < staleTaskIds.length; i += 100) {
+        const batch = staleTaskIds.slice(i, i + 100);
+        const { error } = await supabase.from('ghl_tasks').delete().in('ghl_id', batch);
+        if (error) console.error('Tasks delete error:', error);
+      }
+    }
+
+    // Cleanup stale conversations
+    const existingConvIds = await fetchAllGhlIds('conversations');
+    const staleConvIds = existingConvIds.filter(id => !ghlConversationIds.has(id));
+    if (staleConvIds.length > 0) {
+      console.log(`Deleting ${staleConvIds.length} stale conversations...`);
+      for (let i = 0; i < staleConvIds.length; i += 100) {
+        const batch = staleConvIds.slice(i, i + 100);
+        const { error } = await supabase.from('conversations').delete().in('ghl_id', batch);
+        if (error) console.error('Conversations delete error:', error);
+      }
+    }
+
+    // Cleanup stale call logs (uses ghl_message_id instead of ghl_id)
+    const { data: existingCallLogs } = await supabase
+      .from('call_logs')
+      .select('ghl_message_id')
+      .eq('location_id', locationId);
+    
+    const staleCallIds = (existingCallLogs || [])
+      .map(c => c.ghl_message_id)
+      .filter(id => !ghlCallMessageIds.has(id));
+    
+    if (staleCallIds.length > 0) {
+      console.log(`Deleting ${staleCallIds.length} stale call logs...`);
+      for (let i = 0; i < staleCallIds.length; i += 100) {
+        const batch = staleCallIds.slice(i, i + 100);
+        const { error } = await supabase.from('call_logs').delete().in('ghl_message_id', batch);
+        if (error) console.error('Call logs delete error:', error);
+      }
+    }
+
+    console.log('Stale record cleanup complete!');
     console.log('Full sync complete!');
 
     return new Response(JSON.stringify({
