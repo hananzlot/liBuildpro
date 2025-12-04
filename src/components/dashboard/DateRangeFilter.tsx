@@ -77,6 +77,14 @@ export function DateRangeFilter({
         <Button
           variant="ghost"
           size="sm"
+          onClick={() => handlePreset(4)}
+          className="text-xs"
+        >
+          4D
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => handlePreset(7)}
           className="text-xs"
         >
@@ -89,6 +97,14 @@ export function DateRangeFilter({
           className="text-xs"
         >
           30D
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handlePreset(60)}
+          className="text-xs"
+        >
+          60D
         </Button>
         <Button
           variant="ghost"
