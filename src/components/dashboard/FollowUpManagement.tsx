@@ -123,6 +123,8 @@ export function FollowUpManagement({
   const [closeToSaleRepFilter, setCloseToSaleRepFilter] = useState<string>('all');
   const [needsAttentionOpen, setNeedsAttentionOpen] = useState(false);
   const [needsAttentionRepFilter, setNeedsAttentionRepFilter] = useState<string>('all');
+  const [needsAttentionPage, setNeedsAttentionPage] = useState(1);
+  const NEEDS_ATTENTION_PAGE_SIZE = 10;
 
   // Tasks Helper State
   const [ghlTasks, setGhlTasks] = useState<GHLTask[]>([]);
@@ -1192,7 +1194,7 @@ export function FollowUpManagement({
             <CollapsibleContent>
               <CardContent>
                 <div className="flex items-center gap-4 mb-4">
-                  <Select value={needsAttentionRepFilter} onValueChange={setNeedsAttentionRepFilter}>
+                  <Select value={needsAttentionRepFilter} onValueChange={(v) => { setNeedsAttentionRepFilter(v); setNeedsAttentionPage(1); }}>
                     <SelectTrigger className="w-[200px]">
                       <User className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Filter by rep" />
@@ -1206,67 +1208,100 @@ export function FollowUpManagement({
 
                 {needsAttentionData.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                     No cold opportunities needing attention
-                  </div> : <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Contact</TableHead>
-                          <TableHead>Address</TableHead>
-                          <TableHead>Warnings</TableHead>
-                          <TableHead>Assigned Rep</TableHead>
-                          <TableHead>Value</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {needsAttentionData.map(row => {
-                      return <TableRow key={row.opportunity.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(row.opportunity)}>
-                              <TableCell className="font-medium">
-                                {getContactName(row.opportunity.contact_id)}
-                              </TableCell>
-                              <TableCell className="max-w-[200px] truncate">
-                                {getAddress(row.opportunity.contact_id)}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                  <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 border-cyan-500/30 text-xs">No Appts</Badge>
-                                  {row.hasStaleOrNoNotes && (
-                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-xs">
-                                      {row.latestNoteDate ? 'Stale Notes' : 'No Notes'}
-                                    </Badge>
-                                  )}
-                                  {row.hasExpiredOrNoTasks && (
-                                    <Badge variant="outline" className="bg-orange-500/10 text-orange-700 border-orange-500/30 text-xs">
-                                      {row.earliestOverdueDate ? 'Overdue Tasks' : 'No Tasks'}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>{getUserName(row.opportunity.assigned_to || row.contact?.assigned_to)}</TableCell>
-                              <TableCell className="font-medium">
-                                {formatCurrency(row.opportunity.monetary_value)}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex gap-1">
-                                  <Button variant="outline" size="sm" onClick={e => {
-                                e.stopPropagation();
-                                handleOpenNoteDialog(row.opportunity.contact_id!, getContactName(row.opportunity.contact_id));
-                              }}>
-                                    <FileText className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="outline" size="sm" onClick={e => {
-                                e.stopPropagation();
-                                handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
-                              }}>
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>;
-                    })}
-                      </TableBody>
-                    </Table>
-                  </div>}
+                  </div> : <>
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Contact</TableHead>
+                            <TableHead>Address</TableHead>
+                            <TableHead>Pipeline Stage</TableHead>
+                            <TableHead>Warnings</TableHead>
+                            <TableHead>Assigned Rep</TableHead>
+                            <TableHead>Value</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {needsAttentionData
+                            .slice((needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE, needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE)
+                            .map(row => {
+                            return <TableRow key={row.opportunity.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(row.opportunity)}>
+                                <TableCell className="font-medium">
+                                  {getContactName(row.opportunity.contact_id)}
+                                </TableCell>
+                                <TableCell className="max-w-[200px] truncate">
+                                  {getAddress(row.opportunity.contact_id)}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline">{row.opportunity.stage_name || 'Unknown'}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-1">
+                                    <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 border-cyan-500/30 text-xs">No Appts</Badge>
+                                    {row.hasStaleOrNoNotes && (
+                                      <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-xs">
+                                        {row.latestNoteDate ? 'Stale Notes' : 'No Notes'}
+                                      </Badge>
+                                    )}
+                                    {row.hasExpiredOrNoTasks && (
+                                      <Badge variant="outline" className="bg-orange-500/10 text-orange-700 border-orange-500/30 text-xs">
+                                        {row.earliestOverdueDate ? 'Overdue Tasks' : 'No Tasks'}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>{getUserName(row.opportunity.assigned_to || row.contact?.assigned_to)}</TableCell>
+                                <TableCell className="font-medium">
+                                  {formatCurrency(row.opportunity.monetary_value)}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-1">
+                                    <Button variant="outline" size="sm" onClick={e => {
+                                  e.stopPropagation();
+                                  handleOpenNoteDialog(row.opportunity.contact_id!, getContactName(row.opportunity.contact_id));
+                                }}>
+                                      <FileText className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={e => {
+                                  e.stopPropagation();
+                                  handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
+                                }}>
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>;
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    {needsAttentionData.length > NEEDS_ATTENTION_PAGE_SIZE && (
+                      <div className="flex items-center justify-between mt-4">
+                        <span className="text-sm text-muted-foreground">
+                          Showing {((needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE) + 1}-{Math.min(needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE, needsAttentionData.length)} of {needsAttentionData.length}
+                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setNeedsAttentionPage(p => Math.max(1, p - 1))}
+                            disabled={needsAttentionPage === 1}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setNeedsAttentionPage(p => Math.min(Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE), p + 1))}
+                            disabled={needsAttentionPage >= Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE)}
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>}
               </CardContent>
             </CollapsibleContent>
           </Card>
