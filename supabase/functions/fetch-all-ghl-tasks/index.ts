@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,52 +7,80 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const ghlApiKey = Deno.env.get('GHL_API_KEY');
-    const ghlLocationId = Deno.env.get('GHL_LOCATION_ID');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!ghlApiKey || !ghlLocationId) {
-      throw new Error('Missing GHL API credentials');
+    if (!ghlApiKey || !supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing required credentials');
     }
 
-    console.log('Fetching all tasks from GHL...');
-    
-    // Fetch tasks from GHL - get incomplete tasks
-    const tasksResponse = await fetch(
-      `https://services.leadconnectorhq.com/contacts/tasks?locationId=${ghlLocationId}&completed=false&limit=100`,
-      {
-        headers: {
-          'Authorization': `Bearer ${ghlApiKey}`,
-          'Version': '2021-07-28',
-          'Accept': 'application/json'
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Fetch all contact GHL IDs from Supabase
+    console.log('Fetching contacts from Supabase...');
+    const { data: contacts, error: contactsError } = await supabase
+      .from('contacts')
+      .select('ghl_id');
+
+    if (contactsError) {
+      throw new Error(`Failed to fetch contacts: ${contactsError.message}`);
+    }
+
+    console.log(`Found ${contacts?.length || 0} contacts, fetching tasks...`);
+
+    const allTasks: any[] = [];
+    const batchSize = 10; // Process 10 contacts at a time to avoid rate limits
+
+    for (let i = 0; i < (contacts?.length || 0); i += batchSize) {
+      const batch = contacts!.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (contact) => {
+        try {
+          const tasksResponse = await fetch(
+            `https://services.leadconnectorhq.com/contacts/${contact.ghl_id}/tasks`,
+            {
+              headers: {
+                'Authorization': `Bearer ${ghlApiKey}`,
+                'Version': '2021-07-28',
+                'Accept': 'application/json'
+              }
+            }
+          );
+
+          if (tasksResponse.ok) {
+            const tasksData = await tasksResponse.json();
+            const tasks = tasksData.tasks || [];
+            // Filter for incomplete tasks and add contactId
+            return tasks
+              .filter((t: any) => !t.completed)
+              .map((t: any) => ({ ...t, contactId: contact.ghl_id }));
+          }
+          return [];
+        } catch (err) {
+          console.error(`Error fetching tasks for contact ${contact.ghl_id}:`, err);
+          return [];
         }
-      }
-    );
+      });
 
-    if (!tasksResponse.ok) {
-      const errorText = await tasksResponse.text();
-      console.error('GHL Tasks API Error:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to fetch tasks from GHL', details: errorText }),
-        { status: tasksResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const batchResults = await Promise.all(batchPromises);
+      batchResults.forEach(tasks => allTasks.push(...tasks));
+      
+      // Small delay between batches to respect rate limits
+      if (i + batchSize < (contacts?.length || 0)) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
 
-    const tasksData = await tasksResponse.json();
-    const ghlTasks = tasksData.tasks || [];
-    
-    console.log(`Found ${ghlTasks.length} incomplete tasks in GHL`);
+    console.log(`Found ${allTasks.length} incomplete tasks across all contacts`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        tasks: ghlTasks
-      }),
+      JSON.stringify({ success: true, tasks: allTasks }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
