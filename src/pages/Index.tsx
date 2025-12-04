@@ -77,7 +77,7 @@ const Index = () => {
             {!isLoading && (
               <OpportunitySearch
                 opportunities={metrics?.allOpportunities || []}
-                appointments={metrics?.appointments || []}
+                appointments={metrics?.allAppointments || []}
                 contacts={metrics?.allContacts || []}
                 users={metrics?.users || []}
                 conversations={metrics?.conversations || []}
@@ -227,7 +227,7 @@ const Index = () => {
                     filteredContacts={metrics?.contacts || []}
                     opportunities={metrics?.allOpportunities || []}
                     filteredOpportunities={metrics?.filteredOpportunitiesList || []}
-                    appointments={metrics?.appointments || []}
+                    appointments={metrics?.allAppointments || []}
                     filteredAppointments={metrics?.filteredAppointmentsList || []}
                     users={metrics?.users || []}
                     appointmentsBySource={metrics?.appointmentsBySource || []}
@@ -241,7 +241,7 @@ const Index = () => {
                     filteredContacts={metrics?.contacts || []}
                     opportunities={metrics?.allOpportunities || []}
                     filteredOpportunities={metrics?.wonOpportunities || []}
-                    appointments={metrics?.appointments || []}
+                    appointments={metrics?.allAppointments || []}
                     users={metrics?.users || []}
                   />
                 </>
@@ -256,7 +256,7 @@ const Index = () => {
                 <SalesRepLeaderboard 
                   data={metrics?.salesRepPerformance || []}
                   opportunities={metrics?.allOpportunities || []}
-                  appointments={metrics?.appointments || []}
+                  appointments={metrics?.allAppointments || []}
                   contacts={metrics?.allContacts || []}
                   users={metrics?.users || []}
                 />
@@ -274,7 +274,7 @@ const Index = () => {
                 <>
                   <OpportunitiesTable 
                     opportunities={metrics?.opportunities || []} 
-                    appointments={metrics?.appointments || []}
+                    appointments={metrics?.allAppointments || []}
                     contacts={metrics?.allContacts || []}
                     users={metrics?.users || []}
                     conversations={metrics?.conversations || []}
@@ -297,7 +297,7 @@ const Index = () => {
                 <RecentLeadsTable 
                   leads={metrics?.contacts || []} 
                   opportunities={metrics?.allOpportunities || []}
-                  appointments={metrics?.appointments || []}
+                  appointments={metrics?.allAppointments || []}
                   users={metrics?.users || []}
                   conversations={metrics?.conversations || []}
                 />
@@ -316,7 +316,7 @@ const Index = () => {
               <AdminCleanup 
                 opportunities={metrics?.allOpportunities || []}
                 contacts={metrics?.allContacts || []}
-                appointments={metrics?.appointments || []}
+                appointments={metrics?.allAppointments || []}
                 users={metrics?.users || []}
                 onDataUpdated={() => refetch()}
               />
@@ -338,7 +338,7 @@ const Index = () => {
       <UpcomingAppointmentsSheet
         open={upcomingAppointmentsSheetOpen}
         onOpenChange={setUpcomingAppointmentsSheetOpen}
-        appointments={metrics?.appointments || []}
+        appointments={metrics?.allAppointments || []}
         contacts={metrics?.allContacts || []}
         opportunities={metrics?.allOpportunities || []}
         users={metrics?.users || []}
