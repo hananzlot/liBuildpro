@@ -260,9 +260,7 @@ export function AppointmentsTable({
           <Table>
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
-                <TableHead className="text-muted-foreground">Title</TableHead>
-                <TableHead className="text-muted-foreground">Contact</TableHead>
-                <TableHead className="text-muted-foreground">Phone</TableHead>
+                <TableHead className="text-muted-foreground">Contact / Appointment</TableHead>
                 <TableHead className="text-muted-foreground">Start</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-muted-foreground">Rep</TableHead>
@@ -271,7 +269,7 @@ export function AppointmentsTable({
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -282,21 +280,25 @@ export function AppointmentsTable({
                     className="border-border/30 hover:bg-muted/30 cursor-pointer"
                     onClick={() => handleRowClick(appt)}
                   >
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate max-w-[120px]">{appt.title || 'Untitled'}</span>
-                        {isUpcoming(appt.start_time) && (
-                          <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-xs">
-                            Upcoming
-                          </Badge>
-                        )}
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground">
+                            {getContactName(appt.contact_id)}
+                          </span>
+                          {isUpcoming(appt.start_time) && (
+                            <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-xs">
+                              Upcoming
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                          {appt.title || 'Untitled'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {getContactPhone(appt.contact_id)}
+                        </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm truncate max-w-[100px]">
-                      {getContactName(appt.contact_id)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {getContactPhone(appt.contact_id)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {formatDateTime(appt.start_time)}
