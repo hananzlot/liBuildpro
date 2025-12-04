@@ -571,11 +571,14 @@ export function FollowUpManagement({
     return scopeField?.value || '';
   };
 
-  // Close to Sale Data - opportunities with pipeline stage containing "close to sale"
+  // Close to Sale Data - opportunities with pipeline stage containing "close to sale", "important", or "second appointment"
   const closeToSaleData = useMemo(() => {
     const results = opportunities.filter(o => {
       const stageName = o.stage_name?.toLowerCase() || '';
-      return stageName.includes('close') && stageName.includes('sale') && o.status?.toLowerCase() === 'open';
+      const isCloseToSale = stageName.includes('close') && stageName.includes('sale');
+      const isImportant = stageName === 'important';
+      const isSecondAppointment = stageName.includes('second') && stageName.includes('appointment');
+      return (isCloseToSale || isImportant || isSecondAppointment) && o.status?.toLowerCase() === 'open';
     });
 
     // Deduplicate by contact_id (keep the one with highest monetary value)
@@ -887,7 +890,7 @@ export function FollowUpManagement({
                       Close to Sale
                       <Badge variant="secondary">{closeToSaleData.length}</Badge>
                     </CardTitle>
-                    <CardDescription>Opportunities with pipeline stage containing "close to sale"</CardDescription>
+                    <CardDescription>Opportunities in "Close to Sale", "Important", or "Second Appointment" stages</CardDescription>
                   </div>
                 </div>
                 {closeToSaleOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
