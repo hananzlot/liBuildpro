@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Megaphone, User, Calendar, Search, ChevronRight } from "lucide-react";
+import { Megaphone, User, Calendar, Search, ChevronRight, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
@@ -349,6 +349,15 @@ export function SourceDetailSheet({
                     const contactName = contact?.contact_name || 
                       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown";
                     
+                    // Find upcoming appointments for this contact (today or future)
+                    const now = new Date();
+                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const upcomingAppt = appointments.find(a => 
+                      a.contact_id === opp.contact_id && 
+                      a.start_time && 
+                      new Date(a.start_time) >= startOfToday
+                    );
+                    
                     return (
                       <div
                         key={opp.ghl_id}
@@ -364,14 +373,20 @@ export function SourceDetailSheet({
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
-                        {/* Pipeline Stage */}
-                        {opp.stage_name && (
-                          <div className="mb-1.5">
+                        {/* Pipeline Stage and Upcoming Appointment */}
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                          {opp.stage_name && (
                             <Badge variant="secondary" className="text-xs font-normal">
                               {opp.stage_name}
                             </Badge>
-                          </div>
-                        )}
+                          )}
+                          {upcomingAppt && (
+                            <Badge variant="outline" className="text-xs font-normal bg-amber-500/10 text-amber-400 border-amber-500/30">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {format(new Date(upcomingAppt.start_time!), "MMM d, h:mm a")}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <User className="h-3 w-3" />
