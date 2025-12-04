@@ -10,8 +10,11 @@ interface Opportunity {
   contact_id: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
+  ghl_date_updated: string | null;
   stage_name: string | null;
   pipeline_name: string | null;
+  pipeline_id: string | null;
+  pipeline_stage_id: string | null;
 }
 
 interface Appointment {
@@ -19,6 +22,8 @@ interface Appointment {
   title: string | null;
   appointment_status: string | null;
   start_time: string | null;
+  end_time: string | null;
+  notes: string | null;
   contact_id: string | null;
   assigned_user_id: string | null;
 }
@@ -28,8 +33,11 @@ interface Contact {
   contact_name: string | null;
   first_name: string | null;
   last_name: string | null;
+  email: string | null;
+  phone: string | null;
   source: string | null;
   assigned_to: string | null;
+  custom_fields?: unknown;
 }
 
 interface GHLUser {
@@ -37,6 +45,7 @@ interface GHLUser {
   name: string | null;
   first_name: string | null;
   last_name: string | null;
+  email: string | null;
 }
 
 interface SalesRepLeaderboardProps {
@@ -117,6 +126,7 @@ export function SalesRepLeaderboard({
         opportunities={opportunities}
         appointments={appointments}
         contacts={contacts}
+        users={users}
       />
     </>
   );

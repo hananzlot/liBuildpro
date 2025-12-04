@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch } from "lucide-react";
+import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch, ChevronRight } from "lucide-react";
+import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
 interface Opportunity {
   ghl_id: string;
@@ -24,8 +25,11 @@ interface Opportunity {
   contact_id: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
+  ghl_date_updated: string | null;
   stage_name: string | null;
   pipeline_name: string | null;
+  pipeline_id: string | null;
+  pipeline_stage_id: string | null;
 }
 
 interface Appointment {
@@ -33,6 +37,8 @@ interface Appointment {
   title: string | null;
   appointment_status: string | null;
   start_time: string | null;
+  end_time: string | null;
+  notes: string | null;
   contact_id: string | null;
   assigned_user_id: string | null;
 }
@@ -42,8 +48,19 @@ interface Contact {
   contact_name: string | null;
   first_name: string | null;
   last_name: string | null;
+  email: string | null;
+  phone: string | null;
   source: string | null;
   assigned_to: string | null;
+  custom_fields?: unknown;
+}
+
+interface GHLUser {
+  ghl_id: string;
+  name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
 }
 
 interface SalesRepDetailSheetProps {
@@ -54,6 +71,7 @@ interface SalesRepDetailSheetProps {
   opportunities: Opportunity[];
   appointments: Appointment[];
   contacts: Contact[];
+  users: GHLUser[];
 }
 
 const STATUS_ORDER: Record<string, number> = {
@@ -71,8 +89,11 @@ export function SalesRepDetailSheet({
   opportunities,
   appointments,
   contacts,
+  users,
 }: SalesRepDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [oppSheetOpen, setOppSheetOpen] = useState(false);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
@@ -124,7 +145,6 @@ export function SalesRepDetailSheet({
       const statusA = STATUS_ORDER[a.status?.toLowerCase() || ''] ?? 99;
       const statusB = STATUS_ORDER[b.status?.toLowerCase() || ''] ?? 99;
       if (statusA !== statusB) return statusA - statusB;
-      // Secondary sort by date
       return new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime();
     });
   }, [repOpportunities]);
@@ -158,172 +178,195 @@ export function SalesRepDetailSheet({
   const wonOpps = repOpportunities.filter(o => o.status?.toLowerCase() === 'won');
   const wonValue = wonOpps.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
+  const handleOpportunityClick = (opp: Opportunity) => {
+    setSelectedOpportunity(opp);
+    setOppSheetOpen(true);
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-hidden p-0">
-        {/* Header */}
-        <div className="sticky top-0 bg-background border-b p-4">
-          <SheetHeader className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-5 w-5 text-primary" />
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="sm:max-w-lg overflow-hidden p-0">
+          {/* Header */}
+          <div className="sticky top-0 bg-background border-b p-4">
+            <SheetHeader className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <SheetTitle className="text-lg font-semibold">{repName}</SheetTitle>
+                  <p className="text-sm text-muted-foreground">{repContacts.length} leads assigned</p>
+                </div>
               </div>
-              <div>
-                <SheetTitle className="text-lg font-semibold">{repName}</SheetTitle>
-                <p className="text-sm text-muted-foreground">{repContacts.length} leads assigned</p>
-              </div>
-            </div>
-          </SheetHeader>
-        </div>
+            </SheetHeader>
+          </div>
 
-        <ScrollArea className="h-[calc(100vh-100px)]">
-          <div className="p-4 space-y-4">
-            {/* Summary Grid */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Total Opportunities</div>
-                <div className="font-medium">{repOpportunities.length}</div>
+          <ScrollArea className="h-[calc(100vh-100px)]">
+            <div className="p-4 space-y-4">
+              {/* Summary Grid */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Total Opportunities</div>
+                  <div className="font-medium">{repOpportunities.length}</div>
+                </div>
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Pipeline Value</div>
+                  <div className="font-medium text-emerald-400">{formatCurrency(totalValue)}</div>
+                </div>
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Won Deals</div>
+                  <div className="font-medium">{wonOpps.length}</div>
+                </div>
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Won Value</div>
+                  <div className="font-medium text-emerald-400">{formatCurrency(wonValue)}</div>
+                </div>
               </div>
-              <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Pipeline Value</div>
-                <div className="font-medium text-emerald-400">{formatCurrency(totalValue)}</div>
-              </div>
-              <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Won Deals</div>
-                <div className="font-medium">{wonOpps.length}</div>
-              </div>
-              <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Won Value</div>
-                <div className="font-medium text-emerald-400">{formatCurrency(wonValue)}</div>
-              </div>
-            </div>
 
-            {/* Leads by Source */}
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Leads by Source ({leadsBySource.length})
-                </span>
-              </div>
-              <div className="divide-y max-h-48 overflow-y-auto">
-                {leadsBySource.length === 0 ? (
-                  <div className="p-3 text-sm text-muted-foreground text-center">No leads</div>
-                ) : (
-                  leadsBySource.map(([source, sourceContacts]) => (
-                    <div key={source} className="p-3 flex items-center justify-between">
-                      <span className="text-sm font-medium truncate">{source}</span>
-                      <Badge variant="secondary" className="text-xs">{sourceContacts.length}</Badge>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Appointments */}
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Appointments ({repAppointments.length})
-                </span>
-              </div>
-              <div className="divide-y max-h-48 overflow-y-auto">
-                {repAppointments.length === 0 ? (
-                  <div className="p-3 text-sm text-muted-foreground text-center">No appointments</div>
-                ) : (
-                  repAppointments
-                    .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
-                    .slice(0, 10)
-                    .map((appt) => (
-                      <div key={appt.ghl_id} className="p-3 flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="font-medium text-sm truncate">{appt.title || 'Untitled'}</div>
-                          <div className="text-xs text-muted-foreground">{formatDate(appt.start_time)}</div>
-                        </div>
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs shrink-0 ${
-                            appt.appointment_status?.toLowerCase() === 'confirmed' 
-                              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                              : appt.appointment_status?.toLowerCase() === 'cancelled'
-                              ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                              : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                          }`}
-                        >
-                          {appt.appointment_status || 'Unknown'}
-                        </Badge>
-                      </div>
-                    ))
-                )}
-              </div>
-            </div>
-
-            {/* Opportunities */}
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+              {/* Leads by Source */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                  <Megaphone className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Opportunities ({filteredOpportunities.length})
+                    Leads by Source ({leadsBySource.length})
                   </span>
                 </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-7 w-24 text-xs">
-                    <SelectValue placeholder="Filter" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    {availableStatuses.map(status => (
-                      <SelectItem key={status} value={status} className="capitalize">
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="divide-y max-h-48 overflow-y-auto">
+                  {leadsBySource.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">No leads</div>
+                  ) : (
+                    leadsBySource.map(([source, sourceContacts]) => (
+                      <div key={source} className="p-3 flex items-center justify-between">
+                        <span className="text-sm font-medium truncate">{source}</span>
+                        <Badge variant="secondary" className="text-xs">{sourceContacts.length}</Badge>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-              <div className="divide-y max-h-72 overflow-y-auto">
-                {filteredOpportunities.length === 0 ? (
-                  <div className="p-3 text-sm text-muted-foreground text-center">No opportunities</div>
-                ) : (
-                  filteredOpportunities.map((opp) => {
-                    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
-                    return (
-                      <div key={opp.ghl_id} className="p-3 space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-sm truncate">{opp.name || 'Unnamed'}</span>
-                          <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(opp.status)}`}>
-                            {opp.status || 'Unknown'}
+
+              {/* Appointments */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Appointments ({repAppointments.length})
+                  </span>
+                </div>
+                <div className="divide-y max-h-48 overflow-y-auto">
+                  {repAppointments.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">No appointments</div>
+                  ) : (
+                    repAppointments
+                      .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
+                      .slice(0, 10)
+                      .map((appt) => (
+                        <div key={appt.ghl_id} className="p-3 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">{appt.title || 'Untitled'}</div>
+                            <div className="text-xs text-muted-foreground">{formatDate(appt.start_time)}</div>
+                          </div>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs shrink-0 ${
+                              appt.appointment_status?.toLowerCase() === 'confirmed' 
+                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                : appt.appointment_status?.toLowerCase() === 'cancelled'
+                                ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                                : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                            }`}
+                          >
+                            {appt.appointment_status || 'Unknown'}
                           </Badge>
                         </div>
-                        {opp.stage_name && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <GitBranch className="h-3 w-3" />
-                            <span className="truncate">{opp.pipeline_name ? `${opp.pipeline_name} → ` : ''}{opp.stage_name}</span>
+                      ))
+                  )}
+                </div>
+              </div>
+
+              {/* Opportunities */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Opportunities ({filteredOpportunities.length})
+                    </span>
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-7 w-24 text-xs">
+                      <SelectValue placeholder="Filter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {availableStatuses.map(status => (
+                        <SelectItem key={status} value={status} className="capitalize">
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="divide-y max-h-72 overflow-y-auto">
+                  {filteredOpportunities.length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground text-center">No opportunities</div>
+                  ) : (
+                    filteredOpportunities.map((opp) => {
+                      const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+                      return (
+                        <div 
+                          key={opp.ghl_id} 
+                          className="p-3 space-y-1.5 cursor-pointer hover:bg-muted/30 transition-colors"
+                          onClick={() => handleOpportunityClick(opp)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-medium text-sm truncate">{opp.name || 'Unnamed'}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <Badge variant="outline" className={`text-xs ${getStatusColor(opp.status)}`}>
+                                {opp.status || 'Unknown'}
+                              </Badge>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            </div>
                           </div>
-                        )}
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(opp.ghl_date_added)}
+                          {opp.stage_name && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <GitBranch className="h-3 w-3" />
+                              <span className="truncate">{opp.pipeline_name ? `${opp.pipeline_name} → ` : ''}{opp.stage_name}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {formatDate(opp.ghl_date_added)}
+                            </div>
+                            <span className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</span>
                           </div>
-                          <span className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</span>
+                          {contact?.source && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Megaphone className="h-3 w-3" />
+                              {contact.source}
+                            </div>
+                          )}
                         </div>
-                        {contact?.source && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Megaphone className="h-3 w-3" />
-                            {contact.source}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                      );
+                    })
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
+
+      <OpportunityDetailSheet
+        opportunity={selectedOpportunity}
+        appointments={appointments}
+        contacts={contacts}
+        users={users}
+        open={oppSheetOpen}
+        onOpenChange={setOppSheetOpen}
+      />
+    </>
   );
 }
