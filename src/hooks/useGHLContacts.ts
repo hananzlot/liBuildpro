@@ -196,6 +196,7 @@ function processMetrics(
   totalOpportunities: number;
   totalPipelineValue: number;
   totalAppointments: number;
+  cancelledAppointments: number;
   upcomingAppointments: number;
   upcomingNextWeek: number;
   opportunities: DBOpportunity[];
@@ -450,6 +451,7 @@ function processMetrics(
     totalOpportunities: filteredOpportunities.filter(o => o.stage_name?.toLowerCase() !== 'quickbase').length,
     totalPipelineValue,
     totalAppointments: filteredAppointments.length,
+    cancelledAppointments: filteredAppointments.filter(a => a.appointment_status?.toLowerCase() === 'cancelled').length,
     upcomingAppointments,
     upcomingNextWeek,
     opportunities: filteredOpportunities.slice(0, 10),
