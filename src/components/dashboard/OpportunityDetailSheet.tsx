@@ -388,10 +388,10 @@ export function OpportunityDetailSheet({
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4">
-          <SheetHeader className="space-y-1">
-            <div className="flex items-start justify-between gap-3">
-              <SheetTitle className="text-lg font-semibold leading-tight">
-                {opportunity.name || 'Unnamed Opportunity'}
+          <SheetHeader>
+            <div className="flex items-center justify-between gap-3">
+              <SheetTitle className="text-sm font-medium text-muted-foreground">
+                Opportunity Details
               </SheetTitle>
               {!isEditing ? (
                 <div className="flex items-center gap-2">
