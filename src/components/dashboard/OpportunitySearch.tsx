@@ -172,7 +172,7 @@ export function OpportunitySearch({
           </div>
           
           {searchQuery.trim() && (
-            <ScrollArea className="max-h-[300px]">
+            <div className="max-h-[300px] overflow-y-auto">
               {filteredOpportunities.length > 0 ? (
                 <div className="p-2">
                   {filteredOpportunities.map((opp) => (
@@ -208,7 +208,7 @@ export function OpportunitySearch({
                   No opportunities found
                 </div>
               )}
-            </ScrollArea>
+            </div>
           )}
           
           {!searchQuery.trim() && (
