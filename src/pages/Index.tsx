@@ -138,16 +138,11 @@ const Index = () => {
             </section>
 
             {/* Metrics Grid */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {isLoading ? <>
-                  {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
+                  {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
                 </> : <>
-                  <MetricCard title="This Month" value={metrics?.leadsThisMonth || 0} subtitle="New leads" icon={Calendar} trend={{
-                value: 12,
-                isPositive: true
-              }} />
                   <MetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} />
-                  <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
                   <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
@@ -170,6 +165,7 @@ const Index = () => {
                     <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
                   </div>
                   <ClickableMetricCard title="Upcoming" value={metrics?.upcomingNextWeek || 0} secondaryValue={`/ ${metrics?.upcomingAppointments || 0} total`} subtitle="Next 7 days" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} />
+                  <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
                 </>}
             </section>
 
