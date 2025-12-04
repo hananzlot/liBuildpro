@@ -413,23 +413,6 @@ export function OpportunityDetailSheet({
                 </div>
               )}
             </div>
-            {isEditing ? (
-              <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-emerald-400">$</span>
-                <Input
-                  type="number"
-                  value={editedMonetaryValue}
-                  onChange={(e) => setEditedMonetaryValue(e.target.value)}
-                  className="text-2xl font-bold h-10 w-40"
-                  min="0"
-                  step="100"
-                />
-              </div>
-            ) : (
-              <div className="text-2xl font-bold text-emerald-400">
-                {formatCurrency(opportunity.monetary_value)}
-              </div>
-            )}
           </SheetHeader>
         </div>
 
@@ -441,9 +424,23 @@ export function OpportunityDetailSheet({
                 <User className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact</span>
               </div>
-              <div className="text-lg font-bold text-emerald-400">
-                {formatCurrency(opportunity.monetary_value)}
-              </div>
+              {isEditing ? (
+                <div className="flex items-center gap-1">
+                  <span className="text-lg font-bold text-emerald-400">$</span>
+                  <Input
+                    type="number"
+                    value={editedMonetaryValue}
+                    onChange={(e) => setEditedMonetaryValue(e.target.value)}
+                    className="text-lg font-bold h-8 w-28"
+                    min="0"
+                    step="100"
+                  />
+                </div>
+              ) : (
+                <div className="text-lg font-bold text-emerald-400">
+                  {formatCurrency(opportunity.monetary_value)}
+                </div>
+              )}
             </div>
             <div className="p-3 space-y-2">
               <div className="font-medium">{contactName}</div>
