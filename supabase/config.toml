@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.update-ghl-task]
 verify_jwt = false
+
+[functions.sync-ghl-tasks]
+verify_jwt = false

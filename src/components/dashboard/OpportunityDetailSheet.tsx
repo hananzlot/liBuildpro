@@ -219,10 +219,22 @@ export function OpportunityDetailSheet({
           setIsLoadingNotes(false);
         }
       };
-      // Fetch tasks from Supabase
+      // Fetch tasks from Supabase and sync status from GHL
       const fetchTasks = async () => {
         setIsLoadingTasks(true);
         try {
+          // First sync task status from GHL
+          if (opportunity.contact_id) {
+            try {
+              await supabase.functions.invoke('sync-ghl-tasks', {
+                body: { contact_id: opportunity.contact_id }
+              });
+            } catch (syncErr) {
+              console.error('Failed to sync tasks from GHL:', syncErr);
+            }
+          }
+          
+          // Then fetch updated tasks from Supabase
           const { data, error } = await supabase
             .from('tasks')
             .select('*')
