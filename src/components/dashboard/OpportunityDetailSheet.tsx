@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Sheet,
   SheetContent,
@@ -5,7 +6,18 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
@@ -64,7 +76,10 @@ interface OpportunityDetailSheetProps {
   users: GHLUser[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  allOpportunities?: Opportunity[];
 }
+
+const OPPORTUNITY_STATUSES = ["open", "won", "lost", "abandoned"];
 
 const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
   if (!customFields || !Array.isArray(customFields)) return null;
@@ -79,7 +94,59 @@ export function OpportunityDetailSheet({
   users,
   open,
   onOpenChange,
+  allOpportunities = [],
 }: OpportunityDetailSheetProps) {
+  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editedStatus, setEditedStatus] = useState<string>("");
+  const [editedStage, setEditedStage] = useState<string>("");
+
+  // Get unique pipeline stages from all opportunities
+  const availableStages = Array.from(
+    new Set(allOpportunities.map(o => o.stage_name).filter(Boolean))
+  ).sort() as string[];
+
+  const handleEditClick = () => {
+    setEditedStatus(opportunity?.status?.toLowerCase() || "open");
+    setEditedStage(opportunity?.stage_name || "");
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedStatus("");
+    setEditedStage("");
+  };
+
+  const handleSave = async () => {
+    if (!opportunity) return;
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from("opportunities")
+        .update({
+          status: editedStatus,
+          stage_name: editedStage,
+        })
+        .eq("ghl_id", opportunity.ghl_id);
+
+      if (error) throw error;
+
+      toast.success("Opportunity updated successfully");
+      setIsEditing(false);
+      
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+    } catch (error) {
+      console.error("Error updating opportunity:", error);
+      toast.error("Failed to update opportunity");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!opportunity) return null;
 
   const formatDateTime = (dateString: string | null) => {
@@ -152,9 +219,25 @@ export function OpportunityDetailSheet({
               <SheetTitle className="text-lg font-semibold leading-tight">
                 {opportunity.name || 'Unnamed Opportunity'}
               </SheetTitle>
-              <Badge variant="outline" className={`shrink-0 text-xs ${getStatusColor(opportunity.status)}`}>
-                {opportunity.status || 'Unknown'}
-              </Badge>
+              {!isEditing ? (
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={`shrink-0 text-xs ${getStatusColor(opportunity.status)}`}>
+                    {opportunity.status || 'Unknown'}
+                  </Badge>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleEditClick}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit} disabled={isSaving}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <Button variant="default" size="icon" className="h-7 w-7" onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="text-2xl font-bold text-emerald-400">
               {formatCurrency(opportunity.monetary_value)}
@@ -171,17 +254,53 @@ export function OpportunityDetailSheet({
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Stage</div>
-              <div className="font-medium truncate">{opportunity.stage_name || '-'}</div>
+              {isEditing ? (
+                <Select value={editedStage} onValueChange={setEditedStage}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue placeholder="Select stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableStages.map(stage => (
+                      <SelectItem key={stage} value={stage} className="text-xs">
+                        {stage}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="font-medium truncate">{opportunity.stage_name || '-'}</div>
+              )}
+            </div>
+            <div className="bg-muted/40 rounded-md p-2.5">
+              <div className="text-muted-foreground text-xs mb-0.5">Status</div>
+              {isEditing ? (
+                <Select value={editedStatus} onValueChange={setEditedStatus}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OPPORTUNITY_STATUSES.map(status => (
+                      <SelectItem key={status} value={status} className="text-xs capitalize">
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Badge variant="outline" className={`text-xs ${getStatusColor(opportunity.status)}`}>
+                  {opportunity.status || 'Unknown'}
+                </Badge>
+              )}
+            </div>
+            <div className="bg-muted/40 rounded-md p-2.5">
+              <div className="text-muted-foreground text-xs mb-0.5">Created</div>
+              <div className="font-medium truncate">{formatDate(opportunity.ghl_date_added)}</div>
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
               <div className="font-medium truncate">{userName}</div>
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
-              <div className="text-muted-foreground text-xs mb-0.5">Created</div>
-              <div className="font-medium truncate">{formatDate(opportunity.ghl_date_added)}</div>
-            </div>
-            <div className="bg-muted/40 rounded-md p-2.5 col-span-2">
               <div className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
                 <Megaphone className="h-3 w-3" />
                 Source
