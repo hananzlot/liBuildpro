@@ -200,9 +200,10 @@ export function SourceChart({
                 ))}
                 <LabelList 
                   dataKey={showingAppointments ? "count" : dataKey}
-                  position="right"
-                  fill="hsl(var(--foreground))"
+                  position="insideRight"
+                  fill="hsl(var(--background))"
                   fontSize={12}
+                  fontWeight={600}
                   formatter={(value: number) => showingAppointments || dataKey === "count" ? value : formatValue(value)}
                 />
               </Bar>
