@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -164,6 +164,9 @@ export function OpportunityDetailSheet({
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskDueTime, setTaskDueTime] = useState("09:00");
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState<string | null>(null);
+  const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState<string | null>(null);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -406,6 +409,117 @@ export function OpportunityDetailSheet({
       toast.error("Failed to create task");
     } finally {
       setIsCreatingTask(false);
+    }
+  };
+
+  const openEditTaskDialog = (task: Task) => {
+    setEditingTask(task);
+    setTaskTitle(task.title);
+    setTaskNotes(task.notes || "");
+    setTaskAssignee(task.assigned_to || "__unassigned__");
+    if (task.due_date) {
+      const dueDate = new Date(task.due_date);
+      setTaskDueDate(dueDate.toISOString().split('T')[0]);
+      setTaskDueTime(dueDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+    } else {
+      setTaskDueDate("");
+      setTaskDueTime("09:00");
+    }
+    setTaskDialogOpen(true);
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask || !taskTitle.trim()) {
+      toast.error("Please enter a task title");
+      return;
+    }
+
+    setIsCreatingTask(true);
+    try {
+      const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
+      
+      let dueDateValue: string | null = null;
+      if (taskDueDate) {
+        const timeStr = taskDueTime || "09:00";
+        const pstDateTimeStr = `${taskDueDate}T${timeStr}:00`;
+        const localDate = new Date(pstDateTimeStr);
+        const pstOffset = getPSTOffset(localDate);
+        const utcDate = new Date(localDate.getTime() + pstOffset * 60 * 60 * 1000);
+        dueDateValue = utcDate.toISOString();
+      }
+
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          title: taskTitle.trim(),
+          notes: taskNotes.trim() || null,
+          assigned_to: assignedToValue,
+          due_date: dueDateValue,
+        })
+        .eq("id", editingTask.id);
+
+      if (error) throw error;
+
+      toast.success("Task updated");
+
+      // Refresh tasks list
+      const { data: refreshedTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('opportunity_id', opportunity?.ghl_id)
+        .order('created_at', { ascending: false });
+      
+      if (refreshedTasks) setTasks(refreshedTasks);
+
+      setTaskDialogOpen(false);
+      setEditingTask(null);
+      setTaskTitle("");
+      setTaskNotes("");
+      setTaskAssignee("");
+      setTaskDueDate("");
+      setTaskDueTime("");
+    } catch (err) {
+      console.error("Error updating task:", err);
+      toast.error("Failed to update task");
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    setIsDeletingTask(taskId);
+    try {
+      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+      if (error) throw error;
+      
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      toast.success("Task deleted");
+    } catch (err) {
+      console.error("Error deleting task:", err);
+      toast.error("Failed to delete task");
+    } finally {
+      setIsDeletingTask(null);
+    }
+  };
+
+  const handleToggleTaskStatus = async (task: Task) => {
+    setIsUpdatingTaskStatus(task.id);
+    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({ status: newStatus })
+        .eq("id", task.id);
+      
+      if (error) throw error;
+      
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+      toast.success(newStatus === 'completed' ? "Task completed" : "Task reopened");
+    } catch (err) {
+      console.error("Error updating task status:", err);
+      toast.error("Failed to update task status");
+    } finally {
+      setIsUpdatingTaskStatus(null);
     }
   };
 
@@ -875,16 +989,51 @@ export function OpportunityDetailSheet({
                   return (
                     <div key={task.id} className="p-3 space-y-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-sm truncate">{task.title}</span>
-                        <Badge variant="outline" className={`text-xs shrink-0 ${
-                          task.status === 'completed' 
-                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
-                            : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                        }`}>
-                          {task.status}
-                        </Badge>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 shrink-0"
+                            onClick={() => handleToggleTaskStatus(task)}
+                            disabled={isUpdatingTaskStatus === task.id}
+                          >
+                            {isUpdatingTaskStatus === task.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : task.status === 'completed' ? (
+                              <Check className="h-3 w-3 text-emerald-400" />
+                            ) : (
+                              <div className="h-3 w-3 rounded-sm border border-muted-foreground" />
+                            )}
+                          </Button>
+                          <span className={`font-medium text-sm truncate ${task.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
+                            {task.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={() => openEditTaskDialog(task)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteTask(task.id)}
+                            disabled={isDeletingTask === task.id}
+                          >
+                            {isDeletingTask === task.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground pl-7">
                         <span>{taskUserName}</span>
                         {task.due_date && (
                           <>
@@ -899,7 +1048,7 @@ export function OpportunityDetailSheet({
                         )}
                       </div>
                       {task.notes && (
-                        <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted/30 rounded whitespace-pre-wrap">
+                        <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted/30 rounded whitespace-pre-wrap ml-7">
                           {task.notes}
                         </div>
                       )}
@@ -917,13 +1066,23 @@ export function OpportunityDetailSheet({
         </div>
       </SheetContent>
 
-      {/* Create Task Dialog */}
-      <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
+      {/* Create/Edit Task Dialog */}
+      <Dialog open={taskDialogOpen} onOpenChange={(open) => {
+        setTaskDialogOpen(open);
+        if (!open) {
+          setEditingTask(null);
+          setTaskTitle("");
+          setTaskNotes("");
+          setTaskAssignee("");
+          setTaskDueDate("");
+          setTaskDueTime("09:00");
+        }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckSquare className="h-5 w-5" />
-              Create Task
+              {editingTask ? 'Edit Task' : 'Create Task'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -991,8 +1150,13 @@ export function OpportunityDetailSheet({
             <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateTask} disabled={isCreatingTask}>
-              {isCreatingTask ? "Creating..." : "Create Task"}
+            <Button 
+              onClick={editingTask ? handleUpdateTask : handleCreateTask} 
+              disabled={isCreatingTask}
+            >
+              {isCreatingTask 
+                ? (editingTask ? "Saving..." : "Creating...") 
+                : (editingTask ? "Save Changes" : "Create Task")}
             </Button>
           </DialogFooter>
         </DialogContent>
