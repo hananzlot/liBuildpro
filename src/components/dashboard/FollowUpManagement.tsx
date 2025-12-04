@@ -1292,7 +1292,7 @@ export function FollowUpManagement({
                               <span className="text-muted-foreground">​</span>{" "}
                               
                               {opportunity && <>
-                                  <span className="text-muted-foreground ml-3">Opp:</span>{" "}
+                                  <span className="text-muted-foreground ml-3 mx-0">Opp:</span>{" "}
                                   <span className="font-medium">{opportunity.name || "Unnamed"}</span>
                                 </>}
                             </div>
