@@ -428,8 +428,20 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                     const suggestedAction = stageIsLost ? `Set ${suggestedStatus}` : 'Reopen or update stage';
                     const isUpdating = updatingOppIds.has(opp.id);
                     return (
-                      <TableRow key={opp.id}>
-                        <TableCell className="font-medium max-w-[200px] truncate">{opp.name || 'Unnamed'}</TableCell>
+                      <TableRow 
+                        key={opp.id} 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={(e) => {
+                          if ((e.target as HTMLElement).closest('button')) return;
+                          onOpenOpportunity(opp);
+                        }}
+                      >
+                        <TableCell className="font-medium max-w-[200px]">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate">{opp.name || 'Unnamed'}</span>
+                            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                          </div>
+                        </TableCell>
                         <TableCell>{getContactName(opp.contact_id)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{opp.pipeline_name || '-'}</TableCell>
                         <TableCell>
