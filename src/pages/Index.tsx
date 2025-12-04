@@ -204,13 +204,7 @@ const Index = () => {
                 contacts={metrics?.allContacts || []}
                 filteredContacts={metrics?.contacts || []}
                 opportunities={metrics?.allOpportunities || []}
-                filteredOpportunities={metrics?.allOpportunities?.filter(o => {
-                  if (!dateRange?.from) return true;
-                  if (!o.ghl_date_added) return false;
-                  const oppDate = new Date(o.ghl_date_added);
-                  const endDate = dateRange.to || new Date();
-                  return oppDate >= dateRange.from && oppDate <= endDate;
-                }) || []}
+                filteredOpportunities={metrics?.filteredOpportunitiesList || []}
                 appointments={metrics?.appointments || []}
                 users={metrics?.users || []}
                 appointmentsBySource={metrics?.appointmentsBySource || []}
