@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { SourceDetailSheet } from "./SourceDetailSheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -198,6 +198,13 @@ export function SourceChart({
                     className="hover:opacity-80 transition-opacity"
                   />
                 ))}
+                <LabelList 
+                  dataKey={showingAppointments ? "count" : dataKey}
+                  position="right"
+                  fill="hsl(var(--foreground))"
+                  fontSize={12}
+                  formatter={(value: number) => showingAppointments || dataKey === "count" ? value : formatValue(value)}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
