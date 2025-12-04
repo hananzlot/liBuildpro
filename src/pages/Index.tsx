@@ -205,6 +205,7 @@ const Index = () => {
                 opportunities={metrics?.allOpportunities || []}
                 appointments={metrics?.appointments || []}
                 users={metrics?.users || []}
+                appointmentsBySource={metrics?.appointmentsBySource || []}
               />
               <SourceChart
                 title="Won by Source"
