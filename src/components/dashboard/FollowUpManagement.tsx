@@ -537,9 +537,9 @@ export function FollowUpManagement({
       
       const pipelineStage = opportunity?.stage_name?.toLowerCase();
       
-      // Include if: appointment status is "confirmed" OR pipeline stage is "appointment confirmed"
+      // Include if: appointment status is "confirmed" OR pipeline stage contains "appointment" and "confirmed"
       const isAppointmentConfirmed = appointmentStatus === 'confirmed';
-      const isPipelineStageAppointmentConfirmed = pipelineStage === 'appointment confirmed';
+      const isPipelineStageAppointmentConfirmed = pipelineStage?.includes('appointment') && pipelineStage?.includes('confirmed');
       
       if (isAppointmentConfirmed || isPipelineStageAppointmentConfirmed) {
         const contact = appointment.contact_id
