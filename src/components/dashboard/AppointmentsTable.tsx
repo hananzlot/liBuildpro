@@ -115,6 +115,12 @@ export function AppointmentsTable({
     return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown';
   };
 
+  const getContactName = (contactId: string | null): string => {
+    if (!contactId) return 'Unknown';
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    return contact?.contact_name || `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim() || 'Unknown';
+  };
+
   // Get unique statuses and reps for filters
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set(appointments.map(a => a.appointment_status?.toLowerCase()).filter(Boolean));
@@ -249,6 +255,7 @@ export function AppointmentsTable({
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead className="text-muted-foreground">Title</TableHead>
+                <TableHead className="text-muted-foreground">Contact</TableHead>
                 <TableHead className="text-muted-foreground">Start</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-muted-foreground">Rep</TableHead>
@@ -257,7 +264,7 @@ export function AppointmentsTable({
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -270,13 +277,16 @@ export function AppointmentsTable({
                   >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
-                        <span className="truncate max-w-[150px]">{appt.title || 'Untitled'}</span>
+                        <span className="truncate max-w-[120px]">{appt.title || 'Untitled'}</span>
                         {isUpcoming(appt.start_time) && (
                           <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-xs">
                             Upcoming
                           </Badge>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm truncate max-w-[120px]">
+                      {getContactName(appt.contact_id)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {formatDateTime(appt.start_time)}

@@ -920,6 +920,128 @@ export function FollowUpManagement({
         </Card>
       </Collapsible>
 
+      {/* Tasks Helper */}
+      <Collapsible open={tasksHelperOpen} onOpenChange={setTasksHelperOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                    <CheckSquare className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="flex items-center gap-2 flex-wrap">
+                      Tasks Helper
+                      <Badge variant="secondary">{taskCounts.total}</Badge>
+                      <Badge 
+                        variant="outline" 
+                        className={`cursor-pointer hover:opacity-80 ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`}
+                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('past_due'); setTasksHelperOpen(true); }}
+                      >
+                        {taskCounts.pastDue} past due
+                      </Badge>
+                      <Badge 
+                        variant="outline" 
+                        className={`cursor-pointer hover:opacity-80 ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
+                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('today_tomorrow'); setTasksHelperOpen(true); }}
+                      >
+                        {taskCounts.todayTomorrow} today/tomorrow
+                      </Badge>
+                      <Badge 
+                        variant="outline" 
+                        className="cursor-pointer hover:opacity-80 text-muted-foreground"
+                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('after_tomorrow'); setTasksHelperOpen(true); }}
+                      >
+                        {taskCounts.afterTomorrow} after
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>GHL tasks synced from GoHighLevel - click to view opportunity</CardDescription>
+                  </div>
+                </div>
+                {tasksHelperOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="flex flex-wrap items-center gap-4 mb-4">
+                <Button variant="outline" size="sm" onClick={fetchGhlTasks} disabled={isLoadingTasks}>
+                  {isLoadingTasks ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                  Refresh
+                </Button>
+                <Select value={tasksAssigneeFilter} onValueChange={setTasksAssigneeFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <User className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Assignees</SelectItem>
+                    {uniqueTaskAssignees.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={tasksDueDateFilter} onValueChange={v => setTasksDueDateFilter(v as DueDateFilter)}>
+                  <SelectTrigger className="w-[180px]">
+                    <Clock className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Due Date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Due Dates</SelectItem>
+                    <SelectItem value="past_due">Past Due</SelectItem>
+                    <SelectItem value="today_tomorrow">Due: Today & Tomorrow</SelectItem>
+                    <SelectItem value="after_tomorrow">Due: After Tomorrow</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isLoadingTasks && ghlTasks.length === 0 ? <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Loading tasks from GHL...</span>
+                </div> : filteredGhlTasks.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+                  No pending tasks found
+                </div> : <div className="space-y-3">
+                  {filteredGhlTasks.map(task => {
+                const overdue = isTaskOverdue(task.due_date);
+                const contactName = getContactName(task.contact_id);
+                const opportunity = getOpportunityForContact(task.contact_id);
+                return <div key={task.id} className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${overdue ? "bg-destructive/5 border-destructive/30" : "bg-card border-border/50"}`} onClick={() => handleTaskClick(task)}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{task.title}</span>
+                              {overdue && <Badge variant="destructive" className="text-xs">Overdue</Badge>}
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {formatTaskDueDate(task.due_date)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {getUserName(task.assigned_to)}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-sm">
+                              <span className="text-muted-foreground">​</span>{" "}
+                              {opportunity && <>
+                                  <span className="text-muted-foreground ml-3 mx-0">Opp:</span>{" "}
+                                  <span className="font-medium">{opportunity.name || "Unnamed"}</span>
+                                </>}
+                            </div>
+                            {task.body && <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
+                                {task.body.replace(/<[^>]*>/g, '')}
+                              </p>}
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                        </div>
+                      </div>;
+              })}
+                </div>}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
       {/* Stale Notes View */}
       <Collapsible open={staleNotesOpen} onOpenChange={setStaleNotesOpen}>
         <Card>
@@ -1237,127 +1359,5 @@ export function FollowUpManagement({
         </Card>
       </Collapsible>
 
-      {/* Tasks Helper */}
-      <Collapsible open={tasksHelperOpen} onOpenChange={setTasksHelperOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                    <CheckSquare className="h-5 w-5 text-purple-500" />
-                  </div>
-                  <div>
-                    <CardTitle className="flex items-center gap-2 flex-wrap">
-                      Tasks Helper
-                      <Badge variant="secondary">{taskCounts.total}</Badge>
-                      <Badge 
-                        variant="outline" 
-                        className={`cursor-pointer hover:opacity-80 ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`}
-                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('past_due'); setTasksHelperOpen(true); }}
-                      >
-                        {taskCounts.pastDue} past due
-                      </Badge>
-                      <Badge 
-                        variant="outline" 
-                        className={`cursor-pointer hover:opacity-80 ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
-                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('today_tomorrow'); setTasksHelperOpen(true); }}
-                      >
-                        {taskCounts.todayTomorrow} today/tomorrow
-                      </Badge>
-                      <Badge 
-                        variant="outline" 
-                        className="cursor-pointer hover:opacity-80 text-muted-foreground"
-                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('after_tomorrow'); setTasksHelperOpen(true); }}
-                      >
-                        {taskCounts.afterTomorrow} after
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>GHL tasks synced from GoHighLevel - click to view opportunity</CardDescription>
-                  </div>
-                </div>
-                {tasksHelperOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent>
-              <div className="flex flex-wrap items-center gap-4 mb-4">
-                <Button variant="outline" size="sm" onClick={fetchGhlTasks} disabled={isLoadingTasks}>
-                  {isLoadingTasks ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-                  Refresh
-                </Button>
-                <Select value={tasksAssigneeFilter} onValueChange={setTasksAssigneeFilter}>
-                  <SelectTrigger className="w-[160px]">
-                    <User className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Assignee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Assignees</SelectItem>
-                    {uniqueTaskAssignees.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={tasksDueDateFilter} onValueChange={v => setTasksDueDateFilter(v as DueDateFilter)}>
-                  <SelectTrigger className="w-[180px]">
-                    <Clock className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Due Date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Due Dates</SelectItem>
-                    <SelectItem value="past_due">Past Due</SelectItem>
-                    <SelectItem value="today_tomorrow">Due: Today & Tomorrow</SelectItem>
-                    <SelectItem value="after_tomorrow">Due: After Tomorrow</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {isLoadingTasks && ghlTasks.length === 0 ? <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Loading tasks from GHL...</span>
-                </div> : filteredGhlTasks.length === 0 ? <div className="text-center py-8 text-muted-foreground">
-                  No pending tasks found
-                </div> : <div className="space-y-3">
-                  {filteredGhlTasks.map(task => {
-                const overdue = isTaskOverdue(task.due_date);
-                const contactName = getContactName(task.contact_id);
-                const opportunity = getOpportunityForContact(task.contact_id);
-                return <div key={task.id} className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${overdue ? "bg-destructive/5 border-destructive/30" : "bg-card border-border/50"}`} onClick={() => handleTaskClick(task)}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium">{task.title}</span>
-                              {overdue && <Badge variant="destructive" className="text-xs">Overdue</Badge>}
-                            </div>
-                            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {formatTaskDueDate(task.due_date)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                {getUserName(task.assigned_to)}
-                              </span>
-                            </div>
-                            <div className="mt-2 text-sm">
-                              <span className="text-muted-foreground">​</span>{" "}
-                              
-                              {opportunity && <>
-                                  <span className="text-muted-foreground ml-3 mx-0">Opp:</span>{" "}
-                                  <span className="font-medium">{opportunity.name || "Unnamed"}</span>
-                                </>}
-                            </div>
-                            {task.body && <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
-                                {task.body.replace(/<[^>]*>/g, '')}
-                              </p>}
-                          </div>
-                          <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
-                        </div>
-                      </div>;
-              })}
-                </div>}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
     </div>;
 }
