@@ -159,7 +159,7 @@ export function SalesRepDetailSheet({
     return opportunities.filter(o => getEffectiveAssignment(o) === repGhlId);
   }, [opportunities, repGhlId, contactAssignmentMap, appointmentAssignmentMap]);
 
-  // Get contacts assigned to this rep (for lead counts)
+  // Get contacts directly assigned to this rep
   const repContacts = useMemo(() => {
     return contacts.filter(c => c.assigned_to === repGhlId);
   }, [contacts, repGhlId]);
@@ -168,6 +168,29 @@ export function SalesRepDetailSheet({
   const repAppointments = useMemo(() => {
     return appointments.filter(a => a.assigned_user_id === repGhlId);
   }, [appointments, repGhlId]);
+
+  // Calculate unique contacts across all activities (opportunities + appointments)
+  const uniqueContactsCount = useMemo(() => {
+    const contactIds = new Set<string>();
+    // Add contacts from opportunities
+    repOpportunities.forEach(o => {
+      if (o.contact_id) contactIds.add(o.contact_id);
+    });
+    // Add contacts from appointments
+    repAppointments.forEach(a => {
+      if (a.contact_id) contactIds.add(a.contact_id);
+    });
+    return contactIds.size;
+  }, [repOpportunities, repAppointments]);
+
+  // Count unique contacts with appointments
+  const uniqueAppointmentContacts = useMemo(() => {
+    const contactIds = new Set<string>();
+    repAppointments.forEach(a => {
+      if (a.contact_id) contactIds.add(a.contact_id);
+    });
+    return contactIds.size;
+  }, [repAppointments]);
 
   // Sort opportunities by status (won, open, lost)
   const sortedOpportunities = useMemo(() => {
@@ -244,7 +267,9 @@ export function SalesRepDetailSheet({
                 </div>
                 <div>
                   <SheetTitle className="text-lg font-semibold">{repName}</SheetTitle>
-                  <p className="text-sm text-muted-foreground">{repContacts.length} leads assigned</p>
+                  <p className="text-sm text-muted-foreground">
+                    {uniqueContactsCount} contacts ({repContacts.length} directly assigned)
+                  </p>
                 </div>
               </div>
             </SheetHeader>
@@ -299,7 +324,7 @@ export function SalesRepDetailSheet({
                 <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Appointments ({repAppointments.length})
+                    Appointments ({repAppointments.length} across {uniqueAppointmentContacts} contacts)
                   </span>
                 </div>
                 <div className="divide-y max-h-48 overflow-y-auto">
