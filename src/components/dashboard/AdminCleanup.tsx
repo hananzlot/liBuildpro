@@ -27,6 +27,7 @@ interface Opportunity {
   name: string | null;
   status: string | null;
   stage_name: string | null;
+  pipeline_id: string | null;
   pipeline_name: string | null;
   pipeline_stage_id: string | null;
   monetary_value: number | null;
@@ -126,6 +127,15 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
     return opportunities.find(opp => opp.contact_id === contactId);
   };
 
+  // Build a lookup map for pipeline_stage_id by pipeline and stage name
+  const getStageIdForPipeline = (pipelineId: string | null, stageName: string): string | null => {
+    if (!pipelineId) return null;
+    const matchingOpp = opportunities.find(
+      opp => opp.pipeline_id === pipelineId && opp.stage_name === stageName
+    );
+    return matchingOpp?.pipeline_stage_id || null;
+  };
+
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('en-US', {
@@ -209,12 +219,16 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
             newOppStatus = 'lost';
           }
 
+          // Look up the pipeline_stage_id for this stage in the same pipeline
+          const pipelineStageId = getStageIdForPipeline(relatedOpp.pipeline_id, newOppStage);
+
           // Update opportunity in GHL
           const { error: ghlError } = await supabase.functions.invoke('update-ghl-opportunity', {
             body: { 
               ghl_id: relatedOpp.ghl_id,
               status: newOppStatus,
-              stage_name: newOppStage
+              stage_name: newOppStage,
+              pipeline_stage_id: pipelineStageId,
             }
           });
 
@@ -227,11 +241,16 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
             .from('opportunities')
             .update({ 
               stage_name: newOppStage,
-              status: newOppStatus
+              status: newOppStatus,
+              pipeline_stage_id: pipelineStageId,
             })
             .eq('id', relatedOpp.id);
 
-          toast.success(`Updated appointment to "${newApptStatus}" and opportunity to "${newOppStage}"`);
+          if (pipelineStageId) {
+            toast.success(`Updated appointment to "${newApptStatus}" and opportunity stage to "${newOppStage}" (status: ${newOppStatus})`);
+          } else {
+            toast.warning(`Updated appointment to "${newApptStatus}" and opportunity status to "${newOppStatus}", but stage "${newOppStage}" not found in pipeline`);
+          }
         } else {
           toast.success(`Updated appointment to "${newApptStatus}" (no related opportunity found)`);
         }
