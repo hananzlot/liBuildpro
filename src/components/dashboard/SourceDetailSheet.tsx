@@ -273,17 +273,25 @@ export function SourceDetailSheet({
     return new Set(allSourceContacts.map(c => c.ghl_id));
   }, [allSourceContacts]);
 
+  // Get appointments for this source (use filtered appointments, exclude cancelled)
+  const sourceAppointments = useMemo(() => {
+    return filteredAppointments
+      .filter(a => a.contact_id && allSourceContactIds.has(a.contact_id))
+      .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled');
+  }, [filteredAppointments, allSourceContactIds]);
+
+  // Get contact IDs that actually have appointments
+  const contactIdsWithAppointments = useMemo(() => {
+    return new Set(sourceAppointments.map(a => a.contact_id).filter(Boolean));
+  }, [sourceAppointments]);
+
   // Get opportunities for this source (use filtered opportunities, exclude quickbase)
+  // When showing appointments, only include opportunities for contacts WITH appointments
   const sourceOpportunities = useMemo(() => {
     return filteredOpportunities
       .filter(o => o.contact_id && allSourceContactIds.has(o.contact_id))
       .filter(o => o.stage_name?.toLowerCase() !== 'quickbase');
   }, [filteredOpportunities, allSourceContactIds]);
-
-  // Get appointments for this source (use filtered appointments)
-  const sourceAppointments = useMemo(() => {
-    return filteredAppointments.filter(a => a.contact_id && allSourceContactIds.has(a.contact_id));
-  }, [filteredAppointments, allSourceContactIds]);
 
   // Unique appointments count (unique by appointment ghl_id)
   const uniqueAppointmentsCount = useMemo(() => {
@@ -294,6 +302,11 @@ export function SourceDetailSheet({
   // Filter based on mode and search
   const displayOpportunities = useMemo(() => {
     let opps = sourceOpportunities;
+    
+    // When viewing appointments tab, only show contacts that have appointments
+    if (showAppointments) {
+      opps = opps.filter(o => o.contact_id && contactIdsWithAppointments.has(o.contact_id));
+    }
     
     if (mode === "won") {
       opps = opps.filter(o => o.status?.toLowerCase() === "won");
@@ -330,7 +343,7 @@ export function SourceDetailSheet({
           return new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime();
       }
     });
-  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts]);
+  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts, showAppointments, contactIdsWithAppointments]);
 
   // Available statuses
   const availableStatuses = useMemo(() => {
