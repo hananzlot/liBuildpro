@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch, ChevronRight, Search } from "lucide-react";
+import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch, ChevronRight, Search, MapPin } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
 interface Opportunity {
@@ -327,33 +327,71 @@ export function SalesRepDetailSheet({
                     Appointments ({repAppointments.length} across {uniqueAppointmentContacts} contacts)
                   </span>
                 </div>
-                <div className="divide-y max-h-48 overflow-y-auto">
+                <div className="divide-y max-h-64 overflow-y-auto">
                   {repAppointments.length === 0 ? (
                     <div className="p-3 text-sm text-muted-foreground text-center">No appointments</div>
                   ) : (
                     repAppointments
                       .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
                       .slice(0, 10)
-                      .map((appt) => (
-                        <div key={appt.ghl_id} className="p-3 flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm truncate">{appt.title || 'Untitled'}</div>
-                            <div className="text-xs text-muted-foreground">{formatDate(appt.start_time)}</div>
-                          </div>
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs shrink-0 ${
-                              appt.appointment_status?.toLowerCase() === 'confirmed' 
-                                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                                : appt.appointment_status?.toLowerCase() === 'cancelled'
-                                ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                                : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                            }`}
+                      .map((appt) => {
+                        const contact = contacts.find(c => c.ghl_id === appt.contact_id);
+                        const opportunity = opportunities.find(o => o.contact_id === appt.contact_id);
+                        
+                        // Extract address from contact custom_fields
+                        let address: string | null = null;
+                        if (contact?.custom_fields) {
+                          const customFields = contact.custom_fields as { id: string; value: string }[];
+                          if (Array.isArray(customFields)) {
+                            const addressField = customFields.find(f => f.id === 'b7oTVsUQrLgZt84bHpCn');
+                            address = addressField?.value || null;
+                          }
+                        }
+                        
+                        const contactName = contact?.contact_name || 
+                          [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || 
+                          'Unknown Contact';
+                        
+                        return (
+                          <div 
+                            key={appt.ghl_id} 
+                            className={`p-3 space-y-1.5 ${opportunity ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''}`}
+                            onClick={() => opportunity && handleOpportunityClick(opportunity)}
                           >
-                            {appt.appointment_status || 'Unknown'}
-                          </Badge>
-                        </div>
-                      ))
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-sm truncate">{contactName}</div>
+                                <div className="text-xs text-muted-foreground">{appt.title || 'Untitled'}</div>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${
+                                    appt.appointment_status?.toLowerCase() === 'confirmed' 
+                                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                      : appt.appointment_status?.toLowerCase() === 'cancelled'
+                                      ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                                      : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                  }`}
+                                >
+                                  {appt.appointment_status || 'Unknown'}
+                                </Badge>
+                                {opportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                              </div>
+                            </div>
+                            {address && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{address}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              {formatDate(appt.start_time)}
+                            </div>
+                          </div>
+                        );
+                      })
                   )}
                 </div>
               </div>
