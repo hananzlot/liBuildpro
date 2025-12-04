@@ -152,7 +152,9 @@ function processMetrics(
   upcomingAppointments: number;
   upcomingNextWeek: number;
   opportunities: DBOpportunity[];
+  filteredOpportunitiesList: DBOpportunity[];
   appointments: DBAppointment[];
+  filteredAppointmentsList: DBAppointment[];
   contacts: DBContact[];
   allContacts: DBContact[];
   allOpportunities: DBOpportunity[];
@@ -384,10 +386,12 @@ function processMetrics(
     upcomingAppointments,
     upcomingNextWeek,
     opportunities: filteredOpportunities.slice(0, 10),
+    filteredOpportunitiesList: filteredOpportunities,
     appointments: appointments
       .filter(a => a.start_time)
       .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime())
       .slice(0, 10),
+    filteredAppointmentsList: filteredAppointments,
     contacts: filteredContacts,
     allContacts: contacts,
     allOpportunities: opportunities,
