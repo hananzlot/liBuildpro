@@ -239,6 +239,7 @@ const Index = () => {
                 contactNotes={metrics?.contactNotes || []}
                 tasks={metrics?.tasks || []}
                 onOpenOpportunity={handleOpenOpportunity}
+                onDataRefresh={refetch}
               />
             )}
           </TabsContent>
