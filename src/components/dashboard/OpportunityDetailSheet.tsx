@@ -1275,7 +1275,7 @@ export function OpportunityDetailSheet({
                       </div>
                       {task.notes && (
                         <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted/30 rounded whitespace-pre-wrap ml-7">
-                          {task.notes}
+                          {stripHtml(task.notes)}
                         </div>
                       )}
                     </div>

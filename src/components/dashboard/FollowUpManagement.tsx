@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+// Helper to strip HTML tags from text
+const stripHtml = (html: string | null | undefined): string => {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return doc.body.textContent || '';
+};
 interface DBOpportunity {
   id: string;
   ghl_id: string;
@@ -1156,7 +1163,7 @@ export function FollowUpManagement({
                                 </>}
                             </div>
                             {task.body && <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
-                                {task.body.replace(/<[^>]*>/g, '')}
+                                {stripHtml(task.body)}
                               </p>}
                           </div>
                           <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
