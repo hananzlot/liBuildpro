@@ -462,6 +462,21 @@ serve(async (req) => {
     // Sync conversations
     if (conversations.length > 0) {
       console.log(`Syncing ${conversations.length} conversations...`);
+      
+      // Helper to convert Unix timestamp (ms) to ISO string
+      const toISODate = (val: any): string | null => {
+        if (!val) return null;
+        // If it's a number (Unix timestamp in ms), convert it
+        if (typeof val === 'number') {
+          return new Date(val).toISOString();
+        }
+        // If it's already a string, return as-is (assume ISO format)
+        if (typeof val === 'string') {
+          return val;
+        }
+        return null;
+      };
+
       const convsToUpsert = conversations.map(c => ({
         ghl_id: c.id,
         location_id: c.locationId || locationId,
@@ -470,11 +485,11 @@ serve(async (req) => {
         unread_count: c.unreadCount || 0,
         inbox_status: c.inboxStatus || null,
         last_message_body: c.lastMessageBody || null,
-        last_message_date: c.lastMessageDate || null,
+        last_message_date: toISODate(c.lastMessageDate),
         last_message_type: c.lastMessageType || null,
         last_message_direction: c.lastMessageDirection || null,
-        ghl_date_added: c.dateAdded || c.createdAt || null,
-        ghl_date_updated: c.dateUpdated || c.updatedAt || null,
+        ghl_date_added: toISODate(c.dateAdded) || toISODate(c.createdAt),
+        ghl_date_updated: toISODate(c.dateUpdated) || toISODate(c.updatedAt),
       }));
 
       for (let i = 0; i < convsToUpsert.length; i += 100) {
