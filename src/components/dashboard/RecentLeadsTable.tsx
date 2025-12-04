@@ -66,6 +66,21 @@ export function RecentLeadsTable({ leads, opportunities, appointments, users }: 
     setSheetOpen(true);
   };
 
+  // Get opportunity status for a contact
+  const getContactOpportunity = (contactGhlId: string) => {
+    return opportunities.find(o => o.contact_id === contactGhlId);
+  };
+
+  const getStatusColor = (status: string | null | undefined) => {
+    switch (status?.toLowerCase()) {
+      case 'won': return 'bg-emerald-500/20 text-emerald-400';
+      case 'lost':
+      case 'abandoned': return 'bg-red-500/20 text-red-400';
+      case 'open': return 'bg-blue-500/20 text-blue-400';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
   return (
     <>
       <div className="rounded-2xl bg-card p-6 border border-border/50">
@@ -84,33 +99,44 @@ export function RecentLeadsTable({ leads, opportunities, appointments, users }: 
                   Source
                 </th>
                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider pb-3">
+                  Status
+                </th>
+                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider pb-3">
                   Date Added
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/30">
-              {leads.map((lead) => (
-                <tr 
-                  key={lead.id} 
-                  className="hover:bg-muted/30 transition-colors cursor-pointer"
-                  onClick={() => handleRowClick(lead)}
-                >
-                  <td className="py-4 text-sm font-medium text-foreground">
-                    {lead.contact_name || `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'N/A'}
-                  </td>
-                  <td className="py-4 text-sm text-muted-foreground">
-                    {lead.email || 'N/A'}
-                  </td>
-                  <td className="py-4">
-                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                      {lead.source || 'Direct'}
-                    </span>
-                  </td>
-                  <td className="py-4 text-sm text-muted-foreground">
-                    {lead.ghl_date_added ? format(new Date(lead.ghl_date_added), 'MMM d, yyyy') : 'N/A'}
-                  </td>
-                </tr>
-              ))}
+              {leads.map((lead) => {
+                const opportunity = getContactOpportunity(lead.ghl_id);
+                return (
+                  <tr 
+                    key={lead.id} 
+                    className="hover:bg-muted/30 transition-colors cursor-pointer"
+                    onClick={() => handleRowClick(lead)}
+                  >
+                    <td className="py-4 text-sm font-medium text-foreground">
+                      {lead.contact_name || `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'N/A'}
+                    </td>
+                    <td className="py-4 text-sm text-muted-foreground">
+                      {lead.email || 'N/A'}
+                    </td>
+                    <td className="py-4">
+                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                        {lead.source || 'Direct'}
+                      </span>
+                    </td>
+                    <td className="py-4">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${getStatusColor(opportunity?.status)}`}>
+                        {opportunity?.status || 'No Opp'}
+                      </span>
+                    </td>
+                    <td className="py-4 text-sm text-muted-foreground">
+                      {lead.ghl_date_added ? format(new Date(lead.ghl_date_added), 'MMM d, yyyy') : 'N/A'}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {leads.length === 0 && (
