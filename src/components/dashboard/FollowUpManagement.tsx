@@ -578,11 +578,13 @@ export function FollowUpManagement({
       return stageName.includes('close') && stageName.includes('sale') && o.status?.toLowerCase() === 'open';
     });
 
-    // Deduplicate by ghl_id (keep first occurrence)
+    // Deduplicate by contact_id (keep the one with highest monetary value)
     const uniqueMap = new Map<string, DBOpportunity>();
     results.forEach(o => {
-      if (!uniqueMap.has(o.ghl_id)) {
-        uniqueMap.set(o.ghl_id, o);
+      if (!o.contact_id) return;
+      const existing = uniqueMap.get(o.contact_id);
+      if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
+        uniqueMap.set(o.contact_id, o);
       }
     });
     let unique = Array.from(uniqueMap.values());
