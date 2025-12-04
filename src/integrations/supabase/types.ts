@@ -68,6 +68,42 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_notes: {
+        Row: {
+          body: string | null
+          contact_id: string
+          created_at: string
+          ghl_date_added: string | null
+          ghl_id: string
+          id: string
+          location_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          contact_id: string
+          created_at?: string
+          ghl_date_added?: string | null
+          ghl_id: string
+          id?: string
+          location_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          contact_id?: string
+          created_at?: string
+          ghl_date_added?: string | null
+          ghl_id?: string
+          id?: string
+          location_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       contacts: {
         Row: {
           assigned_to: string | null

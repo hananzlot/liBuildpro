@@ -93,6 +93,13 @@ interface Conversation {
   messages?: Message[];
 }
 
+interface ContactNote {
+  id: string;
+  body: string;
+  userId: string | null;
+  dateAdded: string;
+}
+
 interface OpportunityDetailSheetProps {
   opportunity: Opportunity | null;
   appointments: Appointment[];
@@ -133,10 +140,15 @@ export function OpportunityDetailSheet({
   // Real-time conversation fetching
   const [liveConversations, setLiveConversations] = useState<Conversation[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+  
+  // Contact notes
+  const [contactNotesList, setContactNotesList] = useState<ContactNote[]>([]);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
 
-  // Fetch conversations from GHL when sheet opens
+  // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
     if (open && opportunity?.contact_id) {
+      // Fetch conversations
       const fetchConversations = async () => {
         setIsLoadingConversations(true);
         try {
@@ -156,9 +168,31 @@ export function OpportunityDetailSheet({
         }
       };
       
+      // Fetch contact notes
+      const fetchNotes = async () => {
+        setIsLoadingNotes(true);
+        try {
+          const { data, error } = await supabase.functions.invoke('fetch-contact-notes', {
+            body: { contact_id: opportunity.contact_id },
+          });
+          
+          if (error) {
+            console.error('Error fetching notes:', error);
+          } else if (data?.notes) {
+            setContactNotesList(data.notes);
+          }
+        } catch (err) {
+          console.error('Failed to fetch notes:', err);
+        } finally {
+          setIsLoadingNotes(false);
+        }
+      };
+      
       fetchConversations();
+      fetchNotes();
     } else {
       setLiveConversations([]);
+      setContactNotesList([]);
     }
   }, [open, opportunity?.contact_id]);
 
@@ -485,21 +519,52 @@ export function OpportunityDetailSheet({
 
           {/* Notes/Comments */}
           <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes & Comments</span>
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
+                </span>
+              </div>
+              {isLoadingNotes && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
             </div>
-            <div className="p-3 space-y-3">
-              {contactNotes ? (
-                <div>
-                  <div className="text-xs text-muted-foreground mb-1">Contact Notes</div>
+            <div className="p-3 space-y-3 max-h-80 overflow-y-auto">
+              {/* Timeline Notes from GHL */}
+              {contactNotesList.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground mb-2">Activity Notes</div>
+                  {contactNotesList
+                    .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
+                    .map((note) => {
+                      const noteUser = users.find(u => u.ghl_id === note.userId);
+                      const noteUserName = noteUser?.name || 
+                        (noteUser?.first_name && noteUser?.last_name 
+                          ? `${noteUser.first_name} ${noteUser.last_name}` 
+                          : 'Unknown');
+                      return (
+                        <div key={note.id} className="bg-muted/30 rounded p-2">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                            <span>{noteUserName}</span>
+                            <span>{new Date(note.dateAdded).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{note.body}</p>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+
+              {/* Contact Custom Field Notes */}
+              {contactNotes && (
+                <div className={contactNotesList.length > 0 ? "border-t pt-3" : ""}>
+                  <div className="text-xs text-muted-foreground mb-1">Custom Field Notes</div>
                   <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
                 </div>
-              ) : null}
+              )}
               
               {/* Appointment Notes */}
               {relatedAppointments.filter(a => a.notes).length > 0 && (
-                <div className={contactNotes ? "border-t pt-3" : ""}>
+                <div className={(contactNotes || contactNotesList.length > 0) ? "border-t pt-3" : ""}>
                   <div className="text-xs text-muted-foreground mb-2">Appointment Notes</div>
                   <div className="space-y-2">
                     {relatedAppointments.filter(a => a.notes).map((appt) => (
@@ -512,8 +577,10 @@ export function OpportunityDetailSheet({
                 </div>
               )}
               
-              {!contactNotes && relatedAppointments.filter(a => a.notes).length === 0 && (
-                <p className="text-sm text-muted-foreground/60 italic">No notes or comments</p>
+              {!contactNotes && contactNotesList.length === 0 && relatedAppointments.filter(a => a.notes).length === 0 && (
+                <p className="text-sm text-muted-foreground/60 italic">
+                  {isLoadingNotes ? 'Loading notes...' : 'No notes or comments'}
+                </p>
               )}
             </div>
           </div>

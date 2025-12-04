@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.update-ghl-appointment]
 verify_jwt = false
+
+[functions.fetch-contact-notes]
+verify_jwt = false
