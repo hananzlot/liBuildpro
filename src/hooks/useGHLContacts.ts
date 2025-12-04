@@ -278,8 +278,8 @@ function processMetrics(
         .filter(o => o.status?.toLowerCase() === 'won')
         .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
       
-      // Conversion rate = won / total opportunities (as percentage)
-      const conversionRate = totalOpportunities > 0 ? (wonOpportunities / totalOpportunities) * 100 : 0;
+      // Success rate = won opportunities / unique contacts with appointments (as percentage)
+      const conversionRate = uniqueAppointments > 0 ? (wonOpportunities / uniqueAppointments) * 100 : 0;
 
       return {
         assignedTo,

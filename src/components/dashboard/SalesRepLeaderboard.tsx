@@ -173,13 +173,13 @@ export function SalesRepLeaderboard({
                       </TooltipContent>
                     </Tooltip>
 
-                    {/* Won/Total Ratio with Conversion Rate */}
+                    {/* Won/Total Ratio with Success Rate */}
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className="flex items-center gap-1 text-muted-foreground cursor-help">
                           <Trophy className="h-3.5 w-3.5 text-emerald-500" />
                           <span className="font-medium text-foreground">
-                            {rep.wonOpportunities}/{rep.totalOpportunities}
+                            {rep.wonOpportunities}/{rep.uniqueAppointments}
                           </span>
                           <span className="text-muted-foreground">
                             ({rep.conversionRate.toFixed(0)}%)
@@ -187,7 +187,7 @@ export function SalesRepLeaderboard({
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="bg-popover border-border">
-                        <p className="text-xs">Won / Total Opportunities<br />Conversion rate: {rep.conversionRate.toFixed(1)}%</p>
+                        <p className="text-xs">Won Opportunities / Unique Contacts<br />Success rate: {rep.conversionRate.toFixed(1)}%</p>
                       </TooltipContent>
                     </Tooltip>
 
