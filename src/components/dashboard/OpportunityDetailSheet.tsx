@@ -118,7 +118,7 @@ export function OpportunityDetailSheet({
     setEditedStatus(opportunity?.status?.toLowerCase() || "open");
     setEditedStage(opportunity?.stage_name || "");
     setEditedMonetaryValue(opportunity?.monetary_value?.toString() || "0");
-    setEditedAssignedTo(opportunity?.assigned_to || "");
+    setEditedAssignedTo(opportunity?.assigned_to || "__unassigned__");
     setIsEditing(true);
   };
 
@@ -147,7 +147,7 @@ export function OpportunityDetailSheet({
           stage_name: editedStage,
           pipeline_stage_id: pipeline_stage_id,
           monetary_value: monetaryValue,
-          assigned_to: editedAssignedTo || null,
+          assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo,
         },
       });
 
@@ -338,7 +338,7 @@ export function OpportunityDetailSheet({
                     <SelectValue placeholder="Select rep" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="" className="text-xs">Unassigned</SelectItem>
+                    <SelectItem value="__unassigned__" className="text-xs">Unassigned</SelectItem>
                     {users.map(user => {
                       const name = user.name || 
                         (user.first_name && user.last_name 
