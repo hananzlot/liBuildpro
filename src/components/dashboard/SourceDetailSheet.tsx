@@ -611,7 +611,11 @@ export function SourceDetailSheet({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {users.map((user) => (
+                  {[...users].sort((a, b) => {
+                    const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
+                    const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
+                    return nameA.localeCompare(nameB);
+                  }).map((user) => (
                     <SelectItem key={user.ghl_id} value={user.ghl_id}>
                       {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown"}
                     </SelectItem>
