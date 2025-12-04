@@ -70,6 +70,16 @@ interface GHLUser {
   email: string | null;
 }
 
+interface Message {
+  id: string;
+  body: string;
+  direction: string;
+  status: string;
+  type: string;
+  dateAdded: string;
+  attachments?: any[];
+}
+
 interface Conversation {
   ghl_id: string;
   contact_id: string | null;
@@ -80,6 +90,7 @@ interface Conversation {
   last_message_date: string | null;
   last_message_type: string | null;
   last_message_direction: string | null;
+  messages?: Message[];
 }
 
 interface OpportunityDetailSheetProps {
@@ -509,21 +520,41 @@ export function OpportunityDetailSheet({
 
           {/* Conversations - fetched live from GHL */}
           {(() => {
-            const formatConvDate = (dateStr: string | null) => {
+            const formatConvDate = (dateStr: string | null | number) => {
               if (!dateStr) return '';
-              return new Date(dateStr).toLocaleString('en-US', {
+              const date = typeof dateStr === 'number' ? new Date(dateStr) : new Date(dateStr);
+              return date.toLocaleString('en-US', {
                 month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
               });
             };
 
             const getTypeIcon = (type: string | null) => {
               switch (type?.toLowerCase()) {
+                case 'type_sms':
                 case 'sms': return '💬';
+                case 'type_email':
                 case 'email': return '📧';
+                case 'type_call':
                 case 'call': return '📞';
+                case 'type_facebook':
+                case 'facebook': return '📘';
+                case 'type_instagram':
+                case 'instagram': return '📸';
                 default: return '💬';
               }
             };
+
+            // Flatten all messages from all conversations and sort by date
+            const allMessages = liveConversations.flatMap(conv => 
+              (conv.messages || []).map(msg => ({
+                ...msg,
+                conversationType: conv.type,
+              }))
+            ).sort((a, b) => {
+              const dateA = new Date(a.dateAdded).getTime();
+              const dateB = new Date(b.dateAdded).getTime();
+              return dateB - dateA; // Most recent first
+            });
 
             return (
               <div className="border rounded-lg overflow-hidden">
@@ -531,7 +562,7 @@ export function OpportunityDetailSheet({
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Conversations {liveConversations.length > 0 && `(${liveConversations.length})`}
+                      Conversation History {allMessages.length > 0 && `(${allMessages.length} messages)`}
                     </span>
                   </div>
                   <Button 
@@ -548,33 +579,41 @@ export function OpportunityDetailSheet({
                 {isLoadingConversations ? (
                   <div className="p-4 flex items-center justify-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Loading conversations...</span>
+                    <span className="text-sm">Loading conversation history...</span>
                   </div>
-                ) : liveConversations.length === 0 ? (
+                ) : allMessages.length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
-                    No conversations found
+                    No conversation history found
                   </div>
                 ) : (
-                  <div className="divide-y max-h-48 overflow-y-auto">
-                    {liveConversations.slice(0, 10).map((conv) => (
-                      <div key={conv.ghl_id} className="p-3 space-y-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {getTypeIcon(conv.last_message_type)} {conv.last_message_type || 'Message'}
-                            {conv.last_message_direction === 'inbound' ? ' (received)' : ' (sent)'}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatConvDate(conv.last_message_date)}
-                          </span>
+                  <div className="max-h-80 overflow-y-auto p-3 space-y-3">
+                    {allMessages.slice(0, 50).map((msg) => (
+                      <div 
+                        key={msg.id} 
+                        className={`flex flex-col ${msg.direction === 'inbound' ? 'items-start' : 'items-end'}`}
+                      >
+                        <div 
+                          className={`max-w-[85%] rounded-lg px-3 py-2 ${
+                            msg.direction === 'inbound' 
+                              ? 'bg-muted/60 text-foreground' 
+                              : 'bg-primary/20 text-foreground'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap break-words">{msg.body || '(No content)'}</p>
                         </div>
-                        <p className="text-sm line-clamp-2">{conv.last_message_body || 'No message content'}</p>
-                        {(conv.unread_count || 0) > 0 && (
-                          <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
-                            {conv.unread_count} unread
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
+                          <span>{getTypeIcon(msg.type)}</span>
+                          <span>{msg.direction === 'inbound' ? 'Received' : 'Sent'}</span>
+                          <span>•</span>
+                          <span>{formatConvDate(msg.dateAdded)}</span>
+                        </div>
                       </div>
                     ))}
+                    {allMessages.length > 50 && (
+                      <div className="text-center text-xs text-muted-foreground py-2">
+                        Showing 50 of {allMessages.length} messages
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
