@@ -1,5 +1,7 @@
 import { DollarSign, Trophy, MapPin, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useMemo } from "react";
 
 interface Opportunity {
   ghl_id: string;
@@ -74,70 +76,86 @@ export function RecentWonDeals({ wonOpportunities, contacts, onOpportunityClick 
     });
   };
 
-  const recentWon = wonOpportunities.slice(0, 5);
-  const totalWonValue = wonOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
+  // Filter to last 30 days
+  const last30DaysWon = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    return wonOpportunities
+      .filter(opp => {
+        if (!opp.ghl_date_updated) return false;
+        return new Date(opp.ghl_date_updated) >= thirtyDaysAgo;
+      })
+      .sort((a, b) => 
+        new Date(b.ghl_date_updated || 0).getTime() - new Date(a.ghl_date_updated || 0).getTime()
+      );
+  }, [wonOpportunities]);
+
+  const totalWonValue = last30DaysWon.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
   return (
-    <div className="rounded-2xl bg-card p-4 border border-border/50 h-full">
+    <div className="rounded-2xl bg-card p-4 border border-border/50 h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Trophy className="h-4 w-4 text-emerald-500" />
-          <h3 className="text-base font-semibold text-foreground">Recent Won Deals</h3>
+          <h3 className="text-base font-semibold text-foreground">Won Deals (30 days)</h3>
         </div>
         <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
-          {wonOpportunities.length} deals · {formatCurrency(totalWonValue)}
+          {last30DaysWon.length} · {formatCurrency(totalWonValue)}
         </Badge>
       </div>
 
-      {/* Deals List */}
-      <div className="space-y-1">
-        {recentWon.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No won deals in this period
-          </p>
-        ) : (
-          recentWon.map((opp) => {
-            const address = getAddress(opp.contact_id);
-            return (
-              <div
-                key={opp.ghl_id}
-                className="group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-all"
-                onClick={() => onOpportunityClick?.(opp)}
-              >
-                {/* Icon */}
-                <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                  <DollarSign className="h-3 w-3 text-emerald-500" />
-                </div>
+      {/* Deals List - Scrollable */}
+      <ScrollArea className="flex-1 -mx-2 px-2">
+        <div className="space-y-1 pr-2">
+          {last30DaysWon.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No won deals in the last 30 days
+            </p>
+          ) : (
+            last30DaysWon.map((opp) => {
+              const address = getAddress(opp.contact_id);
+              return (
+                <div
+                  key={opp.ghl_id}
+                  className="group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-all"
+                  onClick={() => onOpportunityClick?.(opp)}
+                >
+                  {/* Icon */}
+                  <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <DollarSign className="h-3 w-3 text-emerald-500" />
+                  </div>
 
-                {/* Name & Address */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                    {getContactName(opp.contact_id)}
-                  </p>
-                  {address && (
-                    <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                      <MapPin className="h-2.5 w-2.5 shrink-0" />
-                      {address}
+                  {/* Name & Address */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                      {getContactName(opp.contact_id)}
                     </p>
-                  )}
-                </div>
+                    {address && (
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <MapPin className="h-2.5 w-2.5 shrink-0" />
+                        {address}
+                      </p>
+                    )}
+                  </div>
 
-                {/* Value & Date */}
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-semibold text-emerald-500">
-                    {formatCurrency(opp.monetary_value)}
-                  </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-0.5 justify-end">
-                    <Calendar className="h-2.5 w-2.5" />
-                    {formatDate(opp.ghl_date_updated)}
-                  </p>
+                  {/* Value & Date */}
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-emerald-500">
+                      {formatCurrency(opp.monetary_value)}
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-0.5 justify-end">
+                      <Calendar className="h-2.5 w-2.5" />
+                      {formatDate(opp.ghl_date_updated)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+              );
+            })
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
