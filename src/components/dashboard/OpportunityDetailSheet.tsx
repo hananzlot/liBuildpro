@@ -1,30 +1,18 @@
 import { useState, useEffect } from "react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
   SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
-  NOTES: '588ddQgiGEg3AWtTQB2i',
+  NOTES: '588ddQgiGEg3AWtTQB2i'
 };
 
 // Strip HTML tags from text
@@ -32,7 +20,6 @@ const stripHtml = (html: string): string => {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   return doc.body.textContent || '';
 };
-
 interface Opportunity {
   ghl_id: string;
   name: string | null;
@@ -47,7 +34,6 @@ interface Opportunity {
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
 }
-
 interface Appointment {
   ghl_id: string;
   title: string | null;
@@ -57,7 +43,6 @@ interface Appointment {
   notes: string | null;
   contact_id: string | null;
 }
-
 interface Contact {
   ghl_id: string;
   contact_name: string | null;
@@ -68,7 +53,6 @@ interface Contact {
   source: string | null;
   custom_fields?: unknown;
 }
-
 interface GHLUser {
   ghl_id: string;
   name: string | null;
@@ -76,7 +60,6 @@ interface GHLUser {
   last_name: string | null;
   email: string | null;
 }
-
 interface Message {
   id: string;
   body: string;
@@ -86,7 +69,6 @@ interface Message {
   dateAdded: string;
   attachments?: any[];
 }
-
 interface Conversation {
   ghl_id: string;
   contact_id: string | null;
@@ -99,14 +81,12 @@ interface Conversation {
   last_message_direction: string | null;
   messages?: Message[];
 }
-
 interface ContactNote {
   id: string;
   body: string;
   userId: string | null;
   dateAdded: string;
 }
-
 interface OpportunityDetailSheetProps {
   opportunity: Opportunity | null;
   appointments: Appointment[];
@@ -117,15 +97,12 @@ interface OpportunityDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   allOpportunities?: Opportunity[];
 }
-
 const OPPORTUNITY_STATUSES = ["open", "won", "lost", "abandoned"];
-
 const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
   if (!customFields || !Array.isArray(customFields)) return null;
   const field = customFields.find((f: any) => f.id === fieldId);
   return field?.value || null;
 };
-
 export function OpportunityDetailSheet({
   opportunity,
   appointments,
@@ -134,7 +111,7 @@ export function OpportunityDetailSheet({
   conversations = [],
   open,
   onOpenChange,
-  allOpportunities = [],
+  allOpportunities = []
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -143,11 +120,11 @@ export function OpportunityDetailSheet({
   const [editedStage, setEditedStage] = useState<string>("");
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
   const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
-  
+
   // Real-time conversation fetching
   const [liveConversations, setLiveConversations] = useState<Conversation[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
-  
+
   // Contact notes
   const [contactNotesList, setContactNotesList] = useState<ContactNote[]>([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
@@ -161,10 +138,14 @@ export function OpportunityDetailSheet({
       const fetchConversations = async () => {
         setIsLoadingConversations(true);
         try {
-          const { data, error } = await supabase.functions.invoke('fetch-contact-conversations', {
-            body: { contact_id: opportunity.contact_id },
+          const {
+            data,
+            error
+          } = await supabase.functions.invoke('fetch-contact-conversations', {
+            body: {
+              contact_id: opportunity.contact_id
+            }
           });
-          
           if (error) {
             console.error('Error fetching conversations:', error);
           } else if (data?.conversations) {
@@ -176,15 +157,19 @@ export function OpportunityDetailSheet({
           setIsLoadingConversations(false);
         }
       };
-      
+
       // Fetch contact notes
       const fetchNotes = async () => {
         setIsLoadingNotes(true);
         try {
-          const { data, error } = await supabase.functions.invoke('fetch-contact-notes', {
-            body: { contact_id: opportunity.contact_id },
+          const {
+            data,
+            error
+          } = await supabase.functions.invoke('fetch-contact-notes', {
+            body: {
+              contact_id: opportunity.contact_id
+            }
           });
-          
           if (error) {
             console.error('Error fetching notes:', error);
           } else if (data?.notes) {
@@ -196,7 +181,6 @@ export function OpportunityDetailSheet({
           setIsLoadingNotes(false);
         }
       };
-      
       fetchConversations();
       fetchNotes();
     } else {
@@ -204,15 +188,18 @@ export function OpportunityDetailSheet({
       setContactNotesList([]);
     }
   }, [open, opportunity?.contact_id]);
-
   const handleRefreshConversations = async () => {
     if (!opportunity?.contact_id) return;
     setIsLoadingConversations(true);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-contact-conversations', {
-        body: { contact_id: opportunity.contact_id },
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('fetch-contact-conversations', {
+        body: {
+          contact_id: opportunity.contact_id
+        }
       });
-      
       if (error) {
         toast.error('Failed to refresh conversations');
       } else if (data?.conversations) {
@@ -225,26 +212,33 @@ export function OpportunityDetailSheet({
       setIsLoadingConversations(false);
     }
   };
-
   const handleCreateNote = async () => {
     if (!opportunity?.contact_id || !newNoteText.trim()) return;
-    
     setIsCreatingNote(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-contact-note', {
-        body: { contactId: opportunity.contact_id, body: newNoteText.trim() },
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('create-contact-note', {
+        body: {
+          contactId: opportunity.contact_id,
+          body: newNoteText.trim()
+        }
       });
-      
       if (error) {
         toast.error('Failed to create note');
         console.error('Error creating note:', error);
       } else if (data?.success) {
         toast.success('Note created');
         setNewNoteText('');
-        
+
         // Refresh notes list
-        const { data: refreshData } = await supabase.functions.invoke('fetch-contact-notes', {
-          body: { contact_id: opportunity.contact_id },
+        const {
+          data: refreshData
+        } = await supabase.functions.invoke('fetch-contact-notes', {
+          body: {
+            contact_id: opportunity.contact_id
+          }
         });
         if (refreshData?.notes) {
           setContactNotesList(refreshData.notes);
@@ -257,7 +251,6 @@ export function OpportunityDetailSheet({
       setIsCreatingNote(false);
     }
   };
-
   const stageMap = new Map<string, string>();
   const currentPipelineId = opportunity?.pipeline_id;
   allOpportunities.forEach(o => {
@@ -267,7 +260,6 @@ export function OpportunityDetailSheet({
     }
   });
   const availableStages = Array.from(stageMap.keys()).sort();
-
   const handleEditClick = () => {
     setEditedStatus(opportunity?.status?.toLowerCase() || "open");
     setEditedStage(opportunity?.stage_name || "");
@@ -275,7 +267,6 @@ export function OpportunityDetailSheet({
     setEditedAssignedTo(opportunity?.assigned_to || "__unassigned__");
     setIsEditing(true);
   };
-
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedStatus("");
@@ -283,10 +274,8 @@ export function OpportunityDetailSheet({
     setEditedMonetaryValue("");
     setEditedAssignedTo("");
   };
-
   const handleSave = async () => {
     if (!opportunity) return;
-    
     setIsSaving(true);
     try {
       // Get the pipeline_stage_id for the selected stage
@@ -294,25 +283,28 @@ export function OpportunityDetailSheet({
       const monetaryValue = parseFloat(editedMonetaryValue) || 0;
 
       // Call edge function to update GHL first, then Supabase
-      const { data, error } = await supabase.functions.invoke('update-ghl-opportunity', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('update-ghl-opportunity', {
         body: {
           ghl_id: opportunity.ghl_id,
           status: editedStatus,
           stage_name: editedStage,
           pipeline_stage_id: pipeline_stage_id,
           monetary_value: monetaryValue,
-          assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo,
-        },
+          assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo
+        }
       });
-
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
       toast.success("Opportunity updated in GHL and database");
       setIsEditing(false);
-      
+
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({
+        queryKey: ["opportunities"]
+      });
     } catch (error) {
       console.error("Error updating opportunity:", error);
       toast.error("Failed to update opportunity in GHL");
@@ -320,71 +312,69 @@ export function OpportunityDetailSheet({
       setIsSaving(false);
     }
   };
-
   if (!opportunity) return null;
-
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-      hour: 'numeric', minute: '2-digit', hour12: true,
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
     });
   };
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
     });
   };
-
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
-      case 'won': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'won':
+        return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
       case 'lost':
-      case 'abandoned': return 'bg-red-500/20 text-red-400 border-red-500/30';
-      case 'open': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      default: return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+      case 'abandoned':
+        return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'open':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      default:
+        return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
     }
   };
-
   const getAppointmentStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
-      case 'confirmed': return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'confirmed':
+        return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
       case 'cancelled':
-      case 'no_show': return 'bg-red-500/20 text-red-400 border-red-500/30';
-      case 'showed': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      default: return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+      case 'no_show':
+        return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'showed':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      default:
+        return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
     }
   };
-
   const formatCurrency = (value: number | null) => {
     if (!value) return '$0';
     return new Intl.NumberFormat('en-US', {
-      style: 'currency', currency: 'USD', minimumFractionDigits: 0,
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0
     }).format(value);
   };
-
   const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
   const relatedAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id);
   const assignedUser = users.find(u => u.ghl_id === opportunity.assigned_to);
-
-  const contactName = contact?.contact_name || 
-    (contact?.first_name && contact?.last_name 
-      ? `${contact.first_name} ${contact.last_name}` 
-      : contact?.first_name || contact?.last_name || 'Unknown');
-
-  const userName = assignedUser?.name || 
-    (assignedUser?.first_name && assignedUser?.last_name 
-      ? `${assignedUser.first_name} ${assignedUser.last_name}` 
-      : 'Unassigned');
-
+  const contactName = contact?.contact_name || (contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}` : contact?.first_name || contact?.last_name || 'Unknown');
+  const userName = assignedUser?.name || (assignedUser?.first_name && assignedUser?.last_name ? `${assignedUser.first_name} ${assignedUser.last_name}` : 'Unassigned');
   const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
   const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
   const contactNotes = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.NOTES);
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+  return <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4">
@@ -393,25 +383,19 @@ export function OpportunityDetailSheet({
               <SheetTitle className="text-sm font-medium text-muted-foreground">
                 Opportunity Details
               </SheetTitle>
-              {!isEditing ? (
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={`shrink-0 text-xs ${getStatusColor(opportunity.status)}`}>
-                    {opportunity.status || 'Unknown'}
-                  </Badge>
+              {!isEditing ? <div className="flex items-center gap-2">
+                  
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleEditClick}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1">
+                </div> : <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit} disabled={isSaving}>
                     <X className="h-4 w-4" />
                   </Button>
                   <Button variant="default" size="icon" className="h-7 w-7" onClick={handleSave} disabled={isSaving}>
                     {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   </Button>
-                </div>
-              )}
+                </div>}
             </div>
           </SheetHeader>
         </div>
@@ -421,26 +405,15 @@ export function OpportunityDetailSheet({
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
               <span className="font-bold capitalize">{opportunity.name?.toLowerCase() || 'Unnamed Opportunity'}</span>
-              {isEditing ? (
-                <div className="flex items-center gap-1">
+              {isEditing ? <div className="flex items-center gap-1">
                   <span className="text-lg font-bold text-emerald-400">$</span>
-                  <Input
-                    type="number"
-                    value={editedMonetaryValue}
-                    onChange={(e) => setEditedMonetaryValue(e.target.value)}
-                    className="text-lg font-bold h-8 w-28"
-                    min="0"
-                    step="100"
-                  />
-                </div>
-              ) : (
-                <div className="text-lg font-bold text-emerald-400">
+                  <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
+                </div> : <div className="text-lg font-bold text-emerald-400">
                   {formatCurrency(opportunity.monetary_value)}
-                </div>
-              )}
+                </div>}
             </div>
             <div className="p-3 space-y-2">
-              <div className="font-medium">{contactName}</div>
+              
               <div className="grid gap-1.5 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Phone className="h-3.5 w-3.5 shrink-0" />
@@ -466,43 +439,31 @@ export function OpportunityDetailSheet({
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Stage</div>
-              {isEditing ? (
-                <Select value={editedStage} onValueChange={setEditedStage}>
+              {isEditing ? <Select value={editedStage} onValueChange={setEditedStage}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableStages.map(stage => (
-                      <SelectItem key={stage} value={stage} className="text-xs">
+                    {availableStages.map(stage => <SelectItem key={stage} value={stage} className="text-xs">
                         {stage}
-                      </SelectItem>
-                    ))}
+                      </SelectItem>)}
                   </SelectContent>
-                </Select>
-              ) : (
-                <div className="font-medium truncate">{opportunity.stage_name || '-'}</div>
-              )}
+                </Select> : <div className="font-medium truncate">{opportunity.stage_name || '-'}</div>}
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Status</div>
-              {isEditing ? (
-                <Select value={editedStatus} onValueChange={setEditedStatus}>
+              {isEditing ? <Select value={editedStatus} onValueChange={setEditedStatus}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    {OPPORTUNITY_STATUSES.map(status => (
-                      <SelectItem key={status} value={status} className="text-xs capitalize">
+                    {OPPORTUNITY_STATUSES.map(status => <SelectItem key={status} value={status} className="text-xs capitalize">
                         {status}
-                      </SelectItem>
-                    ))}
+                      </SelectItem>)}
                   </SelectContent>
-                </Select>
-              ) : (
-                <Badge variant="outline" className={`text-xs ${getStatusColor(opportunity.status)}`}>
+                </Select> : <Badge variant="outline" className={`text-xs ${getStatusColor(opportunity.status)}`}>
                   {opportunity.status || 'Unknown'}
-                </Badge>
-              )}
+                </Badge>}
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Created</div>
@@ -510,29 +471,20 @@ export function OpportunityDetailSheet({
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
-              {isEditing ? (
-                <Select value={editedAssignedTo} onValueChange={setEditedAssignedTo}>
+              {isEditing ? <Select value={editedAssignedTo} onValueChange={setEditedAssignedTo}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Select rep" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__unassigned__" className="text-xs">Unassigned</SelectItem>
                     {users.map(user => {
-                      const name = user.name || 
-                        (user.first_name && user.last_name 
-                          ? `${user.first_name} ${user.last_name}` 
-                          : user.first_name || user.last_name || user.email || 'Unknown');
-                      return (
-                        <SelectItem key={user.ghl_id} value={user.ghl_id} className="text-xs">
+                  const name = user.name || (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name || user.last_name || user.email || 'Unknown');
+                  return <SelectItem key={user.ghl_id} value={user.ghl_id} className="text-xs">
                           {name}
-                        </SelectItem>
-                      );
-                    })}
+                        </SelectItem>;
+                })}
                   </SelectContent>
-                </Select>
-              ) : (
-                <div className="font-medium truncate">{userName}</div>
-              )}
+                </Select> : <div className="font-medium truncate">{userName}</div>}
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
@@ -544,8 +496,7 @@ export function OpportunityDetailSheet({
           </div>
 
           {/* Scope of Work */}
-          {scopeOfWork && (
-            <div className="border rounded-lg overflow-hidden">
+          {scopeOfWork && <div className="border rounded-lg overflow-hidden">
               <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
                 <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scope of Work</span>
@@ -553,8 +504,7 @@ export function OpportunityDetailSheet({
               <div className="p-3">
                 <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
               </div>
-            </div>
-          )}
+            </div>}
 
           {/* Notes/Comments */}
           <div className="border rounded-lg overflow-hidden">
@@ -569,80 +519,53 @@ export function OpportunityDetailSheet({
             </div>
             <div className="p-3 space-y-3 max-h-80 overflow-y-auto">
               {/* Timeline Notes from GHL */}
-              {contactNotesList.length > 0 && (
-                <div className="space-y-2">
+              {contactNotesList.length > 0 && <div className="space-y-2">
                   <div className="text-xs text-muted-foreground mb-2">Activity Notes</div>
-                  {contactNotesList
-                    .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
-                    .map((note) => {
-                      const noteUser = users.find(u => u.ghl_id === note.userId);
-                      const noteUserName = noteUser?.name || 
-                        (noteUser?.first_name && noteUser?.last_name 
-                          ? `${noteUser.first_name} ${noteUser.last_name}` 
-                          : 'Unknown');
-                      return (
-                        <div key={note.id} className="bg-muted/30 rounded p-2">
+                  {contactNotesList.sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime()).map(note => {
+                const noteUser = users.find(u => u.ghl_id === note.userId);
+                const noteUserName = noteUser?.name || (noteUser?.first_name && noteUser?.last_name ? `${noteUser.first_name} ${noteUser.last_name}` : 'Unknown');
+                return <div key={note.id} className="bg-muted/30 rounded p-2">
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                             <span>{noteUserName}</span>
-                            <span>{new Date(note.dateAdded).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            <span>{new Date(note.dateAdded).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}</span>
                           </div>
                           <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body)}</p>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
+                        </div>;
+              })}
+                </div>}
 
               {/* Contact Custom Field Notes */}
-              {contactNotes && (
-                <div className={contactNotesList.length > 0 ? "border-t pt-3" : ""}>
+              {contactNotes && <div className={contactNotesList.length > 0 ? "border-t pt-3" : ""}>
                   <div className="text-xs text-muted-foreground mb-1">Custom Field Notes</div>
                   <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
-                </div>
-              )}
+                </div>}
               
               {/* Appointment Notes */}
-              {relatedAppointments.filter(a => a.notes).length > 0 && (
-                <div className={(contactNotes || contactNotesList.length > 0) ? "border-t pt-3" : ""}>
+              {relatedAppointments.filter(a => a.notes).length > 0 && <div className={contactNotes || contactNotesList.length > 0 ? "border-t pt-3" : ""}>
                   <div className="text-xs text-muted-foreground mb-2">Appointment Notes</div>
                   <div className="space-y-2">
-                    {relatedAppointments.filter(a => a.notes).map((appt) => (
-                      <div key={appt.ghl_id} className="bg-muted/30 rounded p-2">
+                    {relatedAppointments.filter(a => a.notes).map(appt => <div key={appt.ghl_id} className="bg-muted/30 rounded p-2">
                         <div className="text-xs text-muted-foreground mb-1">{appt.title || 'Appointment'}</div>
                         <p className="text-sm whitespace-pre-wrap">{appt.notes}</p>
-                      </div>
-                    ))}
+                      </div>)}
                   </div>
-                </div>
-              )}
+                </div>}
               
-              {!contactNotes && contactNotesList.length === 0 && relatedAppointments.filter(a => a.notes).length === 0 && (
-                <p className="text-sm text-muted-foreground/60 italic">
+              {!contactNotes && contactNotesList.length === 0 && relatedAppointments.filter(a => a.notes).length === 0 && <p className="text-sm text-muted-foreground/60 italic">
                   {isLoadingNotes ? 'Loading notes...' : 'No notes or comments yet'}
-                </p>
-              )}
+                </p>}
             </div>
             
             {/* Add New Note Form */}
             <div className="border-t p-3">
-              <Textarea
-                placeholder="Add a note..."
-                value={newNoteText}
-                onChange={(e) => setNewNoteText(e.target.value)}
-                className="min-h-[60px] text-sm resize-none mb-2"
-                disabled={isCreatingNote}
-              />
+              <Textarea placeholder="Add a note..." value={newNoteText} onChange={e => setNewNoteText(e.target.value)} className="min-h-[60px] text-sm resize-none mb-2" disabled={isCreatingNote} />
               <div className="flex justify-end">
-                <Button 
-                  size="sm" 
-                  onClick={handleCreateNote}
-                  disabled={isCreatingNote || !newNoteText.trim()}
-                >
-                  {isCreatingNote ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                  ) : (
-                    <Send className="h-3.5 w-3.5 mr-1" />
-                  )}
+                <Button size="sm" onClick={handleCreateNote} disabled={isCreatingNote || !newNoteText.trim()}>
+                  {isCreatingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}
                   Add Note
                 </Button>
               </div>
@@ -651,44 +574,49 @@ export function OpportunityDetailSheet({
 
           {/* Conversations - fetched live from GHL */}
           {(() => {
-            const formatConvDate = (dateStr: string | null | number) => {
-              if (!dateStr) return '';
-              const date = typeof dateStr === 'number' ? new Date(dateStr) : new Date(dateStr);
-              return date.toLocaleString('en-US', {
-                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
-              });
-            };
-
-            const getTypeIcon = (type: string | null) => {
-              switch (type?.toLowerCase()) {
-                case 'type_sms':
-                case 'sms': return '💬';
-                case 'type_email':
-                case 'email': return '📧';
-                case 'type_call':
-                case 'call': return '📞';
-                case 'type_facebook':
-                case 'facebook': return '📘';
-                case 'type_instagram':
-                case 'instagram': return '📸';
-                default: return '💬';
-              }
-            };
-
-            // Flatten all messages from all conversations and sort by date
-            const allMessages = liveConversations.flatMap(conv => 
-              (conv.messages || []).map(msg => ({
-                ...msg,
-                conversationType: conv.type,
-              }))
-            ).sort((a, b) => {
-              const dateA = new Date(a.dateAdded).getTime();
-              const dateB = new Date(b.dateAdded).getTime();
-              return dateB - dateA; // Most recent first
+          const formatConvDate = (dateStr: string | null | number) => {
+            if (!dateStr) return '';
+            const date = typeof dateStr === 'number' ? new Date(dateStr) : new Date(dateStr);
+            return date.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true
             });
+          };
+          const getTypeIcon = (type: string | null) => {
+            switch (type?.toLowerCase()) {
+              case 'type_sms':
+              case 'sms':
+                return '💬';
+              case 'type_email':
+              case 'email':
+                return '📧';
+              case 'type_call':
+              case 'call':
+                return '📞';
+              case 'type_facebook':
+              case 'facebook':
+                return '📘';
+              case 'type_instagram':
+              case 'instagram':
+                return '📸';
+              default:
+                return '💬';
+            }
+          };
 
-            return (
-              <div className="border rounded-lg overflow-hidden">
+          // Flatten all messages from all conversations and sort by date
+          const allMessages = liveConversations.flatMap(conv => (conv.messages || []).map(msg => ({
+            ...msg,
+            conversationType: conv.type
+          }))).sort((a, b) => {
+            const dateA = new Date(a.dateAdded).getTime();
+            const dateB = new Date(b.dateAdded).getTime();
+            return dateB - dateA; // Most recent first
+          });
+          return <div className="border rounded-lg overflow-hidden">
                 <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
                   <div className="flex items-center gap-2">
                     <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
@@ -696,40 +624,19 @@ export function OpportunityDetailSheet({
                       Conversation History {allMessages.length > 0 && `(${allMessages.length} messages)`}
                     </span>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-6 px-2" 
-                    onClick={handleRefreshConversations}
-                    disabled={isLoadingConversations}
-                  >
+                  <Button variant="ghost" size="sm" className="h-6 px-2" onClick={handleRefreshConversations} disabled={isLoadingConversations}>
                     <RefreshCw className={`h-3 w-3 ${isLoadingConversations ? 'animate-spin' : ''}`} />
                   </Button>
                 </div>
                 
-                {isLoadingConversations ? (
-                  <div className="p-4 flex items-center justify-center gap-2 text-muted-foreground">
+                {isLoadingConversations ? <div className="p-4 flex items-center justify-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span className="text-sm">Loading conversation history...</span>
-                  </div>
-                ) : allMessages.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+                  </div> : allMessages.length === 0 ? <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
                     No conversation history found
-                  </div>
-                ) : (
-                  <div className="max-h-80 overflow-y-auto p-3 space-y-3">
-                    {allMessages.slice(0, 50).map((msg) => (
-                      <div 
-                        key={msg.id} 
-                        className={`flex flex-col ${msg.direction === 'inbound' ? 'items-start' : 'items-end'}`}
-                      >
-                        <div 
-                          className={`max-w-[85%] rounded-lg px-3 py-2 ${
-                            msg.direction === 'inbound' 
-                              ? 'bg-muted/60 text-foreground' 
-                              : 'bg-primary/20 text-foreground'
-                          }`}
-                        >
+                  </div> : <div className="max-h-80 overflow-y-auto p-3 space-y-3">
+                    {allMessages.slice(0, 50).map(msg => <div key={msg.id} className={`flex flex-col ${msg.direction === 'inbound' ? 'items-start' : 'items-end'}`}>
+                        <div className={`max-w-[85%] rounded-lg px-3 py-2 ${msg.direction === 'inbound' ? 'bg-muted/60 text-foreground' : 'bg-primary/20 text-foreground'}`}>
                           <p className="text-sm whitespace-pre-wrap break-words">{msg.body || '(No content)'}</p>
                         </div>
                         <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
@@ -738,18 +645,13 @@ export function OpportunityDetailSheet({
                           <span>•</span>
                           <span>{formatConvDate(msg.dateAdded)}</span>
                         </div>
-                      </div>
-                    ))}
-                    {allMessages.length > 50 && (
-                      <div className="text-center text-xs text-muted-foreground py-2">
+                      </div>)}
+                    {allMessages.length > 50 && <div className="text-center text-xs text-muted-foreground py-2">
                         Showing 50 of {allMessages.length} messages
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
+                      </div>}
+                  </div>}
+              </div>;
+        })()}
 
           {/* Related Appointments - Always show */}
           <div className="border rounded-lg overflow-hidden">
@@ -759,16 +661,10 @@ export function OpportunityDetailSheet({
                 Appointment History ({relatedAppointments.length})
               </span>
             </div>
-            {relatedAppointments.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+            {relatedAppointments.length === 0 ? <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
                 No appointments found
-              </div>
-            ) : (
-              <div className="divide-y max-h-60 overflow-y-auto">
-                {relatedAppointments
-                  .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
-                  .map((appt) => (
-                  <div key={appt.ghl_id} className="p-3 space-y-1">
+              </div> : <div className="divide-y max-h-60 overflow-y-auto">
+                {relatedAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime()).map(appt => <div key={appt.ghl_id} className="p-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-sm truncate">{appt.title || 'Untitled'}</span>
                       <Badge variant="outline" className={`text-xs shrink-0 ${getAppointmentStatusColor(appt.appointment_status)}`}>
@@ -779,15 +675,11 @@ export function OpportunityDetailSheet({
                       <Clock className="h-3 w-3" />
                       {formatDateTime(appt.start_time)}
                     </div>
-                    {appt.notes && (
-                      <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded whitespace-pre-wrap">
+                    {appt.notes && <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded whitespace-pre-wrap">
                         {appt.notes}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                      </div>}
+                  </div>)}
+              </div>}
           </div>
 
           {/* Timeline */}
@@ -796,6 +688,5 @@ export function OpportunityDetailSheet({
           </div>
         </div>
       </SheetContent>
-    </Sheet>
-  );
+    </Sheet>;
 }
