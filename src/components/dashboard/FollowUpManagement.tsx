@@ -277,21 +277,19 @@ export function FollowUpManagement({
   // Calculate task counts by category
   const taskCounts = useMemo(() => {
     let baseTasks = ghlTasks.filter(t => !t.completed);
-    
+
     // Filter out tasks where the associated opportunity is lost
     baseTasks = baseTasks.filter(t => {
       const opportunity = getOpportunityForContact(t.contact_id);
       if (!opportunity) return true;
       return opportunity.status?.toLowerCase() !== 'lost';
     });
-
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfterTomorrow = new Date(today);
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-
     const pastDue = baseTasks.filter(t => t.due_date && new Date(t.due_date) < today).length;
     const todayTomorrow = baseTasks.filter(t => {
       if (!t.due_date) return false;
@@ -299,8 +297,12 @@ export function FollowUpManagement({
       return dueDate >= today && dueDate < dayAfterTomorrow;
     }).length;
     const afterTomorrow = baseTasks.filter(t => t.due_date && new Date(t.due_date) >= dayAfterTomorrow).length;
-
-    return { pastDue, todayTomorrow, afterTomorrow, total: baseTasks.length };
+    return {
+      pastDue,
+      todayTomorrow,
+      afterTomorrow,
+      total: baseTasks.length
+    };
   }, [ghlTasks, opportunities]);
 
   // Filter GHL tasks
@@ -556,7 +558,10 @@ export function FollowUpManagement({
     if (!contactId) return 'No address';
     const contact = contacts.find(c => c.ghl_id === contactId);
     if (!contact?.custom_fields) return 'No address';
-    const customFields = contact.custom_fields as Array<{ id: string; value: string }>;
+    const customFields = contact.custom_fields as Array<{
+      id: string;
+      value: string;
+    }>;
     const addressField = customFields.find(f => f.id === 'b7oTVsUQrLgZt84bHpCn');
     return addressField?.value || 'No address';
   };
@@ -566,7 +571,10 @@ export function FollowUpManagement({
     if (!contactId) return '';
     const contact = contacts.find(c => c.ghl_id === contactId);
     if (!contact?.custom_fields) return '';
-    const customFields = contact.custom_fields as Array<{ id: string; value: string }>;
+    const customFields = contact.custom_fields as Array<{
+      id: string;
+      value: string;
+    }>;
     const scopeField = customFields.find(f => f.id === 'KwQRtJT0aMSHnq3mwR68');
     return scopeField?.value || '';
   };
@@ -971,25 +979,25 @@ export function FollowUpManagement({
                     <CardTitle className="flex items-center gap-2 flex-wrap">
                       Tasks Helper
                       <Badge variant="secondary">{taskCounts.total}</Badge>
-                      <Badge 
-                        variant="outline" 
-                        className={`cursor-pointer hover:opacity-80 ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`}
-                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('past_due'); setTasksHelperOpen(true); }}
-                      >
+                      <Badge variant="outline" className={`cursor-pointer hover:opacity-80 ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`} onClick={e => {
+                      e.stopPropagation();
+                      setTasksDueDateFilter('past_due');
+                      setTasksHelperOpen(true);
+                    }}>
                         {taskCounts.pastDue} past due
                       </Badge>
-                      <Badge 
-                        variant="outline" 
-                        className={`cursor-pointer hover:opacity-80 ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
-                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('today_tomorrow'); setTasksHelperOpen(true); }}
-                      >
+                      <Badge variant="outline" className={`cursor-pointer hover:opacity-80 ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`} onClick={e => {
+                      e.stopPropagation();
+                      setTasksDueDateFilter('today_tomorrow');
+                      setTasksHelperOpen(true);
+                    }}>
                         {taskCounts.todayTomorrow} today/tomorrow
                       </Badge>
-                      <Badge 
-                        variant="outline" 
-                        className="cursor-pointer hover:opacity-80 text-muted-foreground"
-                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('after_tomorrow'); setTasksHelperOpen(true); }}
-                      >
+                      <Badge variant="outline" className="cursor-pointer hover:opacity-80 text-muted-foreground" onClick={e => {
+                      e.stopPropagation();
+                      setTasksDueDateFilter('after_tomorrow');
+                      setTasksHelperOpen(true);
+                    }}>
                         {taskCounts.afterTomorrow} after
                       </Badge>
                     </CardTitle>
@@ -1200,9 +1208,8 @@ export function FollowUpManagement({
                     <ClipboardList className="h-5 w-5 text-blue-500" />
                   </div>
                   <div>
-                    <CardTitle className="flex items-center gap-2">
-                      No Tasks Assigned
-                      <Badge variant="secondary">{noTasksData.length}</Badge>
+                    <CardTitle className="flex items-center gap-2">No Tasks Assigned - Post Appointment
+71<Badge variant="secondary">{noTasksData.length}</Badge>
                     </CardTitle>
                     <CardDescription>Open opportunities with Past appointments but no tasks created</CardDescription>
                   </div>
