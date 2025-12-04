@@ -58,12 +58,14 @@ interface TasksTrackerProps {
   onTaskUpdated: () => void;
 }
 
-const getPSTOffset = (date: Date): number => {
-  const jan = new Date(date.getFullYear(), 0, 1);
-  const jul = new Date(date.getFullYear(), 6, 1);
-  const stdTimezoneOffset = Math.max(jan.getTimezoneOffset(), jul.getTimezoneOffset());
-  const isDST = date.getTimezoneOffset() < stdTimezoneOffset;
-  return isDST ? 7 : 8;
+// Calculate PST/PDT offset for a given UTC date
+const getPSTOffset = (utcDate: Date): number => {
+  // DST in US: second Sunday of March to first Sunday of November
+  const year = utcDate.getUTCFullYear();
+  const marchSecondSunday = new Date(Date.UTC(year, 2, 8 + (7 - new Date(Date.UTC(year, 2, 1)).getUTCDay()) % 7, 10)); // 2 AM PST = 10 AM UTC
+  const novFirstSunday = new Date(Date.UTC(year, 10, 1 + (7 - new Date(Date.UTC(year, 10, 1)).getUTCDay()) % 7, 9)); // 2 AM PDT = 9 AM UTC
+  const isDST = utcDate >= marchSecondSunday && utcDate < novFirstSunday;
+  return isDST ? 7 : 8; // PDT is UTC-7, PST is UTC-8
 };
 
 export const TasksTracker = ({ tasks, opportunities, contacts, users, onTaskUpdated }: TasksTrackerProps) => {
