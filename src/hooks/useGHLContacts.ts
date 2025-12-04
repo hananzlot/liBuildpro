@@ -79,6 +79,21 @@ interface DBConversation {
   last_message_direction: string | null;
 }
 
+interface DBTask {
+  id: string;
+  title: string;
+  notes: string | null;
+  status: string;
+  due_date: string | null;
+  assigned_to: string | null;
+  contact_id: string | null;
+  opportunity_id: string;
+  ghl_id: string | null;
+  location_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // Generic paginated fetch for any table
 async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]> {
   const allItems: any[] = [];
@@ -130,6 +145,15 @@ async function fetchConversationsFromDB(): Promise<DBConversation[]> {
     .from('conversations')
     .select('*')
     .order('last_message_date', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchTasksFromDB(): Promise<DBTask[]> {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .order('due_date', { ascending: true });
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -493,6 +517,15 @@ export function useConversations() {
   });
 }
 
+export function useTasks() {
+  return useQuery({
+    queryKey: ['tasks'],
+    queryFn: fetchTasksFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
 export function useSyncContacts() {
   const queryClient = useQueryClient();
 
@@ -504,6 +537,7 @@ export function useSyncContacts() {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['ghl_users'] });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
 }
@@ -514,11 +548,14 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const appointmentsQuery = useAppointments();
   const usersQuery = useGHLUsers();
   const conversationsQuery = useConversations();
+  const tasksQuery = useTasks();
 
   const isLoading = contactsQuery.isLoading || opportunitiesQuery.isLoading || 
-                    appointmentsQuery.isLoading || usersQuery.isLoading || conversationsQuery.isLoading;
+                    appointmentsQuery.isLoading || usersQuery.isLoading || 
+                    conversationsQuery.isLoading || tasksQuery.isLoading;
   const error = contactsQuery.error || opportunitiesQuery.error || 
-                appointmentsQuery.error || usersQuery.error || conversationsQuery.error;
+                appointmentsQuery.error || usersQuery.error || 
+                conversationsQuery.error || tasksQuery.error;
 
   const data = contactsQuery.data && opportunitiesQuery.data && 
                appointmentsQuery.data && usersQuery.data
@@ -531,6 +568,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
           dateRange
         ),
         conversations: conversationsQuery.data || [],
+        tasks: tasksQuery.data || [],
       }
     : undefined;
 
@@ -544,6 +582,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
       appointmentsQuery.refetch();
       usersQuery.refetch();
       conversationsQuery.refetch();
+      tasksQuery.refetch();
     },
   };
 }

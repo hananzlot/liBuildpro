@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings } from "lucide-react";
+import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListTodo } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -13,6 +13,7 @@ import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSh
 import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
+import { TasksTracker } from "@/components/dashboard/TasksTracker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,10 @@ const Index = () => {
         <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList>
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="tasks" className="gap-2">
+              <ListTodo className="h-4 w-4" />
+              Tasks
+            </TabsTrigger>
             <TabsTrigger value="admin" className="gap-2">
               <Settings className="h-4 w-4" />
               Admin
@@ -303,6 +308,24 @@ const Index = () => {
                 />
               )}
             </section>
+          </TabsContent>
+
+          <TabsContent value="tasks" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Task Tracker</h2>
+              <p className="text-sm text-muted-foreground">Track and follow up on tasks assigned to your team</p>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-[400px] rounded-2xl" />
+            ) : (
+              <TasksTracker 
+                tasks={metrics?.tasks || []}
+                opportunities={metrics?.allOpportunities || []}
+                contacts={metrics?.allContacts || []}
+                users={metrics?.users || []}
+                onTaskUpdated={() => refetch()}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="admin" className="space-y-6">
