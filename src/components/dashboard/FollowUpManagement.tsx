@@ -256,13 +256,21 @@ export function FollowUpManagement({
     return opportunities.find(o => o.contact_id === contactId);
   };
 
-  // Format due date for tasks
+  // Format due date for tasks in PST
   const formatTaskDueDate = (dueDate: string | null) => {
     if (!dueDate) return "No due date";
-    const utcDate = new Date(dueDate);
-    const pstOffset = getPSTOffset(utcDate);
-    const pstDate = new Date(utcDate.getTime() - pstOffset * 60 * 60 * 1000);
-    return format(pstDate, "MMM d, yyyy 'at' h:mm a") + " PST";
+    const date = new Date(dueDate);
+    // Use toLocaleString with America/Los_Angeles timezone for accurate PST/PDT conversion
+    const pstDateString = date.toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    return pstDateString + " PST";
   };
 
   const isTaskOverdue = (dueDate: string | null) => {
