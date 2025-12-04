@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.delete-ghl-task]
 verify_jwt = false
+
+[functions.update-ghl-task]
+verify_jwt = false
