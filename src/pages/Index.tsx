@@ -11,6 +11,7 @@ import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSheet";
 import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
+import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -70,7 +71,15 @@ const Index = () => {
             <h1 className="text-2xl font-bold text-foreground">GHL Analytics</h1>
             <p className="text-sm text-muted-foreground">CA Pro Builders Dashboard</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            {!isLoading && (
+              <OpportunitySearch
+                opportunities={metrics?.allOpportunities || []}
+                appointments={metrics?.appointments || []}
+                contacts={metrics?.allContacts || []}
+                users={metrics?.users || []}
+              />
+            )}
             <Button 
               variant="outline" 
               size="sm" 
