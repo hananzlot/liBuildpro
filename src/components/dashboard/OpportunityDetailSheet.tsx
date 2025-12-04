@@ -489,8 +489,31 @@ export function OpportunityDetailSheet({
   const handleDeleteTask = async (taskId: string) => {
     setIsDeletingTask(taskId);
     try {
+      // Find the task to get its GHL ID and contact ID
+      const taskToDelete = tasks.find(t => t.id === taskId);
+      
+      // Delete from Supabase first
       const { error } = await supabase.from("tasks").delete().eq("id", taskId);
       if (error) throw error;
+      
+      // Delete from GHL if we have the GHL task ID
+      if (taskToDelete?.ghl_id && opportunity?.contact_id) {
+        try {
+          const ghlResponse = await supabase.functions.invoke('delete-ghl-task', {
+            body: {
+              contactId: opportunity.contact_id,
+              taskId: taskToDelete.ghl_id
+            }
+          });
+          
+          if (ghlResponse.error) {
+            console.error('GHL delete error:', ghlResponse.error);
+            // Don't fail the whole operation, task is already deleted from Supabase
+          }
+        } catch (ghlErr) {
+          console.error('Failed to delete from GHL:', ghlErr);
+        }
+      }
       
       setTasks(prev => prev.filter(t => t.id !== taskId));
       toast.success("Task deleted");

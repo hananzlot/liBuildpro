@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.create-ghl-task]
 verify_jwt = false
+
+[functions.delete-ghl-task]
+verify_jwt = false
