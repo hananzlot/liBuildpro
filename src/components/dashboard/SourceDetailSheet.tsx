@@ -111,6 +111,7 @@ interface SourceDetailSheetProps {
   filteredAppointments: Appointment[];
   users: GHLUser[];
   showAppointments?: boolean;
+  showNoAppointments?: boolean;
 }
 
 export function SourceDetailSheet({
@@ -126,6 +127,7 @@ export function SourceDetailSheet({
   filteredAppointments,
   users,
   showAppointments = false,
+  showNoAppointments = false,
 }: SourceDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -308,6 +310,11 @@ export function SourceDetailSheet({
       opps = opps.filter(o => o.contact_id && contactIdsWithAppointments.has(o.contact_id));
     }
     
+    // When viewing no appointments tab, only show contacts WITHOUT appointments
+    if (showNoAppointments) {
+      opps = opps.filter(o => o.contact_id && !contactIdsWithAppointments.has(o.contact_id));
+    }
+    
     if (mode === "won") {
       opps = opps.filter(o => o.status?.toLowerCase() === "won");
     }
@@ -343,7 +350,7 @@ export function SourceDetailSheet({
           return new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime();
       }
     });
-  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts, showAppointments, contactIdsWithAppointments]);
+  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts, showAppointments, showNoAppointments, contactIdsWithAppointments]);
 
   // Available statuses
   const availableStatuses = useMemo(() => {
@@ -385,9 +392,11 @@ export function SourceDetailSheet({
                   <SheetDescription>
                     {showAppointments 
                       ? `${uniqueAppointmentsCount} unique appointments scheduled`
-                      : mode === "opportunities" 
-                        ? `${sourceOpportunities.length} opportunities • ${sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length} won`
-                        : `${displayOpportunities.length} won • ${formatCurrency(wonValue)}`
+                      : showNoAppointments
+                        ? `${displayOpportunities.length} opportunities without appointments`
+                        : mode === "opportunities" 
+                          ? `${sourceOpportunities.length} opportunities • ${sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length} won`
+                          : `${displayOpportunities.length} won • ${formatCurrency(wonValue)}`
                     }
                   </SheetDescription>
                 </div>
