@@ -472,7 +472,7 @@ function processMetrics(
     cancelledAppointments: filteredAppointments.filter(a => a.appointment_status?.toLowerCase() === 'cancelled').length,
     upcomingAppointments,
     upcomingNextWeek,
-    opportunities: filteredOpportunities.slice(0, 10),
+    opportunities: filteredOpportunities,
     filteredOpportunitiesList: filteredOpportunities,
     appointments: appointments
       .filter(a => a.start_time)
