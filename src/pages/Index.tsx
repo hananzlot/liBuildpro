@@ -299,6 +299,7 @@ const Index = () => {
                   opportunities={metrics?.allOpportunities || []}
                   appointments={metrics?.appointments || []}
                   users={metrics?.users || []}
+                  conversations={metrics?.conversations || []}
                 />
               )}
             </section>

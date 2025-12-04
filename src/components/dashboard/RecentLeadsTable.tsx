@@ -50,14 +50,27 @@ interface GHLUser {
   email?: string | null;
 }
 
+interface Conversation {
+  id: string;
+  ghl_id: string;
+  contact_id?: string | null;
+  type?: string | null;
+  last_message_body?: string | null;
+  last_message_date?: string | null;
+  last_message_type?: string | null;
+  last_message_direction?: string | null;
+  unread_count?: number | null;
+}
+
 interface RecentLeadsTableProps {
   leads: Contact[];
   opportunities: Opportunity[];
   appointments: Appointment[];
   users: GHLUser[];
+  conversations?: Conversation[];
 }
 
-export function RecentLeadsTable({ leads, opportunities, appointments, users }: RecentLeadsTableProps) {
+export function RecentLeadsTable({ leads, opportunities, appointments, users, conversations = [] }: RecentLeadsTableProps) {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -152,6 +165,7 @@ export function RecentLeadsTable({ leads, opportunities, appointments, users }: 
         opportunities={opportunities}
         appointments={appointments}
         users={users}
+        conversations={conversations}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
       />
