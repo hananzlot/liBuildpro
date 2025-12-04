@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Calendar, Trophy, DollarSign } from "lucide-react";
+import { Calendar, Trophy } from "lucide-react";
 import type { SalesRepPerformance } from "@/types/ghl";
 import { SalesRepDetailSheet } from "./SalesRepDetailSheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -119,90 +119,78 @@ export function SalesRepLeaderboard({
   return (
     <>
       <TooltipProvider>
-        <div className="rounded-2xl bg-card p-6 border border-border/50">
+        <div className="rounded-2xl bg-card p-4 border border-border/50">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-foreground">Sales Rep Performance</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-semibold text-foreground">Sales Rep Performance</h3>
             <span className="text-xs text-muted-foreground">{data.length} reps</span>
           </div>
 
           {/* Rep List */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             {data.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
+              <p className="text-sm text-muted-foreground text-center py-4">
                 No assigned reps found in this date range
               </p>
             ) : (
               data.slice(0, 10).map((rep, index) => (
                 <div 
                   key={rep.assignedTo} 
-                  className="group flex items-center gap-3 p-3 rounded-xl bg-muted/20 hover:bg-muted/40 border border-border/30 hover:border-border/50 cursor-pointer transition-all duration-200"
+                  className="group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-all"
                   onClick={() => handleRepClick(rep)}
                 >
-                  {/* Avatar with Rank */}
-                  <div className="relative flex-shrink-0">
-                    <Avatar className="h-9 w-9 border border-border/50">
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-                        {getInitials(rep.assignedTo)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="absolute -top-1 -right-1 text-xs">
-                      {getRankBadge(index)}
-                    </span>
-                  </div>
+                  {/* Rank */}
+                  <span className="w-5 text-xs text-center shrink-0">
+                    {getRankBadge(index)}
+                  </span>
+
+                  {/* Avatar */}
+                  <Avatar className="h-6 w-6 border border-border/50 shrink-0">
+                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">
+                      {getInitials(rep.assignedTo)}
+                    </AvatarFallback>
+                  </Avatar>
 
                   {/* Name */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                      {rep.assignedTo}
-                    </p>
-                  </div>
+                  <span className="flex-1 text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                    {rep.assignedTo}
+                  </span>
 
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 text-xs">
-                    {/* Unique Appointments (unique contacts with appointments) */}
+                  {/* Stats - Inline */}
+                  <div className="flex items-center gap-3 text-xs">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 text-muted-foreground cursor-help">
-                          <Calendar className="h-3.5 w-3.5" />
+                        <div className="flex items-center gap-0.5 text-muted-foreground cursor-help">
+                          <Calendar className="h-3 w-3" />
                           <span className="font-medium text-foreground">{rep.uniqueAppointments}</span>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="bg-popover border-border">
-                        <p className="text-xs">Unique contacts with appointments<br />(not counting repeat appointments)</p>
+                        <p className="text-xs">Unique contacts with appointments</p>
                       </TooltipContent>
                     </Tooltip>
 
-                    {/* Won/Total Ratio with Success Rate */}
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 text-muted-foreground cursor-help">
-                          <Trophy className="h-3.5 w-3.5 text-emerald-500" />
-                          <span className="font-medium text-foreground">
-                            {rep.wonOpportunities}/{rep.uniqueAppointments}
-                          </span>
-                          <span className="text-muted-foreground">
-                            ({rep.conversionRate.toFixed(0)}%)
-                          </span>
+                        <div className="flex items-center gap-0.5 cursor-help">
+                          <Trophy className="h-3 w-3 text-emerald-500" />
+                          <span className="font-medium text-foreground">{rep.wonOpportunities}/{rep.uniqueAppointments}</span>
+                          <span className="text-muted-foreground">({rep.conversionRate.toFixed(0)}%)</span>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="bg-popover border-border">
-                        <p className="text-xs">Won Opportunities / Unique Contacts<br />Success rate: {rep.conversionRate.toFixed(1)}%</p>
+                        <p className="text-xs">Won / Unique ({rep.conversionRate.toFixed(1)}%)</p>
                       </TooltipContent>
                     </Tooltip>
 
-                    {/* Won Value */}
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 min-w-[60px] justify-end cursor-help">
-                          <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                          <span className="font-semibold text-emerald-500">
-                            {formatCurrency(rep.wonValue)}
-                          </span>
-                        </div>
+                        <span className="font-semibold text-emerald-500 min-w-[50px] text-right cursor-help">
+                          {formatCurrency(rep.wonValue)}
+                        </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="bg-popover border-border">
-                        <p className="text-xs">Total value of won opportunities</p>
+                        <p className="text-xs">Won value</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
