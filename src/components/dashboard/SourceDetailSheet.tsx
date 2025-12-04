@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -143,6 +143,15 @@ export function SourceDetailSheet({
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskDueTime, setTaskDueTime] = useState("");
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+
+  // Reset filters when sheet opens - default to "open" status
+  useEffect(() => {
+    if (open) {
+      setStatusFilter("open");
+      setStageFilter("all");
+      setSearchFilter("");
+    }
+  }, [open]);
 
   const formatCurrency = (value: number | null) => {
     if (!value) return "$0";
