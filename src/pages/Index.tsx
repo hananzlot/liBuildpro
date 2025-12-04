@@ -5,7 +5,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { SourceChart } from "@/components/dashboard/SourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
-import { RecentLeadsTable } from "@/components/dashboard/RecentLeadsTable";
+
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
 import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
@@ -287,20 +287,6 @@ const Index = () => {
               )}
             </section>
 
-            {/* Recent Leads Table */}
-            <section>
-              {isLoading ? (
-                <Skeleton className="h-[400px] rounded-2xl" />
-              ) : (
-                <RecentLeadsTable 
-                  leads={metrics?.contacts || []} 
-                  opportunities={metrics?.allOpportunities || []}
-                  appointments={metrics?.allAppointments || []}
-                  users={metrics?.users || []}
-                  conversations={metrics?.conversations || []}
-                />
-              )}
-            </section>
           </TabsContent>
 
 
