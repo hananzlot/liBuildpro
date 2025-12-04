@@ -349,14 +349,28 @@ export function SourceDetailSheet({
                     const contactName = contact?.contact_name || 
                       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown";
                     
-                    // Find upcoming appointments for this contact (today or future)
+                    // Get all appointments for this contact, sorted by date (newest first)
+                    const contactAppointments = appointments
+                      .filter(a => a.contact_id === opp.contact_id && a.start_time)
+                      .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime());
+                    
+                    // Find upcoming appointment (today or future)
                     const now = new Date();
                     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    const upcomingAppt = appointments.find(a => 
-                      a.contact_id === opp.contact_id && 
-                      a.start_time && 
-                      new Date(a.start_time) >= startOfToday
+                    const upcomingAppt = contactAppointments.find(a => 
+                      new Date(a.start_time!) >= startOfToday
                     );
+
+                    const getApptStatusColor = (status: string | null) => {
+                      switch (status?.toLowerCase()) {
+                        case "showed": return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+                        case "confirmed": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+                        case "no show":
+                        case "noshow":
+                        case "cancelled": return "bg-red-500/20 text-red-400 border-red-500/30";
+                        default: return "bg-muted text-muted-foreground";
+                      }
+                    };
                     
                     return (
                       <div
@@ -398,6 +412,32 @@ export function SourceDetailSheet({
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                             <Calendar className="h-3 w-3" />
                             {format(new Date(opp.ghl_date_added), "MMM d, yyyy")}
+                          </div>
+                        )}
+                        {/* Appointments History */}
+                        {contactAppointments.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-border/50">
+                            <div className="text-xs text-muted-foreground mb-1.5">
+                              Appointments ({contactAppointments.length})
+                            </div>
+                            <div className="space-y-1">
+                              {contactAppointments.slice(0, 3).map((appt) => (
+                                <div key={appt.ghl_id} className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-1.5">
+                                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                                    <span>{format(new Date(appt.start_time!), "MMM d, yyyy")}</span>
+                                  </div>
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getApptStatusColor(appt.appointment_status)}`}>
+                                    {appt.appointment_status || "Unknown"}
+                                  </Badge>
+                                </div>
+                              ))}
+                              {contactAppointments.length > 3 && (
+                                <div className="text-xs text-muted-foreground">
+                                  +{contactAppointments.length - 3} more
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
