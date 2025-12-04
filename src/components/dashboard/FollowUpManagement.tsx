@@ -47,6 +47,7 @@ interface DBContact {
   source: string | null;
   assigned_to: string | null;
   location_id?: string;
+  custom_fields?: unknown;
 }
 interface DBUser {
   id: string;
@@ -550,6 +551,26 @@ export function FollowUpManagement({
     }
   };
 
+  // Helper to get address from contact custom_fields
+  const getAddress = (contactId: string | null): string => {
+    if (!contactId) return 'No address';
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    if (!contact?.custom_fields) return 'No address';
+    const customFields = contact.custom_fields as Array<{ id: string; value: string }>;
+    const addressField = customFields.find(f => f.id === 'b7oTVsUQrLgZt84bHpCn');
+    return addressField?.value || 'No address';
+  };
+
+  // Helper to get scope from contact custom_fields
+  const getScope = (contactId: string | null): string => {
+    if (!contactId) return '';
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    if (!contact?.custom_fields) return '';
+    const customFields = contact.custom_fields as Array<{ id: string; value: string }>;
+    const scopeField = customFields.find(f => f.id === 'KwQRtJT0aMSHnq3mwR68');
+    return scopeField?.value || '';
+  };
+
   // Close to Sale Data - opportunities with pipeline stage containing "close to sale"
   const closeToSaleData = useMemo(() => {
     const results = opportunities.filter(o => {
@@ -557,14 +578,22 @@ export function FollowUpManagement({
       return stageName.includes('close') && stageName.includes('sale') && o.status?.toLowerCase() === 'open';
     });
 
+    // Deduplicate by ghl_id (keep first occurrence)
+    const uniqueMap = new Map<string, DBOpportunity>();
+    results.forEach(o => {
+      if (!uniqueMap.has(o.ghl_id)) {
+        uniqueMap.set(o.ghl_id, o);
+      }
+    });
+    let unique = Array.from(uniqueMap.values());
+
     // Apply rep filter
-    let filtered = results;
     if (closeToSaleRepFilter !== 'all') {
-      filtered = results.filter(o => o.assigned_to === closeToSaleRepFilter);
+      unique = unique.filter(o => o.assigned_to === closeToSaleRepFilter);
     }
 
     // Sort by monetary value descending
-    return filtered.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
+    return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
   }, [opportunities, closeToSaleRepFilter]);
   const staleNotesData = useMemo(() => {
     const results: Array<{
@@ -885,7 +914,8 @@ export function FollowUpManagement({
                     <TableHeader>
                       <TableRow>
                         <TableHead>Opportunity</TableHead>
-                        <TableHead>Contact</TableHead>
+                        <TableHead>Address</TableHead>
+                        <TableHead>Scope</TableHead>
                         <TableHead>Pipeline Stage</TableHead>
                         <TableHead>Assigned Rep</TableHead>
                         <TableHead>Value</TableHead>
@@ -893,13 +923,15 @@ export function FollowUpManagement({
                     </TableHeader>
                     <TableBody>
                       {closeToSaleData.map(opp => {
-                    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
                     return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
                             <TableCell className="font-medium">
                               {opp.name || 'Unnamed'}
                             </TableCell>
-                            <TableCell>
-                              {getContactName(opp.contact_id)}
+                            <TableCell className="max-w-[200px] truncate">
+                              {getAddress(opp.contact_id)}
+                            </TableCell>
+                            <TableCell className="max-w-[150px] truncate">
+                              {getScope(opp.contact_id) || '-'}
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/30">
