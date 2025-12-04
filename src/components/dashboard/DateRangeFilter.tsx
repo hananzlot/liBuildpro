@@ -29,6 +29,12 @@ export function DateRangeFilter({
     onDateRangeChange({ from: start, to: end });
   };
 
+  const handleYTD = () => {
+    const end = new Date();
+    const start = new Date(end.getFullYear(), 0, 1); // January 1st of current year
+    onDateRangeChange({ from: start, to: end });
+  };
+
   const handleClear = () => {
     onDateRangeChange(undefined);
   };
@@ -41,6 +47,15 @@ export function DateRangeFilter({
     
     // Compare dates without time
     const fromMatch = dateRange.from.toDateString() === expectedStart.toDateString();
+    const toMatch = dateRange.to.toDateString() === today.toDateString();
+    return fromMatch && toMatch;
+  };
+
+  const isYTDActive = () => {
+    if (!dateRange?.from || !dateRange?.to) return false;
+    const today = new Date();
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+    const fromMatch = dateRange.from.toDateString() === yearStart.toDateString();
     const toMatch = dateRange.to.toDateString() === today.toDateString();
     return fromMatch && toMatch;
   };
@@ -125,6 +140,14 @@ export function DateRangeFilter({
           className="text-xs"
         >
           90D
+        </Button>
+        <Button
+          variant={isYTDActive() ? "secondary" : "ghost"}
+          size="sm"
+          onClick={handleYTD}
+          className="text-xs"
+        >
+          YTD
         </Button>
         {dateRange && (
           <Button
