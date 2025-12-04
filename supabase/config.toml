@@ -2,3 +2,6 @@ project_id = "mspujwrfhbobrxhofxzv"
 
 [functions.fetch-ghl-contacts]
 verify_jwt = false
+
+[functions.update-ghl-opportunity]
+verify_jwt = false

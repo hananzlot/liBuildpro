@@ -102,10 +102,14 @@ export function OpportunityDetailSheet({
   const [editedStatus, setEditedStatus] = useState<string>("");
   const [editedStage, setEditedStage] = useState<string>("");
 
-  // Get unique pipeline stages from all opportunities
-  const availableStages = Array.from(
-    new Set(allOpportunities.map(o => o.stage_name).filter(Boolean))
-  ).sort() as string[];
+  // Get unique pipeline stages from all opportunities with their stage IDs
+  const stageMap = new Map<string, string>();
+  allOpportunities.forEach(o => {
+    if (o.stage_name && o.pipeline_stage_id) {
+      stageMap.set(o.stage_name, o.pipeline_stage_id);
+    }
+  });
+  const availableStages = Array.from(stageMap.keys()).sort();
 
   const handleEditClick = () => {
     setEditedStatus(opportunity?.status?.toLowerCase() || "open");
@@ -124,24 +128,30 @@ export function OpportunityDetailSheet({
     
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from("opportunities")
-        .update({
+      // Get the pipeline_stage_id for the selected stage
+      const pipeline_stage_id = stageMap.get(editedStage) || opportunity.pipeline_stage_id;
+
+      // Call edge function to update GHL first, then Supabase
+      const { data, error } = await supabase.functions.invoke('update-ghl-opportunity', {
+        body: {
+          ghl_id: opportunity.ghl_id,
           status: editedStatus,
           stage_name: editedStage,
-        })
-        .eq("ghl_id", opportunity.ghl_id);
+          pipeline_stage_id: pipeline_stage_id,
+        },
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      toast.success("Opportunity updated successfully");
+      toast.success("Opportunity updated in GHL and database");
       setIsEditing(false);
       
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
     } catch (error) {
       console.error("Error updating opportunity:", error);
-      toast.error("Failed to update opportunity");
+      toast.error("Failed to update opportunity in GHL");
     } finally {
       setIsSaving(false);
     }
