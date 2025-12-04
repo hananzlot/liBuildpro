@@ -12,13 +12,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
-// Helper to get PST/PDT offset in hours
-const getPSTOffset = (date: Date): number => {
-  const year = date.getFullYear();
-  const dstStart = new Date(year, 2, 8 + (7 - new Date(year, 2, 8).getDay()), 2);
-  const dstEnd = new Date(year, 10, 1 + (7 - new Date(year, 10, 1).getDay()), 2);
-  const isDST = date >= dstStart && date < dstEnd;
-  return isDST ? 7 : 8;
+// Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
+const getPSTOffset = (utcDate: Date): number => {
+  // DST in US: second Sunday of March to first Sunday of November
+  const year = utcDate.getUTCFullYear();
+  const marchSecondSunday = new Date(Date.UTC(year, 2, 8 + (7 - new Date(Date.UTC(year, 2, 1)).getUTCDay()) % 7, 10)); // 2 AM PST = 10 AM UTC
+  const novFirstSunday = new Date(Date.UTC(year, 10, 1 + (7 - new Date(Date.UTC(year, 10, 1)).getUTCDay()) % 7, 9)); // 2 AM PDT = 9 AM UTC
+  const isDST = utcDate >= marchSecondSunday && utcDate < novFirstSunday;
+  return isDST ? 7 : 8; // PDT is UTC-7, PST is UTC-8
 };
 
 const CUSTOM_FIELD_IDS = {
@@ -342,10 +343,10 @@ export function OpportunityDetailSheet({
       let dueDateValue: string | null = null;
       if (taskDueDate) {
         const timeStr = taskDueTime || "09:00";
-        const pstDateTimeStr = `${taskDueDate}T${timeStr}:00`;
-        const localDate = new Date(pstDateTimeStr);
-        const pstOffset = getPSTOffset(localDate);
-        const utcDate = new Date(localDate.getTime() + pstOffset * 60 * 60 * 1000);
+        // Treat input as PST: parse as UTC first, then add PST offset to get actual UTC
+        const pstOffset = getPSTOffset(new Date(`${taskDueDate}T12:00:00Z`));
+        const tempUtcDate = new Date(`${taskDueDate}T${timeStr}:00.000Z`);
+        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
         dueDateValue = utcDate.toISOString();
       }
 
