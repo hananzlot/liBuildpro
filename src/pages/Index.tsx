@@ -10,6 +10,7 @@ import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
 import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSheet";
+import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import { toast } from "sonner";
 const Index = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [wonOpportunitiesSheetOpen, setWonOpportunitiesSheetOpen] = useState(false);
+  const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
   const { data: metrics, isLoading, error, refetch } = useGHLMetrics(dateRange);
   const syncMutation = useSyncContacts();
 
@@ -173,12 +175,13 @@ const Index = () => {
                 subtitle="Total scheduled"
                 icon={CalendarCheck}
               />
-              <MetricCard
+              <ClickableMetricCard
                 title="Upcoming"
                 value={metrics?.upcomingNextWeek || 0}
-                secondaryValue={`${metrics?.upcomingAppointments || 0} total`}
+                secondaryValue={`/ ${metrics?.upcomingAppointments || 0} total`}
                 subtitle="Next 7 days"
                 icon={Calendar}
+                onClick={() => setUpcomingAppointmentsSheetOpen(true)}
               />
             </>
           )}
@@ -278,6 +281,16 @@ const Index = () => {
         onOpenChange={setWonOpportunitiesSheetOpen}
         opportunities={metrics?.wonOpportunities || []}
         contacts={metrics?.allContacts || []}
+        users={metrics?.users || []}
+      />
+
+      {/* Upcoming Appointments Sheet */}
+      <UpcomingAppointmentsSheet
+        open={upcomingAppointmentsSheetOpen}
+        onOpenChange={setUpcomingAppointmentsSheetOpen}
+        appointments={metrics?.appointments || []}
+        contacts={metrics?.allContacts || []}
+        opportunities={metrics?.allOpportunities || []}
         users={metrics?.users || []}
       />
     </div>
