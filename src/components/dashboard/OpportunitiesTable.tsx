@@ -297,7 +297,7 @@ export function OpportunitiesTable({
             </Select>
           </div>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="overflow-x-auto scrollbar-styled pb-2">
           <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
