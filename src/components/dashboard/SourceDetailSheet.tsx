@@ -282,13 +282,23 @@ export function SourceDetailSheet({
       .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled');
   }, [filteredAppointments, allSourceContactIds]);
 
-  // Get contact IDs that actually have appointments
-  const contactIdsWithAppointments = useMemo(() => {
+  // Get contact IDs that have appointments (for "Appointments" view - use filtered)
+  const contactIdsWithFilteredAppointments = useMemo(() => {
     return new Set(sourceAppointments.map(a => a.contact_id).filter(Boolean));
   }, [sourceAppointments]);
 
+  // Get contact IDs that have ANY appointments ever (for "No Appointments" view - use all appointments)
+  const contactIdsWithAnyAppointments = useMemo(() => {
+    const ids = new Set<string>();
+    appointments
+      .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled')
+      .forEach(a => {
+        if (a.contact_id) ids.add(a.contact_id);
+      });
+    return ids;
+  }, [appointments]);
+
   // Get opportunities for this source (use filtered opportunities, exclude quickbase)
-  // When showing appointments, only include opportunities for contacts WITH appointments
   const sourceOpportunities = useMemo(() => {
     return filteredOpportunities
       .filter(o => o.contact_id && allSourceContactIds.has(o.contact_id))
@@ -305,14 +315,14 @@ export function SourceDetailSheet({
   const displayOpportunities = useMemo(() => {
     let opps = sourceOpportunities;
     
-    // When viewing appointments tab, only show contacts that have appointments
+    // When viewing appointments tab, only show contacts that have appointments (in date range)
     if (showAppointments) {
-      opps = opps.filter(o => o.contact_id && contactIdsWithAppointments.has(o.contact_id));
+      opps = opps.filter(o => o.contact_id && contactIdsWithFilteredAppointments.has(o.contact_id));
     }
     
-    // When viewing no appointments tab, only show contacts WITHOUT appointments
+    // When viewing no appointments tab, only show contacts WITHOUT ANY appointments ever
     if (showNoAppointments) {
-      opps = opps.filter(o => o.contact_id && !contactIdsWithAppointments.has(o.contact_id));
+      opps = opps.filter(o => o.contact_id && !contactIdsWithAnyAppointments.has(o.contact_id));
     }
     
     if (mode === "won") {
@@ -350,7 +360,7 @@ export function SourceDetailSheet({
           return new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime();
       }
     });
-  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts, showAppointments, showNoAppointments, contactIdsWithAppointments]);
+  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts, showAppointments, showNoAppointments, contactIdsWithFilteredAppointments, contactIdsWithAnyAppointments]);
 
   // Available statuses
   const availableStatuses = useMemo(() => {
