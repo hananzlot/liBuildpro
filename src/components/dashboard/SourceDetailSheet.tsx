@@ -345,6 +345,7 @@ export function SourceDetailSheet({
         users={users as any}
         open={oppSheetOpen}
         onOpenChange={setOppSheetOpen}
+        allOpportunities={opportunities as any}
       />
     </>
   );

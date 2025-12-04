@@ -427,6 +427,7 @@ export function SalesRepDetailSheet({
         users={users}
         open={oppSheetOpen}
         onOpenChange={setOppSheetOpen}
+        allOpportunities={opportunities}
       />
     </>
   );

@@ -308,6 +308,7 @@ export function OpportunitiesTable({
         users={users}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
+        allOpportunities={opportunities}
       />
     </>
   );
