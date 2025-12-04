@@ -269,7 +269,7 @@ const Index = () => {
                 <SalesRepLeaderboard 
                   data={metrics?.salesRepPerformance || []}
                   opportunities={metrics?.allOpportunities || []}
-                  appointments={metrics?.allAppointments || []}
+                  appointments={metrics?.filteredAppointmentsList || []}
                   contacts={metrics?.allContacts || []}
                   users={metrics?.users || []}
                 />
