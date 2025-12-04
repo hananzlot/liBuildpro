@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy } from "lucide-react";
+import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -12,6 +12,8 @@ import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSheet";
 import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
+import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -102,194 +104,222 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Date Range Filter */}
-        <section className="flex items-center justify-between flex-wrap gap-4">
-          <DateRangeFilter 
-            dateRange={dateRange} 
-            onDateRangeChange={setDateRange} 
-          />
-          {dateRange?.from && (
-            <p className="text-sm text-muted-foreground">
-              Showing {metrics?.totalLeads || 0} leads in selected range
-            </p>
-          )}
-        </section>
+      <main className="container mx-auto px-4 py-8">
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="admin" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Admin
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Metrics Grid - Row 1: Leads */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {isLoading ? (
-            <>
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-36 rounded-2xl" />
-              ))}
-            </>
-          ) : (
-            <>
-              <MetricCard
-                title="Total Leads"
-                value={metrics?.totalLeads || 0}
-                subtitle={dateRange?.from ? "In selected range" : "All time"}
-                icon={Users}
+          <TabsContent value="dashboard" className="space-y-8">
+            {/* Date Range Filter */}
+            <section className="flex items-center justify-between flex-wrap gap-4">
+              <DateRangeFilter 
+                dateRange={dateRange} 
+                onDateRangeChange={setDateRange} 
               />
-              <MetricCard
-                title="This Month"
-                value={metrics?.leadsThisMonth || 0}
-                subtitle="New leads"
-                icon={Calendar}
-                trend={{ value: 12, isPositive: true }}
-              />
-              <MetricCard
-                title="Lead Sources"
-                value={metrics?.leadsBySource?.length || 0}
-                subtitle="Active channels"
-                icon={TrendingUp}
-              />
-              <MetricCard
-                title="Active Reps"
-                value={metrics?.salesRepPerformance?.length || 0}
-                subtitle="Assigned team members"
-                icon={Activity}
-              />
-            </>
-          )}
-        </section>
+              {dateRange?.from && (
+                <p className="text-sm text-muted-foreground">
+                  Showing {metrics?.totalLeads || 0} leads in selected range
+                </p>
+              )}
+            </section>
 
-        {/* Metrics Grid - Row 2: Opportunities & Appointments */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {isLoading ? (
-            <>
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-36 rounded-2xl" />
-              ))}
-            </>
-          ) : (
-            <>
-              <MetricCard
-                title="Opportunities"
-                value={metrics?.totalOpportunities || 0}
-                subtitle={dateRange?.from ? "In selected range" : "All time"}
-                icon={DollarSign}
-              />
-              <ClickableMetricCard
-                title="Won Opportunities"
-                value={metrics?.wonOpportunitiesCount || 0}
-                secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)}
-                subtitle="Closed deals"
-                icon={Trophy}
-                onClick={() => setWonOpportunitiesSheetOpen(true)}
-              />
-              <MetricCard
-                title="Appointments"
-                value={metrics?.totalAppointments || 0}
-                subtitle="Total scheduled"
-                icon={CalendarCheck}
-              />
-              <ClickableMetricCard
-                title="Upcoming"
-                value={metrics?.upcomingNextWeek || 0}
-                secondaryValue={`/ ${metrics?.upcomingAppointments || 0} total`}
-                subtitle="Next 7 days"
-                icon={Calendar}
-                onClick={() => setUpcomingAppointmentsSheetOpen(true)}
-              />
-            </>
-          )}
-        </section>
+            {/* Metrics Grid - Row 1: Leads */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {isLoading ? (
+                <>
+                  {[...Array(4)].map((_, i) => (
+                    <Skeleton key={i} className="h-36 rounded-2xl" />
+                  ))}
+                </>
+              ) : (
+                <>
+                  <MetricCard
+                    title="Total Leads"
+                    value={metrics?.totalLeads || 0}
+                    subtitle={dateRange?.from ? "In selected range" : "All time"}
+                    icon={Users}
+                  />
+                  <MetricCard
+                    title="This Month"
+                    value={metrics?.leadsThisMonth || 0}
+                    subtitle="New leads"
+                    icon={Calendar}
+                    trend={{ value: 12, isPositive: true }}
+                  />
+                  <MetricCard
+                    title="Lead Sources"
+                    value={metrics?.leadsBySource?.length || 0}
+                    subtitle="Active channels"
+                    icon={TrendingUp}
+                  />
+                  <MetricCard
+                    title="Active Reps"
+                    value={metrics?.salesRepPerformance?.length || 0}
+                    subtitle="Assigned team members"
+                    icon={Activity}
+                  />
+                </>
+              )}
+            </section>
 
-        {/* Charts Row - Source Charts */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {isLoading ? (
-            <>
-              <Skeleton className="h-[380px] rounded-2xl" />
-              <Skeleton className="h-[380px] rounded-2xl" />
-            </>
-          ) : (
-            <>
-              <SourceChart
-                title="Opportunities by Source"
-                data={metrics?.opportunitiesBySource || []}
-                mode="opportunities"
-                dataKey="count"
-                contacts={metrics?.allContacts || []}
-                filteredContacts={metrics?.contacts || []}
-                opportunities={metrics?.allOpportunities || []}
-                filteredOpportunities={metrics?.filteredOpportunitiesList || []}
-                appointments={metrics?.appointments || []}
-                filteredAppointments={metrics?.filteredAppointmentsList || []}
-                users={metrics?.users || []}
-                appointmentsBySource={metrics?.appointmentsBySource || []}
-              />
-              <SourceChart
-                title="Won by Source"
-                data={metrics?.wonBySource || []}
-                mode="won"
-                dataKey="value"
-                contacts={metrics?.allContacts || []}
-                filteredContacts={metrics?.contacts || []}
-                opportunities={metrics?.allOpportunities || []}
-                filteredOpportunities={metrics?.wonOpportunities || []}
-                appointments={metrics?.appointments || []}
-                users={metrics?.users || []}
-              />
-            </>
-          )}
-        </section>
+            {/* Metrics Grid - Row 2: Opportunities & Appointments */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {isLoading ? (
+                <>
+                  {[...Array(4)].map((_, i) => (
+                    <Skeleton key={i} className="h-36 rounded-2xl" />
+                  ))}
+                </>
+              ) : (
+                <>
+                  <MetricCard
+                    title="Opportunities"
+                    value={metrics?.totalOpportunities || 0}
+                    subtitle={dateRange?.from ? "In selected range" : "All time"}
+                    icon={DollarSign}
+                  />
+                  <ClickableMetricCard
+                    title="Won Opportunities"
+                    value={metrics?.wonOpportunitiesCount || 0}
+                    secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)}
+                    subtitle="Closed deals"
+                    icon={Trophy}
+                    onClick={() => setWonOpportunitiesSheetOpen(true)}
+                  />
+                  <MetricCard
+                    title="Appointments"
+                    value={metrics?.totalAppointments || 0}
+                    subtitle="Total scheduled"
+                    icon={CalendarCheck}
+                  />
+                  <ClickableMetricCard
+                    title="Upcoming"
+                    value={metrics?.upcomingNextWeek || 0}
+                    secondaryValue={`/ ${metrics?.upcomingAppointments || 0} total`}
+                    subtitle="Next 7 days"
+                    icon={Calendar}
+                    onClick={() => setUpcomingAppointmentsSheetOpen(true)}
+                  />
+                </>
+              )}
+            </section>
 
-        {/* Sales Rep Leaderboard */}
-        <section>
-          {isLoading ? (
-            <Skeleton className="h-[380px] rounded-2xl" />
-          ) : (
-            <SalesRepLeaderboard 
-              data={metrics?.salesRepPerformance || []}
-              opportunities={metrics?.allOpportunities || []}
-              appointments={metrics?.appointments || []}
-              contacts={metrics?.allContacts || []}
-              users={metrics?.users || []}
-            />
-          )}
-        </section>
+            {/* Charts Row - Source Charts */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-[380px] rounded-2xl" />
+                  <Skeleton className="h-[380px] rounded-2xl" />
+                </>
+              ) : (
+                <>
+                  <SourceChart
+                    title="Opportunities by Source"
+                    data={metrics?.opportunitiesBySource || []}
+                    mode="opportunities"
+                    dataKey="count"
+                    contacts={metrics?.allContacts || []}
+                    filteredContacts={metrics?.contacts || []}
+                    opportunities={metrics?.allOpportunities || []}
+                    filteredOpportunities={metrics?.filteredOpportunitiesList || []}
+                    appointments={metrics?.appointments || []}
+                    filteredAppointments={metrics?.filteredAppointmentsList || []}
+                    users={metrics?.users || []}
+                    appointmentsBySource={metrics?.appointmentsBySource || []}
+                  />
+                  <SourceChart
+                    title="Won by Source"
+                    data={metrics?.wonBySource || []}
+                    mode="won"
+                    dataKey="value"
+                    contacts={metrics?.allContacts || []}
+                    filteredContacts={metrics?.contacts || []}
+                    opportunities={metrics?.allOpportunities || []}
+                    filteredOpportunities={metrics?.wonOpportunities || []}
+                    appointments={metrics?.appointments || []}
+                    users={metrics?.users || []}
+                  />
+                </>
+              )}
+            </section>
 
-        {/* Tables Row - Opportunities & Appointments */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {isLoading ? (
-            <>
+            {/* Sales Rep Leaderboard */}
+            <section>
+              {isLoading ? (
+                <Skeleton className="h-[380px] rounded-2xl" />
+              ) : (
+                <SalesRepLeaderboard 
+                  data={metrics?.salesRepPerformance || []}
+                  opportunities={metrics?.allOpportunities || []}
+                  appointments={metrics?.appointments || []}
+                  contacts={metrics?.allContacts || []}
+                  users={metrics?.users || []}
+                />
+              )}
+            </section>
+
+            {/* Tables Row - Opportunities & Appointments */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {isLoading ? (
+                <>
+                  <Skeleton className="h-[400px] rounded-2xl" />
+                  <Skeleton className="h-[400px] rounded-2xl" />
+                </>
+              ) : (
+                <>
+                  <OpportunitiesTable 
+                    opportunities={metrics?.opportunities || []} 
+                    appointments={metrics?.appointments || []}
+                    contacts={metrics?.allContacts || []}
+                    users={metrics?.users || []}
+                    conversations={metrics?.conversations || []}
+                  />
+                  <AppointmentsTable 
+                    appointments={metrics?.appointments || []} 
+                    opportunities={metrics?.allOpportunities || []}
+                    contacts={metrics?.allContacts || []}
+                    users={metrics?.users || []}
+                  />
+                </>
+              )}
+            </section>
+
+            {/* Recent Leads Table */}
+            <section>
+              {isLoading ? (
+                <Skeleton className="h-[400px] rounded-2xl" />
+              ) : (
+                <RecentLeadsTable 
+                  leads={metrics?.contacts || []} 
+                  opportunities={metrics?.allOpportunities || []}
+                  appointments={metrics?.appointments || []}
+                  users={metrics?.users || []}
+                />
+              )}
+            </section>
+          </TabsContent>
+
+          <TabsContent value="admin" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Data Cleanup</h2>
+              <p className="text-sm text-muted-foreground">Find and fix inconsistent data in your GHL account</p>
+            </div>
+            {isLoading ? (
               <Skeleton className="h-[400px] rounded-2xl" />
-              <Skeleton className="h-[400px] rounded-2xl" />
-            </>
-          ) : (
-            <>
-              <OpportunitiesTable 
-                opportunities={metrics?.opportunities || []} 
-                appointments={metrics?.appointments || []}
-                contacts={metrics?.allContacts || []}
-                users={metrics?.users || []}
-                conversations={metrics?.conversations || []}
-              />
-              <AppointmentsTable 
-                appointments={metrics?.appointments || []} 
+            ) : (
+              <AdminCleanup 
                 opportunities={metrics?.allOpportunities || []}
                 contacts={metrics?.allContacts || []}
-                users={metrics?.users || []}
+                onDataUpdated={() => refetch()}
               />
-            </>
-          )}
-        </section>
-
-        {/* Recent Leads Table */}
-        <section>
-          {isLoading ? (
-            <Skeleton className="h-[400px] rounded-2xl" />
-          ) : (
-            <RecentLeadsTable 
-              leads={metrics?.contacts || []} 
-              opportunities={metrics?.allOpportunities || []}
-              appointments={metrics?.appointments || []}
-              users={metrics?.users || []}
-            />
-          )}
-        </section>
+            )}
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Won Opportunities Sheet */}
