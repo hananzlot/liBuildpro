@@ -128,24 +128,26 @@ export function SourceDetailSheet({
     }
   };
 
-  // Get contacts for this source (use filtered contacts for leads mode)
-  const sourceContacts = useMemo(() => {
-    return filteredContacts.filter(c => (c.source || "Direct") === source);
-  }, [filteredContacts, source]);
+  // Get ALL contacts for this source (to build proper contact ID lookup)
+  const allSourceContacts = useMemo(() => {
+    return contacts.filter(c => (c.source || "Direct") === source);
+  }, [contacts, source]);
 
-  const sourceContactIds = useMemo(() => {
-    return new Set(sourceContacts.map(c => c.ghl_id));
-  }, [sourceContacts]);
+  const allSourceContactIds = useMemo(() => {
+    return new Set(allSourceContacts.map(c => c.ghl_id));
+  }, [allSourceContacts]);
 
-  // Get opportunities for this source (use filtered opportunities)
+  // Get opportunities for this source (use filtered opportunities, exclude quickbase)
   const sourceOpportunities = useMemo(() => {
-    return filteredOpportunities.filter(o => o.contact_id && sourceContactIds.has(o.contact_id));
-  }, [filteredOpportunities, sourceContactIds]);
+    return filteredOpportunities
+      .filter(o => o.contact_id && allSourceContactIds.has(o.contact_id))
+      .filter(o => o.stage_name?.toLowerCase() !== 'quickbase');
+  }, [filteredOpportunities, allSourceContactIds]);
 
   // Get appointments for this source (use filtered appointments)
   const sourceAppointments = useMemo(() => {
-    return filteredAppointments.filter(a => a.contact_id && sourceContactIds.has(a.contact_id));
-  }, [filteredAppointments, sourceContactIds]);
+    return filteredAppointments.filter(a => a.contact_id && allSourceContactIds.has(a.contact_id));
+  }, [filteredAppointments, allSourceContactIds]);
 
   // Unique appointments count (unique by appointment ghl_id)
   const uniqueAppointmentsCount = useMemo(() => {
