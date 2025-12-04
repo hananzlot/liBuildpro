@@ -146,10 +146,10 @@ export function SourceDetailSheet({
   const [taskDueTime, setTaskDueTime] = useState("");
   const [isCreatingTask, setIsCreatingTask] = useState(false);
 
-  // Reset filters when sheet opens - default to "open" status
+  // Reset filters when sheet opens - default to "all" status
   useEffect(() => {
     if (open) {
-      setStatusFilter("open");
+      setStatusFilter("all");
       setStageFilter("all");
       setSearchFilter("");
     }
@@ -362,10 +362,14 @@ export function SourceDetailSheet({
     });
   }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts, showAppointments, showNoAppointments, contactIdsWithFilteredAppointments, contactIdsWithAnyAppointments]);
 
-  // Available statuses
+  // Available statuses - "open" first, then alphabetically
   const availableStatuses = useMemo(() => {
     const statuses = new Set(sourceOpportunities.map(o => o.status?.toLowerCase() || "unknown"));
-    return Array.from(statuses).sort();
+    return Array.from(statuses).sort((a, b) => {
+      if (a === "open") return -1;
+      if (b === "open") return 1;
+      return a.localeCompare(b);
+    });
   }, [sourceOpportunities]);
 
   // Available stages
