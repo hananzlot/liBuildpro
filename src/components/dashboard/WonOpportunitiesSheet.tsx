@@ -1,9 +1,11 @@
+import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Trophy, MapPin, FileText, User, Phone, Mail, Calendar, DollarSign, StickyNote, Megaphone } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Trophy, MapPin, FileText, User, Phone, Mail, Calendar, DollarSign, StickyNote, Megaphone, Search } from "lucide-react";
 import { format } from "date-fns";
 
 interface DBOpportunity {
@@ -77,6 +79,8 @@ export function WonOpportunitiesSheet({
   contacts, 
   users 
 }: WonOpportunitiesSheetProps) {
+  const [sourceFilter, setSourceFilter] = useState("");
+
   const userMap = new Map<string, string>();
   users.forEach(u => {
     const displayName = u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || u.ghl_id;
@@ -86,7 +90,20 @@ export function WonOpportunitiesSheet({
   const contactMap = new Map<string, DBContact>();
   contacts.forEach(c => contactMap.set(c.ghl_id, c));
 
-  const totalValue = opportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
+  // Filter opportunities by source (beginning of word match)
+  const filteredOpportunities = useMemo(() => {
+    if (!sourceFilter.trim()) return opportunities;
+    const searchTerm = sourceFilter.toLowerCase().trim();
+    return opportunities.filter(opp => {
+      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+      const source = (contact?.source || '').toLowerCase();
+      // Match beginning of any word in source
+      const words = source.split(/\s+/);
+      return words.some(word => word.startsWith(searchTerm)) || source.startsWith(searchTerm);
+    });
+  }, [opportunities, sourceFilter, contactMap]);
+
+  const totalValue = filteredOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -97,16 +114,29 @@ export function WonOpportunitiesSheet({
             Won Opportunities
           </SheetTitle>
           <SheetDescription>
-            {opportunities.length} deals • {formatCurrency(totalValue)} total value
+            {filteredOpportunities.length} deals • {formatCurrency(totalValue)} total value
           </SheetDescription>
         </SheetHeader>
         
-        <ScrollArea className="h-[calc(100vh-120px)] mt-6 pr-4">
+        {/* Source Filter */}
+        <div className="mt-4 relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Filter by source..."
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="pl-8 h-9 text-sm"
+          />
+        </div>
+        
+        <ScrollArea className="h-[calc(100vh-180px)] mt-4 pr-4">
           <div className="space-y-4">
-            {opportunities.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No won opportunities found</p>
+            {filteredOpportunities.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                {sourceFilter ? 'No opportunities match the filter' : 'No won opportunities found'}
+              </p>
             ) : (
-              opportunities.map((opp) => {
+              filteredOpportunities.map((opp) => {
                 const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
                 const salesPerson = opp.assigned_to ? userMap.get(opp.assigned_to) : null;
                 const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
