@@ -150,6 +150,7 @@ function processMetrics(
   totalPipelineValue: number;
   totalAppointments: number;
   upcomingAppointments: number;
+  upcomingNextWeek: number;
   opportunities: DBOpportunity[];
   appointments: DBAppointment[];
   contacts: DBContact[];
@@ -344,6 +345,15 @@ function processMetrics(
     return new Date(a.start_time) > now;
   }).length;
 
+  // Upcoming next week
+  const nextWeekEnd = new Date(now);
+  nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+  const upcomingNextWeek = appointments.filter(a => {
+    if (!a.start_time) return false;
+    const startTime = new Date(a.start_time);
+    return startTime > now && startTime <= nextWeekEnd;
+  }).length;
+
   return {
     totalLeads: filteredContacts.length,
     leadsThisMonth,
@@ -354,6 +364,7 @@ function processMetrics(
     totalPipelineValue,
     totalAppointments: appointments.length,
     upcomingAppointments,
+    upcomingNextWeek,
     opportunities: filteredOpportunities.slice(0, 10),
     appointments: appointments
       .filter(a => a.start_time)

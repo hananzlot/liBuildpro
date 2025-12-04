@@ -4,6 +4,7 @@ import { LucideIcon } from "lucide-react";
 interface MetricCardProps {
   title: string;
   value: string | number;
+  secondaryValue?: string;
   subtitle?: string;
   icon: LucideIcon;
   trend?: {
@@ -13,7 +14,7 @@ interface MetricCardProps {
   className?: string;
 }
 
-export function MetricCard({ title, value, subtitle, icon: Icon, trend, className }: MetricCardProps) {
+export function MetricCard({ title, value, secondaryValue, subtitle, icon: Icon, trend, className }: MetricCardProps) {
   return (
     <div className={cn(
       "relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50",
@@ -23,7 +24,12 @@ export function MetricCard({ title, value, subtitle, icon: Icon, trend, classNam
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-3xl font-bold tracking-tight text-foreground">{value}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-3xl font-bold tracking-tight text-foreground">{value}</p>
+            {secondaryValue && (
+              <span className="text-sm text-muted-foreground">/ {secondaryValue}</span>
+            )}
+          </div>
           {subtitle && (
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           )}
