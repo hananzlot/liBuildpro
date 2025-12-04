@@ -273,6 +273,7 @@ async function fetchConversations(ghlApiKey: string, locationId: string): Promis
   const seenIds = new Set<string>();
   let lastMessageId: string | undefined;
   let hasMore = true;
+  let emptyBatchCount = 0;
 
   while (hasMore) {
     const params = new URLSearchParams({
@@ -302,18 +303,43 @@ async function fetchConversations(ghlApiKey: string, locationId: string): Promis
     const conversations = data.conversations || [];
 
     let newCount = 0;
+    let batchLastMessageId: string | undefined;
+    
     for (const conv of conversations) {
       if (!seenIds.has(conv.id)) {
         seenIds.add(conv.id);
         allConversations.push(conv);
         newCount++;
-        lastMessageId = conv.lastMessageId;
+      }
+      // Track the last message ID from the last conversation in this batch
+      if (conv.lastMessageId) {
+        batchLastMessageId = conv.lastMessageId;
       }
     }
 
     console.log(`Conversations batch: ${newCount} new, total: ${allConversations.length}`);
 
-    if (conversations.length < 100 || allConversations.length >= 5000) {
+    // Stop if no new conversations found (we've seen all of them)
+    if (newCount === 0) {
+      emptyBatchCount++;
+      if (emptyBatchCount >= 2) {
+        console.log('No new conversations in multiple batches, stopping');
+        hasMore = false;
+        break;
+      }
+    } else {
+      emptyBatchCount = 0;
+    }
+
+    // Update pagination cursor
+    if (batchLastMessageId) {
+      lastMessageId = batchLastMessageId;
+    } else {
+      hasMore = false;
+    }
+
+    // Safety limits
+    if (conversations.length < 100 || allConversations.length >= 10000) {
       hasMore = false;
     }
   }
