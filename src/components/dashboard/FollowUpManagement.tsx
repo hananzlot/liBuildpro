@@ -273,6 +273,35 @@ export function FollowUpManagement({
     return new Date(dueDate) < new Date();
   };
 
+  // Calculate task counts by category
+  const taskCounts = useMemo(() => {
+    let baseTasks = ghlTasks.filter(t => !t.completed);
+    
+    // Filter out tasks where the associated opportunity is lost
+    baseTasks = baseTasks.filter(t => {
+      const opportunity = getOpportunityForContact(t.contact_id);
+      if (!opportunity) return true;
+      return opportunity.status?.toLowerCase() !== 'lost';
+    });
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfterTomorrow = new Date(today);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+
+    const pastDue = baseTasks.filter(t => t.due_date && new Date(t.due_date) < today).length;
+    const todayTomorrow = baseTasks.filter(t => {
+      if (!t.due_date) return false;
+      const dueDate = new Date(t.due_date);
+      return dueDate >= today && dueDate < dayAfterTomorrow;
+    }).length;
+    const afterTomorrow = baseTasks.filter(t => t.due_date && new Date(t.due_date) >= dayAfterTomorrow).length;
+
+    return { pastDue, todayTomorrow, afterTomorrow, total: baseTasks.length };
+  }, [ghlTasks, opportunities]);
+
   // Filter GHL tasks
   const filteredGhlTasks = useMemo(() => {
     let filtered = ghlTasks.filter(t => !t.completed);
@@ -1219,9 +1248,14 @@ export function FollowUpManagement({
                     <CheckSquare className="h-5 w-5 text-purple-500" />
                   </div>
                   <div>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 flex-wrap">
                       Tasks Helper
-                      <Badge variant="secondary">{filteredGhlTasks.length}</Badge>
+                      <Badge variant="secondary">{taskCounts.total}</Badge>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        (<span className={taskCounts.pastDue > 0 ? "text-red-500 font-medium" : ""}>{taskCounts.pastDue} past due</span>,{" "}
+                        <span className={taskCounts.todayTomorrow > 0 ? "text-orange-500 font-medium" : ""}>{taskCounts.todayTomorrow} today/tomorrow</span>,{" "}
+                        {taskCounts.afterTomorrow} after)
+                      </span>
                     </CardTitle>
                     <CardDescription>GHL tasks synced from GoHighLevel - click to view opportunity</CardDescription>
                   </div>
