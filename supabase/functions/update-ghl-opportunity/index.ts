@@ -24,16 +24,16 @@ serve(async (req) => {
       throw new Error('Missing Supabase credentials');
     }
 
-    const { ghl_id, status, stage_name, pipeline_stage_id } = await req.json();
+    const { ghl_id, status, stage_name, pipeline_stage_id, monetary_value } = await req.json();
 
     if (!ghl_id) {
       throw new Error('Missing ghl_id');
     }
 
-    console.log(`Updating opportunity ${ghl_id}: status=${status}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}`);
+    console.log(`Updating opportunity ${ghl_id}: status=${status}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}`);
 
     // Build the update payload for GHL
-    const ghlPayload: Record<string, string> = {};
+    const ghlPayload: Record<string, string | number> = {};
     
     if (status) {
       ghlPayload.status = status;
@@ -41,6 +41,10 @@ serve(async (req) => {
     
     if (pipeline_stage_id) {
       ghlPayload.pipelineStageId = pipeline_stage_id;
+    }
+
+    if (monetary_value !== undefined && monetary_value !== null) {
+      ghlPayload.monetaryValue = Number(monetary_value);
     }
 
     // Update GHL first
@@ -66,7 +70,7 @@ serve(async (req) => {
     // Now update Supabase
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    const supabaseUpdate: Record<string, string> = {};
+    const supabaseUpdate: Record<string, string | number> = {};
     if (status) {
       supabaseUpdate.status = status;
     }
@@ -75,6 +79,9 @@ serve(async (req) => {
     }
     if (pipeline_stage_id) {
       supabaseUpdate.pipeline_stage_id = pipeline_stage_id;
+    }
+    if (monetary_value !== undefined && monetary_value !== null) {
+      supabaseUpdate.monetary_value = Number(monetary_value);
     }
 
     const { error: supabaseError } = await supabase
