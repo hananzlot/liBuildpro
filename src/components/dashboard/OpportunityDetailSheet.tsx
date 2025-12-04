@@ -792,18 +792,15 @@ export function OpportunityDetailSheet({
                   <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <span className="flex-1">{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
                   {address && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 shrink-0"
-                      onClick={() => {
-                        const encodedAddress = encodeURIComponent(address);
-                        window.open(`https://propwire.com/search?q=${encodedAddress}`, '_blank');
-                      }}
+                    <a
+                      href={`https://propwire.com/search?q=${encodeURIComponent(address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded-sm hover:bg-muted transition-colors"
                       title="Look up on Propwire"
                     >
                       <ExternalLink className="h-3 w-3" />
-                    </Button>
+                    </a>
                   )}
                 </div>
               </div>
