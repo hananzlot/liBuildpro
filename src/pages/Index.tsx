@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, Lock, ListChecks } from "lucide-react";
+import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, Lock, ListChecks, Phone } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -140,9 +140,9 @@ const Index = () => {
             </section>
 
             {/* Metrics Grid */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {isLoading ? <>
-                  {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
+                  {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
                 </> : <>
                   <MetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} />
                   <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
@@ -162,6 +162,27 @@ const Index = () => {
                       </div>
                       <div className="rounded-xl bg-primary/10 p-3">
                         <CalendarCheck className="h-5 w-5 text-primary" />
+                      </div>
+                    </div>
+                    <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
+                  </div>
+                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">Calls</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-3xl font-bold tracking-tight text-foreground">
+                            {metrics?.totalCalls || 0}
+                          </p>
+                          <span className="text-sm text-muted-foreground">total</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-green-600 font-medium">{metrics?.outboundCalls || 0} out</span>
+                          <span className="text-blue-500 font-medium">{metrics?.inboundCalls || 0} in</span>
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-primary/10 p-3">
+                        <Phone className="h-5 w-5 text-primary" />
                       </div>
                     </div>
                     <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />

@@ -104,6 +104,18 @@ interface DBContactNote {
   user_id: string | null;
 }
 
+interface DBCallLog {
+  id: string;
+  ghl_message_id: string;
+  conversation_id: string;
+  contact_id: string;
+  direction: string | null;
+  call_date: string | null;
+  user_id: string | null;
+  location_id: string;
+  created_at: string;
+}
+
 // Generic paginated fetch for any table
 async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]> {
   const allItems: any[] = [];
@@ -173,6 +185,15 @@ async function fetchContactNotesFromDB(): Promise<DBContactNote[]> {
     .from('contact_notes')
     .select('*')
     .order('ghl_date_added', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchCallLogsFromDB(): Promise<DBCallLog[]> {
+  const { data, error } = await supabase
+    .from('call_logs')
+    .select('*')
+    .order('call_date', { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -604,6 +625,15 @@ export function useContactNotes() {
   });
 }
 
+export function useCallLogs() {
+  return useQuery({
+    queryKey: ['call_logs'],
+    queryFn: fetchCallLogsFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
 export function useSyncContacts() {
   const queryClient = useQueryClient();
 
@@ -616,6 +646,7 @@ export function useSyncContacts() {
       queryClient.invalidateQueries({ queryKey: ['ghl_users'] });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['call_logs'] });
     },
   });
 }
@@ -628,15 +659,27 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const conversationsQuery = useConversations();
   const tasksQuery = useTasks();
   const contactNotesQuery = useContactNotes();
+  const callLogsQuery = useCallLogs();
 
   const isLoading = contactsQuery.isLoading || opportunitiesQuery.isLoading || 
                     appointmentsQuery.isLoading || usersQuery.isLoading || 
                     conversationsQuery.isLoading || tasksQuery.isLoading ||
-                    contactNotesQuery.isLoading;
+                    contactNotesQuery.isLoading || callLogsQuery.isLoading;
   const error = contactsQuery.error || opportunitiesQuery.error || 
                 appointmentsQuery.error || usersQuery.error || 
                 conversationsQuery.error || tasksQuery.error ||
-                contactNotesQuery.error;
+                contactNotesQuery.error || callLogsQuery.error;
+
+  // Filter call logs by date range
+  const filteredCallLogs = callLogsQuery.data && dateRange?.from
+    ? callLogsQuery.data.filter(c => {
+        if (!c.call_date) return false;
+        const callDate = new Date(c.call_date);
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return callDate >= dateRange.from! && callDate <= endDate;
+      })
+    : callLogsQuery.data || [];
 
   const data = contactsQuery.data && opportunitiesQuery.data && 
                appointmentsQuery.data && usersQuery.data
@@ -651,6 +694,10 @@ export function useGHLMetrics(dateRange?: DateRange) {
         conversations: conversationsQuery.data || [],
         tasks: tasksQuery.data || [],
         contactNotes: contactNotesQuery.data || [],
+        callLogs: filteredCallLogs,
+        totalCalls: filteredCallLogs.length,
+        outboundCalls: filteredCallLogs.filter(c => c.direction === 'outbound').length,
+        inboundCalls: filteredCallLogs.filter(c => c.direction === 'inbound').length,
       }
     : undefined;
 
@@ -666,6 +713,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
       conversationsQuery.refetch();
       tasksQuery.refetch();
       contactNotesQuery.refetch();
+      callLogsQuery.refetch();
     },
   };
 }
