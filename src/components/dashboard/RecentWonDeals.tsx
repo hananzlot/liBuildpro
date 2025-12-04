@@ -94,7 +94,7 @@ export function RecentWonDeals({ wonOpportunities, contacts, onOpportunityClick 
   const totalWonValue = last30DaysWon.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
   return (
-    <div className="rounded-2xl bg-card p-4 border border-border/50 h-full flex flex-col">
+    <div className="rounded-2xl bg-card p-4 border border-border/50 h-full max-h-[280px] flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
