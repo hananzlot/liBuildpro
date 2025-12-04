@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { SourceDetailSheet } from "./SourceDetailSheet";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SourceData {
   source: string;
@@ -55,6 +56,7 @@ interface GHLUser {
 }
 
 type ChartMode = "leads" | "won";
+type LeadsViewTab = "leads" | "appointments";
 
 interface SourceChartProps {
   title: string;
@@ -65,6 +67,7 @@ interface SourceChartProps {
   opportunities: Opportunity[];
   appointments: Appointment[];
   users: GHLUser[];
+  appointmentsBySource?: SourceData[];
 }
 
 const LEAD_COLORS = [
@@ -83,6 +86,14 @@ const WON_COLORS = [
   "hsl(142 76% 36% / 0.3)",
 ];
 
+const APPOINTMENT_COLORS = [
+  "hsl(262 83% 58%)",
+  "hsl(262 83% 58% / 0.8)",
+  "hsl(262 83% 58% / 0.6)",
+  "hsl(262 83% 58% / 0.4)",
+  "hsl(262 83% 58% / 0.3)",
+];
+
 export function SourceChart({ 
   title, 
   data, 
@@ -92,11 +103,17 @@ export function SourceChart({
   opportunities,
   appointments,
   users,
+  appointmentsBySource,
 }: SourceChartProps) {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<LeadsViewTab>("leads");
 
-  const colors = mode === "won" ? WON_COLORS : LEAD_COLORS;
+  const isLeadsMode = mode === "leads";
+  const showingAppointments = isLeadsMode && activeTab === "appointments";
+  
+  const chartData = showingAppointments ? (appointmentsBySource || []) : data;
+  const colors = mode === "won" ? WON_COLORS : (showingAppointments ? APPOINTMENT_COLORS : LEAD_COLORS);
 
   const handleBarClick = (entry: SourceData) => {
     setSelectedSource(entry.source);
@@ -104,7 +121,7 @@ export function SourceChart({
   };
 
   const formatValue = (value: number) => {
-    if (dataKey === "value") {
+    if (dataKey === "value" && !showingAppointments) {
       if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
       if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
       return `$${value}`;
@@ -112,13 +129,28 @@ export function SourceChart({
     return value;
   };
 
+  const getChartTitle = () => {
+    if (!isLeadsMode) return title;
+    return activeTab === "leads" ? "Leads by Source" : "Appointments by Source";
+  };
+
   return (
     <>
       <div className="rounded-2xl bg-card p-6 border border-border/50">
-        <h3 className="text-lg font-semibold text-foreground mb-6">{title}</h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-foreground">{getChartTitle()}</h3>
+          {isLeadsMode && (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as LeadsViewTab)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="leads" className="text-xs px-3 h-7">Leads</TabsTrigger>
+                <TabsTrigger value="appointments" className="text-xs px-3 h-7">Appointments</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
+        </div>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} layout="vertical" margin={{ left: 20, right: 20 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
               <XAxis 
                 type="number" 
                 stroke="hsl(var(--muted-foreground))" 
@@ -141,17 +173,17 @@ export function SourceChart({
                   color: "hsl(var(--foreground))",
                 }}
                 formatter={(value: number) => [
-                  dataKey === "value" ? String(formatValue(value)) : String(value),
-                  dataKey === "value" ? "Value" : "Count"
+                  dataKey === "value" && !showingAppointments ? String(formatValue(value)) : String(value),
+                  showingAppointments ? "Unique Contacts" : (dataKey === "value" ? "Value" : "Count")
                 ]}
               />
               <Bar 
-                dataKey={dataKey} 
+                dataKey={showingAppointments ? "count" : dataKey} 
                 radius={[0, 4, 4, 0]}
                 cursor="pointer"
-                onClick={(_, index) => handleBarClick(data[index])}
+                onClick={(_, index) => handleBarClick(chartData[index])}
               >
-                {data.map((_, index) => (
+                {chartData.map((_, index) => (
                   <Cell 
                     key={`cell-${index}`} 
                     fill={colors[index % colors.length]}

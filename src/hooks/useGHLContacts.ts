@@ -161,6 +161,7 @@ function processMetrics(
   wonOpportunitiesValue: number;
   wonOpportunities: DBOpportunity[];
   wonBySource: { source: string; count: number; value: number }[];
+  appointmentsBySource: { source: string; count: number }[];
 } {
   const filteredContacts = filterByDateRange(contacts, dateRange);
   const filteredOpportunities = filterByDateRange(opportunities, dateRange);
@@ -339,6 +340,23 @@ function processMetrics(
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
 
+  // Appointments by source - group filtered appointments by contact source (unique contacts only)
+  const appointmentsBySourceMap = new Map<string, Set<string>>();
+  filteredAppointments.forEach(a => {
+    if (a.contact_id) {
+      const source = contactSourceMap.get(a.contact_id) || 'Direct';
+      if (!appointmentsBySourceMap.has(source)) {
+        appointmentsBySourceMap.set(source, new Set());
+      }
+      appointmentsBySourceMap.get(source)!.add(a.contact_id);
+    }
+  });
+  
+  const appointmentsBySource = Array.from(appointmentsBySourceMap.entries())
+    .map(([source, contactIds]) => ({ source, count: contactIds.size }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
   // Appointments metrics
   const upcomingAppointments = appointments.filter(a => {
     if (!a.start_time) return false;
@@ -378,6 +396,7 @@ function processMetrics(
     wonOpportunitiesValue,
     wonOpportunities,
     wonBySource,
+    appointmentsBySource,
   };
 }
 
