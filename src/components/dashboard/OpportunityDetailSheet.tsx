@@ -856,25 +856,29 @@ export function OpportunityDetailSheet({
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4">
           <SheetHeader>
-            <div className="flex items-center justify-between gap-3">
-              <SheetTitle className="text-sm font-medium text-muted-foreground">
-                Opportunity Details
-              </SheetTitle>
-              {!isEditing ? <div className="flex items-center gap-2">
-                  
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleEditClick}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </div> : <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancelEdit} disabled={isSaving}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <Button variant="default" size="icon" className="h-7 w-7" onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                  </Button>
-                </div>}
-            </div>
+            <SheetTitle className="text-sm font-medium text-muted-foreground">
+              Opportunity Details
+            </SheetTitle>
           </SheetHeader>
+          <div className="mt-2 flex items-center gap-2">
+            {!isEditing ? (
+              <Button variant="outline" size="sm" className="h-7" onClick={handleEditClick}>
+                <Pencil className="h-3.5 w-3.5 mr-1" />
+                Edit
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" className="h-7" onClick={handleCancelEdit} disabled={isSaving}>
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Cancel
+                </Button>
+                <Button variant="default" size="sm" className="h-7" onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                  Save
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="p-4 space-y-4">
