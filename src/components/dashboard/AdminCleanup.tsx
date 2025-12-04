@@ -11,6 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -21,6 +28,7 @@ interface Opportunity {
   status: string | null;
   stage_name: string | null;
   pipeline_name: string | null;
+  pipeline_stage_id: string | null;
   monetary_value: number | null;
   contact_id: string | null;
 }
@@ -58,9 +66,20 @@ interface AdminCleanupProps {
   onDataUpdated: () => void;
 }
 
+// Common stages for appointment follow-up
+const APPOINTMENT_OUTCOME_STAGES = [
+  { value: 'Appointment Follow up', label: 'Appointment Follow up' },
+  { value: 'Second Appointment', label: 'Second Appointment' },
+  { value: 'Sold', label: 'Sold' },
+  { value: 'Rehash', label: 'Rehash' },
+  { value: 'Lost/DNC', label: 'Lost/DNC' },
+  { value: 'PNS', label: 'PNS (Price Not Sold)' },
+];
+
 export function AdminCleanup({ opportunities, contacts, appointments, users, onDataUpdated }: AdminCleanupProps) {
   const [updatingOppIds, setUpdatingOppIds] = useState<Set<string>>(new Set());
   const [updatingApptIds, setUpdatingApptIds] = useState<Set<string>>(new Set());
+  const [selectedStages, setSelectedStages] = useState<Record<string, string>>({});
 
   // Find opportunities with inconsistent status/stage
   const inconsistentOpportunities = useMemo(() => {
@@ -70,7 +89,6 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
       const stageLower = (opp.stage_name || '').toLowerCase();
       const statusLower = (opp.status || '').toLowerCase();
       
-      // Stage indicates lost/dnc but status is still open
       return lostStages.some(stage => stageLower.includes(stage)) && statusLower === 'open';
     });
   }, [opportunities]);
@@ -83,7 +101,6 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
       const endTime = apt.end_time ? new Date(apt.end_time) : null;
       const statusLower = (apt.appointment_status || '').toLowerCase();
       
-      // Appointment has passed and status is still "confirmed" or "new"
       return endTime && endTime < now && (statusLower === 'confirmed' || statusLower === 'new');
     });
   }, [appointments]);
@@ -100,6 +117,12 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
     const user = users.find(u => u.ghl_id === userId);
     if (!user) return 'Unknown';
     return user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown';
+  };
+
+  const getRelatedOpportunity = (contactId: string | null) => {
+    if (!contactId) return null;
+    // Find the most recent opportunity for this contact
+    return opportunities.find(opp => opp.contact_id === contactId);
   };
 
   const formatDateTime = (dateString: string | null) => {
@@ -143,19 +166,65 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
     }
   };
 
-  const handleUpdateAppointmentStatus = async (appointment: Appointment, newStatus: string) => {
+  const handleUpdateAppointmentWithOpportunity = async (
+    appointment: Appointment, 
+    newApptStatus: string,
+    newOppStage?: string
+  ) => {
     setUpdatingApptIds(prev => new Set(prev).add(appointment.id));
     
     try {
-      // Update local database only (GHL doesn't have a simple appointment status update API)
-      const { error: dbError } = await supabase
+      // Update appointment status in local database
+      const { error: apptError } = await supabase
         .from('appointments')
-        .update({ appointment_status: newStatus })
+        .update({ appointment_status: newApptStatus })
         .eq('id', appointment.id);
 
-      if (dbError) throw dbError;
+      if (apptError) throw apptError;
 
-      toast.success(`Updated "${appointment.title}" to ${newStatus}`);
+      // If a stage was selected, update the related opportunity
+      if (newOppStage) {
+        const relatedOpp = getRelatedOpportunity(appointment.contact_id);
+        if (relatedOpp) {
+          // Determine new status based on stage
+          let newOppStatus = 'open';
+          const stageLower = newOppStage.toLowerCase();
+          if (stageLower.includes('sold')) {
+            newOppStatus = 'won';
+          } else if (stageLower.includes('lost') || stageLower.includes('dnc')) {
+            newOppStatus = 'lost';
+          }
+
+          // Update opportunity in GHL
+          const { error: ghlError } = await supabase.functions.invoke('update-ghl-opportunity', {
+            body: { 
+              ghl_id: relatedOpp.ghl_id,
+              status: newOppStatus,
+              stage_name: newOppStage
+            }
+          });
+
+          if (ghlError) {
+            console.error('GHL update error:', ghlError);
+          }
+
+          // Update opportunity in local database
+          await supabase
+            .from('opportunities')
+            .update({ 
+              stage_name: newOppStage,
+              status: newOppStatus
+            })
+            .eq('id', relatedOpp.id);
+
+          toast.success(`Updated appointment to "${newApptStatus}" and opportunity to "${newOppStage}"`);
+        } else {
+          toast.success(`Updated appointment to "${newApptStatus}" (no related opportunity found)`);
+        }
+      } else {
+        toast.success(`Updated "${appointment.title}" to ${newApptStatus}`);
+      }
+
       onDataUpdated();
     } catch (err) {
       toast.error(`Failed to update: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -381,7 +450,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
               <div>
                 <CardTitle className="text-lg">Past Appointments Still Confirmed</CardTitle>
                 <CardDescription>
-                  Appointments that have passed but still show as "confirmed" or "new"
+                  Appointments that have passed but still show as "confirmed" or "new" - update both appointment and opportunity status
                 </CardDescription>
               </div>
             </div>
@@ -410,38 +479,66 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                   <TableRow>
                     <TableHead>Appointment</TableHead>
                     <TableHead>Contact</TableHead>
-                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Current Opp Stage</TableHead>
                     <TableHead>Date/Time</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>New Opp Stage</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pastConfirmedAppointments.slice(0, 50).map((apt) => {
                     const isUpdating = updatingApptIds.has(apt.id);
+                    const relatedOpp = getRelatedOpportunity(apt.contact_id);
+                    const selectedStage = selectedStages[apt.id] || '';
                     
                     return (
                       <TableRow key={apt.id}>
-                        <TableCell className="font-medium max-w-[200px] truncate">
-                          {apt.title || 'Untitled'}
+                        <TableCell className="font-medium max-w-[180px]">
+                          <div className="truncate">{apt.title || 'Untitled'}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {getUserName(apt.assigned_user_id)}
+                          </div>
                         </TableCell>
                         <TableCell>{getContactName(apt.contact_id)}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {getUserName(apt.assigned_user_id)}
+                        <TableCell>
+                          {relatedOpp ? (
+                            <Badge variant="outline" className="text-xs">
+                              {relatedOpp.stage_name || 'No stage'}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">No opportunity</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-sm">
                           {formatDateTime(apt.start_time)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400">
-                            {apt.appointment_status}
-                          </Badge>
+                          <Select
+                            value={selectedStage}
+                            onValueChange={(value) => setSelectedStages(prev => ({ ...prev, [apt.id]: value }))}
+                          >
+                            <SelectTrigger className="w-[160px] h-8 text-xs">
+                              <SelectValue placeholder="Select stage..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none" className="text-xs">No change</SelectItem>
+                              {APPOINTMENT_OUTCOME_STAGES.map(stage => (
+                                <SelectItem key={stage.value} value={stage.value} className="text-xs">
+                                  {stage.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell className="text-right space-x-1">
                           <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => handleUpdateAppointmentStatus(apt, 'showed')}
+                            onClick={() => handleUpdateAppointmentWithOpportunity(
+                              apt, 
+                              'showed', 
+                              selectedStage && selectedStage !== 'none' ? selectedStage : undefined
+                            )}
                             disabled={isUpdating}
                           >
                             {isUpdating ? (
@@ -453,7 +550,11 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleUpdateAppointmentStatus(apt, 'no_show')}
+                            onClick={() => handleUpdateAppointmentWithOpportunity(
+                              apt, 
+                              'no_show',
+                              selectedStage && selectedStage !== 'none' ? selectedStage : undefined
+                            )}
                             disabled={isUpdating}
                           >
                             No Show
