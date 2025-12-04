@@ -225,7 +225,7 @@ function processMetrics(
     }
   });
 
-  // Calculate conversion rate per rep based on their contacts' opportunities
+  // Calculate metrics per rep based on their contacts' opportunities
   const salesRepPerformance: SalesRepPerformance[] = Array.from(repContactsMap.entries())
     .map(([assignedTo, repContacts]) => {
       const repContactIds = new Set(repContacts.map(c => c.ghl_id));
@@ -235,17 +235,30 @@ function processMetrics(
         o.contact_id && repContactIds.has(o.contact_id)
       );
       
-      const totalOpps = repOpportunities.length;
-      const wonOpps = repOpportunities.filter(o => 
+      const totalOpportunities = repOpportunities.length;
+      const wonOpportunities = repOpportunities.filter(o => 
         o.status?.toLowerCase() === 'won'
       ).length;
       
+      // Calculate pipeline value (open opps) and won value
+      const pipelineValue = repOpportunities
+        .filter(o => o.status?.toLowerCase() === 'open')
+        .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
+      
+      const wonValue = repOpportunities
+        .filter(o => o.status?.toLowerCase() === 'won')
+        .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
+      
       // Conversion rate = won / total (as percentage)
-      const conversionRate = totalOpps > 0 ? (wonOpps / totalOpps) * 100 : 0;
+      const conversionRate = totalOpportunities > 0 ? (wonOpportunities / totalOpportunities) * 100 : 0;
 
       return {
         assignedTo,
         totalLeads: repContacts.length,
+        totalOpportunities,
+        wonOpportunities,
+        pipelineValue,
+        wonValue,
         conversionRate,
       };
     })
