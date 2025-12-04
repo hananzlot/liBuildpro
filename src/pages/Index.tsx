@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, CloudDownload } from "lucide-react";
+import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, CloudDownload, Lock } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -19,7 +19,11 @@ import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetail
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+
+const ADMIN_PASSWORD = "CAPro2025";
 
 const Index = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -27,12 +31,24 @@ const Index = () => {
   const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
+  const [adminAuthenticated, setAdminAuthenticated] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
   const { data: metrics, isLoading, error, refetch } = useGHLMetrics(dateRange);
   const syncMutation = useSyncContacts();
 
   const handleOpenOpportunity = (opportunity: any) => {
     setSelectedOpportunity(opportunity);
     setOppDetailSheetOpen(true);
+  };
+
+  const handleAdminLogin = () => {
+    if (adminPassword === ADMIN_PASSWORD) {
+      setAdminAuthenticated(true);
+      setAdminPassword("");
+      toast.success("Admin access granted");
+    } else {
+      toast.error("Incorrect password");
+    }
   };
 
   const handleSync = async () => {
@@ -334,21 +350,47 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="admin" className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground mb-1">Data Cleanup</h2>
-              <p className="text-sm text-muted-foreground">Find and fix inconsistent data in your GHL account</p>
-            </div>
-            {isLoading ? (
-              <Skeleton className="h-[400px] rounded-2xl" />
+            {!adminAuthenticated ? (
+              <Card className="max-w-md mx-auto mt-12">
+                <CardHeader className="text-center">
+                  <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
+                    <Lock className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <CardTitle>Admin Access Required</CardTitle>
+                  <CardDescription>Enter the admin password to access data cleanup tools</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Input
+                    type="password"
+                    placeholder="Enter password..."
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAdminLogin()}
+                  />
+                  <Button className="w-full" onClick={handleAdminLogin}>
+                    Unlock Admin
+                  </Button>
+                </CardContent>
+              </Card>
             ) : (
-              <AdminCleanup 
-                opportunities={metrics?.allOpportunities || []}
-                contacts={metrics?.allContacts || []}
-                appointments={metrics?.allAppointments || []}
-                users={metrics?.users || []}
-                onDataUpdated={() => refetch()}
-                onOpenOpportunity={handleOpenOpportunity}
-              />
+              <>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground mb-1">Data Cleanup</h2>
+                  <p className="text-sm text-muted-foreground">Find and fix inconsistent data in your GHL account</p>
+                </div>
+                {isLoading ? (
+                  <Skeleton className="h-[400px] rounded-2xl" />
+                ) : (
+                  <AdminCleanup 
+                    opportunities={metrics?.allOpportunities || []}
+                    contacts={metrics?.allContacts || []}
+                    appointments={metrics?.allAppointments || []}
+                    users={metrics?.users || []}
+                    onDataUpdated={() => refetch()}
+                    onOpenOpportunity={handleOpenOpportunity}
+                  />
+                )}
+              </>
             )}
           </TabsContent>
         </Tabs>
