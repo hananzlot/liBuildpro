@@ -13,13 +13,7 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-// Helper to strip HTML tags from text
-const stripHtml = (html: string | null | undefined): string => {
-  if (!html) return '';
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || '';
-};
+import { stripHtml } from "@/lib/utils";
 interface DBOpportunity {
   id: string;
   ghl_id: string;

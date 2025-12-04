@@ -11,6 +11,7 @@ import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mai
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { stripHtml } from "@/lib/utils";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -26,12 +27,6 @@ const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
   SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
   NOTES: '588ddQgiGEg3AWtTQB2i'
-};
-
-// Strip HTML tags from text
-const stripHtml = (html: string): string => {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || '';
 };
 interface Opportunity {
   ghl_id: string;
