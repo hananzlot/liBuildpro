@@ -343,14 +343,16 @@ function processMetrics(
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
 
-  // Opportunities by source - group filtered opportunities by contact source
+  // Opportunities by source - group filtered opportunities by contact source (excluding quickbase stage)
   const opportunitiesBySourceMap = new Map<string, number>();
-  filteredOpportunities.forEach(o => {
-    if (o.contact_id) {
-      const source = contactSourceMap.get(o.contact_id) || 'Direct';
-      opportunitiesBySourceMap.set(source, (opportunitiesBySourceMap.get(source) || 0) + 1);
-    }
-  });
+  filteredOpportunities
+    .filter(o => o.stage_name?.toLowerCase() !== 'quickbase')
+    .forEach(o => {
+      if (o.contact_id) {
+        const source = contactSourceMap.get(o.contact_id) || 'Direct';
+        opportunitiesBySourceMap.set(source, (opportunitiesBySourceMap.get(source) || 0) + 1);
+      }
+    });
   
   const opportunitiesBySource = Array.from(opportunitiesBySourceMap.entries())
     .map(([source, count]) => ({ source, count }))

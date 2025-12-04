@@ -206,6 +206,7 @@ const Index = () => {
                 opportunities={metrics?.allOpportunities || []}
                 filteredOpportunities={metrics?.filteredOpportunitiesList || []}
                 appointments={metrics?.appointments || []}
+                filteredAppointments={metrics?.filteredAppointmentsList || []}
                 users={metrics?.users || []}
                 appointmentsBySource={metrics?.appointmentsBySource || []}
               />
