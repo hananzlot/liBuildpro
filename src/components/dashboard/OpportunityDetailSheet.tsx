@@ -105,10 +105,12 @@ export function OpportunityDetailSheet({
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
   const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
 
-  // Get unique pipeline stages from all opportunities with their stage IDs
+  // Get pipeline stages only from the same pipeline as the current opportunity
   const stageMap = new Map<string, string>();
+  const currentPipelineId = opportunity?.pipeline_id;
   allOpportunities.forEach(o => {
-    if (o.stage_name && o.pipeline_stage_id) {
+    // Only include stages from the same pipeline
+    if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === currentPipelineId) {
       stageMap.set(o.stage_name, o.pipeline_stage_id);
     }
   });
