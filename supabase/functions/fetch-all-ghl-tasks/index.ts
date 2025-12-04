@@ -35,7 +35,7 @@ serve(async (req) => {
     console.log(`Found ${contacts?.length || 0} contacts, fetching tasks...`);
 
     const allTasks: any[] = [];
-    const batchSize = 10; // Process 10 contacts at a time to avoid rate limits
+    const batchSize = 5; // Smaller batches to avoid rate limits
 
     for (let i = 0; i < (contacts?.length || 0); i += batchSize) {
       const batch = contacts!.slice(i, i + batchSize);
@@ -56,7 +56,6 @@ serve(async (req) => {
           if (tasksResponse.ok) {
             const tasksData = await tasksResponse.json();
             const tasks = tasksData.tasks || [];
-            // Filter for incomplete tasks and add contactId
             return tasks
               .filter((t: any) => !t.completed)
               .map((t: any) => ({ ...t, contactId: contact.ghl_id }));
@@ -71,9 +70,9 @@ serve(async (req) => {
       const batchResults = await Promise.all(batchPromises);
       batchResults.forEach(tasks => allTasks.push(...tasks));
       
-      // Small delay between batches to respect rate limits
+      // Longer delay between batches to respect GHL rate limits
       if (i + batchSize < (contacts?.length || 0)) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
