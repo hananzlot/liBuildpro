@@ -91,9 +91,9 @@ export function FollowUpManagement({
   tasks,
   onOpenOpportunity,
 }: FollowUpManagementProps) {
-  const [staleNotesOpen, setStaleNotesOpen] = useState(true);
-  const [noTasksOpen, setNoTasksOpen] = useState(true);
-  const [pastConfirmedOpen, setPastConfirmedOpen] = useState(true);
+  const [staleNotesOpen, setStaleNotesOpen] = useState(false);
+  const [noTasksOpen, setNoTasksOpen] = useState(false);
+  const [pastConfirmedOpen, setPastConfirmedOpen] = useState(false);
   const [staleNotesSort, setStaleNotesSort] = useState<{ field: SortField; direction: SortDirection }>({
     field: 'appointment_date',
     direction: 'desc',
@@ -161,14 +161,20 @@ export function FollowUpManagement({
       daysSinceNote: number | null;
     }> = [];
 
+    const now = new Date();
+
     appointments.forEach(appointment => {
       if (!appointment.contact_id || !appointment.start_time) return;
       if (appointment.appointment_status?.toLowerCase() === 'cancelled') return;
 
+      const appointmentDate = new Date(appointment.start_time);
+      
+      // Only include past appointments
+      if (appointmentDate >= now) return;
+
       const opportunity = getOpportunityForAppointment(appointment.contact_id);
       if (!opportunity) return;
 
-      const appointmentDate = new Date(appointment.start_time);
       const lastNoteDate = getLatestNoteDate(appointment.contact_id);
 
       // Include if no notes exist OR last note is before appointment
