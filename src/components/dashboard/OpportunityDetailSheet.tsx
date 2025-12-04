@@ -562,12 +562,14 @@ export function OpportunityDetailSheet({
           {/* Contact Section - Now at the top with opportunity value */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-              <span className="font-bold capitalize">{opportunity.name?.toLowerCase() || 'Unnamed Opportunity'}</span>
+              <div className="flex flex-col">
+                <span className="font-bold capitalize">{opportunity.name?.toLowerCase() || 'Unnamed Opportunity'}</span>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <User className="h-3 w-3" />
+                  {userName}
+                </span>
+              </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={openTaskDialog}>
-                  <Plus className="h-3 w-3 mr-1" />
-                  Task
-                </Button>
                 {isEditing ? <div className="flex items-center gap-1">
                     <span className="text-lg font-bold text-emerald-400">$</span>
                     <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
