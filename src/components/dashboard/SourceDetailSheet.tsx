@@ -32,6 +32,18 @@ import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+// Helper to get PST/PDT offset in hours (returns positive number for hours behind UTC)
+const getPSTOffset = (date: Date): number => {
+  // Check if date is in PST or PDT by checking if it's in DST
+  // DST in US starts second Sunday of March, ends first Sunday of November
+  const year = date.getFullYear();
+  const dstStart = new Date(year, 2, 8 + (7 - new Date(year, 2, 8).getDay()), 2); // Second Sunday of March
+  const dstEnd = new Date(year, 10, 1 + (7 - new Date(year, 10, 1).getDay()), 2); // First Sunday of November
+  
+  const isDST = date >= dstStart && date < dstEnd;
+  return isDST ? 7 : 8; // PDT is UTC-7, PST is UTC-8
+};
+
 interface Contact {
   id?: string;
   ghl_id: string;
@@ -131,6 +143,7 @@ export function SourceDetailSheet({
   const [taskNotes, setTaskNotes] = useState("");
   const [taskAssignee, setTaskAssignee] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskDueTime, setTaskDueTime] = useState("");
   const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   const formatCurrency = (value: number | null) => {
@@ -162,6 +175,7 @@ export function SourceDetailSheet({
     setTaskNotes("");
     setTaskAssignee(opp.assigned_to || "__unassigned__");
     setTaskDueDate("");
+    setTaskDueTime("09:00");
     setTaskDialogOpen(true);
   };
 
@@ -178,7 +192,21 @@ export function SourceDetailSheet({
       const locationId = contact?.location_id || "default";
 
       const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
-      const dueDateValue = taskDueDate ? new Date(taskDueDate).toISOString() : null;
+      
+      // Combine date and time, treating input as PST (America/Los_Angeles)
+      let dueDateValue: string | null = null;
+      if (taskDueDate) {
+        const timeStr = taskDueTime || "09:00";
+        // Create a date string in PST format and convert to UTC
+        const pstDateTimeStr = `${taskDueDate}T${timeStr}:00`;
+        // PST is UTC-8, PDT is UTC-7. For simplicity, use a fixed offset calculation
+        // Create the date as if it's in PST and convert to ISO
+        const localDate = new Date(pstDateTimeStr);
+        // Get the PST offset (accounting for DST)
+        const pstOffset = getPSTOffset(localDate);
+        const utcDate = new Date(localDate.getTime() + pstOffset * 60 * 60 * 1000);
+        dueDateValue = utcDate.toISOString();
+      }
 
       // First insert into Supabase
       const { data: insertedTask, error } = await supabase.from("tasks").insert({
@@ -224,6 +252,7 @@ export function SourceDetailSheet({
       setTaskNotes("");
       setTaskAssignee("");
       setTaskDueDate("");
+      setTaskDueTime("");
     } catch (err) {
       console.error("Error creating task:", err);
       toast.error("Failed to create task");
@@ -624,13 +653,24 @@ export function SourceDetailSheet({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="taskDueDate">Due Date (Optional)</Label>
-              <Input
-                id="taskDueDate"
-                type="date"
-                value={taskDueDate}
-                onChange={(e) => setTaskDueDate(e.target.value)}
-              />
+              <Label>Due Date & Time (PST) - Optional</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="taskDueDate"
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  id="taskDueTime"
+                  type="time"
+                  value={taskDueTime}
+                  onChange={(e) => setTaskDueTime(e.target.value)}
+                  className="w-28"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Times are in Pacific Standard Time (PST/PDT)</p>
             </div>
           </div>
           <DialogFooter>
