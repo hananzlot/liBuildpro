@@ -55,8 +55,8 @@ interface GHLUser {
   email: string | null;
 }
 
-type ChartMode = "leads" | "won";
-type LeadsViewTab = "leads" | "appointments";
+type ChartMode = "opportunities" | "won";
+type OpportunitiesViewTab = "opportunities" | "appointments";
 
 interface SourceChartProps {
   title: string;
@@ -111,10 +111,10 @@ export function SourceChart({
 }: SourceChartProps) {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<LeadsViewTab>("leads");
+  const [activeTab, setActiveTab] = useState<OpportunitiesViewTab>("opportunities");
 
-  const isLeadsMode = mode === "leads";
-  const showingAppointments = isLeadsMode && activeTab === "appointments";
+  const isOpportunitiesMode = mode === "opportunities";
+  const showingAppointments = isOpportunitiesMode && activeTab === "appointments";
   
   const chartData = showingAppointments ? (appointmentsBySource || []) : data;
   const colors = mode === "won" ? WON_COLORS : (showingAppointments ? APPOINTMENT_COLORS : LEAD_COLORS);
@@ -134,8 +134,8 @@ export function SourceChart({
   };
 
   const getChartTitle = () => {
-    if (!isLeadsMode) return title;
-    return activeTab === "leads" ? "Leads by Source" : "Appointments by Source";
+    if (!isOpportunitiesMode) return title;
+    return activeTab === "opportunities" ? "Opportunities by Source" : "Appointments by Source";
   };
 
   return (
@@ -143,10 +143,10 @@ export function SourceChart({
       <div className="rounded-2xl bg-card p-6 border border-border/50">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-foreground">{getChartTitle()}</h3>
-          {isLeadsMode && (
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as LeadsViewTab)}>
+          {isOpportunitiesMode && (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as OpportunitiesViewTab)}>
               <TabsList className="h-8">
-                <TabsTrigger value="leads" className="text-xs px-3 h-7">Leads</TabsTrigger>
+                <TabsTrigger value="opportunities" className="text-xs px-3 h-7">Opportunities</TabsTrigger>
                 <TabsTrigger value="appointments" className="text-xs px-3 h-7">Appointments</TabsTrigger>
               </TabsList>
             </Tabs>

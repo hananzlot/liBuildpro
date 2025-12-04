@@ -73,7 +73,7 @@ interface GHLUser {
   email: string | null;
 }
 
-type ViewMode = "leads" | "won";
+type ViewMode = "opportunities" | "won";
 
 interface SourceDetailSheetProps {
   source: string | null;
@@ -196,8 +196,8 @@ export function SourceDetailSheet({
                 <div>
                   <SheetTitle className="text-lg">{source}</SheetTitle>
                   <SheetDescription>
-                    {mode === "leads" 
-                      ? `${sourceContacts.length} leads • ${sourceOpportunities.length} opportunities`
+                    {mode === "opportunities" 
+                      ? `${sourceOpportunities.length} opportunities • ${sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length} won`
                       : `${displayOpportunities.length} won • ${formatCurrency(wonValue)}`
                     }
                   </SheetDescription>
@@ -210,12 +210,12 @@ export function SourceDetailSheet({
             {/* Summary */}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Total Leads</div>
-                <div className="font-medium">{sourceContacts.length}</div>
+                <div className="text-muted-foreground text-xs mb-0.5">Total Opportunities</div>
+                <div className="font-medium">{sourceOpportunities.length}</div>
               </div>
               <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Opportunities</div>
-                <div className="font-medium">{sourceOpportunities.length}</div>
+                <div className="text-muted-foreground text-xs mb-0.5">Open</div>
+                <div className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "open").length}</div>
               </div>
               <div className="bg-muted/40 rounded-md p-2.5">
                 <div className="text-muted-foreground text-xs mb-0.5">Won Deals</div>
@@ -229,7 +229,7 @@ export function SourceDetailSheet({
 
             {/* Filters */}
             <div className="flex items-center gap-2">
-              {mode === "leads" && (
+              {mode === "opportunities" && (
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="h-8 w-28 text-xs">
                     <SelectValue placeholder="Status" />

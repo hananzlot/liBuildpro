@@ -197,9 +197,9 @@ const Index = () => {
           ) : (
             <>
               <SourceChart
-                title="Leads by Source"
-                data={metrics?.leadsBySource || []}
-                mode="leads"
+                title="Opportunities by Source"
+                data={metrics?.opportunitiesBySource || []}
+                mode="opportunities"
                 dataKey="count"
                 contacts={metrics?.allContacts || []}
                 filteredContacts={metrics?.contacts || []}

@@ -164,6 +164,7 @@ function processMetrics(
   wonOpportunities: DBOpportunity[];
   wonBySource: { source: string; count: number; value: number }[];
   appointmentsBySource: { source: string; count: number }[];
+  opportunitiesBySource: { source: string; count: number }[];
 } {
   const filteredContacts = filterByDateRange(contacts, dateRange);
   const filteredOpportunities = filterByDateRange(opportunities, dateRange);
@@ -342,6 +343,20 @@ function processMetrics(
     .sort((a, b) => b.value - a.value)
     .slice(0, 10);
 
+  // Opportunities by source - group filtered opportunities by contact source
+  const opportunitiesBySourceMap = new Map<string, number>();
+  filteredOpportunities.forEach(o => {
+    if (o.contact_id) {
+      const source = contactSourceMap.get(o.contact_id) || 'Direct';
+      opportunitiesBySourceMap.set(source, (opportunitiesBySourceMap.get(source) || 0) + 1);
+    }
+  });
+  
+  const opportunitiesBySource = Array.from(opportunitiesBySourceMap.entries())
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
   // Appointments by source - group filtered appointments by contact source (unique contacts only)
   const appointmentsBySourceMap = new Map<string, Set<string>>();
   filteredAppointments.forEach(a => {
@@ -401,6 +416,7 @@ function processMetrics(
     wonOpportunities,
     wonBySource,
     appointmentsBySource,
+    opportunitiesBySource,
   };
 }
 
