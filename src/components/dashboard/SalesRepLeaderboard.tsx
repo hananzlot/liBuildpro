@@ -10,6 +10,8 @@ interface Opportunity {
   contact_id: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
+  stage_name: string | null;
+  pipeline_name: string | null;
 }
 
 interface Appointment {

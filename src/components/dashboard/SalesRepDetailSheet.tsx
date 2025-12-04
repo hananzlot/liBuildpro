@@ -7,7 +7,14 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { User, Megaphone, Calendar, DollarSign, Clock } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch } from "lucide-react";
 
 interface Opportunity {
   ghl_id: string;
@@ -17,6 +24,8 @@ interface Opportunity {
   contact_id: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
+  stage_name: string | null;
+  pipeline_name: string | null;
 }
 
 interface Appointment {
@@ -37,13 +46,6 @@ interface Contact {
   assigned_to: string | null;
 }
 
-interface GHLUser {
-  ghl_id: string;
-  name: string | null;
-  first_name: string | null;
-  last_name: string | null;
-}
-
 interface SalesRepDetailSheetProps {
   repName: string;
   repGhlId: string | null;
@@ -54,6 +56,13 @@ interface SalesRepDetailSheetProps {
   contacts: Contact[];
 }
 
+const STATUS_ORDER: Record<string, number> = {
+  won: 0,
+  open: 1,
+  lost: 2,
+  abandoned: 3,
+};
+
 export function SalesRepDetailSheet({
   repName,
   repGhlId,
@@ -63,6 +72,8 @@ export function SalesRepDetailSheet({
   appointments,
   contacts,
 }: SalesRepDetailSheetProps) {
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -106,6 +117,29 @@ export function SalesRepDetailSheet({
   const repAppointments = useMemo(() => {
     return appointments.filter(a => a.contact_id && repContactIds.has(a.contact_id));
   }, [appointments, repContactIds]);
+
+  // Sort opportunities by status (won, open, lost)
+  const sortedOpportunities = useMemo(() => {
+    return [...repOpportunities].sort((a, b) => {
+      const statusA = STATUS_ORDER[a.status?.toLowerCase() || ''] ?? 99;
+      const statusB = STATUS_ORDER[b.status?.toLowerCase() || ''] ?? 99;
+      if (statusA !== statusB) return statusA - statusB;
+      // Secondary sort by date
+      return new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime();
+    });
+  }, [repOpportunities]);
+
+  // Filter opportunities by status
+  const filteredOpportunities = useMemo(() => {
+    if (statusFilter === "all") return sortedOpportunities;
+    return sortedOpportunities.filter(o => o.status?.toLowerCase() === statusFilter);
+  }, [sortedOpportunities, statusFilter]);
+
+  // Get unique statuses for filter
+  const availableStatuses = useMemo(() => {
+    const statuses = new Set(repOpportunities.map(o => o.status?.toLowerCase() || 'unknown'));
+    return Array.from(statuses).sort((a, b) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99));
+  }, [repOpportunities]);
 
   // Group contacts by source (sorted by count)
   const leadsBySource = useMemo(() => {
@@ -186,50 +220,6 @@ export function SalesRepDetailSheet({
               </div>
             </div>
 
-            {/* Opportunities */}
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Opportunities ({repOpportunities.length})
-                </span>
-              </div>
-              <div className="divide-y max-h-64 overflow-y-auto">
-                {repOpportunities.length === 0 ? (
-                  <div className="p-3 text-sm text-muted-foreground text-center">No opportunities</div>
-                ) : (
-                  repOpportunities
-                    .sort((a, b) => new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime())
-                    .map((opp) => {
-                      const contact = contacts.find(c => c.ghl_id === opp.contact_id);
-                      return (
-                        <div key={opp.ghl_id} className="p-3 space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-medium text-sm truncate">{opp.name || 'Unnamed'}</span>
-                            <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(opp.status)}`}>
-                              {opp.status || 'Unknown'}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {formatDate(opp.ghl_date_added)}
-                            </div>
-                            <span className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</span>
-                          </div>
-                          {contact?.source && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Megaphone className="h-3 w-3" />
-                              {contact.source}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                )}
-              </div>
-            </div>
-
             {/* Appointments */}
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
@@ -265,6 +255,69 @@ export function SalesRepDetailSheet({
                         </Badge>
                       </div>
                     ))
+                )}
+              </div>
+            </div>
+
+            {/* Opportunities */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Opportunities ({filteredOpportunities.length})
+                  </span>
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-7 w-24 text-xs">
+                    <SelectValue placeholder="Filter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {availableStatuses.map(status => (
+                      <SelectItem key={status} value={status} className="capitalize">
+                        {status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="divide-y max-h-72 overflow-y-auto">
+                {filteredOpportunities.length === 0 ? (
+                  <div className="p-3 text-sm text-muted-foreground text-center">No opportunities</div>
+                ) : (
+                  filteredOpportunities.map((opp) => {
+                    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+                    return (
+                      <div key={opp.ghl_id} className="p-3 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-sm truncate">{opp.name || 'Unnamed'}</span>
+                          <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(opp.status)}`}>
+                            {opp.status || 'Unknown'}
+                          </Badge>
+                        </div>
+                        {opp.stage_name && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <GitBranch className="h-3 w-3" />
+                            <span className="truncate">{opp.pipeline_name ? `${opp.pipeline_name} → ` : ''}{opp.stage_name}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(opp.ghl_date_added)}
+                          </div>
+                          <span className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</span>
+                        </div>
+                        {contact?.source && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Megaphone className="h-3 w-3" />
+                            {contact.source}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
