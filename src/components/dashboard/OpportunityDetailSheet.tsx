@@ -403,18 +403,40 @@ export function OpportunityDetailSheet({
             </div>
           )}
 
-          {/* Notes */}
-          {contactNotes && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</span>
-              </div>
-              <div className="p-3">
-                <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
-              </div>
+          {/* Notes/Comments */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes & Comments</span>
             </div>
-          )}
+            <div className="p-3 space-y-3">
+              {contactNotes ? (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Contact Notes</div>
+                  <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
+                </div>
+              ) : null}
+              
+              {/* Appointment Notes */}
+              {relatedAppointments.filter(a => a.notes).length > 0 && (
+                <div className={contactNotes ? "border-t pt-3" : ""}>
+                  <div className="text-xs text-muted-foreground mb-2">Appointment Notes</div>
+                  <div className="space-y-2">
+                    {relatedAppointments.filter(a => a.notes).map((appt) => (
+                      <div key={appt.ghl_id} className="bg-muted/30 rounded p-2">
+                        <div className="text-xs text-muted-foreground mb-1">{appt.title || 'Appointment'}</div>
+                        <p className="text-sm whitespace-pre-wrap">{appt.notes}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {!contactNotes && relatedAppointments.filter(a => a.notes).length === 0 && (
+                <p className="text-sm text-muted-foreground/60 italic">No notes or comments</p>
+              )}
+            </div>
+          </div>
 
           {/* Related Appointments */}
           {relatedAppointments.length > 0 && (
