@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -14,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch, ChevronRight } from "lucide-react";
+import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch, ChevronRight, Search } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
 interface Opportunity {
@@ -92,7 +93,7 @@ export function SalesRepDetailSheet({
   users,
 }: SalesRepDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("");
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [oppSheetOpen, setOppSheetOpen] = useState(false);
 
@@ -184,11 +185,20 @@ export function SalesRepDetailSheet({
     return contact?.source || 'No Source';
   };
 
-  // Filter opportunities by status and source
+  // Filter opportunities by status and source (beginning of word match)
   const filteredOpportunities = useMemo(() => {
     return sortedOpportunities.filter(o => {
       const matchesStatus = statusFilter === "all" || o.status?.toLowerCase() === statusFilter;
-      const matchesSource = sourceFilter === "all" || getOpportunitySource(o) === sourceFilter;
+      
+      // Source filter: beginning of word match
+      let matchesSource = true;
+      if (sourceFilter.trim()) {
+        const searchTerm = sourceFilter.toLowerCase().trim();
+        const source = getOpportunitySource(o).toLowerCase();
+        const words = source.split(/\s+/);
+        matchesSource = words.some(word => word.startsWith(searchTerm)) || source.startsWith(searchTerm);
+      }
+      
       return matchesStatus && matchesSource;
     });
   }, [sortedOpportunities, statusFilter, sourceFilter, contacts]);
@@ -198,12 +208,6 @@ export function SalesRepDetailSheet({
     const statuses = new Set(repOpportunities.map(o => o.status?.toLowerCase() || 'unknown'));
     return Array.from(statuses).sort((a, b) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99));
   }, [repOpportunities]);
-
-  // Get unique sources for filter
-  const availableSources = useMemo(() => {
-    const sources = new Set(repOpportunities.map(o => getOpportunitySource(o)));
-    return Array.from(sources).sort();
-  }, [repOpportunities, contacts]);
 
   // Group contacts by source (sorted by count)
   const leadsBySource = useMemo(() => {
@@ -342,7 +346,7 @@ export function SalesRepDetailSheet({
                   </div>
                   <div className="flex items-center gap-2">
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="h-7 flex-1 text-xs">
+                      <SelectTrigger className="h-7 w-28 text-xs">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -354,19 +358,15 @@ export function SalesRepDetailSheet({
                         ))}
                       </SelectContent>
                     </Select>
-                    <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                      <SelectTrigger className="h-7 flex-1 text-xs">
-                        <SelectValue placeholder="Source" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Sources</SelectItem>
-                        {availableSources.map(source => (
-                          <SelectItem key={source} value={source}>
-                            {source}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2 top-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Filter source..."
+                        value={sourceFilter}
+                        onChange={(e) => setSourceFilter(e.target.value)}
+                        className="h-7 pl-7 text-xs"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="divide-y max-h-72 overflow-y-auto">
