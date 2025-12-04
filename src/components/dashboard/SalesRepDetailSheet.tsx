@@ -119,25 +119,53 @@ export function SalesRepDetailSheet({
     }
   };
 
-  // Get contacts assigned to this rep
+  // Create lookup maps for hybrid opportunity attribution (same logic as leaderboard)
+  const contactAssignmentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    contacts.forEach(c => {
+      if (c.ghl_id && c.assigned_to) {
+        map.set(c.ghl_id, c.assigned_to);
+      }
+    });
+    return map;
+  }, [contacts]);
+
+  const appointmentAssignmentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    appointments.forEach(a => {
+      if (a.contact_id && a.assigned_user_id && !map.has(a.contact_id)) {
+        map.set(a.contact_id, a.assigned_user_id);
+      }
+    });
+    return map;
+  }, [appointments]);
+
+  // Helper: Get effective assignment for an opportunity using fallback chain
+  const getEffectiveAssignment = (opportunity: Opportunity): string | null => {
+    if (opportunity.assigned_to) return opportunity.assigned_to;
+    if (opportunity.contact_id) {
+      const contactAssignment = contactAssignmentMap.get(opportunity.contact_id);
+      if (contactAssignment) return contactAssignment;
+      const appointmentAssignment = appointmentAssignmentMap.get(opportunity.contact_id);
+      if (appointmentAssignment) return appointmentAssignment;
+    }
+    return null;
+  };
+
+  // Get opportunities using hybrid attribution (matches leaderboard logic)
+  const repOpportunities = useMemo(() => {
+    return opportunities.filter(o => getEffectiveAssignment(o) === repGhlId);
+  }, [opportunities, repGhlId, contactAssignmentMap, appointmentAssignmentMap]);
+
+  // Get contacts assigned to this rep (for lead counts)
   const repContacts = useMemo(() => {
     return contacts.filter(c => c.assigned_to === repGhlId);
   }, [contacts, repGhlId]);
 
-  // Get contact IDs for this rep
-  const repContactIds = useMemo(() => {
-    return new Set(repContacts.map(c => c.ghl_id));
-  }, [repContacts]);
-
-  // Get opportunities for these contacts
-  const repOpportunities = useMemo(() => {
-    return opportunities.filter(o => o.contact_id && repContactIds.has(o.contact_id));
-  }, [opportunities, repContactIds]);
-
-  // Get appointments for these contacts
+  // Get appointments assigned to this rep
   const repAppointments = useMemo(() => {
-    return appointments.filter(a => a.contact_id && repContactIds.has(a.contact_id));
-  }, [appointments, repContactIds]);
+    return appointments.filter(a => a.assigned_user_id === repGhlId);
+  }, [appointments, repGhlId]);
 
   // Sort opportunities by status (won, open, lost)
   const sortedOpportunities = useMemo(() => {
