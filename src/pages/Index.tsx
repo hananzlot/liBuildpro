@@ -11,6 +11,7 @@ import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSheet";
 import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
+import { CallLogsSheet } from "@/components/dashboard/CallLogsSheet";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
@@ -35,6 +36,7 @@ const Index = () => {
   });
   const [wonOpportunitiesSheetOpen, setWonOpportunitiesSheetOpen] = useState(false);
   const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
+  const [callLogsSheetOpen, setCallLogsSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   const [adminAuthenticated, setAdminAuthenticated] = useState(false);
@@ -166,7 +168,10 @@ const Index = () => {
                     </div>
                     <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
                   </div>
-                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
+                  <div 
+                    className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => setCallLogsSheetOpen(true)}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">Calls</p>
@@ -293,6 +298,9 @@ const Index = () => {
 
       {/* Upcoming Appointments Sheet */}
       <UpcomingAppointmentsSheet open={upcomingAppointmentsSheetOpen} onOpenChange={setUpcomingAppointmentsSheetOpen} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} opportunities={metrics?.allOpportunities || []} users={metrics?.users || []} />
+
+      {/* Call Logs Sheet */}
+      <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} />
 
       {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
       <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={setOppDetailSheetOpen} allOpportunities={metrics?.allOpportunities || []} />
