@@ -6,9 +6,19 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -16,9 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Megaphone, User, Calendar, Search, ChevronRight, Clock } from "lucide-react";
+import { Megaphone, User, Calendar, Search, ChevronRight, Clock, Plus, CheckSquare } from "lucide-react";
 import { format } from "date-fns";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Contact {
   id?: string;
@@ -34,6 +46,7 @@ interface Contact {
   assigned_to?: string | null;
   attributions?: unknown;
   tags?: string[] | null;
+  location_id?: string;
 }
 
 interface Opportunity {
@@ -110,6 +123,15 @@ export function SourceDetailSheet({
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [oppSheetOpen, setOppSheetOpen] = useState(false);
+  
+  // Task creation state
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskOpp, setTaskOpp] = useState<Opportunity | null>(null);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskNotes, setTaskNotes] = useState("");
+  const [taskAssignee, setTaskAssignee] = useState("");
+  const [taskDueDate, setTaskDueDate] = useState("");
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   const formatCurrency = (value: number | null) => {
     if (!value) return "$0";
@@ -127,6 +149,59 @@ export function SourceDetailSheet({
       case "abandoned": return "bg-red-500/20 text-red-400";
       case "open": return "bg-blue-500/20 text-blue-400";
       default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const openTaskDialog = (opp: Opportunity, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTaskOpp(opp);
+    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+    const contactName = contact?.contact_name || 
+      `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
+    setTaskTitle(`Follow up: ${opp.name || contactName || "Opportunity"}`);
+    setTaskNotes("");
+    setTaskAssignee(opp.assigned_to || "");
+    setTaskDueDate("");
+    setTaskDialogOpen(true);
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskOpp || !taskTitle.trim()) {
+      toast.error("Please enter a task title");
+      return;
+    }
+
+    setIsCreatingTask(true);
+    try {
+      // Get location_id from contact
+      const contact = contacts.find(c => c.ghl_id === taskOpp.contact_id);
+      const locationId = contact?.location_id || "default";
+
+      const { error } = await supabase.from("tasks").insert({
+        opportunity_id: taskOpp.ghl_id,
+        contact_id: taskOpp.contact_id,
+        title: taskTitle.trim(),
+        notes: taskNotes.trim() || null,
+        assigned_to: taskAssignee || null,
+        due_date: taskDueDate ? new Date(taskDueDate).toISOString() : null,
+        location_id: locationId,
+        status: "pending"
+      });
+
+      if (error) throw error;
+
+      toast.success("Task created successfully");
+      setTaskDialogOpen(false);
+      setTaskOpp(null);
+      setTaskTitle("");
+      setTaskNotes("");
+      setTaskAssignee("");
+      setTaskDueDate("");
+    } catch (err) {
+      console.error("Error creating task:", err);
+      toast.error("Failed to create task");
+    } finally {
+      setIsCreatingTask(false);
     }
   };
 
@@ -440,6 +515,18 @@ export function SourceDetailSheet({
                             </div>
                           </div>
                         )}
+                        {/* Create Task Button */}
+                        <div className="mt-2 pt-2 border-t border-border/50">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-7 text-xs"
+                            onClick={(e) => openTaskDialog(opp, e)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Create Task
+                          </Button>
+                        </div>
                       </div>
                     );
                   })
@@ -459,6 +546,72 @@ export function SourceDetailSheet({
         onOpenChange={setOppSheetOpen}
         allOpportunities={opportunities as any}
       />
+
+      {/* Create Task Dialog */}
+      <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5" />
+              Create Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="taskTitle">Task Title</Label>
+              <Input
+                id="taskTitle"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="Enter task title..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taskNotes">Notes</Label>
+              <Textarea
+                id="taskNotes"
+                value={taskNotes}
+                onChange={(e) => setTaskNotes(e.target.value)}
+                placeholder="Add notes for this task..."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taskAssignee">Assign To</Label>
+              <Select value={taskAssignee} onValueChange={setTaskAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                      {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taskDueDate">Due Date (Optional)</Label>
+              <Input
+                id="taskDueDate"
+                type="date"
+                value={taskDueDate}
+                onChange={(e) => setTaskDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTask} disabled={isCreatingTask}>
+              {isCreatingTask ? "Creating..." : "Create Task"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
