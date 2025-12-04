@@ -445,7 +445,7 @@ function processMetrics(
     leadsBySource,
     salesRepPerformance,
     recentLeads,
-    totalOpportunities: filteredOpportunities.length,
+    totalOpportunities: filteredOpportunities.filter(o => o.stage_name?.toLowerCase() !== 'quickbase').length,
     totalPipelineValue,
     totalAppointments: filteredAppointments.length,
     upcomingAppointments,
