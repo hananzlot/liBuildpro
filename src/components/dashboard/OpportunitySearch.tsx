@@ -87,6 +87,14 @@ export function OpportunitySearch({
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
+  const getStatusSortOrder = (status: string | null) => {
+    switch (status?.toLowerCase()) {
+      case "won": return 0;
+      case "open": return 1;
+      default: return 2;
+    }
+  };
+
   const filteredOpportunities = useMemo(() => {
     if (!searchQuery.trim()) return [];
     
@@ -100,8 +108,18 @@ export function OpportunitySearch({
         
         return name.includes(query) || contactName.includes(query);
       })
+      .sort((a, b) => getStatusSortOrder(a.status) - getStatusSortOrder(b.status))
       .slice(0, 10); // Limit to 10 results
   }, [searchQuery, opportunities, contacts]);
+
+  const getAddress = (contactId: string | null) => {
+    if (!contactId) return null;
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    if (!contact?.custom_fields) return null;
+    const customFields = contact.custom_fields as Array<{ id: string; value: string }>;
+    const addressField = customFields?.find?.(f => f.id === "b7oTVsUQrLgZt84bHpCn");
+    return addressField?.value || null;
+  };
 
   const formatCurrency = (value: number | null) => {
     if (!value) return "$0";
@@ -184,6 +202,9 @@ export function OpportunitySearch({
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="font-medium truncate">{opp.name || "Unnamed"}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {getAddress(opp.contact_id) || "No address"}
+                          </div>
                           <div className="text-sm text-muted-foreground truncate">
                             {getContactName(opp.contact_id)}
                           </div>
