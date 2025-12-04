@@ -89,7 +89,7 @@ interface FollowUpManagementProps {
   onDataRefresh?: () => void;
 }
 
-type SortField = 'appointment_date' | 'last_note_date' | 'contact_name';
+type SortField = 'appointment_date' | 'last_note_date' | 'contact_name' | 'opportunity_name';
 type SortDirection = 'asc' | 'desc';
 
 const DEFAULT_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
@@ -570,6 +570,10 @@ export function FollowUpManagement({
           return direction * (new Date(a.appointment.start_time!).getTime() - new Date(b.appointment.start_time!).getTime());
         case 'contact_name':
           return direction * (getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id)));
+        case 'opportunity_name':
+          const aName = a.opportunity?.name || '';
+          const bName = b.opportunity?.name || '';
+          return direction * aName.localeCompare(bName);
         default:
           return 0;
       }
@@ -1017,8 +1021,8 @@ export function FollowUpManagement({
                     <TableHeader>
                       <TableRow>
                         <TableHead>
-                          <Button variant="ghost" size="sm" onClick={() => toggleSort('pastConfirmed', 'contact_name')}>
-                            Contact <ArrowUpDown className="h-3 w-3 ml-1" />
+                          <Button variant="ghost" size="sm" onClick={() => toggleSort('pastConfirmed', 'opportunity_name')}>
+                            Opportunity <ArrowUpDown className="h-3 w-3 ml-1" />
                           </Button>
                         </TableHead>
                         <TableHead>Title</TableHead>
@@ -1029,9 +1033,8 @@ export function FollowUpManagement({
                         </TableHead>
                         <TableHead>Days Past</TableHead>
                         <TableHead>Assigned Rep</TableHead>
-                        <TableHead>Opportunity</TableHead>
                         <TableHead>Pipeline Stage</TableHead>
-                        <TableHead>Update Status</TableHead>
+                        <TableHead>Appt Status</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1042,7 +1045,7 @@ export function FollowUpManagement({
                           onClick={() => row.opportunity && onOpenOpportunity(row.opportunity)}
                         >
                           <TableCell className="font-medium">
-                            {getContactName(row.appointment.contact_id)}
+                            {row.opportunity?.name || 'No opportunity'}
                           </TableCell>
                           <TableCell>{row.appointment.title || 'No title'}</TableCell>
                           <TableCell>
@@ -1059,13 +1062,6 @@ export function FollowUpManagement({
                             </Badge>
                           </TableCell>
                           <TableCell>{getUserName(row.appointment.assigned_user_id)}</TableCell>
-                          <TableCell>
-                            {row.opportunity ? (
-                              <Badge variant="outline">{row.opportunity.name || 'Unnamed'}</Badge>
-                            ) : (
-                              <span className="text-muted-foreground">No opportunity</span>
-                            )}
-                          </TableCell>
                           <TableCell>
                             {row.opportunity ? (
                               <Select
@@ -1095,7 +1091,7 @@ export function FollowUpManagement({
                           </TableCell>
                           <TableCell>
                             <Select
-                              value=""
+                              value={row.appointment.appointment_status?.toLowerCase() || ''}
                               onValueChange={(value) => handleUpdateAppointmentStatus(row.appointment.ghl_id, value)}
                               disabled={updatingAppointmentId === row.appointment.ghl_id}
                             >
@@ -1106,10 +1102,11 @@ export function FollowUpManagement({
                                 {updatingAppointmentId === row.appointment.ghl_id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  <SelectValue placeholder="Set status" />
+                                  <SelectValue />
                                 )}
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
                                 <SelectItem value="showed">Showed</SelectItem>
                                 <SelectItem value="noshow">No Show</SelectItem>
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
