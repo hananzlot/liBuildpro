@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2 } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -70,11 +70,24 @@ interface GHLUser {
   email: string | null;
 }
 
+interface Conversation {
+  ghl_id: string;
+  contact_id: string | null;
+  type: string | null;
+  unread_count: number | null;
+  inbox_status: string | null;
+  last_message_body: string | null;
+  last_message_date: string | null;
+  last_message_type: string | null;
+  last_message_direction: string | null;
+}
+
 interface OpportunityDetailSheetProps {
   opportunity: Opportunity | null;
   appointments: Appointment[];
   contacts: Contact[];
   users: GHLUser[];
+  conversations?: Conversation[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   allOpportunities?: Opportunity[];
@@ -93,6 +106,7 @@ export function OpportunityDetailSheet({
   appointments,
   contacts,
   users,
+  conversations = [],
   open,
   onOpenChange,
   allOpportunities = [],
@@ -439,6 +453,60 @@ export function OpportunityDetailSheet({
               )}
             </div>
           </div>
+
+          {/* Conversations */}
+          {(() => {
+            const contactConversations = conversations.filter(c => c.contact_id === opportunity.contact_id);
+            if (contactConversations.length === 0) return null;
+            
+            const formatConvDate = (dateStr: string | null) => {
+              if (!dateStr) return '';
+              return new Date(dateStr).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+              });
+            };
+
+            const getTypeIcon = (type: string | null) => {
+              switch (type?.toLowerCase()) {
+                case 'sms': return '💬';
+                case 'email': return '📧';
+                case 'call': return '📞';
+                default: return '💬';
+              }
+            };
+
+            return (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Conversations ({contactConversations.length})
+                  </span>
+                </div>
+                <div className="divide-y max-h-48 overflow-y-auto">
+                  {contactConversations.slice(0, 5).map((conv) => (
+                    <div key={conv.ghl_id} className="p-3 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {getTypeIcon(conv.last_message_type)} {conv.last_message_type || 'Message'}
+                          {conv.last_message_direction === 'inbound' ? ' (received)' : ' (sent)'}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatConvDate(conv.last_message_date)}
+                        </span>
+                      </div>
+                      <p className="text-sm line-clamp-2">{conv.last_message_body || 'No message content'}</p>
+                      {(conv.unread_count || 0) > 0 && (
+                        <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
+                          {conv.unread_count} unread
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Related Appointments */}
           {relatedAppointments.length > 0 && (

@@ -128,6 +128,60 @@ export type Database = {
         }
         Relationships: []
       }
+      conversations: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          ghl_date_added: string | null
+          ghl_date_updated: string | null
+          ghl_id: string
+          id: string
+          inbox_status: string | null
+          last_message_body: string | null
+          last_message_date: string | null
+          last_message_direction: string | null
+          last_message_type: string | null
+          location_id: string
+          type: string | null
+          unread_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          ghl_date_added?: string | null
+          ghl_date_updated?: string | null
+          ghl_id: string
+          id?: string
+          inbox_status?: string | null
+          last_message_body?: string | null
+          last_message_date?: string | null
+          last_message_direction?: string | null
+          last_message_type?: string | null
+          location_id: string
+          type?: string | null
+          unread_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          ghl_date_added?: string | null
+          ghl_date_updated?: string | null
+          ghl_id?: string
+          id?: string
+          inbox_status?: string | null
+          last_message_body?: string | null
+          last_message_date?: string | null
+          last_message_direction?: string | null
+          last_message_type?: string | null
+          location_id?: string
+          type?: string | null
+          unread_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ghl_users: {
         Row: {
           created_at: string
