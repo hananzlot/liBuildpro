@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.create-contact-note]
 verify_jwt = false
+
+[functions.create-ghl-task]
+verify_jwt = false
