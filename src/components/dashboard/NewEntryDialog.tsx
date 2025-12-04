@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Plus, Upload, Loader2, X, FileSpreadsheet } from "lucide-react";
+import { Plus, Upload, Loader2, X, FileSpreadsheet, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -404,6 +404,23 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
     }
   };
 
+  const downloadCSVTemplate = () => {
+    const headers = ['FirstName', 'LastName', 'Phone', 'Email', 'Address', 'Scope', 'Notes', 'AppointmentDate', 'AppointmentTime', 'Source', 'AssignedTo'];
+    const sampleRow = ['John', 'Doe', '(555) 123-4567', 'john@example.com', '123 Main St, City, CA 90210', 'Kitchen remodel', 'Initial consultation', '12/15/2024', '09:00', 'Google', 'Sales Rep Name'];
+    
+    const csvContent = [
+      headers.join(','),
+      sampleRow.join(','),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'new_entries_template.csv';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   const clearCSV = () => {
     setCsvEntries([]);
     setUploadProgress(0);
@@ -594,10 +611,16 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                  <Button onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Select CSV File
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={downloadCSVTemplate}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Template
+                    </Button>
+                    <Button onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Select CSV File
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <>
