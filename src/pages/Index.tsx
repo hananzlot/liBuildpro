@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, CloudDownload, Lock } from "lucide-react";
+import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, CloudDownload, Lock, ListChecks } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -14,6 +14,7 @@ import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppoin
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { GHLTasksTab } from "@/components/dashboard/GHLTasksTab";
+import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -118,6 +119,10 @@ const Index = () => {
         <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList>
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="follow-up" className="gap-2">
+              <ListChecks className="h-4 w-4" />
+              Follow-up
+            </TabsTrigger>
             <TabsTrigger value="ghl-tasks" className="gap-2">
               <CloudDownload className="h-4 w-4" />
               GHL Tasks
@@ -204,6 +209,25 @@ const Index = () => {
 
           </TabsContent>
 
+          <TabsContent value="follow-up" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Follow-up Management</h2>
+              <p className="text-sm text-muted-foreground">Track appointments and opportunities that need attention</p>
+            </div>
+            {isLoading ? (
+              <Skeleton className="h-[400px] rounded-2xl" />
+            ) : (
+              <FollowUpManagement
+                opportunities={metrics?.allOpportunities || []}
+                appointments={metrics?.allAppointments || []}
+                contacts={metrics?.allContacts || []}
+                users={metrics?.users || []}
+                contactNotes={metrics?.contactNotes || []}
+                tasks={metrics?.tasks || []}
+                onOpenOpportunity={handleOpenOpportunity}
+              />
+            )}
+          </TabsContent>
 
           <TabsContent value="ghl-tasks" className="space-y-6">
             <div>
