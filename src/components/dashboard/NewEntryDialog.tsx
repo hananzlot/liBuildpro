@@ -72,6 +72,8 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
   const [source, setSource] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   // CSV upload state
   const [csvEntries, setCsvEntries] = useState<CSVEntry[]>([]);
@@ -90,11 +92,45 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
     setAppointmentTime('09:00');
     setSource('');
     setAssignedTo('');
+    setPhoneError('');
+    setEmailError('');
   };
 
   const getUserName = (userId: string): string => {
     const user = users.find(u => u.ghl_id === userId);
     return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown';
+  };
+
+  const validatePhone = (value: string): boolean => {
+    if (!value.trim()) return true; // Optional field
+    // Accept various phone formats: (555) 123-4567, 555-123-4567, 5551234567, +1 555 123 4567
+    const phoneRegex = /^[\+]?[(]?[0-9]{1,3}[)]?[-\s\.]?[(]?[0-9]{1,3}[)]?[-\s\.]?[0-9]{3,4}[-\s\.]?[0-9]{4}$/;
+    const digitsOnly = value.replace(/\D/g, '');
+    return phoneRegex.test(value) || (digitsOnly.length >= 10 && digitsOnly.length <= 15);
+  };
+
+  const validateEmail = (value: string): boolean => {
+    if (!value.trim()) return true; // Optional field
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(value);
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    if (value.trim() && !validatePhone(value)) {
+      setPhoneError('Please enter a valid phone number');
+    } else {
+      setPhoneError('');
+    }
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (value.trim() && !validateEmail(value)) {
+      setEmailError('Please enter a valid email address');
+    } else {
+      setEmailError('');
+    }
   };
 
   const buildAppointmentDateTime = (date: string, time: string): string | null => {
@@ -110,6 +146,16 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
   const handleSubmitSingle = async () => {
     if (!firstName.trim() || !lastName.trim()) {
       toast.error('First name and last name are required');
+      return;
+    }
+
+    // Validate phone and email
+    if (phone.trim() && !validatePhone(phone)) {
+      toast.error('Please enter a valid phone number');
+      return;
+    }
+    if (email.trim() && !validateEmail(email)) {
+      toast.error('Please enter a valid email address');
       return;
     }
 
@@ -415,9 +461,11 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
                     id="phone"
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => handlePhoneChange(e.target.value)}
                     placeholder="(555) 123-4567"
+                    className={phoneError ? 'border-red-500' : ''}
                   />
+                  {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -425,9 +473,11 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => handleEmailChange(e.target.value)}
                     placeholder="john@example.com"
+                    className={emailError ? 'border-red-500' : ''}
                   />
+                  {emailError && <p className="text-xs text-red-500">{emailError}</p>}
                 </div>
               </div>
 
@@ -519,7 +569,10 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmitSingle} disabled={isSubmitting || !firstName.trim() || !lastName.trim()}>
+              <Button 
+                onClick={handleSubmitSingle} 
+                disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !!phoneError || !!emailError}
+              >
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Create Entry
               </Button>
