@@ -342,7 +342,7 @@ export function OpportunitiesTable({
                   onClick={() => handleSort("date")}
                 >
                   <div className="flex items-center">
-                    Date
+                    Contact Created
                     <SortIcon column="date" />
                   </div>
                 </TableHead>
