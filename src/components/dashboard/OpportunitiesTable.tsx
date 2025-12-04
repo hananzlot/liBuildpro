@@ -101,6 +101,16 @@ export function OpportunitiesTable({
       filtered = filtered.filter(opp => opp.stage_name === stageFilter);
     }
 
+    // Helper to get effective date (quickbase stage = 90 days ago)
+    const getEffectiveDate = (opp: Opportunity): number => {
+      if (opp.stage_name?.toLowerCase() === "quickbase") {
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        return ninetyDaysAgo.getTime();
+      }
+      return opp.ghl_date_added ? new Date(opp.ghl_date_added).getTime() : 0;
+    };
+
     // Sort opportunities
     return [...filtered].sort((a, b) => {
       let comparison = 0;
@@ -113,9 +123,7 @@ export function OpportunitiesTable({
           comparison = (a.stage_name || "").localeCompare(b.stage_name || "");
           // Secondary sort by date descending when sorting by stage
           if (comparison === 0) {
-            const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
-            const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
-            return dateB - dateA; // Always descending for secondary date sort
+            return getEffectiveDate(b) - getEffectiveDate(a); // Always descending for secondary date sort
           }
           break;
         case "value":
@@ -125,9 +133,7 @@ export function OpportunitiesTable({
           comparison = (a.status || "").localeCompare(b.status || "");
           break;
         case "date":
-          const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
-          const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
-          comparison = dateA - dateB;
+          comparison = getEffectiveDate(a) - getEffectiveDate(b);
           break;
       }
       
