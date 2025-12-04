@@ -26,6 +26,12 @@ const CUSTOM_FIELD_IDS = {
   NOTES: '588ddQgiGEg3AWtTQB2i',
 };
 
+// Strip HTML tags from text
+const stripHtml = (html: string): string => {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  return doc.body.textContent || '';
+};
+
 interface Opportunity {
   ghl_id: string;
   name: string | null;
@@ -547,7 +553,7 @@ export function OpportunityDetailSheet({
                             <span>{noteUserName}</span>
                             <span>{new Date(note.dateAdded).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                           </div>
-                          <p className="text-sm whitespace-pre-wrap">{note.body}</p>
+                          <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body)}</p>
                         </div>
                       );
                     })}
