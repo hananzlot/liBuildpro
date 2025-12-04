@@ -54,6 +54,7 @@ interface Contact {
   phone: string | null;
   source: string | null;
   custom_fields?: unknown;
+  ghl_date_added?: string | null;
 }
 
 interface GHLUser {
@@ -142,6 +143,17 @@ export function OpportunitiesTable({
     return map;
   }, [users]);
 
+  // Contact lookup map for dates
+  const contactMap = useMemo(() => {
+    const map = new Map<string, Contact>();
+    contacts.forEach(c => {
+      if (c.ghl_id) {
+        map.set(c.ghl_id, c);
+      }
+    });
+    return map;
+  }, [contacts]);
+
   const formatAppointmentDateTime = (dateString: string | null) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -164,14 +176,17 @@ export function OpportunitiesTable({
       filtered = filtered.filter(opp => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
     }
 
-    // Helper to get effective date (quickbase stage = 90 days ago)
+    // Helper to get effective date from contact (quickbase stage = 90 days ago)
     const getEffectiveDate = (opp: Opportunity): number => {
       if (opp.stage_name?.toLowerCase() === "quickbase") {
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
         return ninetyDaysAgo.getTime();
       }
-      return opp.ghl_date_added ? new Date(opp.ghl_date_added).getTime() : 0;
+      // Use contact's date if available, otherwise fall back to opportunity date
+      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+      const dateStr = contact?.ghl_date_added || opp.ghl_date_added;
+      return dateStr ? new Date(dateStr).getTime() : 0;
     };
 
     // Sort opportunities
@@ -359,6 +374,8 @@ export function OpportunitiesTable({
                     ? oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0]
                     : null;
                   const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : null;
+                  const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+                  const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
                   
                   return (
                     <TableRow 
@@ -394,8 +411,8 @@ export function OpportunitiesTable({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {opp.ghl_date_added
-                          ? new Date(opp.ghl_date_added).toLocaleDateString()
+                        {contactDate
+                          ? new Date(contactDate).toLocaleDateString()
                           : '-'}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
