@@ -6,6 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface Message {
+  id: string;
+  body: string;
+  direction: string;
+  status: string;
+  type: string;
+  dateAdded: string;
+  attachments?: any[];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -63,20 +73,71 @@ serve(async (req) => {
     
     console.log(`Found ${conversations.length} conversations for contact ${contact_id}`);
 
-    // Transform to match our DB schema
-    const transformedConversations = conversations.map((conv: any) => ({
-      ghl_id: conv.id,
-      contact_id: conv.contactId,
-      type: conv.type,
-      unread_count: conv.unreadCount || 0,
-      inbox_status: conv.inboxStatus,
-      last_message_body: conv.lastMessageBody,
-      last_message_date: conv.lastMessageDate,
-      last_message_type: conv.lastMessageType,
-      last_message_direction: conv.lastMessageDirection,
-    }));
+    // For each conversation, fetch the full message history
+    const conversationsWithMessages = await Promise.all(
+      conversations.map(async (conv: any) => {
+        try {
+          // Fetch messages for this conversation
+          const messagesResponse = await fetch(
+            `https://services.leadconnectorhq.com/conversations/${conv.id}/messages?limit=50`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${ghlApiKey}`,
+                'Version': '2021-07-28',
+                'Content-Type': 'application/json',
+              },
+            }
+          );
 
-    return new Response(JSON.stringify({ conversations: transformedConversations }), {
+          let messages: Message[] = [];
+          if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json();
+            messages = (messagesData.messages || []).map((msg: any) => ({
+              id: msg.id,
+              body: msg.body || msg.text || '',
+              direction: msg.direction,
+              status: msg.status,
+              type: msg.type || msg.messageType,
+              dateAdded: msg.dateAdded,
+              attachments: msg.attachments,
+            }));
+            console.log(`Fetched ${messages.length} messages for conversation ${conv.id}`);
+          } else {
+            console.error(`Failed to fetch messages for conversation ${conv.id}`);
+          }
+
+          return {
+            ghl_id: conv.id,
+            contact_id: conv.contactId,
+            type: conv.type,
+            unread_count: conv.unreadCount || 0,
+            inbox_status: conv.inboxStatus,
+            last_message_body: conv.lastMessageBody,
+            last_message_date: conv.lastMessageDate,
+            last_message_type: conv.lastMessageType,
+            last_message_direction: conv.lastMessageDirection,
+            messages: messages,
+          };
+        } catch (err) {
+          console.error(`Error fetching messages for conversation ${conv.id}:`, err);
+          return {
+            ghl_id: conv.id,
+            contact_id: conv.contactId,
+            type: conv.type,
+            unread_count: conv.unreadCount || 0,
+            inbox_status: conv.inboxStatus,
+            last_message_body: conv.lastMessageBody,
+            last_message_date: conv.lastMessageDate,
+            last_message_type: conv.lastMessageType,
+            last_message_direction: conv.lastMessageDirection,
+            messages: [],
+          };
+        }
+      })
+    );
+
+    return new Response(JSON.stringify({ conversations: conversationsWithMessages }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
