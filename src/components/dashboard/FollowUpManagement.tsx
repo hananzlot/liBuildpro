@@ -1251,11 +1251,15 @@ export function FollowUpManagement({
                     <CardTitle className="flex items-center gap-2 flex-wrap">
                       Tasks Helper
                       <Badge variant="secondary">{taskCounts.total}</Badge>
-                      <span className="text-sm font-normal text-muted-foreground">
-                        (<span className={taskCounts.pastDue > 0 ? "text-red-500 font-medium" : ""}>{taskCounts.pastDue} past due</span>,{" "}
-                        <span className={taskCounts.todayTomorrow > 0 ? "text-orange-500 font-medium" : ""}>{taskCounts.todayTomorrow} today/tomorrow</span>,{" "}
-                        {taskCounts.afterTomorrow} after)
-                      </span>
+                      <Badge variant="outline" className={taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}>
+                        {taskCounts.pastDue} past due
+                      </Badge>
+                      <Badge variant="outline" className={taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}>
+                        {taskCounts.todayTomorrow} today/tomorrow
+                      </Badge>
+                      <Badge variant="outline" className="text-muted-foreground">
+                        {taskCounts.afterTomorrow} after
+                      </Badge>
                     </CardTitle>
                     <CardDescription>GHL tasks synced from GoHighLevel - click to view opportunity</CardDescription>
                   </div>
