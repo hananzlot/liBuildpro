@@ -100,7 +100,7 @@ interface ContactNote {
 
 interface Task {
   id: string;
-  ghl_id: string | null;
+  ghl_id: string;
   title: string;
   body?: string | null;
   notes?: string | null;
@@ -108,7 +108,6 @@ interface Task {
   completed?: boolean;
   status?: string;
   assigned_to: string | null;
-  source: 'app' | 'ghl';
 }
 
 interface AppointmentDetailSheetProps {
@@ -209,62 +208,31 @@ export function AppointmentDetailSheet({
     }
   };
 
-  // Fetch tasks
+  // Fetch tasks from ghl_tasks only
   const fetchTasks = async () => {
     if (!appointment?.contact_id) return;
     setLoadingTasks(true);
     try {
-      // Fetch from both tables
-      const [appTasksResult, ghlTasksResult] = await Promise.all([
-        supabase
-          .from('tasks')
-          .select('*')
-          .eq('contact_id', appointment.contact_id),
-        supabase
-          .from('ghl_tasks')
-          .select('*')
-          .eq('contact_id', appointment.contact_id)
-      ]);
+      const { data, error } = await supabase
+        .from('ghl_tasks')
+        .select('*')
+        .eq('contact_id', appointment.contact_id)
+        .order('due_date', { ascending: true });
 
-      const appTasks: Task[] = (appTasksResult.data || []).map(t => ({
-        id: t.id,
-        ghl_id: t.ghl_id,
-        title: t.title,
-        notes: t.notes,
-        due_date: t.due_date,
-        status: t.status,
-        assigned_to: t.assigned_to,
-        source: 'app' as const
-      }));
-
-      const ghlTasks: Task[] = (ghlTasksResult.data || []).map(t => ({
+      if (error) throw error;
+      
+      const tasks: Task[] = (data || []).map(t => ({
         id: t.id,
         ghl_id: t.ghl_id,
         title: t.title,
         body: t.body,
         due_date: t.due_date,
         completed: t.completed,
+        status: t.completed ? 'completed' : 'pending',
         assigned_to: t.assigned_to,
-        source: 'ghl' as const
       }));
 
-      // Merge and deduplicate by ghl_id
-      const allTasks = [...appTasks, ...ghlTasks];
-      const seen = new Set<string>();
-      const uniqueTasks = allTasks.filter(t => {
-        if (t.ghl_id && seen.has(t.ghl_id)) return false;
-        if (t.ghl_id) seen.add(t.ghl_id);
-        return true;
-      });
-
-      // Sort by due_date
-      uniqueTasks.sort((a, b) => {
-        if (!a.due_date) return 1;
-        if (!b.due_date) return -1;
-        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-      });
-
-      setTasks(uniqueTasks);
+      setTasks(tasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -295,9 +263,19 @@ export function AppointmentDetailSheet({
 
   // Toggle task completion
   const handleToggleTask = async (task: Task) => {
-    if (task.source === 'ghl' && task.ghl_id) {
+    if (task.ghl_id) {
       try {
         const newCompleted = !task.completed;
+        
+        // Update ghl_tasks table
+        const { error: dbError } = await supabase
+          .from('ghl_tasks')
+          .update({ completed: newCompleted })
+          .eq('id', task.id);
+        
+        if (dbError) throw dbError;
+        
+        // Update GHL API
         const { error } = await supabase.functions.invoke('update-ghl-task', {
           body: { 
             contactId: appointment?.contact_id,
@@ -309,7 +287,7 @@ export function AppointmentDetailSheet({
         
         // Update local state
         setTasks(prev => prev.map(t => 
-          t.id === task.id ? { ...t, completed: newCompleted } : t
+          t.id === task.id ? { ...t, completed: newCompleted, status: newCompleted ? 'completed' : 'pending' } : t
         ));
         toast.success(newCompleted ? 'Task completed' : 'Task reopened');
       } catch (error) {
@@ -351,43 +329,25 @@ export function AppointmentDetailSheet({
         dueDateValue = utcDate.toISOString();
       }
 
-      // Insert into Supabase
-      const { data: insertedTask, error } = await supabase.from('tasks').insert({
-        opportunity_id: primaryOpportunity?.ghl_id || appointment.ghl_id,
-        contact_id: appointment.contact_id,
-        title: taskTitle.trim(),
-        notes: taskNotes.trim() || null,
-        assigned_to: assignedToValue,
-        due_date: dueDateValue,
-        location_id: locationId,
-        status: 'pending'
-      }).select().single();
-
-      if (error) throw error;
-
-      // Sync to GHL
-      try {
-        const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
-          body: {
-            title: taskTitle.trim(),
-            body: taskNotes.trim() || null,
-            dueDate: dueDateValue,
-            assignedTo: assignedToValue,
-            contactId: appointment.contact_id,
-            supabaseTaskId: insertedTask?.id
-          }
-        });
-
-        if (ghlResponse.error) {
-          console.error('GHL sync error:', ghlResponse.error);
-          toast.success('Task created locally (GHL sync failed)');
-        } else {
-          toast.success('Task created and synced to GHL');
+      // Create in GHL first
+      const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
+        body: {
+          title: taskTitle.trim(),
+          body: taskNotes.trim() || null,
+          dueDate: dueDateValue,
+          assignedTo: assignedToValue,
+          contactId: appointment.contact_id,
+          locationId: locationId
         }
-      } catch (ghlError) {
-        console.error('GHL sync error:', ghlError);
-        toast.success('Task created locally (GHL sync failed)');
+      });
+
+      if (ghlResponse.error) {
+        console.error('GHL sync error:', ghlResponse.error);
+        toast.error('Failed to create task in GHL');
+        return;
       }
+
+      toast.success('Task created and synced to GHL');
 
       // Refresh tasks list
       await fetchTasks();
@@ -647,7 +607,7 @@ export function AppointmentDetailSheet({
                       )}
                     </div>
                     <Badge variant="outline" className="text-xs shrink-0">
-                      {task.source === 'ghl' ? 'GHL' : 'App'}
+                      GHL
                     </Badge>
                   </div>
                 ))

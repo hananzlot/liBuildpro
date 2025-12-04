@@ -96,16 +96,6 @@ interface ContactNote {
   userId: string | null;
   dateAdded: string;
 }
-interface Task {
-  id: string;
-  title: string;
-  notes: string | null;
-  status: string;
-  due_date: string | null;
-  assigned_to: string | null;
-  created_at: string;
-  ghl_id: string | null;
-}
 interface GHLTask {
   id: string;
   ghl_id: string;
@@ -119,14 +109,13 @@ interface GHLTask {
 }
 interface DisplayTask {
   id: string;
-  ghl_id: string | null;
+  ghl_id: string;
   title: string;
   notes: string | null;
   status: string;
   due_date: string | null;
   assigned_to: string | null;
   created_at: string;
-  source: 'app' | 'ghl';
 }
 interface OpportunityDetailSheetProps {
   opportunity: Opportunity | null;
@@ -236,7 +225,7 @@ export function OpportunityDetailSheet({
           setIsLoadingNotes(false);
         }
       };
-      // Fetch tasks from both 'tasks' table and 'ghl_tasks' table
+      // Fetch tasks from ghl_tasks table only
       const fetchTasks = async () => {
         setIsLoadingTasks(true);
         try {
@@ -251,57 +240,27 @@ export function OpportunityDetailSheet({
             }
           }
           
-          // Fetch from both tables in parallel
-          const [appTasksResult, ghlTasksResult] = await Promise.all([
-            supabase
-              .from('tasks')
-              .select('*')
-              .eq('opportunity_id', opportunity.ghl_id)
-              .order('created_at', { ascending: false }),
-            supabase
-              .from('ghl_tasks')
-              .select('*')
-              .eq('contact_id', opportunity.contact_id)
-              .order('created_at', { ascending: false })
-          ]);
+          // Fetch from ghl_tasks only
+          const { data, error } = await supabase
+            .from('ghl_tasks')
+            .select('*')
+            .eq('contact_id', opportunity.contact_id)
+            .order('due_date', { ascending: true });
           
-          const appTasks: DisplayTask[] = (appTasksResult.data || []).map((t: Task) => ({
+          if (error) throw error;
+          
+          const tasks: DisplayTask[] = (data || []).map((t: GHLTask) => ({
             id: t.id,
             ghl_id: t.ghl_id,
             title: t.title,
-            notes: t.notes,
-            status: t.status,
+            notes: t.body,
+            status: t.completed ? 'completed' : 'pending',
             due_date: t.due_date,
             assigned_to: t.assigned_to,
             created_at: t.created_at,
-            source: 'app' as const
           }));
           
-          // Filter out GHL tasks that are already in app tasks (by ghl_id)
-          const appGhlIds = new Set(appTasks.map(t => t.ghl_id).filter(Boolean));
-          const ghlTasks: DisplayTask[] = (ghlTasksResult.data || [])
-            .filter((t: GHLTask) => !appGhlIds.has(t.ghl_id))
-            .map((t: GHLTask) => ({
-              id: t.id,
-              ghl_id: t.ghl_id,
-              title: t.title,
-              notes: t.body,
-              status: t.completed ? 'completed' : 'pending',
-              due_date: t.due_date,
-              assigned_to: t.assigned_to,
-              created_at: t.created_at,
-              source: 'ghl' as const
-            }));
-          
-          // Combine and sort by due_date (earliest first), then by created_at
-          const allTasks = [...appTasks, ...ghlTasks].sort((a, b) => {
-            if (a.due_date && b.due_date) return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-            if (a.due_date) return -1;
-            if (b.due_date) return 1;
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          });
-          
-          setTasks(allTasks);
+          setTasks(tasks);
         } catch (err) {
           console.error('Failed to fetch tasks:', err);
         } finally {
@@ -382,58 +341,33 @@ export function OpportunityDetailSheet({
     }
   };
 
-  // Helper function to refresh tasks from both tables
+  // Helper function to refresh tasks from ghl_tasks
   const refreshTasksList = async () => {
-    if (!opportunity?.contact_id || !opportunity?.ghl_id) return;
+    if (!opportunity?.contact_id) return;
     
-    const [appTasksResult, ghlTasksResult] = await Promise.all([
-      supabase
-        .from('tasks')
-        .select('*')
-        .eq('opportunity_id', opportunity.ghl_id)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('ghl_tasks')
-        .select('*')
-        .eq('contact_id', opportunity.contact_id)
-        .order('created_at', { ascending: false })
-    ]);
+    const { data, error } = await supabase
+      .from('ghl_tasks')
+      .select('*')
+      .eq('contact_id', opportunity.contact_id)
+      .order('due_date', { ascending: true });
     
-    const appTasks: DisplayTask[] = (appTasksResult.data || []).map((t: Task) => ({
+    if (error) {
+      console.error('Failed to refresh tasks:', error);
+      return;
+    }
+    
+    const tasks: DisplayTask[] = (data || []).map((t: GHLTask) => ({
       id: t.id,
       ghl_id: t.ghl_id,
       title: t.title,
-      notes: t.notes,
-      status: t.status,
+      notes: t.body,
+      status: t.completed ? 'completed' : 'pending',
       due_date: t.due_date,
       assigned_to: t.assigned_to,
       created_at: t.created_at,
-      source: 'app' as const
     }));
     
-    const appGhlIds = new Set(appTasks.map(t => t.ghl_id).filter(Boolean));
-    const ghlTasks: DisplayTask[] = (ghlTasksResult.data || [])
-      .filter((t: GHLTask) => !appGhlIds.has(t.ghl_id))
-      .map((t: GHLTask) => ({
-        id: t.id,
-        ghl_id: t.ghl_id,
-        title: t.title,
-        notes: t.body,
-        status: t.completed ? 'completed' : 'pending',
-        due_date: t.due_date,
-        assigned_to: t.assigned_to,
-        created_at: t.created_at,
-        source: 'ghl' as const
-      }));
-    
-    const allTasks = [...appTasks, ...ghlTasks].sort((a, b) => {
-      if (a.due_date && b.due_date) return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-      if (a.due_date) return -1;
-      if (b.due_date) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-    
-    setTasks(allTasks);
+    setTasks(tasks);
   };
 
   const openTaskDialog = () => {
@@ -472,45 +406,27 @@ export function OpportunityDetailSheet({
         dueDateValue = utcDate.toISOString();
       }
 
-      // Insert into Supabase
-      const { data: insertedTask, error } = await supabase.from("tasks").insert({
-        opportunity_id: opportunity.ghl_id,
-        contact_id: opportunity.contact_id,
-        title: taskTitle.trim(),
-        notes: taskNotes.trim() || null,
-        assigned_to: assignedToValue,
-        due_date: dueDateValue,
-        location_id: locationId,
-        status: "pending"
-      }).select().single();
-
-      if (error) throw error;
-
-      // Sync to GHL
-      try {
-        const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
-          body: {
-            title: taskTitle.trim(),
-            body: taskNotes.trim() || null,
-            dueDate: dueDateValue,
-            assignedTo: assignedToValue,
-            contactId: opportunity.contact_id,
-            supabaseTaskId: insertedTask?.id
-          }
-        });
-
-        if (ghlResponse.error) {
-          console.error('GHL sync error:', ghlResponse.error);
-          toast.success("Task created locally (GHL sync failed)");
-        } else {
-          toast.success("Task created and synced to GHL");
+      // Create in GHL first
+      const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
+        body: {
+          title: taskTitle.trim(),
+          body: taskNotes.trim() || null,
+          dueDate: dueDateValue,
+          assignedTo: assignedToValue,
+          contactId: opportunity.contact_id,
+          locationId: locationId
         }
-      } catch (ghlError) {
-        console.error('GHL sync error:', ghlError);
-        toast.success("Task created locally (GHL sync failed)");
+      });
+
+      if (ghlResponse.error) {
+        console.error('GHL sync error:', ghlResponse.error);
+        toast.error("Failed to create task in GHL");
+        return;
       }
 
-      // Refresh tasks list by refetching from both tables
+      toast.success("Task created and synced to GHL");
+
+      // Refresh tasks list
       await refreshTasksList();
 
       setTaskDialogOpen(false);
@@ -566,11 +482,12 @@ export function OpportunityDetailSheet({
         dueDateValue = utcDate.toISOString();
       }
 
+      // Update ghl_tasks table
       const { error } = await supabase
-        .from("tasks")
+        .from("ghl_tasks")
         .update({
           title: taskTitle.trim(),
-          notes: taskNotes.trim() || null,
+          body: taskNotes.trim() || null,
           assigned_to: assignedToValue,
           due_date: dueDateValue,
         })
@@ -578,10 +495,10 @@ export function OpportunityDetailSheet({
 
       if (error) throw error;
 
-      // Sync to GHL if we have the GHL task ID
+      // Sync to GHL
       if (editingTask.ghl_id && opportunity?.contact_id) {
         try {
-          const ghlResponse = await supabase.functions.invoke('update-ghl-task', {
+          await supabase.functions.invoke('update-ghl-task', {
             body: {
               contactId: opportunity.contact_id,
               taskId: editingTask.ghl_id,
@@ -591,20 +508,12 @@ export function OpportunityDetailSheet({
               assignedTo: assignedToValue
             }
           });
-          
-          if (ghlResponse.error) {
-            console.error('GHL update error:', ghlResponse.error);
-            toast.success("Task updated locally (GHL sync failed)");
-          } else {
-            toast.success("Task updated");
-          }
         } catch (ghlErr) {
           console.error('Failed to update in GHL:', ghlErr);
-          toast.success("Task updated locally (GHL sync failed)");
         }
-      } else {
-        toast.success("Task updated");
       }
+
+      toast.success("Task updated");
 
       // Refresh tasks list
       await refreshTasksList();
@@ -627,41 +536,21 @@ export function OpportunityDetailSheet({
   const handleDeleteTask = async (task: DisplayTask) => {
     setIsDeletingTask(task.id);
     try {
-      if (task.source === 'ghl') {
-        // Delete from ghl_tasks table
-        const { error } = await supabase.from("ghl_tasks").delete().eq("id", task.id);
-        if (error) throw error;
-        
-        // Also delete from GHL API
-        if (task.ghl_id && opportunity?.contact_id) {
-          try {
-            await supabase.functions.invoke('delete-ghl-task', {
-              body: {
-                contactId: opportunity.contact_id,
-                taskId: task.ghl_id
-              }
-            });
-          } catch (ghlErr) {
-            console.error('Failed to delete from GHL:', ghlErr);
-          }
-        }
-      } else {
-        // Delete from tasks table
-        const { error } = await supabase.from("tasks").delete().eq("id", task.id);
-        if (error) throw error;
-        
-        // Delete from GHL if we have the GHL task ID
-        if (task.ghl_id && opportunity?.contact_id) {
-          try {
-            await supabase.functions.invoke('delete-ghl-task', {
-              body: {
-                contactId: opportunity.contact_id,
-                taskId: task.ghl_id
-              }
-            });
-          } catch (ghlErr) {
-            console.error('Failed to delete from GHL:', ghlErr);
-          }
+      // Delete from ghl_tasks table
+      const { error } = await supabase.from("ghl_tasks").delete().eq("id", task.id);
+      if (error) throw error;
+      
+      // Also delete from GHL API
+      if (task.ghl_id && opportunity?.contact_id) {
+        try {
+          await supabase.functions.invoke('delete-ghl-task', {
+            body: {
+              contactId: opportunity.contact_id,
+              taskId: task.ghl_id
+            }
+          });
+        } catch (ghlErr) {
+          console.error('Failed to delete from GHL:', ghlErr);
         }
       }
       
@@ -680,23 +569,13 @@ export function OpportunityDetailSheet({
     const newStatus = task.status === 'completed' ? 'pending' : 'completed';
     const isCompleted = newStatus === 'completed';
     try {
-      if (task.source === 'ghl') {
-        // Update ghl_tasks table
-        const { error } = await supabase
-          .from("ghl_tasks")
-          .update({ completed: isCompleted })
-          .eq("id", task.id);
-        
-        if (error) throw error;
-      } else {
-        // Update tasks table
-        const { error } = await supabase
-          .from("tasks")
-          .update({ status: newStatus })
-          .eq("id", task.id);
-        
-        if (error) throw error;
-      }
+      // Update ghl_tasks table
+      const { error } = await supabase
+        .from("ghl_tasks")
+        .update({ completed: isCompleted })
+        .eq("id", task.id);
+      
+      if (error) throw error;
       
       // Sync completion status to GHL
       if (task.ghl_id && opportunity?.contact_id) {

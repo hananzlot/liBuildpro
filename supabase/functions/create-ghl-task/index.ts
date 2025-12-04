@@ -29,8 +29,8 @@ serve(async (req) => {
       body, 
       dueDate, 
       assignedTo, 
-      contactId, 
-      supabaseTaskId 
+      contactId,
+      locationId
     } = await req.json();
 
     if (!title) {
@@ -84,20 +84,29 @@ serve(async (req) => {
     // Extract the GHL task ID from response
     const ghlTaskId = ghlData.task?.id || ghlData.id;
 
-    // Update Supabase task with GHL ID if we have both IDs
-    if (supabaseTaskId && ghlTaskId) {
+    // Insert into ghl_tasks table
+    if (ghlTaskId) {
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      const finalLocationId = locationId || "pVeFrqvtYWNIPRIi0Fmr";
       
       const { error: supabaseError } = await supabase
-        .from('tasks')
-        .update({ ghl_id: ghlTaskId })
-        .eq('id', supabaseTaskId);
+        .from('ghl_tasks')
+        .insert({
+          ghl_id: ghlTaskId,
+          title: title,
+          body: body || null,
+          due_date: dueDate || null,
+          assigned_to: assignedTo || null,
+          contact_id: contactId,
+          location_id: finalLocationId,
+          completed: false
+        });
 
       if (supabaseError) {
-        console.error('Supabase update error:', supabaseError);
+        console.error('Supabase insert error:', supabaseError);
         // Don't throw - GHL task is created, just log the error
       } else {
-        console.log(`Updated Supabase task ${supabaseTaskId} with GHL ID ${ghlTaskId}`);
+        console.log(`Inserted task into ghl_tasks with GHL ID ${ghlTaskId}`);
       }
     }
 
