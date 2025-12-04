@@ -91,10 +91,18 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
 
   const inconsistentOpportunities = useMemo(() => {
     const lostStages = ['lost', 'dnc', 'do not call', 'abandoned'];
+    
     return opportunities.filter(opp => {
       const stageLower = (opp.stage_name || '').toLowerCase();
       const statusLower = (opp.status || '').toLowerCase();
-      return lostStages.some(stage => stageLower.includes(stage)) && statusLower === 'open';
+      
+      // Case 1: Stage is lost/dnc but status is still open
+      const stageIsLostButStatusOpen = lostStages.some(stage => stageLower.includes(stage)) && statusLower === 'open';
+      
+      // Case 2: Status is lost but stage is NOT lost/dnc
+      const statusIsLostButStageNot = statusLower === 'lost' && !lostStages.some(stage => stageLower.includes(stage));
+      
+      return stageIsLostButStatusOpen || statusIsLostButStageNot;
     });
   }, [opportunities]);
 
@@ -374,7 +382,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
               <div>
                 <CardTitle className="text-lg">Inconsistent Status/Stage</CardTitle>
                 <CardDescription>
-                  Opportunities with "Lost", "DNC", or "Do Not Call" stage but "Open" status
+                  Opportunities where status and stage don't match (e.g., Lost stage with Open status, or Lost status without Lost stage)
                 </CardDescription>
               </div>
             </div>
@@ -409,19 +417,35 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                 <TableBody>
                   {inconsistentOpportunities.map((opp) => {
                     const stageLower = (opp.stage_name || '').toLowerCase();
-                    const suggestedStatus = stageLower.includes('lost') ? 'lost' : 'abandoned';
+                    const statusLower = (opp.status || '').toLowerCase();
+                    const lostStages = ['lost', 'dnc', 'do not call', 'abandoned'];
+                    const stageIsLost = lostStages.some(stage => stageLower.includes(stage));
+                    
+                    // Determine suggested action based on inconsistency type
+                    const suggestedStatus = stageIsLost 
+                      ? (stageLower.includes('lost') ? 'lost' : 'abandoned')
+                      : 'open'; // If status is lost but stage isn't, suggest reopening
+                    const suggestedAction = stageIsLost ? `Set ${suggestedStatus}` : 'Reopen or update stage';
                     const isUpdating = updatingOppIds.has(opp.id);
                     return (
                       <TableRow key={opp.id}>
                         <TableCell className="font-medium max-w-[200px] truncate">{opp.name || 'Unnamed'}</TableCell>
                         <TableCell>{getContactName(opp.contact_id)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{opp.pipeline_name || '-'}</TableCell>
-                        <TableCell><Badge variant="destructive" className="text-xs">{opp.stage_name}</Badge></TableCell>
-                        <TableCell><Badge variant="outline" className="text-xs">{opp.status}</Badge></TableCell>
+                        <TableCell>
+                          <Badge variant={stageIsLost ? "destructive" : "outline"} className="text-xs">
+                            {opp.stage_name || 'No stage'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusLower === 'lost' ? "destructive" : "outline"} className="text-xs">
+                            {opp.status}
+                          </Badge>
+                        </TableCell>
                         <TableCell>{opp.monetary_value ? `$${opp.monetary_value.toLocaleString()}` : '-'}</TableCell>
                         <TableCell className="text-right">
                           <Button size="sm" variant="secondary" onClick={() => handleUpdateOpportunityStatus(opp, suggestedStatus)} disabled={isUpdating}>
-                            {isUpdating ? <RefreshCw className="h-3 w-3 animate-spin" /> : `Set ${suggestedStatus}`}
+                            {isUpdating ? <RefreshCw className="h-3 w-3 animate-spin" /> : suggestedAction}
                           </Button>
                         </TableCell>
                       </TableRow>
