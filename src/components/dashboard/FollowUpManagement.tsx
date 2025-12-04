@@ -397,8 +397,9 @@ export function FollowUpManagement({
     return filtered;
   }, [appointments, opportunities, contacts, contactNotes, staleNotesSort, staleNotesRepFilter]);
 
-  // View 2: No Tasks Assigned - Open opportunities with appointments but no tasks
+  // View 2: No Tasks Assigned - Open opportunities with past appointments but no tasks
   const noTasksData = useMemo(() => {
+    const now = new Date();
     const results: Array<{
       opportunity: DBOpportunity;
       contact: DBContact | undefined;
@@ -411,10 +412,11 @@ export function FollowUpManagement({
     openOpportunities.forEach(opportunity => {
       if (!opportunity.contact_id) return;
 
-      // Check if this opportunity has any appointments
+      // Check if this opportunity has any past appointments (exclude future appointments)
       const oppAppointments = appointments.filter(a => 
         a.contact_id === opportunity.contact_id &&
-        a.appointment_status?.toLowerCase() !== 'cancelled'
+        a.appointment_status?.toLowerCase() !== 'cancelled' &&
+        a.start_time && new Date(a.start_time) < now
       );
       if (oppAppointments.length === 0) return;
 
