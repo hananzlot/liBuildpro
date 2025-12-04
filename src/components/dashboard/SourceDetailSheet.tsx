@@ -177,20 +177,47 @@ export function SourceDetailSheet({
       const contact = contacts.find(c => c.ghl_id === taskOpp.contact_id);
       const locationId = contact?.location_id || "default";
 
-      const { error } = await supabase.from("tasks").insert({
+      const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
+      const dueDateValue = taskDueDate ? new Date(taskDueDate).toISOString() : null;
+
+      // First insert into Supabase
+      const { data: insertedTask, error } = await supabase.from("tasks").insert({
         opportunity_id: taskOpp.ghl_id,
         contact_id: taskOpp.contact_id,
         title: taskTitle.trim(),
         notes: taskNotes.trim() || null,
-        assigned_to: taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null,
-        due_date: taskDueDate ? new Date(taskDueDate).toISOString() : null,
+        assigned_to: assignedToValue,
+        due_date: dueDateValue,
         location_id: locationId,
         status: "pending"
-      });
+      }).select().single();
 
       if (error) throw error;
 
-      toast.success("Task created successfully");
+      // Now sync to GHL
+      try {
+        const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
+          body: {
+            title: taskTitle.trim(),
+            body: taskNotes.trim() || null,
+            dueDate: dueDateValue,
+            assignedTo: assignedToValue,
+            contactId: taskOpp.contact_id,
+            supabaseTaskId: insertedTask?.id
+          }
+        });
+
+        if (ghlResponse.error) {
+          console.error('GHL sync error:', ghlResponse.error);
+          toast.success("Task created locally (GHL sync failed)");
+        } else {
+          console.log('Task synced to GHL:', ghlResponse.data);
+          toast.success("Task created and synced to GHL");
+        }
+      } catch (ghlError) {
+        console.error('GHL sync error:', ghlError);
+        toast.success("Task created locally (GHL sync failed)");
+      }
       setTaskDialogOpen(false);
       setTaskOpp(null);
       setTaskTitle("");
