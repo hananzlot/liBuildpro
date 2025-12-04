@@ -68,6 +68,7 @@ interface SourceChartProps {
   opportunities: Opportunity[];
   filteredOpportunities: Opportunity[];
   appointments: Appointment[];
+  filteredAppointments?: Appointment[];
   users: GHLUser[];
   appointmentsBySource?: SourceData[];
 }
@@ -106,12 +107,14 @@ export function SourceChart({
   opportunities,
   filteredOpportunities,
   appointments,
+  filteredAppointments,
   users,
   appointmentsBySource,
 }: SourceChartProps) {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<OpportunitiesViewTab>("opportunities");
+  const [clickedFromAppointments, setClickedFromAppointments] = useState(false);
 
   const isOpportunitiesMode = mode === "opportunities";
   const showingAppointments = isOpportunitiesMode && activeTab === "appointments";
@@ -121,6 +124,7 @@ export function SourceChart({
 
   const handleBarClick = (entry: SourceData) => {
     setSelectedSource(entry.source);
+    setClickedFromAppointments(showingAppointments);
     setSheetOpen(true);
   };
 
@@ -211,7 +215,9 @@ export function SourceChart({
         opportunities={opportunities}
         filteredOpportunities={filteredOpportunities}
         appointments={appointments}
+        filteredAppointments={filteredAppointments || []}
         users={users}
+        showAppointments={clickedFromAppointments}
       />
     </>
   );

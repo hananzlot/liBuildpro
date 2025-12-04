@@ -85,7 +85,9 @@ interface SourceDetailSheetProps {
   opportunities: Opportunity[];
   filteredOpportunities: Opportunity[];
   appointments: Appointment[];
+  filteredAppointments: Appointment[];
   users: GHLUser[];
+  showAppointments?: boolean;
 }
 
 export function SourceDetailSheet({
@@ -98,7 +100,9 @@ export function SourceDetailSheet({
   opportunities,
   filteredOpportunities,
   appointments,
+  filteredAppointments,
   users,
+  showAppointments = false,
 }: SourceDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchFilter, setSearchFilter] = useState("");
@@ -137,6 +141,17 @@ export function SourceDetailSheet({
   const sourceOpportunities = useMemo(() => {
     return filteredOpportunities.filter(o => o.contact_id && sourceContactIds.has(o.contact_id));
   }, [filteredOpportunities, sourceContactIds]);
+
+  // Get appointments for this source (use filtered appointments)
+  const sourceAppointments = useMemo(() => {
+    return filteredAppointments.filter(a => a.contact_id && sourceContactIds.has(a.contact_id));
+  }, [filteredAppointments, sourceContactIds]);
+
+  // Unique appointments count (unique by appointment ghl_id)
+  const uniqueAppointmentsCount = useMemo(() => {
+    const uniqueIds = new Set(sourceAppointments.map(a => a.ghl_id));
+    return uniqueIds.size;
+  }, [sourceAppointments]);
 
   // Filter based on mode and search
   const displayOpportunities = useMemo(() => {
@@ -196,9 +211,11 @@ export function SourceDetailSheet({
                 <div>
                   <SheetTitle className="text-lg">{source}</SheetTitle>
                   <SheetDescription>
-                    {mode === "opportunities" 
-                      ? `${sourceOpportunities.length} opportunities • ${sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length} won`
-                      : `${displayOpportunities.length} won • ${formatCurrency(wonValue)}`
+                    {showAppointments 
+                      ? `${uniqueAppointmentsCount} unique appointments scheduled`
+                      : mode === "opportunities" 
+                        ? `${sourceOpportunities.length} opportunities • ${sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length} won`
+                        : `${displayOpportunities.length} won • ${formatCurrency(wonValue)}`
                     }
                   </SheetDescription>
                 </div>
@@ -208,24 +225,37 @@ export function SourceDetailSheet({
 
           <div className="p-4 space-y-4">
             {/* Summary */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Total Opportunities</div>
-                <div className="font-medium">{sourceOpportunities.length}</div>
+            {showAppointments ? (
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Unique Appointments</div>
+                  <div className="font-medium">{uniqueAppointmentsCount}</div>
+                </div>
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Unique Contacts</div>
+                  <div className="font-medium">{new Set(sourceAppointments.map(a => a.contact_id)).size}</div>
+                </div>
               </div>
-              <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Open</div>
-                <div className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "open").length}</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Total Opportunities</div>
+                  <div className="font-medium">{sourceOpportunities.length}</div>
+                </div>
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Open</div>
+                  <div className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "open").length}</div>
+                </div>
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Won Deals</div>
+                  <div className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</div>
+                </div>
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Won Value</div>
+                  <div className="font-medium text-emerald-400">{formatCurrency(wonValue)}</div>
+                </div>
               </div>
-              <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Won Deals</div>
-                <div className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</div>
-              </div>
-              <div className="bg-muted/40 rounded-md p-2.5">
-                <div className="text-muted-foreground text-xs mb-0.5">Won Value</div>
-                <div className="font-medium text-emerald-400">{formatCurrency(wonValue)}</div>
-              </div>
-            </div>
+            )}
 
             {/* Filters */}
             <div className="flex items-center gap-2">
