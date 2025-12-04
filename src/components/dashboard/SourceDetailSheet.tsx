@@ -160,7 +160,7 @@ export function SourceDetailSheet({
       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
     setTaskTitle(`Follow up: ${opp.name || contactName || "Opportunity"}`);
     setTaskNotes("");
-    setTaskAssignee(opp.assigned_to || "");
+    setTaskAssignee(opp.assigned_to || "__unassigned__");
     setTaskDueDate("");
     setTaskDialogOpen(true);
   };
@@ -182,7 +182,7 @@ export function SourceDetailSheet({
         contact_id: taskOpp.contact_id,
         title: taskTitle.trim(),
         notes: taskNotes.trim() || null,
-        assigned_to: taskAssignee || null,
+        assigned_to: taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null,
         due_date: taskDueDate ? new Date(taskDueDate).toISOString() : null,
         location_id: locationId,
         status: "pending"
@@ -583,7 +583,7 @@ export function SourceDetailSheet({
                   <SelectValue placeholder="Select team member..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.ghl_id} value={user.ghl_id}>
                       {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown"}
