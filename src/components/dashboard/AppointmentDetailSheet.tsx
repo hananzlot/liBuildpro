@@ -5,9 +5,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Calendar, Clock, User, FileText, DollarSign, Target, MapPin, Phone, Mail, 
   Briefcase, RefreshCw, MessageSquare, CheckSquare, Plus, Loader2, ChevronRight,
@@ -15,6 +19,15 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+// Helper to get PST/PDT offset in hours
+const getPSTOffset = (utcDate: Date): number => {
+  const year = utcDate.getUTCFullYear();
+  const marchSecondSunday = new Date(Date.UTC(year, 2, 8 + (7 - new Date(Date.UTC(year, 2, 1)).getUTCDay()) % 7, 10));
+  const novFirstSunday = new Date(Date.UTC(year, 10, 1 + (7 - new Date(Date.UTC(year, 10, 1)).getUTCDay()) % 7, 9));
+  const isDST = utcDate >= marchSecondSunday && utcDate < novFirstSunday;
+  return isDST ? 7 : 8;
+};
 
 interface Appointment {
   ghl_id: string;
@@ -138,6 +151,15 @@ export function AppointmentDetailSheet({
   const [newNoteBody, setNewNoteBody] = useState('');
   const [isAddingNote, setIsAddingNote] = useState(false);
   const [showAddNote, setShowAddNote] = useState(false);
+  
+  // Task creation state
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskNotes, setTaskNotes] = useState('');
+  const [taskAssignee, setTaskAssignee] = useState('');
+  const [taskDueDate, setTaskDueDate] = useState('');
+  const [taskDueTime, setTaskDueTime] = useState('09:00');
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   const contact = appointment ? contacts.find(c => c.ghl_id === appointment.contact_id) : null;
   const relatedOpportunities = appointment ? opportunities.filter(o => o.contact_id === appointment.contact_id) : [];
@@ -294,6 +316,93 @@ export function AppointmentDetailSheet({
         console.error('Error updating task:', error);
         toast.error('Failed to update task');
       }
+    }
+  };
+
+  // Open task dialog
+  const openTaskDialog = () => {
+    setTaskTitle(`Follow up: ${contactName || 'Contact'}`);
+    setTaskNotes('');
+    setTaskAssignee(appointment?.assigned_user_id || '__unassigned__');
+    setTaskDueDate('');
+    setTaskDueTime('09:00');
+    setTaskDialogOpen(true);
+  };
+
+  // Create task
+  const handleCreateTask = async () => {
+    if (!appointment?.contact_id || !taskTitle.trim()) {
+      toast.error('Please enter a task title');
+      return;
+    }
+
+    setIsCreatingTask(true);
+    try {
+      const locationId = 'pVeFrqvtYWNIPRIi0Fmr';
+      const assignedToValue = taskAssignee && taskAssignee !== '__unassigned__' ? taskAssignee : null;
+      
+      // Combine date and time, treating input as PST
+      let dueDateValue: string | null = null;
+      if (taskDueDate) {
+        const timeStr = taskDueTime || '09:00';
+        const pstOffset = getPSTOffset(new Date(`${taskDueDate}T12:00:00Z`));
+        const tempUtcDate = new Date(`${taskDueDate}T${timeStr}:00.000Z`);
+        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+        dueDateValue = utcDate.toISOString();
+      }
+
+      // Insert into Supabase
+      const { data: insertedTask, error } = await supabase.from('tasks').insert({
+        opportunity_id: primaryOpportunity?.ghl_id || appointment.ghl_id,
+        contact_id: appointment.contact_id,
+        title: taskTitle.trim(),
+        notes: taskNotes.trim() || null,
+        assigned_to: assignedToValue,
+        due_date: dueDateValue,
+        location_id: locationId,
+        status: 'pending'
+      }).select().single();
+
+      if (error) throw error;
+
+      // Sync to GHL
+      try {
+        const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
+          body: {
+            title: taskTitle.trim(),
+            body: taskNotes.trim() || null,
+            dueDate: dueDateValue,
+            assignedTo: assignedToValue,
+            contactId: appointment.contact_id,
+            supabaseTaskId: insertedTask?.id
+          }
+        });
+
+        if (ghlResponse.error) {
+          console.error('GHL sync error:', ghlResponse.error);
+          toast.success('Task created locally (GHL sync failed)');
+        } else {
+          toast.success('Task created and synced to GHL');
+        }
+      } catch (ghlError) {
+        console.error('GHL sync error:', ghlError);
+        toast.success('Task created locally (GHL sync failed)');
+      }
+
+      // Refresh tasks list
+      await fetchTasks();
+
+      setTaskDialogOpen(false);
+      setTaskTitle('');
+      setTaskNotes('');
+      setTaskAssignee('');
+      setTaskDueDate('');
+      setTaskDueTime('09:00');
+    } catch (err) {
+      console.error('Error creating task:', err);
+      toast.error('Failed to create task');
+    } finally {
+      setIsCreatingTask(false);
     }
   };
 
@@ -495,7 +604,17 @@ export function AppointmentDetailSheet({
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tasks</span>
                 <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
               </div>
-              {loadingTasks && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              <div className="flex items-center gap-1">
+                {loadingTasks && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={openTaskDialog}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
             <div className="divide-y max-h-48 overflow-y-auto">
               {tasks.length === 0 && !loadingTasks ? (
@@ -691,6 +810,104 @@ export function AppointmentDetailSheet({
           )}
         </div>
       </SheetContent>
+
+      {/* Task Creation Dialog */}
+      <Dialog open={taskDialogOpen} onOpenChange={(open) => {
+        setTaskDialogOpen(open);
+        if (!open) {
+          setTaskTitle('');
+          setTaskNotes('');
+          setTaskAssignee('');
+          setTaskDueDate('');
+          setTaskDueTime('09:00');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5" />
+              Create Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="apptTaskTitle">Task Title</Label>
+              <Input
+                id="apptTaskTitle"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="Enter task title..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apptTaskNotes">Notes</Label>
+              <Textarea
+                id="apptTaskNotes"
+                value={taskNotes}
+                onChange={(e) => setTaskNotes(e.target.value)}
+                placeholder="Add notes for this task..."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apptTaskAssignee">Assign To</Label>
+              <Select value={taskAssignee} onValueChange={setTaskAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {[...users].sort((a, b) => {
+                    const nameA = (a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email || 'Unknown').toLowerCase();
+                    const nameB = (b.name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.email || 'Unknown').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                  }).map((user) => (
+                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                      {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Unknown'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date & Time (PST) - Optional</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="apptTaskDueDate"
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  id="apptTaskDueTime"
+                  type="time"
+                  value={taskDueTime}
+                  onChange={(e) => setTaskDueTime(e.target.value)}
+                  className="w-28"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Times are in Pacific Standard Time (PST/PDT)</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateTask} 
+              disabled={isCreatingTask || !taskTitle.trim()}
+            >
+              {isCreatingTask ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Creating...
+                </>
+              ) : 'Create Task'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
