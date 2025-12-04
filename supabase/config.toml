@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.update-ghl-opportunity]
 verify_jwt = false
+
+[functions.fetch-contact-conversations]
+verify_jwt = false

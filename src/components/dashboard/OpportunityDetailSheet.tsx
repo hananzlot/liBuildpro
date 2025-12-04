@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -118,6 +118,59 @@ export function OpportunityDetailSheet({
   const [editedStage, setEditedStage] = useState<string>("");
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
   const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
+  
+  // Real-time conversation fetching
+  const [liveConversations, setLiveConversations] = useState<Conversation[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
+
+  // Fetch conversations from GHL when sheet opens
+  useEffect(() => {
+    if (open && opportunity?.contact_id) {
+      const fetchConversations = async () => {
+        setIsLoadingConversations(true);
+        try {
+          const { data, error } = await supabase.functions.invoke('fetch-contact-conversations', {
+            body: { contact_id: opportunity.contact_id },
+          });
+          
+          if (error) {
+            console.error('Error fetching conversations:', error);
+          } else if (data?.conversations) {
+            setLiveConversations(data.conversations);
+          }
+        } catch (err) {
+          console.error('Failed to fetch conversations:', err);
+        } finally {
+          setIsLoadingConversations(false);
+        }
+      };
+      
+      fetchConversations();
+    } else {
+      setLiveConversations([]);
+    }
+  }, [open, opportunity?.contact_id]);
+
+  const handleRefreshConversations = async () => {
+    if (!opportunity?.contact_id) return;
+    setIsLoadingConversations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-contact-conversations', {
+        body: { contact_id: opportunity.contact_id },
+      });
+      
+      if (error) {
+        toast.error('Failed to refresh conversations');
+      } else if (data?.conversations) {
+        setLiveConversations(data.conversations);
+        toast.success(`Found ${data.conversations.length} conversations`);
+      }
+    } catch (err) {
+      toast.error('Failed to refresh conversations');
+    } finally {
+      setIsLoadingConversations(false);
+    }
+  };
 
   // Get pipeline stages only from the same pipeline as the current opportunity
   const stageMap = new Map<string, string>();
@@ -454,11 +507,8 @@ export function OpportunityDetailSheet({
             </div>
           </div>
 
-          {/* Conversations */}
+          {/* Conversations - fetched live from GHL */}
           {(() => {
-            const contactConversations = conversations.filter(c => c.contact_id === opportunity.contact_id);
-            if (contactConversations.length === 0) return null;
-            
             const formatConvDate = (dateStr: string | null) => {
               if (!dateStr) return '';
               return new Date(dateStr).toLocaleString('en-US', {
@@ -477,33 +527,56 @@ export function OpportunityDetailSheet({
 
             return (
               <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Conversations ({contactConversations.length})
-                  </span>
+                <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Conversations {liveConversations.length > 0 && `(${liveConversations.length})`}
+                    </span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 px-2" 
+                    onClick={handleRefreshConversations}
+                    disabled={isLoadingConversations}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${isLoadingConversations ? 'animate-spin' : ''}`} />
+                  </Button>
                 </div>
-                <div className="divide-y max-h-48 overflow-y-auto">
-                  {contactConversations.slice(0, 5).map((conv) => (
-                    <div key={conv.ghl_id} className="p-3 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {getTypeIcon(conv.last_message_type)} {conv.last_message_type || 'Message'}
-                          {conv.last_message_direction === 'inbound' ? ' (received)' : ' (sent)'}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatConvDate(conv.last_message_date)}
-                        </span>
+                
+                {isLoadingConversations ? (
+                  <div className="p-4 flex items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading conversations...</span>
+                  </div>
+                ) : liveConversations.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+                    No conversations found
+                  </div>
+                ) : (
+                  <div className="divide-y max-h-48 overflow-y-auto">
+                    {liveConversations.slice(0, 10).map((conv) => (
+                      <div key={conv.ghl_id} className="p-3 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {getTypeIcon(conv.last_message_type)} {conv.last_message_type || 'Message'}
+                            {conv.last_message_direction === 'inbound' ? ' (received)' : ' (sent)'}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatConvDate(conv.last_message_date)}
+                          </span>
+                        </div>
+                        <p className="text-sm line-clamp-2">{conv.last_message_body || 'No message content'}</p>
+                        {(conv.unread_count || 0) > 0 && (
+                          <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
+                            {conv.unread_count} unread
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm line-clamp-2">{conv.last_message_body || 'No message content'}</p>
-                      {(conv.unread_count || 0) > 0 && (
-                        <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-400 border-blue-500/30">
-                          {conv.unread_count} unread
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })()}
