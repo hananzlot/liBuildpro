@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -5,7 +6,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, User, FileText, DollarSign, Target, MapPin, Phone, Mail, Briefcase } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { 
+  Calendar, Clock, User, FileText, DollarSign, Target, MapPin, Phone, Mail, 
+  Briefcase, RefreshCw, MessageSquare, CheckSquare, Plus, Loader2, ChevronRight,
+  ArrowUpRight, ArrowDownLeft
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Appointment {
   ghl_id: string;
@@ -52,6 +61,43 @@ interface GHLUser {
   email: string | null;
 }
 
+interface Message {
+  id: string;
+  body: string;
+  direction: string;
+  status: string;
+  type: string;
+  dateAdded: string;
+}
+
+interface Conversation {
+  ghl_id: string;
+  type: string;
+  messages: Message[];
+  last_message_date: string;
+}
+
+interface ContactNote {
+  id: string;
+  ghl_id: string;
+  body: string | null;
+  user_id: string | null;
+  ghl_date_added: string | null;
+}
+
+interface Task {
+  id: string;
+  ghl_id: string | null;
+  title: string;
+  body?: string | null;
+  notes?: string | null;
+  due_date: string | null;
+  completed?: boolean;
+  status?: string;
+  assigned_to: string | null;
+  source: 'app' | 'ghl';
+}
+
 interface AppointmentDetailSheetProps {
   appointment: Appointment | null;
   opportunities: Opportunity[];
@@ -59,6 +105,7 @@ interface AppointmentDetailSheetProps {
   users: GHLUser[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onOpenOpportunity?: (opportunity: Opportunity) => void;
 }
 
 const CUSTOM_FIELD_IDS = {
@@ -80,7 +127,185 @@ export function AppointmentDetailSheet({
   users,
   open,
   onOpenChange,
+  onOpenOpportunity,
 }: AppointmentDetailSheetProps) {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [contactNotes, setContactNotes] = useState<ContactNote[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [newNoteBody, setNewNoteBody] = useState('');
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [showAddNote, setShowAddNote] = useState(false);
+
+  const contact = appointment ? contacts.find(c => c.ghl_id === appointment.contact_id) : null;
+  const relatedOpportunities = appointment ? opportunities.filter(o => o.contact_id === appointment.contact_id) : [];
+  const primaryOpportunity = relatedOpportunities[0];
+
+  // Fetch conversations
+  const fetchConversations = async () => {
+    if (!appointment?.contact_id) return;
+    setLoadingConversations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-contact-conversations', {
+        body: { contact_id: appointment.contact_id }
+      });
+      if (error) throw error;
+      setConversations(data?.conversations || []);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  // Fetch contact notes from database
+  const fetchContactNotes = async () => {
+    if (!appointment?.contact_id) return;
+    setLoadingNotes(true);
+    try {
+      // Fetch from edge function to ensure latest from GHL
+      const { data: ghlData, error: ghlError } = await supabase.functions.invoke('fetch-contact-notes', {
+        body: { contact_id: appointment.contact_id }
+      });
+      if (ghlError) console.error('Error fetching from GHL:', ghlError);
+
+      // Then fetch from database
+      const { data, error } = await supabase
+        .from('contact_notes')
+        .select('*')
+        .eq('contact_id', appointment.contact_id)
+        .order('ghl_date_added', { ascending: false });
+      
+      if (error) throw error;
+      setContactNotes(data || []);
+    } catch (error) {
+      console.error('Error fetching contact notes:', error);
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  // Fetch tasks
+  const fetchTasks = async () => {
+    if (!appointment?.contact_id) return;
+    setLoadingTasks(true);
+    try {
+      // Fetch from both tables
+      const [appTasksResult, ghlTasksResult] = await Promise.all([
+        supabase
+          .from('tasks')
+          .select('*')
+          .eq('contact_id', appointment.contact_id),
+        supabase
+          .from('ghl_tasks')
+          .select('*')
+          .eq('contact_id', appointment.contact_id)
+      ]);
+
+      const appTasks: Task[] = (appTasksResult.data || []).map(t => ({
+        id: t.id,
+        ghl_id: t.ghl_id,
+        title: t.title,
+        notes: t.notes,
+        due_date: t.due_date,
+        status: t.status,
+        assigned_to: t.assigned_to,
+        source: 'app' as const
+      }));
+
+      const ghlTasks: Task[] = (ghlTasksResult.data || []).map(t => ({
+        id: t.id,
+        ghl_id: t.ghl_id,
+        title: t.title,
+        body: t.body,
+        due_date: t.due_date,
+        completed: t.completed,
+        assigned_to: t.assigned_to,
+        source: 'ghl' as const
+      }));
+
+      // Merge and deduplicate by ghl_id
+      const allTasks = [...appTasks, ...ghlTasks];
+      const seen = new Set<string>();
+      const uniqueTasks = allTasks.filter(t => {
+        if (t.ghl_id && seen.has(t.ghl_id)) return false;
+        if (t.ghl_id) seen.add(t.ghl_id);
+        return true;
+      });
+
+      // Sort by due_date
+      uniqueTasks.sort((a, b) => {
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      });
+
+      setTasks(uniqueTasks);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setLoadingTasks(false);
+    }
+  };
+
+  // Add new note
+  const handleAddNote = async () => {
+    if (!appointment?.contact_id || !newNoteBody.trim()) return;
+    setIsAddingNote(true);
+    try {
+      const { error } = await supabase.functions.invoke('create-contact-note', {
+        body: { contactId: appointment.contact_id, body: newNoteBody.trim() }
+      });
+      if (error) throw error;
+      toast.success('Note added successfully');
+      setNewNoteBody('');
+      setShowAddNote(false);
+      fetchContactNotes();
+    } catch (error) {
+      console.error('Error adding note:', error);
+      toast.error('Failed to add note');
+    } finally {
+      setIsAddingNote(false);
+    }
+  };
+
+  // Toggle task completion
+  const handleToggleTask = async (task: Task) => {
+    if (task.source === 'ghl' && task.ghl_id) {
+      try {
+        const newCompleted = !task.completed;
+        const { error } = await supabase.functions.invoke('update-ghl-task', {
+          body: { 
+            contactId: appointment?.contact_id,
+            taskId: task.ghl_id, 
+            completed: newCompleted 
+          }
+        });
+        if (error) throw error;
+        
+        // Update local state
+        setTasks(prev => prev.map(t => 
+          t.id === task.id ? { ...t, completed: newCompleted } : t
+        ));
+        toast.success(newCompleted ? 'Task completed' : 'Task reopened');
+      } catch (error) {
+        console.error('Error updating task:', error);
+        toast.error('Failed to update task');
+      }
+    }
+  };
+
+  // Fetch data when sheet opens
+  useEffect(() => {
+    if (open && appointment?.contact_id) {
+      fetchConversations();
+      fetchContactNotes();
+      fetchTasks();
+    }
+  }, [open, appointment?.contact_id]);
+
   if (!appointment) return null;
 
   const formatDateTime = (dateString: string | null) => {
@@ -95,6 +320,13 @@ export function AppointmentDetailSheet({
     if (!dateString) return '-';
     return new Date(dateString).toLocaleTimeString('en-US', {
       hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+  };
+
+  const formatDateShort = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
     });
   };
 
@@ -115,9 +347,6 @@ export function AppointmentDetailSheet({
     }).format(value);
   };
 
-  const contact = contacts.find(c => c.ghl_id === appointment.contact_id);
-  const relatedOpportunities = opportunities.filter(o => o.contact_id === appointment.contact_id);
-  const primaryOpportunity = relatedOpportunities[0];
   const assignedUser = users.find(u => u.ghl_id === appointment.assigned_user_id);
 
   const contactName = contact?.contact_name || 
@@ -132,13 +361,24 @@ export function AppointmentDetailSheet({
 
   const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
   const scopeOfWork = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK) : null;
-  const contactNotes = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES) : null;
+
+  // Get all messages from all conversations, sorted by date
+  const allMessages = conversations
+    .flatMap(c => c.messages)
+    .sort((a, b) => new Date(a.dateAdded).getTime() - new Date(b.dateAdded).getTime());
+
+  const handleOpenOpportunity = (opp: Opportunity) => {
+    if (onOpenOpportunity) {
+      onOpenChange(false);
+      setTimeout(() => onOpenOpportunity(opp), 150);
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-md overflow-y-auto p-0">
         {/* Header */}
-        <div className="sticky top-0 bg-background border-b p-4">
+        <div className="sticky top-0 bg-background border-b p-4 z-10">
           <SheetHeader className="space-y-1">
             <div className="flex items-start justify-between gap-3">
               <SheetTitle className="text-lg font-semibold leading-tight">
@@ -158,20 +398,31 @@ export function AppointmentDetailSheet({
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Pipeline Status (if opportunity exists) */}
+          {/* Clickable Pipeline Status (if opportunity exists) */}
           {primaryOpportunity && (
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
+            <div 
+              className={`bg-primary/5 border border-primary/20 rounded-lg p-3 ${onOpenOpportunity ? 'cursor-pointer hover:bg-primary/10 transition-colors' : ''}`}
+              onClick={() => handleOpenOpportunity(primaryOpportunity)}
+            >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Target className="h-4 w-4 text-primary" />
                   <span className="font-medium text-sm">{primaryOpportunity.pipeline_name || 'Pipeline'}</span>
                 </div>
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-xs">
-                  {primaryOpportunity.stage_name || 'Unknown'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-xs">
+                    {primaryOpportunity.stage_name || 'Unknown'}
+                  </Badge>
+                  {onOpenOpportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                </div>
               </div>
-              <div className="text-xl font-bold text-emerald-400">
-                {formatCurrency(primaryOpportunity.monetary_value)}
+              <div className="flex items-center justify-between">
+                <div className="text-xl font-bold text-emerald-400">
+                  {formatCurrency(primaryOpportunity.monetary_value)}
+                </div>
+                {onOpenOpportunity && (
+                  <span className="text-xs text-muted-foreground">Click for full details</span>
+                )}
               </div>
             </div>
           )}
@@ -236,18 +487,176 @@ export function AppointmentDetailSheet({
             </div>
           )}
 
-          {/* Contact Notes */}
-          {contactNotes && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Notes</span>
+          {/* Tasks Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tasks</span>
+                <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
               </div>
-              <div className="p-3">
-                <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
+              {loadingTasks && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            </div>
+            <div className="divide-y max-h-48 overflow-y-auto">
+              {tasks.length === 0 && !loadingTasks ? (
+                <div className="p-3 text-sm text-muted-foreground text-center">No tasks</div>
+              ) : (
+                tasks.map((task) => (
+                  <div key={task.id} className="p-3 flex items-start gap-2">
+                    <button
+                      onClick={() => handleToggleTask(task)}
+                      className={`mt-0.5 h-4 w-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
+                        task.completed || task.status === 'completed'
+                          ? 'bg-emerald-500 border-emerald-500 text-white'
+                          : 'border-muted-foreground/40 hover:border-primary'
+                      }`}
+                    >
+                      {(task.completed || task.status === 'completed') && (
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-medium ${task.completed || task.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
+                        {task.title}
+                      </div>
+                      {task.due_date && (
+                        <div className="text-xs text-muted-foreground">
+                          Due: {formatDateShort(task.due_date)}
+                        </div>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {task.source === 'ghl' ? 'GHL' : 'App'}
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Contact Notes Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Activity Notes</span>
+                <Badge variant="secondary" className="text-xs">{contactNotes.length}</Badge>
+              </div>
+              <div className="flex items-center gap-1">
+                {loadingNotes && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setShowAddNote(!showAddNote)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={fetchContactNotes}
+                  disabled={loadingNotes}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingNotes ? 'animate-spin' : ''}`} />
+                </Button>
               </div>
             </div>
-          )}
+            
+            {/* Add Note Form */}
+            {showAddNote && (
+              <div className="p-3 border-b bg-muted/20">
+                <Textarea
+                  placeholder="Add a note..."
+                  value={newNoteBody}
+                  onChange={(e) => setNewNoteBody(e.target.value)}
+                  className="min-h-[60px] text-sm mb-2"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setShowAddNote(false); setNewNoteBody(''); }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleAddNote}
+                    disabled={isAddingNote || !newNoteBody.trim()}
+                  >
+                    {isAddingNote ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                    Save Note
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="divide-y max-h-48 overflow-y-auto">
+              {contactNotes.length === 0 && !loadingNotes ? (
+                <div className="p-3 text-sm text-muted-foreground text-center">No notes</div>
+              ) : (
+                contactNotes.map((note) => (
+                  <div key={note.id} className="p-3">
+                    <div className="text-xs text-muted-foreground mb-1">
+                      {note.ghl_date_added ? formatDateShort(note.ghl_date_added) : 'Unknown date'}
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{note.body || 'No content'}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Conversations Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Conversations</span>
+                <Badge variant="secondary" className="text-xs">{allMessages.length}</Badge>
+              </div>
+              <div className="flex items-center gap-1">
+                {loadingConversations && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={fetchConversations}
+                  disabled={loadingConversations}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingConversations ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </div>
+            <div className="divide-y max-h-64 overflow-y-auto">
+              {allMessages.length === 0 && !loadingConversations ? (
+                <div className="p-3 text-sm text-muted-foreground text-center">No messages</div>
+              ) : (
+                allMessages.slice(-20).map((msg) => (
+                  <div key={msg.id} className={`p-3 ${msg.direction === 'outbound' ? 'bg-primary/5' : ''}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      {msg.direction === 'outbound' ? (
+                        <ArrowUpRight className="h-3 w-3 text-primary" />
+                      ) : (
+                        <ArrowDownLeft className="h-3 w-3 text-emerald-500" />
+                      )}
+                      <Badge variant="outline" className="text-xs">
+                        {msg.type || 'Message'}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateShort(msg.dateAdded)}
+                      </span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{msg.body || '(No content)'}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
           {/* Related Opportunities */}
           {relatedOpportunities.length > 1 && (
@@ -260,14 +669,21 @@ export function AppointmentDetailSheet({
               </div>
               <div className="divide-y">
                 {relatedOpportunities.slice(1, 4).map((opp) => (
-                  <div key={opp.ghl_id} className="p-3 flex items-center justify-between gap-2">
+                  <div 
+                    key={opp.ghl_id} 
+                    className={`p-3 flex items-center justify-between gap-2 ${onOpenOpportunity ? 'cursor-pointer hover:bg-muted/30 transition-colors' : ''}`}
+                    onClick={() => handleOpenOpportunity(opp)}
+                  >
                     <div className="min-w-0">
                       <div className="font-medium text-sm truncate">{opp.name || 'Unnamed'}</div>
                       <div className="text-xs text-muted-foreground">{opp.stage_name || 'Unknown Stage'}</div>
                     </div>
-                    <span className="text-sm font-semibold text-emerald-400 shrink-0">
-                      {formatCurrency(opp.monetary_value)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-emerald-400 shrink-0">
+                        {formatCurrency(opp.monetary_value)}
+                      </span>
+                      {onOpenOpportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                    </div>
                   </div>
                 ))}
               </div>
