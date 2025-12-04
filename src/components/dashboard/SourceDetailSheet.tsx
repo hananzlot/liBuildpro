@@ -105,6 +105,8 @@ export function SourceDetailSheet({
   showAppointments = false,
 }: SourceDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date");
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [oppSheetOpen, setOppSheetOpen] = useState(false);
@@ -166,6 +168,10 @@ export function SourceDetailSheet({
     if (statusFilter !== "all") {
       opps = opps.filter(o => o.status?.toLowerCase() === statusFilter);
     }
+
+    if (stageFilter !== "all") {
+      opps = opps.filter(o => o.stage_name === stageFilter);
+    }
     
     if (searchFilter.trim()) {
       const term = searchFilter.toLowerCase();
@@ -176,15 +182,32 @@ export function SourceDetailSheet({
       });
     }
     
-    return opps.sort((a, b) => 
-      new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime()
-    );
-  }, [sourceOpportunities, mode, statusFilter, searchFilter, contacts]);
+    // Sort based on selected option
+    return opps.sort((a, b) => {
+      switch (sortBy) {
+        case "stage":
+          return (a.stage_name || "").localeCompare(b.stage_name || "");
+        case "value":
+          return (b.monetary_value || 0) - (a.monetary_value || 0);
+        case "status":
+          return (a.status || "").localeCompare(b.status || "");
+        case "date":
+        default:
+          return new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime();
+      }
+    });
+  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts]);
 
   // Available statuses
   const availableStatuses = useMemo(() => {
     const statuses = new Set(sourceOpportunities.map(o => o.status?.toLowerCase() || "unknown"));
     return Array.from(statuses).sort();
+  }, [sourceOpportunities]);
+
+  // Available stages
+  const availableStages = useMemo(() => {
+    const stages = new Set(sourceOpportunities.map(o => o.stage_name).filter(Boolean) as string[]);
+    return Array.from(stages).sort();
   }, [sourceOpportunities]);
 
   // Totals
@@ -260,23 +283,49 @@ export function SourceDetailSheet({
             )}
 
             {/* Filters */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {mode === "opportunities" && (
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-8 w-28 text-xs">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    {availableStatuses.map(status => (
-                      <SelectItem key={status} value={status} className="capitalize">
-                        {status}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-8 w-24 text-xs">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      {availableStatuses.map(status => (
+                        <SelectItem key={status} value={status} className="capitalize">
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={stageFilter} onValueChange={setStageFilter}>
+                    <SelectTrigger className="h-8 w-32 text-xs">
+                      <SelectValue placeholder="Stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Stages</SelectItem>
+                      {availableStages.map(stage => (
+                        <SelectItem key={stage} value={stage}>
+                          {stage}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
               )}
-              <div className="relative flex-1">
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="h-8 w-28 text-xs">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">By Date</SelectItem>
+                  <SelectItem value="stage">By Stage</SelectItem>
+                  <SelectItem value="status">By Status</SelectItem>
+                  <SelectItem value="value">By Value</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="relative flex-1 min-w-[120px]">
                 <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search..."
@@ -315,6 +364,14 @@ export function SourceDetailSheet({
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
+                        {/* Pipeline Stage */}
+                        {opp.stage_name && (
+                          <div className="mb-1.5">
+                            <Badge variant="secondary" className="text-xs font-normal">
+                              {opp.stage_name}
+                            </Badge>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <User className="h-3 w-3" />
