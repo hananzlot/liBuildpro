@@ -430,43 +430,29 @@ export function FollowUpManagement({
       const contact = contacts.find(c => c.ghl_id === taskDialogContactId);
       const locationId = contact?.location_id || DEFAULT_LOCATION_ID;
 
-      // Insert into Supabase first
-      const {
-        data: insertedTask,
-        error: insertError
-      } = await supabase.from('tasks').insert({
-        opportunity_id: taskDialogOpportunity.ghl_id,
-        contact_id: taskDialogContactId,
-        title: taskTitle.trim(),
-        notes: taskNotes.trim() || null,
-        assigned_to: taskAssignee === 'unassigned' ? null : taskAssignee || null,
-        due_date: dueDateTime,
-        status: 'pending',
-        location_id: locationId
-      }).select().single();
-      if (insertError) throw insertError;
-
-      // Sync to GHL
-      const {
-        error: ghlError
-      } = await supabase.functions.invoke('create-ghl-task', {
+      // Create in GHL first (edge function will also insert into ghl_tasks)
+      const { error: ghlError } = await supabase.functions.invoke('create-ghl-task', {
         body: {
           title: taskTitle.trim(),
           body: taskNotes.trim() || null,
           dueDate: dueDateTime,
           assignedTo: taskAssignee === 'unassigned' ? null : taskAssignee || null,
           contactId: taskDialogContactId,
-          supabaseTaskId: insertedTask.id
+          locationId: locationId
         }
       });
+      
       if (ghlError) {
         console.error('GHL sync error:', ghlError);
-        // Task was created locally, just warn about GHL sync
-        toast.warning('Task created locally but GHL sync failed');
-      } else {
-        toast.success('Task created successfully');
+        toast.error('Failed to create task');
+        return;
       }
+      
+      toast.success('Task created successfully');
       setTaskDialogOpen(false);
+      
+      // Refresh tasks list
+      await fetchGhlTasks();
       onDataRefresh?.();
     } catch (error) {
       console.error('Error creating task:', error);
