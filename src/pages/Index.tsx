@@ -262,9 +262,9 @@ const Index = () => {
             </section>
 
             {/* Sales Rep Leaderboard */}
-            <section>
+            <section className="lg:w-1/2">
               {isLoading ? (
-                <Skeleton className="h-[380px] rounded-2xl" />
+                <Skeleton className="h-[280px] rounded-2xl" />
               ) : (
                 <SalesRepLeaderboard 
                   data={metrics?.salesRepPerformance || []}
