@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.fetch-contact-notes]
 verify_jwt = false
+
+[functions.create-contact-note]
+verify_jwt = false

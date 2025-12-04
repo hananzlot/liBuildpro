@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -150,6 +151,8 @@ export function OpportunityDetailSheet({
   // Contact notes
   const [contactNotesList, setContactNotesList] = useState<ContactNote[]>([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+  const [newNoteText, setNewNoteText] = useState("");
+  const [isCreatingNote, setIsCreatingNote] = useState(false);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -223,7 +226,38 @@ export function OpportunityDetailSheet({
     }
   };
 
-  // Get pipeline stages only from the same pipeline as the current opportunity
+  const handleCreateNote = async () => {
+    if (!opportunity?.contact_id || !newNoteText.trim()) return;
+    
+    setIsCreatingNote(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-contact-note', {
+        body: { contactId: opportunity.contact_id, body: newNoteText.trim() },
+      });
+      
+      if (error) {
+        toast.error('Failed to create note');
+        console.error('Error creating note:', error);
+      } else if (data?.success) {
+        toast.success('Note created');
+        setNewNoteText('');
+        
+        // Refresh notes list
+        const { data: refreshData } = await supabase.functions.invoke('fetch-contact-notes', {
+          body: { contact_id: opportunity.contact_id },
+        });
+        if (refreshData?.notes) {
+          setContactNotesList(refreshData.notes);
+        }
+      }
+    } catch (err) {
+      toast.error('Failed to create note');
+      console.error('Failed to create note:', err);
+    } finally {
+      setIsCreatingNote(false);
+    }
+  };
+
   const stageMap = new Map<string, string>();
   const currentPipelineId = opportunity?.pipeline_id;
   allOpportunities.forEach(o => {
@@ -585,9 +619,34 @@ export function OpportunityDetailSheet({
               
               {!contactNotes && contactNotesList.length === 0 && relatedAppointments.filter(a => a.notes).length === 0 && (
                 <p className="text-sm text-muted-foreground/60 italic">
-                  {isLoadingNotes ? 'Loading notes...' : 'No notes or comments'}
+                  {isLoadingNotes ? 'Loading notes...' : 'No notes or comments yet'}
                 </p>
               )}
+            </div>
+            
+            {/* Add New Note Form */}
+            <div className="border-t p-3">
+              <Textarea
+                placeholder="Add a note..."
+                value={newNoteText}
+                onChange={(e) => setNewNoteText(e.target.value)}
+                className="min-h-[60px] text-sm resize-none mb-2"
+                disabled={isCreatingNote}
+              />
+              <div className="flex justify-end">
+                <Button 
+                  size="sm" 
+                  onClick={handleCreateNote}
+                  disabled={isCreatingNote || !newNoteText.trim()}
+                >
+                  {isCreatingNote ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  Add Note
+                </Button>
+              </div>
             </div>
           </div>
 
