@@ -80,6 +80,13 @@ const APPOINTMENT_OUTCOME_STAGES = [
   { value: 'PNS', label: 'PNS (Price Not Sold)' },
 ];
 
+const OPP_STATUS_OPTIONS = [
+  { value: 'open', label: 'Open' },
+  { value: 'won', label: 'Won' },
+  { value: 'lost', label: 'Lost' },
+  { value: 'abandoned', label: 'Abandoned' },
+];
+
 export function AdminCleanup({ opportunities, contacts, appointments, users, onDataUpdated, onOpenOpportunity }: AdminCleanupProps) {
   const [updatingOppIds, setUpdatingOppIds] = useState<Set<string>>(new Set());
   const [updatingApptIds, setUpdatingApptIds] = useState<Set<string>>(new Set());
@@ -88,6 +95,8 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
   const [sortColumn, setSortColumn] = useState<SortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [stageFilter, setStageFilter] = useState<string>('all');
+  const [inconsistentOppStages, setInconsistentOppStages] = useState<Record<string, string>>({});
+  const [inconsistentOppStatuses, setInconsistentOppStatuses] = useState<Record<string, string>>({});
 
   const inconsistentOpportunities = useMemo(() => {
     const lostStages = ['lost', 'dnc', 'do not call', 'abandoned'];
@@ -219,19 +228,35 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
     }
   };
 
-  const handleUpdateOpportunityStatus = async (opportunity: Opportunity, newStatus: string) => {
+  const handleUpdateOpportunityStatus = async (opportunity: Opportunity, newStatus: string, newStage?: string) => {
     setUpdatingOppIds(prev => new Set(prev).add(opportunity.id));
     try {
-      const { error } = await supabase.functions.invoke('update-ghl-opportunity', {
-        body: { ghl_id: opportunity.ghl_id, status: newStatus }
-      });
+      const updatePayload: any = { ghl_id: opportunity.ghl_id, status: newStatus };
+      const dbUpdate: any = { status: newStatus };
+      
+      if (newStage) {
+        const pipelineStageId = getStageIdForPipeline(opportunity.pipeline_id, newStage);
+        updatePayload.stage_name = newStage;
+        updatePayload.pipeline_stage_id = pipelineStageId;
+        dbUpdate.stage_name = newStage;
+        dbUpdate.pipeline_stage_id = pipelineStageId;
+      }
+      
+      const { error } = await supabase.functions.invoke('update-ghl-opportunity', { body: updatePayload });
       if (error) throw error;
+      
       const { error: dbError } = await supabase
         .from('opportunities')
-        .update({ status: newStatus })
+        .update(dbUpdate)
         .eq('id', opportunity.id);
       if (dbError) throw dbError;
-      toast.success(`Updated "${opportunity.name}" to ${newStatus}`);
+      
+      toast.success(`Updated "${opportunity.name}"`);
+      
+      // Clear selections
+      setInconsistentOppStages(prev => { const next = { ...prev }; delete next[opportunity.id]; return next; });
+      setInconsistentOppStatuses(prev => { const next = { ...prev }; delete next[opportunity.id]; return next; });
+      
       onDataUpdated();
     } catch (err) {
       toast.error(`Failed to update: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -420,19 +445,18 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                     const statusLower = (opp.status || '').toLowerCase();
                     const lostStages = ['lost', 'dnc', 'do not call', 'abandoned'];
                     const stageIsLost = lostStages.some(stage => stageLower.includes(stage));
-                    
-                    // Determine suggested action based on inconsistency type
-                    const suggestedStatus = stageIsLost 
-                      ? (stageLower.includes('lost') ? 'lost' : 'abandoned')
-                      : 'open'; // If status is lost but stage isn't, suggest reopening
-                    const suggestedAction = stageIsLost ? `Set ${suggestedStatus}` : 'Reopen or update stage';
                     const isUpdating = updatingOppIds.has(opp.id);
+                    
+                    const selectedStage = inconsistentOppStages[opp.id] || opp.stage_name || '';
+                    const selectedStatus = inconsistentOppStatuses[opp.id] || opp.status || '';
+                    const hasChanges = selectedStage !== (opp.stage_name || '') || selectedStatus !== (opp.status || '');
+                    
                     return (
                       <TableRow 
                         key={opp.id} 
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={(e) => {
-                          if ((e.target as HTMLElement).closest('button')) return;
+                          if ((e.target as HTMLElement).closest('button, select, [role="combobox"]')) return;
                           onOpenOpportunity(opp);
                         }}
                       >
@@ -445,19 +469,48 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                         <TableCell>{getContactName(opp.contact_id)}</TableCell>
                         <TableCell className="text-muted-foreground text-sm">{opp.pipeline_name || '-'}</TableCell>
                         <TableCell>
-                          <Badge variant={stageIsLost ? "destructive" : "outline"} className="text-xs">
-                            {opp.stage_name || 'No stage'}
-                          </Badge>
+                          <Select 
+                            value={selectedStage} 
+                            onValueChange={(value) => setInconsistentOppStages(prev => ({ ...prev, [opp.id]: value }))}
+                          >
+                            <SelectTrigger className={`w-[140px] h-8 text-xs ${stageIsLost ? 'border-destructive' : ''}`}>
+                              <SelectValue placeholder="Select stage..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {APPOINTMENT_OUTCOME_STAGES.map(stage => (
+                                <SelectItem key={stage.value} value={stage.value} className="text-xs">{stage.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={statusLower === 'lost' ? "destructive" : "outline"} className="text-xs">
-                            {opp.status}
-                          </Badge>
+                          <Select 
+                            value={selectedStatus} 
+                            onValueChange={(value) => setInconsistentOppStatuses(prev => ({ ...prev, [opp.id]: value }))}
+                          >
+                            <SelectTrigger className={`w-[110px] h-8 text-xs ${statusLower === 'lost' && !stageIsLost ? 'border-destructive' : ''}`}>
+                              <SelectValue placeholder="Status..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {OPP_STATUS_OPTIONS.map(status => (
+                                <SelectItem key={status.value} value={status.value} className="text-xs">{status.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>{opp.monetary_value ? `$${opp.monetary_value.toLocaleString()}` : '-'}</TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" variant="secondary" onClick={() => handleUpdateOpportunityStatus(opp, suggestedStatus)} disabled={isUpdating}>
-                            {isUpdating ? <RefreshCw className="h-3 w-3 animate-spin" /> : suggestedAction}
+                          <Button 
+                            size="sm" 
+                            variant={hasChanges ? "default" : "secondary"}
+                            onClick={() => handleUpdateOpportunityStatus(
+                              opp, 
+                              selectedStatus,
+                              selectedStage !== opp.stage_name ? selectedStage : undefined
+                            )} 
+                            disabled={isUpdating || !hasChanges}
+                          >
+                            {isUpdating ? <RefreshCw className="h-3 w-3 animate-spin" /> : 'Update'}
                           </Button>
                         </TableCell>
                       </TableRow>
