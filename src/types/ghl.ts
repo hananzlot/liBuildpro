@@ -38,10 +38,9 @@ export interface LeadsBySource {
 
 export interface SalesRepPerformance {
   assignedTo: string;
-  totalLeads: number;
-  totalOpportunities: number;
+  uniqueAppointments: number;
   wonOpportunities: number;
-  pipelineValue: number;
+  totalOpportunities: number;
   wonValue: number;
   conversionRate: number;
 }
