@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User } from "lucide-react";
+import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -93,6 +93,7 @@ export function FollowUpManagement({
 }: FollowUpManagementProps) {
   const [staleNotesOpen, setStaleNotesOpen] = useState(true);
   const [noTasksOpen, setNoTasksOpen] = useState(true);
+  const [pastConfirmedOpen, setPastConfirmedOpen] = useState(true);
   const [staleNotesSort, setStaleNotesSort] = useState<{ field: SortField; direction: SortDirection }>({
     field: 'appointment_date',
     direction: 'desc',
@@ -101,8 +102,13 @@ export function FollowUpManagement({
     field: 'appointment_date',
     direction: 'desc',
   });
+  const [pastConfirmedSort, setPastConfirmedSort] = useState<{ field: SortField; direction: SortDirection }>({
+    field: 'appointment_date',
+    direction: 'desc',
+  });
   const [staleNotesRepFilter, setStaleNotesRepFilter] = useState<string>('all');
   const [noTasksRepFilter, setNoTasksRepFilter] = useState<string>('all');
+  const [pastConfirmedRepFilter, setPastConfirmedRepFilter] = useState<string>('all');
 
   // Helper functions
   const getUserName = (userId: string | null): string => {
@@ -273,14 +279,76 @@ export function FollowUpManagement({
     return filtered;
   }, [opportunities, appointments, contacts, tasks, noTasksSort, noTasksRepFilter]);
 
-  const toggleSort = (view: 'stale' | 'noTasks', field: SortField) => {
+  // View 3: Past Confirmed - Appointments still marked as confirmed but date has passed
+  const pastConfirmedData = useMemo(() => {
+    const now = new Date();
+    const results: Array<{
+      appointment: DBAppointment;
+      opportunity: DBOpportunity | undefined;
+      contact: DBContact | undefined;
+      daysPast: number;
+    }> = [];
+
+    appointments.forEach(appointment => {
+      if (!appointment.start_time) return;
+      
+      const appointmentDate = new Date(appointment.start_time);
+      const status = appointment.appointment_status?.toLowerCase();
+      
+      // Only include if status is "confirmed" and date is in the past
+      if (status === 'confirmed' && appointmentDate < now) {
+        const opportunity = appointment.contact_id 
+          ? opportunities.find(o => o.contact_id === appointment.contact_id)
+          : undefined;
+        const contact = appointment.contact_id
+          ? contacts.find(c => c.ghl_id === appointment.contact_id)
+          : undefined;
+        const daysPast = Math.floor((now.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        results.push({
+          appointment,
+          opportunity,
+          contact,
+          daysPast,
+        });
+      }
+    });
+
+    // Apply rep filter
+    let filtered = results;
+    if (pastConfirmedRepFilter !== 'all') {
+      filtered = results.filter(r => r.appointment.assigned_user_id === pastConfirmedRepFilter);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      const direction = pastConfirmedSort.direction === 'asc' ? 1 : -1;
+      switch (pastConfirmedSort.field) {
+        case 'appointment_date':
+          return direction * (new Date(a.appointment.start_time!).getTime() - new Date(b.appointment.start_time!).getTime());
+        case 'contact_name':
+          return direction * (getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id)));
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [appointments, opportunities, contacts, pastConfirmedSort, pastConfirmedRepFilter]);
+
+  const toggleSort = (view: 'stale' | 'noTasks' | 'pastConfirmed', field: SortField) => {
     if (view === 'stale') {
       setStaleNotesSort(prev => ({
         field,
         direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
       }));
-    } else {
+    } else if (view === 'noTasks') {
       setNoTasksSort(prev => ({
+        field,
+        direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
+      }));
+    } else {
+      setPastConfirmedSort(prev => ({
         field,
         direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
       }));
@@ -506,6 +574,113 @@ export function FollowUpManagement({
                           <TableCell>{getUserName(row.opportunity.assigned_to || row.contact?.assigned_to)}</TableCell>
                           <TableCell className="font-medium">
                             {formatCurrency(row.opportunity.monetary_value)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Past Confirmed Appointments View */}
+      <Collapsible open={pastConfirmedOpen} onOpenChange={setPastConfirmedOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <Clock className="h-5 w-5 text-red-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      Past Confirmed Appointments
+                      <Badge variant="secondary">{pastConfirmedData.length}</Badge>
+                    </CardTitle>
+                    <CardDescription>Appointments still marked as "Confirmed" but date has already passed</CardDescription>
+                  </div>
+                </div>
+                {pastConfirmedOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="flex items-center gap-4 mb-4">
+                <Select value={pastConfirmedRepFilter} onValueChange={setPastConfirmedRepFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <User className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by rep" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Reps</SelectItem>
+                    {uniqueReps.map(rep => (
+                      <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {pastConfirmedData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No past appointments still marked as confirmed
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>
+                          <Button variant="ghost" size="sm" onClick={() => toggleSort('pastConfirmed', 'contact_name')}>
+                            Contact <ArrowUpDown className="h-3 w-3 ml-1" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>Title</TableHead>
+                        <TableHead>
+                          <Button variant="ghost" size="sm" onClick={() => toggleSort('pastConfirmed', 'appointment_date')}>
+                            Appointment Date <ArrowUpDown className="h-3 w-3 ml-1" />
+                          </Button>
+                        </TableHead>
+                        <TableHead>Days Past</TableHead>
+                        <TableHead>Assigned Rep</TableHead>
+                        <TableHead>Opportunity</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pastConfirmedData.map((row) => (
+                        <TableRow
+                          key={row.appointment.id}
+                          className={`cursor-pointer hover:bg-muted/50 ${row.daysPast > 7 ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
+                          onClick={() => row.opportunity && onOpenOpportunity(row.opportunity)}
+                        >
+                          <TableCell className="font-medium">
+                            {getContactName(row.appointment.contact_id)}
+                          </TableCell>
+                          <TableCell>{row.appointment.title || 'No title'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              {row.appointment.start_time 
+                                ? format(new Date(row.appointment.start_time), 'MMM d, yyyy h:mm a')
+                                : 'No date'}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={row.daysPast > 7 ? 'destructive' : 'secondary'}>
+                              {row.daysPast} {row.daysPast === 1 ? 'day' : 'days'} ago
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{getUserName(row.appointment.assigned_user_id)}</TableCell>
+                          <TableCell>
+                            {row.opportunity ? (
+                              <Badge variant="outline">{row.opportunity.name || 'Unnamed'}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">No opportunity</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
