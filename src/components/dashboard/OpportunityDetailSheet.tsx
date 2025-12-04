@@ -460,7 +460,33 @@ export function OpportunityDetailSheet({
 
       if (error) throw error;
 
-      toast.success("Task updated");
+      // Sync to GHL if we have the GHL task ID
+      if (editingTask.ghl_id && opportunity?.contact_id) {
+        try {
+          const ghlResponse = await supabase.functions.invoke('update-ghl-task', {
+            body: {
+              contactId: opportunity.contact_id,
+              taskId: editingTask.ghl_id,
+              title: taskTitle.trim(),
+              body: taskNotes.trim() || null,
+              dueDate: dueDateValue,
+              assignedTo: assignedToValue
+            }
+          });
+          
+          if (ghlResponse.error) {
+            console.error('GHL update error:', ghlResponse.error);
+            toast.success("Task updated locally (GHL sync failed)");
+          } else {
+            toast.success("Task updated");
+          }
+        } catch (ghlErr) {
+          console.error('Failed to update in GHL:', ghlErr);
+          toast.success("Task updated locally (GHL sync failed)");
+        }
+      } else {
+        toast.success("Task updated");
+      }
 
       // Refresh tasks list
       const { data: refreshedTasks } = await supabase
@@ -528,6 +554,7 @@ export function OpportunityDetailSheet({
   const handleToggleTaskStatus = async (task: Task) => {
     setIsUpdatingTaskStatus(task.id);
     const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+    const isCompleted = newStatus === 'completed';
     try {
       const { error } = await supabase
         .from("tasks")
@@ -535,6 +562,21 @@ export function OpportunityDetailSheet({
         .eq("id", task.id);
       
       if (error) throw error;
+      
+      // Sync completion status to GHL
+      if (task.ghl_id && opportunity?.contact_id) {
+        try {
+          await supabase.functions.invoke('update-ghl-task', {
+            body: {
+              contactId: opportunity.contact_id,
+              taskId: task.ghl_id,
+              completed: isCompleted
+            }
+          });
+        } catch (ghlErr) {
+          console.error('Failed to sync status to GHL:', ghlErr);
+        }
+      }
       
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
       toast.success(newStatus === 'completed' ? "Task completed" : "Task reopened");
