@@ -96,6 +96,7 @@ export function OpportunitiesTable({
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("stage");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
@@ -122,6 +123,13 @@ export function OpportunitiesTable({
     // Apply stage filter
     if (stageFilter !== "all") {
       filtered = filtered.filter(opp => opp.stage_name === stageFilter);
+    }
+
+    // Apply appointment filter
+    if (appointmentFilter === "with") {
+      filtered = filtered.filter(opp => opp.contact_id && contactsWithAppointments.has(opp.contact_id));
+    } else if (appointmentFilter === "without") {
+      filtered = filtered.filter(opp => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
     }
 
     // Helper to get effective date (quickbase stage = 90 days ago)
@@ -162,7 +170,7 @@ export function OpportunitiesTable({
       
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [opportunities, stageFilter, sortColumn, sortDirection]);
+  }, [opportunities, stageFilter, appointmentFilter, sortColumn, sortDirection, contactsWithAppointments]);
 
   const formatCurrency = (value: number | null) => {
     if (!value) return '-';
@@ -218,17 +226,29 @@ export function OpportunitiesTable({
             <DollarSign className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Recent Opportunities</CardTitle>
           </div>
-          <Select value={stageFilter} onValueChange={setStageFilter}>
-            <SelectTrigger className="w-[180px] bg-background border-border">
-              <SelectValue placeholder="Filter by stage" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover border-border">
-              <SelectItem value="all">All Stages</SelectItem>
-              {uniqueStages.map(stage => (
-                <SelectItem key={stage} value={stage}>{stage}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Select value={appointmentFilter} onValueChange={setAppointmentFilter}>
+              <SelectTrigger className="w-[180px] bg-background border-border">
+                <SelectValue placeholder="Filter by appointment" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                <SelectItem value="all">All Opportunities</SelectItem>
+                <SelectItem value="with">With Appointments</SelectItem>
+                <SelectItem value="without">Without Appointments</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="w-[180px] bg-background border-border">
+                <SelectValue placeholder="Filter by stage" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                <SelectItem value="all">All Stages</SelectItem>
+                {uniqueStages.map(stage => (
+                  <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
