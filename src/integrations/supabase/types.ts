@@ -68,6 +68,45 @@ export type Database = {
         }
         Relationships: []
       }
+      call_logs: {
+        Row: {
+          call_date: string | null
+          contact_id: string
+          conversation_id: string
+          created_at: string
+          direction: string | null
+          ghl_message_id: string
+          id: string
+          location_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          call_date?: string | null
+          contact_id: string
+          conversation_id: string
+          created_at?: string
+          direction?: string | null
+          ghl_message_id: string
+          id?: string
+          location_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          call_date?: string | null
+          contact_id?: string
+          conversation_id?: string
+          created_at?: string
+          direction?: string | null
+          ghl_message_id?: string
+          id?: string
+          location_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       contact_notes: {
         Row: {
           body: string | null

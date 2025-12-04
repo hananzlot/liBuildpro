@@ -393,6 +393,76 @@ async function fetchAllTasks(ghlApiKey: string, contacts: any[]): Promise<any[]>
   return allTasks;
 }
 
+// Fetch all call logs from conversations
+async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId: string): Promise<any[]> {
+  console.log('Fetching call logs from conversations...');
+  const allCalls: any[] = [];
+  const batchSize = 5;
+
+  // Only process conversations that have had call activity
+  const conversationsWithCalls = conversations.filter(c => 
+    c.lastMessageType === 'TYPE_CALL' || c.type === 'TYPE_CALL'
+  );
+  
+  console.log(`Processing ${conversationsWithCalls.length} conversations that may have calls...`);
+
+  for (let i = 0; i < conversationsWithCalls.length; i += batchSize) {
+    const batch = conversationsWithCalls.slice(i, i + batchSize);
+    
+    const batchPromises = batch.map(async (conversation) => {
+      try {
+        const params = new URLSearchParams({
+          conversationId: conversation.id,
+          type: 'TYPE_CALL',
+          limit: '100'
+        });
+
+        const response = await fetch(
+          `https://services.leadconnectorhq.com/conversations/${conversation.id}/messages?${params.toString()}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${ghlApiKey}`,
+              'Version': '2021-07-28',
+              'Accept': 'application/json'
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const messages = data.messages || [];
+          // Filter for call type messages and map with contact info
+          return messages
+            .filter((m: any) => m.type === 'TYPE_CALL')
+            .map((m: any) => ({
+              messageId: m.id,
+              conversationId: conversation.id,
+              contactId: conversation.contactId,
+              direction: m.direction,
+              callDate: m.dateAdded,
+              userId: m.userId,
+              locationId: locationId,
+            }));
+        }
+        return [];
+      } catch (err) {
+        console.error(`Error fetching messages for conversation ${conversation.id}:`, err);
+        return [];
+      }
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    batchResults.forEach(calls => allCalls.push(...calls));
+    
+    if (i + batchSize < conversationsWithCalls.length) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+
+  console.log(`Fetched ${allCalls.length} total call records`);
+  return allCalls;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -594,6 +664,28 @@ serve(async (req) => {
       }
     }
 
+    // Fetch and sync call logs (after conversations are fetched)
+    const callLogs = await fetchCallLogs(ghlApiKey, conversations, locationId);
+    
+    if (callLogs.length > 0) {
+      console.log(`Syncing ${callLogs.length} call logs...`);
+      const callsToUpsert = callLogs.map(c => ({
+        ghl_message_id: c.messageId,
+        conversation_id: c.conversationId,
+        contact_id: c.contactId,
+        direction: c.direction,
+        call_date: c.callDate,
+        user_id: c.userId,
+        location_id: c.locationId,
+      }));
+
+      for (let i = 0; i < callsToUpsert.length; i += 100) {
+        const batch = callsToUpsert.slice(i, i + 100);
+        const { error } = await supabase.from('call_logs').upsert(batch, { onConflict: 'ghl_message_id' });
+        if (error) console.error('Call logs upsert error:', error);
+      }
+    }
+
     console.log('Full sync complete!');
 
     return new Response(JSON.stringify({
@@ -605,6 +697,7 @@ serve(async (req) => {
         pipelines: pipelines.length,
         conversations: conversations.length,
         tasks: tasks.length,
+        callLogs: callLogs.length,
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
