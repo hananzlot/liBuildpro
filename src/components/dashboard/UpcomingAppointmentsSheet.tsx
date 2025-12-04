@@ -3,8 +3,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Calendar, Clock, User, Search, ChevronRight } from "lucide-react";
-import { format, isToday, isTomorrow, isThisWeek, addDays } from "date-fns";
+import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 
 interface DBAppointment {
@@ -73,8 +80,19 @@ export function UpcomingAppointmentsSheet({
   users,
 }: UpcomingAppointmentsSheetProps) {
   const [searchFilter, setSearchFilter] = useState("");
+  const [repFilter, setRepFilter] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<DBAppointment | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+
+  // Build user map early for filtering
+  const userMap = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach(u => {
+      const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
+      map.set(u.ghl_id, displayName);
+    });
+    return map;
+  }, [users]);
 
   const now = new Date();
   const nextWeekEnd = addDays(now, 7);
@@ -89,20 +107,44 @@ export function UpcomingAppointmentsSheet({
       .sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
   }, [appointments]);
 
-  // Apply search filter
-  const filteredAppointments = useMemo(() => {
-    if (!searchFilter.trim()) return upcomingAppointments;
-    const term = searchFilter.toLowerCase();
-    return upcomingAppointments.filter(a => {
-      const contact = contacts.find(c => c.ghl_id === a.contact_id);
-      const contactName = contact?.contact_name || 
-        `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
-      return (
-        a.title?.toLowerCase().includes(term) ||
-        contactName.toLowerCase().includes(term)
-      );
+  // Get available reps from upcoming appointments
+  const availableReps = useMemo(() => {
+    const reps = new Map<string, string>();
+    upcomingAppointments.forEach(a => {
+      if (a.assigned_user_id && !reps.has(a.assigned_user_id)) {
+        reps.set(a.assigned_user_id, userMap.get(a.assigned_user_id) || a.assigned_user_id);
+      }
     });
-  }, [upcomingAppointments, searchFilter, contacts]);
+    return Array.from(reps.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [upcomingAppointments, userMap]);
+
+  // Apply search and rep filters
+  const filteredAppointments = useMemo(() => {
+    let result = upcomingAppointments;
+    
+    // Filter by rep
+    if (repFilter !== "all") {
+      result = result.filter(a => a.assigned_user_id === repFilter);
+    }
+    
+    // Filter by search
+    if (searchFilter.trim()) {
+      const term = searchFilter.toLowerCase();
+      result = result.filter(a => {
+        const contact = contacts.find(c => c.ghl_id === a.contact_id);
+        const contactName = contact?.contact_name || 
+          `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
+        return (
+          a.title?.toLowerCase().includes(term) ||
+          contactName.toLowerCase().includes(term)
+        );
+      });
+    }
+    
+    return result;
+  }, [upcomingAppointments, repFilter, searchFilter, contacts]);
 
   // Group by time period
   const groupedAppointments = useMemo(() => {
@@ -144,11 +186,6 @@ export function UpcomingAppointmentsSheet({
     setDetailSheetOpen(true);
   };
 
-  const userMap = new Map<string, string>();
-  users.forEach(u => {
-    const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
-    userMap.set(u.ghl_id, displayName);
-  });
 
   const nextWeekCount = upcomingAppointments.filter(a => 
     new Date(a.start_time!) <= nextWeekEnd
@@ -173,15 +210,30 @@ export function UpcomingAppointmentsSheet({
               </div>
             </SheetHeader>
 
-            {/* Search */}
-            <div className="mt-4 relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search appointments..."
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                className="pl-8 h-9 text-sm"
-              />
+            {/* Filters */}
+            <div className="mt-4 flex items-center gap-2">
+              <Select value={repFilter} onValueChange={setRepFilter}>
+                <SelectTrigger className="h-9 w-36 text-sm">
+                  <SelectValue placeholder="Sales Rep" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Reps</SelectItem>
+                  {availableReps.map(rep => (
+                    <SelectItem key={rep.id} value={rep.id}>
+                      {rep.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="pl-8 h-9 text-sm"
+                />
+              </div>
             </div>
           </div>
 
