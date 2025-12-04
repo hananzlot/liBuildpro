@@ -87,20 +87,20 @@ export function DateRangeFilter({
 
       <div className="flex gap-1">
         <Button
-          variant={isPresetActive(14) ? "secondary" : "ghost"}
-          size="sm"
-          onClick={() => handlePreset(14)}
-          className="text-xs"
-        >
-          14D
-        </Button>
-        <Button
           variant={isPresetActive(7) ? "secondary" : "ghost"}
           size="sm"
           onClick={() => handlePreset(7)}
           className="text-xs"
         >
           7D
+        </Button>
+        <Button
+          variant={isPresetActive(14) ? "secondary" : "ghost"}
+          size="sm"
+          onClick={() => handlePreset(14)}
+          className="text-xs"
+        >
+          14D
         </Button>
         <Button
           variant={isPresetActive(30) ? "secondary" : "ghost"}
