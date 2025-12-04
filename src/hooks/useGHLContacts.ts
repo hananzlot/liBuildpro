@@ -216,7 +216,25 @@ function processMetrics(
   opportunitiesBySource: { source: string; count: number }[];
 } {
   const filteredContacts = filterByDateRange(contacts, dateRange);
-  const filteredOpportunities = filterByDateRange(opportunities, dateRange);
+  
+  // Create contact date lookup map for filtering opportunities by contact date
+  const contactDateMap = new Map<string, string | null>();
+  contacts.forEach(c => {
+    contactDateMap.set(c.ghl_id, c.ghl_date_added || null);
+  });
+  
+  // Filter opportunities by their contact's creation date (not opportunity date)
+  const filteredOpportunities = dateRange?.from
+    ? opportunities.filter(opp => {
+        const contactDate = opp.contact_id ? contactDateMap.get(opp.contact_id) : null;
+        if (!contactDate) return false;
+        const date = new Date(contactDate);
+        const startDate = dateRange.from!;
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return date >= startDate && date <= endDate;
+      })
+    : opportunities;
   
   // Create user lookup map
   const userMap = new Map<string, string>();
