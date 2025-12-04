@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -101,6 +102,7 @@ export function OpportunityDetailSheet({
   const [isSaving, setIsSaving] = useState(false);
   const [editedStatus, setEditedStatus] = useState<string>("");
   const [editedStage, setEditedStage] = useState<string>("");
+  const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
 
   // Get unique pipeline stages from all opportunities with their stage IDs
   const stageMap = new Map<string, string>();
@@ -114,6 +116,7 @@ export function OpportunityDetailSheet({
   const handleEditClick = () => {
     setEditedStatus(opportunity?.status?.toLowerCase() || "open");
     setEditedStage(opportunity?.stage_name || "");
+    setEditedMonetaryValue(opportunity?.monetary_value?.toString() || "0");
     setIsEditing(true);
   };
 
@@ -121,6 +124,7 @@ export function OpportunityDetailSheet({
     setIsEditing(false);
     setEditedStatus("");
     setEditedStage("");
+    setEditedMonetaryValue("");
   };
 
   const handleSave = async () => {
@@ -130,6 +134,7 @@ export function OpportunityDetailSheet({
     try {
       // Get the pipeline_stage_id for the selected stage
       const pipeline_stage_id = stageMap.get(editedStage) || opportunity.pipeline_stage_id;
+      const monetaryValue = parseFloat(editedMonetaryValue) || 0;
 
       // Call edge function to update GHL first, then Supabase
       const { data, error } = await supabase.functions.invoke('update-ghl-opportunity', {
@@ -138,6 +143,7 @@ export function OpportunityDetailSheet({
           status: editedStatus,
           stage_name: editedStage,
           pipeline_stage_id: pipeline_stage_id,
+          monetary_value: monetaryValue,
         },
       });
 
@@ -249,9 +255,23 @@ export function OpportunityDetailSheet({
                 </div>
               )}
             </div>
-            <div className="text-2xl font-bold text-emerald-400">
-              {formatCurrency(opportunity.monetary_value)}
-            </div>
+            {isEditing ? (
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-emerald-400">$</span>
+                <Input
+                  type="number"
+                  value={editedMonetaryValue}
+                  onChange={(e) => setEditedMonetaryValue(e.target.value)}
+                  className="text-2xl font-bold h-10 w-40"
+                  min="0"
+                  step="100"
+                />
+              </div>
+            ) : (
+              <div className="text-2xl font-bold text-emerald-400">
+                {formatCurrency(opportunity.monetary_value)}
+              </div>
+            )}
           </SheetHeader>
         </div>
 
