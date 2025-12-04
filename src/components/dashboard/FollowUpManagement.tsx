@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
 interface DBOpportunity {
   id: string;
   ghl_id: string;
@@ -29,7 +28,6 @@ interface DBOpportunity {
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
 }
-
 interface DBAppointment {
   id: string;
   ghl_id: string;
@@ -40,7 +38,6 @@ interface DBAppointment {
   start_time: string | null;
   end_time: string | null;
 }
-
 interface DBContact {
   id: string;
   ghl_id: string;
@@ -51,7 +48,6 @@ interface DBContact {
   assigned_to: string | null;
   location_id?: string;
 }
-
 interface DBUser {
   id: string;
   ghl_id: string;
@@ -59,7 +55,6 @@ interface DBUser {
   first_name: string | null;
   last_name: string | null;
 }
-
 interface DBContactNote {
   id: string;
   ghl_id: string;
@@ -67,7 +62,6 @@ interface DBContactNote {
   body: string | null;
   ghl_date_added: string | null;
 }
-
 interface DBTask {
   id: string;
   opportunity_id: string;
@@ -77,7 +71,6 @@ interface DBTask {
   assigned_to: string | null;
   due_date: string | null;
 }
-
 interface FollowUpManagementProps {
   opportunities: DBOpportunity[];
   appointments: DBAppointment[];
@@ -88,12 +81,9 @@ interface FollowUpManagementProps {
   onOpenOpportunity: (opportunity: DBOpportunity) => void;
   onDataRefresh?: () => void;
 }
-
 type SortField = 'appointment_date' | 'last_note_date' | 'contact_name' | 'opportunity_name';
 type SortDirection = 'asc' | 'desc';
-
 const DEFAULT_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
-
 export function FollowUpManagement({
   opportunities,
   appointments,
@@ -102,22 +92,31 @@ export function FollowUpManagement({
   contactNotes,
   tasks,
   onOpenOpportunity,
-  onDataRefresh,
+  onDataRefresh
 }: FollowUpManagementProps) {
   const [staleNotesOpen, setStaleNotesOpen] = useState(false);
   const [noTasksOpen, setNoTasksOpen] = useState(false);
   const [pastConfirmedOpen, setPastConfirmedOpen] = useState(false);
-  const [staleNotesSort, setStaleNotesSort] = useState<{ field: SortField; direction: SortDirection }>({
+  const [staleNotesSort, setStaleNotesSort] = useState<{
+    field: SortField;
+    direction: SortDirection;
+  }>({
     field: 'appointment_date',
-    direction: 'desc',
+    direction: 'desc'
   });
-  const [noTasksSort, setNoTasksSort] = useState<{ field: SortField; direction: SortDirection }>({
+  const [noTasksSort, setNoTasksSort] = useState<{
+    field: SortField;
+    direction: SortDirection;
+  }>({
     field: 'appointment_date',
-    direction: 'desc',
+    direction: 'desc'
   });
-  const [pastConfirmedSort, setPastConfirmedSort] = useState<{ field: SortField; direction: SortDirection }>({
+  const [pastConfirmedSort, setPastConfirmedSort] = useState<{
+    field: SortField;
+    direction: SortDirection;
+  }>({
     field: 'appointment_date',
-    direction: 'desc',
+    direction: 'desc'
   });
   const [staleNotesRepFilter, setStaleNotesRepFilter] = useState<string>('all');
   const [noTasksRepFilter, setNoTasksRepFilter] = useState<string>('all');
@@ -151,18 +150,15 @@ export function FollowUpManagement({
     const user = users.find(u => u.ghl_id === userId);
     return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown';
   };
-
   const getContactName = (contactId: string | null): string => {
     if (!contactId) return 'Unknown Contact';
     const contact = contacts.find(c => c.ghl_id === contactId);
     return contact?.contact_name || `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim() || 'Unknown Contact';
   };
-
   const getOpportunityForAppointment = (contactId: string | null): DBOpportunity | undefined => {
     if (!contactId) return undefined;
     return opportunities.find(o => o.contact_id === contactId && o.status?.toLowerCase() === 'open');
   };
-
   const getLatestNoteDate = (contactId: string): Date | null => {
     const notes = contactNotes.filter(n => n.contact_id === contactId);
     if (notes.length === 0) return null;
@@ -182,7 +178,7 @@ export function FollowUpManagement({
     });
     return Array.from(reps).map(id => ({
       id,
-      name: getUserName(id),
+      name: getUserName(id)
     })).sort((a, b) => a.name.localeCompare(b.name));
   }, [appointments, users]);
 
@@ -193,21 +189,20 @@ export function FollowUpManagement({
     setNoteText('');
     setNoteDialogOpen(true);
   };
-
   const handleCreateNote = async () => {
     if (!noteDialogContactId || !noteText.trim()) return;
-
     setIsCreatingNote(true);
     try {
-      const { data, error } = await supabase.functions.invoke('create-contact-note', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('create-contact-note', {
         body: {
           contactId: noteDialogContactId,
-          body: noteText.trim(),
-        },
+          body: noteText.trim()
+        }
       });
-
       if (error) throw error;
-
       toast.success('Note created successfully');
       setNoteDialogOpen(false);
       setNoteText('');
@@ -219,7 +214,6 @@ export function FollowUpManagement({
       setIsCreatingNote(false);
     }
   };
-
   const handleOpenTaskDialog = (opportunity: DBOpportunity, contactId: string | null, contactName: string) => {
     setTaskDialogOpportunity(opportunity);
     setTaskDialogContactId(contactId);
@@ -230,10 +224,8 @@ export function FollowUpManagement({
     setTaskDueTime('09:00');
     setTaskDialogOpen(true);
   };
-
   const handleCreateTask = async () => {
     if (!taskDialogOpportunity || !taskTitle.trim()) return;
-
     setIsCreatingTask(true);
     try {
       // Build due date in PST
@@ -252,35 +244,34 @@ export function FollowUpManagement({
       const locationId = contact?.location_id || DEFAULT_LOCATION_ID;
 
       // Insert into Supabase first
-      const { data: insertedTask, error: insertError } = await supabase
-        .from('tasks')
-        .insert({
-          opportunity_id: taskDialogOpportunity.ghl_id,
-          contact_id: taskDialogContactId,
-          title: taskTitle.trim(),
-          notes: taskNotes.trim() || null,
-          assigned_to: taskAssignee === 'unassigned' ? null : taskAssignee || null,
-          due_date: dueDateTime,
-          status: 'pending',
-          location_id: locationId,
-        })
-        .select()
-        .single();
-
+      const {
+        data: insertedTask,
+        error: insertError
+      } = await supabase.from('tasks').insert({
+        opportunity_id: taskDialogOpportunity.ghl_id,
+        contact_id: taskDialogContactId,
+        title: taskTitle.trim(),
+        notes: taskNotes.trim() || null,
+        assigned_to: taskAssignee === 'unassigned' ? null : taskAssignee || null,
+        due_date: dueDateTime,
+        status: 'pending',
+        location_id: locationId
+      }).select().single();
       if (insertError) throw insertError;
 
       // Sync to GHL
-      const { error: ghlError } = await supabase.functions.invoke('create-ghl-task', {
+      const {
+        error: ghlError
+      } = await supabase.functions.invoke('create-ghl-task', {
         body: {
           title: taskTitle.trim(),
           body: taskNotes.trim() || null,
           dueDate: dueDateTime,
           assignedTo: taskAssignee === 'unassigned' ? null : taskAssignee || null,
           contactId: taskDialogContactId,
-          supabaseTaskId: insertedTask.id,
-        },
+          supabaseTaskId: insertedTask.id
+        }
       });
-
       if (ghlError) {
         console.error('GHL sync error:', ghlError);
         // Task was created locally, just warn about GHL sync
@@ -288,7 +279,6 @@ export function FollowUpManagement({
       } else {
         toast.success('Task created successfully');
       }
-
       setTaskDialogOpen(false);
       onDataRefresh?.();
     } catch (error) {
@@ -298,28 +288,27 @@ export function FollowUpManagement({
       setIsCreatingTask(false);
     }
   };
-
   const handleUpdateAppointmentStatus = async (appointmentGhlId: string, newStatus: string) => {
     setUpdatingAppointmentId(appointmentGhlId);
     try {
       // Update in GHL
-      const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
+      const {
+        error: ghlError
+      } = await supabase.functions.invoke('update-ghl-appointment', {
         body: {
           ghl_id: appointmentGhlId,
-          appointment_status: newStatus,
-        },
+          appointment_status: newStatus
+        }
       });
-
       if (ghlError) throw ghlError;
 
       // Update in Supabase
-      const { error: dbError } = await supabase
-        .from('appointments')
-        .update({ appointment_status: newStatus })
-        .eq('ghl_id', appointmentGhlId);
-
+      const {
+        error: dbError
+      } = await supabase.from('appointments').update({
+        appointment_status: newStatus
+      }).eq('ghl_id', appointmentGhlId);
       if (dbError) throw dbError;
-
       toast.success(`Appointment marked as "${newStatus}"`);
       onDataRefresh?.();
     } catch (error) {
@@ -332,44 +321,47 @@ export function FollowUpManagement({
 
   // Build stage map for pipeline stage dropdown
   const stageMap = useMemo(() => {
-    const map = new Map<string, { stageId: string; pipelineId: string }>();
+    const map = new Map<string, {
+      stageId: string;
+      pipelineId: string;
+    }>();
     opportunities.forEach(o => {
       if (o.stage_name && o.pipeline_stage_id && o.pipeline_id) {
-        map.set(o.stage_name, { stageId: o.pipeline_stage_id, pipelineId: o.pipeline_id });
+        map.set(o.stage_name, {
+          stageId: o.pipeline_stage_id,
+          pipelineId: o.pipeline_id
+        });
       }
     });
     return map;
   }, [opportunities]);
-
   const availableStages = useMemo(() => {
     return Array.from(stageMap.keys()).sort();
   }, [stageMap]);
-
   const handleUpdatePipelineStage = async (opportunity: DBOpportunity, newStageName: string) => {
     if (!opportunity) return;
-    
     const stageInfo = stageMap.get(newStageName);
     if (!stageInfo) {
       toast.error('Invalid stage selected');
       return;
     }
-
     setUpdatingPipelineStageId(opportunity.ghl_id);
     try {
-      const { data, error } = await supabase.functions.invoke('update-ghl-opportunity', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('update-ghl-opportunity', {
         body: {
           ghl_id: opportunity.ghl_id,
           status: opportunity.status,
           stage_name: newStageName,
           pipeline_stage_id: stageInfo.stageId,
           monetary_value: opportunity.monetary_value,
-          assigned_to: opportunity.assigned_to,
-        },
+          assigned_to: opportunity.assigned_to
+        }
       });
-
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-
       toast.success(`Pipeline stage updated to "${newStageName}"`);
       onDataRefresh?.();
     } catch (error) {
@@ -387,36 +379,28 @@ export function FollowUpManagement({
       lastNoteDate: Date | null;
       daysSinceNote: number | null;
     }> = [];
-
     const now = new Date();
-
     appointments.forEach(appointment => {
       if (!appointment.contact_id || !appointment.start_time) return;
       if (appointment.appointment_status?.toLowerCase() === 'cancelled') return;
-
       const appointmentDate = new Date(appointment.start_time);
-      
+
       // Only include past appointments
       if (appointmentDate >= now) return;
-
       const opportunity = getOpportunityForAppointment(appointment.contact_id);
       if (!opportunity) return;
-
       const lastNoteDate = getLatestNoteDate(appointment.contact_id);
 
       // Include if no notes exist OR last note is before appointment
       if (lastNoteDate === null || lastNoteDate < appointmentDate) {
         const contact = contacts.find(c => c.ghl_id === appointment.contact_id);
-        const daysSinceNote = lastNoteDate 
-          ? Math.floor((Date.now() - lastNoteDate.getTime()) / (1000 * 60 * 60 * 24))
-          : null;
-
+        const daysSinceNote = lastNoteDate ? Math.floor((Date.now() - lastNoteDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
         results.push({
           appointment,
           opportunity,
           contact,
           lastNoteDate,
-          daysSinceNote,
+          daysSinceNote
         });
       }
     });
@@ -439,12 +423,11 @@ export function FollowUpManagement({
           if (!b.lastNoteDate) return -direction;
           return direction * (a.lastNoteDate.getTime() - b.lastNoteDate.getTime());
         case 'contact_name':
-          return direction * (getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id)));
+          return direction * getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id));
         default:
           return 0;
       }
     });
-
     return filtered;
   }, [appointments, opportunities, contacts, contactNotes, staleNotesSort, staleNotesRepFilter]);
 
@@ -459,41 +442,29 @@ export function FollowUpManagement({
 
     // Get open opportunities
     const openOpportunities = opportunities.filter(o => o.status?.toLowerCase() === 'open');
-
     openOpportunities.forEach(opportunity => {
       if (!opportunity.contact_id) return;
 
       // Check if this opportunity has any past appointments (exclude future appointments)
-      const oppAppointments = appointments.filter(a => 
-        a.contact_id === opportunity.contact_id &&
-        a.appointment_status?.toLowerCase() !== 'cancelled' &&
-        a.start_time && new Date(a.start_time) < now
-      );
+      const oppAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id && a.appointment_status?.toLowerCase() !== 'cancelled' && a.start_time && new Date(a.start_time) < now);
       if (oppAppointments.length === 0) return;
 
       // Check if any tasks exist for this opportunity
       const oppTasks = tasks.filter(t => t.opportunity_id === opportunity.ghl_id);
       if (oppTasks.length > 0) return;
-
       const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
-      const latestAppointment = oppAppointments.sort((a, b) => 
-        new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime()
-      )[0];
-
+      const latestAppointment = oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0];
       results.push({
         opportunity,
         contact,
-        latestAppointment,
+        latestAppointment
       });
     });
 
     // Apply rep filter (using opportunity assigned_to or contact assigned_to)
     let filtered = results;
     if (noTasksRepFilter !== 'all') {
-      filtered = results.filter(r => 
-        r.opportunity.assigned_to === noTasksRepFilter || 
-        r.contact?.assigned_to === noTasksRepFilter
-      );
+      filtered = results.filter(r => r.opportunity.assigned_to === noTasksRepFilter || r.contact?.assigned_to === noTasksRepFilter);
     }
 
     // Sort
@@ -505,12 +476,11 @@ export function FollowUpManagement({
           const bDate = b.latestAppointment?.start_time ? new Date(b.latestAppointment.start_time).getTime() : 0;
           return direction * (aDate - bDate);
         case 'contact_name':
-          return direction * (getContactName(a.opportunity.contact_id).localeCompare(getContactName(b.opportunity.contact_id)));
+          return direction * getContactName(a.opportunity.contact_id).localeCompare(getContactName(b.opportunity.contact_id));
         default:
           return 0;
       }
     });
-
     return filtered;
   }, [opportunities, appointments, contacts, tasks, noTasksSort, noTasksRepFilter]);
 
@@ -523,35 +493,26 @@ export function FollowUpManagement({
       contact: DBContact | undefined;
       daysPast: number;
     }> = [];
-
     appointments.forEach(appointment => {
       if (!appointment.start_time) return;
-      
       const appointmentDate = new Date(appointment.start_time);
       if (appointmentDate >= now) return; // Only past appointments
-      
+
       const appointmentStatus = appointment.appointment_status?.toLowerCase();
-      const opportunity = appointment.contact_id 
-        ? opportunities.find(o => o.contact_id === appointment.contact_id)
-        : undefined;
-      
+      const opportunity = appointment.contact_id ? opportunities.find(o => o.contact_id === appointment.contact_id) : undefined;
       const pipelineStage = opportunity?.stage_name?.toLowerCase();
-      
+
       // Include if: appointment status is "confirmed" OR pipeline stage contains "appointment" and "confirmed"
       const isAppointmentConfirmed = appointmentStatus === 'confirmed';
       const isPipelineStageAppointmentConfirmed = pipelineStage?.includes('appointment') && pipelineStage?.includes('confirmed');
-      
       if (isAppointmentConfirmed || isPipelineStageAppointmentConfirmed) {
-        const contact = appointment.contact_id
-          ? contacts.find(c => c.ghl_id === appointment.contact_id)
-          : undefined;
+        const contact = appointment.contact_id ? contacts.find(c => c.ghl_id === appointment.contact_id) : undefined;
         const daysPast = Math.floor((now.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24));
-
         results.push({
           appointment,
           opportunity,
           contact,
-          daysPast,
+          daysPast
         });
       }
     });
@@ -569,7 +530,7 @@ export function FollowUpManagement({
         case 'appointment_date':
           return direction * (new Date(a.appointment.start_time!).getTime() - new Date(b.appointment.start_time!).getTime());
         case 'contact_name':
-          return direction * (getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id)));
+          return direction * getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id));
         case 'opportunity_name':
           const aName = a.opportunity?.name || '';
           const bName = b.opportunity?.name || '';
@@ -578,41 +539,36 @@ export function FollowUpManagement({
           return 0;
       }
     });
-
     return filtered;
   }, [appointments, opportunities, contacts, pastConfirmedSort, pastConfirmedRepFilter]);
-
   const toggleSort = (view: 'stale' | 'noTasks' | 'pastConfirmed', field: SortField) => {
     if (view === 'stale') {
       setStaleNotesSort(prev => ({
         field,
-        direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
+        direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
       }));
     } else if (view === 'noTasks') {
       setNoTasksSort(prev => ({
         field,
-        direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
+        direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
       }));
     } else {
       setPastConfirmedSort(prev => ({
         field,
-        direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc',
+        direction: prev.field === field && prev.direction === 'desc' ? 'asc' : 'desc'
       }));
     }
   };
-
   const formatCurrency = (value: number | null) => {
     if (!value) return '$0';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
   };
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
         <DialogContent>
@@ -621,12 +577,7 @@ export function FollowUpManagement({
             <DialogDescription>Add a note for {noteDialogContactName}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <Textarea
-              placeholder="Enter your note..."
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              rows={4}
-            />
+            <Textarea placeholder="Enter your note..." value={noteText} onChange={e => setNoteText(e.target.value)} rows={4} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNoteDialogOpen(false)}>
@@ -652,22 +603,11 @@ export function FollowUpManagement({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="task-title">Title</Label>
-              <Input
-                id="task-title"
-                value={taskTitle}
-                onChange={(e) => setTaskTitle(e.target.value)}
-                placeholder="Task title"
-              />
+              <Input id="task-title" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="Task title" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="task-notes">Notes</Label>
-              <Textarea
-                id="task-notes"
-                value={taskNotes}
-                onChange={(e) => setTaskNotes(e.target.value)}
-                placeholder="Optional notes..."
-                rows={3}
-              />
+              <Textarea id="task-notes" value={taskNotes} onChange={e => setTaskNotes(e.target.value)} placeholder="Optional notes..." rows={3} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="task-assignee">Assign To</Label>
@@ -677,32 +617,20 @@ export function FollowUpManagement({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map(user => (
-                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                  {users.map(user => <SelectItem key={user.ghl_id} value={user.ghl_id}>
                       {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown'}
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="task-date">Due Date</Label>
-                <Input
-                  id="task-date"
-                  type="date"
-                  value={taskDueDate}
-                  onChange={(e) => setTaskDueDate(e.target.value)}
-                />
+                <Input id="task-date" type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="task-time">Due Time (PST)</Label>
-                <Input
-                  id="task-time"
-                  type="time"
-                  value={taskDueTime}
-                  onChange={(e) => setTaskDueTime(e.target.value)}
-                />
+                <Input id="task-time" type="time" value={taskDueTime} onChange={e => setTaskDueTime(e.target.value)} />
               </div>
             </div>
           </div>
@@ -750,19 +678,14 @@ export function FollowUpManagement({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Reps</SelectItem>
-                    {uniqueReps.map(rep => (
-                      <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>
-                    ))}
+                    {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              {staleNotesData.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+              {staleNotesData.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   No appointments needing note updates
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
+                </div> : <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -788,33 +711,24 @@ export function FollowUpManagement({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {staleNotesData.map((row) => {
-                        const isOld = row.daysSinceNote !== null && row.daysSinceNote > 7;
-                        return (
-                          <TableRow
-                            key={row.appointment.id}
-                            className={`cursor-pointer hover:bg-muted/50 ${isOld || row.daysSinceNote === null ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
-                            onClick={() => onOpenOpportunity(row.opportunity)}
-                          >
+                      {staleNotesData.map(row => {
+                    const isOld = row.daysSinceNote !== null && row.daysSinceNote > 7;
+                    return <TableRow key={row.appointment.id} className={`cursor-pointer hover:bg-muted/50 ${isOld || row.daysSinceNote === null ? 'bg-red-50 dark:bg-red-950/20' : ''}`} onClick={() => onOpenOpportunity(row.opportunity)}>
                             <TableCell className="font-medium">
                               {getContactName(row.appointment.contact_id)}
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                {row.appointment.start_time 
-                                  ? format(new Date(row.appointment.start_time), 'MMM d, yyyy h:mm a')
-                                  : 'No date'}
+                                {row.appointment.start_time ? format(new Date(row.appointment.start_time), 'MMM d, yyyy h:mm a') : 'No date'}
                               </div>
                             </TableCell>
                             <TableCell>
-                              {row.lastNoteDate ? (
-                                <span className={isOld ? 'text-red-600 font-medium' : ''}>
-                                  {formatDistanceToNow(row.lastNoteDate, { addSuffix: true })}
-                                </span>
-                              ) : (
-                                <Badge variant="destructive">No notes</Badge>
-                              )}
+                              {row.lastNoteDate ? <span className={isOld ? 'text-red-600 font-medium' : ''}>
+                                  {formatDistanceToNow(row.lastNoteDate, {
+                            addSuffix: true
+                          })}
+                                </span> : <Badge variant="destructive">No notes</Badge>}
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline">{row.opportunity.stage_name || 'Unknown'}</Badge>
@@ -824,28 +738,19 @@ export function FollowUpManagement({
                               {formatCurrency(row.opportunity.monetary_value)}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenNoteDialog(
-                                    row.appointment.contact_id!,
-                                    getContactName(row.appointment.contact_id)
-                                  );
-                                }}
-                              >
+                              <Button variant="outline" size="sm" onClick={e => {
+                          e.stopPropagation();
+                          handleOpenNoteDialog(row.appointment.contact_id!, getContactName(row.appointment.contact_id));
+                        }}>
                                 <FileText className="h-4 w-4 mr-1" />
                                 Add Note
                               </Button>
                             </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                          </TableRow>;
+                  })}
                     </TableBody>
                   </Table>
-                </div>
-              )}
+                </div>}
             </CardContent>
           </CollapsibleContent>
         </Card>
@@ -866,7 +771,7 @@ export function FollowUpManagement({
                       No Tasks Assigned
                       <Badge variant="secondary">{noTasksData.length}</Badge>
                     </CardTitle>
-                    <CardDescription>Open opportunities with appointments but no tasks created</CardDescription>
+                    <CardDescription>Open opportunities with Past appointments but no tasks created</CardDescription>
                   </div>
                 </div>
                 {noTasksOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -883,19 +788,14 @@ export function FollowUpManagement({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Reps</SelectItem>
-                    {uniqueReps.map(rep => (
-                      <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>
-                    ))}
+                    {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              {noTasksData.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+              {noTasksData.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   All open opportunities have tasks assigned
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
+                </div> : <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -917,25 +817,16 @@ export function FollowUpManagement({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {noTasksData.map((row) => (
-                        <TableRow
-                          key={row.opportunity.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => onOpenOpportunity(row.opportunity)}
-                        >
+                      {noTasksData.map(row => <TableRow key={row.opportunity.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(row.opportunity)}>
                           <TableCell className="font-medium">
                             {getContactName(row.opportunity.contact_id)}
                           </TableCell>
                           <TableCell>{row.opportunity.name || 'Unnamed'}</TableCell>
                           <TableCell>
-                            {row.latestAppointment?.start_time ? (
-                              <div className="flex items-center gap-2">
+                            {row.latestAppointment?.start_time ? <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
                                 {format(new Date(row.latestAppointment.start_time), 'MMM d, yyyy')}
-                              </div>
-                            ) : (
-                              'No date'
-                            )}
+                              </div> : 'No date'}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">{row.opportunity.stage_name || 'Unknown'}</Badge>
@@ -945,28 +836,18 @@ export function FollowUpManagement({
                             {formatCurrency(row.opportunity.monetary_value)}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenTaskDialog(
-                                  row.opportunity,
-                                  row.opportunity.contact_id,
-                                  getContactName(row.opportunity.contact_id)
-                                );
-                              }}
-                            >
+                            <Button variant="outline" size="sm" onClick={e => {
+                        e.stopPropagation();
+                        handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
+                      }}>
                               <Plus className="h-4 w-4 mr-1" />
                               Add Task
                             </Button>
                           </TableCell>
-                        </TableRow>
-                      ))}
+                        </TableRow>)}
                     </TableBody>
                   </Table>
-                </div>
-              )}
+                </div>}
             </CardContent>
           </CollapsibleContent>
         </Card>
@@ -1004,19 +885,14 @@ export function FollowUpManagement({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Reps</SelectItem>
-                    {uniqueReps.map(rep => (
-                      <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>
-                    ))}
+                    {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
 
-              {pastConfirmedData.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+              {pastConfirmedData.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   No past appointments requiring status or stage update
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
+                </div> : <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1038,12 +914,7 @@ export function FollowUpManagement({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pastConfirmedData.map((row) => (
-                        <TableRow
-                          key={row.appointment.id}
-                          className={`cursor-pointer hover:bg-muted/50 ${row.daysPast > 7 ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
-                          onClick={() => row.opportunity && onOpenOpportunity(row.opportunity)}
-                        >
+                      {pastConfirmedData.map(row => <TableRow key={row.appointment.id} className={`cursor-pointer hover:bg-muted/50 ${row.daysPast > 7 ? 'bg-red-50 dark:bg-red-950/20' : ''}`} onClick={() => row.opportunity && onOpenOpportunity(row.opportunity)}>
                           <TableCell className="font-medium">
                             {row.opportunity?.name || 'No opportunity'}
                           </TableCell>
@@ -1051,9 +922,7 @@ export function FollowUpManagement({
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
-                              {row.appointment.start_time 
-                                ? format(new Date(row.appointment.start_time), 'MMM d, yyyy h:mm a')
-                                : 'No date'}
+                              {row.appointment.start_time ? format(new Date(row.appointment.start_time), 'MMM d, yyyy h:mm a') : 'No date'}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1063,47 +932,19 @@ export function FollowUpManagement({
                           </TableCell>
                           <TableCell>{getUserName(row.appointment.assigned_user_id)}</TableCell>
                           <TableCell>
-                            {row.opportunity ? (
-                              <Select
-                                value=""
-                                onValueChange={(value) => handleUpdatePipelineStage(row.opportunity!, value)}
-                                disabled={updatingPipelineStageId === row.opportunity.ghl_id}
-                              >
-                                <SelectTrigger 
-                                  className="w-[160px]"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {updatingPipelineStageId === row.opportunity.ghl_id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <SelectValue placeholder={row.opportunity.stage_name || 'Set stage'} />
-                                  )}
+                            {row.opportunity ? <Select value="" onValueChange={value => handleUpdatePipelineStage(row.opportunity!, value)} disabled={updatingPipelineStageId === row.opportunity.ghl_id}>
+                                <SelectTrigger className="w-[160px]" onClick={e => e.stopPropagation()}>
+                                  {updatingPipelineStageId === row.opportunity.ghl_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue placeholder={row.opportunity.stage_name || 'Set stage'} />}
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {availableStages.map(stage => (
-                                    <SelectItem key={stage} value={stage}>{stage}</SelectItem>
-                                  ))}
+                                  {availableStages.map(stage => <SelectItem key={stage} value={stage}>{stage}</SelectItem>)}
                                 </SelectContent>
-                              </Select>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">-</span>
-                            )}
+                              </Select> : <span className="text-muted-foreground text-sm">-</span>}
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={row.appointment.appointment_status?.toLowerCase() || ''}
-                              onValueChange={(value) => handleUpdateAppointmentStatus(row.appointment.ghl_id, value)}
-                              disabled={updatingAppointmentId === row.appointment.ghl_id}
-                            >
-                              <SelectTrigger 
-                                className="w-[130px]"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {updatingAppointmentId === row.appointment.ghl_id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <SelectValue />
-                                )}
+                            <Select value={row.appointment.appointment_status?.toLowerCase() || ''} onValueChange={value => handleUpdateAppointmentStatus(row.appointment.ghl_id, value)} disabled={updatingAppointmentId === row.appointment.ghl_id}>
+                              <SelectTrigger className="w-[130px]" onClick={e => e.stopPropagation()}>
+                                {updatingAppointmentId === row.appointment.ghl_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue />}
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="confirmed">Confirmed</SelectItem>
@@ -1113,16 +954,13 @@ export function FollowUpManagement({
                               </SelectContent>
                             </Select>
                           </TableCell>
-                        </TableRow>
-                      ))}
+                        </TableRow>)}
                     </TableBody>
                   </Table>
-                </div>
-              )}
+                </div>}
             </CardContent>
           </CollapsibleContent>
         </Card>
       </Collapsible>
-    </div>
-  );
+    </div>;
 }
