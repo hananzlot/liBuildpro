@@ -202,37 +202,26 @@ function processMetrics(
       })
     : appointments;
 
-  // Get unique contact IDs from filtered appointments
-  const contactIdsFromAppointments = new Set(
-    filteredAppointments
-      .map(a => a.contact_id)
-      .filter((id): id is string => !!id)
-  );
-
-  // Get contacts that have appointments in the date range
-  const contactsWithAppointments = contacts.filter(c => 
-    contactIdsFromAppointments.has(c.ghl_id)
-  );
-
-  // Group contacts by assigned rep
-  const repContactsMap = new Map<string, DBContact[]>();
-  contactsWithAppointments.forEach(c => {
-    if (c.assigned_to) {
-      const repName = userMap.get(c.assigned_to) || c.assigned_to;
-      const existing = repContactsMap.get(repName) || [];
-      existing.push(c);
-      repContactsMap.set(repName, existing);
+  // Group appointments by assigned user
+  const repAppointmentsMap = new Map<string, Set<string>>();
+  filteredAppointments.forEach(a => {
+    if (a.assigned_user_id && a.contact_id) {
+      const repName = userMap.get(a.assigned_user_id) || a.assigned_user_id;
+      if (!repAppointmentsMap.has(repName)) {
+        repAppointmentsMap.set(repName, new Set());
+      }
+      // Track unique contacts (don't count multiple appointments to same contact)
+      repAppointmentsMap.get(repName)!.add(a.contact_id);
     }
   });
-
-  // Calculate metrics per rep based on their contacts' opportunities
-  const salesRepPerformance: SalesRepPerformance[] = Array.from(repContactsMap.entries())
-    .map(([assignedTo, repContacts]) => {
-      const repContactIds = new Set(repContacts.map(c => c.ghl_id));
+  // Calculate metrics per rep based on unique appointments
+  const salesRepPerformance: SalesRepPerformance[] = Array.from(repAppointmentsMap.entries())
+    .map(([assignedTo, uniqueContactIds]) => {
+      const uniqueAppointments = uniqueContactIds.size;
       
-      // Get opportunities for this rep's contacts
+      // Get opportunities for contacts this rep had appointments with
       const repOpportunities = opportunities.filter(o => 
-        o.contact_id && repContactIds.has(o.contact_id)
+        o.contact_id && uniqueContactIds.has(o.contact_id)
       );
       
       const totalOpportunities = repOpportunities.length;
@@ -240,29 +229,23 @@ function processMetrics(
         o.status?.toLowerCase() === 'won'
       ).length;
       
-      // Calculate pipeline value (open opps) and won value
-      const pipelineValue = repOpportunities
-        .filter(o => o.status?.toLowerCase() === 'open')
-        .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
-      
       const wonValue = repOpportunities
         .filter(o => o.status?.toLowerCase() === 'won')
         .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
       
-      // Conversion rate = won / total (as percentage)
+      // Conversion rate = won / total opportunities (as percentage)
       const conversionRate = totalOpportunities > 0 ? (wonOpportunities / totalOpportunities) * 100 : 0;
 
       return {
         assignedTo,
-        totalLeads: repContacts.length,
-        totalOpportunities,
+        uniqueAppointments,
         wonOpportunities,
-        pipelineValue,
+        totalOpportunities,
         wonValue,
         conversionRate,
       };
     })
-    .sort((a, b) => b.totalLeads - a.totalLeads);
+    .sort((a, b) => b.wonValue - a.wonValue);
 
   // Recent leads with resolved names
   const recentLeads: GHLContact[] = filteredContacts.slice(0, 10).map(c => ({
