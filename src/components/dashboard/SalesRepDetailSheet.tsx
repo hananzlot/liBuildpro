@@ -92,6 +92,7 @@ export function SalesRepDetailSheet({
   users,
 }: SalesRepDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [oppSheetOpen, setOppSheetOpen] = useState(false);
 
@@ -177,17 +178,32 @@ export function SalesRepDetailSheet({
     });
   }, [repOpportunities]);
 
-  // Filter opportunities by status
+  // Helper to get source for an opportunity
+  const getOpportunitySource = (opp: Opportunity): string => {
+    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+    return contact?.source || 'No Source';
+  };
+
+  // Filter opportunities by status and source
   const filteredOpportunities = useMemo(() => {
-    if (statusFilter === "all") return sortedOpportunities;
-    return sortedOpportunities.filter(o => o.status?.toLowerCase() === statusFilter);
-  }, [sortedOpportunities, statusFilter]);
+    return sortedOpportunities.filter(o => {
+      const matchesStatus = statusFilter === "all" || o.status?.toLowerCase() === statusFilter;
+      const matchesSource = sourceFilter === "all" || getOpportunitySource(o) === sourceFilter;
+      return matchesStatus && matchesSource;
+    });
+  }, [sortedOpportunities, statusFilter, sourceFilter, contacts]);
 
   // Get unique statuses for filter
   const availableStatuses = useMemo(() => {
     const statuses = new Set(repOpportunities.map(o => o.status?.toLowerCase() || 'unknown'));
     return Array.from(statuses).sort((a, b) => (STATUS_ORDER[a] ?? 99) - (STATUS_ORDER[b] ?? 99));
   }, [repOpportunities]);
+
+  // Get unique sources for filter
+  const availableSources = useMemo(() => {
+    const sources = new Set(repOpportunities.map(o => getOpportunitySource(o)));
+    return Array.from(sources).sort();
+  }, [repOpportunities, contacts]);
 
   // Group contacts by source (sorted by count)
   const leadsBySource = useMemo(() => {
@@ -315,26 +331,43 @@ export function SalesRepDetailSheet({
 
               {/* Opportunities */}
               <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Opportunities ({filteredOpportunities.length})
-                    </span>
+                <div className="bg-muted/30 px-3 py-2 flex flex-col gap-2 border-b">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Opportunities ({filteredOpportunities.length})
+                      </span>
+                    </div>
                   </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-7 w-24 text-xs">
-                      <SelectValue placeholder="Filter" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      {availableStatuses.map(status => (
-                        <SelectItem key={status} value={status} className="capitalize">
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="h-7 flex-1 text-xs">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        {availableStatuses.map(status => (
+                          <SelectItem key={status} value={status} className="capitalize">
+                            {status}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                      <SelectTrigger className="h-7 flex-1 text-xs">
+                        <SelectValue placeholder="Source" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Sources</SelectItem>
+                        {availableSources.map(source => (
+                          <SelectItem key={source} value={source}>
+                            {source}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="divide-y max-h-72 overflow-y-auto">
                   {filteredOpportunities.length === 0 ? (
