@@ -78,6 +78,7 @@ const Index = () => {
                 appointments={metrics?.appointments || []}
                 contacts={metrics?.allContacts || []}
                 users={metrics?.users || []}
+                conversations={metrics?.conversations || []}
               />
             )}
             <Button 
@@ -264,6 +265,7 @@ const Index = () => {
                 appointments={metrics?.appointments || []}
                 contacts={metrics?.allContacts || []}
                 users={metrics?.users || []}
+                conversations={metrics?.conversations || []}
               />
               <AppointmentsTable 
                 appointments={metrics?.appointments || []} 

@@ -55,11 +55,24 @@ interface GHLUser {
   email: string | null;
 }
 
+interface Conversation {
+  ghl_id: string;
+  contact_id: string | null;
+  type: string | null;
+  unread_count: number | null;
+  inbox_status: string | null;
+  last_message_body: string | null;
+  last_message_date: string | null;
+  last_message_type: string | null;
+  last_message_direction: string | null;
+}
+
 interface OpportunitySearchProps {
   opportunities: Opportunity[];
   appointments: Appointment[];
   contacts: Contact[];
   users: GHLUser[];
+  conversations?: Conversation[];
 }
 
 export function OpportunitySearch({
@@ -67,6 +80,7 @@ export function OpportunitySearch({
   appointments,
   contacts,
   users,
+  conversations = [],
 }: OpportunitySearchProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -210,6 +224,7 @@ export function OpportunitySearch({
         appointments={appointments}
         contacts={contacts}
         users={users}
+        conversations={conversations}
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
         allOpportunities={opportunities}

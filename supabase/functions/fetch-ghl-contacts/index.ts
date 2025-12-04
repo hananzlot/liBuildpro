@@ -267,6 +267,61 @@ async function fetchAppointments(ghlApiKey: string, locationId: string): Promise
   return allAppointments;
 }
 
+async function fetchConversations(ghlApiKey: string, locationId: string): Promise<any[]> {
+  console.log('Fetching GHL conversations...');
+  const allConversations: any[] = [];
+  const seenIds = new Set<string>();
+  let lastMessageId: string | undefined;
+  let hasMore = true;
+
+  while (hasMore) {
+    const params = new URLSearchParams({
+      locationId,
+      limit: '100',
+    });
+    if (lastMessageId) {
+      params.append('lastMessageId', lastMessageId);
+    }
+
+    const response = await fetch(`https://services.leadconnectorhq.com/conversations/search?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${ghlApiKey}`,
+        'Version': '2021-07-28',
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('GHL Conversations API Error:', errorText);
+      return allConversations;
+    }
+
+    const data = await response.json();
+    const conversations = data.conversations || [];
+
+    let newCount = 0;
+    for (const conv of conversations) {
+      if (!seenIds.has(conv.id)) {
+        seenIds.add(conv.id);
+        allConversations.push(conv);
+        newCount++;
+        lastMessageId = conv.lastMessageId;
+      }
+    }
+
+    console.log(`Conversations batch: ${newCount} new, total: ${allConversations.length}`);
+
+    if (conversations.length < 100 || allConversations.length >= 5000) {
+      hasMore = false;
+    }
+  }
+
+  console.log(`Fetched ${allConversations.length} total conversations`);
+  return allConversations;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -290,12 +345,13 @@ serve(async (req) => {
 
     // Fetch all data in parallel (including pipelines for name resolution)
     console.log('Starting full GHL sync...');
-    const [contacts, opportunities, appointments, users, pipelines] = await Promise.all([
+    const [contacts, opportunities, appointments, users, pipelines, conversations] = await Promise.all([
       fetchAllFromGHL('contacts/', ghlApiKey, locationId, 'contacts'),
       fetchOpportunities(ghlApiKey, locationId),
       fetchAppointments(ghlApiKey, locationId),
       fetchUsers(ghlApiKey, locationId),
       fetchPipelines(ghlApiKey, locationId),
+      fetchConversations(ghlApiKey, locationId),
     ]);
 
     // Build pipeline/stage lookup maps
@@ -403,6 +459,31 @@ serve(async (req) => {
       }
     }
 
+    // Sync conversations
+    if (conversations.length > 0) {
+      console.log(`Syncing ${conversations.length} conversations...`);
+      const convsToUpsert = conversations.map(c => ({
+        ghl_id: c.id,
+        location_id: c.locationId || locationId,
+        contact_id: c.contactId || null,
+        type: c.type || null,
+        unread_count: c.unreadCount || 0,
+        inbox_status: c.inboxStatus || null,
+        last_message_body: c.lastMessageBody || null,
+        last_message_date: c.lastMessageDate || null,
+        last_message_type: c.lastMessageType || null,
+        last_message_direction: c.lastMessageDirection || null,
+        ghl_date_added: c.dateAdded || c.createdAt || null,
+        ghl_date_updated: c.dateUpdated || c.updatedAt || null,
+      }));
+
+      for (let i = 0; i < convsToUpsert.length; i += 100) {
+        const batch = convsToUpsert.slice(i, i + 100);
+        const { error } = await supabase.from('conversations').upsert(batch, { onConflict: 'ghl_id' });
+        if (error) console.error('Conversations upsert error:', error);
+      }
+    }
+
     console.log('Full sync complete!');
 
     return new Response(JSON.stringify({
@@ -412,6 +493,7 @@ serve(async (req) => {
         appointments: appointments.length,
         users: users.length,
         pipelines: pipelines.length,
+        conversations: conversations.length,
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

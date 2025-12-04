@@ -65,6 +65,20 @@ interface DBUser {
   email: string | null;
 }
 
+interface DBConversation {
+  id: string;
+  ghl_id: string;
+  location_id: string;
+  contact_id: string | null;
+  type: string | null;
+  unread_count: number | null;
+  inbox_status: string | null;
+  last_message_body: string | null;
+  last_message_date: string | null;
+  last_message_type: string | null;
+  last_message_direction: string | null;
+}
+
 // Generic paginated fetch for any table
 async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]> {
   const allItems: any[] = [];
@@ -107,6 +121,15 @@ async function fetchAppointmentsFromDB(): Promise<DBAppointment[]> {
 
 async function fetchUsersFromDB(): Promise<DBUser[]> {
   const { data, error } = await supabase.from('ghl_users').select('*');
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchConversationsFromDB(): Promise<DBConversation[]> {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('*')
+    .order('last_message_date', { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -457,6 +480,15 @@ export function useGHLUsers() {
   });
 }
 
+export function useConversations() {
+  return useQuery({
+    queryKey: ['conversations'],
+    queryFn: fetchConversationsFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
 export function useSyncContacts() {
   const queryClient = useQueryClient();
 
@@ -467,6 +499,7 @@ export function useSyncContacts() {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['ghl_users'] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
   });
 }
@@ -476,21 +509,25 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const opportunitiesQuery = useOpportunities();
   const appointmentsQuery = useAppointments();
   const usersQuery = useGHLUsers();
+  const conversationsQuery = useConversations();
 
   const isLoading = contactsQuery.isLoading || opportunitiesQuery.isLoading || 
-                    appointmentsQuery.isLoading || usersQuery.isLoading;
+                    appointmentsQuery.isLoading || usersQuery.isLoading || conversationsQuery.isLoading;
   const error = contactsQuery.error || opportunitiesQuery.error || 
-                appointmentsQuery.error || usersQuery.error;
+                appointmentsQuery.error || usersQuery.error || conversationsQuery.error;
 
   const data = contactsQuery.data && opportunitiesQuery.data && 
                appointmentsQuery.data && usersQuery.data
-    ? processMetrics(
-        contactsQuery.data,
-        opportunitiesQuery.data,
-        appointmentsQuery.data,
-        usersQuery.data,
-        dateRange
-      )
+    ? {
+        ...processMetrics(
+          contactsQuery.data,
+          opportunitiesQuery.data,
+          appointmentsQuery.data,
+          usersQuery.data,
+          dateRange
+        ),
+        conversations: conversationsQuery.data || [],
+      }
     : undefined;
 
   return {
@@ -502,6 +539,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
       opportunitiesQuery.refetch();
       appointmentsQuery.refetch();
       usersQuery.refetch();
+      conversationsQuery.refetch();
     },
   };
 }

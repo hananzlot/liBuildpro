@@ -63,11 +63,24 @@ interface GHLUser {
   email: string | null;
 }
 
+interface Conversation {
+  ghl_id: string;
+  contact_id: string | null;
+  type: string | null;
+  unread_count: number | null;
+  inbox_status: string | null;
+  last_message_body: string | null;
+  last_message_date: string | null;
+  last_message_type: string | null;
+  last_message_direction: string | null;
+}
+
 interface OpportunitiesTableProps {
   opportunities: Opportunity[];
   appointments?: Appointment[];
   contacts?: Contact[];
   users?: GHLUser[];
+  conversations?: Conversation[];
 }
 
 type SortColumn = "name" | "stage" | "value" | "status" | "date";
@@ -77,7 +90,8 @@ export function OpportunitiesTable({
   opportunities, 
   appointments = [], 
   contacts = [], 
-  users = [] 
+  users = [],
+  conversations = []
 }: OpportunitiesTableProps) {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -306,6 +320,7 @@ export function OpportunitiesTable({
         appointments={appointments}
         contacts={contacts}
         users={users}
+        conversations={conversations}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         allOpportunities={opportunities}
