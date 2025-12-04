@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2, RefreshCw, ExternalLink, CheckSquare, TrendingUp } from "lucide-react";
+import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2, RefreshCw, ExternalLink, CheckSquare, TrendingUp, Snowflake } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -121,6 +121,8 @@ export function FollowUpManagement({
   const [tasksHelperOpen, setTasksHelperOpen] = useState(false);
   const [closeToSaleOpen, setCloseToSaleOpen] = useState(false);
   const [closeToSaleRepFilter, setCloseToSaleRepFilter] = useState<string>('all');
+  const [needsAttentionOpen, setNeedsAttentionOpen] = useState(false);
+  const [needsAttentionRepFilter, setNeedsAttentionRepFilter] = useState<string>('all');
 
   // Tasks Helper State
   const [ghlTasks, setGhlTasks] = useState<GHLTask[]>([]);
@@ -778,6 +780,82 @@ export function FollowUpManagement({
     });
     return filtered;
   }, [appointments, opportunities, contacts, pastConfirmedSort, pastConfirmedRepFilter]);
+
+  // Needs Attention Data - Open opportunities with NO appointments ever AND (stale/no notes OR expired/no tasks)
+  const needsAttentionData = useMemo(() => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const now = new Date();
+    
+    const results: Array<{
+      opportunity: DBOpportunity;
+      contact: DBContact | undefined;
+      hasStaleOrNoNotes: boolean;
+      hasExpiredOrNoTasks: boolean;
+      latestNoteDate: Date | null;
+      earliestOverdueDate: Date | null;
+    }> = [];
+
+    // Filter open opportunities only
+    const openOpportunities = opportunities.filter(o => o.status?.toLowerCase() === 'open');
+    
+    openOpportunities.forEach(opportunity => {
+      if (!opportunity.contact_id) return;
+      
+      // MUST HAVE: Check for NO appointments ever (not even cancelled)
+      const contactAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id);
+      if (contactAppointments.length > 0) return; // Skip if any appointments exist
+      
+      // Check notes condition
+      const contactNotesList = contactNotes.filter(n => n.contact_id === opportunity.contact_id);
+      const latestNoteDate = getLatestNoteDate(opportunity.contact_id);
+      const hasStaleOrNoNotes = contactNotesList.length === 0 || (latestNoteDate !== null && latestNoteDate < sevenDaysAgo);
+      
+      // Check tasks condition - from both tasks table AND ghl_tasks
+      const oppTasks = tasks.filter(t => t.opportunity_id === opportunity.ghl_id);
+      const contactGhlTasks = ghlTasks.filter(t => t.contact_id === opportunity.contact_id && !t.completed);
+      const allRelatedTasks = [...oppTasks.map(t => ({ due_date: t.due_date })), ...contactGhlTasks.map(t => ({ due_date: t.due_date }))];
+      
+      const hasNoTasks = allRelatedTasks.length === 0;
+      const overdueTasks = allRelatedTasks.filter(t => t.due_date && new Date(t.due_date) < now);
+      const hasOverdueTasks = overdueTasks.length > 0;
+      const hasExpiredOrNoTasks = hasNoTasks || hasOverdueTasks;
+      
+      // MUST HAVE one of: stale notes OR expired/no tasks
+      if (!hasStaleOrNoNotes && !hasExpiredOrNoTasks) return;
+      
+      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      
+      // Find earliest overdue task date
+      let earliestOverdueDate: Date | null = null;
+      if (hasOverdueTasks) {
+        const dates = overdueTasks.map(t => new Date(t.due_date!)).sort((a, b) => a.getTime() - b.getTime());
+        earliestOverdueDate = dates[0] || null;
+      }
+      
+      results.push({
+        opportunity,
+        contact,
+        hasStaleOrNoNotes,
+        hasExpiredOrNoTasks,
+        latestNoteDate,
+        earliestOverdueDate
+      });
+    });
+    
+    // Apply rep filter
+    let filtered = results;
+    if (needsAttentionRepFilter !== 'all') {
+      filtered = results.filter(r => 
+        r.opportunity.assigned_to === needsAttentionRepFilter || 
+        r.contact?.assigned_to === needsAttentionRepFilter
+      );
+    }
+    
+    // Sort by monetary value descending
+    return filtered.sort((a, b) => (b.opportunity.monetary_value || 0) - (a.opportunity.monetary_value || 0));
+  }, [opportunities, appointments, contacts, contactNotes, tasks, ghlTasks, needsAttentionRepFilter]);
+
   const toggleSort = (view: 'stale' | 'noTasks' | 'pastConfirmed', field: SortField) => {
     if (view === 'stale') {
       setStaleNotesSort(prev => ({
@@ -805,7 +883,7 @@ export function FollowUpManagement({
       maximumFractionDigits: 0
     }).format(value);
   };
-  return <div className="space-y-6">
+  return <div className="space-y-3">
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
         <DialogContent>
@@ -883,28 +961,30 @@ export function FollowUpManagement({
         </DialogContent>
       </Dialog>
 
-      {/* Close to Sale View */}
-      <Collapsible open={closeToSaleOpen} onOpenChange={setCloseToSaleOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-green-500" />
+      {/* Grid layout for sections */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Close to Sale View */}
+        <Collapsible open={closeToSaleOpen} onOpenChange={setCloseToSaleOpen} className={closeToSaleOpen ? "lg:col-span-2" : ""}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <TrendingUp className="h-4 w-4 text-green-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        Close to Sale
+                        <Badge variant="secondary" className="text-xs">{closeToSaleData.length}</Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs hidden sm:block">Close to Sale, Important, or Second Appointment stages</CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      Close to Sale
-                      <Badge variant="secondary">{closeToSaleData.length}</Badge>
-                    </CardTitle>
-                    <CardDescription>Opportunities in "Close to Sale", "Important", or "Second Appointment" stages</CardDescription>
-                  </div>
+                  {closeToSaleOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
-                {closeToSaleOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
+              </CardHeader>
+            </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
               <div className="flex items-center gap-4 mb-4">
@@ -965,49 +1045,49 @@ export function FollowUpManagement({
         </Card>
       </Collapsible>
 
-      {/* Tasks Helper */}
-      <Collapsible open={tasksHelperOpen} onOpenChange={setTasksHelperOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                    <CheckSquare className="h-5 w-5 text-purple-500" />
+        {/* Tasks Helper */}
+        <Collapsible open={tasksHelperOpen} onOpenChange={setTasksHelperOpen} className={tasksHelperOpen ? "lg:col-span-2" : ""}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-purple-500/20 flex items-center justify-center">
+                      <CheckSquare className="h-4 w-4 text-purple-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 flex-wrap text-base">
+                        Tasks Helper
+                        <Badge variant="secondary" className="text-xs">{taskCounts.total}</Badge>
+                        <Badge variant="outline" className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`} onClick={e => {
+                        e.stopPropagation();
+                        setTasksDueDateFilter('past_due');
+                        setTasksHelperOpen(true);
+                      }}>
+                          {taskCounts.pastDue} past due
+                        </Badge>
+                        <Badge variant="outline" className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`} onClick={e => {
+                        e.stopPropagation();
+                        setTasksDueDateFilter('today_tomorrow');
+                        setTasksHelperOpen(true);
+                      }}>
+                          {taskCounts.todayTomorrow} today/tomorrow
+                        </Badge>
+                        <Badge variant="outline" className="cursor-pointer hover:opacity-80 text-muted-foreground text-xs hidden sm:inline-flex" onClick={e => {
+                        e.stopPropagation();
+                        setTasksDueDateFilter('after_tomorrow');
+                        setTasksHelperOpen(true);
+                      }}>
+                          {taskCounts.afterTomorrow} after
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs hidden sm:block">GHL tasks - click to view opportunity</CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="flex items-center gap-2 flex-wrap">
-                      Tasks Helper
-                      <Badge variant="secondary">{taskCounts.total}</Badge>
-                      <Badge variant="outline" className={`cursor-pointer hover:opacity-80 ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`} onClick={e => {
-                      e.stopPropagation();
-                      setTasksDueDateFilter('past_due');
-                      setTasksHelperOpen(true);
-                    }}>
-                        {taskCounts.pastDue} past due
-                      </Badge>
-                      <Badge variant="outline" className={`cursor-pointer hover:opacity-80 ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`} onClick={e => {
-                      e.stopPropagation();
-                      setTasksDueDateFilter('today_tomorrow');
-                      setTasksHelperOpen(true);
-                    }}>
-                        {taskCounts.todayTomorrow} today/tomorrow
-                      </Badge>
-                      <Badge variant="outline" className="cursor-pointer hover:opacity-80 text-muted-foreground" onClick={e => {
-                      e.stopPropagation();
-                      setTasksDueDateFilter('after_tomorrow');
-                      setTasksHelperOpen(true);
-                    }}>
-                        {taskCounts.afterTomorrow} after
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>GHL tasks synced from GoHighLevel - click to view opportunity</CardDescription>
-                  </div>
+                  {tasksHelperOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
-                {tasksHelperOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
+              </CardHeader>
+            </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
               <div className="flex flex-wrap items-center gap-4 mb-4">
@@ -1084,31 +1164,136 @@ export function FollowUpManagement({
                 </div>}
             </CardContent>
           </CollapsibleContent>
-        </Card>
-      </Collapsible>
+          </Card>
+        </Collapsible>
 
-      {/* Stale Notes View */}
-      <Collapsible open={staleNotesOpen} onOpenChange={setStaleNotesOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <AlertTriangle className="h-5 w-5 text-amber-500" />
+        {/* Needs Attention (Cold) View */}
+        <Collapsible open={needsAttentionOpen} onOpenChange={setNeedsAttentionOpen} className={needsAttentionOpen ? "lg:col-span-2" : ""}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-cyan-500/20 flex items-center justify-center">
+                      <Snowflake className="h-4 w-4 text-cyan-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        Needs Attention (Cold)
+                        <Badge variant="secondary" className="text-xs">{needsAttentionData.length}</Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs hidden sm:block">No appointments ever + stale notes or expired tasks</CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      Stale Notes
-                      <Badge variant="secondary">{staleNotesData.length}</Badge>
-                    </CardTitle>
-                    <CardDescription>Appointments where last note is before appointment date or no notes exist</CardDescription>
-                  </div>
+                  {needsAttentionOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
-                {staleNotesOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                <div className="flex items-center gap-4 mb-4">
+                  <Select value={needsAttentionRepFilter} onValueChange={setNeedsAttentionRepFilter}>
+                    <SelectTrigger className="w-[200px]">
+                      <User className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Filter by rep" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Reps</SelectItem>
+                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {needsAttentionData.length === 0 ? <div className="text-center py-8 text-muted-foreground">
+                    No cold opportunities needing attention
+                  </div> : <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Contact</TableHead>
+                          <TableHead>Address</TableHead>
+                          <TableHead>Warnings</TableHead>
+                          <TableHead>Assigned Rep</TableHead>
+                          <TableHead>Value</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {needsAttentionData.map(row => {
+                      return <TableRow key={row.opportunity.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(row.opportunity)}>
+                              <TableCell className="font-medium">
+                                {getContactName(row.opportunity.contact_id)}
+                              </TableCell>
+                              <TableCell className="max-w-[200px] truncate">
+                                {getAddress(row.opportunity.contact_id)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 border-cyan-500/30 text-xs">No Appts</Badge>
+                                  {row.hasStaleOrNoNotes && (
+                                    <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-xs">
+                                      {row.latestNoteDate ? 'Stale Notes' : 'No Notes'}
+                                    </Badge>
+                                  )}
+                                  {row.hasExpiredOrNoTasks && (
+                                    <Badge variant="outline" className="bg-orange-500/10 text-orange-700 border-orange-500/30 text-xs">
+                                      {row.earliestOverdueDate ? 'Overdue Tasks' : 'No Tasks'}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>{getUserName(row.opportunity.assigned_to || row.contact?.assigned_to)}</TableCell>
+                              <TableCell className="font-medium">
+                                {formatCurrency(row.opportunity.monetary_value)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button variant="outline" size="sm" onClick={e => {
+                                e.stopPropagation();
+                                handleOpenNoteDialog(row.opportunity.contact_id!, getContactName(row.opportunity.contact_id));
+                              }}>
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={e => {
+                                e.stopPropagation();
+                                handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
+                              }}>
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>;
+                    })}
+                      </TableBody>
+                    </Table>
+                  </div>}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Stale Notes View */}
+        <Collapsible open={staleNotesOpen} onOpenChange={setStaleNotesOpen} className={staleNotesOpen ? "lg:col-span-2" : ""}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        Stale Notes
+                        <Badge variant="secondary" className="text-xs">{staleNotesData.length}</Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs hidden sm:block">Notes before appointment or no notes exist</CardDescription>
+                    </div>
+                  </div>
+                  {staleNotesOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
               <div className="flex items-center gap-4 mb-4">
@@ -1194,30 +1379,31 @@ export function FollowUpManagement({
                 </div>}
             </CardContent>
           </CollapsibleContent>
-        </Card>
-      </Collapsible>
+          </Card>
+        </Collapsible>
 
-      {/* No Tasks View */}
-      <Collapsible open={noTasksOpen} onOpenChange={setNoTasksOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                    <ClipboardList className="h-5 w-5 text-blue-500" />
+        {/* No Tasks View */}
+        <Collapsible open={noTasksOpen} onOpenChange={setNoTasksOpen} className={noTasksOpen ? "lg:col-span-2" : ""}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <ClipboardList className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        No Tasks - Post Appt
+                        <Badge variant="secondary" className="text-xs">{noTasksData.length}</Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs hidden sm:block">Past appointments but no tasks created</CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="flex items-center gap-2">No Tasks Assigned - Post Appointment
-71<Badge variant="secondary">{noTasksData.length}</Badge>
-                    </CardTitle>
-                    <CardDescription>Open opportunities with Past appointments but no tasks created</CardDescription>
-                  </div>
+                  {noTasksOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
-                {noTasksOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
+              </CardHeader>
+            </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
               <div className="flex items-center gap-4 mb-4">
@@ -1290,31 +1476,31 @@ export function FollowUpManagement({
                 </div>}
             </CardContent>
           </CollapsibleContent>
-        </Card>
-      </Collapsible>
+          </Card>
+        </Collapsible>
 
-      {/* Past Confirmed Appointments View */}
-      <Collapsible open={pastConfirmedOpen} onOpenChange={setPastConfirmedOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center">
-                    <Clock className="h-5 w-5 text-red-500" />
+        {/* Past Confirmed Appointments View */}
+        <Collapsible open={pastConfirmedOpen} onOpenChange={setPastConfirmedOpen} className={pastConfirmedOpen ? "lg:col-span-2" : ""}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-red-500/20 flex items-center justify-center">
+                      <Clock className="h-4 w-4 text-red-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        Past Confirmed
+                        <Badge variant="secondary" className="text-xs">{pastConfirmedData.length}</Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs hidden sm:block">Past appointments still "Confirmed"</CardDescription>
+                    </div>
                   </div>
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      Past Confirmed Appointments
-                      <Badge variant="secondary">{pastConfirmedData.length}</Badge>
-                    </CardTitle>
-                    <CardDescription>Past appointments still marked as "Confirmed" or with pipeline stage "Appointment Confirmed"</CardDescription>
-                  </div>
+                  {pastConfirmedOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
-                {pastConfirmedOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
+              </CardHeader>
+            </CollapsibleTrigger>
           <CollapsibleContent>
             <CardContent>
               <div className="flex items-center gap-4 mb-4">
@@ -1400,8 +1586,8 @@ export function FollowUpManagement({
                 </div>}
             </CardContent>
           </CollapsibleContent>
-        </Card>
-      </Collapsible>
-
+          </Card>
+        </Collapsible>
+      </div>
     </div>;
 }
