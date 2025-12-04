@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, CalendarCheck, CalendarX, User, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, CalendarCheck, CalendarX, User, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import {
   Select,
@@ -88,6 +89,8 @@ interface OpportunitiesTableProps {
 type SortColumn = "name" | "stage" | "value" | "status" | "date";
 type SortDirection = "asc" | "desc";
 
+const ITEMS_PER_PAGE = 10;
+
 export function OpportunitiesTable({ 
   opportunities, 
   appointments = [], 
@@ -101,6 +104,7 @@ export function OpportunitiesTable({
   const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("stage");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const uniqueStages = useMemo(() => {
     const stages = new Set<string>();
@@ -219,6 +223,19 @@ export function OpportunitiesTable({
     });
   }, [opportunities, stageFilter, appointmentFilter, sortColumn, sortDirection, contactsWithAppointments]);
 
+  // Reset to page 1 when filters change
+  const handleFilterChange = (type: 'stage' | 'appointment', value: string) => {
+    setCurrentPage(1);
+    if (type === 'stage') setStageFilter(value);
+    else setAppointmentFilter(value);
+  };
+
+  // Pagination calculations
+  const totalItems = filteredAndSortedOpportunities.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedOpportunities = filteredAndSortedOpportunities.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   const formatCurrency = (value: number | null) => {
     if (!value) return '-';
     return new Intl.NumberFormat('en-US', {
@@ -274,7 +291,7 @@ export function OpportunitiesTable({
             <CardTitle className="text-lg">Recent Opportunities</CardTitle>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={appointmentFilter} onValueChange={setAppointmentFilter}>
+            <Select value={appointmentFilter} onValueChange={(v) => handleFilterChange('appointment', v)}>
               <SelectTrigger className="w-[180px] bg-background border-border">
                 <SelectValue placeholder="Filter by appointment" />
               </SelectTrigger>
@@ -284,7 +301,7 @@ export function OpportunitiesTable({
                 <SelectItem value="without">Without Appointments</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={stageFilter} onValueChange={setStageFilter}>
+            <Select value={stageFilter} onValueChange={(v) => handleFilterChange('stage', v)}>
               <SelectTrigger className="w-[180px] bg-background border-border">
                 <SelectValue placeholder="Filter by stage" />
               </SelectTrigger>
@@ -361,14 +378,14 @@ export function OpportunitiesTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAndSortedOpportunities.length === 0 ? (
+              {paginatedOpportunities.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAndSortedOpportunities.map((opp) => {
+                paginatedOpportunities.map((opp) => {
                   const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
                   const latestAppt = oppAppointments.length > 0 
                     ? oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0]
@@ -434,6 +451,36 @@ export function OpportunitiesTable({
               )}
             </TableBody>
           </Table>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4 border-t border-border/30">
+              <span className="text-sm text-muted-foreground">
+                Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, totalItems)} of {totalItems}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
