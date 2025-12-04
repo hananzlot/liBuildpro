@@ -1251,13 +1251,25 @@ export function FollowUpManagement({
                     <CardTitle className="flex items-center gap-2 flex-wrap">
                       Tasks Helper
                       <Badge variant="secondary">{taskCounts.total}</Badge>
-                      <Badge variant="outline" className={taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}>
+                      <Badge 
+                        variant="outline" 
+                        className={`cursor-pointer hover:opacity-80 ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`}
+                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('past_due'); setTasksHelperOpen(true); }}
+                      >
                         {taskCounts.pastDue} past due
                       </Badge>
-                      <Badge variant="outline" className={taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}>
+                      <Badge 
+                        variant="outline" 
+                        className={`cursor-pointer hover:opacity-80 ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
+                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('today_tomorrow'); setTasksHelperOpen(true); }}
+                      >
                         {taskCounts.todayTomorrow} today/tomorrow
                       </Badge>
-                      <Badge variant="outline" className="text-muted-foreground">
+                      <Badge 
+                        variant="outline" 
+                        className="cursor-pointer hover:opacity-80 text-muted-foreground"
+                        onClick={(e) => { e.stopPropagation(); setTasksDueDateFilter('after_tomorrow'); setTasksHelperOpen(true); }}
+                      >
                         {taskCounts.afterTomorrow} after
                       </Badge>
                     </CardTitle>
