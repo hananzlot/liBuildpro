@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2 } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2, RefreshCw, ExternalLink, CheckSquare } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,28 @@ interface DBTask {
   assigned_to: string | null;
   due_date: string | null;
 }
+
+interface GHLTask {
+  id: string;
+  ghl_id: string;
+  title: string;
+  body: string | null;
+  due_date: string | null;
+  completed: boolean;
+  contact_id: string;
+  assigned_to: string | null;
+}
+
+type DueDateFilter = 'all' | 'past_due' | 'today_tomorrow' | 'after_tomorrow';
+
+// Calculate PST/PDT offset for a given UTC date
+const getPSTOffset = (utcDate: Date): number => {
+  const year = utcDate.getUTCFullYear();
+  const marchSecondSunday = new Date(Date.UTC(year, 2, 8 + (7 - new Date(Date.UTC(year, 2, 1)).getUTCDay()) % 7, 10));
+  const novFirstSunday = new Date(Date.UTC(year, 10, 1 + (7 - new Date(Date.UTC(year, 10, 1)).getUTCDay()) % 7, 9));
+  const isDST = utcDate >= marchSecondSunday && utcDate < novFirstSunday;
+  return isDST ? 7 : 8;
+};
 interface FollowUpManagementProps {
   opportunities: DBOpportunity[];
   appointments: DBAppointment[];
@@ -97,6 +119,13 @@ export function FollowUpManagement({
   const [staleNotesOpen, setStaleNotesOpen] = useState(false);
   const [noTasksOpen, setNoTasksOpen] = useState(false);
   const [pastConfirmedOpen, setPastConfirmedOpen] = useState(false);
+  const [tasksHelperOpen, setTasksHelperOpen] = useState(false);
+
+  // Tasks Helper State
+  const [ghlTasks, setGhlTasks] = useState<GHLTask[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [tasksAssigneeFilter, setTasksAssigneeFilter] = useState<string>("all");
+  const [tasksDueDateFilter, setTasksDueDateFilter] = useState<DueDateFilter>("all");
   const [staleNotesSort, setStaleNotesSort] = useState<{
     field: SortField;
     direction: SortDirection;
@@ -181,6 +210,123 @@ export function FollowUpManagement({
       name: getUserName(id)
     })).sort((a, b) => a.name.localeCompare(b.name));
   }, [appointments, users]);
+
+  // Fetch GHL Tasks
+  const fetchGhlTasks = async () => {
+    setIsLoadingTasks(true);
+    try {
+      const { data, error } = await supabase
+        .from('ghl_tasks')
+        .select('*')
+        .eq('completed', false)
+        .order('due_date', { ascending: true });
+      
+      if (error) {
+        console.error('Error fetching tasks:', error);
+        toast.error('Failed to fetch tasks');
+        return;
+      }
+      
+      setGhlTasks(data || []);
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err);
+      toast.error('Failed to fetch tasks');
+    } finally {
+      setIsLoadingTasks(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGhlTasks();
+  }, []);
+
+  // Get unique assignees from GHL tasks
+  const uniqueTaskAssignees = useMemo(() => {
+    const assigneeIds = new Set(ghlTasks.map(t => t.assigned_to).filter(Boolean));
+    return Array.from(assigneeIds).map(id => ({
+      id: id!,
+      name: getUserName(id!)
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [ghlTasks, users]);
+
+  // Get opportunity for a contact (for tasks)
+  const getOpportunityForContact = (contactId: string): DBOpportunity | undefined => {
+    return opportunities.find(o => o.contact_id === contactId);
+  };
+
+  // Format due date for tasks
+  const formatTaskDueDate = (dueDate: string | null) => {
+    if (!dueDate) return "No due date";
+    const utcDate = new Date(dueDate);
+    const pstOffset = getPSTOffset(utcDate);
+    const pstDate = new Date(utcDate.getTime() - pstOffset * 60 * 60 * 1000);
+    return format(pstDate, "MMM d, yyyy 'at' h:mm a") + " PST";
+  };
+
+  const isTaskOverdue = (dueDate: string | null) => {
+    if (!dueDate) return false;
+    return new Date(dueDate) < new Date();
+  };
+
+  // Filter GHL tasks
+  const filteredGhlTasks = useMemo(() => {
+    let filtered = ghlTasks.filter(t => !t.completed);
+    
+    // Filter out tasks where the associated opportunity is lost
+    filtered = filtered.filter(t => {
+      const opportunity = getOpportunityForContact(t.contact_id);
+      if (!opportunity) return true;
+      return opportunity.status?.toLowerCase() !== 'lost';
+    });
+    
+    // Assignee filter
+    if (tasksAssigneeFilter !== "all") {
+      filtered = filtered.filter(t => t.assigned_to === tasksAssigneeFilter);
+    }
+    
+    // Due date filter
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfterTomorrow = new Date(today);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+
+    if (tasksDueDateFilter === 'past_due') {
+      filtered = filtered.filter(t => {
+        if (!t.due_date) return false;
+        return new Date(t.due_date) < today;
+      });
+    } else if (tasksDueDateFilter === 'today_tomorrow') {
+      filtered = filtered.filter(t => {
+        if (!t.due_date) return false;
+        const dueDate = new Date(t.due_date);
+        return dueDate >= today && dueDate < dayAfterTomorrow;
+      });
+    } else if (tasksDueDateFilter === 'after_tomorrow') {
+      filtered = filtered.filter(t => {
+        if (!t.due_date) return false;
+        return new Date(t.due_date) >= dayAfterTomorrow;
+      });
+    }
+    
+    // Sort by due date, earliest first, nulls last
+    return filtered.sort((a, b) => {
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    });
+  }, [ghlTasks, tasksAssigneeFilter, tasksDueDateFilter, opportunities]);
+
+  const handleTaskClick = (task: GHLTask) => {
+    const opportunity = getOpportunityForContact(task.contact_id);
+    if (opportunity) {
+      onOpenOpportunity(opportunity);
+    } else {
+      toast.error("No opportunity found for this contact");
+    }
+  };
 
   // Action handlers
   const handleOpenNoteDialog = (contactId: string, contactName: string) => {
@@ -958,6 +1104,142 @@ export function FollowUpManagement({
                     </TableBody>
                   </Table>
                 </div>}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Tasks Helper */}
+      <Collapsible open={tasksHelperOpen} onOpenChange={setTasksHelperOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                    <CheckSquare className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      Tasks Helper
+                      <Badge variant="secondary">{filteredGhlTasks.length}</Badge>
+                    </CardTitle>
+                    <CardDescription>GHL tasks synced from GoHighLevel - click to view opportunity</CardDescription>
+                  </div>
+                </div>
+                {tasksHelperOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="flex flex-wrap items-center gap-4 mb-4">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={fetchGhlTasks} 
+                  disabled={isLoadingTasks}
+                >
+                  {isLoadingTasks ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Refresh
+                </Button>
+                <Select value={tasksAssigneeFilter} onValueChange={setTasksAssigneeFilter}>
+                  <SelectTrigger className="w-[160px]">
+                    <User className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Assignees</SelectItem>
+                    {uniqueTaskAssignees.map(a => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={tasksDueDateFilter} onValueChange={(v) => setTasksDueDateFilter(v as DueDateFilter)}>
+                  <SelectTrigger className="w-[180px]">
+                    <Clock className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Due Date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Due Dates</SelectItem>
+                    <SelectItem value="past_due">Past Due</SelectItem>
+                    <SelectItem value="today_tomorrow">Due: Today & Tomorrow</SelectItem>
+                    <SelectItem value="after_tomorrow">Due: After Tomorrow</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {isLoadingTasks && ghlTasks.length === 0 ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Loading tasks from GHL...</span>
+                </div>
+              ) : filteredGhlTasks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No pending tasks found
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredGhlTasks.map(task => {
+                    const overdue = isTaskOverdue(task.due_date);
+                    const contactName = getContactName(task.contact_id);
+                    const opportunity = getOpportunityForContact(task.contact_id);
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${
+                          overdue 
+                            ? "bg-destructive/5 border-destructive/30"
+                            : "bg-card border-border/50"
+                        }`}
+                        onClick={() => handleTaskClick(task)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium">{task.title}</span>
+                              {overdue && (
+                                <Badge variant="destructive" className="text-xs">Overdue</Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {formatTaskDueDate(task.due_date)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {getUserName(task.assigned_to)}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-sm">
+                              <span className="text-muted-foreground">Contact:</span>{" "}
+                              <span className="font-medium">{contactName}</span>
+                              {opportunity && (
+                                <>
+                                  <span className="text-muted-foreground ml-3">Opp:</span>{" "}
+                                  <span className="font-medium">{opportunity.name || "Unnamed"}</span>
+                                </>
+                              )}
+                            </div>
+                            {task.body && (
+                              <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
+                                {task.body.replace(/<[^>]*>/g, '')}
+                              </p>
+                            )}
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </CollapsibleContent>
         </Card>

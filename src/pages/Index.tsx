@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, CloudDownload, Lock, ListChecks } from "lucide-react";
+import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, Lock, ListChecks } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -13,7 +13,6 @@ import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSh
 import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
-import { GHLTasksTab } from "@/components/dashboard/GHLTasksTab";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
@@ -124,10 +123,6 @@ const Index = () => {
             <TabsTrigger value="follow-up" className="gap-2">
               <ListChecks className="h-4 w-4" />
               Follow-up
-            </TabsTrigger>
-            <TabsTrigger value="ghl-tasks" className="gap-2">
-              <CloudDownload className="h-4 w-4" />
-              GHL Tasks
             </TabsTrigger>
             <TabsTrigger value="admin" className="gap-2">
               <Settings className="h-4 w-4" />
@@ -244,14 +239,6 @@ const Index = () => {
                 onDataRefresh={refetch}
               />
             )}
-          </TabsContent>
-
-          <TabsContent value="ghl-tasks" className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground mb-1">GHL Tasks (Live)</h2>
-              <p className="text-sm text-muted-foreground">Uncompleted tasks fetched directly from GoHighLevel</p>
-            </div>
-            <GHLTasksTab opportunities={metrics?.allOpportunities || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} onOpenOpportunity={handleOpenOpportunity} />
           </TabsContent>
 
           <TabsContent value="admin" className="space-y-6">
