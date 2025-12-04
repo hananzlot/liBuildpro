@@ -256,7 +256,7 @@ export function FollowUpManagement({
           contact_id: taskDialogContactId,
           title: taskTitle.trim(),
           notes: taskNotes.trim() || null,
-          assigned_to: taskAssignee || null,
+          assigned_to: taskAssignee === 'unassigned' ? null : taskAssignee || null,
           due_date: dueDateTime,
           status: 'pending',
           location_id: locationId,
@@ -272,7 +272,7 @@ export function FollowUpManagement({
           title: taskTitle.trim(),
           body: taskNotes.trim() || null,
           dueDate: dueDateTime,
-          assignedTo: taskAssignee || null,
+          assignedTo: taskAssignee === 'unassigned' ? null : taskAssignee || null,
           contactId: taskDialogContactId,
           supabaseTaskId: insertedTask.id,
         },
@@ -612,7 +612,7 @@ export function FollowUpManagement({
                   <SelectValue placeholder="Select team member" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {users.map(user => (
                     <SelectItem key={user.ghl_id} value={user.ghl_id}>
                       {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown'}
