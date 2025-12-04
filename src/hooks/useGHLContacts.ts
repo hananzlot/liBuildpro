@@ -465,19 +465,20 @@ function processMetrics(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // Build set of contact IDs that have appointments (non-cancelled)
-  const contactIdsWithAppointments = new Set<string>();
-  filteredAppointments
+  // Build set of contact IDs that have ANY appointments ever (non-cancelled)
+  // Using ALL appointments, not filtered by date range
+  const contactIdsWithAnyAppointments = new Set<string>();
+  appointments
     .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled')
     .forEach(a => {
-      if (a.contact_id) contactIdsWithAppointments.add(a.contact_id);
+      if (a.contact_id) contactIdsWithAnyAppointments.add(a.contact_id);
     });
 
-  // Opportunities WITHOUT appointments by source
+  // Opportunities WITHOUT any appointments by source
   const oppsWithoutAppointmentsBySourceMap = new Map<string, number>();
   filteredOpportunities
     .filter(o => o.stage_name?.toLowerCase() !== 'quickbase')
-    .filter(o => o.contact_id && !contactIdsWithAppointments.has(o.contact_id))
+    .filter(o => o.contact_id && !contactIdsWithAnyAppointments.has(o.contact_id))
     .forEach(o => {
       if (o.contact_id) {
         const source = contactSourceMap.get(o.contact_id) || 'Direct';
