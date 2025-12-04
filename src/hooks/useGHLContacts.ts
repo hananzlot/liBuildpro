@@ -202,26 +202,27 @@ function processMetrics(
       })
     : appointments;
 
-  // Group appointments by assigned user
-  const repAppointmentsMap = new Map<string, Set<string>>();
+  // Group appointments by assigned user - track both ghl_id and unique contacts
+  const repAppointmentsMap = new Map<string, { userGhlId: string; uniqueContactIds: Set<string> }>();
   filteredAppointments.forEach(a => {
     if (a.assigned_user_id && a.contact_id) {
       const repName = userMap.get(a.assigned_user_id) || a.assigned_user_id;
       if (!repAppointmentsMap.has(repName)) {
-        repAppointmentsMap.set(repName, new Set());
+        repAppointmentsMap.set(repName, { userGhlId: a.assigned_user_id, uniqueContactIds: new Set() });
       }
       // Track unique contacts (don't count multiple appointments to same contact)
-      repAppointmentsMap.get(repName)!.add(a.contact_id);
+      repAppointmentsMap.get(repName)!.uniqueContactIds.add(a.contact_id);
     }
   });
-  // Calculate metrics per rep based on unique appointments
+  
+  // Calculate metrics per rep - opportunities based on assigned_to, not appointment contacts
   const salesRepPerformance: SalesRepPerformance[] = Array.from(repAppointmentsMap.entries())
-    .map(([assignedTo, uniqueContactIds]) => {
+    .map(([assignedTo, { userGhlId, uniqueContactIds }]) => {
       const uniqueAppointments = uniqueContactIds.size;
       
-      // Get opportunities for contacts this rep had appointments with
-      const repOpportunities = opportunities.filter(o => 
-        o.contact_id && uniqueContactIds.has(o.contact_id)
+      // Get ALL opportunities assigned to this rep (not just those with appointments)
+      const repOpportunities = filteredOpportunities.filter(o => 
+        o.assigned_to === userGhlId
       );
       
       const totalOpportunities = repOpportunities.length;
