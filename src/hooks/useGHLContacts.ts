@@ -159,6 +159,7 @@ function processMetrics(
   wonOpportunitiesCount: number;
   wonOpportunitiesValue: number;
   wonOpportunities: DBOpportunity[];
+  wonBySource: { source: string; count: number; value: number }[];
 } {
   const filteredContacts = filterByDateRange(contacts, dateRange);
   const filteredOpportunities = filterByDateRange(opportunities, dateRange);
@@ -314,6 +315,29 @@ function processMetrics(
   const wonOpportunitiesCount = wonOpportunities.length;
   const wonOpportunitiesValue = wonOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
+  // Won by source - group won opportunities by contact source
+  const contactSourceMap = new Map<string, string>();
+  contacts.forEach(c => {
+    contactSourceMap.set(c.ghl_id, c.source || 'Direct');
+  });
+  
+  const wonBySourceMap = new Map<string, { count: number; value: number }>();
+  wonOpportunities.forEach(o => {
+    if (o.contact_id) {
+      const source = contactSourceMap.get(o.contact_id) || 'Direct';
+      const existing = wonBySourceMap.get(source) || { count: 0, value: 0 };
+      wonBySourceMap.set(source, {
+        count: existing.count + 1,
+        value: existing.value + (o.monetary_value || 0),
+      });
+    }
+  });
+  
+  const wonBySource = Array.from(wonBySourceMap.entries())
+    .map(([source, data]) => ({ source, count: data.count, value: data.value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10);
+
   // Appointments metrics
   const upcomingAppointments = appointments.filter(a => {
     if (!a.start_time) return false;
@@ -342,6 +366,7 @@ function processMetrics(
     wonOpportunitiesCount,
     wonOpportunitiesValue,
     wonOpportunities,
+    wonBySource,
   };
 }
 

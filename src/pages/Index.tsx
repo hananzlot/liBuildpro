@@ -3,7 +3,7 @@ import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign,
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
-import { LeadsBySourceChart } from "@/components/dashboard/LeadsBySourceChart";
+import { SourceChart } from "@/components/dashboard/SourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
 import { RecentLeadsTable } from "@/components/dashboard/RecentLeadsTable";
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
@@ -183,7 +183,7 @@ const Index = () => {
           )}
         </section>
 
-        {/* Charts Row */}
+        {/* Charts Row - Source Charts */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {isLoading ? (
             <>
@@ -192,15 +192,42 @@ const Index = () => {
             </>
           ) : (
             <>
-              <LeadsBySourceChart data={metrics?.leadsBySource || []} />
-              <SalesRepLeaderboard 
-                data={metrics?.salesRepPerformance || []}
+              <SourceChart
+                title="Leads by Source"
+                data={metrics?.leadsBySource || []}
+                mode="leads"
+                dataKey="count"
+                contacts={metrics?.allContacts || []}
                 opportunities={metrics?.allOpportunities || []}
                 appointments={metrics?.appointments || []}
+                users={metrics?.users || []}
+              />
+              <SourceChart
+                title="Won by Source"
+                data={metrics?.wonBySource || []}
+                mode="won"
+                dataKey="value"
                 contacts={metrics?.allContacts || []}
+                opportunities={metrics?.allOpportunities || []}
+                appointments={metrics?.appointments || []}
                 users={metrics?.users || []}
               />
             </>
+          )}
+        </section>
+
+        {/* Sales Rep Leaderboard */}
+        <section>
+          {isLoading ? (
+            <Skeleton className="h-[380px] rounded-2xl" />
+          ) : (
+            <SalesRepLeaderboard 
+              data={metrics?.salesRepPerformance || []}
+              opportunities={metrics?.allOpportunities || []}
+              appointments={metrics?.appointments || []}
+              contacts={metrics?.allContacts || []}
+              users={metrics?.users || []}
+            />
           )}
         </section>
 
