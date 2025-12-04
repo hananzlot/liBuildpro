@@ -213,7 +213,7 @@ const Index = () => {
                   <Skeleton className="h-[400px] rounded-2xl" />
                   <Skeleton className="h-[400px] rounded-2xl" />
                 </> : <>
-                  <OpportunitiesTable opportunities={metrics?.opportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} />
+                  <OpportunitiesTable opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} />
                   <AppointmentsTable appointments={metrics?.allAppointments || []} opportunities={metrics?.allOpportunities || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} />
                 </>}
             </section>
