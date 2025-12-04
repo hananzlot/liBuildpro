@@ -649,7 +649,7 @@ export function OpportunityDetailSheet({
                       {formatDateTime(appt.start_time)}
                     </div>
                     {appt.notes && (
-                      <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                      <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded whitespace-pre-wrap">
                         {appt.notes}
                       </div>
                     )}
