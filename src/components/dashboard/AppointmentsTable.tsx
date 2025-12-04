@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, ChevronLeft, ChevronRight, User, Filter } from "lucide-react";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
+import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
 interface Appointment {
   ghl_id: string;
@@ -31,9 +32,14 @@ interface Opportunity {
   name: string | null;
   status: string | null;
   monetary_value: number | null;
+  pipeline_id: string | null;
   pipeline_name: string | null;
+  pipeline_stage_id: string | null;
   stage_name: string | null;
   contact_id: string | null;
+  assigned_to: string | null;
+  ghl_date_added: string | null;
+  ghl_date_updated: string | null;
 }
 
 interface Contact {
@@ -43,6 +49,7 @@ interface Contact {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  source: string | null;
   custom_fields?: unknown;
 }
 
@@ -77,6 +84,13 @@ export function AppointmentsTable({
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [repFilter, setRepFilter] = useState<string>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
+
+  const handleOpenOpportunity = (opportunity: Opportunity) => {
+    setSelectedOpportunity(opportunity);
+    setOpportunitySheetOpen(true);
+  };
 
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return '-';
@@ -355,6 +369,17 @@ export function AppointmentsTable({
         users={users}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
+        onOpenOpportunity={handleOpenOpportunity}
+      />
+
+      <OpportunityDetailSheet
+        opportunity={selectedOpportunity}
+        allOpportunities={opportunities}
+        contacts={contacts}
+        users={users}
+        appointments={appointments}
+        open={opportunitySheetOpen}
+        onOpenChange={setOpportunitySheetOpen}
       />
     </>
   );

@@ -13,6 +13,7 @@ import {
 import { Calendar, Clock, User, Search, ChevronRight } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
+import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
 interface DBAppointment {
   id: string;
@@ -51,6 +52,11 @@ interface DBOpportunity {
   status: string | null;
   stage_name: string | null;
   pipeline_name: string | null;
+  pipeline_id: string | null;
+  pipeline_stage_id: string | null;
+  assigned_to: string | null;
+  ghl_date_added: string | null;
+  ghl_date_updated: string | null;
 }
 
 interface DBUser {
@@ -83,6 +89,13 @@ export function UpcomingAppointmentsSheet({
   const [repFilter, setRepFilter] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<DBAppointment | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<DBOpportunity | null>(null);
+  const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
+
+  const handleOpenOpportunity = (opportunity: DBOpportunity) => {
+    setSelectedOpportunity(opportunity);
+    setOpportunitySheetOpen(true);
+  };
 
   // Build user map early for filtering
   const userMap = useMemo(() => {
@@ -305,6 +318,17 @@ export function UpcomingAppointmentsSheet({
         users={users}
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
+        onOpenOpportunity={handleOpenOpportunity}
+      />
+
+      <OpportunityDetailSheet
+        opportunity={selectedOpportunity}
+        allOpportunities={opportunities}
+        contacts={contacts}
+        users={users}
+        appointments={appointments}
+        open={opportunitySheetOpen}
+        onOpenChange={setOpportunitySheetOpen}
       />
     </>
   );
