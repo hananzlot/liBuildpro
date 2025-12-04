@@ -1,14 +1,26 @@
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+
+// Helper to get PST/PDT offset in hours
+const getPSTOffset = (date: Date): number => {
+  const year = date.getFullYear();
+  const dstStart = new Date(year, 2, 8 + (7 - new Date(year, 2, 8).getDay()), 2);
+  const dstEnd = new Date(year, 10, 1 + (7 - new Date(year, 10, 1).getDay()), 2);
+  const isDST = date >= dstStart && date < dstEnd;
+  return isDST ? 7 : 8;
+};
+
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
   SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
@@ -52,6 +64,7 @@ interface Contact {
   phone: string | null;
   source: string | null;
   custom_fields?: unknown;
+  location_id?: string;
 }
 interface GHLUser {
   ghl_id: string;
@@ -86,6 +99,16 @@ interface ContactNote {
   body: string;
   userId: string | null;
   dateAdded: string;
+}
+interface Task {
+  id: string;
+  title: string;
+  notes: string | null;
+  status: string;
+  due_date: string | null;
+  assigned_to: string | null;
+  created_at: string;
+  ghl_id: string | null;
 }
 interface OpportunityDetailSheetProps {
   opportunity: Opportunity | null;
@@ -130,6 +153,17 @@ export function OpportunityDetailSheet({
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
   const [isCreatingNote, setIsCreatingNote] = useState(false);
+
+  // Tasks
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskNotes, setTaskNotes] = useState("");
+  const [taskAssignee, setTaskAssignee] = useState("");
+  const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskDueTime, setTaskDueTime] = useState("09:00");
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -181,13 +215,37 @@ export function OpportunityDetailSheet({
           setIsLoadingNotes(false);
         }
       };
+      // Fetch tasks from Supabase
+      const fetchTasks = async () => {
+        setIsLoadingTasks(true);
+        try {
+          const { data, error } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('opportunity_id', opportunity.ghl_id)
+            .order('created_at', { ascending: false });
+          
+          if (error) {
+            console.error('Error fetching tasks:', error);
+          } else if (data) {
+            setTasks(data);
+          }
+        } catch (err) {
+          console.error('Failed to fetch tasks:', err);
+        } finally {
+          setIsLoadingTasks(false);
+        }
+      };
+
       fetchConversations();
       fetchNotes();
+      fetchTasks();
     } else {
       setLiveConversations([]);
       setContactNotesList([]);
+      setTasks([]);
     }
-  }, [open, opportunity?.contact_id]);
+  }, [open, opportunity?.contact_id, opportunity?.ghl_id]);
   const handleRefreshConversations = async () => {
     if (!opportunity?.contact_id) return;
     setIsLoadingConversations(true);
@@ -251,6 +309,106 @@ export function OpportunityDetailSheet({
       setIsCreatingNote(false);
     }
   };
+
+  const openTaskDialog = () => {
+    const contact = contacts.find(c => c.ghl_id === opportunity?.contact_id);
+    const contactName = contact?.contact_name || 
+      `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
+    setTaskTitle(`Follow up: ${opportunity?.name || contactName || "Opportunity"}`);
+    setTaskNotes("");
+    setTaskAssignee(opportunity?.assigned_to || "__unassigned__");
+    setTaskDueDate("");
+    setTaskDueTime("09:00");
+    setTaskDialogOpen(true);
+  };
+
+  const handleCreateTask = async () => {
+    if (!opportunity || !taskTitle.trim()) {
+      toast.error("Please enter a task title");
+      return;
+    }
+
+    setIsCreatingTask(true);
+    try {
+      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
+
+      const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
+      
+      // Combine date and time, treating input as PST
+      let dueDateValue: string | null = null;
+      if (taskDueDate) {
+        const timeStr = taskDueTime || "09:00";
+        const pstDateTimeStr = `${taskDueDate}T${timeStr}:00`;
+        const localDate = new Date(pstDateTimeStr);
+        const pstOffset = getPSTOffset(localDate);
+        const utcDate = new Date(localDate.getTime() + pstOffset * 60 * 60 * 1000);
+        dueDateValue = utcDate.toISOString();
+      }
+
+      // Insert into Supabase
+      const { data: insertedTask, error } = await supabase.from("tasks").insert({
+        opportunity_id: opportunity.ghl_id,
+        contact_id: opportunity.contact_id,
+        title: taskTitle.trim(),
+        notes: taskNotes.trim() || null,
+        assigned_to: assignedToValue,
+        due_date: dueDateValue,
+        location_id: locationId,
+        status: "pending"
+      }).select().single();
+
+      if (error) throw error;
+
+      // Sync to GHL
+      try {
+        const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
+          body: {
+            title: taskTitle.trim(),
+            body: taskNotes.trim() || null,
+            dueDate: dueDateValue,
+            assignedTo: assignedToValue,
+            contactId: opportunity.contact_id,
+            supabaseTaskId: insertedTask?.id
+          }
+        });
+
+        if (ghlResponse.error) {
+          console.error('GHL sync error:', ghlResponse.error);
+          toast.success("Task created locally (GHL sync failed)");
+        } else {
+          toast.success("Task created and synced to GHL");
+        }
+      } catch (ghlError) {
+        console.error('GHL sync error:', ghlError);
+        toast.success("Task created locally (GHL sync failed)");
+      }
+
+      // Refresh tasks list
+      const { data: refreshedTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('opportunity_id', opportunity.ghl_id)
+        .order('created_at', { ascending: false });
+      
+      if (refreshedTasks) {
+        setTasks(refreshedTasks);
+      }
+
+      setTaskDialogOpen(false);
+      setTaskTitle("");
+      setTaskNotes("");
+      setTaskAssignee("");
+      setTaskDueDate("");
+      setTaskDueTime("");
+    } catch (err) {
+      console.error("Error creating task:", err);
+      toast.error("Failed to create task");
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
+
   const stageMap = new Map<string, string>();
   const currentPipelineId = opportunity?.pipeline_id;
   allOpportunities.forEach(o => {
@@ -405,12 +563,18 @@ export function OpportunityDetailSheet({
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
               <span className="font-bold capitalize">{opportunity.name?.toLowerCase() || 'Unnamed Opportunity'}</span>
-              {isEditing ? <div className="flex items-center gap-1">
-                  <span className="text-lg font-bold text-emerald-400">$</span>
-                  <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
-                </div> : <div className="text-lg font-bold text-emerald-400">
-                  {formatCurrency(opportunity.monetary_value)}
-                </div>}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={openTaskDialog}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Task
+                </Button>
+                {isEditing ? <div className="flex items-center gap-1">
+                    <span className="text-lg font-bold text-emerald-400">$</span>
+                    <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
+                  </div> : <div className="text-lg font-bold text-emerald-400">
+                    {formatCurrency(opportunity.monetary_value)}
+                  </div>}
+              </div>
             </div>
             <div className="p-3 space-y-2">
               
@@ -682,11 +846,150 @@ export function OpportunityDetailSheet({
               </div>}
           </div>
 
+          {/* Tasks History */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+              <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Tasks ({tasks.length})
+              </span>
+              {isLoadingTasks && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            </div>
+            {tasks.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+                {isLoadingTasks ? 'Loading tasks...' : 'No tasks created yet'}
+              </div>
+            ) : (
+              <div className="divide-y max-h-60 overflow-y-auto">
+                {tasks.map(task => {
+                  const taskUser = users.find(u => u.ghl_id === task.assigned_to);
+                  const taskUserName = taskUser?.name || (taskUser?.first_name && taskUser?.last_name 
+                    ? `${taskUser.first_name} ${taskUser.last_name}` 
+                    : 'Unassigned');
+                  return (
+                    <div key={task.id} className="p-3 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-sm truncate">{task.title}</span>
+                        <Badge variant="outline" className={`text-xs shrink-0 ${
+                          task.status === 'completed' 
+                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                            : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                        }`}>
+                          {task.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{taskUserName}</span>
+                        {task.due_date && (
+                          <>
+                            <span>•</span>
+                            <span>Due: {new Date(task.due_date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit'
+                            })}</span>
+                          </>
+                        )}
+                      </div>
+                      {task.notes && (
+                        <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted/30 rounded whitespace-pre-wrap">
+                          {task.notes}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Timeline */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
             <span>Updated: {formatDate(opportunity.ghl_date_updated)}</span>
           </div>
         </div>
       </SheetContent>
+
+      {/* Create Task Dialog */}
+      <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5" />
+              Create Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="oppTaskTitle">Task Title</Label>
+              <Input
+                id="oppTaskTitle"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                placeholder="Enter task title..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oppTaskNotes">Notes</Label>
+              <Textarea
+                id="oppTaskNotes"
+                value={taskNotes}
+                onChange={(e) => setTaskNotes(e.target.value)}
+                placeholder="Add notes for this task..."
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oppTaskAssignee">Assign To</Label>
+              <Select value={taskAssignee} onValueChange={setTaskAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {[...users].sort((a, b) => {
+                    const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
+                    const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
+                    return nameA.localeCompare(nameB);
+                  }).map((user) => (
+                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                      {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Due Date & Time (PST) - Optional</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="oppTaskDueDate"
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  id="oppTaskDueTime"
+                  type="time"
+                  value={taskDueTime}
+                  onChange={(e) => setTaskDueTime(e.target.value)}
+                  className="w-28"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Times are in Pacific Standard Time (PST/PDT)</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateTask} disabled={isCreatingTask}>
+              {isCreatingTask ? "Creating..." : "Create Task"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>;
 }
