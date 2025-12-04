@@ -447,7 +447,7 @@ function processMetrics(
     recentLeads,
     totalOpportunities: filteredOpportunities.length,
     totalPipelineValue,
-    totalAppointments: appointments.length,
+    totalAppointments: filteredAppointments.length,
     upcomingAppointments,
     upcomingNextWeek,
     opportunities: filteredOpportunities.slice(0, 10),
