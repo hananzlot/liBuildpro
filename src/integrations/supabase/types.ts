@@ -218,6 +218,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ghl_tasks: {
+        Row: {
+          assigned_to: string | null
+          body: string | null
+          completed: boolean | null
+          contact_id: string
+          created_at: string
+          due_date: string | null
+          ghl_id: string
+          id: string
+          location_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          body?: string | null
+          completed?: boolean | null
+          contact_id: string
+          created_at?: string
+          due_date?: string | null
+          ghl_id: string
+          id?: string
+          location_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          body?: string | null
+          completed?: boolean | null
+          contact_id?: string
+          created_at?: string
+          due_date?: string | null
+          ghl_id?: string
+          id?: string
+          location_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ghl_users: {
         Row: {
           created_at: string

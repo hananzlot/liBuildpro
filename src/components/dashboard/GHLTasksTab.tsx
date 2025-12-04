@@ -10,12 +10,13 @@ import { toast } from "sonner";
 
 interface GHLTask {
   id: string;
+  ghl_id: string;
   title: string;
   body: string | null;
-  dueDate: string | null;
+  due_date: string | null;
   completed: boolean;
-  contactId: string;
-  assignedTo?: string;
+  contact_id: string;
+  assigned_to: string | null;
 }
 
 interface Opportunity {
@@ -66,20 +67,21 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
   const fetchTasks = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-all-ghl-tasks');
+      const { data, error } = await supabase
+        .from('ghl_tasks')
+        .select('*')
+        .eq('completed', false)
+        .order('due_date', { ascending: true });
       
       if (error) {
-        console.error('Error fetching GHL tasks:', error);
-        toast.error('Failed to fetch tasks from GHL');
+        console.error('Error fetching tasks:', error);
+        toast.error('Failed to fetch tasks');
         return;
       }
       
-      if (data?.tasks) {
-        setTasks(data.tasks);
-        toast.success(`Loaded ${data.tasks.length} tasks from GHL`);
-      }
+      setTasks(data || []);
     } catch (err) {
-      console.error('Failed to fetch GHL tasks:', err);
+      console.error('Failed to fetch tasks:', err);
       toast.error('Failed to fetch tasks');
     } finally {
       setIsLoading(false);
@@ -90,7 +92,7 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
     fetchTasks();
   }, []);
 
-  const getUserName = (userId: string | undefined) => {
+  const getUserName = (userId: string | null) => {
     if (!userId) return "Unassigned";
     const user = users.find(u => u.ghl_id === userId);
     if (user) {
@@ -126,7 +128,7 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
 
   // Get unique assignees from tasks
   const uniqueAssignees = useMemo(() => {
-    const assigneeIds = new Set(tasks.map(t => t.assignedTo).filter(Boolean));
+    const assigneeIds = new Set(tasks.map(t => t.assigned_to).filter(Boolean));
     return Array.from(assigneeIds).map(id => ({
       id: id!,
       name: getUserName(id!)
@@ -139,26 +141,26 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
     
     // Filter out tasks where the associated opportunity is lost
     filtered = filtered.filter(t => {
-      const opportunity = getOpportunityForContact(t.contactId);
-      if (!opportunity) return true; // Keep tasks with no opportunity
+      const opportunity = getOpportunityForContact(t.contact_id);
+      if (!opportunity) return true;
       return opportunity.status?.toLowerCase() !== 'lost';
     });
     
     if (assigneeFilter !== "all") {
-      filtered = filtered.filter(t => t.assignedTo === assigneeFilter);
+      filtered = filtered.filter(t => t.assigned_to === assigneeFilter);
     }
     
     // Sort by due date, earliest first, nulls last
     return filtered.sort((a, b) => {
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      if (!a.due_date && !b.due_date) return 0;
+      if (!a.due_date) return 1;
+      if (!b.due_date) return -1;
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
     });
   }, [tasks, assigneeFilter, opportunities]);
 
   const handleTaskClick = (task: GHLTask) => {
-    const opportunity = getOpportunityForContact(task.contactId);
+    const opportunity = getOpportunityForContact(task.contact_id);
     if (opportunity) {
       onOpenOpportunity(opportunity);
     } else {
@@ -171,9 +173,9 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle className="text-lg font-semibold">GHL Tasks (Live)</CardTitle>
+            <CardTitle className="text-lg font-semibold">GHL Tasks</CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              {filteredTasks.length} pending tasks from GoHighLevel
+              {filteredTasks.length} pending tasks (synced from GHL)
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -217,9 +219,9 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
         ) : (
           <div className="space-y-3">
             {filteredTasks.map(task => {
-              const overdue = isOverdue(task.dueDate);
-              const contactName = getContactName(task.contactId);
-              const opportunity = getOpportunityForContact(task.contactId);
+              const overdue = isOverdue(task.due_date);
+              const contactName = getContactName(task.contact_id);
+              const opportunity = getOpportunityForContact(task.contact_id);
 
               return (
                 <div
@@ -242,11 +244,11 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
                       <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {formatDueDate(task.dueDate)}
+                          {formatDueDate(task.due_date)}
                         </span>
                         <span className="flex items-center gap-1">
                           <User className="h-3 w-3" />
-                          {getUserName(task.assignedTo)}
+                          {getUserName(task.assigned_to)}
                         </span>
                       </div>
                       <div className="mt-2 text-sm">
@@ -261,7 +263,7 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
                       </div>
                       {task.body && (
                         <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
-                          {task.body}
+                          {task.body.replace(/<[^>]*>/g, '')}
                         </p>
                       )}
                     </div>

@@ -348,6 +348,51 @@ async function fetchConversations(ghlApiKey: string, locationId: string): Promis
   return allConversations;
 }
 
+async function fetchAllTasks(ghlApiKey: string, contacts: any[]): Promise<any[]> {
+  console.log('Fetching GHL tasks for all contacts...');
+  const allTasks: any[] = [];
+  const batchSize = 5;
+
+  for (let i = 0; i < contacts.length; i += batchSize) {
+    const batch = contacts.slice(i, i + batchSize);
+    
+    const batchPromises = batch.map(async (contact) => {
+      try {
+        const response = await fetch(
+          `https://services.leadconnectorhq.com/contacts/${contact.id}/tasks`,
+          {
+            headers: {
+              'Authorization': `Bearer ${ghlApiKey}`,
+              'Version': '2021-07-28',
+              'Accept': 'application/json'
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const tasks = data.tasks || [];
+          return tasks.map((t: any) => ({ ...t, contactId: contact.id }));
+        }
+        return [];
+      } catch (err) {
+        console.error(`Error fetching tasks for contact ${contact.id}:`, err);
+        return [];
+      }
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    batchResults.forEach(tasks => allTasks.push(...tasks));
+    
+    if (i + batchSize < contacts.length) {
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+  }
+
+  console.log(`Fetched ${allTasks.length} total tasks`);
+  return allTasks;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -379,6 +424,9 @@ serve(async (req) => {
       fetchPipelines(ghlApiKey, locationId),
       fetchConversations(ghlApiKey, locationId),
     ]);
+
+    // Fetch tasks after contacts (needs contact IDs)
+    const tasks = await fetchAllTasks(ghlApiKey, contacts);
 
     // Build pipeline/stage lookup maps
     const { pipelineNames, stageNames } = buildPipelineLookups(pipelines);
@@ -525,6 +573,27 @@ serve(async (req) => {
       }
     }
 
+    // Sync tasks
+    if (tasks.length > 0) {
+      console.log(`Syncing ${tasks.length} tasks...`);
+      const tasksToUpsert = tasks.map(t => ({
+        ghl_id: t.id,
+        location_id: locationId,
+        contact_id: t.contactId,
+        title: t.title || 'Untitled Task',
+        body: t.body || null,
+        assigned_to: t.assignedTo || null,
+        due_date: t.dueDate || null,
+        completed: t.completed || false,
+      }));
+
+      for (let i = 0; i < tasksToUpsert.length; i += 100) {
+        const batch = tasksToUpsert.slice(i, i + 100);
+        const { error } = await supabase.from('ghl_tasks').upsert(batch, { onConflict: 'ghl_id' });
+        if (error) console.error('Tasks upsert error:', error);
+      }
+    }
+
     console.log('Full sync complete!');
 
     return new Response(JSON.stringify({
@@ -535,6 +604,7 @@ serve(async (req) => {
         users: users.length,
         pipelines: pipelines.length,
         conversations: conversations.length,
+        tasks: tasks.length,
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

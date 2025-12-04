@@ -13,10 +13,11 @@ serve(async (req) => {
 
   try {
     const ghlApiKey = Deno.env.get('GHL_API_KEY');
+    const ghlLocationId = Deno.env.get('GHL_LOCATION_ID');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!ghlApiKey || !supabaseUrl || !supabaseServiceKey) {
+    if (!ghlApiKey || !supabaseUrl || !supabaseServiceKey || !ghlLocationId) {
       throw new Error('Missing required credentials');
     }
 
@@ -35,7 +36,7 @@ serve(async (req) => {
     console.log(`Found ${contacts?.length || 0} contacts, fetching tasks...`);
 
     const allTasks: any[] = [];
-    const batchSize = 5; // Smaller batches to avoid rate limits
+    const batchSize = 5;
 
     for (let i = 0; i < (contacts?.length || 0); i += batchSize) {
       const batch = contacts!.slice(i, i + batchSize);
@@ -56,9 +57,7 @@ serve(async (req) => {
           if (tasksResponse.ok) {
             const tasksData = await tasksResponse.json();
             const tasks = tasksData.tasks || [];
-            return tasks
-              .filter((t: any) => !t.completed)
-              .map((t: any) => ({ ...t, contactId: contact.ghl_id }));
+            return tasks.map((t: any) => ({ ...t, contactId: contact.ghl_id }));
           }
           return [];
         } catch (err) {
@@ -70,16 +69,35 @@ serve(async (req) => {
       const batchResults = await Promise.all(batchPromises);
       batchResults.forEach(tasks => allTasks.push(...tasks));
       
-      // Longer delay between batches to respect GHL rate limits
       if (i + batchSize < (contacts?.length || 0)) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
 
-    console.log(`Found ${allTasks.length} incomplete tasks across all contacts`);
+    console.log(`Found ${allTasks.length} tasks, saving to Supabase...`);
+
+    // Upsert all tasks to Supabase
+    if (allTasks.length > 0) {
+      const tasksToUpsert = allTasks.map(t => ({
+        ghl_id: t.id,
+        location_id: ghlLocationId,
+        contact_id: t.contactId,
+        title: t.title || 'Untitled Task',
+        body: t.body || null,
+        assigned_to: t.assignedTo || null,
+        due_date: t.dueDate || null,
+        completed: t.completed || false,
+      }));
+
+      for (let i = 0; i < tasksToUpsert.length; i += 100) {
+        const batch = tasksToUpsert.slice(i, i + 100);
+        const { error } = await supabase.from('ghl_tasks').upsert(batch, { onConflict: 'ghl_id' });
+        if (error) console.error('Tasks upsert error:', error);
+      }
+    }
 
     return new Response(
-      JSON.stringify({ success: true, tasks: allTasks }),
+      JSON.stringify({ success: true, count: allTasks.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
