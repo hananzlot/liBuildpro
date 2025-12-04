@@ -4,6 +4,7 @@ import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLCo
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { SourceChart } from "@/components/dashboard/SourceChart";
+import { OpportunitiesBySourceView } from "@/components/dashboard/OpportunitiesBySourceView";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
 import { RecentWonDeals } from "@/components/dashboard/RecentWonDeals";
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
@@ -177,10 +178,15 @@ const Index = () => {
             {/* Charts Row - Source Charts */}
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {isLoading ? <>
-                  <Skeleton className="h-[380px] rounded-2xl" />
-                  <Skeleton className="h-[380px] rounded-2xl" />
+                  <Skeleton className="h-[420px] rounded-2xl" />
+                  <Skeleton className="h-[420px] rounded-2xl" />
                 </> : <>
-                  <SourceChart title="Opportunities by Source" data={metrics?.opportunitiesBySource || []} mode="opportunities" dataKey="count" contacts={metrics?.allContacts || []} filteredContacts={metrics?.contacts || []} opportunities={metrics?.allOpportunities || []} filteredOpportunities={metrics?.filteredOpportunitiesList || []} appointments={metrics?.allAppointments || []} filteredAppointments={metrics?.filteredAppointmentsList || []} users={metrics?.users || []} appointmentsBySource={metrics?.appointmentsBySource || []} />
+                  <OpportunitiesBySourceView 
+                    opportunities={metrics?.filteredOpportunitiesList || []} 
+                    contacts={metrics?.allContacts || []} 
+                    appointments={metrics?.allAppointments || []} 
+                    users={metrics?.users || []} 
+                  />
                   <SourceChart title="Won by Source" data={metrics?.wonBySource || []} mode="won" dataKey="value" contacts={metrics?.allContacts || []} filteredContacts={metrics?.contacts || []} opportunities={metrics?.allOpportunities || []} filteredOpportunities={metrics?.wonOpportunities || []} appointments={metrics?.allAppointments || []} users={metrics?.users || []} />
                 </>}
             </section>
