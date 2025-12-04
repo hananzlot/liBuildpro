@@ -94,6 +94,16 @@ interface DBTask {
   updated_at: string;
 }
 
+interface DBContactNote {
+  id: string;
+  ghl_id: string;
+  contact_id: string;
+  body: string | null;
+  ghl_date_added: string | null;
+  location_id: string;
+  user_id: string | null;
+}
+
 // Generic paginated fetch for any table
 async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]> {
   const allItems: any[] = [];
@@ -154,6 +164,15 @@ async function fetchTasksFromDB(): Promise<DBTask[]> {
     .from('tasks')
     .select('*')
     .order('due_date', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchContactNotesFromDB(): Promise<DBContactNote[]> {
+  const { data, error } = await supabase
+    .from('contact_notes')
+    .select('*')
+    .order('ghl_date_added', { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -548,6 +567,15 @@ export function useTasks() {
   });
 }
 
+export function useContactNotes() {
+  return useQuery({
+    queryKey: ['contact_notes'],
+    queryFn: fetchContactNotesFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
 export function useSyncContacts() {
   const queryClient = useQueryClient();
 
@@ -571,13 +599,16 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const usersQuery = useGHLUsers();
   const conversationsQuery = useConversations();
   const tasksQuery = useTasks();
+  const contactNotesQuery = useContactNotes();
 
   const isLoading = contactsQuery.isLoading || opportunitiesQuery.isLoading || 
                     appointmentsQuery.isLoading || usersQuery.isLoading || 
-                    conversationsQuery.isLoading || tasksQuery.isLoading;
+                    conversationsQuery.isLoading || tasksQuery.isLoading ||
+                    contactNotesQuery.isLoading;
   const error = contactsQuery.error || opportunitiesQuery.error || 
                 appointmentsQuery.error || usersQuery.error || 
-                conversationsQuery.error || tasksQuery.error;
+                conversationsQuery.error || tasksQuery.error ||
+                contactNotesQuery.error;
 
   const data = contactsQuery.data && opportunitiesQuery.data && 
                appointmentsQuery.data && usersQuery.data
@@ -591,6 +622,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
         ),
         conversations: conversationsQuery.data || [],
         tasks: tasksQuery.data || [],
+        contactNotes: contactNotesQuery.data || [],
       }
     : undefined;
 
@@ -605,6 +637,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
       usersQuery.refetch();
       conversationsQuery.refetch();
       tasksQuery.refetch();
+      contactNotesQuery.refetch();
     },
   };
 }
