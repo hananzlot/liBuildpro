@@ -202,6 +202,44 @@ function processMetrics(
       })
     : appointments;
 
+  // Create lookup maps for hybrid opportunity attribution
+  // Map contact ghl_id -> contact.assigned_to
+  const contactAssignmentMap = new Map<string, string>();
+  contacts.forEach(c => {
+    if (c.ghl_id && c.assigned_to) {
+      contactAssignmentMap.set(c.ghl_id, c.assigned_to);
+    }
+  });
+
+  // Map contact_id -> appointment.assigned_user_id (first appointment found)
+  const appointmentAssignmentMap = new Map<string, string>();
+  appointments.forEach(a => {
+    if (a.contact_id && a.assigned_user_id && !appointmentAssignmentMap.has(a.contact_id)) {
+      appointmentAssignmentMap.set(a.contact_id, a.assigned_user_id);
+    }
+  });
+
+  // Helper: Get effective assignment for an opportunity using fallback chain
+  const getEffectiveAssignment = (opportunity: DBOpportunity): string | null => {
+    // Priority 1: Direct assignment on opportunity
+    if (opportunity.assigned_to) {
+      return opportunity.assigned_to;
+    }
+    // Priority 2: Assignment on the related contact
+    if (opportunity.contact_id) {
+      const contactAssignment = contactAssignmentMap.get(opportunity.contact_id);
+      if (contactAssignment) {
+        return contactAssignment;
+      }
+      // Priority 3: Assignment from appointment for this contact
+      const appointmentAssignment = appointmentAssignmentMap.get(opportunity.contact_id);
+      if (appointmentAssignment) {
+        return appointmentAssignment;
+      }
+    }
+    return null;
+  };
+
   // Group appointments by assigned user - track both ghl_id and unique contacts
   const repAppointmentsMap = new Map<string, { userGhlId: string; uniqueContactIds: Set<string> }>();
   filteredAppointments.forEach(a => {
@@ -215,14 +253,14 @@ function processMetrics(
     }
   });
   
-  // Calculate metrics per rep - opportunities based on assigned_to, not appointment contacts
+  // Calculate metrics per rep - opportunities using hybrid attribution
   const salesRepPerformance: SalesRepPerformance[] = Array.from(repAppointmentsMap.entries())
     .map(([assignedTo, { userGhlId, uniqueContactIds }]) => {
       const uniqueAppointments = uniqueContactIds.size;
       
-      // Get ALL opportunities assigned to this rep (not just those with appointments)
+      // Get opportunities using hybrid attribution chain
       const repOpportunities = filteredOpportunities.filter(o => 
-        o.assigned_to === userGhlId
+        getEffectiveAssignment(o) === userGhlId
       );
       
       const totalOpportunities = repOpportunities.length;
