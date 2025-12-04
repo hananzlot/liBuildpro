@@ -201,8 +201,7 @@ export function OpportunitySearch({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium truncate">{opp.name || "Unnamed"}</div>
-                          <div className="text-xs text-muted-foreground truncate">
+                          <div className="font-medium truncate">
                             {getAddress(opp.contact_id) || "No address"}
                           </div>
                           <div className="text-sm text-muted-foreground truncate">
