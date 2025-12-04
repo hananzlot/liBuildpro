@@ -418,9 +418,12 @@ export function OpportunityDetailSheet({
     setTaskNotes(task.notes || "");
     setTaskAssignee(task.assigned_to || "__unassigned__");
     if (task.due_date) {
-      const dueDate = new Date(task.due_date);
-      setTaskDueDate(dueDate.toISOString().split('T')[0]);
-      setTaskDueTime(dueDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+      // Convert UTC to PST for display
+      const utcDate = new Date(task.due_date);
+      const pstOffset = getPSTOffset(utcDate);
+      const pstDate = new Date(utcDate.getTime() - pstOffset * 60 * 60 * 1000);
+      setTaskDueDate(pstDate.toISOString().split('T')[0]);
+      setTaskDueTime(pstDate.toISOString().split('T')[1].substring(0, 5));
     } else {
       setTaskDueDate("");
       setTaskDueTime("09:00");
@@ -441,10 +444,10 @@ export function OpportunityDetailSheet({
       let dueDateValue: string | null = null;
       if (taskDueDate) {
         const timeStr = taskDueTime || "09:00";
-        const pstDateTimeStr = `${taskDueDate}T${timeStr}:00`;
-        const localDate = new Date(pstDateTimeStr);
-        const pstOffset = getPSTOffset(localDate);
-        const utcDate = new Date(localDate.getTime() + pstOffset * 60 * 60 * 1000);
+        // Treat input as PST: parse as UTC then add PST offset to get actual UTC
+        const pstOffset = getPSTOffset(new Date(`${taskDueDate}T12:00:00Z`));
+        const tempUtcDate = new Date(`${taskDueDate}T${timeStr}:00.000Z`);
+        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
         dueDateValue = utcDate.toISOString();
       }
 
