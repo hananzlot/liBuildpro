@@ -518,13 +518,26 @@ export function SourceDetailSheet({
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
-                        {/* Pipeline Stage and Upcoming Appointment */}
+                        {/* Pipeline Stage and Sales Rep */}
                         <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                           {opp.stage_name && (
                             <Badge variant="secondary" className="text-xs font-normal">
                               {opp.stage_name}
                             </Badge>
                           )}
+                          {(() => {
+                            const assignedUser = users.find(u => u.ghl_id === opp.assigned_to);
+                            const repName = assignedUser?.name || 
+                              (assignedUser?.first_name && assignedUser?.last_name 
+                                ? `${assignedUser.first_name} ${assignedUser.last_name}` 
+                                : assignedUser?.first_name || assignedUser?.last_name || null);
+                            return repName ? (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {repName}
+                              </span>
+                            ) : null;
+                          })()}
                           {upcomingAppt && (
                             <Badge variant="outline" className="text-xs font-normal bg-amber-500/10 text-amber-400 border-amber-500/30">
                               <Clock className="h-3 w-3 mr-1" />
@@ -533,18 +546,14 @@ export function SourceDetailSheet({
                           )}
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            <span className="truncate">{contactName}</span>
-                          </div>
                           <span className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</span>
+                          {opp.ghl_date_added && (
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {format(new Date(opp.ghl_date_added), "MMM d, yyyy")}
+                            </div>
+                          )}
                         </div>
-                        {opp.ghl_date_added && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                            <Calendar className="h-3 w-3" />
-                            {format(new Date(opp.ghl_date_added), "MMM d, yyyy")}
-                          </div>
-                        )}
                         {/* Appointments History */}
                         {contactAppointments.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-border/50">
@@ -571,18 +580,6 @@ export function SourceDetailSheet({
                             </div>
                           </div>
                         )}
-                        {/* Create Task Button */}
-                        <div className="mt-2 pt-2 border-t border-border/50">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full h-7 text-xs"
-                            onClick={(e) => openTaskDialog(opp, e)}
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Create Task
-                          </Button>
-                        </div>
                       </div>
                     );
                   })

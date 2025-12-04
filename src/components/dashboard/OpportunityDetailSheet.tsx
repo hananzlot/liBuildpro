@@ -570,6 +570,10 @@ export function OpportunityDetailSheet({
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={openTaskDialog}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Task
+                </Button>
                 {isEditing ? <div className="flex items-center gap-1">
                     <span className="text-lg font-bold text-emerald-400">$</span>
                     <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
