@@ -316,6 +316,8 @@ const Index = () => {
               <AdminCleanup 
                 opportunities={metrics?.allOpportunities || []}
                 contacts={metrics?.allContacts || []}
+                appointments={metrics?.appointments || []}
+                users={metrics?.users || []}
                 onDataUpdated={() => refetch()}
               />
             )}
