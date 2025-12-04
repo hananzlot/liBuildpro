@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, CalendarCheck, CalendarX } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import {
   Select,
@@ -106,6 +106,15 @@ export function OpportunitiesTable({
     });
     return Array.from(stages).sort();
   }, [opportunities]);
+
+  // Track which contacts have appointments (excluding cancelled)
+  const contactsWithAppointments = useMemo(() => {
+    return new Set(
+      appointments
+        .filter(a => a.contact_id && a.appointment_status?.toLowerCase() !== 'cancelled')
+        .map(a => a.contact_id)
+    );
+  }, [appointments]);
 
   const filteredAndSortedOpportunities = useMemo(() => {
     let filtered = opportunities;
@@ -287,7 +296,18 @@ export function OpportunitiesTable({
                     onClick={() => handleRowClick(opp)}
                   >
                     <TableCell className="font-medium">
-                      {opp.name || 'Unnamed'}
+                      <div className="flex items-center gap-2">
+                        {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
+                          <span title="Has appointment">
+                            <CalendarCheck className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                          </span>
+                        ) : (
+                          <span title="No appointment">
+                            <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
+                          </span>
+                        )}
+                        <span>{opp.name || 'Unnamed'}</span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {opp.pipeline_name && opp.stage_name 
