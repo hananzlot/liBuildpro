@@ -104,6 +104,15 @@ export function SalesRepDetailSheet({
     });
   };
 
+  const capitalizeWords = (str: string | null) => {
+    if (!str) return '';
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const formatCurrency = (value: number | null) => {
     if (!value) return '$0';
     return new Intl.NumberFormat('en-US', {
@@ -348,9 +357,11 @@ export function SalesRepDetailSheet({
                           }
                         }
                         
-                        const contactName = contact?.contact_name || 
+                        const contactName = capitalizeWords(
+                          contact?.contact_name || 
                           [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || 
-                          'Unknown Contact';
+                          'Unknown Contact'
+                        );
                         
                         return (
                           <div 
