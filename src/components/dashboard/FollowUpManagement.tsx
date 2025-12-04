@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2, RefreshCw, ExternalLink, CheckSquare } from "lucide-react";
+import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2, RefreshCw, ExternalLink, CheckSquare, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -120,6 +120,8 @@ export function FollowUpManagement({
   const [noTasksOpen, setNoTasksOpen] = useState(false);
   const [pastConfirmedOpen, setPastConfirmedOpen] = useState(false);
   const [tasksHelperOpen, setTasksHelperOpen] = useState(false);
+  const [closeToSaleOpen, setCloseToSaleOpen] = useState(false);
+  const [closeToSaleRepFilter, setCloseToSaleRepFilter] = useState<string>('all');
 
   // Tasks Helper State
   const [ghlTasks, setGhlTasks] = useState<GHLTask[]>([]);
@@ -514,9 +516,27 @@ export function FollowUpManagement({
       console.error('Error updating pipeline stage:', error);
       toast.error('Failed to update pipeline stage');
     } finally {
-      setUpdatingPipelineStageId(null);
+    setUpdatingPipelineStageId(null);
     }
   };
+
+  // Close to Sale Data - opportunities with pipeline stage containing "close to sale"
+  const closeToSaleData = useMemo(() => {
+    const results = opportunities.filter(o => {
+      const stageName = o.stage_name?.toLowerCase() || '';
+      return stageName.includes('close') && stageName.includes('sale') && o.status?.toLowerCase() === 'open';
+    });
+
+    // Apply rep filter
+    let filtered = results;
+    if (closeToSaleRepFilter !== 'all') {
+      filtered = results.filter(o => o.assigned_to === closeToSaleRepFilter);
+    }
+
+    // Sort by monetary value descending
+    return filtered.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
+  }, [opportunities, closeToSaleRepFilter]);
+
   const staleNotesData = useMemo(() => {
     const results: Array<{
       appointment: DBAppointment;
@@ -791,6 +811,95 @@ export function FollowUpManagement({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Close to Sale View */}
+      <Collapsible open={closeToSaleOpen} onOpenChange={setCloseToSaleOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-green-500" />
+                  </div>
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      Close to Sale
+                      <Badge variant="secondary">{closeToSaleData.length}</Badge>
+                    </CardTitle>
+                    <CardDescription>Opportunities with pipeline stage containing "close to sale"</CardDescription>
+                  </div>
+                </div>
+                {closeToSaleOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="flex items-center gap-4 mb-4">
+                <Select value={closeToSaleRepFilter} onValueChange={setCloseToSaleRepFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <User className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Filter by rep" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Reps</SelectItem>
+                    {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {closeToSaleData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No opportunities close to sale
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Opportunity</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Pipeline Stage</TableHead>
+                        <TableHead>Assigned Rep</TableHead>
+                        <TableHead>Value</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {closeToSaleData.map(opp => {
+                        const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+                        return (
+                          <TableRow 
+                            key={opp.id} 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => onOpenOpportunity(opp)}
+                          >
+                            <TableCell className="font-medium">
+                              {opp.name || 'Unnamed'}
+                            </TableCell>
+                            <TableCell>
+                              {getContactName(opp.contact_id)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/30">
+                                {opp.stage_name || 'Unknown'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{getUserName(opp.assigned_to)}</TableCell>
+                            <TableCell className="font-medium text-green-600">
+                              {formatCurrency(opp.monetary_value)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
 
       {/* Stale Notes View */}
       <Collapsible open={staleNotesOpen} onOpenChange={setStaleNotesOpen}>
