@@ -27,7 +27,12 @@ import { toast } from "sonner";
 const ADMIN_PASSWORD = "CAPro2025";
 
 const Index = () => {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - 30);
+    return { from: start, to: end };
+  });
   const [wonOpportunitiesSheetOpen, setWonOpportunitiesSheetOpen] = useState(false);
   const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);

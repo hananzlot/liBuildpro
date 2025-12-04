@@ -77,10 +77,10 @@ export function DateRangeFilter({
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => handlePreset(4)}
+          onClick={() => handlePreset(14)}
           className="text-xs"
         >
-          4D
+          14D
         </Button>
         <Button
           variant="ghost"
