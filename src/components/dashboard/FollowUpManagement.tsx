@@ -66,12 +66,13 @@ interface DBContactNote {
 }
 interface DBTask {
   id: string;
-  opportunity_id: string;
-  contact_id: string | null;
+  ghl_id: string;
+  contact_id: string;
   title: string;
-  status: string;
-  assigned_to: string | null;
+  body: string | null;
   due_date: string | null;
+  completed: boolean;
+  assigned_to: string | null;
 }
 interface GHLTask {
   id: string;
@@ -691,9 +692,10 @@ export function FollowUpManagement({
       const oppAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id && a.appointment_status?.toLowerCase() !== 'cancelled' && a.start_time && new Date(a.start_time) < now);
       if (oppAppointments.length === 0) return;
 
-      // Check if any tasks exist for this opportunity
-      const oppTasks = tasks.filter(t => t.opportunity_id === opportunity.ghl_id);
-      if (oppTasks.length > 0) return;
+      // Check if any tasks exist for this contact in ghl_tasks
+      const contactTasks = ghlTasks.filter(t => t.contact_id === opportunity.contact_id);
+      if (contactTasks.length > 0) return;
+      
       const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
       const latestAppointment = oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0];
       results.push({
@@ -724,7 +726,7 @@ export function FollowUpManagement({
       }
     });
     return filtered;
-  }, [opportunities, appointments, contacts, tasks, noTasksSort, noTasksRepFilter]);
+  }, [opportunities, appointments, contacts, ghlTasks, noTasksSort, noTasksRepFilter]);
 
   // View 3: Past Confirmed - Appointments still marked as confirmed OR pipeline stage is "appointment confirmed" and date has passed
   const pastConfirmedData = useMemo(() => {
@@ -814,13 +816,11 @@ export function FollowUpManagement({
       const latestNoteDate = getLatestNoteDate(opportunity.contact_id);
       const hasStaleOrNoNotes = contactNotesList.length === 0 || (latestNoteDate !== null && latestNoteDate < sevenDaysAgo);
       
-      // Check tasks condition - from both tasks table AND ghl_tasks
-      const oppTasks = tasks.filter(t => t.opportunity_id === opportunity.ghl_id);
+      // Check tasks condition - from ghl_tasks only
       const contactGhlTasks = ghlTasks.filter(t => t.contact_id === opportunity.contact_id && !t.completed);
-      const allRelatedTasks = [...oppTasks.map(t => ({ due_date: t.due_date })), ...contactGhlTasks.map(t => ({ due_date: t.due_date }))];
       
-      const hasNoTasks = allRelatedTasks.length === 0;
-      const overdueTasks = allRelatedTasks.filter(t => t.due_date && new Date(t.due_date) < now);
+      const hasNoTasks = contactGhlTasks.length === 0;
+      const overdueTasks = contactGhlTasks.filter(t => t.due_date && new Date(t.due_date) < now);
       const hasOverdueTasks = overdueTasks.length > 0;
       const hasExpiredOrNoTasks = hasNoTasks || hasOverdueTasks;
       

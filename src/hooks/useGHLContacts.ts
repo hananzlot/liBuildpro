@@ -81,14 +81,13 @@ interface DBConversation {
 
 interface DBTask {
   id: string;
+  ghl_id: string;
+  contact_id: string;
   title: string;
-  notes: string | null;
-  status: string;
+  body: string | null;
   due_date: string | null;
+  completed: boolean;
   assigned_to: string | null;
-  contact_id: string | null;
-  opportunity_id: string;
-  ghl_id: string | null;
   location_id: string;
   created_at: string;
   updated_at: string;
@@ -173,7 +172,7 @@ async function fetchConversationsFromDB(): Promise<DBConversation[]> {
 
 async function fetchTasksFromDB(): Promise<DBTask[]> {
   const { data, error } = await supabase
-    .from('tasks')
+    .from('ghl_tasks')
     .select('*')
     .order('due_date', { ascending: true });
   if (error) throw new Error(error.message);
@@ -609,7 +608,7 @@ export function useConversations() {
 
 export function useTasks() {
   return useQuery({
-    queryKey: ['tasks'],
+    queryKey: ['ghl_tasks'],
     queryFn: fetchTasksFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -645,7 +644,7 @@ export function useSyncContacts() {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['ghl_users'] });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['ghl_tasks'] });
       queryClient.invalidateQueries({ queryKey: ['call_logs'] });
     },
   });
