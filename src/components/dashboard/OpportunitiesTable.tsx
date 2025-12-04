@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, CalendarCheck, CalendarX } from "lucide-react";
+import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, CalendarCheck, CalendarX, User, Clock } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import {
   Select,
@@ -42,6 +42,7 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  assigned_user_id: string | null;
 }
 
 interface Contact {
@@ -116,6 +117,37 @@ export function OpportunitiesTable({
         .map(a => a.contact_id)
     );
   }, [appointments]);
+
+  // Map contact_id to appointments for quick lookup
+  const appointmentsByContact = useMemo(() => {
+    const map = new Map<string, Appointment[]>();
+    appointments
+      .filter(a => a.contact_id && a.appointment_status?.toLowerCase() !== 'cancelled')
+      .forEach(a => {
+        const existing = map.get(a.contact_id!) || [];
+        existing.push(a);
+        map.set(a.contact_id!, existing);
+      });
+    return map;
+  }, [appointments]);
+
+  // User lookup map
+  const userMap = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach(u => {
+      if (u.ghl_id) {
+        map.set(u.ghl_id, u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || u.ghl_id);
+      }
+    });
+    return map;
+  }, [users]);
+
+  const formatAppointmentDateTime = (dateString: string | null) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + 
+           ' ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  };
 
   const filteredAndSortedOpportunities = useMemo(() => {
     let filtered = opportunities;
@@ -299,56 +331,89 @@ export function OpportunitiesTable({
                     <SortIcon column="date" />
                   </div>
                 </TableHead>
+                <TableHead className="text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    Appointment
+                  </div>
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <User className="h-3.5 w-3.5" />
+                    Sales Rep
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredAndSortedOpportunities.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAndSortedOpportunities.map((opp) => (
-                  <TableRow 
-                    key={opp.ghl_id} 
-                    className="border-border/30 hover:bg-muted/30 cursor-pointer"
-                    onClick={() => handleRowClick(opp)}
-                  >
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
-                          <span title="Has appointment">
-                            <CalendarCheck className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-                          </span>
-                        ) : (
-                          <span title="No appointment">
-                            <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
-                          </span>
-                        )}
-                        <span>{opp.name || 'Unnamed'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {opp.pipeline_name && opp.stage_name 
-                        ? `${opp.pipeline_name} / ${opp.stage_name}`
-                        : opp.stage_name || opp.pipeline_name || '-'}
-                    </TableCell>
-                    <TableCell className="font-mono text-emerald-400">
-                      {formatCurrency(opp.monetary_value)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getStatusColor(opp.status)}>
-                        {opp.status || 'Unknown'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {opp.ghl_date_added
-                        ? new Date(opp.ghl_date_added).toLocaleDateString()
-                        : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredAndSortedOpportunities.map((opp) => {
+                  const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
+                  const latestAppt = oppAppointments.length > 0 
+                    ? oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0]
+                    : null;
+                  const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : null;
+                  
+                  return (
+                    <TableRow 
+                      key={opp.ghl_id} 
+                      className="border-border/30 hover:bg-muted/30 cursor-pointer"
+                      onClick={() => handleRowClick(opp)}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
+                            <span title="Has appointment">
+                              <CalendarCheck className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                            </span>
+                          ) : (
+                            <span title="No appointment">
+                              <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
+                            </span>
+                          )}
+                          <span>{opp.name || 'Unnamed'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {opp.pipeline_name && opp.stage_name 
+                          ? `${opp.pipeline_name} / ${opp.stage_name}`
+                          : opp.stage_name || opp.pipeline_name || '-'}
+                      </TableCell>
+                      <TableCell className="font-mono text-emerald-400">
+                        {formatCurrency(opp.monetary_value)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getStatusColor(opp.status)}>
+                          {opp.status || 'Unknown'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {opp.ghl_date_added
+                          ? new Date(opp.ghl_date_added).toLocaleDateString()
+                          : '-'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {latestAppt ? (
+                          <div className="flex flex-col">
+                            <span>{formatAppointmentDateTime(latestAppt.start_time)}</span>
+                            {oppAppointments.length > 1 && (
+                              <span className="text-xs text-muted-foreground/70">+{oppAppointments.length - 1} more</span>
+                            )}
+                          </div>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {salesRepName || '-'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
