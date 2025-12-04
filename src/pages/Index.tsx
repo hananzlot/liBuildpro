@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { SourceChart } from "@/components/dashboard/SourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
+import { RecentWonDeals } from "@/components/dashboard/RecentWonDeals";
 
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
 import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
@@ -261,18 +262,28 @@ const Index = () => {
               )}
             </section>
 
-            {/* Sales Rep Leaderboard */}
-            <section className="lg:w-1/2">
+            {/* Sales Rep Leaderboard & Recent Won Deals */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {isLoading ? (
-                <Skeleton className="h-[280px] rounded-2xl" />
+                <>
+                  <Skeleton className="h-[280px] rounded-2xl" />
+                  <Skeleton className="h-[280px] rounded-2xl" />
+                </>
               ) : (
-                <SalesRepLeaderboard 
-                  data={metrics?.salesRepPerformance || []}
-                  opportunities={metrics?.allOpportunities || []}
-                  appointments={metrics?.filteredAppointmentsList || []}
-                  contacts={metrics?.allContacts || []}
-                  users={metrics?.users || []}
-                />
+                <>
+                  <SalesRepLeaderboard 
+                    data={metrics?.salesRepPerformance || []}
+                    opportunities={metrics?.allOpportunities || []}
+                    appointments={metrics?.filteredAppointmentsList || []}
+                    contacts={metrics?.allContacts || []}
+                    users={metrics?.users || []}
+                  />
+                  <RecentWonDeals
+                    wonOpportunities={metrics?.wonOpportunities || []}
+                    contacts={metrics?.allContacts || []}
+                    onOpportunityClick={handleOpenOpportunity}
+                  />
+                </>
               )}
             </section>
 
