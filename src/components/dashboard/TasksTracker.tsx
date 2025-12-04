@@ -1,11 +1,15 @@
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { Check, Clock, User, Building, Phone, Mail, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, Clock, User, Building, Phone, Mail, ChevronDown, ChevronUp, Plus, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -72,6 +76,16 @@ export const TasksTracker = ({ tasks, opportunities, contacts, users, onTaskUpda
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  
+  // Task creation state
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskNotes, setTaskNotes] = useState("");
+  const [taskAssignee, setTaskAssignee] = useState("");
+  const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskDueTime, setTaskDueTime] = useState("09:00");
+  const [taskOpportunityId, setTaskOpportunityId] = useState("");
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
 
   const getOpportunity = (opportunityId: string) => {
     return opportunities.find(o => o.ghl_id === opportunityId || o.id === opportunityId);
@@ -188,10 +202,97 @@ export const TasksTracker = ({ tasks, opportunities, contacts, users, onTaskUpda
     }
   };
 
+  const openTaskDialog = () => {
+    setTaskTitle("");
+    setTaskNotes("");
+    setTaskAssignee("__unassigned__");
+    setTaskDueDate("");
+    setTaskDueTime("09:00");
+    setTaskOpportunityId("");
+    setTaskDialogOpen(true);
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskTitle.trim()) {
+      toast.error("Please enter a task title");
+      return;
+    }
+    if (!taskOpportunityId) {
+      toast.error("Please select an opportunity");
+      return;
+    }
+
+    setIsCreatingTask(true);
+    try {
+      const selectedOpp = opportunities.find(o => o.ghl_id === taskOpportunityId);
+      const contact = contacts.find(c => c.ghl_id === selectedOpp?.contact_id);
+      const locationId = (contact as any)?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
+
+      const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
+      
+      // Combine date and time, treating input as PST
+      let dueDateValue: string | null = null;
+      if (taskDueDate) {
+        const timeStr = taskDueTime || "09:00";
+        const pstOffset = getPSTOffset(new Date(`${taskDueDate}T12:00:00Z`));
+        const tempUtcDate = new Date(`${taskDueDate}T${timeStr}:00.000Z`);
+        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+        dueDateValue = utcDate.toISOString();
+      }
+
+      // Insert into Supabase
+      const { data: insertedTask, error } = await supabase.from("tasks").insert({
+        opportunity_id: taskOpportunityId,
+        contact_id: selectedOpp?.contact_id || null,
+        title: taskTitle.trim(),
+        notes: taskNotes.trim() || null,
+        assigned_to: assignedToValue,
+        due_date: dueDateValue,
+        location_id: locationId,
+        status: "pending"
+      }).select().single();
+
+      if (error) throw error;
+
+      // Sync to GHL
+      try {
+        const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
+          body: {
+            title: taskTitle.trim(),
+            body: taskNotes.trim() || null,
+            dueDate: dueDateValue,
+            assignedTo: assignedToValue,
+            contactId: selectedOpp?.contact_id,
+            supabaseTaskId: insertedTask?.id
+          }
+        });
+
+        if (ghlResponse.error) {
+          console.error('GHL sync error:', ghlResponse.error);
+          toast.success("Task created locally (GHL sync failed)");
+        } else {
+          toast.success("Task created and synced to GHL");
+        }
+      } catch (ghlError) {
+        console.error('GHL sync error:', ghlError);
+        toast.success("Task created locally (GHL sync failed)");
+      }
+
+      setTaskDialogOpen(false);
+      onTaskUpdated();
+    } catch (err) {
+      console.error("Error creating task:", err);
+      toast.error("Failed to create task");
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
+
   const pendingCount = tasks.filter(t => t.status === "pending").length;
   const completedCount = tasks.filter(t => t.status === "completed").length;
 
   return (
+    <>
     <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -202,6 +303,10 @@ export const TasksTracker = ({ tasks, opportunities, contacts, users, onTaskUpda
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Button size="sm" onClick={openTaskDialog}>
+              <Plus className="h-4 w-4 mr-1" />
+              New Task
+            </Button>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Status" />
@@ -365,5 +470,104 @@ export const TasksTracker = ({ tasks, opportunities, contacts, users, onTaskUpda
         )}
       </CardContent>
     </Card>
+
+    {/* Task Creation Dialog */}
+    <Dialog open={taskDialogOpen} onOpenChange={setTaskDialogOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Create New Task</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label htmlFor="task-opportunity">Opportunity *</Label>
+            <Select value={taskOpportunityId} onValueChange={setTaskOpportunityId}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select opportunity" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {opportunities.map(opp => {
+                  const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+                  const contactName = contact?.contact_name || `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim();
+                  return (
+                    <SelectItem key={opp.ghl_id} value={opp.ghl_id}>
+                      {opp.name || contactName || "Unnamed"}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="task-title">Title *</Label>
+            <Input
+              id="task-title"
+              value={taskTitle}
+              onChange={(e) => setTaskTitle(e.target.value)}
+              placeholder="Task title"
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="task-notes">Notes</Label>
+            <Textarea
+              id="task-notes"
+              value={taskNotes}
+              onChange={(e) => setTaskNotes(e.target.value)}
+              placeholder="Optional notes"
+              className="mt-1"
+              rows={3}
+            />
+          </div>
+          <div>
+            <Label htmlFor="task-assignee">Assignee</Label>
+            <Select value={taskAssignee} onValueChange={setTaskAssignee}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                {users.map(user => (
+                  <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                    {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || "Unknown"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="task-due-date">Due Date</Label>
+              <Input
+                id="task-due-date"
+                type="date"
+                value={taskDueDate}
+                onChange={(e) => setTaskDueDate(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="task-due-time">Time (PST)</Label>
+              <Input
+                id="task-due-time"
+                type="time"
+                value={taskDueTime}
+                onChange={(e) => setTaskDueTime(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateTask} disabled={isCreatingTask}>
+            {isCreatingTask && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Create Task
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 };
