@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListTodo } from "lucide-react";
+import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListTodo, CloudDownload } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -14,6 +14,8 @@ import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppoin
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { TasksTracker } from "@/components/dashboard/TasksTracker";
+import { GHLTasksTab } from "@/components/dashboard/GHLTasksTab";
+import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -23,8 +25,15 @@ const Index = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [wonOpportunitiesSheetOpen, setWonOpportunitiesSheetOpen] = useState(false);
   const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
+  const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   const { data: metrics, isLoading, error, refetch } = useGHLMetrics(dateRange);
   const syncMutation = useSyncContacts();
+
+  const handleOpenOpportunity = (opportunity: any) => {
+    setSelectedOpportunity(opportunity);
+    setOppDetailSheetOpen(true);
+  };
 
   const handleSync = async () => {
     toast.info("Syncing all data from GHL...");
@@ -112,6 +121,10 @@ const Index = () => {
             <TabsTrigger value="tasks" className="gap-2">
               <ListTodo className="h-4 w-4" />
               Tasks
+            </TabsTrigger>
+            <TabsTrigger value="ghl-tasks" className="gap-2">
+              <CloudDownload className="h-4 w-4" />
+              GHL Tasks
             </TabsTrigger>
             <TabsTrigger value="admin" className="gap-2">
               <Settings className="h-4 w-4" />
@@ -328,6 +341,19 @@ const Index = () => {
             )}
           </TabsContent>
 
+          <TabsContent value="ghl-tasks" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">GHL Tasks (Live)</h2>
+              <p className="text-sm text-muted-foreground">Uncompleted tasks fetched directly from GoHighLevel</p>
+            </div>
+            <GHLTasksTab 
+              opportunities={metrics?.allOpportunities || []}
+              contacts={metrics?.allContacts || []}
+              users={metrics?.users || []}
+              onOpenOpportunity={handleOpenOpportunity}
+            />
+          </TabsContent>
+
           <TabsContent value="admin" className="space-y-6">
             <div>
               <h2 className="text-xl font-semibold text-foreground mb-1">Data Cleanup</h2>
@@ -365,6 +391,17 @@ const Index = () => {
         contacts={metrics?.allContacts || []}
         opportunities={metrics?.allOpportunities || []}
         users={metrics?.users || []}
+      />
+
+      {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
+      <OpportunityDetailSheet
+        opportunity={selectedOpportunity}
+        appointments={metrics?.allAppointments || []}
+        contacts={metrics?.allContacts || []}
+        users={metrics?.users || []}
+        open={oppDetailSheetOpen}
+        onOpenChange={setOppDetailSheetOpen}
+        allOpportunities={metrics?.allOpportunities || []}
       />
     </div>
   );
