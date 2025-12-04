@@ -1037,12 +1037,18 @@ export function OpportunityDetailSheet({
 
           {/* Tasks History */}
           <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-              <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Tasks ({tasks.length})
-              </span>
-              {isLoadingTasks && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Tasks ({tasks.length})
+                </span>
+                {isLoadingTasks && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 px-2" onClick={openTaskDialog}>
+                <Plus className="h-3 w-3 mr-1" />
+                <span className="text-xs">Add Task</span>
+              </Button>
             </div>
             {tasks.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
