@@ -368,6 +368,7 @@ const Index = () => {
                 appointments={metrics?.allAppointments || []}
                 users={metrics?.users || []}
                 onDataUpdated={() => refetch()}
+                onOpenOpportunity={handleOpenOpportunity}
               />
             )}
           </TabsContent>
