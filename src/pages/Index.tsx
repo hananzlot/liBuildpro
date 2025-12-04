@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, TrendingUp, Calendar, Activity, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, CloudDownload, Lock } from "lucide-react";
+import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, CloudDownload, Lock } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -159,10 +159,10 @@ const Index = () => {
             </section>
 
             {/* Metrics Grid - Row 1: Leads */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {isLoading ? (
                 <>
-                  {[...Array(4)].map((_, i) => (
+                  {[...Array(2)].map((_, i) => (
                     <Skeleton key={i} className="h-36 rounded-2xl" />
                   ))}
                 </>
@@ -180,18 +180,6 @@ const Index = () => {
                     subtitle="New leads"
                     icon={Calendar}
                     trend={{ value: 12, isPositive: true }}
-                  />
-                  <MetricCard
-                    title="Lead Sources"
-                    value={metrics?.leadsBySource?.length || 0}
-                    subtitle="Active channels"
-                    icon={TrendingUp}
-                  />
-                  <MetricCard
-                    title="Active Reps"
-                    value={metrics?.salesRepPerformance?.length || 0}
-                    subtitle="Assigned team members"
-                    icon={Activity}
                   />
                 </>
               )}
