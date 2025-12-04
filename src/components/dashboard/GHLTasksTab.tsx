@@ -137,6 +137,13 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
   const filteredTasks = useMemo(() => {
     let filtered = tasks.filter(t => !t.completed);
     
+    // Filter out tasks where the associated opportunity is lost
+    filtered = filtered.filter(t => {
+      const opportunity = getOpportunityForContact(t.contactId);
+      if (!opportunity) return true; // Keep tasks with no opportunity
+      return opportunity.status?.toLowerCase() !== 'lost';
+    });
+    
     if (assigneeFilter !== "all") {
       filtered = filtered.filter(t => t.assignedTo === assigneeFilter);
     }
@@ -148,7 +155,7 @@ export const GHLTasksTab = ({ opportunities, contacts, users, onOpenOpportunity 
       if (!b.dueDate) return -1;
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     });
-  }, [tasks, assigneeFilter]);
+  }, [tasks, assigneeFilter, opportunities]);
 
   const handleTaskClick = (task: GHLTask) => {
     const opportunity = getOpportunityForContact(task.contactId);
