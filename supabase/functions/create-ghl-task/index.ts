@@ -43,10 +43,9 @@ serve(async (req) => {
 
     console.log(`Creating GHL task: title=${title}, contactId=${contactId}, assignedTo=${assignedTo}, dueDate=${dueDate}`);
 
-    // Build the GHL task payload
+    // Build the GHL task payload - contactId goes in URL, not body
     const ghlPayload: Record<string, string | boolean> = {
       title,
-      contactId,
       completed: false,
     };
 
