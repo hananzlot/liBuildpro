@@ -202,7 +202,15 @@ const Index = () => {
                 mode="leads"
                 dataKey="count"
                 contacts={metrics?.allContacts || []}
+                filteredContacts={metrics?.contacts || []}
                 opportunities={metrics?.allOpportunities || []}
+                filteredOpportunities={metrics?.allOpportunities?.filter(o => {
+                  if (!dateRange?.from) return true;
+                  if (!o.ghl_date_added) return false;
+                  const oppDate = new Date(o.ghl_date_added);
+                  const endDate = dateRange.to || new Date();
+                  return oppDate >= dateRange.from && oppDate <= endDate;
+                }) || []}
                 appointments={metrics?.appointments || []}
                 users={metrics?.users || []}
                 appointmentsBySource={metrics?.appointmentsBySource || []}
@@ -213,7 +221,9 @@ const Index = () => {
                 mode="won"
                 dataKey="value"
                 contacts={metrics?.allContacts || []}
+                filteredContacts={metrics?.contacts || []}
                 opportunities={metrics?.allOpportunities || []}
+                filteredOpportunities={metrics?.wonOpportunities || []}
                 appointments={metrics?.appointments || []}
                 users={metrics?.users || []}
               />

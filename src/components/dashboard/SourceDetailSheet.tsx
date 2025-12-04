@@ -81,7 +81,9 @@ interface SourceDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contacts: Contact[];
+  filteredContacts: Contact[];
   opportunities: Opportunity[];
+  filteredOpportunities: Opportunity[];
   appointments: Appointment[];
   users: GHLUser[];
 }
@@ -92,7 +94,9 @@ export function SourceDetailSheet({
   open,
   onOpenChange,
   contacts,
+  filteredContacts,
   opportunities,
+  filteredOpportunities,
   appointments,
   users,
 }: SourceDetailSheetProps) {
@@ -120,22 +124,22 @@ export function SourceDetailSheet({
     }
   };
 
-  // Get contacts for this source
+  // Get contacts for this source (use filtered contacts for leads mode)
   const sourceContacts = useMemo(() => {
-    return contacts.filter(c => (c.source || "Direct") === source);
-  }, [contacts, source]);
+    return filteredContacts.filter(c => (c.source || "Direct") === source);
+  }, [filteredContacts, source]);
 
   const sourceContactIds = useMemo(() => {
     return new Set(sourceContacts.map(c => c.ghl_id));
   }, [sourceContacts]);
 
-  // Get opportunities for this source
+  // Get opportunities for this source (use filtered opportunities)
   const sourceOpportunities = useMemo(() => {
-    return opportunities.filter(o => o.contact_id && sourceContactIds.has(o.contact_id));
-  }, [opportunities, sourceContactIds]);
+    return filteredOpportunities.filter(o => o.contact_id && sourceContactIds.has(o.contact_id));
+  }, [filteredOpportunities, sourceContactIds]);
 
-  // Filter based on mode
-  const filteredOpportunities = useMemo(() => {
+  // Filter based on mode and search
+  const displayOpportunities = useMemo(() => {
     let opps = sourceOpportunities;
     
     if (mode === "won") {
@@ -167,7 +171,7 @@ export function SourceDetailSheet({
   }, [sourceOpportunities]);
 
   // Totals
-  const totalValue = filteredOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
+  const totalValue = displayOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
   const wonValue = sourceOpportunities
     .filter(o => o.status?.toLowerCase() === "won")
     .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
@@ -194,7 +198,7 @@ export function SourceDetailSheet({
                   <SheetDescription>
                     {mode === "leads" 
                       ? `${sourceContacts.length} leads • ${sourceOpportunities.length} opportunities`
-                      : `${filteredOpportunities.length} won • ${formatCurrency(wonValue)}`
+                      : `${displayOpportunities.length} won • ${formatCurrency(wonValue)}`
                     }
                   </SheetDescription>
                 </div>
@@ -254,12 +258,12 @@ export function SourceDetailSheet({
             {/* Opportunities List */}
             <ScrollArea className="h-[calc(100vh-350px)]">
               <div className="space-y-2">
-                {filteredOpportunities.length === 0 ? (
+                {displayOpportunities.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground py-8">
                     No {mode === "won" ? "won opportunities" : "opportunities"} found
                   </p>
                 ) : (
-                  filteredOpportunities.map((opp) => {
+                  displayOpportunities.map((opp) => {
                     const contact = contacts.find(c => c.ghl_id === opp.contact_id);
                     const contactName = contact?.contact_name || 
                       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown";

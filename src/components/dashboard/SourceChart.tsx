@@ -64,7 +64,9 @@ interface SourceChartProps {
   mode: ChartMode;
   dataKey?: "count" | "value";
   contacts: Contact[];
+  filteredContacts: Contact[];
   opportunities: Opportunity[];
+  filteredOpportunities: Opportunity[];
   appointments: Appointment[];
   users: GHLUser[];
   appointmentsBySource?: SourceData[];
@@ -100,7 +102,9 @@ export function SourceChart({
   mode, 
   dataKey = "count",
   contacts,
+  filteredContacts,
   opportunities,
+  filteredOpportunities,
   appointments,
   users,
   appointmentsBySource,
@@ -203,7 +207,9 @@ export function SourceChart({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         contacts={contacts}
+        filteredContacts={filteredContacts}
         opportunities={opportunities}
+        filteredOpportunities={filteredOpportunities}
         appointments={appointments}
         users={users}
       />
