@@ -71,7 +71,6 @@ interface DBTask {
   assigned_to: string | null;
   due_date: string | null;
 }
-
 interface GHLTask {
   id: string;
   ghl_id: string;
@@ -82,7 +81,6 @@ interface GHLTask {
   contact_id: string;
   assigned_to: string | null;
 }
-
 type DueDateFilter = 'all' | 'past_due' | 'today_tomorrow' | 'after_tomorrow';
 
 // Calculate PST/PDT offset for a given UTC date
@@ -217,18 +215,17 @@ export function FollowUpManagement({
   const fetchGhlTasks = async () => {
     setIsLoadingTasks(true);
     try {
-      const { data, error } = await supabase
-        .from('ghl_tasks')
-        .select('*')
-        .eq('completed', false)
-        .order('due_date', { ascending: true });
-      
+      const {
+        data,
+        error
+      } = await supabase.from('ghl_tasks').select('*').eq('completed', false).order('due_date', {
+        ascending: true
+      });
       if (error) {
         console.error('Error fetching tasks:', error);
         toast.error('Failed to fetch tasks');
         return;
       }
-      
       setGhlTasks(data || []);
     } catch (err) {
       console.error('Failed to fetch tasks:', err);
@@ -237,7 +234,6 @@ export function FollowUpManagement({
       setIsLoadingTasks(false);
     }
   };
-
   useEffect(() => {
     fetchGhlTasks();
   }, []);
@@ -272,7 +268,6 @@ export function FollowUpManagement({
     });
     return pstDateString + " PST";
   };
-
   const isTaskOverdue = (dueDate: string | null) => {
     if (!dueDate) return false;
     return new Date(dueDate) < new Date();
@@ -281,19 +276,19 @@ export function FollowUpManagement({
   // Filter GHL tasks
   const filteredGhlTasks = useMemo(() => {
     let filtered = ghlTasks.filter(t => !t.completed);
-    
+
     // Filter out tasks where the associated opportunity is lost
     filtered = filtered.filter(t => {
       const opportunity = getOpportunityForContact(t.contact_id);
       if (!opportunity) return true;
       return opportunity.status?.toLowerCase() !== 'lost';
     });
-    
+
     // Assignee filter
     if (tasksAssigneeFilter !== "all") {
       filtered = filtered.filter(t => t.assigned_to === tasksAssigneeFilter);
     }
-    
+
     // Due date filter
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -301,7 +296,6 @@ export function FollowUpManagement({
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfterTomorrow = new Date(today);
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-
     if (tasksDueDateFilter === 'past_due') {
       filtered = filtered.filter(t => {
         if (!t.due_date) return false;
@@ -319,7 +313,7 @@ export function FollowUpManagement({
         return new Date(t.due_date) >= dayAfterTomorrow;
       });
     }
-    
+
     // Sort by due date, earliest first, nulls last
     return filtered.sort((a, b) => {
       if (!a.due_date && !b.due_date) return 0;
@@ -328,7 +322,6 @@ export function FollowUpManagement({
       return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
     });
   }, [ghlTasks, tasksAssigneeFilter, tasksDueDateFilter, opportunities]);
-
   const handleTaskClick = (task: GHLTask) => {
     const opportunity = getOpportunityForContact(task.contact_id);
     if (opportunity) {
@@ -524,7 +517,7 @@ export function FollowUpManagement({
       console.error('Error updating pipeline stage:', error);
       toast.error('Failed to update pipeline stage');
     } finally {
-    setUpdatingPipelineStageId(null);
+      setUpdatingPipelineStageId(null);
     }
   };
 
@@ -544,7 +537,6 @@ export function FollowUpManagement({
     // Sort by monetary value descending
     return filtered.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
   }, [opportunities, closeToSaleRepFilter]);
-
   const staleNotesData = useMemo(() => {
     const results: Array<{
       appointment: DBAppointment;
@@ -857,12 +849,9 @@ export function FollowUpManagement({
                 </Select>
               </div>
 
-              {closeToSaleData.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+              {closeToSaleData.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   No opportunities close to sale
-                </div>
-              ) : (
-                <div className="rounded-md border overflow-x-auto">
+                </div> : <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -875,13 +864,8 @@ export function FollowUpManagement({
                     </TableHeader>
                     <TableBody>
                       {closeToSaleData.map(opp => {
-                        const contact = contacts.find(c => c.ghl_id === opp.contact_id);
-                        return (
-                          <TableRow 
-                            key={opp.id} 
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => onOpenOpportunity(opp)}
-                          >
+                    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+                    return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
                             <TableCell className="font-medium">
                               {opp.name || 'Unnamed'}
                             </TableCell>
@@ -897,13 +881,11 @@ export function FollowUpManagement({
                             <TableCell className="font-medium text-green-600">
                               {formatCurrency(opp.monetary_value)}
                             </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                          </TableRow>;
+                  })}
                     </TableBody>
                   </Table>
-                </div>
-              )}
+                </div>}
             </CardContent>
           </CollapsibleContent>
         </Card>
@@ -1251,17 +1233,8 @@ export function FollowUpManagement({
           <CollapsibleContent>
             <CardContent>
               <div className="flex flex-wrap items-center gap-4 mb-4">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={fetchGhlTasks} 
-                  disabled={isLoadingTasks}
-                >
-                  {isLoadingTasks ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                  )}
+                <Button variant="outline" size="sm" onClick={fetchGhlTasks} disabled={isLoadingTasks}>
+                  {isLoadingTasks ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                   Refresh
                 </Button>
                 <Select value={tasksAssigneeFilter} onValueChange={setTasksAssigneeFilter}>
@@ -1271,12 +1244,10 @@ export function FollowUpManagement({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Assignees</SelectItem>
-                    {uniqueTaskAssignees.map(a => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                    ))}
+                    {uniqueTaskAssignees.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Select value={tasksDueDateFilter} onValueChange={(v) => setTasksDueDateFilter(v as DueDateFilter)}>
+                <Select value={tasksDueDateFilter} onValueChange={v => setTasksDueDateFilter(v as DueDateFilter)}>
                   <SelectTrigger className="w-[180px]">
                     <Clock className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Due Date" />
@@ -1290,39 +1261,22 @@ export function FollowUpManagement({
                 </Select>
               </div>
 
-              {isLoadingTasks && ghlTasks.length === 0 ? (
-                <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+              {isLoadingTasks && ghlTasks.length === 0 ? <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin" />
                   <span>Loading tasks from GHL...</span>
-                </div>
-              ) : filteredGhlTasks.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
+                </div> : filteredGhlTasks.length === 0 ? <div className="text-center py-8 text-muted-foreground">
                   No pending tasks found
-                </div>
-              ) : (
-                <div className="space-y-3">
+                </div> : <div className="space-y-3">
                   {filteredGhlTasks.map(task => {
-                    const overdue = isTaskOverdue(task.due_date);
-                    const contactName = getContactName(task.contact_id);
-                    const opportunity = getOpportunityForContact(task.contact_id);
-
-                    return (
-                      <div
-                        key={task.id}
-                        className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${
-                          overdue 
-                            ? "bg-destructive/5 border-destructive/30"
-                            : "bg-card border-border/50"
-                        }`}
-                        onClick={() => handleTaskClick(task)}
-                      >
+                const overdue = isTaskOverdue(task.due_date);
+                const contactName = getContactName(task.contact_id);
+                const opportunity = getOpportunityForContact(task.contact_id);
+                return <div key={task.id} className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${overdue ? "bg-destructive/5 border-destructive/30" : "bg-card border-border/50"}`} onClick={() => handleTaskClick(task)}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-medium">{task.title}</span>
-                              {overdue && (
-                                <Badge variant="destructive" className="text-xs">Overdue</Badge>
-                              )}
+                              {overdue && <Badge variant="destructive" className="text-xs">Overdue</Badge>}
                             </div>
                             <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
                               <span className="flex items-center gap-1">
@@ -1335,28 +1289,22 @@ export function FollowUpManagement({
                               </span>
                             </div>
                             <div className="mt-2 text-sm">
-                              <span className="text-muted-foreground">Contact:</span>{" "}
-                              <span className="font-medium">{contactName}</span>
-                              {opportunity && (
-                                <>
+                              <span className="text-muted-foreground">​</span>{" "}
+                              
+                              {opportunity && <>
                                   <span className="text-muted-foreground ml-3">Opp:</span>{" "}
                                   <span className="font-medium">{opportunity.name || "Unnamed"}</span>
-                                </>
-                              )}
+                                </>}
                             </div>
-                            {task.body && (
-                              <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
+                            {task.body && <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
                                 {task.body.replace(/<[^>]*>/g, '')}
-                              </p>
-                            )}
+                              </p>}
                           </div>
                           <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      </div>;
+              })}
+                </div>}
             </CardContent>
           </CollapsibleContent>
         </Card>
