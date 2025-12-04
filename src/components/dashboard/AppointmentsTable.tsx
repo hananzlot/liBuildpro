@@ -121,6 +121,12 @@ export function AppointmentsTable({
     return contact?.contact_name || `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim() || 'Unknown';
   };
 
+  const getContactPhone = (contactId: string | null): string => {
+    if (!contactId) return '-';
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    return contact?.phone || '-';
+  };
+
   // Get unique statuses and reps for filters
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set(appointments.map(a => a.appointment_status?.toLowerCase()).filter(Boolean));
@@ -256,6 +262,7 @@ export function AppointmentsTable({
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead className="text-muted-foreground">Title</TableHead>
                 <TableHead className="text-muted-foreground">Contact</TableHead>
+                <TableHead className="text-muted-foreground">Phone</TableHead>
                 <TableHead className="text-muted-foreground">Start</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-muted-foreground">Rep</TableHead>
@@ -264,7 +271,7 @@ export function AppointmentsTable({
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -285,8 +292,11 @@ export function AppointmentsTable({
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm truncate max-w-[120px]">
+                    <TableCell className="text-muted-foreground text-sm truncate max-w-[100px]">
                       {getContactName(appt.contact_id)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {getContactPhone(appt.contact_id)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {formatDateTime(appt.start_time)}
