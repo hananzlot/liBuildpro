@@ -33,6 +33,18 @@ export function DateRangeFilter({
     onDateRangeChange(undefined);
   };
 
+  const isPresetActive = (days: number) => {
+    if (!dateRange?.from || !dateRange?.to) return false;
+    const today = new Date();
+    const expectedStart = new Date();
+    expectedStart.setDate(today.getDate() - days);
+    
+    // Compare dates without time
+    const fromMatch = dateRange.from.toDateString() === expectedStart.toDateString();
+    const toMatch = dateRange.to.toDateString() === today.toDateString();
+    return fromMatch && toMatch;
+  };
+
   return (
     <div className={cn("flex items-center gap-2 flex-wrap", className)}>
       <Popover>
@@ -75,7 +87,7 @@ export function DateRangeFilter({
 
       <div className="flex gap-1">
         <Button
-          variant="ghost"
+          variant={isPresetActive(14) ? "secondary" : "ghost"}
           size="sm"
           onClick={() => handlePreset(14)}
           className="text-xs"
@@ -83,7 +95,7 @@ export function DateRangeFilter({
           14D
         </Button>
         <Button
-          variant="ghost"
+          variant={isPresetActive(7) ? "secondary" : "ghost"}
           size="sm"
           onClick={() => handlePreset(7)}
           className="text-xs"
@@ -91,7 +103,7 @@ export function DateRangeFilter({
           7D
         </Button>
         <Button
-          variant="ghost"
+          variant={isPresetActive(30) ? "secondary" : "ghost"}
           size="sm"
           onClick={() => handlePreset(30)}
           className="text-xs"
@@ -99,7 +111,7 @@ export function DateRangeFilter({
           30D
         </Button>
         <Button
-          variant="ghost"
+          variant={isPresetActive(60) ? "secondary" : "ghost"}
           size="sm"
           onClick={() => handlePreset(60)}
           className="text-xs"
@@ -107,7 +119,7 @@ export function DateRangeFilter({
           60D
         </Button>
         <Button
-          variant="ghost"
+          variant={isPresetActive(90) ? "secondary" : "ghost"}
           size="sm"
           onClick={() => handlePreset(90)}
           className="text-xs"
