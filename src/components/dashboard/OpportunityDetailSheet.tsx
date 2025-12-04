@@ -111,6 +111,28 @@ interface Task {
   created_at: string;
   ghl_id: string | null;
 }
+interface GHLTask {
+  id: string;
+  ghl_id: string;
+  contact_id: string;
+  title: string;
+  body: string | null;
+  due_date: string | null;
+  completed: boolean;
+  assigned_to: string | null;
+  created_at: string;
+}
+interface DisplayTask {
+  id: string;
+  ghl_id: string | null;
+  title: string;
+  notes: string | null;
+  status: string;
+  due_date: string | null;
+  assigned_to: string | null;
+  created_at: string;
+  source: 'app' | 'ghl';
+}
 interface OpportunityDetailSheetProps {
   opportunity: Opportunity | null;
   appointments: Appointment[];
@@ -156,7 +178,7 @@ export function OpportunityDetailSheet({
   const [isCreatingNote, setIsCreatingNote] = useState(false);
 
   // Tasks
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<DisplayTask[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
@@ -165,7 +187,7 @@ export function OpportunityDetailSheet({
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskDueTime, setTaskDueTime] = useState("09:00");
   const [isCreatingTask, setIsCreatingTask] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<DisplayTask | null>(null);
   const [isDeletingTask, setIsDeletingTask] = useState<string | null>(null);
   const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState<string | null>(null);
 
@@ -219,7 +241,7 @@ export function OpportunityDetailSheet({
           setIsLoadingNotes(false);
         }
       };
-      // Fetch tasks from Supabase and sync status from GHL
+      // Fetch tasks from both 'tasks' table and 'ghl_tasks' table
       const fetchTasks = async () => {
         setIsLoadingTasks(true);
         try {
@@ -234,18 +256,57 @@ export function OpportunityDetailSheet({
             }
           }
           
-          // Then fetch updated tasks from Supabase
-          const { data, error } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('opportunity_id', opportunity.ghl_id)
-            .order('created_at', { ascending: false });
+          // Fetch from both tables in parallel
+          const [appTasksResult, ghlTasksResult] = await Promise.all([
+            supabase
+              .from('tasks')
+              .select('*')
+              .eq('opportunity_id', opportunity.ghl_id)
+              .order('created_at', { ascending: false }),
+            supabase
+              .from('ghl_tasks')
+              .select('*')
+              .eq('contact_id', opportunity.contact_id)
+              .order('created_at', { ascending: false })
+          ]);
           
-          if (error) {
-            console.error('Error fetching tasks:', error);
-          } else if (data) {
-            setTasks(data);
-          }
+          const appTasks: DisplayTask[] = (appTasksResult.data || []).map((t: Task) => ({
+            id: t.id,
+            ghl_id: t.ghl_id,
+            title: t.title,
+            notes: t.notes,
+            status: t.status,
+            due_date: t.due_date,
+            assigned_to: t.assigned_to,
+            created_at: t.created_at,
+            source: 'app' as const
+          }));
+          
+          // Filter out GHL tasks that are already in app tasks (by ghl_id)
+          const appGhlIds = new Set(appTasks.map(t => t.ghl_id).filter(Boolean));
+          const ghlTasks: DisplayTask[] = (ghlTasksResult.data || [])
+            .filter((t: GHLTask) => !appGhlIds.has(t.ghl_id))
+            .map((t: GHLTask) => ({
+              id: t.id,
+              ghl_id: t.ghl_id,
+              title: t.title,
+              notes: t.body,
+              status: t.completed ? 'completed' : 'pending',
+              due_date: t.due_date,
+              assigned_to: t.assigned_to,
+              created_at: t.created_at,
+              source: 'ghl' as const
+            }));
+          
+          // Combine and sort by due_date (earliest first), then by created_at
+          const allTasks = [...appTasks, ...ghlTasks].sort((a, b) => {
+            if (a.due_date && b.due_date) return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+            if (a.due_date) return -1;
+            if (b.due_date) return 1;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
+          
+          setTasks(allTasks);
         } catch (err) {
           console.error('Failed to fetch tasks:', err);
         } finally {
@@ -326,6 +387,60 @@ export function OpportunityDetailSheet({
     }
   };
 
+  // Helper function to refresh tasks from both tables
+  const refreshTasksList = async () => {
+    if (!opportunity?.contact_id || !opportunity?.ghl_id) return;
+    
+    const [appTasksResult, ghlTasksResult] = await Promise.all([
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('opportunity_id', opportunity.ghl_id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('ghl_tasks')
+        .select('*')
+        .eq('contact_id', opportunity.contact_id)
+        .order('created_at', { ascending: false })
+    ]);
+    
+    const appTasks: DisplayTask[] = (appTasksResult.data || []).map((t: Task) => ({
+      id: t.id,
+      ghl_id: t.ghl_id,
+      title: t.title,
+      notes: t.notes,
+      status: t.status,
+      due_date: t.due_date,
+      assigned_to: t.assigned_to,
+      created_at: t.created_at,
+      source: 'app' as const
+    }));
+    
+    const appGhlIds = new Set(appTasks.map(t => t.ghl_id).filter(Boolean));
+    const ghlTasks: DisplayTask[] = (ghlTasksResult.data || [])
+      .filter((t: GHLTask) => !appGhlIds.has(t.ghl_id))
+      .map((t: GHLTask) => ({
+        id: t.id,
+        ghl_id: t.ghl_id,
+        title: t.title,
+        notes: t.body,
+        status: t.completed ? 'completed' : 'pending',
+        due_date: t.due_date,
+        assigned_to: t.assigned_to,
+        created_at: t.created_at,
+        source: 'ghl' as const
+      }));
+    
+    const allTasks = [...appTasks, ...ghlTasks].sort((a, b) => {
+      if (a.due_date && b.due_date) return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      if (a.due_date) return -1;
+      if (b.due_date) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    
+    setTasks(allTasks);
+  };
+
   const openTaskDialog = () => {
     const contact = contacts.find(c => c.ghl_id === opportunity?.contact_id);
     const contactName = contact?.contact_name || 
@@ -400,16 +515,8 @@ export function OpportunityDetailSheet({
         toast.success("Task created locally (GHL sync failed)");
       }
 
-      // Refresh tasks list
-      const { data: refreshedTasks } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('opportunity_id', opportunity.ghl_id)
-        .order('created_at', { ascending: false });
-      
-      if (refreshedTasks) {
-        setTasks(refreshedTasks);
-      }
+      // Refresh tasks list by refetching from both tables
+      await refreshTasksList();
 
       setTaskDialogOpen(false);
       setTaskTitle("");
@@ -425,7 +532,7 @@ export function OpportunityDetailSheet({
     }
   };
 
-  const openEditTaskDialog = (task: Task) => {
+  const openEditTaskDialog = (task: DisplayTask) => {
     setEditingTask(task);
     setTaskTitle(task.title);
     setTaskNotes(task.notes || "");
@@ -505,13 +612,7 @@ export function OpportunityDetailSheet({
       }
 
       // Refresh tasks list
-      const { data: refreshedTasks } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('opportunity_id', opportunity?.ghl_id)
-        .order('created_at', { ascending: false });
-      
-      if (refreshedTasks) setTasks(refreshedTasks);
+      await refreshTasksList();
 
       setTaskDialogOpen(false);
       setEditingTask(null);
@@ -528,36 +629,48 @@ export function OpportunityDetailSheet({
     }
   };
 
-  const handleDeleteTask = async (taskId: string) => {
-    setIsDeletingTask(taskId);
+  const handleDeleteTask = async (task: DisplayTask) => {
+    setIsDeletingTask(task.id);
     try {
-      // Find the task to get its GHL ID and contact ID
-      const taskToDelete = tasks.find(t => t.id === taskId);
-      
-      // Delete from Supabase first
-      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-      if (error) throw error;
-      
-      // Delete from GHL if we have the GHL task ID
-      if (taskToDelete?.ghl_id && opportunity?.contact_id) {
-        try {
-          const ghlResponse = await supabase.functions.invoke('delete-ghl-task', {
-            body: {
-              contactId: opportunity.contact_id,
-              taskId: taskToDelete.ghl_id
-            }
-          });
-          
-          if (ghlResponse.error) {
-            console.error('GHL delete error:', ghlResponse.error);
-            // Don't fail the whole operation, task is already deleted from Supabase
+      if (task.source === 'ghl') {
+        // Delete from ghl_tasks table
+        const { error } = await supabase.from("ghl_tasks").delete().eq("id", task.id);
+        if (error) throw error;
+        
+        // Also delete from GHL API
+        if (task.ghl_id && opportunity?.contact_id) {
+          try {
+            await supabase.functions.invoke('delete-ghl-task', {
+              body: {
+                contactId: opportunity.contact_id,
+                taskId: task.ghl_id
+              }
+            });
+          } catch (ghlErr) {
+            console.error('Failed to delete from GHL:', ghlErr);
           }
-        } catch (ghlErr) {
-          console.error('Failed to delete from GHL:', ghlErr);
+        }
+      } else {
+        // Delete from tasks table
+        const { error } = await supabase.from("tasks").delete().eq("id", task.id);
+        if (error) throw error;
+        
+        // Delete from GHL if we have the GHL task ID
+        if (task.ghl_id && opportunity?.contact_id) {
+          try {
+            await supabase.functions.invoke('delete-ghl-task', {
+              body: {
+                contactId: opportunity.contact_id,
+                taskId: task.ghl_id
+              }
+            });
+          } catch (ghlErr) {
+            console.error('Failed to delete from GHL:', ghlErr);
+          }
         }
       }
       
-      setTasks(prev => prev.filter(t => t.id !== taskId));
+      setTasks(prev => prev.filter(t => t.id !== task.id));
       toast.success("Task deleted");
     } catch (err) {
       console.error("Error deleting task:", err);
@@ -567,17 +680,28 @@ export function OpportunityDetailSheet({
     }
   };
 
-  const handleToggleTaskStatus = async (task: Task) => {
+  const handleToggleTaskStatus = async (task: DisplayTask) => {
     setIsUpdatingTaskStatus(task.id);
     const newStatus = task.status === 'completed' ? 'pending' : 'completed';
     const isCompleted = newStatus === 'completed';
     try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({ status: newStatus })
-        .eq("id", task.id);
-      
-      if (error) throw error;
+      if (task.source === 'ghl') {
+        // Update ghl_tasks table
+        const { error } = await supabase
+          .from("ghl_tasks")
+          .update({ completed: isCompleted })
+          .eq("id", task.id);
+        
+        if (error) throw error;
+      } else {
+        // Update tasks table
+        const { error } = await supabase
+          .from("tasks")
+          .update({ status: newStatus })
+          .eq("id", task.id);
+        
+        if (error) throw error;
+      }
       
       // Sync completion status to GHL
       if (task.ghl_id && opportunity?.contact_id) {
@@ -1120,7 +1244,7 @@ export function OpportunityDetailSheet({
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteTask(task.id)}
+                            onClick={() => handleDeleteTask(task)}
                             disabled={isDeletingTask === task.id}
                           >
                             {isDeletingTask === task.id ? (
