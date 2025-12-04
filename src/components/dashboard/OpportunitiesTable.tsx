@@ -112,7 +112,7 @@ export function OpportunitiesTable({
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead className="text-muted-foreground">Name</TableHead>
-                <TableHead className="text-muted-foreground">Stage</TableHead>
+                <TableHead className="text-muted-foreground">Pipeline/Stage</TableHead>
                 <TableHead className="text-muted-foreground">Value</TableHead>
                 <TableHead className="text-muted-foreground">Status</TableHead>
                 <TableHead className="text-muted-foreground">Date</TableHead>
@@ -136,7 +136,9 @@ export function OpportunitiesTable({
                       {opp.name || 'Unnamed'}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {opp.stage_name || '-'}
+                      {opp.pipeline_name && opp.stage_name 
+                        ? `${opp.pipeline_name} / ${opp.stage_name}`
+                        : opp.stage_name || opp.pipeline_name || '-'}
                     </TableCell>
                     <TableCell className="font-mono text-emerald-400">
                       {formatCurrency(opp.monetary_value)}
