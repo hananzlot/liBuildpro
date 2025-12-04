@@ -420,10 +420,7 @@ export function OpportunityDetailSheet({
           {/* Contact Section - Now at the top with opportunity value */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-              <div className="flex items-center gap-2">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact</span>
-              </div>
+              <span className="font-bold capitalize">{opportunity.name?.toLowerCase() || 'Unnamed Opportunity'}</span>
               {isEditing ? (
                 <div className="flex items-center gap-1">
                   <span className="text-lg font-bold text-emerald-400">$</span>
