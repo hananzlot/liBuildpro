@@ -233,6 +233,7 @@ function processMetrics(
   wonBySource: { source: string; count: number; value: number }[];
   appointmentsBySource: { source: string; count: number }[];
   opportunitiesBySource: { source: string; count: number }[];
+  oppsWithoutAppointmentsBySource: { source: string; count: number }[];
 } {
   const filteredContacts = filterByDateRange(contacts, dateRange);
   
@@ -464,6 +465,31 @@ function processMetrics(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
+  // Build set of contact IDs that have appointments (non-cancelled)
+  const contactIdsWithAppointments = new Set<string>();
+  filteredAppointments
+    .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled')
+    .forEach(a => {
+      if (a.contact_id) contactIdsWithAppointments.add(a.contact_id);
+    });
+
+  // Opportunities WITHOUT appointments by source
+  const oppsWithoutAppointmentsBySourceMap = new Map<string, number>();
+  filteredOpportunities
+    .filter(o => o.stage_name?.toLowerCase() !== 'quickbase')
+    .filter(o => o.contact_id && !contactIdsWithAppointments.has(o.contact_id))
+    .forEach(o => {
+      if (o.contact_id) {
+        const source = contactSourceMap.get(o.contact_id) || 'Direct';
+        oppsWithoutAppointmentsBySourceMap.set(source, (oppsWithoutAppointmentsBySourceMap.get(source) || 0) + 1);
+      }
+    });
+  
+  const oppsWithoutAppointmentsBySource = Array.from(oppsWithoutAppointmentsBySourceMap.entries())
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
   // Appointments metrics
   const upcomingAppointments = appointments.filter(a => {
     if (!a.start_time) return false;
@@ -511,6 +537,7 @@ function processMetrics(
     wonBySource,
     appointmentsBySource,
     opportunitiesBySource,
+    oppsWithoutAppointmentsBySource,
   };
 }
 
