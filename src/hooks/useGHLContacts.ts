@@ -190,21 +190,65 @@ function processMetrics(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // Group by assigned rep with name resolution
-  const repMap = new Map<string, number>();
-  filteredContacts.forEach(c => {
+  // Filter appointments by date range (using start_time)
+  const filteredAppointments = dateRange?.from 
+    ? appointments.filter(a => {
+        if (!a.start_time) return false;
+        const startTime = new Date(a.start_time);
+        const startDate = dateRange.from!;
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return startTime >= startDate && startTime <= endDate;
+      })
+    : appointments;
+
+  // Get unique contact IDs from filtered appointments
+  const contactIdsFromAppointments = new Set(
+    filteredAppointments
+      .map(a => a.contact_id)
+      .filter((id): id is string => !!id)
+  );
+
+  // Get contacts that have appointments in the date range
+  const contactsWithAppointments = contacts.filter(c => 
+    contactIdsFromAppointments.has(c.ghl_id)
+  );
+
+  // Group contacts by assigned rep
+  const repContactsMap = new Map<string, DBContact[]>();
+  contactsWithAppointments.forEach(c => {
     if (c.assigned_to) {
       const repName = userMap.get(c.assigned_to) || c.assigned_to;
-      repMap.set(repName, (repMap.get(repName) || 0) + 1);
+      const existing = repContactsMap.get(repName) || [];
+      existing.push(c);
+      repContactsMap.set(repName, existing);
     }
   });
 
-  const salesRepPerformance: SalesRepPerformance[] = Array.from(repMap.entries())
-    .map(([assignedTo, totalLeads]) => ({
-      assignedTo,
-      totalLeads,
-      conversionRate: Math.random() * 30 + 10,
-    }))
+  // Calculate conversion rate per rep based on their contacts' opportunities
+  const salesRepPerformance: SalesRepPerformance[] = Array.from(repContactsMap.entries())
+    .map(([assignedTo, repContacts]) => {
+      const repContactIds = new Set(repContacts.map(c => c.ghl_id));
+      
+      // Get opportunities for this rep's contacts
+      const repOpportunities = opportunities.filter(o => 
+        o.contact_id && repContactIds.has(o.contact_id)
+      );
+      
+      const totalOpps = repOpportunities.length;
+      const wonOpps = repOpportunities.filter(o => 
+        o.status?.toLowerCase() === 'won'
+      ).length;
+      
+      // Conversion rate = won / total (as percentage)
+      const conversionRate = totalOpps > 0 ? (wonOpps / totalOpps) * 100 : 0;
+
+      return {
+        assignedTo,
+        totalLeads: repContacts.length,
+        conversionRate,
+      };
+    })
     .sort((a, b) => b.totalLeads - a.totalLeads);
 
   // Recent leads with resolved names
