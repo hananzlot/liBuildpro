@@ -24,13 +24,13 @@ serve(async (req) => {
       throw new Error('Missing Supabase credentials');
     }
 
-    const { ghl_id, status, stage_name, pipeline_stage_id, monetary_value } = await req.json();
+    const { ghl_id, status, stage_name, pipeline_stage_id, monetary_value, assigned_to } = await req.json();
 
     if (!ghl_id) {
       throw new Error('Missing ghl_id');
     }
 
-    console.log(`Updating opportunity ${ghl_id}: status=${status}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}`);
+    console.log(`Updating opportunity ${ghl_id}: status=${status}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
 
     // Build the update payload for GHL
     const ghlPayload: Record<string, string | number> = {};
@@ -45,6 +45,10 @@ serve(async (req) => {
 
     if (monetary_value !== undefined && monetary_value !== null) {
       ghlPayload.monetaryValue = Number(monetary_value);
+    }
+
+    if (assigned_to) {
+      ghlPayload.assignedTo = assigned_to;
     }
 
     // Update GHL first
@@ -82,6 +86,9 @@ serve(async (req) => {
     }
     if (monetary_value !== undefined && monetary_value !== null) {
       supabaseUpdate.monetary_value = Number(monetary_value);
+    }
+    if (assigned_to) {
+      supabaseUpdate.assigned_to = assigned_to;
     }
 
     const { error: supabaseError } = await supabase

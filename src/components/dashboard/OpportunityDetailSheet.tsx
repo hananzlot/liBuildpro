@@ -103,6 +103,7 @@ export function OpportunityDetailSheet({
   const [editedStatus, setEditedStatus] = useState<string>("");
   const [editedStage, setEditedStage] = useState<string>("");
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
+  const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
 
   // Get unique pipeline stages from all opportunities with their stage IDs
   const stageMap = new Map<string, string>();
@@ -117,6 +118,7 @@ export function OpportunityDetailSheet({
     setEditedStatus(opportunity?.status?.toLowerCase() || "open");
     setEditedStage(opportunity?.stage_name || "");
     setEditedMonetaryValue(opportunity?.monetary_value?.toString() || "0");
+    setEditedAssignedTo(opportunity?.assigned_to || "");
     setIsEditing(true);
   };
 
@@ -125,6 +127,7 @@ export function OpportunityDetailSheet({
     setEditedStatus("");
     setEditedStage("");
     setEditedMonetaryValue("");
+    setEditedAssignedTo("");
   };
 
   const handleSave = async () => {
@@ -144,6 +147,7 @@ export function OpportunityDetailSheet({
           stage_name: editedStage,
           pipeline_stage_id: pipeline_stage_id,
           monetary_value: monetaryValue,
+          assigned_to: editedAssignedTo || null,
         },
       });
 
@@ -328,7 +332,29 @@ export function OpportunityDetailSheet({
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
-              <div className="font-medium truncate">{userName}</div>
+              {isEditing ? (
+                <Select value={editedAssignedTo} onValueChange={setEditedAssignedTo}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue placeholder="Select rep" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="" className="text-xs">Unassigned</SelectItem>
+                    {users.map(user => {
+                      const name = user.name || 
+                        (user.first_name && user.last_name 
+                          ? `${user.first_name} ${user.last_name}` 
+                          : user.first_name || user.last_name || user.email || 'Unknown');
+                      return (
+                        <SelectItem key={user.ghl_id} value={user.ghl_id} className="text-xs">
+                          {name}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="font-medium truncate">{userName}</div>
+              )}
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
