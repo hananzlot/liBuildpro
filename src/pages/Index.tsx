@@ -158,31 +158,23 @@ const Index = () => {
               )}
             </section>
 
-            {/* Metrics Grid - Row 1: Leads */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {isLoading ? (
-                <Skeleton className="h-36 rounded-2xl" />
-              ) : (
-                <MetricCard
-                  title="This Month"
-                  value={metrics?.leadsThisMonth || 0}
-                  subtitle="New leads"
-                  icon={Calendar}
-                  trend={{ value: 12, isPositive: true }}
-                />
-              )}
-            </section>
-
-            {/* Metrics Grid - Row 2: Opportunities & Appointments */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Metrics Grid */}
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {isLoading ? (
                 <>
-                  {[...Array(4)].map((_, i) => (
+                  {[...Array(5)].map((_, i) => (
                     <Skeleton key={i} className="h-36 rounded-2xl" />
                   ))}
                 </>
               ) : (
                 <>
+                  <MetricCard
+                    title="This Month"
+                    value={metrics?.leadsThisMonth || 0}
+                    subtitle="New leads"
+                    icon={Calendar}
+                    trend={{ value: 12, isPositive: true }}
+                  />
                   <MetricCard
                     title="Opportunities"
                     value={metrics?.totalOpportunities || 0}
