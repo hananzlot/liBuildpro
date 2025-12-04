@@ -175,8 +175,9 @@ const Index = () => {
               />
               <MetricCard
                 title="Upcoming"
-                value={metrics?.upcomingAppointments || 0}
-                subtitle="Future appointments"
+                value={metrics?.upcomingNextWeek || 0}
+                secondaryValue={`${metrics?.upcomingAppointments || 0} total`}
+                subtitle="Next 7 days"
                 icon={Calendar}
               />
             </>
