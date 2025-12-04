@@ -285,12 +285,12 @@ export function OpportunitiesTable({
   return (
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-        <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardHeader className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Recent Opportunities</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Select value={appointmentFilter} onValueChange={(v) => handleFilterChange('appointment', v)}>
               <SelectTrigger className="w-[180px] bg-background border-border">
                 <SelectValue placeholder="Filter by appointment" />
