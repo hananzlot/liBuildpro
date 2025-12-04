@@ -502,11 +502,11 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
                     const selectedStatus = selectedApptStatuses[apt.id] || '';
                     return (
                       <TableRow key={apt.id} className="cursor-pointer hover:bg-muted/50" onClick={(e) => handleRowClick(apt, e)}>
-                        <TableCell className="font-medium max-w-[180px]">
-                          <div className="flex items-center gap-2">
-                            <div>
+                        <TableCell className="font-medium max-w-[180px] min-w-[120px]">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <div className="overflow-hidden flex-1 min-w-0">
                               <div className="truncate">{apt.title || 'Untitled'}</div>
-                              <div className="text-xs text-muted-foreground">{getUserName(apt.assigned_user_id)}</div>
+                              <div className="text-xs text-muted-foreground truncate">{getUserName(apt.assigned_user_id)}</div>
                             </div>
                             <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
                           </div>
