@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -9,8 +9,15 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign } from "lucide-react";
+import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Opportunity {
   ghl_id: string;
@@ -63,6 +70,9 @@ interface OpportunitiesTableProps {
   users?: GHLUser[];
 }
 
+type SortColumn = "name" | "stage" | "value" | "status" | "date";
+type SortDirection = "asc" | "desc";
+
 export function OpportunitiesTable({ 
   opportunities, 
   appointments = [], 
@@ -71,6 +81,59 @@ export function OpportunitiesTable({
 }: OpportunitiesTableProps) {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("stage");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const uniqueStages = useMemo(() => {
+    const stages = new Set<string>();
+    opportunities.forEach(opp => {
+      if (opp.stage_name) stages.add(opp.stage_name);
+    });
+    return Array.from(stages).sort();
+  }, [opportunities]);
+
+  const filteredAndSortedOpportunities = useMemo(() => {
+    let filtered = opportunities;
+    
+    // Apply stage filter
+    if (stageFilter !== "all") {
+      filtered = filtered.filter(opp => opp.stage_name === stageFilter);
+    }
+
+    // Sort opportunities
+    return [...filtered].sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortColumn) {
+        case "name":
+          comparison = (a.name || "").localeCompare(b.name || "");
+          break;
+        case "stage":
+          comparison = (a.stage_name || "").localeCompare(b.stage_name || "");
+          // Secondary sort by date descending when sorting by stage
+          if (comparison === 0) {
+            const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
+            const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
+            return dateB - dateA; // Always descending for secondary date sort
+          }
+          break;
+        case "value":
+          comparison = (a.monetary_value || 0) - (b.monetary_value || 0);
+          break;
+        case "status":
+          comparison = (a.status || "").localeCompare(b.status || "");
+          break;
+        case "date":
+          const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
+          const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+      }
+      
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [opportunities, stageFilter, sortColumn, sortDirection]);
 
   const formatCurrency = (value: number | null) => {
     if (!value) return '-';
@@ -100,33 +163,104 @@ export function OpportunitiesTable({
     setSheetOpen(true);
   };
 
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === "date" || column === "value" ? "desc" : "asc");
+    }
+  };
+
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="h-4 w-4 ml-1" />
+      : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
   return (
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
-        <CardHeader className="flex flex-row items-center gap-2">
-          <DollarSign className="h-5 w-5 text-primary" />
-          <CardTitle className="text-lg">Recent Opportunities</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">Recent Opportunities</CardTitle>
+          </div>
+          <Select value={stageFilter} onValueChange={setStageFilter}>
+            <SelectTrigger className="w-[180px] bg-background border-border">
+              <SelectValue placeholder="Filter by stage" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border">
+              <SelectItem value="all">All Stages</SelectItem>
+              {uniqueStages.map(stage => (
+                <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
-                <TableHead className="text-muted-foreground">Name</TableHead>
-                <TableHead className="text-muted-foreground">Pipeline/Stage</TableHead>
-                <TableHead className="text-muted-foreground">Value</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-muted-foreground">Date</TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort("name")}
+                >
+                  <div className="flex items-center">
+                    Name
+                    <SortIcon column="name" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort("stage")}
+                >
+                  <div className="flex items-center">
+                    Pipeline/Stage
+                    <SortIcon column="stage" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort("value")}
+                >
+                  <div className="flex items-center">
+                    Value
+                    <SortIcon column="value" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort("status")}
+                >
+                  <div className="flex items-center">
+                    Status
+                    <SortIcon column="status" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort("date")}
+                >
+                  <div className="flex items-center">
+                    Date
+                    <SortIcon column="date" />
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {opportunities.length === 0 ? (
+              {filteredAndSortedOpportunities.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
               ) : (
-                opportunities.map((opp) => (
+                filteredAndSortedOpportunities.map((opp) => (
                   <TableRow 
                     key={opp.ghl_id} 
                     className="border-border/30 hover:bg-muted/30 cursor-pointer"
