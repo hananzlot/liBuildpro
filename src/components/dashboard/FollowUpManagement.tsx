@@ -18,7 +18,9 @@ interface DBOpportunity {
   id: string;
   ghl_id: string;
   contact_id: string | null;
+  pipeline_id: string | null;
   pipeline_name: string | null;
+  pipeline_stage_id: string | null;
   stage_name: string | null;
   name: string | null;
   monetary_value: number | null;
@@ -141,6 +143,7 @@ export function FollowUpManagement({
 
   // Appointment Status Update State
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
+  const [updatingPipelineStageId, setUpdatingPipelineStageId] = useState<string | null>(null);
 
   // Helper functions
   const getUserName = (userId: string | null): string => {
@@ -327,7 +330,55 @@ export function FollowUpManagement({
     }
   };
 
-  // View 1: Stale Notes - Appointments where last note is before appointment date
+  // Build stage map for pipeline stage dropdown
+  const stageMap = useMemo(() => {
+    const map = new Map<string, { stageId: string; pipelineId: string }>();
+    opportunities.forEach(o => {
+      if (o.stage_name && o.pipeline_stage_id && o.pipeline_id) {
+        map.set(o.stage_name, { stageId: o.pipeline_stage_id, pipelineId: o.pipeline_id });
+      }
+    });
+    return map;
+  }, [opportunities]);
+
+  const availableStages = useMemo(() => {
+    return Array.from(stageMap.keys()).sort();
+  }, [stageMap]);
+
+  const handleUpdatePipelineStage = async (opportunity: DBOpportunity, newStageName: string) => {
+    if (!opportunity) return;
+    
+    const stageInfo = stageMap.get(newStageName);
+    if (!stageInfo) {
+      toast.error('Invalid stage selected');
+      return;
+    }
+
+    setUpdatingPipelineStageId(opportunity.ghl_id);
+    try {
+      const { data, error } = await supabase.functions.invoke('update-ghl-opportunity', {
+        body: {
+          ghl_id: opportunity.ghl_id,
+          status: opportunity.status,
+          stage_name: newStageName,
+          pipeline_stage_id: stageInfo.stageId,
+          monetary_value: opportunity.monetary_value,
+          assigned_to: opportunity.assigned_to,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success(`Pipeline stage updated to "${newStageName}"`);
+      onDataRefresh?.();
+    } catch (error) {
+      console.error('Error updating pipeline stage:', error);
+      toast.error('Failed to update pipeline stage');
+    } finally {
+      setUpdatingPipelineStageId(null);
+    }
+  };
   const staleNotesData = useMemo(() => {
     const results: Array<{
       appointment: DBAppointment;
@@ -463,7 +514,7 @@ export function FollowUpManagement({
     return filtered;
   }, [opportunities, appointments, contacts, tasks, noTasksSort, noTasksRepFilter]);
 
-  // View 3: Past Confirmed - Appointments still marked as confirmed but date has passed
+  // View 3: Past Confirmed - Appointments still marked as confirmed OR pipeline stage is "appointment confirmed" and date has passed
   const pastConfirmedData = useMemo(() => {
     const now = new Date();
     const results: Array<{
@@ -477,13 +528,20 @@ export function FollowUpManagement({
       if (!appointment.start_time) return;
       
       const appointmentDate = new Date(appointment.start_time);
-      const status = appointment.appointment_status?.toLowerCase();
+      if (appointmentDate >= now) return; // Only past appointments
       
-      // Only include if status is "confirmed" and date is in the past
-      if (status === 'confirmed' && appointmentDate < now) {
-        const opportunity = appointment.contact_id 
-          ? opportunities.find(o => o.contact_id === appointment.contact_id)
-          : undefined;
+      const appointmentStatus = appointment.appointment_status?.toLowerCase();
+      const opportunity = appointment.contact_id 
+        ? opportunities.find(o => o.contact_id === appointment.contact_id)
+        : undefined;
+      
+      const pipelineStage = opportunity?.stage_name?.toLowerCase();
+      
+      // Include if: appointment status is "confirmed" OR pipeline stage is "appointment confirmed"
+      const isAppointmentConfirmed = appointmentStatus === 'confirmed';
+      const isPipelineStageAppointmentConfirmed = pipelineStage === 'appointment confirmed';
+      
+      if (isAppointmentConfirmed || isPipelineStageAppointmentConfirmed) {
         const contact = appointment.contact_id
           ? contacts.find(c => c.ghl_id === appointment.contact_id)
           : undefined;
@@ -925,7 +983,7 @@ export function FollowUpManagement({
                       Past Confirmed Appointments
                       <Badge variant="secondary">{pastConfirmedData.length}</Badge>
                     </CardTitle>
-                    <CardDescription>Appointments still marked as "Confirmed" but date has already passed</CardDescription>
+                    <CardDescription>Past appointments still marked as "Confirmed" or with pipeline stage "Appointment Confirmed"</CardDescription>
                   </div>
                 </div>
                 {pastConfirmedOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -951,7 +1009,7 @@ export function FollowUpManagement({
 
               {pastConfirmedData.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No past appointments still marked as confirmed
+                  No past appointments requiring status or stage update
                 </div>
               ) : (
                 <div className="rounded-md border overflow-x-auto">
@@ -972,6 +1030,7 @@ export function FollowUpManagement({
                         <TableHead>Days Past</TableHead>
                         <TableHead>Assigned Rep</TableHead>
                         <TableHead>Opportunity</TableHead>
+                        <TableHead>Pipeline Stage</TableHead>
                         <TableHead>Update Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1005,6 +1064,33 @@ export function FollowUpManagement({
                               <Badge variant="outline">{row.opportunity.name || 'Unnamed'}</Badge>
                             ) : (
                               <span className="text-muted-foreground">No opportunity</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {row.opportunity ? (
+                              <Select
+                                value=""
+                                onValueChange={(value) => handleUpdatePipelineStage(row.opportunity!, value)}
+                                disabled={updatingPipelineStageId === row.opportunity.ghl_id}
+                              >
+                                <SelectTrigger 
+                                  className="w-[160px]"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {updatingPipelineStageId === row.opportunity.ghl_id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <SelectValue placeholder={row.opportunity.stage_name || 'Set stage'} />
+                                  )}
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableStages.map(stage => (
+                                    <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
                             )}
                           </TableCell>
                           <TableCell>
