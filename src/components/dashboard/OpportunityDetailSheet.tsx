@@ -155,6 +155,16 @@ export function OpportunityDetailSheet({
   const [editedPipeline, setEditedPipeline] = useState<string>("");
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
   const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
+  
+  // Track saved values to display immediately after save (before query refresh)
+  const [savedValues, setSavedValues] = useState<{
+    status?: string;
+    stage_name?: string;
+    pipeline_name?: string;
+    pipeline_id?: string;
+    monetary_value?: number;
+    assigned_to?: string | null;
+  }>({});
 
   // Real-time conversation fetching
   const [liveConversations, setLiveConversations] = useState<Conversation[]>([]);
@@ -196,6 +206,13 @@ export function OpportunityDetailSheet({
   // Delete state
   const [isDeletingOpportunity, setIsDeletingOpportunity] = useState(false);
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
+
+  // Reset saved values when sheet opens or opportunity changes
+  useEffect(() => {
+    if (open) {
+      setSavedValues({});
+    }
+  }, [open, opportunity?.ghl_id]);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -893,6 +910,17 @@ export function OpportunityDetailSheet({
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      
+      // Store saved values to display immediately (before query refresh)
+      setSavedValues({
+        status: editedStatus,
+        stage_name: editedStage,
+        pipeline_name: pipeline_name,
+        pipeline_id: editedPipeline,
+        monetary_value: monetaryValue,
+        assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo
+      });
+      
       toast.success("Opportunity updated in GHL and database");
       setIsEditing(false);
 
@@ -1005,7 +1033,8 @@ export function OpportunityDetailSheet({
   };
   const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
   const relatedAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id);
-  const assignedUser = users.find(u => u.ghl_id === opportunity.assigned_to);
+  const effectiveAssignedTo = savedValues.assigned_to !== undefined ? savedValues.assigned_to : opportunity.assigned_to;
+  const assignedUser = users.find(u => u.ghl_id === effectiveAssignedTo);
   const contactName = contact?.contact_name || (contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}` : contact?.first_name || contact?.last_name || 'Unknown');
   const userName = assignedUser?.name || (assignedUser?.first_name && assignedUser?.last_name ? `${assignedUser.first_name} ${assignedUser.last_name}` : 'Unassigned');
   const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
@@ -1084,7 +1113,7 @@ export function OpportunityDetailSheet({
                     <span className="text-lg font-bold text-emerald-400">$</span>
                     <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
                   </div> : <div className="text-lg font-bold text-emerald-400">
-                    {formatCurrency(opportunity.monetary_value)}
+                    {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
                   </div>}
               </div>
             </div>
@@ -1136,7 +1165,7 @@ export function OpportunityDetailSheet({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="font-medium truncate">{opportunity.pipeline_name || '-'}</div>
+                <div className="font-medium truncate">{savedValues.pipeline_name ?? opportunity.pipeline_name ?? '-'}</div>
               )}
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
@@ -1150,7 +1179,7 @@ export function OpportunityDetailSheet({
                         {stage}
                       </SelectItem>)}
                   </SelectContent>
-                </Select> : <div className="font-medium truncate">{opportunity.stage_name || '-'}</div>}
+                </Select> : <div className="font-medium truncate">{savedValues.stage_name ?? opportunity.stage_name ?? '-'}</div>}
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Status</div>
@@ -1163,8 +1192,8 @@ export function OpportunityDetailSheet({
                         {status}
                       </SelectItem>)}
                   </SelectContent>
-                </Select> : <Badge variant="outline" className={`text-xs ${getStatusColor(opportunity.status)}`}>
-                  {opportunity.status || 'Unknown'}
+                </Select> : <Badge variant="outline" className={`text-xs ${getStatusColor(savedValues.status ?? opportunity.status)}`}>
+                  {savedValues.status ?? opportunity.status ?? 'Unknown'}
                 </Badge>}
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
