@@ -236,6 +236,7 @@ function processMetrics(
   totalPipelineValue: number;
   totalAppointments: number;
   cancelledAppointments: number;
+  appointmentsToday: number;
   upcomingAppointments: number;
   upcomingNextWeek: number;
   opportunities: DBOpportunity[];
@@ -512,18 +513,32 @@ function processMetrics(
     .slice(0, 10);
 
   // Appointments metrics
+  // Start of today (midnight)
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  // Start of tomorrow (midnight)
+  const startOfTomorrow = new Date(startOfToday);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  
+  // All appointments today (regardless of time - includes past ones)
+  const appointmentsToday = appointments.filter(a => {
+    if (!a.start_time) return false;
+    const startTime = new Date(a.start_time);
+    return startTime >= startOfToday && startTime < startOfTomorrow;
+  }).length;
+  
+  // Upcoming appointments (after today)
   const upcomingAppointments = appointments.filter(a => {
     if (!a.start_time) return false;
-    return new Date(a.start_time) > now;
+    return new Date(a.start_time) >= startOfTomorrow;
   }).length;
 
-  // Upcoming next week
-  const nextWeekEnd = new Date(now);
+  // Upcoming next week (excluding today)
+  const nextWeekEnd = new Date(startOfTomorrow);
   nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
   const upcomingNextWeek = appointments.filter(a => {
     if (!a.start_time) return false;
     const startTime = new Date(a.start_time);
-    return startTime > now && startTime <= nextWeekEnd;
+    return startTime >= startOfTomorrow && startTime <= nextWeekEnd;
   }).length;
 
   return {
@@ -536,6 +551,7 @@ function processMetrics(
     totalPipelineValue,
     totalAppointments: filteredAppointments.length,
     cancelledAppointments: filteredAppointments.filter(a => a.appointment_status?.toLowerCase() === 'cancelled').length,
+    appointmentsToday,
     upcomingAppointments,
     upcomingNextWeek,
     opportunities: filteredOpportunities,

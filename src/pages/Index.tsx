@@ -197,7 +197,7 @@ const Index = () => {
                     </div>
                     <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
                   </div>
-                  <ClickableMetricCard title="Upcoming" value={metrics?.upcomingNextWeek || 0} secondaryValue={`/ ${metrics?.upcomingAppointments || 0} total`} subtitle="Next 7 days" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} />
+                  <ClickableMetricCard title="Appointments" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
                 </>}
             </section>
