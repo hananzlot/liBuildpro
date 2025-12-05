@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MultiSelectFilter } from "./MultiSelectFilter";
 
 interface Opportunity {
   ghl_id: string;
@@ -101,9 +102,9 @@ export function OpportunitiesTable({
 }: OpportunitiesTableProps) {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [stageFilter, setStageFilter] = useState<string[]>([]);
   const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
-  const [salesRepFilter, setSalesRepFilter] = useState<string>("all");
+  const [salesRepFilter, setSalesRepFilter] = useState<string[]>([]);
   const [sortColumn, setSortColumn] = useState<SortColumn>("stage");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -116,6 +117,11 @@ export function OpportunitiesTable({
     return Array.from(stages).sort();
   }, [opportunities]);
 
+  // Format stages for multi-select
+  const stageOptions = useMemo(() => {
+    return uniqueStages.map(stage => ({ value: stage, label: stage }));
+  }, [uniqueStages]);
+
   // Get unique sales reps from users
   const uniqueSalesReps = useMemo(() => {
     return users
@@ -125,6 +131,11 @@ export function OpportunitiesTable({
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [users]);
+
+  // Format sales reps for multi-select
+  const salesRepOptions = useMemo(() => {
+    return uniqueSalesReps.map(rep => ({ value: rep.ghl_id, label: rep.name }));
+  }, [uniqueSalesReps]);
 
   // Track which contacts have appointments (excluding cancelled)
   const contactsWithAppointments = useMemo(() => {
@@ -180,9 +191,9 @@ export function OpportunitiesTable({
   const filteredAndSortedOpportunities = useMemo(() => {
     let filtered = opportunities;
     
-    // Apply stage filter
-    if (stageFilter !== "all") {
-      filtered = filtered.filter(opp => opp.stage_name === stageFilter);
+    // Apply stage filter (multi-select)
+    if (stageFilter.length > 0) {
+      filtered = filtered.filter(opp => opp.stage_name && stageFilter.includes(opp.stage_name));
     }
 
     // Apply appointment filter
@@ -192,17 +203,17 @@ export function OpportunitiesTable({
       filtered = filtered.filter(opp => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
     }
 
-    // Apply sales rep filter
-    if (salesRepFilter !== "all") {
+    // Apply sales rep filter (multi-select)
+    if (salesRepFilter.length > 0) {
       filtered = filtered.filter(opp => {
         // Check opportunity assigned_to
-        if (opp.assigned_to === salesRepFilter) return true;
+        if (opp.assigned_to && salesRepFilter.includes(opp.assigned_to)) return true;
         // Check contact assigned_to
         const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
-        if (contact?.assigned_to === salesRepFilter) return true;
+        if (contact?.assigned_to && salesRepFilter.includes(contact.assigned_to)) return true;
         // Check appointment assigned_user_id
         const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
-        return oppAppointments.some(a => a.assigned_user_id === salesRepFilter);
+        return oppAppointments.some(a => a.assigned_user_id && salesRepFilter.includes(a.assigned_user_id));
       });
     }
 
@@ -250,11 +261,19 @@ export function OpportunitiesTable({
   }, [opportunities, stageFilter, appointmentFilter, salesRepFilter, sortColumn, sortDirection, contactsWithAppointments, contactMap, appointmentsByContact]);
 
   // Reset to page 1 when filters change
-  const handleFilterChange = (type: 'stage' | 'appointment' | 'salesRep', value: string) => {
+  const handleStageFilterChange = (selected: string[]) => {
     setCurrentPage(1);
-    if (type === 'stage') setStageFilter(value);
-    else if (type === 'appointment') setAppointmentFilter(value);
-    else if (type === 'salesRep') setSalesRepFilter(value);
+    setStageFilter(selected);
+  };
+
+  const handleSalesRepFilterChange = (selected: string[]) => {
+    setCurrentPage(1);
+    setSalesRepFilter(selected);
+  };
+
+  const handleAppointmentFilterChange = (value: string) => {
+    setCurrentPage(1);
+    setAppointmentFilter(value);
   };
 
   // Helper to extract custom field value
@@ -411,8 +430,8 @@ export function OpportunitiesTable({
             </Button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Select value={appointmentFilter} onValueChange={(v) => handleFilterChange('appointment', v)}>
-              <SelectTrigger className="w-[160px] bg-background border-border">
+            <Select value={appointmentFilter} onValueChange={handleAppointmentFilterChange}>
+              <SelectTrigger className="w-[160px] h-8 text-xs bg-background border-border">
                 <SelectValue placeholder="Filter by appointment" />
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">
@@ -421,28 +440,19 @@ export function OpportunitiesTable({
                 <SelectItem value="without">Without Appointments</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={stageFilter} onValueChange={(v) => handleFilterChange('stage', v)}>
-              <SelectTrigger className="w-[160px] bg-background border-border">
-                <SelectValue placeholder="Filter by stage" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                <SelectItem value="all">All Stages</SelectItem>
-                {uniqueStages.map(stage => (
-                  <SelectItem key={stage} value={stage}>{stage}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={salesRepFilter} onValueChange={(v) => handleFilterChange('salesRep', v)}>
-              <SelectTrigger className="w-[160px] bg-background border-border">
-                <SelectValue placeholder="Filter by rep" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                <SelectItem value="all">All Sales Reps</SelectItem>
-                {uniqueSalesReps.map(rep => (
-                  <SelectItem key={rep.ghl_id} value={rep.ghl_id}>{rep.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              options={stageOptions}
+              selected={stageFilter}
+              onChange={handleStageFilterChange}
+              placeholder="All Stages"
+            />
+            <MultiSelectFilter
+              options={salesRepOptions}
+              selected={salesRepFilter}
+              onChange={handleSalesRepFilterChange}
+              placeholder="All Sales Reps"
+              icon={<User className="h-3 w-3" />}
+            />
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto scrollbar-styled pb-2">
