@@ -735,19 +735,18 @@ export function OpportunityDetailSheet({
         notes: appointmentNotes.trim() || null,
       };
 
-      // Only send startTime if user explicitly checked "Reschedule appointment" and changed the time
-      const dateTimeChanged = appointmentDate.trim() !== originalAppointmentDate.trim() || appointmentTime.trim() !== originalAppointmentTime.trim();
-      const shouldUpdateTime = editingAppointment ? (updateAppointmentTime && dateTimeChanged) : true;
+      // Only send startTime if:
+      // - Creating new appointment (not editing), OR
+      // - Editing AND user explicitly checked "Reschedule appointment" checkbox
+      const shouldUpdateTime = editingAppointment ? updateAppointmentTime : true;
       
       console.log('DateTime check:', { 
+        isEditing: !!editingAppointment,
         updateAppointmentTime,
-        dateTimeChanged,
         shouldUpdateTime,
-        appointmentDate: appointmentDate.trim(), 
-        originalAppointmentDate: originalAppointmentDate.trim(), 
       });
       
-      if (shouldUpdateTime && (dateTimeChanged || !editingAppointment)) {
+      if (shouldUpdateTime) {
         const timeStr = appointmentTime || "09:00";
         const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
         const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
@@ -762,7 +761,7 @@ export function OpportunityDetailSheet({
         
         updateBody.startTime = utcDate.toISOString();
       }
-      // Note: If shouldUpdateTime is false, we don't send startTime at all
+      // Note: If checkbox is unchecked, we don't send startTime at all
       // This allows editing title/notes/assignee without triggering GHL slot validation
 
       console.log('Appointment update payload:', JSON.stringify(updateBody));
