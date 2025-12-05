@@ -175,7 +175,7 @@ export function OpportunityDetailSheet({
   const [isDeletingTask, setIsDeletingTask] = useState<string | null>(null);
   const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState<string | null>(null);
 
-  // Appointment creation
+  // Appointment creation/editing
   const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
   const [appointmentTitle, setAppointmentTitle] = useState("");
   const [appointmentDate, setAppointmentDate] = useState("");
@@ -183,6 +183,7 @@ export function OpportunityDetailSheet({
   const [appointmentAssignee, setAppointmentAssignee] = useState("");
   const [appointmentNotes, setAppointmentNotes] = useState("");
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -665,6 +666,7 @@ export function OpportunityDetailSheet({
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       
       setAppointmentDialogOpen(false);
+      setEditingAppointment(null);
       setAppointmentTitle("");
       setAppointmentDate("");
       setAppointmentTime("09:00");
@@ -673,6 +675,83 @@ export function OpportunityDetailSheet({
     } catch (err) {
       console.error("Error creating appointment:", err);
       toast.error("Failed to create appointment");
+    } finally {
+      setIsCreatingAppointment(false);
+    }
+  };
+
+  const openEditAppointmentDialog = (appt: Appointment) => {
+    setEditingAppointment(appt);
+    setAppointmentTitle(appt.title || "");
+    setAppointmentNotes(appt.notes || "");
+    
+    // Find assigned user from appointments
+    const relatedAppts = appointments.filter(a => a.ghl_id === appt.ghl_id);
+    const apptWithUser = relatedAppts[0];
+    // Get assignedUserId from the appointment if available
+    setAppointmentAssignee((apptWithUser as any)?.assigned_user_id || "__unassigned__");
+    
+    if (appt.start_time) {
+      // Convert UTC to PST for display
+      const utcDate = new Date(appt.start_time);
+      const pstOffset = getPSTOffset(utcDate);
+      const pstDate = new Date(utcDate.getTime() - pstOffset * 60 * 60 * 1000);
+      setAppointmentDate(pstDate.toISOString().split('T')[0]);
+      setAppointmentTime(pstDate.toISOString().split('T')[1].substring(0, 5));
+    } else {
+      setAppointmentDate("");
+      setAppointmentTime("09:00");
+    }
+    setAppointmentDialogOpen(true);
+  };
+
+  const handleUpdateAppointment = async () => {
+    if (!editingAppointment || !appointmentDate || !appointmentTitle.trim()) {
+      toast.error("Please enter appointment title and date");
+      return;
+    }
+
+    setIsCreatingAppointment(true);
+    try {
+      const assignedToValue = appointmentAssignee && appointmentAssignee !== "__unassigned__" ? appointmentAssignee : null;
+
+      // Treat input as PST
+      const timeStr = appointmentTime || "09:00";
+      const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
+      const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
+      const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+
+      const response = await supabase.functions.invoke('update-ghl-appointment', {
+        body: {
+          ghl_id: editingAppointment.ghl_id,
+          title: appointmentTitle.trim(),
+          startTime: utcDate.toISOString(),
+          assignedUserId: assignedToValue,
+          notes: appointmentNotes.trim() || null,
+        }
+      });
+
+      if (response.error) {
+        console.error('Appointment update error:', response.error);
+        toast.error("Failed to update appointment");
+        return;
+      }
+
+      toast.success("Appointment updated");
+      
+      // Invalidate queries to refresh appointment data
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      
+      setAppointmentDialogOpen(false);
+      setEditingAppointment(null);
+      setAppointmentTitle("");
+      setAppointmentDate("");
+      setAppointmentTime("09:00");
+      setAppointmentAssignee("");
+      setAppointmentNotes("");
+    } catch (err) {
+      console.error("Error updating appointment:", err);
+      toast.error("Failed to update appointment");
     } finally {
       setIsCreatingAppointment(false);
     }
@@ -1127,9 +1206,19 @@ export function OpportunityDetailSheet({
                 {relatedAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime()).map(appt => <div key={appt.ghl_id} className="p-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-sm truncate">{appt.title || 'Untitled'}</span>
-                      <Badge variant="outline" className={`text-xs shrink-0 ${getAppointmentStatusColor(appt.appointment_status)}`}>
-                        {appt.appointment_status || 'Unknown'}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => openEditAppointmentDialog(appt)}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Badge variant="outline" className={`text-xs ${getAppointmentStatusColor(appt.appointment_status)}`}>
+                          {appt.appointment_status || 'Unknown'}
+                        </Badge>
+                      </div>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Clock className="h-3 w-3" />
@@ -1348,6 +1437,7 @@ export function OpportunityDetailSheet({
       <Dialog open={appointmentDialogOpen} onOpenChange={(open) => {
         setAppointmentDialogOpen(open);
         if (!open) {
+          setEditingAppointment(null);
           setAppointmentTitle("");
           setAppointmentDate("");
           setAppointmentTime("09:00");
@@ -1359,7 +1449,7 @@ export function OpportunityDetailSheet({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Add Appointment
+              {editingAppointment ? 'Edit Appointment' : 'Add Appointment'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1426,10 +1516,12 @@ export function OpportunityDetailSheet({
               Cancel
             </Button>
             <Button 
-              onClick={handleCreateAppointment} 
+              onClick={editingAppointment ? handleUpdateAppointment : handleCreateAppointment} 
               disabled={isCreatingAppointment || !appointmentDate}
             >
-              {isCreatingAppointment ? "Creating..." : "Create Appointment"}
+              {isCreatingAppointment 
+                ? (editingAppointment ? "Saving..." : "Creating...") 
+                : (editingAppointment ? "Save Changes" : "Create Appointment")}
             </Button>
           </DialogFooter>
         </DialogContent>
