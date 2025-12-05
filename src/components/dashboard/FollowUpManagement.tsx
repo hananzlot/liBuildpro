@@ -254,9 +254,17 @@ export function FollowUpManagement({
     })).sort((a, b) => a.name.localeCompare(b.name));
   }, [ghlTasks, users]);
 
-  // Get opportunity for a contact (for tasks)
+  // Get opportunity for a contact (for tasks) - prioritize open over lost
   const getOpportunityForContact = (contactId: string): DBOpportunity | undefined => {
-    return opportunities.find(o => o.contact_id === contactId);
+    const contactOpps = opportunities.filter(o => o.contact_id === contactId);
+    if (contactOpps.length === 0) return undefined;
+    // Prioritize open opportunities over lost/abandoned
+    const openOpp = contactOpps.find(o => o.status?.toLowerCase() === 'open');
+    if (openOpp) return openOpp;
+    const wonOpp = contactOpps.find(o => o.status?.toLowerCase() === 'won');
+    if (wonOpp) return wonOpp;
+    // Return first if no open/won found
+    return contactOpps[0];
   };
 
   // Format due date for tasks in PST
@@ -280,7 +288,22 @@ export function FollowUpManagement({
     return new Date(dueDate) < new Date();
   };
 
-  // Calculate task counts by category
+  // Helper to get PST start of day for comparisons
+  const getPSTDayBoundaries = () => {
+    const now = new Date();
+    // Get current time in PST
+    const pstNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    // Start of today in PST (converted back to UTC for comparison)
+    const todayPST = new Date(pstNow.getFullYear(), pstNow.getMonth(), pstNow.getDate());
+    const pstOffset = getPSTOffset(now);
+    // Convert PST boundaries to UTC timestamps
+    const todayStartUTC = new Date(todayPST.getTime() + pstOffset * 60 * 60 * 1000);
+    const tomorrowStartUTC = new Date(todayStartUTC.getTime() + 24 * 60 * 60 * 1000);
+    const dayAfterTomorrowStartUTC = new Date(todayStartUTC.getTime() + 48 * 60 * 60 * 1000);
+    return { todayStartUTC, tomorrowStartUTC, dayAfterTomorrowStartUTC };
+  };
+
+  // Calculate task counts by category (using PST)
   const taskCounts = useMemo(() => {
     let baseTasks = ghlTasks.filter(t => !t.completed);
 
@@ -290,19 +313,16 @@ export function FollowUpManagement({
       if (!opportunity) return true;
       return opportunity.status?.toLowerCase() !== 'lost';
     });
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dayAfterTomorrow = new Date(today);
-    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-    const pastDue = baseTasks.filter(t => t.due_date && new Date(t.due_date) < today).length;
+    
+    const { todayStartUTC, dayAfterTomorrowStartUTC } = getPSTDayBoundaries();
+    
+    const pastDue = baseTasks.filter(t => t.due_date && new Date(t.due_date) < todayStartUTC).length;
     const todayTomorrow = baseTasks.filter(t => {
       if (!t.due_date) return false;
       const dueDate = new Date(t.due_date);
-      return dueDate >= today && dueDate < dayAfterTomorrow;
+      return dueDate >= todayStartUTC && dueDate < dayAfterTomorrowStartUTC;
     }).length;
-    const afterTomorrow = baseTasks.filter(t => t.due_date && new Date(t.due_date) >= dayAfterTomorrow).length;
+    const afterTomorrow = baseTasks.filter(t => t.due_date && new Date(t.due_date) >= dayAfterTomorrowStartUTC).length;
     return {
       pastDue,
       todayTomorrow,
@@ -311,7 +331,7 @@ export function FollowUpManagement({
     };
   }, [ghlTasks, opportunities]);
 
-  // Filter GHL tasks
+  // Filter GHL tasks (using PST)
   const filteredGhlTasks = useMemo(() => {
     let filtered = ghlTasks.filter(t => !t.completed);
 
@@ -327,28 +347,24 @@ export function FollowUpManagement({
       filtered = filtered.filter(t => t.assigned_to === tasksAssigneeFilter);
     }
 
-    // Due date filter
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const dayAfterTomorrow = new Date(today);
-    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+    // Due date filter (using PST boundaries)
+    const { todayStartUTC, dayAfterTomorrowStartUTC } = getPSTDayBoundaries();
+    
     if (tasksDueDateFilter === 'past_due') {
       filtered = filtered.filter(t => {
         if (!t.due_date) return false;
-        return new Date(t.due_date) < today;
+        return new Date(t.due_date) < todayStartUTC;
       });
     } else if (tasksDueDateFilter === 'today_tomorrow') {
       filtered = filtered.filter(t => {
         if (!t.due_date) return false;
         const dueDate = new Date(t.due_date);
-        return dueDate >= today && dueDate < dayAfterTomorrow;
+        return dueDate >= todayStartUTC && dueDate < dayAfterTomorrowStartUTC;
       });
     } else if (tasksDueDateFilter === 'after_tomorrow') {
       filtered = filtered.filter(t => {
         if (!t.due_date) return false;
-        return new Date(t.due_date) >= dayAfterTomorrow;
+        return new Date(t.due_date) >= dayAfterTomorrowStartUTC;
       });
     }
 
@@ -872,7 +888,36 @@ export function FollowUpManagement({
       maximumFractionDigits: 0
     }).format(value);
   };
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchGhlTasks();
+      onDataRefresh?.();
+      toast.success('Data refreshed');
+    } catch (error) {
+      toast.error('Failed to refresh');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return <div className="space-y-3">
+      {/* Header with Refresh Button */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-foreground">Follow-up Management</h2>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefreshAll}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
         <DialogContent>
