@@ -288,7 +288,7 @@ export function OpportunitiesTable({
         <CardHeader className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Recent Opportunities</CardTitle>
+            <CardTitle className="text-lg">Opportunities</CardTitle>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={appointmentFilter} onValueChange={(v) => handleFilterChange('appointment', v)}>

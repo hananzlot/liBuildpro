@@ -190,8 +190,17 @@ export function AppointmentsTable({
     return filtered;
   }, [appointments, statusFilter, repFilter, timeFilter]);
 
-  const totalPages = Math.ceil(filteredAppointments.length / ITEMS_PER_PAGE);
-  const paginatedAppointments = filteredAppointments.slice(
+  // Sort appointments ascending by date/time
+  const sortedAppointments = useMemo(() => {
+    return [...filteredAppointments].sort((a, b) => {
+      const dateA = a.start_time ? new Date(a.start_time).getTime() : 0;
+      const dateB = b.start_time ? new Date(b.start_time).getTime() : 0;
+      return dateA - dateB;
+    });
+  }, [filteredAppointments]);
+
+  const totalPages = Math.ceil(sortedAppointments.length / ITEMS_PER_PAGE);
+  const paginatedAppointments = sortedAppointments.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
@@ -335,7 +344,7 @@ export function AppointmentsTable({
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/30">
               <span className="text-sm text-muted-foreground">
-                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredAppointments.length)} of {filteredAppointments.length}
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, sortedAppointments.length)} of {sortedAppointments.length}
               </span>
               <div className="flex items-center gap-2">
                 <Button
