@@ -45,31 +45,45 @@ serve(async (req) => {
       });
     }
 
-    // Get the Lost/DNC stage ID from an existing opportunity with that stage
-    const { data: lostDncOpp, error: stageError } = await supabase
+    // Build a map of pipeline_id -> Lost/DNC stage_id by finding existing Lost/DNC opportunities per pipeline
+    const { data: lostDncOpps, error: stageError } = await supabase
       .from('opportunities')
-      .select('pipeline_stage_id, pipeline_id')
+      .select('pipeline_id, pipeline_stage_id')
       .eq('stage_name', 'Lost/DNC')
-      .limit(1)
-      .maybeSingle();
+      .not('pipeline_id', 'is', null);
 
     if (stageError) {
-      console.error('Error finding Lost/DNC stage:', stageError);
+      console.error('Error finding Lost/DNC stages:', stageError);
     }
 
-    const lostDncStageId = lostDncOpp?.pipeline_stage_id;
-    console.log(`Lost/DNC stage ID: ${lostDncStageId}`);
-
-    if (!lostDncStageId) {
-      throw new Error('Could not find Lost/DNC stage ID in existing opportunities');
+    // Create map of pipeline_id -> Lost/DNC stage_id
+    const pipelineLostDncMap: Record<string, string> = {};
+    if (lostDncOpps) {
+      for (const opp of lostDncOpps) {
+        if (opp.pipeline_id && opp.pipeline_stage_id) {
+          pipelineLostDncMap[opp.pipeline_id] = opp.pipeline_stage_id;
+        }
+      }
     }
+
+    console.log(`Found Lost/DNC stage IDs for ${Object.keys(pipelineLostDncMap).length} pipelines:`, pipelineLostDncMap);
 
     let updatedCount = 0;
+    let skippedCount = 0;
     const errors: string[] = [];
 
     for (const opp of opportunities) {
       try {
-        console.log(`Updating opportunity ${opp.ghl_id} (${opp.name}) from stage "${opp.stage_name}" to "Lost/DNC"`);
+        // Get the Lost/DNC stage ID for this opportunity's pipeline
+        const lostDncStageId = opp.pipeline_id ? pipelineLostDncMap[opp.pipeline_id] : null;
+
+        if (!lostDncStageId) {
+          console.log(`Skipping ${opp.name} - no Lost/DNC stage found for pipeline ${opp.pipeline_id}`);
+          skippedCount++;
+          continue;
+        }
+
+        console.log(`Updating opportunity ${opp.ghl_id} (${opp.name}) from stage "${opp.stage_name}" to "Lost/DNC" (stage ID: ${lostDncStageId})`);
 
         // Update in GHL
         const ghlResponse = await fetch(`https://services.leadconnectorhq.com/opportunities/${opp.ghl_id}`, {
@@ -122,8 +136,9 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true, 
-      message: `Updated ${updatedCount} of ${opportunities.length} opportunities`,
+      message: `Updated ${updatedCount} of ${opportunities.length} opportunities (${skippedCount} skipped - no Lost/DNC stage in pipeline)`,
       updated: updatedCount,
+      skipped: skippedCount,
       total: opportunities.length,
       errors: errors.length > 0 ? errors : undefined
     }), {
