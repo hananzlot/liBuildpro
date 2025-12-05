@@ -120,8 +120,8 @@ serve(async (req) => {
       contactId: contactId,
       locationId: GHL_LOCATION_ID,
       status: 'open',
-      pipelineId: 'xwwDLvHLT6CbNJn1bqfE', // Default pipeline ID - may need to adjust
-      pipelineStageId: 'c6c5e024-4d7c-4f34-ae16-fe5e94d88a42', // Default stage - may need to adjust
+      pipelineId: '17Eu9zqWqlfKYdDuYasg', // Annabella pipeline
+      pipelineStageId: '5dfe2edd-624e-45d4-bb64-5d3532d3dd64', // New Lead (No Contacted Yet)
     };
 
     if (assignedTo) oppPayload.assignedTo = assignedTo;
@@ -182,7 +182,7 @@ serve(async (req) => {
         startTime: startDate.toISOString(),
         endTime: endDate.toISOString(),
         appointmentStatus: 'confirmed',
-        calendarId: 'sNIFXjVWoVkfSLWzF1sB', // Default calendar - may need to adjust
+        calendarId: 'ubZb3Fp3KPLFQHcIr5ko', // Active calendar
       };
 
       if (assignedTo) apptPayload.assignedUserId = assignedTo;
