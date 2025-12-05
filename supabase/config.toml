@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.create-ghl-entry]
 verify_jwt = false
+
+[functions.create-ghl-appointment]
+verify_jwt = false
