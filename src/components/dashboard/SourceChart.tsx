@@ -2,6 +2,8 @@ import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { SourceDetailSheet } from "./SourceDetailSheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SourceData {
   source: string;
@@ -123,6 +125,7 @@ export function SourceChart({
 }: SourceChartProps) {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [viewAllOpen, setViewAllOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<OpportunitiesViewTab>("opportunities");
   const [clickedFromAppointments, setClickedFromAppointments] = useState(false);
   const [clickedFromNoAppointments, setClickedFromNoAppointments] = useState(false);
@@ -243,7 +246,20 @@ export function SourceChart({
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <p className="text-xs text-muted-foreground text-center mt-1">Click a bar to see details</p>
+        <div className="flex items-center justify-center gap-2 mt-1">
+          <p className="text-xs text-muted-foreground">Click a bar to see details</p>
+          {rawChartData.length > 5 && (
+            <>
+              <span className="text-xs text-muted-foreground">·</span>
+              <button 
+                onClick={() => setViewAllOpen(true)}
+                className="text-xs text-primary hover:underline"
+              >
+                View all {rawChartData.length} sources
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <SourceDetailSheet
@@ -261,6 +277,42 @@ export function SourceChart({
         showAppointments={clickedFromAppointments}
         showNoAppointments={clickedFromNoAppointments}
       />
+
+      {/* View All Sources Sheet */}
+      <Sheet open={viewAllOpen} onOpenChange={setViewAllOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px]">
+          <SheetHeader>
+            <SheetTitle>{getChartTitle()}</SheetTitle>
+          </SheetHeader>
+          <ScrollArea className="h-[calc(100vh-120px)] mt-4">
+            <div className="space-y-2 pr-4">
+              {rawChartData.map((item, index) => (
+                <div 
+                  key={item.source}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => {
+                    setViewAllOpen(false);
+                    handleBarClick(item);
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: colors[index % colors.length] }}
+                    />
+                    <span className="text-sm font-medium text-foreground">{item.source}</span>
+                  </div>
+                  <span className="text-sm font-semibold text-foreground">
+                    {dataKey === "value" && !showingAppointments && !showingNoAppointments 
+                      ? formatValue(item.value || 0) 
+                      : item.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
