@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { Plus, Upload, Loader2, X, FileSpreadsheet, Download } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Plus, Upload, Loader2, X, FileSpreadsheet, Download, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,12 @@ interface PipelineStage {
   stage_name: string;
 }
 
+interface CalendarMapping {
+  userId: string;
+  calendarId: string;
+  userName: string;
+}
+
 const SOURCES = [
   'Google',
   'Facebook',
@@ -87,6 +93,10 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const [selectedPipeline, setSelectedPipeline] = useState('');
   const [selectedStage, setSelectedStage] = useState('');
+
+  // Calendar state
+  const [calendarMappings, setCalendarMappings] = useState<CalendarMapping[]>([]);
+  const [selectedCalendar, setSelectedCalendar] = useState('');
 
   // CSV upload state
   const [csvEntries, setCsvEntries] = useState<CSVEntry[]>([]);
@@ -131,6 +141,56 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     fetchPipelineStages();
   }, []);
 
+  // Fetch calendar mappings on mount
+  useEffect(() => {
+    const fetchCalendarMappings = async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('assigned_user_id, calendar_id')
+        .not('assigned_user_id', 'is', null)
+        .not('calendar_id', 'is', null);
+      
+      if (data) {
+        // Get unique user-calendar mappings
+        const mappings = data.reduce((acc: CalendarMapping[], curr) => {
+          if (!acc.find(m => m.userId === curr.assigned_user_id)) {
+            const user = users.find(u => u.ghl_id === curr.assigned_user_id);
+            acc.push({
+              userId: curr.assigned_user_id!,
+              calendarId: curr.calendar_id!,
+              userName: user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown',
+            });
+          }
+          return acc;
+        }, []);
+        setCalendarMappings(mappings);
+      }
+    };
+    if (users.length > 0) {
+      fetchCalendarMappings();
+    }
+  }, [users]);
+
+  // Auto-select calendar when rep is selected
+  useEffect(() => {
+    if (assignedTo) {
+      const mapping = calendarMappings.find(m => m.userId === assignedTo);
+      if (mapping) {
+        setSelectedCalendar(mapping.calendarId);
+      } else {
+        setSelectedCalendar('');
+      }
+    } else {
+      setSelectedCalendar('');
+    }
+  }, [assignedTo, calendarMappings]);
+
+  // Check if selected rep has a calendar
+  const selectedRepHasCalendar = useMemo(() => {
+    if (!assignedTo) return true; // No rep selected, no warning needed
+    return calendarMappings.some(m => m.userId === assignedTo);
+  }, [assignedTo, calendarMappings]);
+
   // Get unique pipelines and stages for current pipeline
   const uniquePipelines = pipelineStages.reduce((acc: { id: string; name: string }[], curr) => {
     if (!acc.find(p => p.id === curr.pipeline_id)) {
@@ -153,6 +213,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     setAppointmentTime('09:00');
     setSource('');
     setAssignedTo('');
+    setSelectedCalendar('');
     setPhoneError('');
     setEmailError('');
     // Reset to default pipeline/stage
@@ -245,6 +306,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
           enteredBy: userId || null,
           pipelineId: selectedPipeline || null,
           pipelineStageId: selectedStage || null,
+          calendarId: selectedCalendar || null,
         },
       });
 
@@ -653,6 +715,34 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                   </Select>
                 </div>
               </div>
+
+              {/* Calendar selector and warning */}
+              {assignedTo && (
+                <div className="space-y-2">
+                  <Label htmlFor="calendar">Calendar</Label>
+                  {!selectedRepHasCalendar ? (
+                    <div className="flex items-center gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400">
+                      <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                      <span className="text-sm">
+                        This rep doesn't have a calendar assigned. Appointments cannot be created for them.
+                      </span>
+                    </div>
+                  ) : (
+                    <Select value={selectedCalendar} onValueChange={setSelectedCalendar}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select calendar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {calendarMappings.map(m => (
+                          <SelectItem key={m.calendarId} value={m.calendarId}>
+                            {m.userName}'s Calendar
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">

@@ -38,6 +38,7 @@ serve(async (req) => {
       enteredBy, // User ID who created this entry
       pipelineId,
       pipelineStageId,
+      calendarId, // Calendar ID for appointments
     } = await req.json();
 
     if (!firstName || !lastName) {
@@ -177,25 +178,25 @@ serve(async (req) => {
     if (appointmentDateTime) {
       console.log('Creating appointment in GHL...');
       
-      // Look up the sales rep's calendar from existing appointments
-      let calendarId = null;
-      if (assignedTo) {
+      // Use provided calendarId or look up from existing appointments
+      let appointmentCalendarId = calendarId;
+      if (!appointmentCalendarId && assignedTo) {
         const { data: calendarData } = await supabase
           .from('appointments')
           .select('calendar_id')
           .eq('assigned_user_id', assignedTo)
           .not('calendar_id', 'is', null)
           .limit(1)
-          .single();
+          .maybeSingle();
         
         if (calendarData?.calendar_id) {
-          calendarId = calendarData.calendar_id;
-          console.log(`Found calendar ${calendarId} for sales rep ${assignedTo}`);
+          appointmentCalendarId = calendarData.calendar_id;
+          console.log(`Found calendar ${appointmentCalendarId} for sales rep ${assignedTo}`);
         }
       }
 
-      if (!calendarId) {
-        console.warn('No calendar found for sales rep, appointment cannot be created');
+      if (!appointmentCalendarId) {
+        console.warn('No calendar provided or found for sales rep, appointment cannot be created');
         console.warn('Appointment creation skipped - contact/opportunity were created');
       } else {
         // Calculate end time (1 hour after start)
@@ -209,7 +210,7 @@ serve(async (req) => {
           startTime: startDate.toISOString(),
           endTime: endDate.toISOString(),
           appointmentStatus: 'confirmed',
-          calendarId: calendarId,
+          calendarId: appointmentCalendarId,
         };
 
         apptPayload.assignedUserId = assignedTo;
@@ -243,7 +244,7 @@ serve(async (req) => {
               ghl_id: appointmentId,
               location_id: GHL_LOCATION_ID,
               contact_id: contactId,
-              calendar_id: calendarId,
+              calendar_id: appointmentCalendarId,
               title: `Appointment - ${firstName} ${lastName}`,
               start_time: startDate.toISOString(),
               end_time: endDate.toISOString(),
