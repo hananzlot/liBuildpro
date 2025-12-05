@@ -95,11 +95,37 @@ export function OpportunitySearch({
     }
   };
 
+  // Helper to extract address from contact custom_fields (handles various formats)
+  const getAddressFromContact = (contact: Contact | undefined): string => {
+    if (!contact?.custom_fields) return "";
+    
+    let fieldsArray: Array<{ id: string; value: string }> | null = null;
+    
+    if (Array.isArray(contact.custom_fields)) {
+      fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
+    } else if (typeof contact.custom_fields === 'object') {
+      // Handle if it's an object with array inside
+      fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
+    }
+    
+    if (!fieldsArray || !Array.isArray(fieldsArray)) return "";
+    
+    const addressField = fieldsArray.find(f => f?.id === "b7oTVsUQrLgZt84bHpCn");
+    return addressField?.value || "";
+  };
+
+  // Helper to normalize phone numbers (digits only)
+  const normalizePhone = (phone: string | null | undefined): string => {
+    if (!phone) return "";
+    return phone.replace(/\D/g, '');
+  };
+
   const filteredOpportunities = useMemo(() => {
     if (!searchQuery.trim()) return [];
     
-    const query = searchQuery.toLowerCase().replace(/[^a-z0-9]/g, ''); // Normalize for phone search
-    const queryOriginal = searchQuery.toLowerCase();
+    const queryLower = searchQuery.toLowerCase().trim();
+    const queryDigits = searchQuery.replace(/\D/g, '');
+    const isPhoneSearch = /^\d+$/.test(queryLower.replace(/[\s\-\(\)]/g, ''));
     
     return opportunities
       .filter(opp => {
@@ -108,21 +134,25 @@ export function OpportunitySearch({
         const contactName = contact?.contact_name?.toLowerCase() || 
           `${contact?.first_name || ""} ${contact?.last_name || ""}`.toLowerCase();
         
-        // Get address from custom fields
-        const customFields = contact?.custom_fields as Array<{ id: string; value: string }> | undefined;
-        const addressField = customFields?.find?.(f => f.id === "b7oTVsUQrLgZt84bHpCn");
-        const address = addressField?.value?.toLowerCase() || "";
+        // Get address using robust extraction
+        const address = getAddressFromContact(contact).toLowerCase();
         
-        // Get phone (normalize for comparison)
-        const phone = contact?.phone?.replace(/[^a-z0-9]/g, '') || "";
+        // Get phone (digits only)
+        const phone = normalizePhone(contact?.phone);
         
-        return name.includes(queryOriginal) || 
-               contactName.includes(queryOriginal) || 
-               address.includes(queryOriginal) ||
-               phone.includes(query);
+        // Phone matching: anywhere in number OR last N digits match
+        let phoneMatch = false;
+        if (isPhoneSearch && queryDigits.length >= 3 && phone.length > 0) {
+          phoneMatch = phone.includes(queryDigits) || phone.endsWith(queryDigits);
+        }
+        
+        return name.includes(queryLower) || 
+               contactName.includes(queryLower) || 
+               address.includes(queryLower) ||
+               phoneMatch;
       })
       .sort((a, b) => getStatusSortOrder(a.status) - getStatusSortOrder(b.status))
-      .slice(0, 10); // Limit to 10 results
+      .slice(0, 10);
   }, [searchQuery, opportunities, contacts]);
 
   const getAddress = (contactId: string | null) => {
