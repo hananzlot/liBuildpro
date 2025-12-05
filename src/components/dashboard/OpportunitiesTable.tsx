@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, CalendarCheck, CalendarX, User, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, CalendarCheck, CalendarX, User, Clock, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import {
   Select,
@@ -56,6 +56,7 @@ interface Contact {
   source: string | null;
   custom_fields?: unknown;
   ghl_date_added?: string | null;
+  assigned_to?: string | null;
 }
 
 interface GHLUser {
@@ -102,6 +103,7 @@ export function OpportunitiesTable({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
+  const [salesRepFilter, setSalesRepFilter] = useState<string>("all");
   const [sortColumn, setSortColumn] = useState<SortColumn>("stage");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -113,6 +115,16 @@ export function OpportunitiesTable({
     });
     return Array.from(stages).sort();
   }, [opportunities]);
+
+  // Get unique sales reps from users
+  const uniqueSalesReps = useMemo(() => {
+    return users
+      .map(u => ({
+        ghl_id: u.ghl_id,
+        name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || u.ghl_id
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [users]);
 
   // Track which contacts have appointments (excluding cancelled)
   const contactsWithAppointments = useMemo(() => {
@@ -180,6 +192,20 @@ export function OpportunitiesTable({
       filtered = filtered.filter(opp => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
     }
 
+    // Apply sales rep filter
+    if (salesRepFilter !== "all") {
+      filtered = filtered.filter(opp => {
+        // Check opportunity assigned_to
+        if (opp.assigned_to === salesRepFilter) return true;
+        // Check contact assigned_to
+        const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+        if (contact?.assigned_to === salesRepFilter) return true;
+        // Check appointment assigned_user_id
+        const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
+        return oppAppointments.some(a => a.assigned_user_id === salesRepFilter);
+      });
+    }
+
     // Helper to get effective date from contact (quickbase stage = 90 days ago)
     const getEffectiveDate = (opp: Opportunity): number => {
       if (opp.stage_name?.toLowerCase() === "quickbase") {
@@ -221,13 +247,101 @@ export function OpportunitiesTable({
       
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [opportunities, stageFilter, appointmentFilter, sortColumn, sortDirection, contactsWithAppointments]);
+  }, [opportunities, stageFilter, appointmentFilter, salesRepFilter, sortColumn, sortDirection, contactsWithAppointments, contactMap, appointmentsByContact]);
 
   // Reset to page 1 when filters change
-  const handleFilterChange = (type: 'stage' | 'appointment', value: string) => {
+  const handleFilterChange = (type: 'stage' | 'appointment' | 'salesRep', value: string) => {
     setCurrentPage(1);
     if (type === 'stage') setStageFilter(value);
-    else setAppointmentFilter(value);
+    else if (type === 'appointment') setAppointmentFilter(value);
+    else if (type === 'salesRep') setSalesRepFilter(value);
+  };
+
+  // Helper to extract custom field value
+  const getCustomFieldValue = (contact: Contact | undefined, fieldId: string): string => {
+    if (!contact?.custom_fields) return '';
+    const customFields = contact.custom_fields;
+    let fieldsArray: Array<{ id: string; value: string }> | null = null;
+    
+    if (Array.isArray(customFields)) {
+      fieldsArray = customFields as Array<{ id: string; value: string }>;
+    } else if (typeof customFields === 'object') {
+      fieldsArray = Object.values(customFields as Record<string, { id: string; value: string }>);
+    }
+    
+    if (!fieldsArray || !Array.isArray(fieldsArray)) return '';
+    const field = fieldsArray.find(f => f.id === fieldId);
+    return field?.value || '';
+  };
+
+  // CSV download function
+  const downloadCSV = () => {
+    const headers = [
+      'Name',
+      'Pipeline',
+      'Stage',
+      'Value',
+      'Status',
+      'Contact Name',
+      'Phone',
+      'Email',
+      'Address',
+      'Scope of Work',
+      'Sales Rep',
+      'Contact Created',
+      'Latest Appointment'
+    ];
+
+    const rows = filteredAndSortedOpportunities.map(opp => {
+      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+      const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
+      const latestAppt = oppAppointments.length > 0 
+        ? oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0]
+        : null;
+      const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : 
+                          opp.assigned_to ? userMap.get(opp.assigned_to) : '';
+      const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
+      
+      const address = getCustomFieldValue(contact, 'b7oTVsUQrLgZt84bHpCn');
+      const scopeOfWork = getCustomFieldValue(contact, 'KwQRtJT0aMSHnq3mwR68');
+      const contactName = contact?.contact_name || 
+                         [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || '';
+
+      return [
+        opp.name || '',
+        opp.pipeline_name || '',
+        opp.stage_name || '',
+        opp.monetary_value?.toString() || '',
+        opp.status || '',
+        contactName,
+        contact?.phone || '',
+        contact?.email || '',
+        address,
+        scopeOfWork,
+        salesRepName || '',
+        contactDate ? new Date(contactDate).toLocaleDateString() : '',
+        latestAppt?.start_time ? new Date(latestAppt.start_time).toLocaleString() : ''
+      ];
+    });
+
+    // Escape CSV values
+    const escapeCSV = (value: string) => {
+      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
+
+    const csvContent = [
+      headers.map(escapeCSV).join(','),
+      ...rows.map(row => row.map(escapeCSV).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `opportunities_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
   };
 
   // Pagination calculations
@@ -286,13 +400,19 @@ export function OpportunitiesTable({
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardHeader className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Opportunities</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Opportunities</CardTitle>
+            </div>
+            <Button variant="outline" size="sm" onClick={downloadCSV} className="gap-1.5">
+              <Download className="h-4 w-4" />
+              CSV
+            </Button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Select value={appointmentFilter} onValueChange={(v) => handleFilterChange('appointment', v)}>
-              <SelectTrigger className="w-[180px] bg-background border-border">
+              <SelectTrigger className="w-[160px] bg-background border-border">
                 <SelectValue placeholder="Filter by appointment" />
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">
@@ -302,13 +422,24 @@ export function OpportunitiesTable({
               </SelectContent>
             </Select>
             <Select value={stageFilter} onValueChange={(v) => handleFilterChange('stage', v)}>
-              <SelectTrigger className="w-[180px] bg-background border-border">
+              <SelectTrigger className="w-[160px] bg-background border-border">
                 <SelectValue placeholder="Filter by stage" />
               </SelectTrigger>
               <SelectContent className="bg-popover border-border">
                 <SelectItem value="all">All Stages</SelectItem>
                 {uniqueStages.map(stage => (
                   <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={salesRepFilter} onValueChange={(v) => handleFilterChange('salesRep', v)}>
+              <SelectTrigger className="w-[160px] bg-background border-border">
+                <SelectValue placeholder="Filter by rep" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover border-border">
+                <SelectItem value="all">All Sales Reps</SelectItem>
+                {uniqueSalesReps.map(rep => (
+                  <SelectItem key={rep.ghl_id} value={rep.ghl_id}>{rep.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
