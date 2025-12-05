@@ -56,16 +56,16 @@ interface CalendarMapping {
 }
 
 const SOURCES = [
-  'Google',
-  'Facebook',
-  'Instagram',
-  'Referral',
-  'Website',
-  'Home Advisor',
   'Angi',
-  'Thumbtack',
-  'Yelp',
+  'Facebook',
+  'Google',
+  'Home Advisor',
+  'Instagram',
   'Other',
+  'Referral',
+  'Thumbtack',
+  'Website',
+  'Yelp',
 ];
 
 export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps) {
@@ -706,7 +706,11 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                       <SelectValue placeholder="Select rep" />
                     </SelectTrigger>
                     <SelectContent>
-                      {users.map(user => (
+                      {[...users].sort((a, b) => {
+                        const nameA = (a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || 'Unknown').toLowerCase();
+                        const nameB = (b.name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || 'Unknown').toLowerCase();
+                        return nameA.localeCompare(nameB);
+                      }).map(user => (
                         <SelectItem key={user.ghl_id} value={user.ghl_id}>
                           {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown'}
                         </SelectItem>
