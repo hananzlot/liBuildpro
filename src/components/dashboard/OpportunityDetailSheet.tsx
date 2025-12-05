@@ -151,6 +151,7 @@ export function OpportunityDetailSheet({
   const [isSaving, setIsSaving] = useState(false);
   const [editedStatus, setEditedStatus] = useState<string>("");
   const [editedStage, setEditedStage] = useState<string>("");
+  const [editedPipeline, setEditedPipeline] = useState<string>("");
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
   const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
 
@@ -813,17 +814,30 @@ export function OpportunityDetailSheet({
     }
   };
 
+  // Build pipeline and stage maps from all opportunities
+  const pipelineMap = new Map<string, string>();
   const stageMap = new Map<string, string>();
-  const currentPipelineId = opportunity?.pipeline_id;
+  
+  // Build unique pipelines list
   allOpportunities.forEach(o => {
-    // Only include stages from the same pipeline
-    if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === currentPipelineId) {
+    if (o.pipeline_id && o.pipeline_name) {
+      pipelineMap.set(o.pipeline_id, o.pipeline_name);
+    }
+  });
+  const availablePipelines = Array.from(pipelineMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  
+  // Build stages for the currently selected/edited pipeline
+  const activePipelineId = isEditing ? editedPipeline : opportunity?.pipeline_id;
+  allOpportunities.forEach(o => {
+    if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === activePipelineId) {
       stageMap.set(o.stage_name, o.pipeline_stage_id);
     }
   });
   const availableStages = Array.from(stageMap.keys()).sort();
+  
   const handleEditClick = () => {
     setEditedStatus(opportunity?.status?.toLowerCase() || "open");
+    setEditedPipeline(opportunity?.pipeline_id || "");
     setEditedStage(opportunity?.stage_name || "");
     setEditedMonetaryValue(opportunity?.monetary_value?.toString() || "0");
     setEditedAssignedTo(opportunity?.assigned_to || "__unassigned__");
@@ -832,9 +846,20 @@ export function OpportunityDetailSheet({
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedStatus("");
+    setEditedPipeline("");
     setEditedStage("");
     setEditedMonetaryValue("");
     setEditedAssignedTo("");
+  };
+  const handlePipelineChange = (newPipelineId: string) => {
+    setEditedPipeline(newPipelineId);
+    // Reset stage when pipeline changes - will be set to first available stage
+    const stagesForNewPipeline = allOpportunities
+      .filter(o => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id)
+      .map(o => o.stage_name!)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .sort();
+    setEditedStage(stagesForNewPipeline[0] || "");
   };
   const handleSave = async () => {
     if (!opportunity) return;
@@ -842,6 +867,7 @@ export function OpportunityDetailSheet({
     try {
       // Get the pipeline_stage_id for the selected stage
       const pipeline_stage_id = stageMap.get(editedStage) || opportunity.pipeline_stage_id;
+      const pipeline_name = pipelineMap.get(editedPipeline) || opportunity.pipeline_name;
       const monetaryValue = parseFloat(editedMonetaryValue) || 0;
 
       // Call edge function to update GHL first, then Supabase
@@ -853,6 +879,8 @@ export function OpportunityDetailSheet({
           ghl_id: opportunity.ghl_id,
           status: editedStatus,
           stage_name: editedStage,
+          pipeline_id: editedPipeline,
+          pipeline_name: pipeline_name,
           pipeline_stage_id: pipeline_stage_id,
           monetary_value: monetaryValue,
           assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo
@@ -1024,7 +1052,22 @@ export function OpportunityDetailSheet({
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Pipeline</div>
-              <div className="font-medium truncate">{opportunity.pipeline_name || '-'}</div>
+              {isEditing ? (
+                <Select value={editedPipeline} onValueChange={handlePipelineChange}>
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue placeholder="Select pipeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePipelines.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="font-medium truncate">{opportunity.pipeline_name || '-'}</div>
+              )}
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Stage</div>
