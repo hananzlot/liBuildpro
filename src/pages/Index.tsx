@@ -150,6 +150,30 @@ const Index = () => {
               {isLoading ? <>
                   {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
                 </> : <>
+                  <MetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} />
+                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">Appointments</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-3xl font-bold tracking-tight text-foreground">
+                            {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
+                          </p>
+                          <span className="text-sm text-muted-foreground">net</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-muted-foreground">{metrics?.totalAppointments || 0} scheduled</span>
+                          <span className="text-red-500 font-medium">-{metrics?.cancelledAppointments || 0} cancelled</span>
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-primary/10 p-3">
+                        <CalendarCheck className="h-5 w-5 text-primary" />
+                      </div>
+                    </div>
+                    <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
+                  </div>
+                  <ClickableMetricCard title="Appointments" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} />
+                  <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
                   <div 
                     className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer hover:border-primary/50 transition-colors"
                     onClick={() => setCallLogsSheetOpen(true)}
@@ -177,30 +201,6 @@ const Index = () => {
                     </div>
                     <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
                   </div>
-                  <MetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} />
-                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">Appointments</p>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-3xl font-bold tracking-tight text-foreground">
-                            {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
-                          </p>
-                          <span className="text-sm text-muted-foreground">net</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs">
-                          <span className="text-muted-foreground">{metrics?.totalAppointments || 0} scheduled</span>
-                          <span className="text-red-500 font-medium">-{metrics?.cancelledAppointments || 0} cancelled</span>
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-primary/10 p-3">
-                        <CalendarCheck className="h-5 w-5 text-primary" />
-                      </div>
-                    </div>
-                    <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
-                  </div>
-                  <ClickableMetricCard title="Appointments" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} />
-                  <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
                 </>}
             </section>
 
