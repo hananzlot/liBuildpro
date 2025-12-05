@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Clock, User, Search, ChevronRight } from "lucide-react";
+import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2 } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
@@ -268,18 +268,31 @@ export function UpcomingAppointmentsSheet({
                         const contactName = contact?.contact_name || 
                           `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown";
                         const assignedUser = appt.assigned_user_id ? userMap.get(appt.assigned_user_id) : null;
+                        const isPast = new Date(appt.start_time!) < new Date();
 
                         return (
                           <div
                             key={appt.ghl_id}
-                            className="p-3 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer transition-colors"
+                            className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                              isPast 
+                                ? "bg-muted/30 border-muted opacity-70 hover:opacity-100" 
+                                : "bg-card hover:bg-muted/30"
+                            }`}
                             onClick={() => handleAppointmentClick(appt)}
                           >
                             <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className="font-medium text-sm truncate">
-                                {appt.title || "Untitled"}
-                              </span>
+                              <div className="flex items-center gap-1.5 truncate">
+                                {isPast && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                                <span className={`font-medium text-sm truncate ${isPast ? "text-muted-foreground" : ""}`}>
+                                  {appt.title || "Untitled"}
+                                </span>
+                              </div>
                               <div className="flex items-center gap-1.5 shrink-0">
+                                {isPast && (
+                                  <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
+                                    Past
+                                  </Badge>
+                                )}
                                 <Badge variant="outline" className={`text-xs ${getStatusColor(appt.appointment_status)}`}>
                                   {appt.appointment_status || "Pending"}
                                 </Badge>
@@ -296,7 +309,7 @@ export function UpcomingAppointmentsSheet({
                                 {format(new Date(appt.start_time!), "MMM d, h:mm a")}
                               </div>
                               {assignedUser && (
-                                <span className="truncate text-primary">{assignedUser}</span>
+                                <span className={`truncate ${isPast ? "text-muted-foreground" : "text-primary"}`}>{assignedUser}</span>
                               )}
                             </div>
                           </div>
