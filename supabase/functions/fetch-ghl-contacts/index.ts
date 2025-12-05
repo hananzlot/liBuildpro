@@ -411,9 +411,9 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
     
     const batchPromises = batch.map(async (conversation) => {
       try {
+        // Remove type filter - fetch all messages and filter client-side
         const params = new URLSearchParams({
           conversationId: conversation.id,
-          type: 'TYPE_CALL',
           limit: '100'
         });
 
@@ -431,9 +431,19 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
         if (response.ok) {
           const data = await response.json();
           const messages = data.messages || [];
-          // Filter for call type messages and map with contact info
+          
+          // Log unique message types for debugging (only for first conversation in batch)
+          if (i === 0 && conversation === batch[0] && messages.length > 0) {
+            const uniqueTypes = [...new Set(messages.map((m: any) => m.type))];
+            console.log(`Sample message types found: ${JSON.stringify(uniqueTypes)}`);
+          }
+          
+          // Use broader client-side filter - match any message type containing "CALL" (case-insensitive)
           return messages
-            .filter((m: any) => m.type === 'TYPE_CALL')
+            .filter((m: any) => {
+              const messageType = (m.type || '').toUpperCase();
+              return messageType.includes('CALL');
+            })
             .map((m: any) => ({
               messageId: m.id,
               conversationId: conversation.id,
