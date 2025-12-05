@@ -266,7 +266,7 @@ export function SalesRepDetailSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="sm:max-w-lg overflow-hidden p-0">
+        <SheetContent className="sm:max-w-xl overflow-hidden p-0">
           {/* Header */}
           <div className="sticky top-0 bg-background border-b p-4">
             <SheetHeader className="space-y-1">

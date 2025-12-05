@@ -394,7 +394,7 @@ export function SourceDetailSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-lg p-0">
+        <SheetContent className="w-full sm:max-w-xl p-0">
           <div className="sticky top-0 bg-background border-b p-4">
             <SheetHeader>
               <div className="flex items-center gap-2">
