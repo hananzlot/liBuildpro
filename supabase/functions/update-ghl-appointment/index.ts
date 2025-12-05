@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,25 +15,65 @@ serve(async (req) => {
 
   try {
     const GHL_API_KEY = Deno.env.get('GHL_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!GHL_API_KEY) {
       throw new Error('GHL_API_KEY not configured');
     }
 
-    const { ghl_id, appointment_status } = await req.json();
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    const { 
+      ghl_id, 
+      appointment_status,
+      title,
+      startTime,  // ISO string in UTC
+      endTime,    // ISO string in UTC (optional)
+      assignedUserId,
+      notes,
+    } = await req.json();
 
     if (!ghl_id) {
       throw new Error('ghl_id is required');
     }
 
-    if (!appointment_status) {
-      throw new Error('appointment_status is required');
+    console.log(`Updating GHL appointment ${ghl_id}`);
+
+    // Build update payload - only include provided fields
+    const updatePayload: Record<string, unknown> = {};
+    
+    if (appointment_status !== undefined) {
+      updatePayload.appointmentStatus = appointment_status;
+    }
+    if (title !== undefined) {
+      updatePayload.title = title;
+    }
+    if (startTime !== undefined) {
+      updatePayload.startTime = startTime;
+      // If startTime is provided but not endTime, calculate 1 hour later
+      if (endTime === undefined) {
+        const startDate = new Date(startTime);
+        updatePayload.endTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
+      }
+    }
+    if (endTime !== undefined) {
+      updatePayload.endTime = endTime;
+    }
+    if (assignedUserId !== undefined) {
+      updatePayload.assignedUserId = assignedUserId;
+    }
+    if (notes !== undefined) {
+      updatePayload.notes = notes;
     }
 
-    console.log(`Updating GHL appointment ${ghl_id} to status: ${appointment_status}`);
+    if (Object.keys(updatePayload).length === 0) {
+      throw new Error('No update fields provided');
+    }
+
+    console.log('Updating with payload:', JSON.stringify(updatePayload));
 
     // Update appointment in GHL
-    // GHL API endpoint: PUT /calendars/events/appointments/:eventId
     const ghlResponse = await fetch(
       `https://services.leadconnectorhq.com/calendars/events/appointments/${ghl_id}`,
       {
@@ -42,9 +83,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
           'Version': '2021-04-15',
         },
-        body: JSON.stringify({
-          appointmentStatus: appointment_status,
-        }),
+        body: JSON.stringify(updatePayload),
       }
     );
 
@@ -55,7 +94,42 @@ serve(async (req) => {
     }
 
     const ghlData = await ghlResponse.json();
-    console.log('GHL appointment updated successfully:', ghlData);
+    console.log('GHL appointment updated successfully');
+
+    // Update local cache in Supabase
+    const supabaseUpdate: Record<string, unknown> = {
+      ghl_date_updated: new Date().toISOString(),
+    };
+    
+    if (appointment_status !== undefined) {
+      supabaseUpdate.appointment_status = appointment_status;
+    }
+    if (title !== undefined) {
+      supabaseUpdate.title = title;
+    }
+    if (startTime !== undefined) {
+      supabaseUpdate.start_time = startTime;
+    }
+    if (endTime !== undefined || (startTime !== undefined && endTime === undefined)) {
+      supabaseUpdate.end_time = updatePayload.endTime;
+    }
+    if (assignedUserId !== undefined) {
+      supabaseUpdate.assigned_user_id = assignedUserId;
+    }
+    if (notes !== undefined) {
+      supabaseUpdate.notes = notes;
+    }
+
+    const { error: dbError } = await supabase
+      .from('appointments')
+      .update(supabaseUpdate)
+      .eq('ghl_id', ghl_id);
+
+    if (dbError) {
+      console.error('Error updating Supabase cache:', dbError);
+    } else {
+      console.log('Supabase cache updated');
+    }
 
     return new Response(
       JSON.stringify({ success: true, data: ghlData }),
