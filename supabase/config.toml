@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.send-appointment-reminders]
 verify_jwt = false
+
+[functions.delete-ghl-appointment]
+verify_jwt = false
+
+[functions.delete-ghl-opportunity]
+verify_jwt = false
