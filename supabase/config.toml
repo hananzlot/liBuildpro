@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.create-ghl-appointment]
 verify_jwt = false
+
+[functions.send-appointment-reminders]
+verify_jwt = false
