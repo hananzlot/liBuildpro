@@ -458,7 +458,7 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
           
           // Filter for call messages - include type 37 (calls/voicemail based on TYPE_CALL conversations)
           // Also include type 6, 31, and string variants for comprehensive capture
-          return messages
+            return messages
             .filter((m: any) => {
               const msgType = m.type;
               // Numeric types: 37 (likely calls), 6 (calls), 31 (possibly related)
@@ -476,6 +476,7 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
               callDate: m.dateAdded,
               userId: m.userId,
               locationId: locationId,
+              duration: m.callDuration || 0,
             }));
         }
         return [];
@@ -717,6 +718,7 @@ serve(async (req) => {
         call_date: c.callDate,
         user_id: c.userId,
         location_id: c.locationId,
+        duration: c.duration || 0,
       }));
 
       for (let i = 0; i < callsToUpsert.length; i += 100) {

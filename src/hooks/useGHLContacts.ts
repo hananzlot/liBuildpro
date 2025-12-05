@@ -113,6 +113,7 @@ interface DBCallLog {
   user_id: string | null;
   location_id: string;
   created_at: string;
+  duration: number | null;
 }
 
 // Generic paginated fetch for any table
@@ -680,6 +681,10 @@ export function useGHLMetrics(dateRange?: DateRange) {
       })
     : callLogsQuery.data || [];
 
+  // Calculate unique contacts called and total talk time
+  const uniqueContactsCalled = new Set(filteredCallLogs.map(c => c.contact_id)).size;
+  const totalTalkTime = filteredCallLogs.reduce((sum, c) => sum + (c.duration || 0), 0);
+
   const data = contactsQuery.data && opportunitiesQuery.data && 
                appointmentsQuery.data && usersQuery.data
     ? {
@@ -697,6 +702,8 @@ export function useGHLMetrics(dateRange?: DateRange) {
         totalCalls: filteredCallLogs.length,
         outboundCalls: filteredCallLogs.filter(c => c.direction === 'outbound').length,
         inboundCalls: filteredCallLogs.filter(c => c.direction === 'inbound').length,
+        uniqueContactsCalled,
+        totalTalkTime,
       }
     : undefined;
 
