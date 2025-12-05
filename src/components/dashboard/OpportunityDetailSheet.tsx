@@ -207,12 +207,16 @@ export function OpportunityDetailSheet({
   const [isDeletingOpportunity, setIsDeletingOpportunity] = useState(false);
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
 
-  // Reset saved values when sheet opens or opportunity changes
+  // Track if sheet was previously closed, to reset savedValues only on fresh open
+  const [wasOpen, setWasOpen] = useState(false);
+  
+  // Reset saved values only when sheet opens fresh (was closed, now open)
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpen) {
       setSavedValues({});
     }
-  }, [open, opportunity?.ghl_id]);
+    setWasOpen(open);
+  }, [open]);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -912,14 +916,16 @@ export function OpportunityDetailSheet({
       if (data?.error) throw new Error(data.error);
       
       // Store saved values to display immediately (before query refresh)
-      setSavedValues({
+      const newSavedValues = {
         status: editedStatus,
         stage_name: editedStage,
         pipeline_name: pipeline_name,
         pipeline_id: editedPipeline,
         monetary_value: monetaryValue,
         assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo
-      });
+      };
+      console.log('Saving values:', newSavedValues);
+      setSavedValues(newSavedValues);
       
       toast.success("Opportunity updated in GHL and database");
       setIsEditing(false);
