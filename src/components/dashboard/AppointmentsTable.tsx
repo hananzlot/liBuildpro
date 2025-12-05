@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar, ChevronLeft, ChevronRight, User, Filter } from "lucide-react";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
+import { MultiSelectFilter } from "./MultiSelectFilter";
 
 interface Appointment {
   ghl_id: string;
@@ -81,8 +82,8 @@ export function AppointmentsTable({
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [repFilter, setRepFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [repFilter, setRepFilter] = useState<string[]>([]);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
@@ -147,6 +148,14 @@ export function AppointmentsTable({
     return Array.from(statuses).sort();
   }, [appointments]);
 
+  // Format statuses for multi-select
+  const statusOptions = useMemo(() => {
+    return uniqueStatuses.map(status => ({
+      value: status!,
+      label: status!.charAt(0).toUpperCase() + status!.slice(1)
+    }));
+  }, [uniqueStatuses]);
+
   const uniqueReps = useMemo(() => {
     const reps = new Set(appointments.map(a => a.assigned_user_id).filter(Boolean));
     return Array.from(reps).map(id => ({
@@ -155,18 +164,23 @@ export function AppointmentsTable({
     })).sort((a, b) => a.name.localeCompare(b.name));
   }, [appointments, users]);
 
+  // Format reps for multi-select
+  const repOptions = useMemo(() => {
+    return uniqueReps.map(rep => ({ value: rep.id, label: rep.name }));
+  }, [uniqueReps]);
+
   // Filter and paginate appointments
   const filteredAppointments = useMemo(() => {
     let filtered = [...appointments];
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(a => a.appointment_status?.toLowerCase() === statusFilter);
+    // Status filter (multi-select)
+    if (statusFilter.length > 0) {
+      filtered = filtered.filter(a => a.appointment_status && statusFilter.includes(a.appointment_status.toLowerCase()));
     }
 
-    // Rep filter
-    if (repFilter !== 'all') {
-      filtered = filtered.filter(a => a.assigned_user_id === repFilter);
+    // Rep filter (multi-select)
+    if (repFilter.length > 0) {
+      filtered = filtered.filter(a => a.assigned_user_id && repFilter.includes(a.assigned_user_id));
     }
 
     // Time filter
@@ -206,13 +220,13 @@ export function AppointmentsTable({
   );
 
   // Reset to page 1 when filters change
-  const handleStatusChange = (value: string) => {
-    setStatusFilter(value);
+  const handleStatusChange = (selected: string[]) => {
+    setStatusFilter(selected);
     setCurrentPage(1);
   };
 
-  const handleRepChange = (value: string) => {
-    setRepFilter(value);
+  const handleRepChange = (selected: string[]) => {
+    setRepFilter(selected);
     setCurrentPage(1);
   };
 
@@ -251,32 +265,22 @@ export function AppointmentsTable({
               </SelectContent>
             </Select>
 
-            <Select value={statusFilter} onValueChange={handleStatusChange}>
-              <SelectTrigger className="w-[130px] h-8 text-xs">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                {uniqueStatuses.map(status => (
-                  <SelectItem key={status} value={status!}>
-                    {status!.charAt(0).toUpperCase() + status!.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              options={statusOptions}
+              selected={statusFilter}
+              onChange={handleStatusChange}
+              placeholder="All Status"
+              className="w-[130px]"
+            />
 
-            <Select value={repFilter} onValueChange={handleRepChange}>
-              <SelectTrigger className="w-[150px] h-8 text-xs">
-                <User className="h-3 w-3 mr-1" />
-                <SelectValue placeholder="Rep" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Reps</SelectItem>
-                {uniqueReps.map(rep => (
-                  <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSelectFilter
+              options={repOptions}
+              selected={repFilter}
+              onChange={handleRepChange}
+              placeholder="All Reps"
+              icon={<User className="h-3 w-3" />}
+              className="w-[150px]"
+            />
           </div>
         </CardHeader>
         <CardContent>
