@@ -204,6 +204,9 @@ const Index = () => {
                 </>}
             </section>
 
+            {/* Visual separator */}
+            <div className="border-t border-border/50" />
+
             {/* Charts Row - All 4 in one line */}
             <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {isLoading ? <>
