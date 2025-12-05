@@ -461,12 +461,15 @@ export function AppointmentDetailSheet({
 
       if (response.error) {
         console.error('Appointment update error:', response.error);
+        console.log('Response data:', response.data);
         const errorData = response.data as { error?: string } | null;
-        const errorMsg = errorData?.error || "Failed to update appointment";
+        const errorMsg = errorData?.error || "";
         if (errorMsg.includes("slot") || errorMsg.includes("available")) {
-          toast.error("This time slot is not available in GHL. Please choose a different time or only update title/notes.");
-        } else {
+          toast.error("This time slot is not available in GHL. Try a time on the hour/half-hour, or only update title/notes.");
+        } else if (errorMsg) {
           toast.error(errorMsg);
+        } else {
+          toast.error("Failed to update appointment");
         }
         return;
       }
