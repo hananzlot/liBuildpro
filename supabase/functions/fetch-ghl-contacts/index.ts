@@ -501,6 +501,9 @@ serve(async (req) => {
     // Build pipeline/stage lookup maps
     const { pipelineNames, stageNames } = buildPipelineLookups(pipelines);
 
+    // Current sync timestamp for tracking
+    const syncTimestamp = new Date().toISOString();
+
     // Sync users first (needed for name resolution)
     if (users.length > 0) {
       console.log(`Syncing ${users.length} users...`);
@@ -524,7 +527,7 @@ serve(async (req) => {
       }
     }
 
-    // Sync contacts
+    // Sync contacts with last_synced_at tracking
     if (contacts.length > 0) {
       console.log(`Syncing ${contacts.length} contacts...`);
       const contactsToUpsert = contacts.map(c => ({
@@ -542,6 +545,7 @@ serve(async (req) => {
         ghl_date_updated: c.dateUpdated || null,
         custom_fields: c.customFields || null,
         attributions: c.attributions || null,
+        last_synced_at: syncTimestamp,
       }));
 
       for (let i = 0; i < contactsToUpsert.length; i += 100) {
@@ -551,7 +555,7 @@ serve(async (req) => {
       }
     }
 
-    // Sync opportunities with resolved pipeline/stage names
+    // Sync opportunities with last_synced_at tracking
     if (opportunities.length > 0) {
       console.log(`Syncing ${opportunities.length} opportunities...`);
       const oppsToUpsert = opportunities.map(o => ({
@@ -569,6 +573,7 @@ serve(async (req) => {
         ghl_date_added: o.createdAt || null,
         ghl_date_updated: o.updatedAt || null,
         custom_fields: o.customFields || null,
+        last_synced_at: syncTimestamp,
       }));
 
       for (let i = 0; i < oppsToUpsert.length; i += 100) {
@@ -578,7 +583,7 @@ serve(async (req) => {
       }
     }
 
-    // Sync appointments
+    // Sync appointments with last_synced_at tracking
     if (appointments.length > 0) {
       console.log(`Syncing ${appointments.length} appointments...`);
       const apptsToUpsert = appointments.map(a => ({
@@ -594,6 +599,7 @@ serve(async (req) => {
         notes: a.notes || null,
         ghl_date_added: a.dateAdded || a.createdAt || null,
         ghl_date_updated: a.dateUpdated || a.updatedAt || null,
+        last_synced_at: syncTimestamp,
       }));
 
       for (let i = 0; i < apptsToUpsert.length; i += 100) {
@@ -603,18 +609,16 @@ serve(async (req) => {
       }
     }
 
-    // Sync conversations
+    // Sync conversations with last_synced_at tracking
     if (conversations.length > 0) {
       console.log(`Syncing ${conversations.length} conversations...`);
       
       // Helper to convert Unix timestamp (ms) to ISO string
       const toISODate = (val: any): string | null => {
         if (!val) return null;
-        // If it's a number (Unix timestamp in ms), convert it
         if (typeof val === 'number') {
           return new Date(val).toISOString();
         }
-        // If it's already a string, return as-is (assume ISO format)
         if (typeof val === 'string') {
           return val;
         }
@@ -634,6 +638,7 @@ serve(async (req) => {
         last_message_direction: c.lastMessageDirection || null,
         ghl_date_added: toISODate(c.dateAdded) || toISODate(c.createdAt),
         ghl_date_updated: toISODate(c.dateUpdated) || toISODate(c.updatedAt),
+        last_synced_at: syncTimestamp,
       }));
 
       for (let i = 0; i < convsToUpsert.length; i += 100) {
@@ -643,7 +648,7 @@ serve(async (req) => {
       }
     }
 
-    // Sync tasks
+    // Sync tasks with last_synced_at tracking
     if (tasks.length > 0) {
       console.log(`Syncing ${tasks.length} tasks...`);
       const tasksToUpsert = tasks.map(t => ({
@@ -655,6 +660,7 @@ serve(async (req) => {
         assigned_to: t.assignedTo || null,
         due_date: t.dueDate || null,
         completed: t.completed || false,
+        last_synced_at: syncTimestamp,
       }));
 
       for (let i = 0; i < tasksToUpsert.length; i += 100) {
@@ -688,6 +694,125 @@ serve(async (req) => {
 
     console.log('Full sync complete!');
 
+    // SAFE STALE RECORD CLEANUP
+    // Only delete records that haven't been seen in 72+ hours (3 days of hourly syncs)
+    // This ensures records aren't deleted due to temporary API failures or incomplete fetches
+    const staleThreshold = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    
+    // Only run cleanup if we fetched a reasonable number of records (protection against empty fetches)
+    const minRecordsForCleanup = {
+      contacts: 100,
+      opportunities: 50,
+      appointments: 10,
+      tasks: 5,
+      conversations: 10,
+    };
+
+    console.log('Starting safe stale record cleanup (72hr threshold)...');
+    let totalDeleted = 0;
+
+    // Cleanup contacts (only if we fetched enough)
+    if (contacts.length >= minRecordsForCleanup.contacts) {
+      const { data: staleContacts, error: staleContactsErr } = await supabase
+        .from('contacts')
+        .select('ghl_id')
+        .lt('last_synced_at', staleThreshold);
+      
+      if (!staleContactsErr && staleContacts && staleContacts.length > 0) {
+        console.log(`Found ${staleContacts.length} stale contacts (not seen in 72hrs)`);
+        const { error: delErr } = await supabase
+          .from('contacts')
+          .delete()
+          .lt('last_synced_at', staleThreshold);
+        if (!delErr) totalDeleted += staleContacts.length;
+        else console.error('Error deleting stale contacts:', delErr);
+      }
+    } else {
+      console.log(`Skipping contacts cleanup (only ${contacts.length} fetched, need ${minRecordsForCleanup.contacts})`);
+    }
+
+    // Cleanup opportunities (only if we fetched enough)
+    if (opportunities.length >= minRecordsForCleanup.opportunities) {
+      const { data: staleOpps, error: staleOppsErr } = await supabase
+        .from('opportunities')
+        .select('ghl_id')
+        .lt('last_synced_at', staleThreshold);
+      
+      if (!staleOppsErr && staleOpps && staleOpps.length > 0) {
+        console.log(`Found ${staleOpps.length} stale opportunities (not seen in 72hrs)`);
+        const { error: delErr } = await supabase
+          .from('opportunities')
+          .delete()
+          .lt('last_synced_at', staleThreshold);
+        if (!delErr) totalDeleted += staleOpps.length;
+        else console.error('Error deleting stale opportunities:', delErr);
+      }
+    } else {
+      console.log(`Skipping opportunities cleanup (only ${opportunities.length} fetched, need ${minRecordsForCleanup.opportunities})`);
+    }
+
+    // Cleanup appointments (only if we fetched enough)
+    if (appointments.length >= minRecordsForCleanup.appointments) {
+      const { data: staleAppts, error: staleApptsErr } = await supabase
+        .from('appointments')
+        .select('ghl_id')
+        .lt('last_synced_at', staleThreshold);
+      
+      if (!staleApptsErr && staleAppts && staleAppts.length > 0) {
+        console.log(`Found ${staleAppts.length} stale appointments (not seen in 72hrs)`);
+        const { error: delErr } = await supabase
+          .from('appointments')
+          .delete()
+          .lt('last_synced_at', staleThreshold);
+        if (!delErr) totalDeleted += staleAppts.length;
+        else console.error('Error deleting stale appointments:', delErr);
+      }
+    } else {
+      console.log(`Skipping appointments cleanup (only ${appointments.length} fetched, need ${minRecordsForCleanup.appointments})`);
+    }
+
+    // Cleanup tasks (only if we fetched enough)
+    if (tasks.length >= minRecordsForCleanup.tasks) {
+      const { data: staleTasks, error: staleTasksErr } = await supabase
+        .from('ghl_tasks')
+        .select('ghl_id')
+        .lt('last_synced_at', staleThreshold);
+      
+      if (!staleTasksErr && staleTasks && staleTasks.length > 0) {
+        console.log(`Found ${staleTasks.length} stale tasks (not seen in 72hrs)`);
+        const { error: delErr } = await supabase
+          .from('ghl_tasks')
+          .delete()
+          .lt('last_synced_at', staleThreshold);
+        if (!delErr) totalDeleted += staleTasks.length;
+        else console.error('Error deleting stale tasks:', delErr);
+      }
+    } else {
+      console.log(`Skipping tasks cleanup (only ${tasks.length} fetched, need ${minRecordsForCleanup.tasks})`);
+    }
+
+    // Cleanup conversations (only if we fetched enough)
+    if (conversations.length >= minRecordsForCleanup.conversations) {
+      const { data: staleConvs, error: staleConvsErr } = await supabase
+        .from('conversations')
+        .select('ghl_id')
+        .lt('last_synced_at', staleThreshold);
+      
+      if (!staleConvsErr && staleConvs && staleConvs.length > 0) {
+        console.log(`Found ${staleConvs.length} stale conversations (not seen in 72hrs)`);
+        const { error: delErr } = await supabase
+          .from('conversations')
+          .delete()
+          .lt('last_synced_at', staleThreshold);
+        if (!delErr) totalDeleted += staleConvs.length;
+        else console.error('Error deleting stale conversations:', delErr);
+      }
+    } else {
+      console.log(`Skipping conversations cleanup (only ${conversations.length} fetched, need ${minRecordsForCleanup.conversations})`);
+    }
+
+    console.log(`Safe stale cleanup complete! Deleted ${totalDeleted} total stale records.`);
+
     return new Response(JSON.stringify({
       meta: {
         contacts: contacts.length,
@@ -698,6 +823,7 @@ serve(async (req) => {
         conversations: conversations.length,
         tasks: tasks.length,
         callLogs: callLogs.length,
+        staleRecordsDeleted: totalDeleted,
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
