@@ -93,7 +93,7 @@ const Index = () => {
   return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">CA Pro Builders (GHL)</h1>
             <p className="text-sm text-muted-foreground">Executive Dashboard</p>
@@ -122,7 +122,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="px-6 py-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList>
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -150,28 +150,6 @@ const Index = () => {
               {isLoading ? <>
                   {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
                 </> : <>
-                  <MetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} />
-                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">Appointments</p>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-3xl font-bold tracking-tight text-foreground">
-                            {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
-                          </p>
-                          <span className="text-sm text-muted-foreground">net</span>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs">
-                          <span className="text-muted-foreground">{metrics?.totalAppointments || 0} scheduled</span>
-                          <span className="text-red-500 font-medium">-{metrics?.cancelledAppointments || 0} cancelled</span>
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-primary/10 p-3">
-                        <CalendarCheck className="h-5 w-5 text-primary" />
-                      </div>
-                    </div>
-                    <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
-                  </div>
                   <div 
                     className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer hover:border-primary/50 transition-colors"
                     onClick={() => setCallLogsSheetOpen(true)}
@@ -195,6 +173,28 @@ const Index = () => {
                       </div>
                       <div className="rounded-xl bg-primary/10 p-3">
                         <Phone className="h-5 w-5 text-primary" />
+                      </div>
+                    </div>
+                    <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
+                  </div>
+                  <MetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} />
+                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">Appointments</p>
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-3xl font-bold tracking-tight text-foreground">
+                            {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
+                          </p>
+                          <span className="text-sm text-muted-foreground">net</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          <span className="text-muted-foreground">{metrics?.totalAppointments || 0} scheduled</span>
+                          <span className="text-red-500 font-medium">-{metrics?.cancelledAppointments || 0} cancelled</span>
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-primary/10 p-3">
+                        <CalendarCheck className="h-5 w-5 text-primary" />
                       </div>
                     </div>
                     <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
