@@ -195,6 +195,7 @@ export function OpportunityDetailSheet({
 
   // Delete state
   const [isDeletingOpportunity, setIsDeletingOpportunity] = useState(false);
+  const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -924,6 +925,27 @@ export function OpportunityDetailSheet({
       toast.error("Failed to delete opportunity");
     } finally {
       setIsDeletingOpportunity(false);
+    }
+  };
+
+  const handleDeleteAppointmentFromDialog = async () => {
+    if (!editingAppointment) return;
+    setIsDeletingAppointment(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-ghl-appointment', {
+        body: { appointmentId: editingAppointment.ghl_id }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Appointment deleted");
+      setAppointmentDialogOpen(false);
+      setEditingAppointment(null);
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    } catch (error) {
+      console.error("Error deleting appointment:", error);
+      toast.error("Failed to delete appointment");
+    } finally {
+      setIsDeletingAppointment(false);
     }
   };
 
@@ -1676,18 +1698,45 @@ export function OpportunityDetailSheet({
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAppointmentDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              onClick={editingAppointment ? handleUpdateAppointment : handleCreateAppointment} 
-              disabled={isCreatingAppointment || !appointmentDate}
-            >
-              {isCreatingAppointment 
-                ? (editingAppointment ? "Saving..." : "Creating...") 
-                : (editingAppointment ? "Save Changes" : "Create Appointment")}
-            </Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            {editingAppointment && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50">
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this appointment? This will also remove it from GoHighLevel. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteAppointmentFromDialog} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeletingAppointment}>
+                      {isDeletingAppointment ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button variant="outline" onClick={() => setAppointmentDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={editingAppointment ? handleUpdateAppointment : handleCreateAppointment} 
+                disabled={isCreatingAppointment || !appointmentDate}
+              >
+                {isCreatingAppointment 
+                  ? (editingAppointment ? "Saving..." : "Creating...") 
+                  : (editingAppointment ? "Save Changes" : "Create Appointment")}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
