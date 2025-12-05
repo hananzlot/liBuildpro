@@ -30,7 +30,8 @@ serve(async (req) => {
       dueDate, 
       assignedTo, 
       contactId,
-      locationId
+      locationId,
+      enteredBy
     } = await req.json();
 
     if (!title) {
@@ -99,7 +100,8 @@ serve(async (req) => {
           assigned_to: assignedTo || null,
           contact_id: contactId,
           location_id: finalLocationId,
-          completed: false
+          completed: false,
+          entered_by: enteredBy || null
         });
 
       if (supabaseError) {

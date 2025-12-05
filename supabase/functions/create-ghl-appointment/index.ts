@@ -33,6 +33,7 @@ serve(async (req) => {
       assignedUserId,
       address,
       notes,
+      enteredBy,
     } = await req.json();
 
     if (!contactId || !locationId || !title || !startTime) {
@@ -97,6 +98,7 @@ serve(async (req) => {
         assigned_user_id: assignedUserId || null,
         notes: notes || null,
         ghl_date_added: new Date().toISOString(),
+        entered_by: enteredBy || null,
       }, { onConflict: 'ghl_id' });
 
       if (dbError) {

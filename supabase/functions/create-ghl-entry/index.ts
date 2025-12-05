@@ -35,6 +35,7 @@ serve(async (req) => {
       appointmentDateTime, // ISO string in UTC
       source,
       assignedTo,
+      enteredBy, // User ID who created this entry
     } = await req.json();
 
     if (!firstName || !lastName) {
@@ -107,6 +108,7 @@ serve(async (req) => {
       assigned_to: assignedTo || null,
       custom_fields: customFields.length > 0 ? customFields : null,
       ghl_date_added: new Date().toISOString(),
+      entered_by: enteredBy || null,
     }, { onConflict: 'ghl_id' });
 
     // Step 2: Create Opportunity in GHL
@@ -160,6 +162,7 @@ serve(async (req) => {
         status: 'open',
         assigned_to: assignedTo || null,
         ghl_date_added: new Date().toISOString(),
+        entered_by: enteredBy || null,
       }, { onConflict: 'ghl_id' });
     }
 
@@ -219,6 +222,7 @@ serve(async (req) => {
             appointment_status: 'confirmed',
             assigned_user_id: assignedTo || null,
             ghl_date_added: new Date().toISOString(),
+            entered_by: enteredBy || null,
           }, { onConflict: 'ghl_id' });
         }
       }

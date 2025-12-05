@@ -14,6 +14,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 interface DBOpportunity {
   id: string;
   ghl_id: string;
@@ -117,6 +118,7 @@ export function FollowUpManagement({
   onOpenOpportunity,
   onDataRefresh
 }: FollowUpManagementProps) {
+  const { user } = useAuth();
   const [staleNotesOpen, setStaleNotesOpen] = useState(false);
   const [noTasksOpen, setNoTasksOpen] = useState(false);
   const [pastConfirmedOpen, setPastConfirmedOpen] = useState(false);
@@ -402,7 +404,8 @@ export function FollowUpManagement({
       } = await supabase.functions.invoke('create-contact-note', {
         body: {
           contactId: noteDialogContactId,
-          body: noteText.trim()
+          body: noteText.trim(),
+          enteredBy: user?.id || null
         }
       });
       if (error) throw error;
@@ -454,7 +457,8 @@ export function FollowUpManagement({
           dueDate: dueDateTime,
           assignedTo: taskAssignee === 'unassigned' ? null : taskAssignee || null,
           contactId: taskDialogContactId,
-          locationId: locationId
+          locationId: locationId,
+          enteredBy: user?.id || null
         }
       });
       

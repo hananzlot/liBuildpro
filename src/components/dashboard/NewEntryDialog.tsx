@@ -23,6 +23,7 @@ interface User {
 interface NewEntryDialogProps {
   users: User[];
   onSuccess?: () => void;
+  userId?: string;
 }
 
 interface CSVEntry {
@@ -54,7 +55,7 @@ const SOURCES = [
   'Other',
 ];
 
-export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
+export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('single');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -175,6 +176,7 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
           appointmentDateTime,
           source: source || null,
           assignedTo: assignedTo || null,
+          enteredBy: userId || null,
         },
       });
 
@@ -369,6 +371,7 @@ export function NewEntryDialog({ users, onSuccess }: NewEntryDialogProps) {
             appointmentDateTime,
             source: entry.source?.trim() || null,
             assignedTo: assignedToId || null,
+            enteredBy: userId || null,
           },
         });
 

@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { stripHtml } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -145,6 +146,7 @@ export function OpportunityDetailSheet({
   allOpportunities = []
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedStatus, setEditedStatus] = useState<string>("");
@@ -325,7 +327,8 @@ export function OpportunityDetailSheet({
       } = await supabase.functions.invoke('create-contact-note', {
         body: {
           contactId: opportunity.contact_id,
-          body: newNoteText.trim()
+          body: newNoteText.trim(),
+          enteredBy: user?.id || null
         }
       });
       if (error) {
@@ -428,7 +431,8 @@ export function OpportunityDetailSheet({
           dueDate: dueDateValue,
           assignedTo: assignedToValue,
           contactId: opportunity.contact_id,
-          locationId: locationId
+          locationId: locationId,
+          enteredBy: user?.id || null
         }
       });
 
@@ -655,6 +659,7 @@ export function OpportunityDetailSheet({
           startTime: utcDate.toISOString(),
           assignedUserId: assignedToValue,
           notes: appointmentNotes.trim() || null,
+          enteredBy: user?.id || null,
         }
       });
 
