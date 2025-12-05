@@ -107,23 +107,25 @@ export function UpcomingAppointmentsSheet({
     return map;
   }, [users]);
 
-  const now = new Date();
-  const nextWeekEnd = addDays(now, 7);
+  const nextWeekEnd = addDays(new Date(), 7);
 
-  // Filter to upcoming appointments only
-  const upcomingAppointments = useMemo(() => {
+  // Filter to today and upcoming appointments only (includes past appointments today)
+  const todayAndUpcomingAppointments = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    
     return appointments
       .filter(a => {
         if (!a.start_time) return false;
-        return new Date(a.start_time) > now;
+        return new Date(a.start_time) >= startOfToday;
       })
       .sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
   }, [appointments]);
 
-  // Get available reps from upcoming appointments
+  // Get available reps from today and upcoming appointments
   const availableReps = useMemo(() => {
     const reps = new Map<string, string>();
-    upcomingAppointments.forEach(a => {
+    todayAndUpcomingAppointments.forEach(a => {
       if (a.assigned_user_id && !reps.has(a.assigned_user_id)) {
         reps.set(a.assigned_user_id, userMap.get(a.assigned_user_id) || a.assigned_user_id);
       }
@@ -131,11 +133,11 @@ export function UpcomingAppointmentsSheet({
     return Array.from(reps.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [upcomingAppointments, userMap]);
+  }, [todayAndUpcomingAppointments, userMap]);
 
   // Apply search and rep filters
   const filteredAppointments = useMemo(() => {
-    let result = upcomingAppointments;
+    let result = todayAndUpcomingAppointments;
     
     // Filter by rep
     if (repFilter !== "all") {
@@ -157,7 +159,7 @@ export function UpcomingAppointmentsSheet({
     }
     
     return result;
-  }, [upcomingAppointments, repFilter, searchFilter, contacts]);
+  }, [todayAndUpcomingAppointments, repFilter, searchFilter, contacts]);
 
   // Group by time period
   const groupedAppointments = useMemo(() => {
@@ -199,10 +201,8 @@ export function UpcomingAppointmentsSheet({
     setDetailSheetOpen(true);
   };
 
-
-  const nextWeekCount = upcomingAppointments.filter(a => 
-    new Date(a.start_time!) <= nextWeekEnd
-  ).length;
+  const todayCount = todayAndUpcomingAppointments.filter(a => isToday(new Date(a.start_time!))).length;
+  const upcomingCount = todayAndUpcomingAppointments.filter(a => !isToday(new Date(a.start_time!))).length;
 
   return (
     <>
@@ -215,9 +215,9 @@ export function UpcomingAppointmentsSheet({
                   <Calendar className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <SheetTitle>Upcoming Appointments</SheetTitle>
+                  <SheetTitle>Today & Upcoming Appointments</SheetTitle>
                   <SheetDescription>
-                    {nextWeekCount} next 7 days • {upcomingAppointments.length} total
+                    {todayCount} today • {upcomingCount} upcoming
                   </SheetDescription>
                 </div>
               </div>
