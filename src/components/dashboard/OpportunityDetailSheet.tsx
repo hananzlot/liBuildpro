@@ -175,6 +175,15 @@ export function OpportunityDetailSheet({
   const [isDeletingTask, setIsDeletingTask] = useState<string | null>(null);
   const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState<string | null>(null);
 
+  // Appointment creation
+  const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+  const [appointmentTitle, setAppointmentTitle] = useState("");
+  const [appointmentDate, setAppointmentDate] = useState("");
+  const [appointmentTime, setAppointmentTime] = useState("09:00");
+  const [appointmentAssignee, setAppointmentAssignee] = useState("");
+  const [appointmentNotes, setAppointmentNotes] = useState("");
+  const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
+
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
     if (open && opportunity?.contact_id) {
@@ -599,6 +608,73 @@ export function OpportunityDetailSheet({
       toast.error("Failed to update task status");
     } finally {
       setIsUpdatingTaskStatus(null);
+    }
+  };
+
+  // Appointment creation handlers
+  const openAppointmentDialog = () => {
+    const contact = contacts.find(c => c.ghl_id === opportunity?.contact_id);
+    const contactName = contact?.contact_name || 
+      `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
+    setAppointmentTitle(`Appointment - ${contactName || opportunity?.name || "Contact"}`);
+    setAppointmentDate("");
+    setAppointmentTime("09:00");
+    setAppointmentAssignee(opportunity?.assigned_to || "__unassigned__");
+    setAppointmentNotes("");
+    setAppointmentDialogOpen(true);
+  };
+
+  const handleCreateAppointment = async () => {
+    if (!opportunity || !appointmentDate || !appointmentTitle.trim()) {
+      toast.error("Please enter appointment title and date");
+      return;
+    }
+
+    setIsCreatingAppointment(true);
+    try {
+      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
+      const assignedToValue = appointmentAssignee && appointmentAssignee !== "__unassigned__" ? appointmentAssignee : null;
+
+      // Treat input as PST
+      const timeStr = appointmentTime || "09:00";
+      const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
+      const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
+      const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+
+      const response = await supabase.functions.invoke('create-ghl-appointment', {
+        body: {
+          contactId: opportunity.contact_id,
+          locationId,
+          title: appointmentTitle.trim(),
+          startTime: utcDate.toISOString(),
+          assignedUserId: assignedToValue,
+          notes: appointmentNotes.trim() || null,
+        }
+      });
+
+      if (response.error) {
+        console.error('Appointment creation error:', response.error);
+        toast.error("Failed to create appointment");
+        return;
+      }
+
+      toast.success("Appointment created and synced to GHL");
+      
+      // Invalidate queries to refresh appointment data
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      
+      setAppointmentDialogOpen(false);
+      setAppointmentTitle("");
+      setAppointmentDate("");
+      setAppointmentTime("09:00");
+      setAppointmentAssignee("");
+      setAppointmentNotes("");
+    } catch (err) {
+      console.error("Error creating appointment:", err);
+      toast.error("Failed to create appointment");
+    } finally {
+      setIsCreatingAppointment(false);
     }
   };
 
@@ -1033,11 +1109,17 @@ export function OpportunityDetailSheet({
 
           {/* Related Appointments - Always show */}
           <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Appointment History ({relatedAppointments.length})
-              </span>
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Appointment History ({relatedAppointments.length})
+                </span>
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 px-2" onClick={openAppointmentDialog}>
+                <Plus className="h-3 w-3 mr-1" />
+                <span className="text-xs">Add Appointment</span>
+              </Button>
             </div>
             {relatedAppointments.length === 0 ? <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
                 No appointments found
@@ -1257,6 +1339,97 @@ export function OpportunityDetailSheet({
               {isCreatingTask 
                 ? (editingTask ? "Saving..." : "Creating...") 
                 : (editingTask ? "Save Changes" : "Create Task")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Appointment Dialog */}
+      <Dialog open={appointmentDialogOpen} onOpenChange={(open) => {
+        setAppointmentDialogOpen(open);
+        if (!open) {
+          setAppointmentTitle("");
+          setAppointmentDate("");
+          setAppointmentTime("09:00");
+          setAppointmentAssignee("");
+          setAppointmentNotes("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Add Appointment
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="oppApptTitle">Appointment Title</Label>
+              <Input
+                id="oppApptTitle"
+                value={appointmentTitle}
+                onChange={(e) => setAppointmentTitle(e.target.value)}
+                placeholder="Enter appointment title..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Date & Time (PST)</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={appointmentDate}
+                  onChange={(e) => setAppointmentDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(e) => setAppointmentTime(e.target.value)}
+                  className="w-28"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Times are in Pacific Standard Time (PST/PDT)</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oppApptAssignee">Assign To</Label>
+              <Select value={appointmentAssignee} onValueChange={setAppointmentAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {[...users].sort((a, b) => {
+                    const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
+                    const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
+                    return nameA.localeCompare(nameB);
+                  }).map((user) => (
+                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                      {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oppApptNotes">Notes (optional)</Label>
+              <Textarea
+                id="oppApptNotes"
+                value={appointmentNotes}
+                onChange={(e) => setAppointmentNotes(e.target.value)}
+                placeholder="Add notes for this appointment..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAppointmentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateAppointment} 
+              disabled={isCreatingAppointment || !appointmentDate}
+            >
+              {isCreatingAppointment ? "Creating..." : "Create Appointment"}
             </Button>
           </DialogFooter>
         </DialogContent>
