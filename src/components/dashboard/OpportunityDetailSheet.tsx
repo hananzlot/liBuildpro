@@ -734,13 +734,26 @@ export function OpportunityDetailSheet({
 
       // Only send startTime if the user changed the date or time
       const dateTimeChanged = appointmentDate !== originalAppointmentDate || appointmentTime !== originalAppointmentTime;
+      
       if (dateTimeChanged) {
         const timeStr = appointmentTime || "09:00";
         const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
         const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
         const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+        
+        // Check if the new time is in the past - GHL won't allow past time slots
+        if (utcDate < new Date()) {
+          toast.error("Cannot reschedule to a past date/time. GHL requires future time slots.");
+          setIsCreatingAppointment(false);
+          return;
+        }
+        
         updateBody.startTime = utcDate.toISOString();
       }
+      // Note: If dateTimeChanged is false, we don't send startTime at all
+      // This allows editing title/notes/assignee for past appointments
+
+      console.log('Appointment update payload:', JSON.stringify(updateBody));
 
       const response = await supabase.functions.invoke('update-ghl-appointment', {
         body: updateBody
