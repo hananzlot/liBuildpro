@@ -426,7 +426,21 @@ export function AppointmentDetailSheet({
       };
 
       // Only send startTime if date/time changed
-      const dateTimeChanged = editApptDate !== originalApptDate || editApptTime !== originalApptTime;
+      // Normalize times to compare (trim and ensure same format)
+      const normalizedDate = editApptDate.trim();
+      const normalizedOriginalDate = originalApptDate.trim();
+      const normalizedTime = editApptTime.trim();
+      const normalizedOriginalTime = originalApptTime.trim();
+      
+      const dateTimeChanged = normalizedDate !== normalizedOriginalDate || normalizedTime !== normalizedOriginalTime;
+      console.log('DateTime comparison:', { 
+        editApptDate: normalizedDate, 
+        originalApptDate: normalizedOriginalDate, 
+        editApptTime: normalizedTime, 
+        originalApptTime: normalizedOriginalTime, 
+        dateTimeChanged 
+      });
+      
       if (dateTimeChanged) {
         const timeStr = editApptTime || '09:00';
         const pstOffset = getPSTOffset(new Date(`${editApptDate}T12:00:00Z`));
@@ -447,7 +461,13 @@ export function AppointmentDetailSheet({
 
       if (response.error) {
         console.error('Appointment update error:', response.error);
-        toast.error('Failed to update appointment');
+        const errorData = response.data as { error?: string } | null;
+        const errorMsg = errorData?.error || "Failed to update appointment";
+        if (errorMsg.includes("slot") || errorMsg.includes("available")) {
+          toast.error("This time slot is not available in GHL. Please choose a different time or only update title/notes.");
+        } else {
+          toast.error(errorMsg);
+        }
         return;
       }
 
