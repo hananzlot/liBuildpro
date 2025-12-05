@@ -18,6 +18,7 @@ import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -109,6 +110,7 @@ const Index = () => {
               {syncMutation.isPending ? 'Syncing...' : 'Sync GHL'}
             </Button>
             <div className="flex items-center gap-2 pl-2 border-l border-border">
+              <NotificationBell />
               <span className="text-sm text-muted-foreground hidden sm:inline">
                 {profile?.full_name || user?.email}
               </span>

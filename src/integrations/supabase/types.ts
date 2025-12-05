@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointment_reminders: {
+        Row: {
+          appointment_ghl_id: string
+          appointment_id: string
+          created_at: string
+          id: string
+          recipient_email: string | null
+          recipient_type: string
+          reminder_type: string
+          sent_at: string
+        }
+        Insert: {
+          appointment_ghl_id: string
+          appointment_id: string
+          created_at?: string
+          id?: string
+          recipient_email?: string | null
+          recipient_type: string
+          reminder_type: string
+          sent_at?: string
+        }
+        Update: {
+          appointment_ghl_id?: string
+          appointment_id?: string
+          created_at?: string
+          id?: string
+          recipient_email?: string | null
+          recipient_type?: string
+          reminder_type?: string
+          sent_at?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           appointment_status: string | null
@@ -397,6 +430,42 @@ export type Database = {
           phone?: string | null
           role?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          appointment_ghl_id: string | null
+          created_at: string
+          ghl_user_id: string | null
+          id: string
+          message: string
+          read: boolean
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          appointment_ghl_id?: string | null
+          created_at?: string
+          ghl_user_id?: string | null
+          id?: string
+          message: string
+          read?: boolean
+          title: string
+          type?: string
+          user_id?: string | null
+        }
+        Update: {
+          appointment_ghl_id?: string | null
+          created_at?: string
+          ghl_user_id?: string | null
+          id?: string
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string | null
         }
         Relationships: []
       }
