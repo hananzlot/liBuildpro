@@ -591,7 +591,7 @@ export function AppointmentDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md overflow-y-auto p-0">
+      <SheetContent className="sm:max-w-xl overflow-y-auto p-0">
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4 z-10">
           <SheetHeader className="space-y-1">
