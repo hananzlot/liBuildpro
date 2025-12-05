@@ -393,7 +393,7 @@ export function FollowUpManagement({
       toast.success('Note created successfully');
       setNoteDialogOpen(false);
       setNoteText('');
-      
+
       // Refresh both local tasks and parent data to ensure UI updates
       await fetchGhlTasks();
       onDataRefresh?.();
@@ -434,7 +434,9 @@ export function FollowUpManagement({
       const locationId = contact?.location_id || DEFAULT_LOCATION_ID;
 
       // Create in GHL first (edge function will also insert into ghl_tasks)
-      const { error: ghlError } = await supabase.functions.invoke('create-ghl-task', {
+      const {
+        error: ghlError
+      } = await supabase.functions.invoke('create-ghl-task', {
         body: {
           title: taskTitle.trim(),
           body: taskNotes.trim() || null,
@@ -444,16 +446,14 @@ export function FollowUpManagement({
           locationId: locationId
         }
       });
-      
       if (ghlError) {
         console.error('GHL sync error:', ghlError);
         toast.error('Failed to create task');
         return;
       }
-      
       toast.success('Task created successfully');
       setTaskDialogOpen(false);
-      
+
       // Refresh tasks list
       await fetchGhlTasks();
       onDataRefresh?.();
@@ -684,7 +684,6 @@ export function FollowUpManagement({
       // Check if any tasks exist for this contact in ghl_tasks
       const contactTasks = ghlTasks.filter(t => t.contact_id === opportunity.contact_id);
       if (contactTasks.length > 0) return;
-      
       const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
       const latestAppointment = oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0];
       results.push({
@@ -780,7 +779,6 @@ export function FollowUpManagement({
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const now = new Date();
-    
     const results: Array<{
       opportunity: DBOpportunity;
       contact: DBContact | undefined;
@@ -792,39 +790,35 @@ export function FollowUpManagement({
 
     // Filter open opportunities only
     const openOpportunities = opportunities.filter(o => o.status?.toLowerCase() === 'open');
-    
     openOpportunities.forEach(opportunity => {
       if (!opportunity.contact_id) return;
-      
+
       // MUST HAVE: Check for NO appointments ever (not even cancelled)
       const contactAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id);
       if (contactAppointments.length > 0) return; // Skip if any appointments exist
-      
+
       // Check notes condition
       const contactNotesList = contactNotes.filter(n => n.contact_id === opportunity.contact_id);
       const latestNoteDate = getLatestNoteDate(opportunity.contact_id);
-      const hasStaleOrNoNotes = contactNotesList.length === 0 || (latestNoteDate !== null && latestNoteDate < sevenDaysAgo);
-      
+      const hasStaleOrNoNotes = contactNotesList.length === 0 || latestNoteDate !== null && latestNoteDate < sevenDaysAgo;
+
       // Check tasks condition - from ghl_tasks only
       const contactGhlTasks = ghlTasks.filter(t => t.contact_id === opportunity.contact_id && !t.completed);
-      
       const hasNoTasks = contactGhlTasks.length === 0;
       const overdueTasks = contactGhlTasks.filter(t => t.due_date && new Date(t.due_date) < now);
       const hasOverdueTasks = overdueTasks.length > 0;
       const hasExpiredOrNoTasks = hasNoTasks || hasOverdueTasks;
-      
+
       // MUST HAVE one of: stale notes OR expired/no tasks
       if (!hasStaleOrNoNotes && !hasExpiredOrNoTasks) return;
-      
       const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
-      
+
       // Find earliest overdue task date
       let earliestOverdueDate: Date | null = null;
       if (hasOverdueTasks) {
         const dates = overdueTasks.map(t => new Date(t.due_date!)).sort((a, b) => a.getTime() - b.getTime());
         earliestOverdueDate = dates[0] || null;
       }
-      
       results.push({
         opportunity,
         contact,
@@ -834,20 +828,16 @@ export function FollowUpManagement({
         earliestOverdueDate
       });
     });
-    
+
     // Apply rep filter
     let filtered = results;
     if (needsAttentionRepFilter !== 'all') {
-      filtered = results.filter(r => 
-        r.opportunity.assigned_to === needsAttentionRepFilter || 
-        r.contact?.assigned_to === needsAttentionRepFilter
-      );
+      filtered = results.filter(r => r.opportunity.assigned_to === needsAttentionRepFilter || r.contact?.assigned_to === needsAttentionRepFilter);
     }
-    
+
     // Sort by monetary value descending
     return filtered.sort((a, b) => (b.opportunity.monetary_value || 0) - (a.opportunity.monetary_value || 0));
   }, [opportunities, appointments, contacts, contactNotes, tasks, ghlTasks, needsAttentionRepFilter]);
-
   const toggleSort = (view: 'stale' | 'noTasks' | 'pastConfirmed', field: SortField) => {
     if (view === 'stale') {
       setStaleNotesSort(prev => ({
@@ -1008,7 +998,7 @@ export function FollowUpManagement({
                     </TableHeader>
                     <TableBody>
                       {closeToSaleData.map(opp => {
-                    return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
+                      return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
                             <TableCell className="font-medium">
                               {opp.name || 'Unnamed'}
                             </TableCell>
@@ -1028,7 +1018,7 @@ export function FollowUpManagement({
                               {formatCurrency(opp.monetary_value)}
                             </TableCell>
                           </TableRow>;
-                  })}
+                    })}
                     </TableBody>
                   </Table>
                 </div>}
@@ -1118,10 +1108,10 @@ export function FollowUpManagement({
                   No pending tasks found
                 </div> : <div className="space-y-3">
                   {filteredGhlTasks.map(task => {
-                const overdue = isTaskOverdue(task.due_date);
-                const contactName = getContactName(task.contact_id);
-                const opportunity = getOpportunityForContact(task.contact_id);
-                return <div key={task.id} className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${overdue ? "bg-destructive/5 border-destructive/30" : "bg-card border-border/50"}`} onClick={() => handleTaskClick(task)}>
+                  const overdue = isTaskOverdue(task.due_date);
+                  const contactName = getContactName(task.contact_id);
+                  const opportunity = getOpportunityForContact(task.contact_id);
+                  return <div key={task.id} className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${overdue ? "bg-destructive/5 border-destructive/30" : "bg-card border-border/50"}`} onClick={() => handleTaskClick(task)}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -1152,7 +1142,7 @@ export function FollowUpManagement({
                           <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                         </div>
                       </div>;
-              })}
+                })}
                 </div>}
             </CardContent>
           </CollapsibleContent>
@@ -1184,7 +1174,10 @@ export function FollowUpManagement({
             <CollapsibleContent>
               <CardContent>
                 <div className="flex items-center gap-4 mb-4">
-                  <Select value={needsAttentionRepFilter} onValueChange={(v) => { setNeedsAttentionRepFilter(v); setNeedsAttentionPage(1); }}>
+                  <Select value={needsAttentionRepFilter} onValueChange={v => {
+                  setNeedsAttentionRepFilter(v);
+                  setNeedsAttentionPage(1);
+                }}>
                     <SelectTrigger className="w-[200px]">
                       <User className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Filter by rep" />
@@ -1213,10 +1206,8 @@ export function FollowUpManagement({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {needsAttentionData
-                            .slice((needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE, needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE)
-                            .map(row => {
-                            return <TableRow key={row.opportunity.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(row.opportunity)}>
+                          {needsAttentionData.slice((needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE, needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE).map(row => {
+                        return <TableRow key={row.opportunity.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(row.opportunity)}>
                                 <TableCell className="font-medium">
                                   {getContactName(row.opportunity.contact_id)}
                                 </TableCell>
@@ -1229,16 +1220,12 @@ export function FollowUpManagement({
                                 <TableCell>
                                   <div className="flex flex-wrap gap-1">
                                     <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 border-cyan-500/30 text-xs">No Appts</Badge>
-                                    {row.hasStaleOrNoNotes && (
-                                      <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-xs">
+                                    {row.hasStaleOrNoNotes && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-xs">
                                         {row.latestNoteDate ? 'Stale Notes' : 'No Notes'}
-                                      </Badge>
-                                    )}
-                                    {row.hasExpiredOrNoTasks && (
-                                      <Badge variant="outline" className="bg-orange-500/10 text-orange-700 border-orange-500/30 text-xs">
+                                      </Badge>}
+                                    {row.hasExpiredOrNoTasks && <Badge variant="outline" className="bg-orange-500/10 text-orange-700 border-orange-500/30 text-xs">
                                         {row.earliestOverdueDate ? 'Overdue Tasks' : 'No Tasks'}
-                                      </Badge>
-                                    )}
+                                      </Badge>}
                                   </div>
                                 </TableCell>
                                 <TableCell>{getUserName(row.opportunity.assigned_to || row.contact?.assigned_to)}</TableCell>
@@ -1248,49 +1235,37 @@ export function FollowUpManagement({
                                 <TableCell>
                                   <div className="flex gap-1">
                                     <Button variant="outline" size="sm" onClick={e => {
-                                  e.stopPropagation();
-                                  handleOpenNoteDialog(row.opportunity.contact_id!, getContactName(row.opportunity.contact_id));
-                                }}>
+                                e.stopPropagation();
+                                handleOpenNoteDialog(row.opportunity.contact_id!, getContactName(row.opportunity.contact_id));
+                              }}>
                                       <FileText className="h-4 w-4" />
                                     </Button>
                                     <Button variant="outline" size="sm" onClick={e => {
-                                  e.stopPropagation();
-                                  handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
-                                }}>
+                                e.stopPropagation();
+                                handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
+                              }}>
                                       <Plus className="h-4 w-4" />
                                     </Button>
                                   </div>
                                 </TableCell>
                               </TableRow>;
-                          })}
+                      })}
                         </TableBody>
                       </Table>
                     </div>
-                    {needsAttentionData.length > NEEDS_ATTENTION_PAGE_SIZE && (
-                      <div className="flex items-center justify-between mt-4">
+                    {needsAttentionData.length > NEEDS_ATTENTION_PAGE_SIZE && <div className="flex items-center justify-between mt-4">
                         <span className="text-sm text-muted-foreground">
-                          Showing {((needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE) + 1}-{Math.min(needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE, needsAttentionData.length)} of {needsAttentionData.length}
+                          Showing {(needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE + 1}-{Math.min(needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE, needsAttentionData.length)} of {needsAttentionData.length}
                         </span>
                         <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setNeedsAttentionPage(p => Math.max(1, p - 1))}
-                            disabled={needsAttentionPage === 1}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => setNeedsAttentionPage(p => Math.max(1, p - 1))} disabled={needsAttentionPage === 1}>
                             Previous
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setNeedsAttentionPage(p => Math.min(Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE), p + 1))}
-                            disabled={needsAttentionPage >= Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE)}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => setNeedsAttentionPage(p => Math.min(Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE), p + 1))} disabled={needsAttentionPage >= Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE)}>
                             Next
                           </Button>
                         </div>
-                      </div>
-                    )}
+                      </div>}
                   </>}
               </CardContent>
             </CollapsibleContent>
@@ -1363,8 +1338,8 @@ export function FollowUpManagement({
                     </TableHeader>
                     <TableBody>
                       {staleNotesData.map(row => {
-                    const isOld = row.daysSinceNote !== null && row.daysSinceNote > 7;
-                    return <TableRow key={row.appointment.id} className={`cursor-pointer hover:bg-muted/50 ${isOld || row.daysSinceNote === null ? 'bg-red-50 dark:bg-red-950/20' : ''}`} onClick={() => onOpenOpportunity(row.opportunity)}>
+                      const isOld = row.daysSinceNote !== null && row.daysSinceNote > 7;
+                      return <TableRow key={row.appointment.id} className={`cursor-pointer hover:bg-muted/50 ${isOld || row.daysSinceNote === null ? 'bg-red-50 dark:bg-red-950/20' : ''}`} onClick={() => onOpenOpportunity(row.opportunity)}>
                             <TableCell className="font-medium">
                               {getContactName(row.appointment.contact_id)}
                             </TableCell>
@@ -1377,8 +1352,8 @@ export function FollowUpManagement({
                             <TableCell>
                               {row.lastNoteDate ? <span className={isOld ? 'text-red-600 font-medium' : ''}>
                                   {formatDistanceToNow(row.lastNoteDate, {
-                            addSuffix: true
-                          })}
+                              addSuffix: true
+                            })}
                                 </span> : <Badge variant="destructive">No notes</Badge>}
                             </TableCell>
                             <TableCell>
@@ -1390,15 +1365,15 @@ export function FollowUpManagement({
                             </TableCell>
                             <TableCell>
                               <Button variant="outline" size="sm" onClick={e => {
-                          e.stopPropagation();
-                          handleOpenNoteDialog(row.appointment.contact_id!, getContactName(row.appointment.contact_id));
-                        }}>
+                            e.stopPropagation();
+                            handleOpenNoteDialog(row.appointment.contact_id!, getContactName(row.appointment.contact_id));
+                          }}>
                                 <FileText className="h-4 w-4 mr-1" />
                                 Add Note
                               </Button>
                             </TableCell>
                           </TableRow>;
-                  })}
+                    })}
                     </TableBody>
                   </Table>
                 </div>}
@@ -1488,9 +1463,9 @@ export function FollowUpManagement({
                           </TableCell>
                           <TableCell>
                             <Button variant="outline" size="sm" onClick={e => {
-                        e.stopPropagation();
-                        handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
-                      }}>
+                          e.stopPropagation();
+                          handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
+                        }}>
                               <Plus className="h-4 w-4 mr-1" />
                               Add Task
                             </Button>
@@ -1515,9 +1490,9 @@ export function FollowUpManagement({
                       <Clock className="h-4 w-4 text-red-500" />
                     </div>
                     <div>
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        Past Confirmed
-                        <Badge variant="secondary" className="text-xs">{pastConfirmedData.length}</Badge>
+                      <CardTitle className="flex items-center gap-2 text-base">Open Opps with Past Appointments Marked
+ Confirmed
+88<Badge variant="secondary" className="text-xs">{pastConfirmedData.length}</Badge>
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">Past appointments still "Confirmed"</CardDescription>
                     </div>
