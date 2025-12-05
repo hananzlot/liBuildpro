@@ -393,6 +393,9 @@ export function FollowUpManagement({
       toast.success('Note created successfully');
       setNoteDialogOpen(false);
       setNoteText('');
+      
+      // Refresh both local tasks and parent data to ensure UI updates
+      await fetchGhlTasks();
       onDataRefresh?.();
     } catch (error) {
       console.error('Error creating note:', error);
