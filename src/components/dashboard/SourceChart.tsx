@@ -131,11 +131,14 @@ export function SourceChart({
   const showingAppointments = isOpportunitiesMode && activeTab === "appointments";
   const showingNoAppointments = isOpportunitiesMode && activeTab === "noAppointments";
   
-  const chartData = showingAppointments 
+  // Limit to top 5 sources to fit in compact height
+  const rawChartData = showingAppointments 
     ? (appointmentsBySource || []) 
     : showingNoAppointments 
       ? (oppsWithoutAppointmentsBySource || [])
       : data;
+  
+  const chartData = rawChartData.slice(0, 5);
   
   const colors = mode === "won" 
     ? WON_COLORS 
