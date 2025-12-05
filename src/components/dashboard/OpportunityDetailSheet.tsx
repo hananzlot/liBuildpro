@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -186,6 +187,7 @@ export function OpportunityDetailSheet({
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [originalAppointmentDate, setOriginalAppointmentDate] = useState("");
   const [originalAppointmentTime, setOriginalAppointmentTime] = useState("");
+  const [updateAppointmentTime, setUpdateAppointmentTime] = useState(false);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -686,6 +688,7 @@ export function OpportunityDetailSheet({
     setEditingAppointment(appt);
     setAppointmentTitle(appt.title || "");
     setAppointmentNotes(appt.notes || "");
+    setUpdateAppointmentTime(false); // Default to NOT updating time
     
     // Find assigned user from appointments
     const relatedAppts = appointments.filter(a => a.ghl_id === appt.ghl_id);
@@ -732,23 +735,19 @@ export function OpportunityDetailSheet({
         notes: appointmentNotes.trim() || null,
       };
 
-      // Only send startTime if the user changed the date or time
-      // Normalize times to compare (trim and ensure same format)
-      const normalizedDate = appointmentDate.trim();
-      const normalizedOriginalDate = originalAppointmentDate.trim();
-      const normalizedTime = appointmentTime.trim();
-      const normalizedOriginalTime = originalAppointmentTime.trim();
+      // Only send startTime if user explicitly checked "Reschedule appointment" and changed the time
+      const dateTimeChanged = appointmentDate.trim() !== originalAppointmentDate.trim() || appointmentTime.trim() !== originalAppointmentTime.trim();
+      const shouldUpdateTime = editingAppointment ? (updateAppointmentTime && dateTimeChanged) : true;
       
-      const dateTimeChanged = normalizedDate !== normalizedOriginalDate || normalizedTime !== normalizedOriginalTime;
-      console.log('DateTime comparison:', { 
-        appointmentDate: normalizedDate, 
-        originalAppointmentDate: normalizedOriginalDate, 
-        appointmentTime: normalizedTime, 
-        originalAppointmentTime: normalizedOriginalTime, 
-        dateTimeChanged 
+      console.log('DateTime check:', { 
+        updateAppointmentTime,
+        dateTimeChanged,
+        shouldUpdateTime,
+        appointmentDate: appointmentDate.trim(), 
+        originalAppointmentDate: originalAppointmentDate.trim(), 
       });
       
-      if (dateTimeChanged) {
+      if (shouldUpdateTime && (dateTimeChanged || !editingAppointment)) {
         const timeStr = appointmentTime || "09:00";
         const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
         const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
@@ -763,8 +762,8 @@ export function OpportunityDetailSheet({
         
         updateBody.startTime = utcDate.toISOString();
       }
-      // Note: If dateTimeChanged is false, we don't send startTime at all
-      // This allows editing title/notes/assignee for past appointments
+      // Note: If shouldUpdateTime is false, we don't send startTime at all
+      // This allows editing title/notes/assignee without triggering GHL slot validation
 
       console.log('Appointment update payload:', JSON.stringify(updateBody));
 
@@ -1517,21 +1516,39 @@ export function OpportunityDetailSheet({
             </div>
             <div className="space-y-2">
               <Label>Date & Time (PST)</Label>
+              {editingAppointment && (
+                <div className="flex items-center space-x-2 mb-2">
+                  <Checkbox 
+                    id="updateTime" 
+                    checked={updateAppointmentTime}
+                    onCheckedChange={(checked) => setUpdateAppointmentTime(checked === true)}
+                  />
+                  <label htmlFor="updateTime" className="text-sm text-muted-foreground cursor-pointer">
+                    Reschedule appointment (requires available GHL slot)
+                  </label>
+                </div>
+              )}
               <div className="flex gap-2">
                 <Input
                   type="date"
                   value={appointmentDate}
                   onChange={(e) => setAppointmentDate(e.target.value)}
                   className="flex-1"
+                  disabled={editingAppointment && !updateAppointmentTime}
                 />
                 <Input
                   type="time"
                   value={appointmentTime}
                   onChange={(e) => setAppointmentTime(e.target.value)}
                   className="w-28"
+                  disabled={editingAppointment && !updateAppointmentTime}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">Times are in Pacific Standard Time (PST/PDT)</p>
+              <p className="text-xs text-muted-foreground">
+                {editingAppointment && !updateAppointmentTime 
+                  ? "Check box above to change the appointment time" 
+                  : "Times are in Pacific Standard Time (PST/PDT)"}
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="oppApptAssignee">Assign To</Label>
