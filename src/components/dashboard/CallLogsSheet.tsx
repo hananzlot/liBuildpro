@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Phone, PhoneIncoming, PhoneOutgoing, User, Calendar, Search, ExternalLink } from "lucide-react";
+import { Phone, PhoneIncoming, PhoneOutgoing, User, Calendar, Search, ExternalLink, Clock, ChevronDown, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import {
   Sheet,
@@ -26,6 +26,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ContactDetailSheet } from "./ContactDetailSheet";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface CallLog {
   id: string;
@@ -36,6 +41,7 @@ interface CallLog {
   call_date: string | null;
   user_id: string | null;
   location_id: string;
+  duration?: number | null;
 }
 
 interface Contact {
@@ -79,6 +85,16 @@ interface Appointment {
   notes?: string | null;
 }
 
+interface GroupedCall {
+  contactId: string;
+  date: string;
+  calls: CallLog[];
+  totalCalls: number;
+  totalDuration: number;
+  directions: { inbound: number; outbound: number };
+  latestCall: CallLog;
+}
+
 interface CallLogsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -90,6 +106,18 @@ interface CallLogsSheetProps {
 }
 
 const PAGE_SIZE = 20;
+
+// Helper to format duration
+const formatDuration = (seconds: number): string => {
+  if (!seconds) return '-';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${secs}s`;
+  return `${secs}s`;
+};
 
 export function CallLogsSheet({
   open,
@@ -106,6 +134,7 @@ export function CallLogsSheet({
   const [page, setPage] = useState(1);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [contactSheetOpen, setContactSheetOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Get opportunities for selected contact
   const contactOpportunities = useMemo(() => {
@@ -147,57 +176,93 @@ export function CallLogsSheet({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [callLogs, userMap]);
 
-  // Filter and search
+  // Filter calls first
   const filteredCalls = useMemo(() => {
-    return callLogs
-      .filter((call) => {
-        // Direction filter
-        if (directionFilter !== "all" && call.direction !== directionFilter) {
+    return callLogs.filter((call) => {
+      // Direction filter
+      if (directionFilter !== "all" && call.direction !== directionFilter) {
+        return false;
+      }
+      // User filter
+      if (userFilter !== "all" && call.user_id !== userFilter) {
+        return false;
+      }
+      // Search filter (contact name or phone)
+      if (search) {
+        const contact = contactMap.get(call.contact_id);
+        const contactName = contact
+          ? `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
+            contact.contact_name ||
+            ""
+          : "";
+        const phone = contact?.phone || "";
+        const searchLower = search.toLowerCase();
+        if (
+          !contactName.toLowerCase().includes(searchLower) &&
+          !phone.includes(search)
+        ) {
           return false;
         }
-        // User filter
-        if (userFilter !== "all" && call.user_id !== userFilter) {
-          return false;
-        }
-        // Search filter (contact name or phone)
-        if (search) {
-          const contact = contactMap.get(call.contact_id);
-          const contactName = contact
-            ? `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
-              contact.contact_name ||
-              ""
-            : "";
-          const phone = contact?.phone || "";
-          const searchLower = search.toLowerCase();
-          if (
-            !contactName.toLowerCase().includes(searchLower) &&
-            !phone.includes(search)
-          ) {
-            return false;
-          }
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        const dateA = a.call_date ? new Date(a.call_date).getTime() : 0;
-        const dateB = b.call_date ? new Date(b.call_date).getTime() : 0;
-        return dateB - dateA;
-      });
+      }
+      return true;
+    });
   }, [callLogs, directionFilter, userFilter, search, contactMap]);
 
-  // Pagination
-  const paginatedCalls = useMemo(() => {
-    const start = (page - 1) * PAGE_SIZE;
-    return filteredCalls.slice(start, start + PAGE_SIZE);
-  }, [filteredCalls, page]);
+  // Group calls by contact + date
+  const groupedCalls = useMemo(() => {
+    const groups = new Map<string, GroupedCall>();
+    
+    filteredCalls.forEach(call => {
+      const dateKey = call.call_date 
+        ? format(new Date(call.call_date), 'yyyy-MM-dd') 
+        : 'unknown';
+      const groupKey = `${call.contact_id}_${dateKey}`;
+      
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, {
+          contactId: call.contact_id,
+          date: dateKey,
+          calls: [],
+          totalCalls: 0,
+          totalDuration: 0,
+          directions: { inbound: 0, outbound: 0 },
+          latestCall: call,
+        });
+      }
+      
+      const group = groups.get(groupKey)!;
+      group.calls.push(call);
+      group.totalCalls++;
+      group.totalDuration += call.duration || 0;
+      if (call.direction === 'inbound') group.directions.inbound++;
+      else if (call.direction === 'outbound') group.directions.outbound++;
+      
+      // Track latest call in group
+      if (new Date(call.call_date || 0) > new Date(group.latestCall.call_date || 0)) {
+        group.latestCall = call;
+      }
+    });
+    
+    return Array.from(groups.values())
+      .sort((a, b) => new Date(b.latestCall.call_date || 0).getTime() - 
+                      new Date(a.latestCall.call_date || 0).getTime());
+  }, [filteredCalls]);
 
-  const totalPages = Math.ceil(filteredCalls.length / PAGE_SIZE);
+  // Pagination on grouped data
+  const paginatedGroups = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return groupedCalls.slice(start, start + PAGE_SIZE);
+  }, [groupedCalls, page]);
+
+  const totalPages = Math.ceil(groupedCalls.length / PAGE_SIZE);
 
   // Stats
   const stats = useMemo(() => {
     const outbound = filteredCalls.filter((c) => c.direction === "outbound").length;
     const inbound = filteredCalls.filter((c) => c.direction === "inbound").length;
-    return { total: filteredCalls.length, outbound, inbound };
+    const uniqueContacts = new Set(filteredCalls.map(c => c.contact_id)).size;
+    const totalDuration = filteredCalls.reduce((sum, c) => sum + (c.duration || 0), 0);
+    return { total: filteredCalls.length, outbound, inbound, uniqueContacts, totalDuration };
   }, [filteredCalls]);
 
   const getContactDisplay = (contactId: string) => {
@@ -216,6 +281,27 @@ export function CallLogsSheet({
     setPage(1);
   };
 
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  };
+
+  const handleContactClick = (contactId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const contact = contactMap.get(contactId);
+    if (contact) {
+      setSelectedContact(contact);
+      setContactSheetOpen(true);
+    }
+  };
+
   return (
     <>
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -228,18 +314,25 @@ export function CallLogsSheet({
         </SheetHeader>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="bg-muted/50 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold">{stats.uniqueContacts}</p>
+            <p className="text-xs text-muted-foreground">Unique Contacts</p>
+          </div>
           <div className="bg-muted/50 rounded-lg p-3 text-center">
             <p className="text-2xl font-bold">{stats.total}</p>
             <p className="text-xs text-muted-foreground">Total Calls</p>
           </div>
-          <div className="bg-green-500/10 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-green-600">{stats.outbound}</p>
-            <p className="text-xs text-muted-foreground">Outbound</p>
+          <div className="bg-muted/50 rounded-lg p-3 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <span className="text-lg font-bold text-green-600">{stats.outbound}↑</span>
+              <span className="text-lg font-bold text-blue-600">{stats.inbound}↓</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Out / In</p>
           </div>
-          <div className="bg-blue-500/10 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-blue-600">{stats.inbound}</p>
-            <p className="text-xs text-muted-foreground">Inbound</p>
+          <div className="bg-muted/50 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold">{formatDuration(stats.totalDuration)}</p>
+            <p className="text-xs text-muted-foreground">Total Time</p>
           </div>
         </div>
 
@@ -286,7 +379,7 @@ export function CallLogsSheet({
         </div>
 
         {/* Call Logs Table */}
-        {paginatedCalls.length === 0 ? (
+        {paginatedGroups.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Phone className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p>No calls found</p>
@@ -302,84 +395,141 @@ export function CallLogsSheet({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Direction</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Team Member</TableHead>
-                    <TableHead>Date & Time</TableHead>
+                    <TableHead className="w-[200px]">Contact</TableHead>
+                    <TableHead className="w-[80px]">Calls</TableHead>
+                    <TableHead className="w-[90px]">Duration</TableHead>
+                    <TableHead className="w-[100px]">Direction</TableHead>
+                    <TableHead>Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedCalls.map((call) => {
-                    const contact = contactMap.get(call.contact_id);
-                    const { name, phone } = getContactDisplay(call.contact_id);
-                    const userName = call.user_id
-                      ? userMap.get(call.user_id) || "Unknown"
-                      : "Unknown";
-                    const isOutbound = call.direction === "outbound";
-
-                    const handleRowClick = () => {
-                      if (contact) {
-                        setSelectedContact(contact);
-                        setContactSheetOpen(true);
-                      }
-                    };
+                  {paginatedGroups.map((group) => {
+                    const groupKey = `${group.contactId}_${group.date}`;
+                    const { name, phone } = getContactDisplay(group.contactId);
+                    const isExpanded = expandedGroups.has(groupKey);
 
                     return (
-                      <TableRow 
-                        key={call.id} 
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={handleRowClick}
-                      >
-                        <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={
-                              isOutbound
-                                ? "border-green-500/50 text-green-600 bg-green-500/10"
-                                : "border-blue-500/50 text-blue-600 bg-blue-500/10"
-                            }
-                          >
-                            {isOutbound ? (
-                              <PhoneOutgoing className="h-3 w-3 mr-1" />
-                            ) : (
-                              <PhoneIncoming className="h-3 w-3 mr-1" />
-                            )}
-                            {isOutbound ? "Outbound" : "Inbound"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="flex flex-col">
-                              <span className="font-medium">{name}</span>
-                              {phone && (
-                                <span className="text-xs text-muted-foreground">
-                                  {phone}
+                      <Collapsible key={groupKey} open={isExpanded}>
+                        <TableRow 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => group.totalCalls > 1 && toggleGroup(groupKey)}
+                        >
+                          <TableCell>
+                            <div 
+                              className="flex items-center gap-2 cursor-pointer hover:text-primary"
+                              onClick={(e) => handleContactClick(group.contactId, e)}
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{name}</span>
+                                {phone && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {phone}
+                                  </span>
+                                )}
+                              </div>
+                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <CollapsibleTrigger asChild>
+                              <Badge 
+                                variant="secondary" 
+                                className={`cursor-pointer ${group.totalCalls > 1 ? 'hover:bg-primary hover:text-primary-foreground' : ''}`}
+                              >
+                                {group.totalCalls > 1 && (
+                                  isExpanded ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />
+                                )}
+                                {group.totalCalls}
+                              </Badge>
+                            </CollapsibleTrigger>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm">
+                              <Clock className="h-3 w-3 text-muted-foreground" />
+                              {formatDuration(group.totalDuration)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-xs">
+                              {group.directions.outbound > 0 && (
+                                <span className="text-green-600 font-medium flex items-center">
+                                  <PhoneOutgoing className="h-3 w-3 mr-0.5" />
+                                  {group.directions.outbound}
+                                </span>
+                              )}
+                              {group.directions.inbound > 0 && (
+                                <span className="text-blue-600 font-medium flex items-center">
+                                  <PhoneIncoming className="h-3 w-3 mr-0.5" />
+                                  {group.directions.inbound}
                                 </span>
                               )}
                             </div>
-                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{userName}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">
-                              {call.call_date
-                                ? format(
-                                    new Date(call.call_date),
-                                    "MMM d, yyyy h:mm a"
-                                  )
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              {group.date !== 'unknown' 
+                                ? format(new Date(group.date), "MMM d, yyyy")
                                 : "Unknown"}
-                            </span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        
+                        {/* Expanded individual calls */}
+                        <CollapsibleContent asChild>
+                          <>
+                            {group.calls
+                              .sort((a, b) => new Date(b.call_date || 0).getTime() - new Date(a.call_date || 0).getTime())
+                              .map((call) => {
+                                const userName = call.user_id
+                                  ? userMap.get(call.user_id) || "Unknown"
+                                  : "Unknown";
+                                const isOutbound = call.direction === "outbound";
+
+                                return (
+                                  <TableRow key={call.id} className="bg-muted/30">
+                                    <TableCell className="pl-8">
+                                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <User className="h-3 w-3" />
+                                        {userName}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                    <TableCell>
+                                      <span className="text-xs text-muted-foreground">
+                                        {formatDuration(call.duration || 0)}
+                                      </span>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-xs ${
+                                          isOutbound
+                                            ? "border-green-500/50 text-green-600 bg-green-500/10"
+                                            : "border-blue-500/50 text-blue-600 bg-blue-500/10"
+                                        }`}
+                                      >
+                                        {isOutbound ? (
+                                          <PhoneOutgoing className="h-3 w-3 mr-1" />
+                                        ) : (
+                                          <PhoneIncoming className="h-3 w-3 mr-1" />
+                                        )}
+                                        {isOutbound ? "Out" : "In"}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <span className="text-xs text-muted-foreground">
+                                        {call.call_date
+                                          ? format(new Date(call.call_date), "h:mm a")
+                                          : "Unknown"}
+                                      </span>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                          </>
+                        </CollapsibleContent>
+                      </Collapsible>
                     );
                   })}
                 </TableBody>
@@ -391,8 +541,8 @@ export function CallLogsSheet({
               <div className="flex items-center justify-between mt-4">
                 <p className="text-sm text-muted-foreground">
                   Showing {(page - 1) * PAGE_SIZE + 1}-
-                  {Math.min(page * PAGE_SIZE, filteredCalls.length)} of{" "}
-                  {filteredCalls.length}
+                  {Math.min(page * PAGE_SIZE, groupedCalls.length)} of{" "}
+                  {groupedCalls.length} groups
                 </p>
                 <div className="flex gap-2">
                   <Button

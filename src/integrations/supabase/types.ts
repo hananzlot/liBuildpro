@@ -78,6 +78,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           direction: string | null
+          duration: number | null
           ghl_message_id: string
           id: string
           location_id: string
@@ -90,6 +91,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           direction?: string | null
+          duration?: number | null
           ghl_message_id: string
           id?: string
           location_id: string
@@ -102,6 +104,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           direction?: string | null
+          duration?: number | null
           ghl_message_id?: string
           id?: string
           location_id?: string

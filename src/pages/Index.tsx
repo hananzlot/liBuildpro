@@ -24,6 +24,15 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 const ADMIN_PASSWORD = "CAPro2025";
+
+// Helper to format talk time
+const formatTalkTime = (seconds: number): string => {
+  if (!seconds) return '0m';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+};
 const Index = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const end = new Date();
@@ -177,13 +186,16 @@ const Index = () => {
                         <p className="text-sm font-medium text-muted-foreground">Calls</p>
                         <div className="flex items-baseline gap-2">
                           <p className="text-3xl font-bold tracking-tight text-foreground">
-                            {metrics?.totalCalls || 0}
+                            {metrics?.uniqueContactsCalled || 0}
                           </p>
-                          <span className="text-sm text-muted-foreground">total</span>
+                          <span className="text-sm text-muted-foreground">contacts</span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs">
-                          <span className="text-green-600 font-medium">{metrics?.outboundCalls || 0} out</span>
-                          <span className="text-blue-500 font-medium">{metrics?.inboundCalls || 0} in</span>
+                        <div className="flex flex-col gap-1 text-xs">
+                          <span className="text-muted-foreground">{metrics?.totalCalls || 0} total • {formatTalkTime(metrics?.totalTalkTime || 0)}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-green-600 font-medium">{metrics?.outboundCalls || 0}↑</span>
+                            <span className="text-blue-500 font-medium">{metrics?.inboundCalls || 0}↓</span>
+                          </div>
                         </div>
                       </div>
                       <div className="rounded-xl bg-primary/10 p-3">
