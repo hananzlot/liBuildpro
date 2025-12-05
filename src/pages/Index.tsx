@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, Lock, ListChecks, Phone } from "lucide-react";
+import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Phone, LogOut } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
+import { useAuth } from "@/contexts/AuthContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { SourceChart } from "@/components/dashboard/SourceChart";
@@ -20,12 +21,11 @@ import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-const ADMIN_PASSWORD = "CAPro2025";
 
 const Index = () => {
+  const { user, profile, isAdmin, signOut } = useAuth();
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const end = new Date();
     const start = new Date();
@@ -40,8 +40,6 @@ const Index = () => {
   const [callLogsSheetOpen, setCallLogsSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
-  const [adminAuthenticated, setAdminAuthenticated] = useState(false);
-  const [adminPassword, setAdminPassword] = useState("");
   const {
     data: metrics,
     isLoading,
@@ -53,14 +51,9 @@ const Index = () => {
     setSelectedOpportunity(opportunity);
     setOppDetailSheetOpen(true);
   };
-  const handleAdminLogin = () => {
-    if (adminPassword === ADMIN_PASSWORD) {
-      setAdminAuthenticated(true);
-      setAdminPassword("");
-      toast.success("Admin access granted");
-    } else {
-      toast.error("Incorrect password");
-    }
+  const handleLogout = async () => {
+    await signOut();
+    toast.success("Signed out successfully");
   };
   const handleSync = async () => {
     toast.info("Syncing all data from GHL...");
@@ -105,7 +98,7 @@ const Index = () => {
             <p className="text-sm text-muted-foreground">Executive Dashboard</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} />}
+            {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
             {!isLoading && <OpportunitySearch opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} />}
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -115,6 +108,14 @@ const Index = () => {
               <Database className={`h-4 w-4 mr-2 ${syncMutation.isPending ? 'animate-pulse' : ''}`} />
               {syncMutation.isPending ? 'Syncing...' : 'Sync GHL'}
             </Button>
+            <div className="flex items-center gap-2 pl-2 border-l border-border">
+              <span className="text-sm text-muted-foreground hidden sm:inline">
+                {profile?.full_name || user?.email}
+              </span>
+              <Button variant="ghost" size="sm" onClick={handleLogout} title="Sign out">
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -272,20 +273,14 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="admin" className="space-y-6">
-            {!adminAuthenticated ? <Card className="max-w-md mx-auto mt-12">
+            {!isAdmin ? <Card className="max-w-md mx-auto mt-12">
                 <CardHeader className="text-center">
                   <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
-                    <Lock className="h-6 w-6 text-muted-foreground" />
+                    <Settings className="h-6 w-6 text-muted-foreground" />
                   </div>
                   <CardTitle>Admin Access Required</CardTitle>
-                  <CardDescription>Enter the admin password to access data cleanup tools</CardDescription>
+                  <CardDescription>You need admin privileges to access data cleanup tools. Contact your administrator if you need access.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <Input type="password" placeholder="Enter password..." value={adminPassword} onChange={e => setAdminPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAdminLogin()} />
-                  <Button className="w-full" onClick={handleAdminLogin}>
-                    Unlock Admin
-                  </Button>
-                </CardContent>
               </Card> : <>
                 <div>
                   <h2 className="text-xl font-semibold text-foreground mb-1">Data Cleanup</h2>

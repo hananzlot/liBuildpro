@@ -21,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Helper to get PST/PDT offset in hours
 const getPSTOffset = (utcDate: Date): number => {
@@ -143,6 +144,7 @@ export function AppointmentDetailSheet({
   onOpenChange,
   onOpenOpportunity,
 }: AppointmentDetailSheetProps) {
+  const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [contactNotes, setContactNotes] = useState<ContactNote[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -261,7 +263,7 @@ export function AppointmentDetailSheet({
     setIsAddingNote(true);
     try {
       const { error } = await supabase.functions.invoke('create-contact-note', {
-        body: { contactId: appointment.contact_id, body: newNoteBody.trim() }
+        body: { contactId: appointment.contact_id, body: newNoteBody.trim(), enteredBy: user?.id || null }
       });
       if (error) throw error;
       toast.success('Note added successfully');
@@ -352,7 +354,8 @@ export function AppointmentDetailSheet({
           dueDate: dueDateValue,
           assignedTo: assignedToValue,
           contactId: appointment.contact_id,
-          locationId: locationId
+          locationId: locationId,
+          enteredBy: user?.id || null
         }
       });
 
