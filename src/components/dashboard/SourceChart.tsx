@@ -188,20 +188,20 @@ export function SourceChart({
         </div>
         <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 15, top: 5, bottom: 5 }} barCategoryGap="15%">
               <XAxis 
                 type="number" 
                 stroke="hsl(var(--muted-foreground))" 
-                fontSize={12}
+                fontSize={10}
                 tickFormatter={(value) => String(formatValue(value))}
               />
               <YAxis 
                 type="category" 
                 dataKey="source" 
                 stroke="hsl(var(--muted-foreground))" 
-                fontSize={12}
-                width={100}
-                tickFormatter={(value) => value.length > 12 ? `${value.slice(0, 12)}...` : value}
+                fontSize={10}
+                width={80}
+                tickFormatter={(value) => value.length > 10 ? `${value.slice(0, 10)}...` : value}
               />
               <Tooltip 
                 contentStyle={{
@@ -232,7 +232,7 @@ export function SourceChart({
                   dataKey={showingAppointments || showingNoAppointments ? "count" : dataKey}
                   position="insideRight"
                   fill="hsl(var(--background))"
-                  fontSize={12}
+                  fontSize={10}
                   fontWeight={600}
                   formatter={(value: number) => showingAppointments || showingNoAppointments || dataKey === "count" ? value : formatValue(value)}
                 />
