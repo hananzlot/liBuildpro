@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.delete-ghl-opportunity]
 verify_jwt = false
+
+[functions.sync-lost-opportunity-stages]
+verify_jwt = false
