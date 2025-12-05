@@ -695,9 +695,9 @@ serve(async (req) => {
     console.log('Full sync complete!');
 
     // SAFE STALE RECORD CLEANUP
-    // Only delete records that haven't been seen in 72+ hours (3 days of hourly syncs)
+    // Only delete records that haven't been seen in 24+ hours (24 hourly syncs)
     // This ensures records aren't deleted due to temporary API failures or incomplete fetches
-    const staleThreshold = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     
     // Only run cleanup if we fetched a reasonable number of records (protection against empty fetches)
     const minRecordsForCleanup = {
@@ -708,7 +708,7 @@ serve(async (req) => {
       conversations: 10,
     };
 
-    console.log('Starting safe stale record cleanup (72hr threshold)...');
+    console.log('Starting safe stale record cleanup (24hr threshold)...');
     let totalDeleted = 0;
 
     // Cleanup contacts (only if we fetched enough)
@@ -719,7 +719,7 @@ serve(async (req) => {
         .lt('last_synced_at', staleThreshold);
       
       if (!staleContactsErr && staleContacts && staleContacts.length > 0) {
-        console.log(`Found ${staleContacts.length} stale contacts (not seen in 72hrs)`);
+        console.log(`Found ${staleContacts.length} stale contacts (not seen in 24hrs)`);
         const { error: delErr } = await supabase
           .from('contacts')
           .delete()
@@ -739,7 +739,7 @@ serve(async (req) => {
         .lt('last_synced_at', staleThreshold);
       
       if (!staleOppsErr && staleOpps && staleOpps.length > 0) {
-        console.log(`Found ${staleOpps.length} stale opportunities (not seen in 72hrs)`);
+        console.log(`Found ${staleOpps.length} stale opportunities (not seen in 24hrs)`);
         const { error: delErr } = await supabase
           .from('opportunities')
           .delete()
@@ -759,7 +759,7 @@ serve(async (req) => {
         .lt('last_synced_at', staleThreshold);
       
       if (!staleApptsErr && staleAppts && staleAppts.length > 0) {
-        console.log(`Found ${staleAppts.length} stale appointments (not seen in 72hrs)`);
+        console.log(`Found ${staleAppts.length} stale appointments (not seen in 24hrs)`);
         const { error: delErr } = await supabase
           .from('appointments')
           .delete()
@@ -779,7 +779,7 @@ serve(async (req) => {
         .lt('last_synced_at', staleThreshold);
       
       if (!staleTasksErr && staleTasks && staleTasks.length > 0) {
-        console.log(`Found ${staleTasks.length} stale tasks (not seen in 72hrs)`);
+        console.log(`Found ${staleTasks.length} stale tasks (not seen in 24hrs)`);
         const { error: delErr } = await supabase
           .from('ghl_tasks')
           .delete()
@@ -799,7 +799,7 @@ serve(async (req) => {
         .lt('last_synced_at', staleThreshold);
       
       if (!staleConvsErr && staleConvs && staleConvs.length > 0) {
-        console.log(`Found ${staleConvs.length} stale conversations (not seen in 72hrs)`);
+        console.log(`Found ${staleConvs.length} stale conversations (not seen in 24hrs)`);
         const { error: delErr } = await supabase
           .from('conversations')
           .delete()
