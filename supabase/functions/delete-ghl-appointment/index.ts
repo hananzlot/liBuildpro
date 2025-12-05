@@ -31,16 +31,20 @@ serve(async (req) => {
       throw new Error('Missing appointmentId (GHL appointment ID)');
     }
 
-    console.log(`Deleting GHL appointment: ${appointmentId}`);
+    console.log(`Cancelling GHL appointment: ${appointmentId}`);
 
-    // Delete appointment in GHL
+    // GHL doesn't support DELETE for appointments, so we cancel it instead
+    // by updating the appointment status to "cancelled"
     const ghlResponse = await fetch(`https://services.leadconnectorhq.com/calendars/events/appointments/${appointmentId}`, {
-      method: 'DELETE',
+      method: 'PUT',
       headers: {
         'Authorization': `Bearer ${ghlApiKey}`,
         'Version': '2021-04-15',
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        appointmentStatus: 'cancelled',
+      }),
     });
 
     if (!ghlResponse.ok) {
@@ -49,30 +53,32 @@ serve(async (req) => {
       throw new Error(`GHL API Error: ${ghlResponse.status} - ${errorText}`);
     }
 
-    console.log('GHL appointment deleted successfully');
+    console.log('GHL appointment cancelled successfully');
 
-    // Delete from Supabase
-    const { error: deleteError } = await supabase
+    // Update status in Supabase (don't delete, just mark as cancelled)
+    const { error: updateError } = await supabase
       .from('appointments')
-      .delete()
+      .update({ 
+        appointment_status: 'cancelled',
+        ghl_date_updated: new Date().toISOString(),
+      })
       .eq('ghl_id', appointmentId);
 
-    if (deleteError) {
-      console.error('Supabase delete error:', deleteError);
-      // Don't throw - GHL deletion was successful
+    if (updateError) {
+      console.error('Supabase update error:', updateError);
     } else {
-      console.log('Appointment deleted from Supabase');
+      console.log('Appointment marked as cancelled in Supabase');
     }
 
     return new Response(JSON.stringify({ 
       success: true,
-      message: 'Appointment deleted'
+      message: 'Appointment cancelled'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error deleting appointment:', errorMessage);
+    console.error('Error cancelling appointment:', errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
