@@ -15,8 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   Calendar, Clock, User, FileText, DollarSign, Target, MapPin, Phone, Mail, 
   Briefcase, RefreshCw, MessageSquare, CheckSquare, Plus, Loader2, ChevronRight,
-  ArrowUpRight, ArrowDownLeft, Pencil
+  ArrowUpRight, ArrowDownLeft, Pencil, Trash2
 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { stripHtml } from "@/lib/utils";
@@ -174,6 +175,9 @@ export function AppointmentDetailSheet({
   const [originalApptDate, setOriginalApptDate] = useState('');
   const [originalApptTime, setOriginalApptTime] = useState('');
   const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false);
+  
+  // Delete state
+  const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
   
   const queryClient = useQueryClient();
 
@@ -565,6 +569,26 @@ export function AppointmentDetailSheet({
     }
   };
 
+  const handleDeleteAppointment = async () => {
+    if (!appointment) return;
+    setIsDeletingAppointment(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-ghl-appointment', {
+        body: { appointmentId: appointment.ghl_id }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Appointment deleted");
+      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    } catch (error) {
+      console.error("Error deleting appointment:", error);
+      toast.error("Failed to delete appointment");
+    } finally {
+      setIsDeletingAppointment(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-md overflow-y-auto p-0">
@@ -579,6 +603,28 @@ export function AppointmentDetailSheet({
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={openAppointmentEditDialog}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete this appointment? This will also remove it from GoHighLevel. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteAppointment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeletingAppointment}>
+                        {isDeletingAppointment ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <Badge variant="outline" className={`text-xs ${getStatusColor(appointment.appointment_status)}`}>
                   {appointment.appointment_status || 'Unknown'}
                 </Badge>

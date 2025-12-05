@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -191,6 +192,9 @@ export function OpportunityDetailSheet({
   const [originalAppointmentDate, setOriginalAppointmentDate] = useState("");
   const [originalAppointmentTime, setOriginalAppointmentTime] = useState("");
   const [updateAppointmentTime, setUpdateAppointmentTime] = useState(false);
+
+  // Delete state
+  const [isDeletingOpportunity, setIsDeletingOpportunity] = useState(false);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -902,6 +906,27 @@ export function OpportunityDetailSheet({
       setIsSaving(false);
     }
   };
+
+  const handleDeleteOpportunity = async () => {
+    if (!opportunity) return;
+    setIsDeletingOpportunity(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-ghl-opportunity', {
+        body: { opportunityId: opportunity.ghl_id }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Opportunity deleted");
+      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+    } catch (error) {
+      console.error("Error deleting opportunity:", error);
+      toast.error("Failed to delete opportunity");
+    } finally {
+      setIsDeletingOpportunity(false);
+    }
+  };
+
   if (!opportunity) return null;
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return '-';
@@ -991,6 +1016,29 @@ export function OpportunityDetailSheet({
                 </Button>
               </>
             )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50">
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Opportunity</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this opportunity? This will also remove it from GoHighLevel. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteOpportunity} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeletingOpportunity}>
+                    {isDeletingOpportunity ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
