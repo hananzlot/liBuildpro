@@ -862,11 +862,12 @@ export function OpportunityDetailSheet({
   const availableStages = Array.from(stageMap.keys()).sort();
   
   const handleEditClick = () => {
-    setEditedStatus(opportunity?.status?.toLowerCase() || "open");
-    setEditedPipeline(opportunity?.pipeline_id || "");
-    setEditedStage(opportunity?.stage_name || "");
-    setEditedMonetaryValue(opportunity?.monetary_value?.toString() || "0");
-    setEditedAssignedTo(opportunity?.assigned_to || "__unassigned__");
+    // Use savedValues if available (for re-editing without closing), otherwise use opportunity prop
+    setEditedStatus(savedValues.status ?? opportunity?.status?.toLowerCase() ?? "open");
+    setEditedPipeline(savedValues.pipeline_id ?? opportunity?.pipeline_id ?? "");
+    setEditedStage(savedValues.stage_name ?? opportunity?.stage_name ?? "");
+    setEditedMonetaryValue((savedValues.monetary_value ?? opportunity?.monetary_value)?.toString() ?? "0");
+    setEditedAssignedTo(savedValues.assigned_to ?? opportunity?.assigned_to ?? "__unassigned__");
     setIsEditing(true);
   };
   const handleCancelEdit = () => {
