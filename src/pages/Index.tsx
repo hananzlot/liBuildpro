@@ -300,7 +300,7 @@ const Index = () => {
       <UpcomingAppointmentsSheet open={upcomingAppointmentsSheetOpen} onOpenChange={setUpcomingAppointmentsSheetOpen} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} opportunities={metrics?.allOpportunities || []} users={metrics?.users || []} />
 
       {/* Call Logs Sheet */}
-      <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} />
+      <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
 
       {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
       <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={setOppDetailSheetOpen} allOpportunities={metrics?.allOpportunities || []} />

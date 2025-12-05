@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Phone, PhoneIncoming, PhoneOutgoing, User, Calendar, Search } from "lucide-react";
+import { Phone, PhoneIncoming, PhoneOutgoing, User, Calendar, Search, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import {
   Sheet,
@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ContactDetailSheet } from "./ContactDetailSheet";
 
 interface CallLog {
   id: string;
@@ -43,6 +44,22 @@ interface Contact {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  email?: string | null;
+  source?: string | null;
+  assigned_to?: string | null;
+  custom_fields?: any;
+  ghl_date_added?: string | null;
+}
+
+interface Opportunity {
+  ghl_id: string;
+  contact_id: string | null;
+  name: string | null;
+  status: string | null;
+  stage_name: string | null;
+  pipeline_name: string | null;
+  monetary_value: number | null;
+  assigned_to: string | null;
 }
 
 interface User {
@@ -52,12 +69,24 @@ interface User {
   last_name: string | null;
 }
 
+interface Appointment {
+  ghl_id: string;
+  contact_id: string | null;
+  title: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  appointment_status: string | null;
+  notes?: string | null;
+}
+
 interface CallLogsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   callLogs: CallLog[];
   contacts: Contact[];
   users: User[];
+  opportunities?: Opportunity[];
+  appointments?: Appointment[];
 }
 
 const PAGE_SIZE = 20;
@@ -68,11 +97,27 @@ export function CallLogsSheet({
   callLogs,
   contacts,
   users,
+  opportunities = [],
+  appointments = [],
 }: CallLogsSheetProps) {
   const [search, setSearch] = useState("");
   const [directionFilter, setDirectionFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState<string>("all");
   const [page, setPage] = useState(1);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [contactSheetOpen, setContactSheetOpen] = useState(false);
+
+  // Get opportunities for selected contact
+  const contactOpportunities = useMemo(() => {
+    if (!selectedContact) return [];
+    return opportunities.filter(o => o.contact_id === selectedContact.ghl_id);
+  }, [selectedContact, opportunities]);
+
+  // Get appointments for selected contact
+  const contactAppointments = useMemo(() => {
+    if (!selectedContact) return [];
+    return appointments.filter(a => a.contact_id === selectedContact.ghl_id);
+  }, [selectedContact, appointments]);
 
   // Create lookup maps
   const contactMap = useMemo(() => {
@@ -172,6 +217,7 @@ export function CallLogsSheet({
   };
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-3xl overflow-y-auto">
         <SheetHeader className="pb-4">
@@ -264,14 +310,26 @@ export function CallLogsSheet({
                 </TableHeader>
                 <TableBody>
                   {paginatedCalls.map((call) => {
+                    const contact = contactMap.get(call.contact_id);
                     const { name, phone } = getContactDisplay(call.contact_id);
                     const userName = call.user_id
                       ? userMap.get(call.user_id) || "Unknown"
                       : "Unknown";
                     const isOutbound = call.direction === "outbound";
 
+                    const handleRowClick = () => {
+                      if (contact) {
+                        setSelectedContact(contact);
+                        setContactSheetOpen(true);
+                      }
+                    };
+
                     return (
-                      <TableRow key={call.id}>
+                      <TableRow 
+                        key={call.id} 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={handleRowClick}
+                      >
                         <TableCell>
                           <Badge
                             variant="outline"
@@ -290,13 +348,16 @@ export function CallLogsSheet({
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{name}</span>
-                            {phone && (
-                              <span className="text-xs text-muted-foreground">
-                                {phone}
-                              </span>
-                            )}
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-col">
+                              <span className="font-medium">{name}</span>
+                              {phone && (
+                                <span className="text-xs text-muted-foreground">
+                                  {phone}
+                                </span>
+                              )}
+                            </div>
+                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
                           </div>
                         </TableCell>
                         <TableCell>
@@ -357,5 +418,20 @@ export function CallLogsSheet({
         )}
       </SheetContent>
     </Sheet>
+    
+    {/* Contact Detail Sheet */}
+    <ContactDetailSheet
+      contact={selectedContact ? { 
+        ...selectedContact, 
+        id: selectedContact.ghl_id,
+        custom_fields: selectedContact.custom_fields 
+      } : null}
+      opportunities={contactOpportunities.map(o => ({ ...o, id: o.ghl_id }))}
+      appointments={contactAppointments.map(a => ({ ...a, id: a.ghl_id }))}
+      users={users.map(u => ({ ...u, id: u.ghl_id }))}
+      open={contactSheetOpen}
+      onOpenChange={setContactSheetOpen}
+    />
+    </>
   );
 }
