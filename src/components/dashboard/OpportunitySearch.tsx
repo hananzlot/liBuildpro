@@ -98,7 +98,9 @@ export function OpportunitySearch({
   const filteredOpportunities = useMemo(() => {
     if (!searchQuery.trim()) return [];
     
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().replace(/[^a-z0-9]/g, ''); // Normalize for phone search
+    const queryOriginal = searchQuery.toLowerCase();
+    
     return opportunities
       .filter(opp => {
         const name = opp.name?.toLowerCase() || "";
@@ -106,7 +108,18 @@ export function OpportunitySearch({
         const contactName = contact?.contact_name?.toLowerCase() || 
           `${contact?.first_name || ""} ${contact?.last_name || ""}`.toLowerCase();
         
-        return name.includes(query) || contactName.includes(query);
+        // Get address from custom fields
+        const customFields = contact?.custom_fields as Array<{ id: string; value: string }> | undefined;
+        const addressField = customFields?.find?.(f => f.id === "b7oTVsUQrLgZt84bHpCn");
+        const address = addressField?.value?.toLowerCase() || "";
+        
+        // Get phone (normalize for comparison)
+        const phone = contact?.phone?.replace(/[^a-z0-9]/g, '') || "";
+        
+        return name.includes(queryOriginal) || 
+               contactName.includes(queryOriginal) || 
+               address.includes(queryOriginal) ||
+               phone.includes(query);
       })
       .sort((a, b) => getStatusSortOrder(a.status) - getStatusSortOrder(b.status))
       .slice(0, 10); // Limit to 10 results
@@ -170,7 +183,7 @@ export function OpportunitySearch({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name or contact..."
+                placeholder="Search by name, address, or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 pr-9"
