@@ -47,32 +47,56 @@ serve(async (req) => {
       }),
     });
 
+    let ghlSuccess = true;
     if (!ghlResponse.ok) {
       const errorText = await ghlResponse.text();
-      console.error('GHL API Error:', errorText);
-      throw new Error(`GHL API Error: ${ghlResponse.status} - ${errorText}`);
+      console.error('GHL API Error:', ghlResponse.status, errorText);
+      
+      // If 404, the appointment doesn't exist in GHL (maybe test data or already deleted)
+      // We should still clean up Supabase
+      if (ghlResponse.status === 404) {
+        console.log('Appointment not found in GHL - will remove from Supabase only');
+        ghlSuccess = false;
+      } else {
+        throw new Error(`GHL API Error: ${ghlResponse.status} - ${errorText}`);
+      }
+    } else {
+      console.log('GHL appointment cancelled successfully');
     }
 
-    console.log('GHL appointment cancelled successfully');
+    // Update/delete in Supabase
+    if (ghlSuccess) {
+      // If GHL cancellation worked, update status
+      const { error: updateError } = await supabase
+        .from('appointments')
+        .update({ 
+          appointment_status: 'cancelled',
+          ghl_date_updated: new Date().toISOString(),
+        })
+        .eq('ghl_id', appointmentId);
 
-    // Update status in Supabase (don't delete, just mark as cancelled)
-    const { error: updateError } = await supabase
-      .from('appointments')
-      .update({ 
-        appointment_status: 'cancelled',
-        ghl_date_updated: new Date().toISOString(),
-      })
-      .eq('ghl_id', appointmentId);
-
-    if (updateError) {
-      console.error('Supabase update error:', updateError);
+      if (updateError) {
+        console.error('Supabase update error:', updateError);
+      } else {
+        console.log('Appointment marked as cancelled in Supabase');
+      }
     } else {
-      console.log('Appointment marked as cancelled in Supabase');
+      // If appointment doesn't exist in GHL, delete from Supabase entirely
+      const { error: deleteError } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('ghl_id', appointmentId);
+
+      if (deleteError) {
+        console.error('Supabase delete error:', deleteError);
+      } else {
+        console.log('Appointment deleted from Supabase (was not in GHL)');
+      }
     }
 
     return new Response(JSON.stringify({ 
       success: true,
-      message: 'Appointment cancelled'
+      message: ghlSuccess ? 'Appointment cancelled' : 'Appointment removed (was not in GHL)'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
