@@ -25,14 +25,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 const ADMIN_PASSWORD = "CAPro2025";
 
-// Helper to format talk time
-const formatTalkTime = (seconds: number): string => {
-  if (!seconds) return '0m';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-};
 const Index = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const end = new Date();
@@ -191,7 +183,7 @@ const Index = () => {
                           <span className="text-sm text-muted-foreground">contacts</span>
                         </div>
                         <div className="flex flex-col gap-1 text-xs">
-                          <span className="text-muted-foreground">{metrics?.totalCalls || 0} total • {formatTalkTime(metrics?.totalTalkTime || 0)}</span>
+                          <span className="text-muted-foreground">{metrics?.totalCalls || 0} total</span>
                           <div className="flex items-center gap-3">
                             <span className="text-green-600 font-medium">{metrics?.outboundCalls || 0}↑</span>
                             <span className="text-blue-500 font-medium">{metrics?.inboundCalls || 0}↓</span>

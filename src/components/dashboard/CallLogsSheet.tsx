@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Phone, PhoneIncoming, PhoneOutgoing, User, Calendar, Search, ExternalLink, Clock, ChevronDown, ChevronRight } from "lucide-react";
+import { Phone, PhoneIncoming, PhoneOutgoing, User, Calendar, Search, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import {
   Sheet,
@@ -41,7 +41,6 @@ interface CallLog {
   call_date: string | null;
   user_id: string | null;
   location_id: string;
-  duration?: number | null;
 }
 
 interface Contact {
@@ -90,7 +89,6 @@ interface GroupedCall {
   date: string;
   calls: CallLog[];
   totalCalls: number;
-  totalDuration: number;
   directions: { inbound: number; outbound: number };
   latestCall: CallLog;
 }
@@ -106,18 +104,6 @@ interface CallLogsSheetProps {
 }
 
 const PAGE_SIZE = 20;
-
-// Helper to format duration
-const formatDuration = (seconds: number): string => {
-  if (!seconds) return '-';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  if (minutes > 0) return `${minutes}m ${secs}s`;
-  return `${secs}s`;
-};
 
 export function CallLogsSheet({
   open,
@@ -224,7 +210,6 @@ export function CallLogsSheet({
           date: dateKey,
           calls: [],
           totalCalls: 0,
-          totalDuration: 0,
           directions: { inbound: 0, outbound: 0 },
           latestCall: call,
         });
@@ -233,7 +218,6 @@ export function CallLogsSheet({
       const group = groups.get(groupKey)!;
       group.calls.push(call);
       group.totalCalls++;
-      group.totalDuration += call.duration || 0;
       if (call.direction === 'inbound') group.directions.inbound++;
       else if (call.direction === 'outbound') group.directions.outbound++;
       
@@ -261,8 +245,7 @@ export function CallLogsSheet({
     const outbound = filteredCalls.filter((c) => c.direction === "outbound").length;
     const inbound = filteredCalls.filter((c) => c.direction === "inbound").length;
     const uniqueContacts = new Set(filteredCalls.map(c => c.contact_id)).size;
-    const totalDuration = filteredCalls.reduce((sum, c) => sum + (c.duration || 0), 0);
-    return { total: filteredCalls.length, outbound, inbound, uniqueContacts, totalDuration };
+    return { total: filteredCalls.length, outbound, inbound, uniqueContacts };
   }, [filteredCalls]);
 
   const getContactDisplay = (contactId: string) => {
@@ -314,7 +297,7 @@ export function CallLogsSheet({
         </SheetHeader>
 
         {/* Stats Summary */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-muted/50 rounded-lg p-3 text-center">
             <p className="text-2xl font-bold">{stats.uniqueContacts}</p>
             <p className="text-xs text-muted-foreground">Unique Contacts</p>
@@ -329,10 +312,6 @@ export function CallLogsSheet({
               <span className="text-lg font-bold text-blue-600">{stats.inbound}↓</span>
             </div>
             <p className="text-xs text-muted-foreground">Out / In</p>
-          </div>
-          <div className="bg-muted/50 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold">{formatDuration(stats.totalDuration)}</p>
-            <p className="text-xs text-muted-foreground">Total Time</p>
           </div>
         </div>
 
@@ -397,7 +376,6 @@ export function CallLogsSheet({
                   <TableRow>
                     <TableHead className="w-[200px]">Contact</TableHead>
                     <TableHead className="w-[80px]">Calls</TableHead>
-                    <TableHead className="w-[90px]">Duration</TableHead>
                     <TableHead className="w-[100px]">Direction</TableHead>
                     <TableHead>Date</TableHead>
                   </TableRow>
@@ -444,12 +422,6 @@ export function CallLogsSheet({
                             </CollapsibleTrigger>
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1 text-sm">
-                              <Clock className="h-3 w-3 text-muted-foreground" />
-                              {formatDuration(group.totalDuration)}
-                            </div>
-                          </TableCell>
-                          <TableCell>
                             <div className="flex items-center gap-1 text-xs">
                               {group.directions.outbound > 0 && (
                                 <span className="text-green-600 font-medium flex items-center">
@@ -491,15 +463,10 @@ export function CallLogsSheet({
                                     <TableCell className="pl-8">
                                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                         <User className="h-3 w-3" />
-                                        {userName}
+                                      {userName}
                                       </div>
                                     </TableCell>
                                     <TableCell></TableCell>
-                                    <TableCell>
-                                      <span className="text-xs text-muted-foreground">
-                                        {formatDuration(call.duration || 0)}
-                                      </span>
-                                    </TableCell>
                                     <TableCell>
                                       <Badge
                                         variant="outline"
