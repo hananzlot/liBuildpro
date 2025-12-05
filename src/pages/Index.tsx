@@ -207,7 +207,7 @@ const Index = () => {
             {/* Charts Row - All 4 in one line */}
             <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {isLoading ? <>
-                  {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[380px] rounded-2xl" />)}
+                  {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[280px] rounded-2xl" />)}
                 </> : <>
                   <SourceChart 
                     title="Opportunities by Source" 

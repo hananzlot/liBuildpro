@@ -173,20 +173,20 @@ export function SourceChart({
 
   return (
     <>
-      <div className="rounded-2xl bg-card p-6 border border-border/50">
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-          <h3 className="text-lg font-semibold text-foreground">{getChartTitle()}</h3>
+      <div className="rounded-2xl bg-card p-4 border border-border/50 h-[280px] flex flex-col">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="text-base font-semibold text-foreground">{getChartTitle()}</h3>
           {isOpportunitiesMode && (
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as OpportunitiesViewTab)}>
-              <TabsList className="h-8">
-                <TabsTrigger value="opportunities" className="text-xs px-2 h-7">Opps</TabsTrigger>
-                <TabsTrigger value="appointments" className="text-xs px-2 h-7">Appts</TabsTrigger>
-                <TabsTrigger value="noAppointments" className="text-xs px-2 h-7">No Appts</TabsTrigger>
+              <TabsList className="h-7">
+                <TabsTrigger value="opportunities" className="text-xs px-2 h-6">Opps</TabsTrigger>
+                <TabsTrigger value="appointments" className="text-xs px-2 h-6">Appts</TabsTrigger>
+                <TabsTrigger value="noAppointments" className="text-xs px-2 h-6">No Appts</TabsTrigger>
               </TabsList>
             </Tabs>
           )}
         </div>
-        <div className="h-[300px]">
+        <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
               <XAxis 
@@ -240,7 +240,7 @@ export function SourceChart({
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <p className="text-xs text-muted-foreground text-center mt-2">Click a bar to see details</p>
+        <p className="text-xs text-muted-foreground text-center mt-1">Click a bar to see details</p>
       </div>
 
       <SourceDetailSheet
