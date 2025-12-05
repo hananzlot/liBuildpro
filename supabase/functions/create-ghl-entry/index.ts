@@ -211,6 +211,7 @@ serve(async (req) => {
           endTime: endDate.toISOString(),
           appointmentStatus: 'confirmed',
           calendarId: appointmentCalendarId,
+          ignoreFreeSlotValidation: true, // Bypass slot availability check
         };
 
         apptPayload.assignedUserId = assignedTo;
