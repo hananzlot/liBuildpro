@@ -15,10 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   Calendar, Clock, User, FileText, DollarSign, Target, MapPin, Phone, Mail, 
   Briefcase, RefreshCw, MessageSquare, CheckSquare, Plus, Loader2, ChevronRight,
-  ArrowUpRight, ArrowDownLeft
+  ArrowUpRight, ArrowDownLeft, Pencil
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { stripHtml } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Helper to get PST/PDT offset in hours
 const getPSTOffset = (utcDate: Date): number => {
@@ -159,6 +161,19 @@ export function AppointmentDetailSheet({
   const [taskDueDate, setTaskDueDate] = useState('');
   const [taskDueTime, setTaskDueTime] = useState('09:00');
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+
+  // Appointment editing state
+  const [appointmentEditDialogOpen, setAppointmentEditDialogOpen] = useState(false);
+  const [editApptTitle, setEditApptTitle] = useState('');
+  const [editApptDate, setEditApptDate] = useState('');
+  const [editApptTime, setEditApptTime] = useState('');
+  const [editApptAssignee, setEditApptAssignee] = useState('');
+  const [editApptNotes, setEditApptNotes] = useState('');
+  const [originalApptDate, setOriginalApptDate] = useState('');
+  const [originalApptTime, setOriginalApptTime] = useState('');
+  const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false);
+  
+  const queryClient = useQueryClient();
 
   const contact = appointment ? contacts.find(c => c.ghl_id === appointment.contact_id) : null;
   const relatedOpportunities = appointment ? opportunities.filter(o => o.contact_id === appointment.contact_id) : [];
@@ -366,6 +381,87 @@ export function AppointmentDetailSheet({
     }
   };
 
+  // Open appointment edit dialog
+  const openAppointmentEditDialog = () => {
+    if (!appointment) return;
+    setEditApptTitle(appointment.title || '');
+    setEditApptNotes(appointment.notes || '');
+    setEditApptAssignee(appointment.assigned_user_id || '__unassigned__');
+    
+    if (appointment.start_time) {
+      const utcDate = new Date(appointment.start_time);
+      const pstOffset = getPSTOffset(utcDate);
+      const pstDate = new Date(utcDate.getTime() - pstOffset * 60 * 60 * 1000);
+      const dateStr = pstDate.toISOString().split('T')[0];
+      const timeStr = pstDate.toISOString().split('T')[1].substring(0, 5);
+      setEditApptDate(dateStr);
+      setEditApptTime(timeStr);
+      setOriginalApptDate(dateStr);
+      setOriginalApptTime(timeStr);
+    } else {
+      setEditApptDate('');
+      setEditApptTime('09:00');
+      setOriginalApptDate('');
+      setOriginalApptTime('');
+    }
+    setAppointmentEditDialogOpen(true);
+  };
+
+  // Update appointment
+  const handleUpdateAppointment = async () => {
+    if (!appointment || !editApptDate || !editApptTitle.trim()) {
+      toast.error('Please enter appointment title and date');
+      return;
+    }
+
+    setIsUpdatingAppointment(true);
+    try {
+      const assignedToValue = editApptAssignee && editApptAssignee !== '__unassigned__' ? editApptAssignee : null;
+      
+      const updateBody: Record<string, unknown> = {
+        ghl_id: appointment.ghl_id,
+        title: editApptTitle.trim(),
+        assignedUserId: assignedToValue,
+        notes: editApptNotes.trim() || null,
+      };
+
+      // Only send startTime if date/time changed
+      const dateTimeChanged = editApptDate !== originalApptDate || editApptTime !== originalApptTime;
+      if (dateTimeChanged) {
+        const timeStr = editApptTime || '09:00';
+        const pstOffset = getPSTOffset(new Date(`${editApptDate}T12:00:00Z`));
+        const tempUtcDate = new Date(`${editApptDate}T${timeStr}:00.000Z`);
+        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+        
+        if (utcDate < new Date()) {
+          toast.error('Cannot reschedule to a past date/time');
+          setIsUpdatingAppointment(false);
+          return;
+        }
+        updateBody.startTime = utcDate.toISOString();
+      }
+
+      const response = await supabase.functions.invoke('update-ghl-appointment', {
+        body: updateBody
+      });
+
+      if (response.error) {
+        console.error('Appointment update error:', response.error);
+        toast.error('Failed to update appointment');
+        return;
+      }
+
+      toast.success('Appointment updated');
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      setAppointmentEditDialogOpen(false);
+    } catch (err) {
+      console.error('Error updating appointment:', err);
+      toast.error('Failed to update appointment');
+    } finally {
+      setIsUpdatingAppointment(false);
+    }
+  };
+
   // Fetch data when sheet opens
   useEffect(() => {
     if (open && appointment?.contact_id) {
@@ -453,9 +549,14 @@ export function AppointmentDetailSheet({
               <SheetTitle className="text-lg font-semibold leading-tight">
                 {appointment.title || 'Untitled Appointment'}
               </SheetTitle>
-              <Badge variant="outline" className={`shrink-0 text-xs ${getStatusColor(appointment.appointment_status)}`}>
-                {appointment.appointment_status || 'Unknown'}
-              </Badge>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={openAppointmentEditDialog}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Badge variant="outline" className={`text-xs ${getStatusColor(appointment.appointment_status)}`}>
+                  {appointment.appointment_status || 'Unknown'}
+                </Badge>
+              </div>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
@@ -683,7 +784,7 @@ export function AppointmentDetailSheet({
                     <div className="text-xs text-muted-foreground mb-1">
                       {note.ghl_date_added ? formatDateShort(note.ghl_date_added) : 'Unknown date'}
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{note.body || 'No content'}</p>
+                    <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body || 'No content')}</p>
                   </div>
                 ))
               )}
@@ -864,6 +965,102 @@ export function AppointmentDetailSheet({
                   Creating...
                 </>
               ) : 'Create Task'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Appointment Edit Dialog */}
+      <Dialog open={appointmentEditDialogOpen} onOpenChange={(open) => {
+        setAppointmentEditDialogOpen(open);
+        if (!open) {
+          setEditApptTitle('');
+          setEditApptDate('');
+          setEditApptTime('');
+          setEditApptAssignee('');
+          setEditApptNotes('');
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Edit Appointment
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editApptTitle">Appointment Title</Label>
+              <Input
+                id="editApptTitle"
+                value={editApptTitle}
+                onChange={(e) => setEditApptTitle(e.target.value)}
+                placeholder="Enter appointment title..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Date & Time (PST)</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={editApptDate}
+                  onChange={(e) => setEditApptDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="time"
+                  value={editApptTime}
+                  onChange={(e) => setEditApptTime(e.target.value)}
+                  className="w-28"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Note: Past appointments cannot be rescheduled</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editApptAssignee">Assign To</Label>
+              <Select value={editApptAssignee} onValueChange={setEditApptAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                  {[...users].sort((a, b) => {
+                    const nameA = (a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email || 'Unknown').toLowerCase();
+                    const nameB = (b.name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.email || 'Unknown').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                  }).map((user) => (
+                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                      {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || 'Unknown'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editApptNotes">Notes (optional)</Label>
+              <Textarea
+                id="editApptNotes"
+                value={editApptNotes}
+                onChange={(e) => setEditApptNotes(e.target.value)}
+                placeholder="Add notes for this appointment..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAppointmentEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateAppointment} 
+              disabled={isUpdatingAppointment || !editApptDate}
+            >
+              {isUpdatingAppointment ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Saving...
+                </>
+              ) : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
