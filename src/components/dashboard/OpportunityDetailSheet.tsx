@@ -184,6 +184,8 @@ export function OpportunityDetailSheet({
   const [appointmentNotes, setAppointmentNotes] = useState("");
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [originalAppointmentDate, setOriginalAppointmentDate] = useState("");
+  const [originalAppointmentTime, setOriginalAppointmentTime] = useState("");
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -696,11 +698,18 @@ export function OpportunityDetailSheet({
       const utcDate = new Date(appt.start_time);
       const pstOffset = getPSTOffset(utcDate);
       const pstDate = new Date(utcDate.getTime() - pstOffset * 60 * 60 * 1000);
-      setAppointmentDate(pstDate.toISOString().split('T')[0]);
-      setAppointmentTime(pstDate.toISOString().split('T')[1].substring(0, 5));
+      const dateStr = pstDate.toISOString().split('T')[0];
+      const timeStr = pstDate.toISOString().split('T')[1].substring(0, 5);
+      setAppointmentDate(dateStr);
+      setAppointmentTime(timeStr);
+      // Store original values to compare later
+      setOriginalAppointmentDate(dateStr);
+      setOriginalAppointmentTime(timeStr);
     } else {
       setAppointmentDate("");
       setAppointmentTime("09:00");
+      setOriginalAppointmentDate("");
+      setOriginalAppointmentTime("");
     }
     setAppointmentDialogOpen(true);
   };
@@ -715,20 +724,26 @@ export function OpportunityDetailSheet({
     try {
       const assignedToValue = appointmentAssignee && appointmentAssignee !== "__unassigned__" ? appointmentAssignee : null;
 
-      // Treat input as PST
-      const timeStr = appointmentTime || "09:00";
-      const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
-      const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
-      const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+      // Build update payload - only include startTime if date/time actually changed
+      const updateBody: Record<string, unknown> = {
+        ghl_id: editingAppointment.ghl_id,
+        title: appointmentTitle.trim(),
+        assignedUserId: assignedToValue,
+        notes: appointmentNotes.trim() || null,
+      };
+
+      // Only send startTime if the user changed the date or time
+      const dateTimeChanged = appointmentDate !== originalAppointmentDate || appointmentTime !== originalAppointmentTime;
+      if (dateTimeChanged) {
+        const timeStr = appointmentTime || "09:00";
+        const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
+        const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
+        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+        updateBody.startTime = utcDate.toISOString();
+      }
 
       const response = await supabase.functions.invoke('update-ghl-appointment', {
-        body: {
-          ghl_id: editingAppointment.ghl_id,
-          title: appointmentTitle.trim(),
-          startTime: utcDate.toISOString(),
-          assignedUserId: assignedToValue,
-          notes: appointmentNotes.trim() || null,
-        }
+        body: updateBody
       });
 
       if (response.error) {
@@ -749,6 +764,8 @@ export function OpportunityDetailSheet({
       setAppointmentTime("09:00");
       setAppointmentAssignee("");
       setAppointmentNotes("");
+      setOriginalAppointmentDate("");
+      setOriginalAppointmentTime("");
     } catch (err) {
       console.error("Error updating appointment:", err);
       toast.error("Failed to update appointment");
