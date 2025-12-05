@@ -26,6 +26,7 @@ export type Database = {
           ghl_date_updated: string | null
           ghl_id: string
           id: string
+          last_synced_at: string | null
           location_id: string
           notes: string | null
           start_time: string | null
@@ -43,6 +44,7 @@ export type Database = {
           ghl_date_updated?: string | null
           ghl_id: string
           id?: string
+          last_synced_at?: string | null
           location_id: string
           notes?: string | null
           start_time?: string | null
@@ -60,6 +62,7 @@ export type Database = {
           ghl_date_updated?: string | null
           ghl_id?: string
           id?: string
+          last_synced_at?: string | null
           location_id?: string
           notes?: string | null
           start_time?: string | null
@@ -157,6 +160,7 @@ export type Database = {
           ghl_id: string
           id: string
           last_name: string | null
+          last_synced_at: string | null
           location_id: string
           phone: string | null
           source: string | null
@@ -176,6 +180,7 @@ export type Database = {
           ghl_id: string
           id?: string
           last_name?: string | null
+          last_synced_at?: string | null
           location_id: string
           phone?: string | null
           source?: string | null
@@ -195,6 +200,7 @@ export type Database = {
           ghl_id?: string
           id?: string
           last_name?: string | null
+          last_synced_at?: string | null
           location_id?: string
           phone?: string | null
           source?: string | null
@@ -216,6 +222,7 @@ export type Database = {
           last_message_date: string | null
           last_message_direction: string | null
           last_message_type: string | null
+          last_synced_at: string | null
           location_id: string
           type: string | null
           unread_count: number | null
@@ -233,6 +240,7 @@ export type Database = {
           last_message_date?: string | null
           last_message_direction?: string | null
           last_message_type?: string | null
+          last_synced_at?: string | null
           location_id: string
           type?: string | null
           unread_count?: number | null
@@ -250,6 +258,7 @@ export type Database = {
           last_message_date?: string | null
           last_message_direction?: string | null
           last_message_type?: string | null
+          last_synced_at?: string | null
           location_id?: string
           type?: string | null
           unread_count?: number | null
@@ -267,6 +276,7 @@ export type Database = {
           due_date: string | null
           ghl_id: string
           id: string
+          last_synced_at: string | null
           location_id: string
           title: string
           updated_at: string
@@ -280,6 +290,7 @@ export type Database = {
           due_date?: string | null
           ghl_id: string
           id?: string
+          last_synced_at?: string | null
           location_id: string
           title: string
           updated_at?: string
@@ -293,6 +304,7 @@ export type Database = {
           due_date?: string | null
           ghl_id?: string
           id?: string
+          last_synced_at?: string | null
           location_id?: string
           title?: string
           updated_at?: string
@@ -351,6 +363,7 @@ export type Database = {
           ghl_date_updated: string | null
           ghl_id: string
           id: string
+          last_synced_at: string | null
           location_id: string
           monetary_value: number | null
           name: string | null
@@ -370,6 +383,7 @@ export type Database = {
           ghl_date_updated?: string | null
           ghl_id: string
           id?: string
+          last_synced_at?: string | null
           location_id: string
           monetary_value?: number | null
           name?: string | null
@@ -389,6 +403,7 @@ export type Database = {
           ghl_date_updated?: string | null
           ghl_id?: string
           id?: string
+          last_synced_at?: string | null
           location_id?: string
           monetary_value?: number | null
           name?: string | null
