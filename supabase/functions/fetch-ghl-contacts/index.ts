@@ -442,27 +442,31 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
             messages = data;
           }
           
-          // Log unique message types for debugging (only for first conversation with messages)
+          // Enhanced debugging: Log unique message types and a sample of each type
           if (i === 0 && conversation === batch[0] && messages.length > 0) {
             const uniqueTypes = [...new Set(messages.map((m: any) => m.type))];
             console.log(`Message types found in conversation: ${JSON.stringify(uniqueTypes)}`);
-            // Log a sample call message if found
-            const callMessages = messages.filter((m: any) => {
-              const msgType = String(m.type || '').toLowerCase();
-              return msgType === 'call' || msgType === '6' || msgType === 'type_call' || 
-                     msgType.includes('call') || m.messageType === 'CALL';
+            
+            // Log a sample message of each type to identify call messages
+            uniqueTypes.forEach((type: any) => {
+              const sampleMsg = messages.find((m: any) => m.type === type);
+              if (sampleMsg) {
+                console.log(`Type ${type} sample: ${JSON.stringify({ type: sampleMsg.type, direction: sampleMsg.direction, body: (sampleMsg.body || '').substring(0, 100), messageType: sampleMsg.messageType })}`);
+              }
             });
-            if (callMessages.length > 0) {
-              console.log(`Found ${callMessages.length} call messages, sample: ${JSON.stringify(callMessages[0]).substring(0, 500)}`);
-            }
           }
           
-          // Filter for call messages - GHL uses type 6 for calls, or string "CALL"/"TYPE_CALL"
+          // Filter for call messages - include type 37 (calls/voicemail based on TYPE_CALL conversations)
+          // Also include type 6, 31, and string variants for comprehensive capture
           return messages
             .filter((m: any) => {
-              const msgType = String(m.type || '').toLowerCase();
-              return msgType === 'call' || msgType === '6' || msgType === 'type_call' || 
-                     msgType.includes('call') || m.messageType === 'CALL' || m.type === 6;
+              const msgType = m.type;
+              // Numeric types: 37 (likely calls), 6 (calls), 31 (possibly related)
+              // String types: 'call', 'type_call', etc.
+              return msgType === 37 || msgType === 6 || msgType === 31 ||
+                     msgType === '37' || msgType === '6' || msgType === '31' ||
+                     String(msgType).toLowerCase().includes('call') || 
+                     m.messageType === 'CALL' || m.messageType === 'Call';
             })
             .map((m: any) => ({
               messageId: m.id,
