@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, Upload, Loader2, X, FileSpreadsheet, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -42,6 +42,13 @@ interface CSVEntry {
   error?: string;
 }
 
+interface PipelineStage {
+  pipeline_id: string;
+  pipeline_name: string;
+  pipeline_stage_id: string;
+  stage_name: string;
+}
+
 const SOURCES = [
   'Google',
   'Facebook',
@@ -76,10 +83,63 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const [phoneError, setPhoneError] = useState('');
   const [emailError, setEmailError] = useState('');
 
+  // Pipeline/stage state
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
+  const [selectedPipeline, setSelectedPipeline] = useState('');
+  const [selectedStage, setSelectedStage] = useState('');
+
   // CSV upload state
   const [csvEntries, setCsvEntries] = useState<CSVEntry[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Fetch pipelines/stages on mount
+  useEffect(() => {
+    const fetchPipelineStages = async () => {
+      const { data } = await supabase
+        .from('opportunities')
+        .select('pipeline_id, pipeline_name, pipeline_stage_id, stage_name')
+        .not('pipeline_id', 'is', null)
+        .not('pipeline_stage_id', 'is', null);
+      
+      if (data) {
+        // Get unique pipeline/stage combinations
+        const uniqueStages = data.reduce((acc: PipelineStage[], curr) => {
+          const exists = acc.find(
+            s => s.pipeline_id === curr.pipeline_id && s.pipeline_stage_id === curr.pipeline_stage_id
+          );
+          if (!exists && curr.pipeline_id && curr.pipeline_name && curr.pipeline_stage_id && curr.stage_name) {
+            acc.push({
+              pipeline_id: curr.pipeline_id,
+              pipeline_name: curr.pipeline_name,
+              pipeline_stage_id: curr.pipeline_stage_id,
+              stage_name: curr.stage_name,
+            });
+          }
+          return acc;
+        }, []);
+        setPipelineStages(uniqueStages);
+        
+        // Set default to Annabella > New Lead
+        const defaultStage = uniqueStages.find(s => s.stage_name === 'New Lead (No Contacted Yet)');
+        if (defaultStage) {
+          setSelectedPipeline(defaultStage.pipeline_id);
+          setSelectedStage(defaultStage.pipeline_stage_id);
+        }
+      }
+    };
+    fetchPipelineStages();
+  }, []);
+
+  // Get unique pipelines and stages for current pipeline
+  const uniquePipelines = pipelineStages.reduce((acc: { id: string; name: string }[], curr) => {
+    if (!acc.find(p => p.id === curr.pipeline_id)) {
+      acc.push({ id: curr.pipeline_id, name: curr.pipeline_name });
+    }
+    return acc;
+  }, []);
+  
+  const stagesForPipeline = pipelineStages.filter(s => s.pipeline_id === selectedPipeline);
 
   const resetForm = () => {
     setFirstName('');
@@ -95,6 +155,12 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     setAssignedTo('');
     setPhoneError('');
     setEmailError('');
+    // Reset to default pipeline/stage
+    const defaultStage = pipelineStages.find(s => s.stage_name === 'New Lead (No Contacted Yet)');
+    if (defaultStage) {
+      setSelectedPipeline(defaultStage.pipeline_id);
+      setSelectedStage(defaultStage.pipeline_stage_id);
+    }
   };
 
   const getUserName = (userId: string): string => {
@@ -177,6 +243,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
           source: source || null,
           assignedTo: assignedTo || null,
           enteredBy: userId || null,
+          pipelineId: selectedPipeline || null,
+          pipelineStageId: selectedStage || null,
         },
       });
 
@@ -372,6 +440,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
             source: entry.source?.trim() || null,
             assignedTo: assignedToId || null,
             enteredBy: userId || null,
+            pipelineId: selectedPipeline || null,
+            pipelineStageId: selectedStage || null,
           },
         });
 
@@ -577,6 +647,45 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                       {users.map(user => (
                         <SelectItem key={user.ghl_id} value={user.ghl_id}>
                           {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pipeline">Pipeline *</Label>
+                  <Select 
+                    value={selectedPipeline} 
+                    onValueChange={(val) => {
+                      setSelectedPipeline(val);
+                      // Reset stage when pipeline changes
+                      const firstStage = pipelineStages.find(s => s.pipeline_id === val);
+                      setSelectedStage(firstStage?.pipeline_stage_id || '');
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select pipeline" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {uniquePipelines.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stage">Stage *</Label>
+                  <Select value={selectedStage} onValueChange={setSelectedStage}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stagesForPipeline.map(s => (
+                        <SelectItem key={s.pipeline_stage_id} value={s.pipeline_stage_id}>
+                          {s.stage_name}
                         </SelectItem>
                       ))}
                     </SelectContent>

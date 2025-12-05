@@ -36,10 +36,16 @@ serve(async (req) => {
       source,
       assignedTo,
       enteredBy, // User ID who created this entry
+      pipelineId,
+      pipelineStageId,
     } = await req.json();
 
     if (!firstName || !lastName) {
       throw new Error('First name and last name are required');
+    }
+
+    if (!pipelineId || !pipelineStageId) {
+      throw new Error('Pipeline and stage are required');
     }
 
     console.log(`Creating entry for ${firstName} ${lastName}`);
@@ -120,8 +126,8 @@ serve(async (req) => {
       contactId: contactId,
       locationId: GHL_LOCATION_ID,
       status: 'open',
-      pipelineId: '17Eu9zqWqlfKYdDuYasg', // Annabella pipeline
-      pipelineStageId: '5dfe2edd-624e-45d4-bb64-5d3532d3dd64', // New Lead (No Contacted Yet)
+      pipelineId: pipelineId,
+      pipelineStageId: pipelineStageId,
     };
 
     if (assignedTo) oppPayload.assignedTo = assignedTo;
