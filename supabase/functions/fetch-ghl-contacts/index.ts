@@ -431,38 +431,38 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
         if (response.ok) {
           const data = await response.json();
           
-          // Log raw response structure for first conversation to debug
-          if (i === 0 && conversation === batch[0]) {
-            console.log(`GHL Messages API response keys: ${JSON.stringify(Object.keys(data))}`);
-            console.log(`Messages field type: ${typeof data.messages}, isArray: ${Array.isArray(data.messages)}`);
-            if (data.messages && !Array.isArray(data.messages)) {
-              console.log(`Messages field value (first 500 chars): ${JSON.stringify(data.messages).substring(0, 500)}`);
-            }
-          }
-          
-          // Handle different response structures - messages might be in different locations
+          // GHL API returns nested structure: data.messages.messages contains the array
+          // Message types are numeric, not strings
           let messages: any[] = [];
-          if (Array.isArray(data.messages)) {
+          if (data.messages && Array.isArray(data.messages.messages)) {
+            messages = data.messages.messages;
+          } else if (Array.isArray(data.messages)) {
             messages = data.messages;
           } else if (Array.isArray(data)) {
             messages = data;
-          } else if (data.messages && typeof data.messages === 'object') {
-            // Maybe messages is nested differently
-            messages = Object.values(data.messages);
           }
           
           // Log unique message types for debugging (only for first conversation with messages)
           if (i === 0 && conversation === batch[0] && messages.length > 0) {
             const uniqueTypes = [...new Set(messages.map((m: any) => m.type))];
-            console.log(`Sample message types found: ${JSON.stringify(uniqueTypes)}`);
-            console.log(`First message sample: ${JSON.stringify(messages[0]).substring(0, 500)}`);
+            console.log(`Message types found in conversation: ${JSON.stringify(uniqueTypes)}`);
+            // Log a sample call message if found
+            const callMessages = messages.filter((m: any) => {
+              const msgType = String(m.type || '').toLowerCase();
+              return msgType === 'call' || msgType === '6' || msgType === 'type_call' || 
+                     msgType.includes('call') || m.messageType === 'CALL';
+            });
+            if (callMessages.length > 0) {
+              console.log(`Found ${callMessages.length} call messages, sample: ${JSON.stringify(callMessages[0]).substring(0, 500)}`);
+            }
           }
           
-          // Use broader client-side filter - match any message type containing "CALL" (case-insensitive)
+          // Filter for call messages - GHL uses type 6 for calls, or string "CALL"/"TYPE_CALL"
           return messages
             .filter((m: any) => {
-              const messageType = (m.type || '').toUpperCase();
-              return messageType.includes('CALL');
+              const msgType = String(m.type || '').toLowerCase();
+              return msgType === 'call' || msgType === '6' || msgType === 'type_call' || 
+                     msgType.includes('call') || m.messageType === 'CALL' || m.type === 6;
             })
             .map((m: any) => ({
               messageId: m.id,
