@@ -430,12 +430,32 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
 
         if (response.ok) {
           const data = await response.json();
-          const messages = data.messages || [];
           
-          // Log unique message types for debugging (only for first conversation in batch)
+          // Log raw response structure for first conversation to debug
+          if (i === 0 && conversation === batch[0]) {
+            console.log(`GHL Messages API response keys: ${JSON.stringify(Object.keys(data))}`);
+            console.log(`Messages field type: ${typeof data.messages}, isArray: ${Array.isArray(data.messages)}`);
+            if (data.messages && !Array.isArray(data.messages)) {
+              console.log(`Messages field value (first 500 chars): ${JSON.stringify(data.messages).substring(0, 500)}`);
+            }
+          }
+          
+          // Handle different response structures - messages might be in different locations
+          let messages: any[] = [];
+          if (Array.isArray(data.messages)) {
+            messages = data.messages;
+          } else if (Array.isArray(data)) {
+            messages = data;
+          } else if (data.messages && typeof data.messages === 'object') {
+            // Maybe messages is nested differently
+            messages = Object.values(data.messages);
+          }
+          
+          // Log unique message types for debugging (only for first conversation with messages)
           if (i === 0 && conversation === batch[0] && messages.length > 0) {
             const uniqueTypes = [...new Set(messages.map((m: any) => m.type))];
             console.log(`Sample message types found: ${JSON.stringify(uniqueTypes)}`);
+            console.log(`First message sample: ${JSON.stringify(messages[0]).substring(0, 500)}`);
           }
           
           // Use broader client-side filter - match any message type containing "CALL" (case-insensitive)
