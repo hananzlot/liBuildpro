@@ -1393,9 +1393,9 @@ export function FollowUpManagement({
                       <ClipboardList className="h-4 w-4 text-blue-500" />
                     </div>
                     <div>
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        No Tasks - Post Appt
-                        <Badge variant="secondary" className="text-xs">{noTasksData.length}</Badge>
+                      <CardTitle className="flex items-center gap-2 text-base">Open Opps -  Post Appt - 
+No Tasks 
+63<Badge variant="secondary" className="text-xs">{noTasksData.length}</Badge>
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">Past appointments but no tasks created</CardDescription>
                     </div>
