@@ -93,7 +93,7 @@ const Index = () => {
   return <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="px-8 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">CA Pro Builders (GHL)</h1>
             <p className="text-sm text-muted-foreground">Executive Dashboard</p>
@@ -122,7 +122,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="px-6 py-6">
+      <main className="px-8 py-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList>
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
@@ -204,11 +204,10 @@ const Index = () => {
                 </>}
             </section>
 
-            {/* Charts Row - Source Charts */}
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Charts Row - All 4 in one line */}
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {isLoading ? <>
-                  <Skeleton className="h-[420px] rounded-2xl" />
-                  <Skeleton className="h-[420px] rounded-2xl" />
+                  {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-[380px] rounded-2xl" />)}
                 </> : <>
                   <SourceChart 
                     title="Opportunities by Source" 
@@ -226,15 +225,6 @@ const Index = () => {
                     oppsWithoutAppointmentsBySource={metrics?.oppsWithoutAppointmentsBySource || []}
                   />
                   <SourceChart title="Won by Source" data={metrics?.wonBySource || []} mode="won" dataKey="value" contacts={metrics?.allContacts || []} filteredContacts={metrics?.contacts || []} opportunities={metrics?.allOpportunities || []} filteredOpportunities={metrics?.wonOpportunities || []} appointments={metrics?.allAppointments || []} users={metrics?.users || []} />
-                </>}
-            </section>
-
-            {/* Sales Rep Leaderboard & Recent Won Deals */}
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {isLoading ? <>
-                  <Skeleton className="h-[280px] rounded-2xl" />
-                  <Skeleton className="h-[280px] rounded-2xl" />
-                </> : <>
                   <SalesRepLeaderboard data={metrics?.salesRepPerformance || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.filteredAppointmentsList || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} />
                   <RecentWonDeals wonOpportunities={metrics?.wonOpportunities || []} contacts={metrics?.allContacts || []} onOpportunityClick={handleOpenOpportunity} />
                 </>}
