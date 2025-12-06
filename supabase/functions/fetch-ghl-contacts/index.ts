@@ -731,9 +731,9 @@ serve(async (req) => {
     console.log('Full sync complete!');
 
     // SAFE STALE RECORD CLEANUP
-    // Only delete records that haven't been seen in 24+ hours (24 hourly syncs)
+    // Only delete records that haven't been seen in 1+ hour
     // This ensures records aren't deleted due to temporary API failures or incomplete fetches
-    const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const staleThreshold = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
     
     // Only run cleanup if we fetched a reasonable number of records (protection against empty fetches)
     const minRecordsForCleanup = {
@@ -744,7 +744,7 @@ serve(async (req) => {
       conversations: 10,
     };
 
-    console.log('Starting safe stale record cleanup (24hr threshold)...');
+    console.log('Starting safe stale record cleanup (1hr threshold)...');
     let totalDeleted = 0;
 
     // Cleanup contacts (only if we fetched enough)
