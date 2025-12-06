@@ -204,12 +204,12 @@ export function AppointmentsTable({
     return filtered;
   }, [appointments, statusFilter, repFilter, timeFilter]);
 
-  // Sort appointments ascending by date/time
+  // Sort appointments descending by date/time (newest first)
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
       const dateA = a.start_time ? new Date(a.start_time).getTime() : 0;
       const dateB = b.start_time ? new Date(b.start_time).getTime() : 0;
-      return dateA - dateB;
+      return dateB - dateA;
     });
   }, [filteredAppointments]);
 
