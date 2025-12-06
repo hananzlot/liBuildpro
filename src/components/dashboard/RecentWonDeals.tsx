@@ -187,29 +187,21 @@ export function RecentWonDeals({ wonOpportunities, contacts, onOpportunityClick 
                     )}
                   </div>
 
-                  {/* Value, Cost & Profit */}
-                  <div className="text-right shrink-0">
-                    <div className="flex items-center gap-2 justify-end">
-                      <p className="text-sm font-semibold text-emerald-500">
-                        {formatCurrency(opp.monetary_value)}
-                      </p>
-                      {profit !== null && (
-                        <span className={`text-xs font-medium ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          ({profit >= 0 ? '+' : ''}{formatCurrency(profit)})
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 justify-end">
-                      {cost !== undefined && (
-                        <span className="text-xs text-amber-500">
-                          Cost: {formatCurrency(cost)}
-                        </span>
-                      )}
-                      <p className="text-xs text-muted-foreground flex items-center gap-0.5">
-                        <Calendar className="h-2.5 w-2.5" />
-                        {formatDate(opp.ghl_date_updated)}
-                      </p>
-                    </div>
+                  {/* Value & Profit - Compact single line */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {cost !== undefined && (
+                      <span className="text-xs text-amber-500/80">
+                        {formatCurrency(cost)}
+                      </span>
+                    )}
+                    <span className="text-sm font-semibold text-emerald-500">
+                      {formatCurrency(opp.monetary_value)}
+                    </span>
+                    {profit !== null && (
+                      <span className={`text-xs font-medium ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {profit >= 0 ? '+' : ''}{formatCurrency(profit)}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
