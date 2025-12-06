@@ -166,31 +166,25 @@ export function RecentWonDeals({ wonOpportunities, contacts, onOpportunityClick 
               return (
                 <div
                   key={opp.ghl_id}
-                  className="group flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-all"
+                  className="group grid grid-cols-[24px_1fr_auto] gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-all items-center"
                   onClick={() => onOpportunityClick?.(opp)}
                 >
                   {/* Icon */}
-                  <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                  <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
                     <DollarSign className="h-3 w-3 text-emerald-500" />
                   </div>
 
-                  {/* Name & Address */}
-                  <div className="flex-1 min-w-0">
+                  {/* Name only */}
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                       {getContactName(opp.contact_id)}
                     </p>
-                    {address && (
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <MapPin className="h-2.5 w-2.5 shrink-0" />
-                        {address}
-                      </p>
-                    )}
                   </div>
 
-                  {/* Value & Profit - Compact single line */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* Value & Profit */}
+                  <div className="flex items-center gap-1.5 text-right whitespace-nowrap">
                     {cost !== undefined && (
-                      <span className="text-xs text-amber-500/80">
+                      <span className="text-xs text-amber-500">
                         {formatCurrency(cost)}
                       </span>
                     )}
