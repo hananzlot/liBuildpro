@@ -206,6 +206,8 @@ export function OpportunityDetailSheet({
   // Delete state
   const [isDeletingOpportunity, setIsDeletingOpportunity] = useState(false);
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePasswordError, setDeletePasswordError] = useState("");
 
   // Track if sheet was previously closed, to reset savedValues only on fresh open
   const [wasOpen, setWasOpen] = useState(false);
@@ -1074,7 +1076,7 @@ export function OpportunityDetailSheet({
                 </Button>
               </>
             )}
-            <AlertDialog>
+            <AlertDialog onOpenChange={(isOpen) => { if (!isOpen) { setDeletePassword(""); setDeletePasswordError(""); } }}>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="h-7 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
@@ -1088,9 +1090,34 @@ export function OpportunityDetailSheet({
                     Are you sure you want to delete this opportunity? This will also remove it from GoHighLevel. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="py-2">
+                  <Label htmlFor="delete-password" className="text-sm font-medium">Enter password to confirm</Label>
+                  <Input
+                    id="delete-password"
+                    type="password"
+                    placeholder="Enter password"
+                    value={deletePassword}
+                    onChange={(e) => { setDeletePassword(e.target.value); setDeletePasswordError(""); }}
+                    className="mt-1.5"
+                  />
+                  {deletePasswordError && (
+                    <p className="text-sm text-destructive mt-1">{deletePasswordError}</p>
+                  )}
+                </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteOpportunity} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeletingOpportunity}>
+                  <AlertDialogAction 
+                    onClick={(e) => {
+                      if (deletePassword !== "121867") {
+                        e.preventDefault();
+                        setDeletePasswordError("Incorrect password");
+                        return;
+                      }
+                      handleDeleteOpportunity();
+                    }} 
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
+                    disabled={isDeletingOpportunity}
+                  >
                     {isDeletingOpportunity ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                     Delete
                   </AlertDialogAction>
