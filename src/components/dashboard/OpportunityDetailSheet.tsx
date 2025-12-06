@@ -198,6 +198,11 @@ export function OpportunityDetailSheet({
   const [appointmentAssignee, setAppointmentAssignee] = useState("");
   const [appointmentNotes, setAppointmentNotes] = useState("");
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
+
+  // Estimated cost
+  const [estimatedCost, setEstimatedCost] = useState<string>("");
+  const [isEditingCost, setIsEditingCost] = useState(false);
+  const [isSavingCost, setIsSavingCost] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [originalAppointmentDate, setOriginalAppointmentDate] = useState("");
   const [originalAppointmentTime, setOriginalAppointmentTime] = useState("");
@@ -313,13 +318,35 @@ export function OpportunityDetailSheet({
         }
       };
 
+      // Fetch estimated cost
+      const fetchEstimatedCost = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('project_costs')
+            .select('estimated_cost')
+            .eq('opportunity_id', opportunity.ghl_id)
+            .maybeSingle();
+          
+          if (error) throw error;
+          if (data) {
+            setEstimatedCost(data.estimated_cost?.toString() || "");
+          } else {
+            setEstimatedCost("");
+          }
+        } catch (err) {
+          console.error('Failed to fetch estimated cost:', err);
+        }
+      };
+
       fetchConversations();
       fetchNotes();
       fetchTasks();
+      fetchEstimatedCost();
     } else {
       setLiveConversations([]);
       setContactNotesList([]);
       setTasks([]);
+      setEstimatedCost("");
     }
   }, [open, opportunity?.contact_id, opportunity?.ghl_id]);
   const handleRefreshConversations = async () => {
@@ -945,6 +972,35 @@ export function OpportunityDetailSheet({
     }
   };
 
+  const handleSaveEstimatedCost = async () => {
+    if (!opportunity) return;
+    setIsSavingCost(true);
+    try {
+      const costValue = parseFloat(estimatedCost) || 0;
+      
+      // Upsert the estimated cost
+      const { error } = await supabase
+        .from('project_costs')
+        .upsert({
+          opportunity_id: opportunity.ghl_id,
+          estimated_cost: costValue,
+          entered_by: user?.id || null,
+        }, {
+          onConflict: 'opportunity_id'
+        });
+      
+      if (error) throw error;
+      
+      toast.success("Estimated cost saved");
+      setIsEditingCost(false);
+    } catch (error) {
+      console.error("Error saving estimated cost:", error);
+      toast.error("Failed to save estimated cost");
+    } finally {
+      setIsSavingCost(false);
+    }
+  };
+
   const handleDeleteOpportunity = async () => {
     if (!opportunity) return;
     setIsDeletingOpportunity(true);
@@ -1138,17 +1194,59 @@ export function OpportunityDetailSheet({
                   {userName}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={openTaskDialog}>
-                  <Plus className="h-3 w-3 mr-1" />
-                  Task
-                </Button>
-                {isEditing ? <div className="flex items-center gap-1">
-                    <span className="text-lg font-bold text-emerald-400">$</span>
-                    <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
-                  </div> : <div className="text-lg font-bold text-emerald-400">
-                    {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
-                  </div>}
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={openTaskDialog}>
+                    <Plus className="h-3 w-3 mr-1" />
+                    Task
+                  </Button>
+                  {isEditing ? <div className="flex items-center gap-1">
+                      <span className="text-lg font-bold text-emerald-400">$</span>
+                      <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
+                    </div> : <div className="text-lg font-bold text-emerald-400">
+                      {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
+                    </div>}
+                </div>
+                {/* Estimated Cost */}
+                <div className="flex items-center gap-1.5 text-xs">
+                  <span className="text-muted-foreground">Est. Cost:</span>
+                  {isEditingCost ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-amber-500">$</span>
+                      <Input 
+                        type="number" 
+                        value={estimatedCost} 
+                        onChange={e => setEstimatedCost(e.target.value)} 
+                        className="h-6 w-20 text-xs" 
+                        min="0" 
+                        step="100" 
+                      />
+                      <Button 
+                        size="sm" 
+                        className="h-6 px-2 text-xs" 
+                        onClick={handleSaveEstimatedCost}
+                        disabled={isSavingCost}
+                      >
+                        {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-6 px-1.5 text-xs" 
+                        onClick={() => setIsEditingCost(false)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditingCost(true)}
+                      className="text-amber-500 font-medium hover:underline"
+                    >
+                      {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
             <div className="p-3 space-y-2">
