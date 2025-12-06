@@ -281,6 +281,22 @@ export function AppointmentsTable({
               icon={<User className="h-3 w-3" />}
               className="w-[150px]"
             />
+
+            {(statusFilter.length > 0 || repFilter.length > 0 || timeFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setStatusFilter([]);
+                  setRepFilter([]);
+                  setTimeFilter('all');
+                  setCurrentPage(1);
+                }}
+              >
+                Clear All
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>

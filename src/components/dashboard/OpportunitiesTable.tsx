@@ -453,6 +453,21 @@ export function OpportunitiesTable({
               placeholder="All Sales Reps"
               icon={<User className="h-3 w-3" />}
             />
+            {(stageFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setStageFilter([]);
+                  setAppointmentFilter("all");
+                  setSalesRepFilter([]);
+                  setCurrentPage(1);
+                }}
+              >
+                Clear All
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto scrollbar-styled pb-2">
