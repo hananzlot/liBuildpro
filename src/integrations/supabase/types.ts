@@ -570,6 +570,44 @@ export type Database = {
         }
         Relationships: []
       }
+      project_costs: {
+        Row: {
+          created_at: string
+          entered_by: string | null
+          estimated_cost: number
+          id: string
+          notes: string | null
+          opportunity_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entered_by?: string | null
+          estimated_cost?: number
+          id?: string
+          notes?: string | null
+          opportunity_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entered_by?: string | null
+          estimated_cost?: number
+          id?: string
+          notes?: string | null
+          opportunity_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_costs_entered_by_fkey"
+            columns: ["entered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string | null
