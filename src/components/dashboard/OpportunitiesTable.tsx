@@ -1,24 +1,23 @@
 import { useState, useMemo } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, ArrowUpDown, ArrowUp, ArrowDown, CalendarCheck, CalendarX, User, Clock, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DollarSign,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  CalendarCheck,
+  CalendarX,
+  User,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+} from "lucide-react";
+import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 
 interface Opportunity {
@@ -93,12 +92,12 @@ type SortDirection = "asc" | "desc";
 
 const ITEMS_PER_PAGE = 10;
 
-export function OpportunitiesTable({ 
-  opportunities, 
-  appointments = [], 
-  contacts = [], 
+export function OpportunitiesTable({
+  opportunities,
+  appointments = [],
+  contacts = [],
   users = [],
-  conversations = []
+  conversations = [],
 }: OpportunitiesTableProps) {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -111,7 +110,7 @@ export function OpportunitiesTable({
 
   const uniqueStages = useMemo(() => {
     const stages = new Set<string>();
-    opportunities.forEach(opp => {
+    opportunities.forEach((opp) => {
       if (opp.stage_name) stages.add(opp.stage_name);
     });
     return Array.from(stages).sort();
@@ -119,30 +118,30 @@ export function OpportunitiesTable({
 
   // Format stages for multi-select
   const stageOptions = useMemo(() => {
-    return uniqueStages.map(stage => ({ value: stage, label: stage }));
+    return uniqueStages.map((stage) => ({ value: stage, label: stage }));
   }, [uniqueStages]);
 
   // Get unique sales reps from users
   const uniqueSalesReps = useMemo(() => {
     return users
-      .map(u => ({
+      .map((u) => ({
         ghl_id: u.ghl_id,
-        name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || u.ghl_id
+        name: u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [users]);
 
   // Format sales reps for multi-select
   const salesRepOptions = useMemo(() => {
-    return uniqueSalesReps.map(rep => ({ value: rep.ghl_id, label: rep.name }));
+    return uniqueSalesReps.map((rep) => ({ value: rep.ghl_id, label: rep.name }));
   }, [uniqueSalesReps]);
 
   // Track which contacts have appointments (excluding cancelled)
   const contactsWithAppointments = useMemo(() => {
     return new Set(
       appointments
-        .filter(a => a.contact_id && a.appointment_status?.toLowerCase() !== 'cancelled')
-        .map(a => a.contact_id)
+        .filter((a) => a.contact_id && a.appointment_status?.toLowerCase() !== "cancelled")
+        .map((a) => a.contact_id),
     );
   }, [appointments]);
 
@@ -150,8 +149,8 @@ export function OpportunitiesTable({
   const appointmentsByContact = useMemo(() => {
     const map = new Map<string, Appointment[]>();
     appointments
-      .filter(a => a.contact_id && a.appointment_status?.toLowerCase() !== 'cancelled')
-      .forEach(a => {
+      .filter((a) => a.contact_id && a.appointment_status?.toLowerCase() !== "cancelled")
+      .forEach((a) => {
         const existing = map.get(a.contact_id!) || [];
         existing.push(a);
         map.set(a.contact_id!, existing);
@@ -162,9 +161,9 @@ export function OpportunitiesTable({
   // User lookup map
   const userMap = useMemo(() => {
     const map = new Map<string, string>();
-    users.forEach(u => {
+    users.forEach((u) => {
       if (u.ghl_id) {
-        map.set(u.ghl_id, u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || u.ghl_id);
+        map.set(u.ghl_id, u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id);
       }
     });
     return map;
@@ -173,7 +172,7 @@ export function OpportunitiesTable({
   // Contact lookup map for dates
   const contactMap = useMemo(() => {
     const map = new Map<string, Contact>();
-    contacts.forEach(c => {
+    contacts.forEach((c) => {
       if (c.ghl_id) {
         map.set(c.ghl_id, c);
       }
@@ -182,30 +181,33 @@ export function OpportunitiesTable({
   }, [contacts]);
 
   const formatAppointmentDateTime = (dateString: string | null) => {
-    if (!dateString) return '-';
+    if (!dateString) return "-";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + 
-           ' ' + date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return (
+      date.toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+      " " +
+      date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+    );
   };
 
   const filteredAndSortedOpportunities = useMemo(() => {
     let filtered = opportunities;
-    
+
     // Apply stage filter (multi-select)
     if (stageFilter.length > 0) {
-      filtered = filtered.filter(opp => opp.stage_name && stageFilter.includes(opp.stage_name));
+      filtered = filtered.filter((opp) => opp.stage_name && stageFilter.includes(opp.stage_name));
     }
 
     // Apply appointment filter
     if (appointmentFilter === "with") {
-      filtered = filtered.filter(opp => opp.contact_id && contactsWithAppointments.has(opp.contact_id));
+      filtered = filtered.filter((opp) => opp.contact_id && contactsWithAppointments.has(opp.contact_id));
     } else if (appointmentFilter === "without") {
-      filtered = filtered.filter(opp => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
+      filtered = filtered.filter((opp) => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
     }
 
     // Apply sales rep filter (multi-select)
     if (salesRepFilter.length > 0) {
-      filtered = filtered.filter(opp => {
+      filtered = filtered.filter((opp) => {
         // Check opportunity assigned_to
         if (opp.assigned_to && salesRepFilter.includes(opp.assigned_to)) return true;
         // Check contact assigned_to
@@ -213,7 +215,7 @@ export function OpportunitiesTable({
         if (contact?.assigned_to && salesRepFilter.includes(contact.assigned_to)) return true;
         // Check appointment assigned_user_id
         const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
-        return oppAppointments.some(a => a.assigned_user_id && salesRepFilter.includes(a.assigned_user_id));
+        return oppAppointments.some((a) => a.assigned_user_id && salesRepFilter.includes(a.assigned_user_id));
       });
     }
 
@@ -233,7 +235,7 @@ export function OpportunitiesTable({
     // Sort opportunities
     return [...filtered].sort((a, b) => {
       let comparison = 0;
-      
+
       switch (sortColumn) {
         case "name":
           comparison = (a.name || "").localeCompare(b.name || "");
@@ -255,10 +257,20 @@ export function OpportunitiesTable({
           comparison = getEffectiveDate(a) - getEffectiveDate(b);
           break;
       }
-      
+
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [opportunities, stageFilter, appointmentFilter, salesRepFilter, sortColumn, sortDirection, contactsWithAppointments, contactMap, appointmentsByContact]);
+  }, [
+    opportunities,
+    stageFilter,
+    appointmentFilter,
+    salesRepFilter,
+    sortColumn,
+    sortDirection,
+    contactsWithAppointments,
+    contactMap,
+    appointmentsByContact,
+  ]);
 
   // Reset to page 1 when filters change
   const handleStageFilterChange = (selected: string[]) => {
@@ -278,88 +290,93 @@ export function OpportunitiesTable({
 
   // Helper to extract custom field value
   const getCustomFieldValue = (contact: Contact | undefined, fieldId: string): string => {
-    if (!contact?.custom_fields) return '';
+    if (!contact?.custom_fields) return "";
     const customFields = contact.custom_fields;
     let fieldsArray: Array<{ id: string; value: string }> | null = null;
-    
+
     if (Array.isArray(customFields)) {
       fieldsArray = customFields as Array<{ id: string; value: string }>;
-    } else if (typeof customFields === 'object') {
+    } else if (typeof customFields === "object") {
       fieldsArray = Object.values(customFields as Record<string, { id: string; value: string }>);
     }
-    
-    if (!fieldsArray || !Array.isArray(fieldsArray)) return '';
-    const field = fieldsArray.find(f => f.id === fieldId);
-    return field?.value || '';
+
+    if (!fieldsArray || !Array.isArray(fieldsArray)) return "";
+    const field = fieldsArray.find((f) => f.id === fieldId);
+    return field?.value || "";
   };
 
   // CSV download function
   const downloadCSV = () => {
     const headers = [
-      'Name',
-      'Pipeline',
-      'Stage',
-      'Value',
-      'Status',
-      'Contact Name',
-      'Phone',
-      'Email',
-      'Address',
-      'Scope of Work',
-      'Sales Rep',
-      'Contact Created',
-      'Latest Appointment'
+      "Name",
+      "Pipeline",
+      "Stage",
+      "Value",
+      "Status",
+      "Contact Name",
+      "Phone",
+      "Email",
+      "Address",
+      "Scope of Work",
+      "Sales Rep",
+      "Contact Created",
+      "Latest Appointment",
     ];
 
-    const rows = filteredAndSortedOpportunities.map(opp => {
+    const rows = filteredAndSortedOpportunities.map((opp) => {
       const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
       const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
-      const latestAppt = oppAppointments.length > 0 
-        ? oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0]
-        : null;
-      const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : 
-                          opp.assigned_to ? userMap.get(opp.assigned_to) : '';
+      const latestAppt =
+        oppAppointments.length > 0
+          ? oppAppointments.sort(
+              (a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime(),
+            )[0]
+          : null;
+      const salesRepName = latestAppt?.assigned_user_id
+        ? userMap.get(latestAppt.assigned_user_id)
+        : opp.assigned_to
+          ? userMap.get(opp.assigned_to)
+          : "";
       const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
-      
-      const address = getCustomFieldValue(contact, 'b7oTVsUQrLgZt84bHpCn');
-      const scopeOfWork = getCustomFieldValue(contact, 'KwQRtJT0aMSHnq3mwR68');
-      const contactName = contact?.contact_name || 
-                         [contact?.first_name, contact?.last_name].filter(Boolean).join(' ') || '';
+
+      const address = getCustomFieldValue(contact, "b7oTVsUQrLgZt84bHpCn");
+      const scopeOfWork = getCustomFieldValue(contact, "KwQRtJT0aMSHnq3mwR68");
+      const contactName =
+        contact?.contact_name || [contact?.first_name, contact?.last_name].filter(Boolean).join(" ") || "";
 
       return [
-        opp.name || '',
-        opp.pipeline_name || '',
-        opp.stage_name || '',
-        opp.monetary_value?.toString() || '',
-        opp.status || '',
+        opp.name || "",
+        opp.pipeline_name || "",
+        opp.stage_name || "",
+        opp.monetary_value?.toString() || "",
+        opp.status || "",
         contactName,
-        contact?.phone || '',
-        contact?.email || '',
+        contact?.phone || "",
+        contact?.email || "",
         address,
         scopeOfWork,
-        salesRepName || '',
-        contactDate ? new Date(contactDate).toLocaleDateString() : '',
-        latestAppt?.start_time ? new Date(latestAppt.start_time).toLocaleString() : ''
+        salesRepName || "",
+        contactDate ? new Date(contactDate).toLocaleDateString() : "",
+        latestAppt?.start_time ? new Date(latestAppt.start_time).toLocaleString() : "",
       ];
     });
 
     // Escape CSV values
     const escapeCSV = (value: string) => {
-      if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+      if (value.includes(",") || value.includes('"') || value.includes("\n")) {
         return `"${value.replace(/"/g, '""')}"`;
       }
       return value;
     };
 
-    const csvContent = [
-      headers.map(escapeCSV).join(','),
-      ...rows.map(row => row.map(escapeCSV).join(','))
-    ].join('\n');
+    const csvContent = [headers.map(escapeCSV).join(","), ...rows.map((row) => row.map(escapeCSV).join(","))].join(
+      "\n",
+    );
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `opportunities_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `opportunities_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
   };
 
@@ -370,25 +387,25 @@ export function OpportunitiesTable({
   const paginatedOpportunities = filteredAndSortedOpportunities.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const formatCurrency = (value: number | null) => {
-    if (!value) return '-';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    if (!value) return "-";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
     }).format(value);
   };
 
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
-      case 'won':
-        return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-      case 'lost':
-      case 'abandoned':
-        return 'bg-red-500/20 text-red-400 border-red-500/30';
-      case 'open':
-        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case "won":
+        return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+      case "lost":
+      case "abandoned":
+        return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "open":
+        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
       default:
-        return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+        return "bg-amber-500/20 text-amber-400 border-amber-500/30";
     }
   };
 
@@ -399,7 +416,7 @@ export function OpportunitiesTable({
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
-      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortColumn(column);
       setSortDirection(column === "date" || column === "value" ? "desc" : "asc");
@@ -410,9 +427,7 @@ export function OpportunitiesTable({
     if (sortColumn !== column) {
       return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
     }
-    return sortDirection === "asc" 
-      ? <ArrowUp className="h-4 w-4 ml-1" />
-      : <ArrowDown className="h-4 w-4 ml-1" />;
+    return sortDirection === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
   return (
@@ -474,7 +489,7 @@ export function OpportunitiesTable({
           <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
-                <TableHead 
+                <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                   onClick={() => handleSort("name")}
                 >
@@ -483,7 +498,7 @@ export function OpportunitiesTable({
                     <SortIcon column="name" />
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                   onClick={() => handleSort("stage")}
                 >
@@ -492,7 +507,7 @@ export function OpportunitiesTable({
                     <SortIcon column="stage" />
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                   onClick={() => handleSort("value")}
                 >
@@ -501,7 +516,7 @@ export function OpportunitiesTable({
                     <SortIcon column="value" />
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                   onClick={() => handleSort("status")}
                 >
@@ -510,7 +525,7 @@ export function OpportunitiesTable({
                     <SortIcon column="status" />
                   </div>
                 </TableHead>
-                <TableHead 
+                <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                   onClick={() => handleSort("date")}
                 >
@@ -519,10 +534,20 @@ export function OpportunitiesTable({
                     <SortIcon column="date" />
                   </div>
                 </TableHead>
+                <TableHead
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort("date")}
+                >
+                  <div className="flex items-center">
+                    Last Edited
+                    <SortIcon column="date" />
+                  </div>
+                </TableHead>
+
                 <TableHead className="text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <Clock className="h-3.5 w-3.5" />
-                    Appointment
+                    Last Appointment
                   </div>
                 </TableHead>
                 <TableHead className="text-muted-foreground">
@@ -543,16 +568,19 @@ export function OpportunitiesTable({
               ) : (
                 paginatedOpportunities.map((opp) => {
                   const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
-                  const latestAppt = oppAppointments.length > 0 
-                    ? oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0]
-                    : null;
+                  const latestAppt =
+                    oppAppointments.length > 0
+                      ? oppAppointments.sort(
+                          (a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime(),
+                        )[0]
+                      : null;
                   const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : null;
                   const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
                   const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
-                  
+
                   return (
-                    <TableRow 
-                      key={opp.ghl_id} 
+                    <TableRow
+                      key={opp.ghl_id}
                       className="border-border/30 hover:bg-muted/30 cursor-pointer"
                       onClick={() => handleRowClick(opp)}
                     >
@@ -567,47 +595,49 @@ export function OpportunitiesTable({
                               <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                             </span>
                           )}
-                          <span>{opp.name || 'Unnamed'}</span>
+                          <span>{opp.name || "Unnamed"}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {opp.pipeline_name && opp.stage_name 
+                        {opp.pipeline_name && opp.stage_name
                           ? `${opp.pipeline_name} / ${opp.stage_name}`
-                          : opp.stage_name || opp.pipeline_name || '-'}
+                          : opp.stage_name || opp.pipeline_name || "-"}
                       </TableCell>
-                      <TableCell className="font-mono text-emerald-400">
-                        {formatCurrency(opp.monetary_value)}
-                      </TableCell>
+                      <TableCell className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(opp.status)}>
-                          {opp.status || 'Unknown'}
+                          {opp.status || "Unknown"}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {contactDate
-                          ? new Date(contactDate).toLocaleDateString()
-                          : '-'}
+                        {contactDate ? new Date(contactDate).toLocaleDateString() : "-"}
                       </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {opp.ghl_date_updated ? new Date(opp.ghl_date_updated).toLocaleDateString() : "-"}
+                      </TableCell>
+
                       <TableCell className="text-muted-foreground text-sm">
                         {latestAppt ? (
                           <div className="flex flex-col">
                             <span>{formatAppointmentDateTime(latestAppt.start_time)}</span>
                             {oppAppointments.length > 1 && (
-                              <span className="text-xs text-muted-foreground/70">+{oppAppointments.length - 1} more</span>
+                              <span className="text-xs text-muted-foreground/70">
+                                +{oppAppointments.length - 1} more
+                              </span>
                             )}
                           </div>
-                        ) : '-'}
+                        ) : (
+                          "-"
+                        )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {salesRepName || '-'}
-                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{salesRepName || "-"}</TableCell>
                     </TableRow>
                   );
                 })
               )}
             </TableBody>
           </Table>
-          
+
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4 border-t border-border/30">
@@ -618,7 +648,7 @@ export function OpportunitiesTable({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -629,7 +659,7 @@ export function OpportunitiesTable({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                 >
                   <ChevronRight className="h-4 w-4" />
