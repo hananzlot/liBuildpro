@@ -1322,6 +1322,21 @@ export function OpportunityDetailSheet({
                     {contact?.email || <span className="italic text-muted-foreground/60">No email</span>}
                   </span>
                 </div>
+
+                {/* Scope of Work */}
+                {scopeOfWork && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                      <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Scope of Work
+                      </span>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1433,19 +1448,6 @@ export function OpportunityDetailSheet({
               <div className="font-medium truncate">{contact?.source || "No source"}</div>
             </div>
           </div>
-
-          {/* Scope of Work */}
-          {scopeOfWork && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scope of Work</span>
-              </div>
-              <div className="p-3">
-                <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
-              </div>
-            </div>
-          )}
 
           {/* Notes/Comments */}
           <div className="border rounded-lg overflow-hidden">
