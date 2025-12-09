@@ -22,6 +22,23 @@ import { format, differenceInCalendarDays } from "date-fns";
 //import type { DateRange } from "react-day-picker";
 import type { DateRange } from "@/hooks/useGHLContacts";
 
+function parseGhlDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+
+  // Normalize "YYYY-MM-DD HH:mm:ss.SSS+00" -> "YYYY-MM-DDTHH:mm:ss.SSS+00"
+  const normalized = value.replace(" ", "T");
+  const d = new Date(normalized);
+
+  if (isNaN(d.getTime())) {
+    // Optional: log once while debugging
+    // console.warn("Invalid GHL date:", value);
+    return null;
+  }
+
+  return d;
+}
+
+
 interface DBOpportunity {
   id: string;
   ghl_id: string;
@@ -46,6 +63,7 @@ interface DBContact {
   phone: string | null;
   source: string | null;
   custom_fields: unknown;
+  ghl_date_added?: string | null;  // 👈 add this
 }
 
 interface DBUser {
@@ -182,15 +200,20 @@ export function WonOpportunitiesSheet({
                   `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() ||
                   "Unknown Contact";
 
-                // 🔹 Days the lead was worked on: ghl_date_updated - ghl_date_added
-                let daysWorked: number | null = null;
-                if (opp.ghl_date_added && opp.ghl_date_updated) {
-                  const added = new Date(opp.ghl_date_added);
-                  const updated = new Date(opp.ghl_date_updated);
-                  const diff = differenceInCalendarDays(updated, added);
-                  daysWorked = diff < 0 ? 0 : diff;
-                }
+                / 🔹 Days the lead was worked on: close date - start date
+                  // Primary: opportunity.ghl_date_added
+                  // (Optionally) fallback to contact.ghl_date_added if you like
+                 
+                  const startDate = parseGhlDate(opp.ghl_date_added || contact?.ghl_date_added || null);
 
+                  const endDate = parseGhlDate(opp.ghl_date_updated);
+                  
+                  let daysWorked: number | null = null;
+                  if (startDate && endDate) {
+                    const diff = differenceInCalendarDays(endDate, startDate);
+                    daysWorked = diff < 0 ? 0 : diff; // never negative
+                  }
+                
                 return (
                   <Card key={opp.id} className="border-border/50">
                     <CardContent className="pt-4 space-y-4">
