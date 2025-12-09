@@ -25,7 +25,6 @@ const getPSTOffset = (utcDate: Date): number => {
   const isDST = utcDate >= marchSecondSunday && utcDate < novFirstSunday;
   return isDST ? 7 : 8; // PDT is UTC-7, PST is UTC-8
 };
-
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
   SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
@@ -147,7 +146,9 @@ export function OpportunityDetailSheet({
   allOpportunities = []
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const {
+    user
+  } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedStatus, setEditedStatus] = useState<string>("");
@@ -155,7 +156,7 @@ export function OpportunityDetailSheet({
   const [editedPipeline, setEditedPipeline] = useState<string>("");
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
   const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
-  
+
   // Track saved values to display immediately after save (before query refresh)
   const [savedValues, setSavedValues] = useState<{
     status?: string;
@@ -216,7 +217,7 @@ export function OpportunityDetailSheet({
 
   // Track if sheet was previously closed, to reset savedValues only on fresh open
   const [wasOpen, setWasOpen] = useState(false);
-  
+
   // Reset saved values only when sheet opens fresh (was closed, now open)
   useEffect(() => {
     if (open && !wasOpen) {
@@ -283,22 +284,23 @@ export function OpportunityDetailSheet({
           if (opportunity.contact_id) {
             try {
               await supabase.functions.invoke('sync-ghl-tasks', {
-                body: { contact_id: opportunity.contact_id }
+                body: {
+                  contact_id: opportunity.contact_id
+                }
               });
             } catch (syncErr) {
               console.error('Failed to sync tasks from GHL:', syncErr);
             }
           }
-          
+
           // Fetch from ghl_tasks only
-          const { data, error } = await supabase
-            .from('ghl_tasks')
-            .select('*')
-            .eq('contact_id', opportunity.contact_id)
-            .order('due_date', { ascending: true });
-          
+          const {
+            data,
+            error
+          } = await supabase.from('ghl_tasks').select('*').eq('contact_id', opportunity.contact_id).order('due_date', {
+            ascending: true
+          });
           if (error) throw error;
-          
           const tasks: DisplayTask[] = (data || []).map((t: GHLTask) => ({
             id: t.id,
             ghl_id: t.ghl_id,
@@ -307,9 +309,8 @@ export function OpportunityDetailSheet({
             status: t.completed ? 'completed' : 'pending',
             due_date: t.due_date,
             assigned_to: t.assigned_to,
-            created_at: t.created_at,
+            created_at: t.created_at
           }));
-          
           setTasks(tasks);
         } catch (err) {
           console.error('Failed to fetch tasks:', err);
@@ -321,12 +322,10 @@ export function OpportunityDetailSheet({
       // Fetch estimated cost
       const fetchEstimatedCost = async () => {
         try {
-          const { data, error } = await supabase
-            .from('project_costs')
-            .select('estimated_cost')
-            .eq('opportunity_id', opportunity.ghl_id)
-            .maybeSingle();
-          
+          const {
+            data,
+            error
+          } = await supabase.from('project_costs').select('estimated_cost').eq('opportunity_id', opportunity.ghl_id).maybeSingle();
           if (error) throw error;
           if (data) {
             setEstimatedCost(data.estimated_cost?.toString() || "");
@@ -337,7 +336,6 @@ export function OpportunityDetailSheet({
           console.error('Failed to fetch estimated cost:', err);
         }
       };
-
       fetchConversations();
       fetchNotes();
       fetchTasks();
@@ -417,18 +415,16 @@ export function OpportunityDetailSheet({
   // Helper function to refresh tasks from ghl_tasks
   const refreshTasksList = async () => {
     if (!opportunity?.contact_id) return;
-    
-    const { data, error } = await supabase
-      .from('ghl_tasks')
-      .select('*')
-      .eq('contact_id', opportunity.contact_id)
-      .order('due_date', { ascending: true });
-    
+    const {
+      data,
+      error
+    } = await supabase.from('ghl_tasks').select('*').eq('contact_id', opportunity.contact_id).order('due_date', {
+      ascending: true
+    });
     if (error) {
       console.error('Failed to refresh tasks:', error);
       return;
     }
-    
     const tasks: DisplayTask[] = (data || []).map((t: GHLTask) => ({
       id: t.id,
       ghl_id: t.ghl_id,
@@ -437,16 +433,13 @@ export function OpportunityDetailSheet({
       status: t.completed ? 'completed' : 'pending',
       due_date: t.due_date,
       assigned_to: t.assigned_to,
-      created_at: t.created_at,
+      created_at: t.created_at
     }));
-    
     setTasks(tasks);
   };
-
   const openTaskDialog = () => {
     const contact = contacts.find(c => c.ghl_id === opportunity?.contact_id);
-    const contactName = contact?.contact_name || 
-      `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
+    const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
     setTaskTitle(`Follow up: ${opportunity?.name || contactName || "Opportunity"}`);
     setTaskNotes("");
     setTaskAssignee(opportunity?.assigned_to || "__unassigned__");
@@ -454,20 +447,17 @@ export function OpportunityDetailSheet({
     setTaskDueTime("09:00");
     setTaskDialogOpen(true);
   };
-
   const handleCreateTask = async () => {
     if (!opportunity || !taskTitle.trim()) {
       toast.error("Please enter a task title");
       return;
     }
-
     setIsCreatingTask(true);
     try {
       const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
       const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
-
       const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
-      
+
       // Combine date and time, treating input as PST
       let dueDateValue: string | null = null;
       if (taskDueDate) {
@@ -491,18 +481,15 @@ export function OpportunityDetailSheet({
           enteredBy: user?.id || null
         }
       });
-
       if (ghlResponse.error) {
         console.error('GHL sync error:', ghlResponse.error);
         toast.error("Failed to create task in GHL");
         return;
       }
-
       toast.success("Task created and synced to GHL");
 
       // Refresh tasks list
       await refreshTasksList();
-
       setTaskDialogOpen(false);
       setTaskTitle("");
       setTaskNotes("");
@@ -516,7 +503,6 @@ export function OpportunityDetailSheet({
       setIsCreatingTask(false);
     }
   };
-
   const openEditTaskDialog = (task: DisplayTask) => {
     setEditingTask(task);
     setTaskTitle(task.title);
@@ -535,17 +521,14 @@ export function OpportunityDetailSheet({
     }
     setTaskDialogOpen(true);
   };
-
   const handleUpdateTask = async () => {
     if (!editingTask || !taskTitle.trim()) {
       toast.error("Please enter a task title");
       return;
     }
-
     setIsCreatingTask(true);
     try {
       const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
-      
       let dueDateValue: string | null = null;
       if (taskDueDate) {
         const timeStr = taskDueTime || "09:00";
@@ -557,16 +540,14 @@ export function OpportunityDetailSheet({
       }
 
       // Update ghl_tasks table
-      const { error } = await supabase
-        .from("ghl_tasks")
-        .update({
-          title: taskTitle.trim(),
-          body: taskNotes.trim() || null,
-          assigned_to: assignedToValue,
-          due_date: dueDateValue,
-        })
-        .eq("id", editingTask.id);
-
+      const {
+        error
+      } = await supabase.from("ghl_tasks").update({
+        title: taskTitle.trim(),
+        body: taskNotes.trim() || null,
+        assigned_to: assignedToValue,
+        due_date: dueDateValue
+      }).eq("id", editingTask.id);
       if (error) throw error;
 
       // Sync to GHL
@@ -586,12 +567,10 @@ export function OpportunityDetailSheet({
           console.error('Failed to update in GHL:', ghlErr);
         }
       }
-
       toast.success("Task updated");
 
       // Refresh tasks list
       await refreshTasksList();
-
       setTaskDialogOpen(false);
       setEditingTask(null);
       setTaskTitle("");
@@ -606,14 +585,15 @@ export function OpportunityDetailSheet({
       setIsCreatingTask(false);
     }
   };
-
   const handleDeleteTask = async (task: DisplayTask) => {
     setIsDeletingTask(task.id);
     try {
       // Delete from ghl_tasks table
-      const { error } = await supabase.from("ghl_tasks").delete().eq("id", task.id);
+      const {
+        error
+      } = await supabase.from("ghl_tasks").delete().eq("id", task.id);
       if (error) throw error;
-      
+
       // Also delete from GHL API
       if (task.ghl_id && opportunity?.contact_id) {
         try {
@@ -627,7 +607,6 @@ export function OpportunityDetailSheet({
           console.error('Failed to delete from GHL:', ghlErr);
         }
       }
-      
       setTasks(prev => prev.filter(t => t.id !== task.id));
       toast.success("Task deleted");
     } catch (err) {
@@ -637,20 +616,19 @@ export function OpportunityDetailSheet({
       setIsDeletingTask(null);
     }
   };
-
   const handleToggleTaskStatus = async (task: DisplayTask) => {
     setIsUpdatingTaskStatus(task.id);
     const newStatus = task.status === 'completed' ? 'pending' : 'completed';
     const isCompleted = newStatus === 'completed';
     try {
       // Update ghl_tasks table
-      const { error } = await supabase
-        .from("ghl_tasks")
-        .update({ completed: isCompleted })
-        .eq("id", task.id);
-      
+      const {
+        error
+      } = await supabase.from("ghl_tasks").update({
+        completed: isCompleted
+      }).eq("id", task.id);
       if (error) throw error;
-      
+
       // Sync completion status to GHL
       if (task.ghl_id && opportunity?.contact_id) {
         try {
@@ -665,8 +643,10 @@ export function OpportunityDetailSheet({
           console.error('Failed to sync status to GHL:', ghlErr);
         }
       }
-      
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+      setTasks(prev => prev.map(t => t.id === task.id ? {
+        ...t,
+        status: newStatus
+      } : t));
       toast.success(newStatus === 'completed' ? "Task completed" : "Task reopened");
     } catch (err) {
       console.error("Error updating task status:", err);
@@ -679,8 +659,7 @@ export function OpportunityDetailSheet({
   // Appointment creation handlers
   const openAppointmentDialog = () => {
     const contact = contacts.find(c => c.ghl_id === opportunity?.contact_id);
-    const contactName = contact?.contact_name || 
-      `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
+    const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
     setAppointmentTitle(`Appointment - ${contactName || opportunity?.name || "Contact"}`);
     setAppointmentDate("");
     setAppointmentTime("09:00");
@@ -688,13 +667,11 @@ export function OpportunityDetailSheet({
     setAppointmentNotes("");
     setAppointmentDialogOpen(true);
   };
-
   const handleCreateAppointment = async () => {
     if (!opportunity || !appointmentDate || !appointmentTitle.trim()) {
       toast.error("Please enter appointment title and date");
       return;
     }
-
     setIsCreatingAppointment(true);
     try {
       const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
@@ -706,7 +683,6 @@ export function OpportunityDetailSheet({
       const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
       const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
       const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
-
       const response = await supabase.functions.invoke('create-ghl-appointment', {
         body: {
           contactId: opportunity.contact_id,
@@ -715,21 +691,20 @@ export function OpportunityDetailSheet({
           startTime: utcDate.toISOString(),
           assignedUserId: assignedToValue,
           notes: appointmentNotes.trim() || null,
-          enteredBy: user?.id || null,
+          enteredBy: user?.id || null
         }
       });
-
       if (response.error) {
         console.error('Appointment creation error:', response.error);
         toast.error("Failed to create appointment");
         return;
       }
-
       toast.success("Appointment created and synced to GHL");
-      
+
       // Invalidate queries to refresh appointment data
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      
+      queryClient.invalidateQueries({
+        queryKey: ["appointments"]
+      });
       setAppointmentDialogOpen(false);
       setEditingAppointment(null);
       setAppointmentTitle("");
@@ -744,19 +719,17 @@ export function OpportunityDetailSheet({
       setIsCreatingAppointment(false);
     }
   };
-
   const openEditAppointmentDialog = (appt: Appointment) => {
     setEditingAppointment(appt);
     setAppointmentTitle(appt.title || "");
     setAppointmentNotes(appt.notes || "");
     setUpdateAppointmentTime(false); // Default to NOT updating time
-    
+
     // Find assigned user from appointments
     const relatedAppts = appointments.filter(a => a.ghl_id === appt.ghl_id);
     const apptWithUser = relatedAppts[0];
     // Get assignedUserId from the appointment if available
     setAppointmentAssignee((apptWithUser as any)?.assigned_user_id || "__unassigned__");
-    
     if (appt.start_time) {
       // Convert UTC to PST for display
       const utcDate = new Date(appt.start_time);
@@ -777,13 +750,11 @@ export function OpportunityDetailSheet({
     }
     setAppointmentDialogOpen(true);
   };
-
   const handleUpdateAppointment = async () => {
     if (!editingAppointment || !appointmentDate || !appointmentTitle.trim()) {
       toast.error("Please enter appointment title and date");
       return;
     }
-
     setIsCreatingAppointment(true);
     try {
       const assignedToValue = appointmentAssignee && appointmentAssignee !== "__unassigned__" ? appointmentAssignee : null;
@@ -793,49 +764,46 @@ export function OpportunityDetailSheet({
         ghl_id: editingAppointment.ghl_id,
         title: appointmentTitle.trim(),
         assignedUserId: assignedToValue,
-        notes: appointmentNotes.trim() || null,
+        notes: appointmentNotes.trim() || null
       };
 
       // Only send startTime if:
       // - Creating new appointment (not editing), OR
       // - Editing AND user explicitly checked "Reschedule appointment" checkbox
       const shouldUpdateTime = editingAppointment ? updateAppointmentTime : true;
-      
-      console.log('DateTime check:', { 
+      console.log('DateTime check:', {
         isEditing: !!editingAppointment,
         updateAppointmentTime,
-        shouldUpdateTime,
+        shouldUpdateTime
       });
-      
       if (shouldUpdateTime) {
         const timeStr = appointmentTime || "09:00";
         const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
         const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
         const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
-        
+
         // Check if the new time is in the past - GHL won't allow past time slots
         if (utcDate < new Date()) {
           toast.error("Cannot reschedule to a past date/time. GHL requires future time slots.");
           setIsCreatingAppointment(false);
           return;
         }
-        
         updateBody.startTime = utcDate.toISOString();
       }
       // Note: If checkbox is unchecked, we don't send startTime at all
       // This allows editing title/notes/assignee without triggering GHL slot validation
 
       console.log('Appointment update payload:', JSON.stringify(updateBody));
-
       const response = await supabase.functions.invoke('update-ghl-appointment', {
         body: updateBody
       });
-
       if (response.error) {
         console.error('Appointment update error:', response.error);
         console.log('Response data:', response.data);
         // The error message from edge function is in response.data
-        const errorData = response.data as { error?: string } | null;
+        const errorData = response.data as {
+          error?: string;
+        } | null;
         const errorMsg = errorData?.error || "";
         if (errorMsg.includes("slot") || errorMsg.includes("available")) {
           toast.error("This time slot is not available in GHL. Try a time on the hour/half-hour, or only update title/notes.");
@@ -846,12 +814,12 @@ export function OpportunityDetailSheet({
         }
         return;
       }
-
       toast.success("Appointment updated");
-      
+
       // Invalidate queries to refresh appointment data
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      
+      queryClient.invalidateQueries({
+        queryKey: ["appointments"]
+      });
       setAppointmentDialogOpen(false);
       setEditingAppointment(null);
       setAppointmentTitle("");
@@ -872,15 +840,18 @@ export function OpportunityDetailSheet({
   // Build pipeline and stage maps from all opportunities
   const pipelineMap = new Map<string, string>();
   const stageMap = new Map<string, string>();
-  
+
   // Build unique pipelines list
   allOpportunities.forEach(o => {
     if (o.pipeline_id && o.pipeline_name) {
       pipelineMap.set(o.pipeline_id, o.pipeline_name);
     }
   });
-  const availablePipelines = Array.from(pipelineMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  
+  const availablePipelines = Array.from(pipelineMap.entries()).map(([id, name]) => ({
+    id,
+    name
+  })).sort((a, b) => a.name.localeCompare(b.name));
+
   // Build stages for the currently selected/edited pipeline
   const activePipelineId = isEditing ? editedPipeline : opportunity?.pipeline_id;
   allOpportunities.forEach(o => {
@@ -889,7 +860,6 @@ export function OpportunityDetailSheet({
     }
   });
   const availableStages = Array.from(stageMap.keys()).sort();
-  
   const handleEditClick = () => {
     // Use savedValues if available (for re-editing without closing), otherwise use opportunity prop
     setEditedStatus(savedValues.status ?? opportunity?.status?.toLowerCase() ?? "open");
@@ -910,11 +880,7 @@ export function OpportunityDetailSheet({
   const handlePipelineChange = (newPipelineId: string) => {
     setEditedPipeline(newPipelineId);
     // Reset stage when pipeline changes - will be set to first available stage
-    const stagesForNewPipeline = allOpportunities
-      .filter(o => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id)
-      .map(o => o.stage_name!)
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .sort();
+    const stagesForNewPipeline = allOpportunities.filter(o => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id).map(o => o.stage_name!).filter((v, i, a) => a.indexOf(v) === i).sort();
     setEditedStage(stagesForNewPipeline[0] || "");
   };
   const handleSave = async () => {
@@ -944,7 +910,7 @@ export function OpportunityDetailSheet({
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      
+
       // Store saved values to display immediately (before query refresh)
       const newSavedValues = {
         status: editedStatus,
@@ -956,7 +922,6 @@ export function OpportunityDetailSheet({
       };
       console.log('Saving values:', newSavedValues);
       setSavedValues(newSavedValues);
-      
       toast.success("Opportunity updated in GHL and database");
       setIsEditing(false);
 
@@ -971,26 +936,23 @@ export function OpportunityDetailSheet({
       setIsSaving(false);
     }
   };
-
   const handleSaveEstimatedCost = async () => {
     if (!opportunity) return;
     setIsSavingCost(true);
     try {
       const costValue = parseFloat(estimatedCost) || 0;
-      
+
       // Upsert the estimated cost
-      const { error } = await supabase
-        .from('project_costs')
-        .upsert({
-          opportunity_id: opportunity.ghl_id,
-          estimated_cost: costValue,
-          entered_by: user?.id || null,
-        }, {
-          onConflict: 'opportunity_id'
-        });
-      
+      const {
+        error
+      } = await supabase.from('project_costs').upsert({
+        opportunity_id: opportunity.ghl_id,
+        estimated_cost: costValue,
+        entered_by: user?.id || null
+      }, {
+        onConflict: 'opportunity_id'
+      });
       if (error) throw error;
-      
       toast.success("Estimated cost saved");
       setIsEditingCost(false);
     } catch (error) {
@@ -1000,19 +962,25 @@ export function OpportunityDetailSheet({
       setIsSavingCost(false);
     }
   };
-
   const handleDeleteOpportunity = async () => {
     if (!opportunity) return;
     setIsDeletingOpportunity(true);
     try {
-      const { data, error } = await supabase.functions.invoke('delete-ghl-opportunity', {
-        body: { opportunityId: opportunity.ghl_id }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('delete-ghl-opportunity', {
+        body: {
+          opportunityId: opportunity.ghl_id
+        }
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Opportunity deleted");
       onOpenChange(false);
-      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({
+        queryKey: ["opportunities"]
+      });
     } catch (error) {
       console.error("Error deleting opportunity:", error);
       toast.error("Failed to delete opportunity");
@@ -1020,20 +988,26 @@ export function OpportunityDetailSheet({
       setIsDeletingOpportunity(false);
     }
   };
-
   const handleDeleteAppointmentFromDialog = async () => {
     if (!editingAppointment) return;
     setIsDeletingAppointment(true);
     try {
-      const { data, error } = await supabase.functions.invoke('delete-ghl-appointment', {
-        body: { appointmentId: editingAppointment.ghl_id }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('delete-ghl-appointment', {
+        body: {
+          appointmentId: editingAppointment.ghl_id
+        }
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Appointment deleted");
       setAppointmentDialogOpen(false);
       setEditingAppointment(null);
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({
+        queryKey: ["appointments"]
+      });
     } catch (error) {
       console.error("Error deleting appointment:", error);
       toast.error("Failed to delete appointment");
@@ -1041,7 +1015,6 @@ export function OpportunityDetailSheet({
       setIsDeletingAppointment(false);
     }
   };
-
   if (!opportunity) return null;
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return '-';
@@ -1115,13 +1088,10 @@ export function OpportunityDetailSheet({
             </SheetTitle>
           </SheetHeader>
           <div className="mt-2 flex items-center gap-2">
-            {!isEditing ? (
-              <Button variant="outline" size="sm" className="h-7" onClick={handleEditClick}>
+            {!isEditing ? <Button variant="outline" size="sm" className="h-7" onClick={handleEditClick}>
                 <Pencil className="h-3.5 w-3.5 mr-1" />
                 Edit
-              </Button>
-            ) : (
-              <>
+              </Button> : <>
                 <Button variant="outline" size="sm" className="h-7" onClick={handleCancelEdit} disabled={isSaving}>
                   <X className="h-3.5 w-3.5 mr-1" />
                   Cancel
@@ -1130,9 +1100,13 @@ export function OpportunityDetailSheet({
                   {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
                   Save
                 </Button>
-              </>
-            )}
-            <AlertDialog onOpenChange={(isOpen) => { if (!isOpen) { setDeletePassword(""); setDeletePasswordError(""); } }}>
+              </>}
+            <AlertDialog onOpenChange={isOpen => {
+            if (!isOpen) {
+              setDeletePassword("");
+              setDeletePasswordError("");
+            }
+          }}>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="h-7 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50">
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
@@ -1148,32 +1122,22 @@ export function OpportunityDetailSheet({
                 </AlertDialogHeader>
                 <div className="py-2">
                   <Label htmlFor="delete-password" className="text-sm font-medium">Enter password to confirm</Label>
-                  <Input
-                    id="delete-password"
-                    type="password"
-                    placeholder="Enter password"
-                    value={deletePassword}
-                    onChange={(e) => { setDeletePassword(e.target.value); setDeletePasswordError(""); }}
-                    className="mt-1.5"
-                  />
-                  {deletePasswordError && (
-                    <p className="text-sm text-destructive mt-1">{deletePasswordError}</p>
-                  )}
+                  <Input id="delete-password" type="password" placeholder="Enter password" value={deletePassword} onChange={e => {
+                  setDeletePassword(e.target.value);
+                  setDeletePasswordError("");
+                }} className="mt-1.5" />
+                  {deletePasswordError && <p className="text-sm text-destructive mt-1">{deletePasswordError}</p>}
                 </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={(e) => {
-                      if (deletePassword !== "121867") {
-                        e.preventDefault();
-                        setDeletePasswordError("Incorrect password");
-                        return;
-                      }
-                      handleDeleteOpportunity();
-                    }} 
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90" 
-                    disabled={isDeletingOpportunity}
-                  >
+                  <AlertDialogAction onClick={e => {
+                  if (deletePassword !== "121867") {
+                    e.preventDefault();
+                    setDeletePasswordError("Incorrect password");
+                    return;
+                  }
+                  handleDeleteOpportunity();
+                }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isDeletingOpportunity}>
                     {isDeletingOpportunity ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
                     Delete
                   </AlertDialogAction>
@@ -1210,42 +1174,18 @@ export function OpportunityDetailSheet({
                 {/* Estimated Cost */}
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className="text-muted-foreground">Est. Cost:</span>
-                  {isEditingCost ? (
-                    <div className="flex items-center gap-1">
+                  {isEditingCost ? <div className="flex items-center gap-1">
                       <span className="text-amber-500">$</span>
-                      <Input 
-                        type="number" 
-                        value={estimatedCost} 
-                        onChange={e => setEstimatedCost(e.target.value)} 
-                        className="h-6 w-20 text-xs" 
-                        min="0" 
-                        step="100" 
-                      />
-                      <Button 
-                        size="sm" 
-                        className="h-6 px-2 text-xs" 
-                        onClick={handleSaveEstimatedCost}
-                        disabled={isSavingCost}
-                      >
+                      <Input type="number" value={estimatedCost} onChange={e => setEstimatedCost(e.target.value)} className="h-6 w-20 text-xs" min="0" step="100" />
+                      <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
                         {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-6 px-1.5 text-xs" 
-                        onClick={() => setIsEditingCost(false)}
-                      >
+                      <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => setIsEditingCost(false)}>
                         <X className="h-3 w-3" />
                       </Button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setIsEditingCost(true)}
-                      className="text-amber-500 font-medium hover:underline"
-                    >
+                    </div> : <button onClick={() => setIsEditingCost(true)} className="text-amber-500 font-medium hover:underline">
                       {estimatedCost ? `$${parseFloat(estimatedCost).toLocaleString()}` : "Set cost"}
-                    </button>
-                  )}
+                    </button>}
                 </div>
               </div>
             </div>
@@ -1263,17 +1203,9 @@ export function OpportunityDetailSheet({
                 <div className="flex items-start gap-2">
                   <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <span className="flex-1">{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
-                  {address && (
-                    <a
-                      href={`https://propwire.com/search?q=${encodeURIComponent(address)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded-sm hover:bg-muted transition-colors"
-                      title="Look up on Propwire"
-                    >
+                  {address && <a href={`https://propwire.com/search?q=${encodeURIComponent(address)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded-sm hover:bg-muted transition-colors" title="Look up on Propwire">
                       <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
+                    </a>}
                 </div>
               </div>
             </div>
@@ -1281,26 +1213,20 @@ export function OpportunityDetailSheet({
 
           {/* Key Info Grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-muted/40 rounded-md p-2.5">
+            <div className="bg-muted/40 rounded-md p-2.5 px-[10px] py-[2px]">
               <div className="text-muted-foreground text-xs mb-0.5">Pipeline</div>
-              {isEditing ? (
-                <Select value={editedPipeline} onValueChange={handlePipelineChange}>
+              {isEditing ? <Select value={editedPipeline} onValueChange={handlePipelineChange}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Select pipeline" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availablePipelines.map(p => (
-                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                    {availablePipelines.map(p => <SelectItem key={p.id} value={p.id} className="text-xs">
                         {p.name}
-                      </SelectItem>
-                    ))}
+                      </SelectItem>)}
                   </SelectContent>
-                </Select>
-              ) : (
-                <div className="font-medium truncate">{savedValues.pipeline_name ?? opportunity.pipeline_name ?? '-'}</div>
-              )}
+                </Select> : <div className="font-medium truncate">{savedValues.pipeline_name ?? opportunity.pipeline_name ?? '-'}</div>}
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5">
+            <div className="bg-muted/40 rounded-md p-2.5 py-[2px]">
               <div className="text-muted-foreground text-xs mb-0.5">Stage</div>
               {isEditing ? <Select value={editedStage} onValueChange={setEditedStage}>
                   <SelectTrigger className="h-7 text-xs">
@@ -1313,7 +1239,7 @@ export function OpportunityDetailSheet({
                   </SelectContent>
                 </Select> : <div className="font-medium truncate">{savedValues.stage_name ?? opportunity.stage_name ?? '-'}</div>}
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5">
+            <div className="bg-muted/40 rounded-md p-2.5 py-0">
               <div className="text-muted-foreground text-xs mb-0.5">Status</div>
               {isEditing ? <Select value={editedStatus} onValueChange={setEditedStatus}>
                   <SelectTrigger className="h-7 text-xs">
@@ -1328,11 +1254,11 @@ export function OpportunityDetailSheet({
                   {savedValues.status ?? opportunity.status ?? 'Unknown'}
                 </Badge>}
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5">
+            <div className="bg-muted/40 rounded-md p-2.5 py-0">
               <div className="text-muted-foreground text-xs mb-0.5">Created</div>
               <div className="font-medium truncate">{formatDate(opportunity.ghl_date_added)}</div>
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5">
+            <div className="bg-muted/40 rounded-md p-2.5 py-0">
               <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
               {isEditing ? <Select value={editedAssignedTo} onValueChange={setEditedAssignedTo}>
                   <SelectTrigger className="h-7 text-xs">
@@ -1349,7 +1275,7 @@ export function OpportunityDetailSheet({
                   </SelectContent>
                 </Select> : <div className="font-medium truncate">{userName}</div>}
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5">
+            <div className="bg-muted/40 rounded-md p-2.5 py-0">
               <div className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
                 <Megaphone className="h-3 w-3" />
                 Source
@@ -1537,12 +1463,7 @@ export function OpportunityDetailSheet({
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-sm truncate">{appt.title || 'Untitled'}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => openEditAppointmentDialog(appt)}
-                        >
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditAppointmentDialog(appt)}>
                           <Pencil className="h-3 w-3" />
                         </Button>
                         <Badge variant="outline" className={`text-xs ${getAppointmentStatusColor(appt.appointment_status)}`}>
@@ -1576,88 +1497,49 @@ export function OpportunityDetailSheet({
                 <span className="text-xs">Add Task</span>
               </Button>
             </div>
-            {tasks.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+            {tasks.length === 0 ? <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
                 {isLoadingTasks ? 'Loading tasks...' : 'No tasks created yet'}
-              </div>
-            ) : (
-              <div className="divide-y max-h-60 overflow-y-auto">
+              </div> : <div className="divide-y max-h-60 overflow-y-auto">
                 {tasks.map(task => {
-                  const taskUser = users.find(u => u.ghl_id === task.assigned_to);
-                  const taskUserName = taskUser?.name || (taskUser?.first_name && taskUser?.last_name 
-                    ? `${taskUser.first_name} ${taskUser.last_name}` 
-                    : 'Unassigned');
-                  return (
-                    <div key={task.id} className="p-3 space-y-1">
+              const taskUser = users.find(u => u.ghl_id === task.assigned_to);
+              const taskUserName = taskUser?.name || (taskUser?.first_name && taskUser?.last_name ? `${taskUser.first_name} ${taskUser.last_name}` : 'Unassigned');
+              return <div key={task.id} className="p-3 space-y-1">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 shrink-0"
-                            onClick={() => handleToggleTaskStatus(task)}
-                            disabled={isUpdatingTaskStatus === task.id}
-                          >
-                            {isUpdatingTaskStatus === task.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : task.status === 'completed' ? (
-                              <Check className="h-3 w-3 text-emerald-400" />
-                            ) : (
-                              <div className="h-3 w-3 rounded-sm border border-muted-foreground" />
-                            )}
+                          <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => handleToggleTaskStatus(task)} disabled={isUpdatingTaskStatus === task.id}>
+                            {isUpdatingTaskStatus === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : task.status === 'completed' ? <Check className="h-3 w-3 text-emerald-400" /> : <div className="h-3 w-3 rounded-sm border border-muted-foreground" />}
                           </Button>
                           <span className={`font-medium text-sm truncate ${task.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
                             {task.title}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => openEditTaskDialog(task)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTaskDialog(task)}>
                             <Pencil className="h-3 w-3" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteTask(task)}
-                            disabled={isDeletingTask === task.id}
-                          >
-                            {isDeletingTask === task.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3 w-3" />
-                            )}
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={() => handleDeleteTask(task)} disabled={isDeletingTask === task.id}>
+                            {isDeletingTask === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                           </Button>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground pl-7">
                         <span>{taskUserName}</span>
-                        {task.due_date && (
-                          <>
+                        {task.due_date && <>
                             <span>•</span>
                             <span>Due: {new Date(task.due_date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: 'numeric',
-                              minute: '2-digit'
-                            })}</span>
-                          </>
-                        )}
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit'
+                      })}</span>
+                          </>}
                       </div>
-                      {task.notes && (
-                        <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted/30 rounded whitespace-pre-wrap ml-7">
+                      {task.notes && <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted/30 rounded whitespace-pre-wrap ml-7">
                           {stripHtml(task.notes)}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                        </div>}
+                    </div>;
+            })}
+              </div>}
           </div>
 
           {/* Timeline */}
@@ -1668,17 +1550,17 @@ export function OpportunityDetailSheet({
       </SheetContent>
 
       {/* Create/Edit Task Dialog */}
-      <Dialog open={taskDialogOpen} onOpenChange={(open) => {
-        setTaskDialogOpen(open);
-        if (!open) {
-          setEditingTask(null);
-          setTaskTitle("");
-          setTaskNotes("");
-          setTaskAssignee("");
-          setTaskDueDate("");
-          setTaskDueTime("09:00");
-        }
-      }}>
+      <Dialog open={taskDialogOpen} onOpenChange={open => {
+      setTaskDialogOpen(open);
+      if (!open) {
+        setEditingTask(null);
+        setTaskTitle("");
+        setTaskNotes("");
+        setTaskAssignee("");
+        setTaskDueDate("");
+        setTaskDueTime("09:00");
+      }
+    }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1689,22 +1571,11 @@ export function OpportunityDetailSheet({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="oppTaskTitle">Task Title</Label>
-              <Input
-                id="oppTaskTitle"
-                value={taskTitle}
-                onChange={(e) => setTaskTitle(e.target.value)}
-                placeholder="Enter task title..."
-              />
+              <Input id="oppTaskTitle" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="Enter task title..." />
             </div>
             <div className="space-y-2">
               <Label htmlFor="oppTaskNotes">Notes</Label>
-              <Textarea
-                id="oppTaskNotes"
-                value={taskNotes}
-                onChange={(e) => setTaskNotes(e.target.value)}
-                placeholder="Add notes for this task..."
-                rows={3}
-              />
+              <Textarea id="oppTaskNotes" value={taskNotes} onChange={e => setTaskNotes(e.target.value)} placeholder="Add notes for this task..." rows={3} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="oppTaskAssignee">Assign To</Label>
@@ -1715,34 +1586,20 @@ export function OpportunityDetailSheet({
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {[...users].sort((a, b) => {
-                    const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
-                    const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
-                    return nameA.localeCompare(nameB);
-                  }).map((user) => (
-                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                  const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
+                  const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
+                  return nameA.localeCompare(nameB);
+                }).map(user => <SelectItem key={user.ghl_id} value={user.ghl_id}>
                       {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown"}
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Due Date & Time (PST) - Optional</Label>
               <div className="flex gap-2">
-                <Input
-                  id="oppTaskDueDate"
-                  type="date"
-                  value={taskDueDate}
-                  onChange={(e) => setTaskDueDate(e.target.value)}
-                  className="flex-1"
-                />
-                <Input
-                  id="oppTaskDueTime"
-                  type="time"
-                  value={taskDueTime}
-                  onChange={(e) => setTaskDueTime(e.target.value)}
-                  className="w-28"
-                />
+                <Input id="oppTaskDueDate" type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} className="flex-1" />
+                <Input id="oppTaskDueTime" type="time" value={taskDueTime} onChange={e => setTaskDueTime(e.target.value)} className="w-28" />
               </div>
               <p className="text-xs text-muted-foreground">Times are in Pacific Standard Time (PST/PDT)</p>
             </div>
@@ -1751,30 +1608,25 @@ export function OpportunityDetailSheet({
             <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              onClick={editingTask ? handleUpdateTask : handleCreateTask} 
-              disabled={isCreatingTask}
-            >
-              {isCreatingTask 
-                ? (editingTask ? "Saving..." : "Creating...") 
-                : (editingTask ? "Save Changes" : "Create Task")}
+            <Button onClick={editingTask ? handleUpdateTask : handleCreateTask} disabled={isCreatingTask}>
+              {isCreatingTask ? editingTask ? "Saving..." : "Creating..." : editingTask ? "Save Changes" : "Create Task"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Create Appointment Dialog */}
-      <Dialog open={appointmentDialogOpen} onOpenChange={(open) => {
-        setAppointmentDialogOpen(open);
-        if (!open) {
-          setEditingAppointment(null);
-          setAppointmentTitle("");
-          setAppointmentDate("");
-          setAppointmentTime("09:00");
-          setAppointmentAssignee("");
-          setAppointmentNotes("");
-        }
-      }}>
+      <Dialog open={appointmentDialogOpen} onOpenChange={open => {
+      setAppointmentDialogOpen(open);
+      if (!open) {
+        setEditingAppointment(null);
+        setAppointmentTitle("");
+        setAppointmentDate("");
+        setAppointmentTime("09:00");
+        setAppointmentAssignee("");
+        setAppointmentNotes("");
+      }
+    }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -1785,47 +1637,22 @@ export function OpportunityDetailSheet({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="oppApptTitle">Appointment Title</Label>
-              <Input
-                id="oppApptTitle"
-                value={appointmentTitle}
-                onChange={(e) => setAppointmentTitle(e.target.value)}
-                placeholder="Enter appointment title..."
-              />
+              <Input id="oppApptTitle" value={appointmentTitle} onChange={e => setAppointmentTitle(e.target.value)} placeholder="Enter appointment title..." />
             </div>
             <div className="space-y-2">
               <Label>Date & Time (PST)</Label>
-              {editingAppointment && (
-                <div className="flex items-center space-x-2 mb-2">
-                  <Checkbox 
-                    id="updateTime" 
-                    checked={updateAppointmentTime}
-                    onCheckedChange={(checked) => setUpdateAppointmentTime(checked === true)}
-                  />
+              {editingAppointment && <div className="flex items-center space-x-2 mb-2">
+                  <Checkbox id="updateTime" checked={updateAppointmentTime} onCheckedChange={checked => setUpdateAppointmentTime(checked === true)} />
                   <label htmlFor="updateTime" className="text-sm text-muted-foreground cursor-pointer">
                     Reschedule appointment (requires available GHL slot)
                   </label>
-                </div>
-              )}
+                </div>}
               <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={appointmentDate}
-                  onChange={(e) => setAppointmentDate(e.target.value)}
-                  className="flex-1"
-                  disabled={editingAppointment && !updateAppointmentTime}
-                />
-                <Input
-                  type="time"
-                  value={appointmentTime}
-                  onChange={(e) => setAppointmentTime(e.target.value)}
-                  className="w-28"
-                  disabled={editingAppointment && !updateAppointmentTime}
-                />
+                <Input type="date" value={appointmentDate} onChange={e => setAppointmentDate(e.target.value)} className="flex-1" disabled={editingAppointment && !updateAppointmentTime} />
+                <Input type="time" value={appointmentTime} onChange={e => setAppointmentTime(e.target.value)} className="w-28" disabled={editingAppointment && !updateAppointmentTime} />
               </div>
               <p className="text-xs text-muted-foreground">
-                {editingAppointment && !updateAppointmentTime 
-                  ? "Check box above to change the appointment time" 
-                  : "Times are in Pacific Standard Time (PST/PDT)"}
+                {editingAppointment && !updateAppointmentTime ? "Check box above to change the appointment time" : "Times are in Pacific Standard Time (PST/PDT)"}
               </p>
             </div>
             <div className="space-y-2">
@@ -1837,31 +1664,22 @@ export function OpportunityDetailSheet({
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {[...users].sort((a, b) => {
-                    const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
-                    const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
-                    return nameA.localeCompare(nameB);
-                  }).map((user) => (
-                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                  const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
+                  const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
+                  return nameA.localeCompare(nameB);
+                }).map(user => <SelectItem key={user.ghl_id} value={user.ghl_id}>
                       {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown"}
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="oppApptNotes">Notes (optional)</Label>
-              <Textarea
-                id="oppApptNotes"
-                value={appointmentNotes}
-                onChange={(e) => setAppointmentNotes(e.target.value)}
-                placeholder="Add notes for this appointment..."
-                rows={3}
-              />
+              <Textarea id="oppApptNotes" value={appointmentNotes} onChange={e => setAppointmentNotes(e.target.value)} placeholder="Add notes for this appointment..." rows={3} />
             </div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            {editingAppointment && (
-              <AlertDialog>
+            {editingAppointment && <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50">
                     <Trash2 className="h-4 w-4 mr-1" />
@@ -1883,19 +1701,13 @@ export function OpportunityDetailSheet({
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
-              </AlertDialog>
-            )}
+              </AlertDialog>}
             <div className="flex gap-2 ml-auto">
               <Button variant="outline" onClick={() => setAppointmentDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                onClick={editingAppointment ? handleUpdateAppointment : handleCreateAppointment} 
-                disabled={isCreatingAppointment || !appointmentDate}
-              >
-                {isCreatingAppointment 
-                  ? (editingAppointment ? "Saving..." : "Creating...") 
-                  : (editingAppointment ? "Save Changes" : "Create Appointment")}
+              <Button onClick={editingAppointment ? handleUpdateAppointment : handleCreateAppointment} disabled={isCreatingAppointment || !appointmentDate}>
+                {isCreatingAppointment ? editingAppointment ? "Saving..." : "Creating..." : editingAppointment ? "Save Changes" : "Create Appointment"}
               </Button>
             </div>
           </DialogFooter>
