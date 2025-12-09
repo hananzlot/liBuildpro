@@ -6,21 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
-  let lastError: Error | null = null;
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const response = await fetch(url, options);
-    if (response.status === 429) {
-      const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited (429), waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      continue;
-    }
-    return response;
-  }
-  throw lastError || new Error('Max retries exceeded');
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -44,10 +29,10 @@ serve(async (req) => {
       throw new Error('Missing GHL API credentials');
     }
 
-    // Fetch tasks from GHL for this contact with retry logic
+    // Fetch tasks from GHL for this contact
     console.log(`Fetching GHL tasks for contact: ${contact_id}`);
     
-    const tasksResponse = await fetchWithRetry(
+    const tasksResponse = await fetch(
       `https://services.leadconnectorhq.com/contacts/${contact_id}/tasks`,
       {
         headers: {

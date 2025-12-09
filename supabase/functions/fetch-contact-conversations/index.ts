@@ -16,21 +16,6 @@ interface Message {
   attachments?: any[];
 }
 
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
-  let lastError: Error | null = null;
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const response = await fetch(url, options);
-    if (response.status === 429) {
-      const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
-      console.log(`Rate limited (429), waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      continue;
-    }
-    return response;
-  }
-  throw lastError || new Error('Max retries exceeded');
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -58,14 +43,14 @@ serve(async (req) => {
 
     console.log(`Fetching conversations for contact: ${contact_id}`);
 
-    // Fetch conversations filtered by contact ID with retry logic
+    // Fetch conversations filtered by contact ID
     const params = new URLSearchParams({
       locationId,
       contactId: contact_id,
       limit: '20',
     });
 
-    const response = await fetchWithRetry(`https://services.leadconnectorhq.com/conversations/search?${params.toString()}`, {
+    const response = await fetch(`https://services.leadconnectorhq.com/conversations/search?${params.toString()}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${ghlApiKey}`,
@@ -88,71 +73,69 @@ serve(async (req) => {
     
     console.log(`Found ${conversations.length} conversations for contact ${contact_id}`);
 
-    // For each conversation, fetch the full message history with staggered requests
-    const conversationsWithMessages = [];
-    for (const conv of conversations) {
-      try {
-        // Small delay between requests to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Fetch messages for this conversation with retry logic
-        const messagesResponse = await fetchWithRetry(
-          `https://services.leadconnectorhq.com/conversations/${conv.id}/messages?limit=50`,
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${ghlApiKey}`,
-              'Version': '2021-07-28',
-              'Content-Type': 'application/json',
-            },
+    // For each conversation, fetch the full message history
+    const conversationsWithMessages = await Promise.all(
+      conversations.map(async (conv: any) => {
+        try {
+          // Fetch messages for this conversation
+          const messagesResponse = await fetch(
+            `https://services.leadconnectorhq.com/conversations/${conv.id}/messages?limit=50`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${ghlApiKey}`,
+                'Version': '2021-07-28',
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+
+          let messages: Message[] = [];
+          if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json();
+            messages = (messagesData.messages || []).map((msg: any) => ({
+              id: msg.id,
+              body: msg.body || msg.text || '',
+              direction: msg.direction,
+              status: msg.status,
+              type: msg.type || msg.messageType,
+              dateAdded: msg.dateAdded,
+              attachments: msg.attachments,
+            }));
+            console.log(`Fetched ${messages.length} messages for conversation ${conv.id}`);
+          } else {
+            console.error(`Failed to fetch messages for conversation ${conv.id}`);
           }
-        );
 
-        let messages: Message[] = [];
-        if (messagesResponse.ok) {
-          const messagesData = await messagesResponse.json();
-          messages = (messagesData.messages || []).map((msg: any) => ({
-            id: msg.id,
-            body: msg.body || msg.text || '',
-            direction: msg.direction,
-            status: msg.status,
-            type: msg.type || msg.messageType,
-            dateAdded: msg.dateAdded,
-            attachments: msg.attachments,
-          }));
-          console.log(`Fetched ${messages.length} messages for conversation ${conv.id}`);
-        } else {
-          console.error(`Failed to fetch messages for conversation ${conv.id}`);
+          return {
+            ghl_id: conv.id,
+            contact_id: conv.contactId,
+            type: conv.type,
+            unread_count: conv.unreadCount || 0,
+            inbox_status: conv.inboxStatus,
+            last_message_body: conv.lastMessageBody,
+            last_message_date: conv.lastMessageDate,
+            last_message_type: conv.lastMessageType,
+            last_message_direction: conv.lastMessageDirection,
+            messages: messages,
+          };
+        } catch (err) {
+          console.error(`Error fetching messages for conversation ${conv.id}:`, err);
+          return {
+            ghl_id: conv.id,
+            contact_id: conv.contactId,
+            type: conv.type,
+            unread_count: conv.unreadCount || 0,
+            inbox_status: conv.inboxStatus,
+            last_message_body: conv.lastMessageBody,
+            last_message_date: conv.lastMessageDate,
+            last_message_type: conv.lastMessageType,
+            last_message_direction: conv.lastMessageDirection,
+            messages: [],
+          };
         }
-
-        conversationsWithMessages.push({
-          ghl_id: conv.id,
-          contact_id: conv.contactId,
-          type: conv.type,
-          unread_count: conv.unreadCount || 0,
-          inbox_status: conv.inboxStatus,
-          last_message_body: conv.lastMessageBody,
-          last_message_date: conv.lastMessageDate,
-          last_message_type: conv.lastMessageType,
-          last_message_direction: conv.lastMessageDirection,
-          messages: messages,
-        });
-      } catch (err) {
-        console.error(`Error fetching messages for conversation ${conv.id}:`, err);
-        conversationsWithMessages.push({
-          ghl_id: conv.id,
-          contact_id: conv.contactId,
-          type: conv.type,
-          unread_count: conv.unreadCount || 0,
-          inbox_status: conv.inboxStatus,
-          last_message_body: conv.lastMessageBody,
-          last_message_date: conv.lastMessageDate,
-          last_message_type: conv.lastMessageType,
-          last_message_direction: conv.lastMessageDirection,
-          messages: [],
-        });
-      }
-    }
+      })
+    );
 
     return new Response(JSON.stringify({ conversations: conversationsWithMessages }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
