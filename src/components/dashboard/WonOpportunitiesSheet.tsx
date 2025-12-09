@@ -19,7 +19,8 @@ import {
   Search,
 } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
-import type { DateRange } from "react-day-picker";
+//import type { DateRange } from "react-day-picker";
+import type { DateRange } from "@/hooks/useGHLContacts";
 
 interface DBOpportunity {
   id: string;
