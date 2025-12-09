@@ -5,6 +5,7 @@ import { useMemo, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 //import type { DateRange } from "react-day-picker";
 import type { DateRange } from "@/hooks/useGHLContacts";
+import { differenceInCalendarDays } from "date-fns";
 
 interface Opportunity {
   ghl_id: string;
@@ -13,6 +14,7 @@ interface Opportunity {
   monetary_value: number | null;
   contact_id: string | null;
   ghl_date_updated: string | null;
+  ghl_date_added: string | null;
 }
 
 interface Contact {
@@ -49,6 +51,14 @@ function capitalizeWords(str: string | null): string {
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+// Normalize Supabase-style timestamps ("YYYY-MM-DD HH:mm:ss.SSS+00")
+function parseGhlDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const normalized = value.replace(" ", "T");
+  const d = new Date(normalized);
+  return isNaN(d.getTime()) ? null : d;
 }
 
 export function RecentWonDeals({ wonOpportunities, contacts, dateRange, onOpportunityClick }: RecentWonDealsProps) {
@@ -176,11 +186,28 @@ export function RecentWonDeals({ wonOpportunities, contacts, dateRange, onOpport
                     <DollarSign className="h-3 w-3 text-emerald-500" />
                   </div>
 
-                  {/* Name only */}
+                  {/* Name + days worked */}
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                      {getContactName(opp.contact_id)}
-                    </p>
+                    {(() => {
+                      const contactName = getContactName(opp.contact_id);
+
+                      // 🔹 Days worked = ghl_date_updated - ghl_date_added (calendar days)
+                      const startDate = parseGhlDate(opp.ghl_date_added);
+                      const endDate = parseGhlDate(opp.ghl_date_updated);
+
+                      let daysWorked: number | null = null;
+                      if (startDate && endDate) {
+                        const diff = differenceInCalendarDays(endDate, startDate);
+                        daysWorked = diff < 0 ? 0 : diff;
+                      }
+
+                      return (
+                        <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                          {contactName}
+                          {daysWorked !== null && ` (${daysWorked} day${daysWorked === 1 ? "" : "s"})`}
+                        </p>
+                      );
+                    })()}
                   </div>
 
                   {/* Value & Profit */}
