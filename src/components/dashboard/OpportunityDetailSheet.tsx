@@ -1619,62 +1619,82 @@ export function OpportunityDetailSheet({
                 return dateB - dateA; // Most recent first
               });
             return (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Conversation History {allMessages.length > 0 && `(${allMessages.length} messages)`}
-                    </span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2"
-                    onClick={handleRefreshConversations}
-                    disabled={isLoadingConversations}
-                  >
-                    <RefreshCw className={`h-3 w-3 ${isLoadingConversations ? "animate-spin" : ""}`} />
-                  </Button>
-                </div>
+              <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
+                <CollapsibleTrigger asChild>
+                  <button className="bg-muted/30 px-3 py-2 w-full flex items-center justify-between border-b cursor-pointer">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isLoadingNotes && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
 
-                {isLoadingConversations ? (
-                  <div className="p-4 flex items-center justify-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Loading conversation history...</span>
-                  </div>
-                ) : allMessages.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
-                    No conversation history found
-                  </div>
-                ) : (
-                  <div className="max-h-80 overflow-y-auto p-3 space-y-3">
-                    {allMessages.slice(0, 50).map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex flex-col ${msg.direction === "inbound" ? "items-start" : "items-end"}`}
-                      >
-                        <div
-                          className={`max-w-[85%] rounded-lg px-3 py-2 ${msg.direction === "inbound" ? "bg-muted/60 text-foreground" : "bg-primary/20 text-foreground"}`}
-                        >
-                          <p className="text-sm whitespace-pre-wrap break-words">{msg.body || "(No content)"}</p>
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
-                          <span>{getTypeIcon(msg.type)}</span>
-                          <span>{msg.direction === "inbound" ? "Received" : "Sent"}</span>
-                          <span>•</span>
-                          <span>{formatConvDate(msg.dateAdded)}</span>
-                        </div>
+                <CollapsibleContent>
+                  {/* body stays the same as before */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                          Conversation History {allMessages.length > 0 && `(${allMessages.length} messages)`}
+                        </span>
                       </div>
-                    ))}
-                    {allMessages.length > 50 && (
-                      <div className="text-center text-xs text-muted-foreground py-2">
-                        Showing 50 of {allMessages.length} messages
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2"
+                        onClick={handleRefreshConversations}
+                        disabled={isLoadingConversations}
+                      >
+                        <RefreshCw className={`h-3 w-3 ${isLoadingConversations ? "animate-spin" : ""}`} />
+                      </Button>
+                    </div>
+
+                    {isLoadingConversations ? (
+                      <div className="p-4 flex items-center justify-center gap-2 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Loading conversation history...</span>
+                      </div>
+                    ) : allMessages.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+                        No conversation history found
+                      </div>
+                    ) : (
+                      <div className="max-h-80 overflow-y-auto p-3 space-y-3">
+                        {allMessages.slice(0, 50).map((msg) => (
+                          <div
+                            key={msg.id}
+                            className={`flex flex-col ${msg.direction === "inbound" ? "items-start" : "items-end"}`}
+                          >
+                            <div
+                              className={`max-w-[85%] rounded-lg px-3 py-2 ${msg.direction === "inbound" ? "bg-muted/60 text-foreground" : "bg-primary/20 text-foreground"}`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap break-words">{msg.body || "(No content)"}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground">
+                              <span>{getTypeIcon(msg.type)}</span>
+                              <span>{msg.direction === "inbound" ? "Received" : "Sent"}</span>
+                              <span>•</span>
+                              <span>{formatConvDate(msg.dateAdded)}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {allMessages.length > 50 && (
+                          <div className="text-center text-xs text-muted-foreground py-2">
+                            Showing 50 of {allMessages.length} messages
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
+                </CollapsibleContent>
+              </Collapsible>
             );
           })()}
 
