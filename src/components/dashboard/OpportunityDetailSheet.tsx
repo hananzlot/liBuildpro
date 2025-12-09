@@ -1695,207 +1695,199 @@ export function OpportunityDetailSheet({
             );
           })()}
 
-          {/* Related Appointments - Always show */}
-           <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
+
+
+          {/* Related Appointments */}
+          <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
             <CollapsibleTrigger asChild>
-              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b cursor-pointer">
+              <button className="bg-muted/30 px-3 py-2 w-full flex items-center justify-between border-b cursor-pointer">
                 <div className="flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
+                    Appointment History ({relatedAppointments.length})
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {isLoadingNotes && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                  <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openAppointmentDialog();
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    <span className="text-xs">Add</span>
+                  </Button>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
                 </div>
-              </div>
+              </button>
             </CollapsibleTrigger>
-
             <CollapsibleContent>
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Appointment History ({relatedAppointments.length})
-                </span>
-              </div>
-              <Button variant="ghost" size="sm" className="h-6 px-2" onClick={openAppointmentDialog}>
-                <Plus className="h-3 w-3 mr-1" />
-                <span className="text-xs">Add Appointment</span>
-              </Button>
-            </div>
-            {relatedAppointments.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground/60 italic">No appointments found</div>
-            ) : (
-              <div className="divide-y max-h-60 overflow-y-auto">
-                {relatedAppointments
-                  .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
-                  .map((appt) => (
-                    <div key={appt.ghl_id} className="p-3 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-sm truncate">{appt.title || "Untitled"}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => openEditAppointmentDialog(appt)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${getAppointmentStatusColor(appt.appointment_status)}`}
-                          >
-                            {appt.appointment_status || "Unknown"}
-                          </Badge>
+              {relatedAppointments.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground/60 italic">No appointments found</div>
+              ) : (
+                <div className="divide-y max-h-60 overflow-y-auto">
+                  {relatedAppointments
+                    .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
+                    .map((appt) => (
+                      <div key={appt.ghl_id} className="p-3 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-sm truncate">{appt.title || "Untitled"}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => openEditAppointmentDialog(appt)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${getAppointmentStatusColor(appt.appointment_status)}`}
+                            >
+                              {appt.appointment_status || "Unknown"}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {formatDateTime(appt.start_time)}
-                      </div>
-                      {appt.notes && (
-                        <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded whitespace-pre-wrap">
-                          {appt.notes}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {formatDateTime(appt.start_time)}
                         </div>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            )}
-          </div>
-                   </CollapsibleTrigger>
-
-            <CollapsibleContent>
-
-          {/* Tasks History */}
-           <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
-            <CollapsibleTrigger asChild>
-              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isLoadingNotes && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                  <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
-                </div>
-              </div>
-            </CollapsibleTrigger>
-
-            <CollapsibleContent>
-              <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Tasks ({tasks.length})
-                </span>
-                {isLoadingTasks && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-              </div>
-              <Button variant="ghost" size="sm" className="h-6 px-2" onClick={openTaskDialog}>
-                <Plus className="h-3 w-3 mr-1" />
-                <span className="text-xs">Add Task</span>
-              </Button>
-            </div>
-            {tasks.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
-                {isLoadingTasks ? "Loading tasks..." : "No tasks created yet"}
-              </div>
-            ) : (
-              <div className="divide-y max-h-60 overflow-y-auto">
-                {tasks.map((task) => {
-                  const taskUser = users.find((u) => u.ghl_id === task.assigned_to);
-                  const taskUserName =
-                    taskUser?.name ||
-                    (taskUser?.first_name && taskUser?.last_name
-                      ? `${taskUser.first_name} ${taskUser.last_name}`
-                      : "Unassigned");
-                  return (
-                    <div key={task.id} className="p-3 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 shrink-0"
-                            onClick={() => handleToggleTaskStatus(task)}
-                            disabled={isUpdatingTaskStatus === task.id}
-                          >
-                            {isUpdatingTaskStatus === task.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : task.status === "completed" ? (
-                              <Check className="h-3 w-3 text-emerald-400" />
-                            ) : (
-                              <div className="h-3 w-3 rounded-sm border border-muted-foreground" />
-                            )}
-                          </Button>
-                          <span
-                            className={`font-medium text-sm truncate ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}
-                          >
-                            {task.title}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => openEditTaskDialog(task)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteTask(task)}
-                            disabled={isDeletingTask === task.id}
-                          >
-                            {isDeletingTask === task.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground pl-7">
-                        <span>{taskUserName}</span>
-                        {task.due_date && (
-                          <>
-                            <span>•</span>
-                            <span>
-                              Due:{" "}
-                              {new Date(task.due_date).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                hour: "numeric",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </>
+                        {appt.notes && (
+                          <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted/30 rounded whitespace-pre-wrap">
+                            {appt.notes}
+                          </div>
                         )}
                       </div>
-                      {task.notes && (
-                        <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted/30 rounded whitespace-pre-wrap ml-7">
-                          {stripHtml(task.notes)}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-                   </CollapsibleTrigger>
+                    ))}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
 
+          {/* Tasks */}
+          <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
+            <CollapsibleTrigger asChild>
+              <button className="bg-muted/30 px-3 py-2 w-full flex items-center justify-between border-b cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Tasks ({tasks.length})
+                  </span>
+                  {isLoadingTasks && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openTaskDialog();
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    <span className="text-xs">Add</span>
+                  </Button>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </div>
+              </button>
+            </CollapsibleTrigger>
             <CollapsibleContent>
+              {tasks.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+                  {isLoadingTasks ? "Loading tasks..." : "No tasks created yet"}
+                </div>
+              ) : (
+                <div className="divide-y max-h-60 overflow-y-auto">
+                  {tasks.map((task) => {
+                    const taskUser = users.find((u) => u.ghl_id === task.assigned_to);
+                    const taskUserName =
+                      taskUser?.name ||
+                      (taskUser?.first_name && taskUser?.last_name
+                        ? `${taskUser.first_name} ${taskUser.last_name}`
+                        : "Unassigned");
+                    return (
+                      <div key={task.id} className="p-3 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 shrink-0"
+                              onClick={() => handleToggleTaskStatus(task)}
+                              disabled={isUpdatingTaskStatus === task.id}
+                            >
+                              {isUpdatingTaskStatus === task.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : task.status === "completed" ? (
+                                <Check className="h-3 w-3 text-emerald-400" />
+                              ) : (
+                                <div className="h-3 w-3 rounded-sm border border-muted-foreground" />
+                              )}
+                            </Button>
+                            <span
+                              className={`font-medium text-sm truncate ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}
+                            >
+                              {task.title}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => openEditTaskDialog(task)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteTask(task)}
+                              disabled={isDeletingTask === task.id}
+                            >
+                              {isDeletingTask === task.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground pl-7">
+                          <span>{taskUserName}</span>
+                          {task.due_date && (
+                            <>
+                              <span>•</span>
+                              <span>
+                                Due:{" "}
+                                {new Date(task.due_date).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        {task.notes && (
+                          <div className="text-xs text-muted-foreground mt-1 p-2 bg-muted/30 rounded whitespace-pre-wrap ml-7">
+                            {stripHtml(task.notes)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Timeline */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
