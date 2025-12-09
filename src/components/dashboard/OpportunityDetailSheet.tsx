@@ -1695,24 +1695,7 @@ export function OpportunityDetailSheet({
             );
           })()}
 
-          {/* Related Appointments - Always show */}
-           <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
-            <CollapsibleTrigger asChild>
-              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isLoadingNotes && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                  <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
-                </div>
-              </div>
-            </CollapsibleTrigger>
-
-            <CollapsibleContent>
+          {/* Related Appointments */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
               <div className="flex items-center gap-2">
@@ -1767,29 +1750,9 @@ export function OpportunityDetailSheet({
               </div>
             )}
           </div>
-                   </CollapsibleTrigger>
 
-            <CollapsibleContent>
-
-          {/* Tasks History */}
-           <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
-            <CollapsibleTrigger asChild>
-              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isLoadingNotes && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                  <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
-                </div>
-              </div>
-            </CollapsibleTrigger>
-
-            <CollapsibleContent>
-              <div className="border rounded-lg overflow-hidden">
+          {/* Tasks */}
+          <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
               <div className="flex items-center gap-2">
                 <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1893,9 +1856,6 @@ export function OpportunityDetailSheet({
               </div>
             )}
           </div>
-                   </CollapsibleTrigger>
-
-            <CollapsibleContent>
 
           {/* Timeline */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
