@@ -1641,9 +1641,6 @@ export function OpportunityDetailSheet({
                     <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
                       <div className="flex items-center gap-2">
                         <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                          Conversation History {allMessages.length > 0 && `(${allMessages.length} messages)`}
-                        </span>
                       </div>
                       <Button
                         variant="ghost"
