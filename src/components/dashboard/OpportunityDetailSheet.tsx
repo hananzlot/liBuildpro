@@ -1462,7 +1462,7 @@ export function OpportunityDetailSheet({
           </div>
 
           {/* Notes/Comments */}
-          <Collapsible className="border rounded-lg overflow-hidden" defaultOpen>
+          <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={true}>
             <CollapsibleTrigger asChild>
               <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b cursor-pointer">
                 <div className="flex items-center gap-2">
