@@ -1625,7 +1625,7 @@ export function OpportunityDetailSheet({
                     <div className="flex items-center gap-2">
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
+                        Conversation History {allMessages.length > 0 && `(${allMessages.length} messages)`}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
