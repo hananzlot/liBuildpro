@@ -1366,27 +1366,6 @@ export function OpportunityDetailSheet({
               )}
             </div>
 
-            {/* Stage */}
-            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[100px] flex-1">
-              <div className="text-muted-foreground text-xs mb-[1px]">Stage</div>
-              {isEditing ? (
-                <Select value={editedStage} onValueChange={setEditedStage}>
-                  <SelectTrigger className="h-7 text-xs">
-                    <SelectValue placeholder="Select stage" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableStages.map((stage) => (
-                      <SelectItem key={stage} value={stage} className="text-xs">
-                        {stage}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="font-medium truncate">{savedValues.stage_name ?? opportunity.stage_name ?? "-"}</div>
-              )}
-            </div>
-
             {/* Status */}
             <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[90px]">
               <div className="text-muted-foreground text-xs mb-[1px]">Status</div>
@@ -1457,6 +1436,27 @@ export function OpportunityDetailSheet({
               </div>
               <div className="font-medium truncate">{contact?.source || "No source"}</div>
             </div>
+          </div>
+
+          {/* Stage */}
+          <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[100px] flex-1">
+            <div className="text-muted-foreground text-xs mb-[1px]">Stage</div>
+            {isEditing ? (
+              <Select value={editedStage} onValueChange={setEditedStage}>
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue placeholder="Select stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableStages.map((stage) => (
+                    <SelectItem key={stage} value={stage} className="text-xs">
+                      {stage}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="font-medium truncate">{savedValues.stage_name ?? opportunity.stage_name ?? "-"}</div>
+            )}
           </div>
 
           {/* Notes/Comments */}
