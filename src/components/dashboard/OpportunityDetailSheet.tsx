@@ -1341,10 +1341,11 @@ export function OpportunityDetailSheet({
             </div>
           </div>
 
-          {/* Key Info Grid */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-muted/40 rounded-md p-2.5 px-[10px] py-[2px]">
-              <div className="text-muted-foreground text-xs mb-0.5">Pipeline</div>
+          {/* Key Info - Compact Two-Line Wrap */}
+          <div className="flex flex-wrap gap-2 text-sm">
+            {/* Pipeline */}
+            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[100px] flex-1">
+              <div className="text-muted-foreground text-xs mb-[1px]">Pipeline</div>
               {isEditing ? (
                 <Select value={editedPipeline} onValueChange={handlePipelineChange}>
                   <SelectTrigger className="h-7 text-xs">
@@ -1364,8 +1365,10 @@ export function OpportunityDetailSheet({
                 </div>
               )}
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5 py-[2px]">
-              <div className="text-muted-foreground text-xs mb-0.5">Stage</div>
+
+            {/* Stage */}
+            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[100px] flex-1">
+              <div className="text-muted-foreground text-xs mb-[1px]">Stage</div>
               {isEditing ? (
                 <Select value={editedStage} onValueChange={setEditedStage}>
                   <SelectTrigger className="h-7 text-xs">
@@ -1383,8 +1386,10 @@ export function OpportunityDetailSheet({
                 <div className="font-medium truncate">{savedValues.stage_name ?? opportunity.stage_name ?? "-"}</div>
               )}
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5 py-0">
-              <div className="text-muted-foreground text-xs mb-0.5">Status</div>
+
+            {/* Status */}
+            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[90px]">
+              <div className="text-muted-foreground text-xs mb-[1px]">Status</div>
               {isEditing ? (
                 <Select value={editedStatus} onValueChange={setEditedStatus}>
                   <SelectTrigger className="h-7 text-xs">
@@ -1407,12 +1412,16 @@ export function OpportunityDetailSheet({
                 </Badge>
               )}
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5 py-0">
-              <div className="text-muted-foreground text-xs mb-0.5">Created</div>
+
+            {/* Created */}
+            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[90px]">
+              <div className="text-muted-foreground text-xs mb-[1px]">Created</div>
               <div className="font-medium truncate">{formatDate(opportunity.ghl_date_added)}</div>
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5 py-0">
-              <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
+
+            {/* Assigned To */}
+            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[110px] flex-1">
+              <div className="text-muted-foreground text-xs mb-[1px]">Assigned To</div>
               {isEditing ? (
                 <Select value={editedAssignedTo} onValueChange={setEditedAssignedTo}>
                   <SelectTrigger className="h-7 text-xs">
@@ -1440,10 +1449,11 @@ export function OpportunityDetailSheet({
                 <div className="font-medium truncate">{userName}</div>
               )}
             </div>
-            <div className="bg-muted/40 rounded-md p-2.5 py-0">
-              <div className="text-muted-foreground text-xs mb-0.5 flex items-center gap-1">
-                <Megaphone className="h-3 w-3" />
-                Source
+
+            {/* Source */}
+            <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[90px]">
+              <div className="text-muted-foreground text-xs mb-[1px] flex items-center gap-1">
+                <Megaphone className="h-3 w-3" /> Source
               </div>
               <div className="font-medium truncate">{contact?.source || "No source"}</div>
             </div>
