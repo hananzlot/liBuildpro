@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { stripHtml } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -1460,104 +1461,113 @@ export function OpportunityDetailSheet({
           </div>
 
           {/* Notes/Comments */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-              <div className="flex items-center gap-2">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
-                </span>
+          <Collapsible className="border rounded-lg overflow-hidden" defaultOpen>
+            <CollapsibleTrigger asChild>
+              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Notes & Comments {contactNotesList.length > 0 && `(${contactNotesList.length})`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isLoadingNotes && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+                </div>
               </div>
-              {isLoadingNotes && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-            </div>
-            <div className="p-3 space-y-3 max-h-80 overflow-y-auto">
-              {/* Timeline Notes from GHL */}
-              {contactNotesList.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-xs text-muted-foreground mb-2">Activity Notes</div>
-                  {contactNotesList
-                    .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
-                    .map((note) => {
-                      const noteUser = users.find((u) => u.ghl_id === note.userId);
-                      const noteUserName =
-                        noteUser?.name ||
-                        (noteUser?.first_name && noteUser?.last_name
-                          ? `${noteUser.first_name} ${noteUser.last_name}`
-                          : "Unknown");
-                      return (
-                        <div key={note.id} className="bg-muted/30 rounded p-2">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                            <span>{noteUserName}</span>
-                            <span>
-                              {new Date(note.dateAdded).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
-                            </span>
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body)}</p>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
+            </CollapsibleTrigger>
 
-              {/* Contact Custom Field Notes */}
-              {contactNotes && (
-                <div className={contactNotesList.length > 0 ? "border-t pt-3" : ""}>
-                  <div className="text-xs text-muted-foreground mb-1">Custom Field Notes</div>
-                  <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
-                </div>
-              )}
-
-              {/* Appointment Notes */}
-              {relatedAppointments.filter((a) => a.notes).length > 0 && (
-                <div className={contactNotes || contactNotesList.length > 0 ? "border-t pt-3" : ""}>
-                  <div className="text-xs text-muted-foreground mb-2">Appointment Notes</div>
+            <CollapsibleContent>
+              {/* body stays the same as before */}
+              <div className="p-3 space-y-3 max-h-80 overflow-y-auto">
+                {/* Timeline Notes from GHL */}
+                {contactNotesList.length > 0 && (
                   <div className="space-y-2">
-                    {relatedAppointments
-                      .filter((a) => a.notes)
-                      .map((appt) => (
-                        <div key={appt.ghl_id} className="bg-muted/30 rounded p-2">
-                          <div className="text-xs text-muted-foreground mb-1">{appt.title || "Appointment"}</div>
-                          <p className="text-sm whitespace-pre-wrap">{appt.notes}</p>
-                        </div>
-                      ))}
+                    <div className="text-xs text-muted-foreground mb-2">Activity Notes</div>
+                    {contactNotesList
+                      .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
+                      .map((note) => {
+                        const noteUser = users.find((u) => u.ghl_id === note.userId);
+                        const noteUserName =
+                          noteUser?.name ||
+                          (noteUser?.first_name && noteUser?.last_name
+                            ? `${noteUser.first_name} ${noteUser.last_name}`
+                            : "Unknown");
+                        return (
+                          <div key={note.id} className="bg-muted/30 rounded p-2">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                              <span>{noteUserName}</span>
+                              <span>
+                                {new Date(note.dateAdded).toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body)}</p>
+                          </div>
+                        );
+                      })}
                   </div>
-                </div>
-              )}
-
-              {!contactNotes &&
-                contactNotesList.length === 0 &&
-                relatedAppointments.filter((a) => a.notes).length === 0 && (
-                  <p className="text-sm text-muted-foreground/60 italic">
-                    {isLoadingNotes ? "Loading notes..." : "No notes or comments yet"}
-                  </p>
                 )}
-            </div>
 
-            {/* Add New Note Form */}
-            <div className="border-t p-3">
-              <Textarea
-                placeholder="Add a note..."
-                value={newNoteText}
-                onChange={(e) => setNewNoteText(e.target.value)}
-                className="min-h-[60px] text-sm resize-none mb-2"
-                disabled={isCreatingNote}
-              />
-              <div className="flex justify-end">
-                <Button size="sm" onClick={handleCreateNote} disabled={isCreatingNote || !newNoteText.trim()}>
-                  {isCreatingNote ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                  ) : (
-                    <Send className="h-3.5 w-3.5 mr-1" />
+                {/* Contact Custom Field Notes */}
+                {contactNotes && (
+                  <div className={contactNotesList.length > 0 ? "border-t pt-3" : ""}>
+                    <div className="text-xs text-muted-foreground mb-1">Custom Field Notes</div>
+                    <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
+                  </div>
+                )}
+
+                {/* Appointment Notes */}
+                {relatedAppointments.filter((a) => a.notes).length > 0 && (
+                  <div className={contactNotes || contactNotesList.length > 0 ? "border-t pt-3" : ""}>
+                    <div className="text-xs text-muted-foreground mb-2">Appointment Notes</div>
+                    <div className="space-y-2">
+                      {relatedAppointments
+                        .filter((a) => a.notes)
+                        .map((appt) => (
+                          <div key={appt.ghl_id} className="bg-muted/30 rounded p-2">
+                            <div className="text-xs text-muted-foreground mb-1">{appt.title || "Appointment"}</div>
+                            <p className="text-sm whitespace-pre-wrap">{appt.notes}</p>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {!contactNotes &&
+                  contactNotesList.length === 0 &&
+                  relatedAppointments.filter((a) => a.notes).length === 0 && (
+                    <p className="text-sm text-muted-foreground/60 italic">
+                      {isLoadingNotes ? "Loading notes..." : "No notes or comments yet"}
+                    </p>
                   )}
-                  Add Note
-                </Button>
               </div>
-            </div>
-          </div>
+
+              {/* Add New Note Form */}
+              <div className="border-t p-3">
+                <Textarea
+                  placeholder="Add a note..."
+                  value={newNoteText}
+                  onChange={(e) => setNewNoteText(e.target.value)}
+                  className="min-h-[60px] text-sm resize-none mb-2"
+                  disabled={isCreatingNote}
+                />
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={handleCreateNote} disabled={isCreatingNote || !newNoteText.trim()}>
+                    {isCreatingNote ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5 mr-1" />
+                    )}
+                    Add Note
+                  </Button>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Conversations - fetched live from GHL */}
           {(() => {
