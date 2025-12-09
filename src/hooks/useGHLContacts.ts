@@ -124,8 +124,8 @@ async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]>
 
   while (hasMore) {
     const { data, error } = await supabase
-      .from(table as 'contacts' | 'opportunities' | 'appointments')
-      .select('*')
+      .from(table as "contacts" | "opportunities" | "appointments")
+      .select("*")
       .order(orderBy as any, { ascending: false })
       .range(from, from + pageSize - 1);
 
@@ -144,61 +144,55 @@ async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]>
 }
 
 async function fetchContactsFromDB(): Promise<DBContact[]> {
-  return fetchAllFromTable('contacts', 'ghl_date_added') as Promise<DBContact[]>;
+  return fetchAllFromTable("contacts", "ghl_date_added") as Promise<DBContact[]>;
 }
 
 async function fetchOpportunitiesFromDB(): Promise<DBOpportunity[]> {
-  return fetchAllFromTable('opportunities', 'ghl_date_added') as Promise<DBOpportunity[]>;
+  return fetchAllFromTable("opportunities", "ghl_date_added") as Promise<DBOpportunity[]>;
 }
 
 async function fetchAppointmentsFromDB(): Promise<DBAppointment[]> {
-  return fetchAllFromTable('appointments', 'start_time') as Promise<DBAppointment[]>;
+  return fetchAllFromTable("appointments", "start_time") as Promise<DBAppointment[]>;
 }
 
 async function fetchUsersFromDB(): Promise<DBUser[]> {
-  const { data, error } = await supabase.from('ghl_users').select('*');
+  const { data, error } = await supabase.from("ghl_users").select("*");
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function fetchConversationsFromDB(): Promise<DBConversation[]> {
   const { data, error } = await supabase
-    .from('conversations')
-    .select('*')
-    .order('last_message_date', { ascending: false });
+    .from("conversations")
+    .select("*")
+    .order("last_message_date", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function fetchTasksFromDB(): Promise<DBTask[]> {
-  const { data, error } = await supabase
-    .from('ghl_tasks')
-    .select('*')
-    .order('due_date', { ascending: true });
+  const { data, error } = await supabase.from("ghl_tasks").select("*").order("due_date", { ascending: true });
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function fetchContactNotesFromDB(): Promise<DBContactNote[]> {
   const { data, error } = await supabase
-    .from('contact_notes')
-    .select('*')
-    .order('ghl_date_added', { ascending: false });
+    .from("contact_notes")
+    .select("*")
+    .order("ghl_date_added", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function fetchCallLogsFromDB(): Promise<DBCallLog[]> {
-  const { data, error } = await supabase
-    .from('call_logs')
-    .select('*')
-    .order('call_date', { ascending: false });
+  const { data, error } = await supabase.from("call_logs").select("*").order("call_date", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function syncContacts(): Promise<{ total: number }> {
-  const { data, error } = await supabase.functions.invoke('fetch-ghl-contacts', {
+  const { data, error } = await supabase.functions.invoke("fetch-ghl-contacts", {
     body: { syncToDb: true },
   });
 
@@ -209,7 +203,7 @@ async function syncContacts(): Promise<{ total: number }> {
 function filterByDateRange<T extends { ghl_date_added?: string | null }>(
   items: T[],
   dateRange?: DateRange,
-  dateField: keyof T = 'ghl_date_added' as keyof T
+  dateField: keyof T = "ghl_date_added" as keyof T,
 ): T[] {
   if (!dateRange?.from) return items;
 
@@ -217,7 +211,7 @@ function filterByDateRange<T extends { ghl_date_added?: string | null }>(
   const endDate = dateRange.to || new Date();
   endDate.setHours(23, 59, 59, 999);
 
-  return items.filter(item => {
+  return items.filter((item) => {
     const dateValue = item[dateField];
     if (!dateValue) return false;
     const date = new Date(dateValue as string);
@@ -230,7 +224,7 @@ function processMetrics(
   opportunities: DBOpportunity[],
   appointments: DBAppointment[],
   users: DBUser[],
-  dateRange?: DateRange
+  dateRange?: DateRange,
 ): DashboardMetrics & {
   totalOpportunities: number;
   totalPipelineValue: number;
@@ -257,16 +251,16 @@ function processMetrics(
   oppsWithoutAppointmentsBySource: { source: string; count: number }[];
 } {
   const filteredContacts = filterByDateRange(contacts, dateRange);
-  
+
   // Create contact date lookup map for filtering opportunities by contact date
   const contactDateMap = new Map<string, string | null>();
-  contacts.forEach(c => {
+  contacts.forEach((c) => {
     contactDateMap.set(c.ghl_id, c.ghl_date_added || null);
   });
-  
+
   // Filter opportunities by their contact's creation date (not opportunity date)
   const filteredOpportunities = dateRange?.from
-    ? opportunities.filter(opp => {
+    ? opportunities.filter((opp) => {
         const contactDate = opp.contact_id ? contactDateMap.get(opp.contact_id) : null;
         if (!contactDate) return false;
         const date = new Date(contactDate);
@@ -276,37 +270,37 @@ function processMetrics(
         return date >= startDate && date <= endDate;
       })
     : opportunities;
-  
+
   // Create user lookup map
   const userMap = new Map<string, string>();
-  users.forEach(u => {
-    const displayName = u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || u.ghl_id;
+  users.forEach((u) => {
+    const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
     userMap.set(u.ghl_id, displayName);
   });
 
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const leadsThisMonth = filteredContacts.filter(c => {
+  const leadsThisMonth = filteredContacts.filter((c) => {
     const dateAdded = c.ghl_date_added ? new Date(c.ghl_date_added) : null;
     return dateAdded && dateAdded >= startOfMonth;
   }).length;
 
   // Group by source
   const sourceMap = new Map<string, number>();
-  filteredContacts.forEach(c => {
-    const source = c.source || 'Direct';
+  filteredContacts.forEach((c) => {
+    const source = c.source || "Direct";
     sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
   });
-  
+
   const leadsBySource: LeadsBySource[] = Array.from(sourceMap.entries())
     .map(([source, count]) => ({ source, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
   // Filter appointments by date range (using start_time)
-  const filteredAppointments = dateRange?.from 
-    ? appointments.filter(a => {
+  const filteredAppointments = dateRange?.from
+    ? appointments.filter((a) => {
         if (!a.start_time) return false;
         const startTime = new Date(a.start_time);
         const startDate = dateRange.from!;
@@ -319,7 +313,7 @@ function processMetrics(
   // Create lookup maps for hybrid opportunity attribution
   // Map contact ghl_id -> contact.assigned_to
   const contactAssignmentMap = new Map<string, string>();
-  contacts.forEach(c => {
+  contacts.forEach((c) => {
     if (c.ghl_id && c.assigned_to) {
       contactAssignmentMap.set(c.ghl_id, c.assigned_to);
     }
@@ -327,7 +321,7 @@ function processMetrics(
 
   // Map contact_id -> appointment.assigned_user_id (first appointment found)
   const appointmentAssignmentMap = new Map<string, string>();
-  appointments.forEach(a => {
+  appointments.forEach((a) => {
     if (a.contact_id && a.assigned_user_id && !appointmentAssignmentMap.has(a.contact_id)) {
       appointmentAssignmentMap.set(a.contact_id, a.assigned_user_id);
     }
@@ -356,7 +350,7 @@ function processMetrics(
 
   // Group appointments by assigned user - track both ghl_id and unique contacts
   const repAppointmentsMap = new Map<string, { userGhlId: string; uniqueContactIds: Set<string> }>();
-  filteredAppointments.forEach(a => {
+  filteredAppointments.forEach((a) => {
     if (a.assigned_user_id && a.contact_id) {
       const repName = userMap.get(a.assigned_user_id) || a.assigned_user_id;
       if (!repAppointmentsMap.has(repName)) {
@@ -366,26 +360,22 @@ function processMetrics(
       repAppointmentsMap.get(repName)!.uniqueContactIds.add(a.contact_id);
     }
   });
-  
+
   // Calculate metrics per rep - opportunities using hybrid attribution
   const salesRepPerformance: SalesRepPerformance[] = Array.from(repAppointmentsMap.entries())
     .map(([assignedTo, { userGhlId, uniqueContactIds }]) => {
       const uniqueAppointments = uniqueContactIds.size;
-      
+
       // Get opportunities using hybrid attribution chain
-      const repOpportunities = filteredOpportunities.filter(o => 
-        getEffectiveAssignment(o) === userGhlId
-      );
-      
+      const repOpportunities = filteredOpportunities.filter((o) => getEffectiveAssignment(o) === userGhlId);
+
       const totalOpportunities = repOpportunities.length;
-      const wonOpportunities = repOpportunities.filter(o => 
-        o.status?.toLowerCase() === 'won'
-      ).length;
-      
+      const wonOpportunities = repOpportunities.filter((o) => o.status?.toLowerCase() === "won").length;
+
       const wonValue = repOpportunities
-        .filter(o => o.status?.toLowerCase() === 'won')
+        .filter((o) => o.status?.toLowerCase() === "won")
         .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
-      
+
       // Success rate = won opportunities / unique contacts with appointments (as percentage)
       const conversionRate = uniqueAppointments > 0 ? (wonOpportunities / uniqueAppointments) * 100 : 0;
 
@@ -401,7 +391,7 @@ function processMetrics(
     .sort((a, b) => b.wonValue - a.wonValue);
 
   // Recent leads with resolved names
-  const recentLeads: GHLContact[] = filteredContacts.slice(0, 10).map(c => ({
+  const recentLeads: GHLContact[] = filteredContacts.slice(0, 10).map((c) => ({
     id: c.ghl_id,
     locationId: c.location_id,
     contactName: c.contact_name || undefined,
@@ -413,31 +403,55 @@ function processMetrics(
     tags: c.tags || undefined,
     dateAdded: c.ghl_date_added || undefined,
     dateUpdated: c.ghl_date_updated || undefined,
-    assignedTo: c.assigned_to ? (userMap.get(c.assigned_to) || c.assigned_to) : undefined,
+    assignedTo: c.assigned_to ? userMap.get(c.assigned_to) || c.assigned_to : undefined,
   }));
 
   // Opportunities metrics
   const totalPipelineValue = filteredOpportunities
-    .filter(o => o.status !== 'lost' && o.status !== 'abandoned')
+    .filter((o) => o.status !== "lost" && o.status !== "abandoned")
     .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
-  // Won opportunities metrics
-  const wonOpportunities = filteredOpportunities
-    .filter(o => o.status?.toLowerCase() === 'won')
-    .sort((a, b) => new Date(b.ghl_date_updated || 0).getTime() - new Date(a.ghl_date_updated || 0).getTime());
+  // Won opportunities metrics - based on opportunity close date (ghl_date_updated)
+  const allWonOpportunities = opportunities.filter((o) => o.status?.toLowerCase() === "won");
+
+  let wonOpportunities: DBOpportunity[];
+  if (dateRange?.from) {
+    const startDate = new Date(dateRange.from);
+    const endDate = dateRange.to ? new Date(dateRange.to) : new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    wonOpportunities = allWonOpportunities.filter((o) => {
+      // Prefer ghl_date_updated as "close date", fall back to added date if missing
+      const dateStr = o.ghl_date_updated || o.ghl_date_added;
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return d >= startDate && d <= endDate;
+    });
+  } else {
+    // No date filter: all won opportunities
+    wonOpportunities = allWonOpportunities;
+  }
+
+  // Always sort by close date (ghl_date_updated) newest first
+  wonOpportunities = wonOpportunities.sort(
+    (a, b) =>
+      new Date(b.ghl_date_updated || b.ghl_date_added || 0).getTime() -
+      new Date(a.ghl_date_updated || a.ghl_date_added || 0).getTime(),
+  );
+
   const wonOpportunitiesCount = wonOpportunities.length;
   const wonOpportunitiesValue = wonOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
   // Won by source - group won opportunities by contact source
   const contactSourceMap = new Map<string, string>();
-  contacts.forEach(c => {
-    contactSourceMap.set(c.ghl_id, c.source || 'Direct');
+  contacts.forEach((c) => {
+    contactSourceMap.set(c.ghl_id, c.source || "Direct");
   });
-  
+
   const wonBySourceMap = new Map<string, { count: number; value: number }>();
-  wonOpportunities.forEach(o => {
+  wonOpportunities.forEach((o) => {
     if (o.contact_id) {
-      const source = contactSourceMap.get(o.contact_id) || 'Direct';
+      const source = contactSourceMap.get(o.contact_id) || "Direct";
       const existing = wonBySourceMap.get(source) || { count: 0, value: 0 };
       wonBySourceMap.set(source, {
         count: existing.count + 1,
@@ -445,7 +459,7 @@ function processMetrics(
       });
     }
   });
-  
+
   const wonBySource = Array.from(wonBySourceMap.entries())
     .map(([source, data]) => ({ source, count: data.count, value: data.value }))
     .sort((a, b) => b.value - a.value)
@@ -454,14 +468,14 @@ function processMetrics(
   // Opportunities by source - group filtered opportunities by contact source (excluding quickbase stage)
   const opportunitiesBySourceMap = new Map<string, number>();
   filteredOpportunities
-    .filter(o => o.stage_name?.toLowerCase() !== 'quickbase')
-    .forEach(o => {
+    .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
+    .forEach((o) => {
       if (o.contact_id) {
-        const source = contactSourceMap.get(o.contact_id) || 'Direct';
+        const source = contactSourceMap.get(o.contact_id) || "Direct";
         opportunitiesBySourceMap.set(source, (opportunitiesBySourceMap.get(source) || 0) + 1);
       }
     });
-  
+
   const opportunitiesBySource = Array.from(opportunitiesBySourceMap.entries())
     .map(([source, count]) => ({ source, count }))
     .sort((a, b) => b.count - a.count)
@@ -470,17 +484,17 @@ function processMetrics(
   // Appointments by source - group filtered appointments by contact source (unique contacts only, exclude cancelled)
   const appointmentsBySourceMap = new Map<string, Set<string>>();
   filteredAppointments
-    .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled')
-    .forEach(a => {
+    .filter((a) => a.appointment_status?.toLowerCase() !== "cancelled")
+    .forEach((a) => {
       if (a.contact_id) {
-        const source = contactSourceMap.get(a.contact_id) || 'Direct';
+        const source = contactSourceMap.get(a.contact_id) || "Direct";
         if (!appointmentsBySourceMap.has(source)) {
           appointmentsBySourceMap.set(source, new Set());
         }
         appointmentsBySourceMap.get(source)!.add(a.contact_id);
       }
     });
-  
+
   const appointmentsBySource = Array.from(appointmentsBySourceMap.entries())
     .map(([source, contactIds]) => ({ source, count: contactIds.size }))
     .sort((a, b) => b.count - a.count)
@@ -490,23 +504,23 @@ function processMetrics(
   // Using ALL appointments, not filtered by date range
   const contactIdsWithAnyAppointments = new Set<string>();
   appointments
-    .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled')
-    .forEach(a => {
+    .filter((a) => a.appointment_status?.toLowerCase() !== "cancelled")
+    .forEach((a) => {
       if (a.contact_id) contactIdsWithAnyAppointments.add(a.contact_id);
     });
 
   // Opportunities WITHOUT any appointments by source
   const oppsWithoutAppointmentsBySourceMap = new Map<string, number>();
   filteredOpportunities
-    .filter(o => o.stage_name?.toLowerCase() !== 'quickbase')
-    .filter(o => o.contact_id && !contactIdsWithAnyAppointments.has(o.contact_id))
-    .forEach(o => {
+    .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
+    .filter((o) => o.contact_id && !contactIdsWithAnyAppointments.has(o.contact_id))
+    .forEach((o) => {
       if (o.contact_id) {
-        const source = contactSourceMap.get(o.contact_id) || 'Direct';
+        const source = contactSourceMap.get(o.contact_id) || "Direct";
         oppsWithoutAppointmentsBySourceMap.set(source, (oppsWithoutAppointmentsBySourceMap.get(source) || 0) + 1);
       }
     });
-  
+
   const oppsWithoutAppointmentsBySource = Array.from(oppsWithoutAppointmentsBySourceMap.entries())
     .map(([source, count]) => ({ source, count }))
     .sort((a, b) => b.count - a.count)
@@ -518,16 +532,16 @@ function processMetrics(
   // Start of tomorrow (midnight)
   const startOfTomorrow = new Date(startOfToday);
   startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-  
+
   // All appointments today (regardless of time - includes past ones)
-  const appointmentsToday = appointments.filter(a => {
+  const appointmentsToday = appointments.filter((a) => {
     if (!a.start_time) return false;
     const startTime = new Date(a.start_time);
     return startTime >= startOfToday && startTime < startOfTomorrow;
   }).length;
-  
+
   // Upcoming appointments (after today)
-  const upcomingAppointments = appointments.filter(a => {
+  const upcomingAppointments = appointments.filter((a) => {
     if (!a.start_time) return false;
     return new Date(a.start_time) >= startOfTomorrow;
   }).length;
@@ -535,33 +549,34 @@ function processMetrics(
   // Upcoming next week (excluding today)
   const nextWeekEnd = new Date(startOfTomorrow);
   nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
-  const upcomingNextWeek = appointments.filter(a => {
+  const upcomingNextWeek = appointments.filter((a) => {
     if (!a.start_time) return false;
     const startTime = new Date(a.start_time);
     return startTime >= startOfTomorrow && startTime <= nextWeekEnd;
   }).length;
 
   return {
-    totalLeads: filteredContacts.filter(c => c.source?.toLowerCase() !== 'quickbase').length,
+    totalLeads: filteredContacts.filter((c) => c.source?.toLowerCase() !== "quickbase").length,
     leadsThisMonth,
     leadsBySource,
     salesRepPerformance,
     recentLeads,
-    totalOpportunities: filteredOpportunities.filter(o => o.stage_name?.toLowerCase() !== 'quickbase').length,
+    totalOpportunities: filteredOpportunities.filter((o) => o.stage_name?.toLowerCase() !== "quickbase").length,
     totalPipelineValue,
     totalAppointments: filteredAppointments.length,
-    cancelledAppointments: filteredAppointments.filter(a => a.appointment_status?.toLowerCase() === 'cancelled').length,
+    cancelledAppointments: filteredAppointments.filter((a) => a.appointment_status?.toLowerCase() === "cancelled")
+      .length,
     appointmentsToday,
     upcomingAppointments,
     upcomingNextWeek,
     opportunities: filteredOpportunities,
     filteredOpportunitiesList: filteredOpportunities,
     appointments: appointments
-      .filter(a => a.start_time)
+      .filter((a) => a.start_time)
       .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime())
       .slice(0, 10),
     allAppointments: appointments
-      .filter(a => a.start_time)
+      .filter((a) => a.start_time)
       .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime()),
     filteredAppointmentsList: filteredAppointments,
     contacts: filteredContacts,
@@ -580,7 +595,7 @@ function processMetrics(
 
 export function useContacts() {
   return useQuery({
-    queryKey: ['contacts'],
+    queryKey: ["contacts"],
     queryFn: fetchContactsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -589,7 +604,7 @@ export function useContacts() {
 
 export function useOpportunities() {
   return useQuery({
-    queryKey: ['opportunities'],
+    queryKey: ["opportunities"],
     queryFn: fetchOpportunitiesFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -598,7 +613,7 @@ export function useOpportunities() {
 
 export function useAppointments() {
   return useQuery({
-    queryKey: ['appointments'],
+    queryKey: ["appointments"],
     queryFn: fetchAppointmentsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -607,7 +622,7 @@ export function useAppointments() {
 
 export function useGHLUsers() {
   return useQuery({
-    queryKey: ['ghl_users'],
+    queryKey: ["ghl_users"],
     queryFn: fetchUsersFromDB,
     staleTime: 5 * 60 * 1000,
   });
@@ -615,7 +630,7 @@ export function useGHLUsers() {
 
 export function useConversations() {
   return useQuery({
-    queryKey: ['conversations'],
+    queryKey: ["conversations"],
     queryFn: fetchConversationsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -624,7 +639,7 @@ export function useConversations() {
 
 export function useTasks() {
   return useQuery({
-    queryKey: ['ghl_tasks'],
+    queryKey: ["ghl_tasks"],
     queryFn: fetchTasksFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -633,7 +648,7 @@ export function useTasks() {
 
 export function useContactNotes() {
   return useQuery({
-    queryKey: ['contact_notes'],
+    queryKey: ["contact_notes"],
     queryFn: fetchContactNotesFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -642,7 +657,7 @@ export function useContactNotes() {
 
 export function useCallLogs() {
   return useQuery({
-    queryKey: ['call_logs'],
+    queryKey: ["call_logs"],
     queryFn: fetchCallLogsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
@@ -655,13 +670,13 @@ export function useSyncContacts() {
   return useMutation({
     mutationFn: syncContacts,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contacts'] });
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
-      queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      queryClient.invalidateQueries({ queryKey: ['ghl_users'] });
-      queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['ghl_tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['call_logs'] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl_users"] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["call_logs"] });
     },
   });
 }
@@ -676,49 +691,60 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const contactNotesQuery = useContactNotes();
   const callLogsQuery = useCallLogs();
 
-  const isLoading = contactsQuery.isLoading || opportunitiesQuery.isLoading || 
-                    appointmentsQuery.isLoading || usersQuery.isLoading || 
-                    conversationsQuery.isLoading || tasksQuery.isLoading ||
-                    contactNotesQuery.isLoading || callLogsQuery.isLoading;
-  const error = contactsQuery.error || opportunitiesQuery.error || 
-                appointmentsQuery.error || usersQuery.error || 
-                conversationsQuery.error || tasksQuery.error ||
-                contactNotesQuery.error || callLogsQuery.error;
+  const isLoading =
+    contactsQuery.isLoading ||
+    opportunitiesQuery.isLoading ||
+    appointmentsQuery.isLoading ||
+    usersQuery.isLoading ||
+    conversationsQuery.isLoading ||
+    tasksQuery.isLoading ||
+    contactNotesQuery.isLoading ||
+    callLogsQuery.isLoading;
+  const error =
+    contactsQuery.error ||
+    opportunitiesQuery.error ||
+    appointmentsQuery.error ||
+    usersQuery.error ||
+    conversationsQuery.error ||
+    tasksQuery.error ||
+    contactNotesQuery.error ||
+    callLogsQuery.error;
 
   // Filter call logs by date range
-  const filteredCallLogs = callLogsQuery.data && dateRange?.from
-    ? callLogsQuery.data.filter(c => {
-        if (!c.call_date) return false;
-        const callDate = new Date(c.call_date);
-        const endDate = dateRange.to || new Date();
-        endDate.setHours(23, 59, 59, 999);
-        return callDate >= dateRange.from! && callDate <= endDate;
-      })
-    : callLogsQuery.data || [];
+  const filteredCallLogs =
+    callLogsQuery.data && dateRange?.from
+      ? callLogsQuery.data.filter((c) => {
+          if (!c.call_date) return false;
+          const callDate = new Date(c.call_date);
+          const endDate = dateRange.to || new Date();
+          endDate.setHours(23, 59, 59, 999);
+          return callDate >= dateRange.from! && callDate <= endDate;
+        })
+      : callLogsQuery.data || [];
 
   // Calculate unique contacts called
-  const uniqueContactsCalled = new Set(filteredCallLogs.map(c => c.contact_id)).size;
+  const uniqueContactsCalled = new Set(filteredCallLogs.map((c) => c.contact_id)).size;
 
-  const data = contactsQuery.data && opportunitiesQuery.data && 
-               appointmentsQuery.data && usersQuery.data
-    ? {
-        ...processMetrics(
-          contactsQuery.data,
-          opportunitiesQuery.data,
-          appointmentsQuery.data,
-          usersQuery.data,
-          dateRange
-        ),
-        conversations: conversationsQuery.data || [],
-        tasks: tasksQuery.data || [],
-        contactNotes: contactNotesQuery.data || [],
-        callLogs: filteredCallLogs,
-        totalCalls: filteredCallLogs.length,
-        outboundCalls: filteredCallLogs.filter(c => c.direction === 'outbound').length,
-        inboundCalls: filteredCallLogs.filter(c => c.direction === 'inbound').length,
-        uniqueContactsCalled,
-      }
-    : undefined;
+  const data =
+    contactsQuery.data && opportunitiesQuery.data && appointmentsQuery.data && usersQuery.data
+      ? {
+          ...processMetrics(
+            contactsQuery.data,
+            opportunitiesQuery.data,
+            appointmentsQuery.data,
+            usersQuery.data,
+            dateRange,
+          ),
+          conversations: conversationsQuery.data || [],
+          tasks: tasksQuery.data || [],
+          contactNotes: contactNotesQuery.data || [],
+          callLogs: filteredCallLogs,
+          totalCalls: filteredCallLogs.length,
+          outboundCalls: filteredCallLogs.filter((c) => c.direction === "outbound").length,
+          inboundCalls: filteredCallLogs.filter((c) => c.direction === "inbound").length,
+          uniqueContactsCalled,
+        }
+      : undefined;
 
   return {
     isLoading,
