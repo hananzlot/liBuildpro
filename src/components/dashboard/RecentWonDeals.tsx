@@ -170,60 +170,65 @@ export function RecentWonDeals({ wonOpportunities, contacts, dateRange, onOpport
           {filteredWon.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">No won deals in this period</p>
           ) : (
-            filteredWon.map((opp) => {
-              const address = getAddress(opp.contact_id);
-              const cost = projectCosts.get(opp.ghl_id);
-              const profit = cost !== undefined ? (opp.monetary_value || 0) - cost : null;
+            filteredWon
+              .slice()
+              .sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0))
+              .map((opp) => {
+                const address = getAddress(opp.contact_id);
+                const cost = projectCosts.get(opp.ghl_id);
+                const profit = cost !== undefined ? (opp.monetary_value || 0) - cost : null;
 
-              return (
-                <div
-                  key={opp.ghl_id}
-                  className="group grid grid-cols-[24px_1fr_auto] gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-all items-center"
-                  onClick={() => onOpportunityClick?.(opp)}
-                >
-                  {/* Icon */}
-                  <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                    <DollarSign className="h-3 w-3 text-emerald-500" />
-                  </div>
+                return (
+                  <div
+                    key={opp.ghl_id}
+                    className="group grid grid-cols-[24px_1fr_auto] gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 cursor-pointer transition-all items-center"
+                    onClick={() => onOpportunityClick?.(opp)}
+                  >
+                    {/* Icon */}
+                    <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                      <DollarSign className="h-3 w-3 text-emerald-500" />
+                    </div>
 
-                  {/* Name + days worked */}
-                  <div className="min-w-0">
-                    {(() => {
-                      const contactName = getContactName(opp.contact_id);
+                    {/* Name + days worked */}
+                    <div className="min-w-0">
+                      {(() => {
+                        const contactName = getContactName(opp.contact_id);
 
-                      // 🔹 Days worked = ghl_date_updated - ghl_date_added (calendar days)
-                      const startDate = parseGhlDate(opp.ghl_date_added);
-                      const endDate = parseGhlDate(opp.ghl_date_updated);
+                        // 🔹 Days worked = ghl_date_updated - ghl_date_added (calendar days)
+                        const startDate = parseGhlDate(opp.ghl_date_added);
+                        const endDate = parseGhlDate(opp.ghl_date_updated);
 
-                      let daysWorked: number | null = null;
-                      if (startDate && endDate) {
-                        const diff = differenceInCalendarDays(endDate, startDate);
-                        daysWorked = diff < 0 ? 0 : diff;
-                      }
+                        let daysWorked: number | null = null;
+                        if (startDate && endDate) {
+                          const diff = differenceInCalendarDays(endDate, startDate);
+                          daysWorked = diff < 0 ? 0 : diff;
+                        }
 
-                      return (
-                        <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                          {contactName}
-                          {daysWorked !== null && ` (${daysWorked} day${daysWorked === 1 ? "" : "s"})`}
-                        </p>
-                      );
-                    })()}
-                  </div>
+                        return (
+                          <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                            {contactName}
+                            {daysWorked !== null && ` (${daysWorked} day${daysWorked === 1 ? "" : "s"})`}
+                          </p>
+                        );
+                      })()}
+                    </div>
 
-                  {/* Value & Profit */}
-                  <div className="flex items-center gap-1.5 text-right whitespace-nowrap">
-                    {cost !== undefined && <span className="text-xs text-amber-500">{formatCurrency(cost)}</span>}
-                    <span className="text-sm font-semibold text-emerald-500">{formatCurrency(opp.monetary_value)}</span>
-                    {profit !== null && (
-                      <span className={`text-xs font-medium ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                        {profit >= 0 ? "+" : ""}
-                        {formatCurrency(profit)}
+                    {/* Value & Profit */}
+                    <div className="flex items-center gap-1.5 text-right whitespace-nowrap">
+                      {cost !== undefined && <span className="text-xs text-amber-500">{formatCurrency(cost)}</span>}
+                      <span className="text-sm font-semibold text-emerald-500">
+                        {formatCurrency(opp.monetary_value)}
                       </span>
-                    )}
+                      {profit !== null && (
+                        <span className={`text-xs font-medium ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                          {profit >= 0 ? "+" : ""}
+                          {formatCurrency(profit)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })
           )}
         </div>
       </ScrollArea>
