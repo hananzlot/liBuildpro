@@ -1121,7 +1121,7 @@ export function OpportunityDetailSheet({
   const contactNotes = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.NOTES);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
+      <SheetContent className="w-full sm:max-w-full overflow-y-auto p-0">
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4">
           <SheetHeader>
@@ -1909,7 +1909,7 @@ export function OpportunityDetailSheet({
           }
         }}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckSquare className="h-5 w-5" />
@@ -2024,7 +2024,7 @@ export function OpportunityDetailSheet({
           }
         }}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
