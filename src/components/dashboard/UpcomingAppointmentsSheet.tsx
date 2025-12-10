@@ -3,13 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2 } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
@@ -100,7 +94,7 @@ export function UpcomingAppointmentsSheet({
   // Build user map early for filtering
   const userMap = useMemo(() => {
     const map = new Map<string, string>();
-    users.forEach(u => {
+    users.forEach((u) => {
       const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
       map.set(u.ghl_id, displayName);
     });
@@ -113,9 +107,9 @@ export function UpcomingAppointmentsSheet({
   const todayAndUpcomingAppointments = useMemo(() => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
-    
+
     return appointments
-      .filter(a => {
+      .filter((a) => {
         if (!a.start_time) return false;
         return new Date(a.start_time) >= startOfToday;
       })
@@ -125,7 +119,7 @@ export function UpcomingAppointmentsSheet({
   // Get available reps from today and upcoming appointments
   const availableReps = useMemo(() => {
     const reps = new Map<string, string>();
-    todayAndUpcomingAppointments.forEach(a => {
+    todayAndUpcomingAppointments.forEach((a) => {
       if (a.assigned_user_id && !reps.has(a.assigned_user_id)) {
         reps.set(a.assigned_user_id, userMap.get(a.assigned_user_id) || a.assigned_user_id);
       }
@@ -138,26 +132,22 @@ export function UpcomingAppointmentsSheet({
   // Apply search and rep filters
   const filteredAppointments = useMemo(() => {
     let result = todayAndUpcomingAppointments;
-    
+
     // Filter by rep
     if (repFilter !== "all") {
-      result = result.filter(a => a.assigned_user_id === repFilter);
+      result = result.filter((a) => a.assigned_user_id === repFilter);
     }
-    
+
     // Filter by search
     if (searchFilter.trim()) {
       const term = searchFilter.toLowerCase();
-      result = result.filter(a => {
-        const contact = contacts.find(c => c.ghl_id === a.contact_id);
-        const contactName = contact?.contact_name || 
-          `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
-        return (
-          a.title?.toLowerCase().includes(term) ||
-          contactName.toLowerCase().includes(term)
-        );
+      result = result.filter((a) => {
+        const contact = contacts.find((c) => c.ghl_id === a.contact_id);
+        const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
+        return a.title?.toLowerCase().includes(term) || contactName.toLowerCase().includes(term);
       });
     }
-    
+
     return result;
   }, [todayAndUpcomingAppointments, repFilter, searchFilter, contacts]);
 
@@ -170,7 +160,7 @@ export function UpcomingAppointmentsSheet({
       { label: "Later", appointments: [] },
     ];
 
-    filteredAppointments.forEach(a => {
+    filteredAppointments.forEach((a) => {
       const startTime = new Date(a.start_time!);
       if (isToday(startTime)) {
         groups[0].appointments.push(a);
@@ -183,16 +173,20 @@ export function UpcomingAppointmentsSheet({
       }
     });
 
-    return groups.filter(g => g.appointments.length > 0);
+    return groups.filter((g) => g.appointments.length > 0);
   }, [filteredAppointments, nextWeekEnd]);
 
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
-      case "confirmed": return "bg-emerald-500/20 text-emerald-400";
+      case "confirmed":
+        return "bg-emerald-500/20 text-emerald-400";
       case "cancelled":
-      case "no_show": return "bg-red-500/20 text-red-400";
-      case "showed": return "bg-blue-500/20 text-blue-400";
-      default: return "bg-amber-500/20 text-amber-400";
+      case "no_show":
+        return "bg-red-500/20 text-red-400";
+      case "showed":
+        return "bg-blue-500/20 text-blue-400";
+      default:
+        return "bg-amber-500/20 text-amber-400";
     }
   };
 
@@ -201,13 +195,13 @@ export function UpcomingAppointmentsSheet({
     setDetailSheetOpen(true);
   };
 
-  const todayCount = todayAndUpcomingAppointments.filter(a => isToday(new Date(a.start_time!))).length;
-  const upcomingCount = todayAndUpcomingAppointments.filter(a => !isToday(new Date(a.start_time!))).length;
+  const todayCount = todayAndUpcomingAppointments.filter((a) => isToday(new Date(a.start_time!))).length;
+  const upcomingCount = todayAndUpcomingAppointments.filter((a) => !isToday(new Date(a.start_time!))).length;
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-xl p-0">
+        <SheetContent className="w-full sm:max-w-2xl p-0">
           <div className="sticky top-0 bg-background border-b p-4">
             <SheetHeader>
               <div className="flex items-center gap-2">
@@ -231,7 +225,7 @@ export function UpcomingAppointmentsSheet({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Reps</SelectItem>
-                  {availableReps.map(rep => (
+                  {availableReps.map((rep) => (
                     <SelectItem key={rep.id} value={rep.id}>
                       {rep.name}
                     </SelectItem>
@@ -264,9 +258,11 @@ export function UpcomingAppointmentsSheet({
                     </h3>
                     <div className="space-y-2">
                       {group.appointments.map((appt) => {
-                        const contact = contacts.find(c => c.ghl_id === appt.contact_id);
-                        const contactName = contact?.contact_name || 
-                          `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown";
+                        const contact = contacts.find((c) => c.ghl_id === appt.contact_id);
+                        const contactName =
+                          contact?.contact_name ||
+                          `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() ||
+                          "Unknown";
                         const assignedUser = appt.assigned_user_id ? userMap.get(appt.assigned_user_id) : null;
                         const isPast = new Date(appt.start_time!) < new Date();
 
@@ -274,8 +270,8 @@ export function UpcomingAppointmentsSheet({
                           <div
                             key={appt.ghl_id}
                             className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                              isPast 
-                                ? "bg-muted/30 border-muted opacity-70 hover:opacity-100" 
+                              isPast
+                                ? "bg-muted/30 border-muted opacity-70 hover:opacity-100"
                                 : "bg-card hover:bg-muted/30"
                             }`}
                             onClick={() => handleAppointmentClick(appt)}
@@ -283,7 +279,9 @@ export function UpcomingAppointmentsSheet({
                             <div className="flex items-center justify-between gap-2 mb-1">
                               <div className="flex items-center gap-1.5 truncate">
                                 {isPast && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                                <span className={`font-medium text-sm truncate ${isPast ? "text-muted-foreground" : ""}`}>
+                                <span
+                                  className={`font-medium text-sm truncate ${isPast ? "text-muted-foreground" : ""}`}
+                                >
                                   {appt.title || "Untitled"}
                                 </span>
                               </div>
@@ -293,7 +291,10 @@ export function UpcomingAppointmentsSheet({
                                     Past
                                   </Badge>
                                 )}
-                                <Badge variant="outline" className={`text-xs ${getStatusColor(appt.appointment_status)}`}>
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs ${getStatusColor(appt.appointment_status)}`}
+                                >
                                   {appt.appointment_status || "Pending"}
                                 </Badge>
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -309,7 +310,9 @@ export function UpcomingAppointmentsSheet({
                                 {format(new Date(appt.start_time!), "MMM d, h:mm a")}
                               </div>
                               {assignedUser && (
-                                <span className={`truncate ${isPast ? "text-muted-foreground" : "text-primary"}`}>{assignedUser}</span>
+                                <span className={`truncate ${isPast ? "text-muted-foreground" : "text-primary"}`}>
+                                  {assignedUser}
+                                </span>
                               )}
                             </div>
                           </div>
