@@ -290,7 +290,13 @@ export function OpportunitiesTable({
           break;
 
         case "updatedDate":
+          // 🔥 Primary
           comparison = getUpdatedDate(a) - getUpdatedDate(b);
+
+          // 🔥 Secondary when updatedDate is equal
+          if (comparison === 0) {
+            comparison = getCreatedDate(a) - getCreatedDate(b);
+          }
           break;
       }
 
