@@ -527,6 +527,15 @@ export function OpportunitiesTable({
                 </TableHead>
                 <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort("status")}
+                >
+                  <div className="flex items-center">
+                    Status
+                    <SortIcon column="status" />
+                  </div>
+                </TableHead>
+                <TableHead
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
                   onClick={() => handleSort("date")}
                 >
                   <div className="flex items-center">
