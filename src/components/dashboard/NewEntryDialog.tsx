@@ -562,7 +562,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    
   
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
@@ -570,6 +570,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
             <TabsTrigger value="single">Single Entry</TabsTrigger>
             <TabsTrigger value="csv">CSV Upload</TabsTrigger>
 
+            <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
         <Button size="sm" className="gap-2">
           <Plus className="h-4 w-4" />
