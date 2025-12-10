@@ -1695,8 +1695,6 @@ export function OpportunityDetailSheet({
             );
           })()}
 
-
-
           {/* Related Appointments */}
           <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
             <CollapsibleTrigger asChild>
@@ -1911,7 +1909,7 @@ export function OpportunityDetailSheet({
           }
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckSquare className="h-5 w-5" />
