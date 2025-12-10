@@ -563,7 +563,14 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+  
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="single">Single Entry</TabsTrigger>
+            <TabsTrigger value="csv">CSV Upload</TabsTrigger>
+
+                <DialogTrigger asChild>
         <Button size="sm" className="gap-2">
           <Plus className="h-4 w-4" />
           New Entry
@@ -576,11 +583,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
             Create a new contact with opportunity and appointment
           </DialogDescription>
         </DialogHeader>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="single">Single Entry</TabsTrigger>
-            <TabsTrigger value="csv">CSV Upload</TabsTrigger>
+            
           </TabsList>
 
           <TabsContent value="single" className="flex-1 overflow-auto">
