@@ -308,29 +308,34 @@ const Index = () => {
               )}
             </section>
 
-            {/* Tables Row - Opportunities & Appointments */}
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Tables - Tabbed */}
+            <section>
               {isLoading ? (
-                <>
-                  <Skeleton className="h-[400px] rounded-2xl" />
-                  <Skeleton className="h-[400px] rounded-2xl" />
-                </>
+                <Skeleton className="h-[400px] rounded-2xl" />
               ) : (
-                <>
-                  <OpportunitiesTable
-                    opportunities={metrics?.allOpportunities || []}
-                    appointments={metrics?.allAppointments || []}
-                    contacts={metrics?.allContacts || []}
-                    users={metrics?.users || []}
-                    conversations={metrics?.conversations || []}
-                  />
-                  <AppointmentsTable
-                    appointments={metrics?.allAppointments || []}
-                    opportunities={metrics?.allOpportunities || []}
-                    contacts={metrics?.allContacts || []}
-                    users={metrics?.users || []}
-                  />
-                </>
+                <Tabs defaultValue="opportunities" className="w-full">
+                  <TabsList>
+                    <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
+                    <TabsTrigger value="appointments">Appointments</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="opportunities" className="mt-4">
+                    <OpportunitiesTable
+                      opportunities={metrics?.allOpportunities || []}
+                      appointments={metrics?.allAppointments || []}
+                      contacts={metrics?.allContacts || []}
+                      users={metrics?.users || []}
+                      conversations={metrics?.conversations || []}
+                    />
+                  </TabsContent>
+                  <TabsContent value="appointments" className="mt-4">
+                    <AppointmentsTable
+                      appointments={metrics?.allAppointments || []}
+                      opportunities={metrics?.allOpportunities || []}
+                      contacts={metrics?.allContacts || []}
+                      users={metrics?.users || []}
+                    />
+                  </TabsContent>
+                </Tabs>
               )}
             </section>
           </TabsContent>
