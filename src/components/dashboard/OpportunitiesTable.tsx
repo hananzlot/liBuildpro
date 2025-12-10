@@ -613,6 +613,8 @@ export function OpportunitiesTable({
                           ? `${opp.pipeline_name} / ${opp.stage_name}`
                           : opp.stage_name || opp.pipeline_name || "-"}
                       </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{contact?.source || "-"}</TableCell>
+
                       <TableCell className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(opp.status)}>
