@@ -632,6 +632,7 @@ serve(async (req) => {
         start_time: a.startTime || null,
         end_time: a.endTime || null,
         notes: a.notes || null,
+        address: a.address || null,
         ghl_date_added: a.dateAdded || a.createdAt || null,
         ghl_date_updated: a.dateUpdated || a.updatedAt || null,
         last_synced_at: syncTimestamp,

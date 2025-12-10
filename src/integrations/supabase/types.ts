@@ -49,6 +49,7 @@ export type Database = {
       }
       appointments: {
         Row: {
+          address: string | null
           appointment_status: string | null
           assigned_user_id: string | null
           calendar_id: string | null
@@ -68,6 +69,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address?: string | null
           appointment_status?: string | null
           assigned_user_id?: string | null
           calendar_id?: string | null
@@ -87,6 +89,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address?: string | null
           appointment_status?: string | null
           assigned_user_id?: string | null
           calendar_id?: string | null

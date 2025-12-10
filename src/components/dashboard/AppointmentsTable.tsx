@@ -26,6 +26,7 @@ interface Appointment {
   contact_id: string | null;
   assigned_user_id: string | null;
   calendar_id: string | null;
+  address?: string | null;
 }
 
 interface Opportunity {
@@ -146,14 +147,25 @@ export function AppointmentsTable({
     return contact?.phone || '-';
   };
 
-  const getAddress = (contactId: string | null): string => {
-    if (!contactId) return '-';
-    const contact = contacts.find(c => c.ghl_id === contactId);
-    if (!contact?.custom_fields) return '-';
-    const customFields = contact.custom_fields as Record<string, unknown>[];
-    if (!Array.isArray(customFields)) return '-';
-    const addressField = customFields.find((f: Record<string, unknown>) => f.id === 'b7oTVsUQrLgZt84bHpCn');
-    return (addressField?.value as string) || '-';
+  const getAddress = (appointment: Appointment): string => {
+    // First try to get address from contact custom_fields
+    if (appointment.contact_id) {
+      const contact = contacts.find(c => c.ghl_id === appointment.contact_id);
+      if (contact?.custom_fields) {
+        const customFields = contact.custom_fields as Record<string, unknown>[];
+        if (Array.isArray(customFields)) {
+          const addressField = customFields.find((f: Record<string, unknown>) => f.id === 'b7oTVsUQrLgZt84bHpCn');
+          if (addressField?.value) {
+            return addressField.value as string;
+          }
+        }
+      }
+    }
+    // Fall back to appointment address from GHL calendar
+    if (appointment.address) {
+      return appointment.address;
+    }
+    return '-';
   };
 
   // Get unique statuses and reps for filters
@@ -239,7 +251,7 @@ export function AppointmentsTable({
           comparison = getUserName(a.assigned_user_id).localeCompare(getUserName(b.assigned_user_id));
           break;
         case 'address':
-          comparison = getAddress(a.contact_id).localeCompare(getAddress(b.contact_id));
+          comparison = getAddress(a).localeCompare(getAddress(b));
           break;
         default:
           comparison = 0;
@@ -440,7 +452,7 @@ export function AppointmentsTable({
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
-                      {getAddress(appt.contact_id)}
+                      {getAddress(appt)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {formatDateTime(appt.start_time)}
