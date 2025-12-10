@@ -235,17 +235,32 @@ export function OpportunitiesTable({
       return dateStr ? new Date(dateStr).getTime() : 0;
     };
 
-    // Helper to get Created date
-    const getCreatedDate = (opp: Opportunity): number => {
-      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
-      const dateStr = contact?.ghl_date_added || opp.ghl_date_added;
-      return dateStr ? new Date(dateStr).getTime() : 0;
+    // Helper: normalize a Date to midnight (so only the day matters)
+    const toDayTimestamp = (dateStr: string | null | undefined): number => {
+      if (!dateStr) return 0;
+      const d = new Date(dateStr);
+      // strip time, keep local date; use setUTCHours(0,0,0,0) if you prefer UTC
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
     };
 
-    // Helper to get UPDATED date
+    // Helper to get Created date (by day)
+    const getCreatedDate = (opp: Opportunity): number => {
+      if (opp.stage_name?.toLowerCase() === "quickbase") {
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        ninetyDaysAgo.setHours(0, 0, 0, 0);
+        return ninetyDaysAgo.getTime();
+      }
+      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+      const dateStr = contact?.ghl_date_added || opp.ghl_date_added;
+      return toDayTimestamp(dateStr);
+    };
+
+    // Helper to get UPDATED date (by day)
     const getUpdatedDate = (opp: Opportunity): number => {
       const dateStr = opp.ghl_date_updated || opp.ghl_date_added;
-      return dateStr ? new Date(dateStr).getTime() : 0;
+      return toDayTimestamp(dateStr);
     };
 
     // Sort opportunities
