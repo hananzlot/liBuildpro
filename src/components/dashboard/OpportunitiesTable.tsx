@@ -264,9 +264,8 @@ export function OpportunitiesTable({
 
         case "stage":
           comparison = (a.stage_name || "").localeCompare(b.stage_name || "");
-          // still keep secondary sort by CREATED date desc if you like
           if (comparison === 0) {
-            return getCreatedDate(b) - getCreatedDate(a);
+            return getCreatedDate(b) - getCreatedDate(a); // Secondary
           }
           break;
 
