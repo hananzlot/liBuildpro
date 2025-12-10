@@ -87,7 +87,9 @@ interface OpportunitiesTableProps {
   conversations?: Conversation[];
 }
 
-type SortColumn = "name" | "stage" | "value" | "status" | "date";
+//type SortColumn = "name" | "stage" | "value" | "status" | "date";
+type SortColumn = "name" | "stage" | "value" | "status" | "date" | "source";
+
 type SortDirection = "asc" | "desc";
 
 const ITEMS_PER_PAGE = 10;
