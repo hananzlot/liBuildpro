@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, ChevronLeft, ChevronRight, User, Filter } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, User, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
@@ -63,6 +63,8 @@ interface GHLUser {
 }
 
 type TimeFilter = 'all' | 'past' | 'upcoming' | 'today';
+type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address';
+type SortDirection = 'asc' | 'desc';
 
 interface AppointmentsTableProps {
   appointments: Appointment[];
@@ -87,6 +89,8 @@ export function AppointmentsTable({
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('start');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const handleOpenOpportunity = (opportunity: Opportunity) => {
     setSelectedOpportunity(opportunity);
@@ -140,6 +144,16 @@ export function AppointmentsTable({
     if (!contactId) return '-';
     const contact = contacts.find(c => c.ghl_id === contactId);
     return contact?.phone || '-';
+  };
+
+  const getAddress = (contactId: string | null): string => {
+    if (!contactId) return '-';
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    if (!contact?.custom_fields) return '-';
+    const customFields = contact.custom_fields as Record<string, unknown>[];
+    if (!Array.isArray(customFields)) return '-';
+    const addressField = customFields.find((f: Record<string, unknown>) => f.id === 'b7oTVsUQrLgZt84bHpCn');
+    return (addressField?.value as string) || '-';
   };
 
   // Get unique statuses and reps for filters
@@ -204,14 +218,36 @@ export function AppointmentsTable({
     return filtered;
   }, [appointments, statusFilter, repFilter, timeFilter]);
 
-  // Sort appointments descending by date/time (newest first)
+  // Sort appointments based on selected column and direction
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
-      const dateA = a.start_time ? new Date(a.start_time).getTime() : 0;
-      const dateB = b.start_time ? new Date(b.start_time).getTime() : 0;
-      return dateB - dateA;
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'contact':
+          comparison = getContactName(a.contact_id).localeCompare(getContactName(b.contact_id));
+          break;
+        case 'start':
+          const dateA = a.start_time ? new Date(a.start_time).getTime() : 0;
+          const dateB = b.start_time ? new Date(b.start_time).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+        case 'status':
+          comparison = (a.appointment_status || '').localeCompare(b.appointment_status || '');
+          break;
+        case 'rep':
+          comparison = getUserName(a.assigned_user_id).localeCompare(getUserName(b.assigned_user_id));
+          break;
+        case 'address':
+          comparison = getAddress(a.contact_id).localeCompare(getAddress(b.contact_id));
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [filteredAppointments]);
+  }, [filteredAppointments, sortColumn, sortDirection, contacts, users]);
 
   const totalPages = Math.ceil(sortedAppointments.length / ITEMS_PER_PAGE);
   const paginatedAppointments = sortedAppointments.slice(
@@ -238,6 +274,25 @@ export function AppointmentsTable({
   const handleRowClick = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setSheetOpen(true);
+  };
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" /> 
+      : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
   return (
@@ -303,16 +358,57 @@ export function AppointmentsTable({
           <Table>
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
-                <TableHead className="text-muted-foreground">Contact / Appointment</TableHead>
-                <TableHead className="text-muted-foreground">Start</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="text-muted-foreground">Rep</TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort('contact')}
+                >
+                  <div className="flex items-center">
+                    Contact / Appointment
+                    <SortIcon column="contact" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort('address')}
+                >
+                  <div className="flex items-center">
+                    Address
+                    <SortIcon column="address" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort('start')}
+                >
+                  <div className="flex items-center">
+                    Start
+                    <SortIcon column="start" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center">
+                    Status
+                    <SortIcon column="status" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort('rep')}
+                >
+                  <div className="flex items-center">
+                    Rep
+                    <SortIcon column="rep" />
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -342,6 +438,9 @@ export function AppointmentsTable({
                           {getContactPhone(appt.contact_id)}
                         </span>
                       </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
+                      {getAddress(appt.contact_id)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {formatDateTime(appt.start_time)}
