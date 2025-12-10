@@ -89,7 +89,7 @@ interface OpportunitiesTableProps {
 
 type SortColumn = "name" | "stage" | "value" | "status" | "source" | "createdDate" | "updatedDate";
 
-const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
+//const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
 
 type SortDirection = "asc" | "desc";
 
