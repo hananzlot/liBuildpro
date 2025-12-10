@@ -424,6 +424,7 @@ export function OpportunitiesTable({
   };
 
   const handleSort = (column: SortColumn) => {
+    setCurrentPage(1); // 👈 jump to top of sorted dataset
     if (sortColumn === column) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
