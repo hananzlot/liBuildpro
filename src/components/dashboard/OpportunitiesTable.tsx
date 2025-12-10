@@ -32,7 +32,7 @@ interface Opportunity {
   pipeline_name: string | null;
   pipeline_stage_id: string | null;
   contact_id: string | null;
-  assigned_to: string | null;
+  assigned_to: string | null; // Owner
 }
 
 interface Appointment {
@@ -88,9 +88,6 @@ interface OpportunitiesTableProps {
 }
 
 type SortColumn = "name" | "stage" | "value" | "status" | "source" | "createdDate" | "updatedDate";
-
-//const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
-
 type SortDirection = "asc" | "desc";
 
 const ITEMS_PER_PAGE = 10;
@@ -134,9 +131,10 @@ export function OpportunitiesTable({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [users]);
 
-  // Format sales reps for multi-select
+  // Format sales reps for multi-select (add Unassigned option)
   const salesRepOptions = useMemo(() => {
-    return uniqueSalesReps.map((rep) => ({ value: rep.ghl_id, label: rep.name }));
+    const base = uniqueSalesReps.map((rep) => ({ value: rep.ghl_id, label: rep.name }));
+    return [...base, { value: "__unassigned__", label: "Unassigned" }];
   }, [uniqueSalesReps]);
 
   // Track which contacts have appointments (excluding cancelled)
@@ -172,7 +170,7 @@ export function OpportunitiesTable({
     return map;
   }, [users]);
 
-  // Contact lookup map for dates
+  // Contact lookup map for dates and source
   const contactMap = useMemo(() => {
     const map = new Map<string, Contact>();
     contacts.forEach((c) => {
@@ -208,38 +206,18 @@ export function OpportunitiesTable({
       filtered = filtered.filter((opp) => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
     }
 
-    // Apply sales rep filter (multi-select)
+    // Apply sales rep filter (multi-select) - OWNER ONLY
     if (salesRepFilter.length > 0) {
       filtered = filtered.filter((opp) => {
-        // Check opportunity assigned_to
-        if (opp.assigned_to && salesRepFilter.includes(opp.assigned_to)) return true;
-        // Check contact assigned_to
-        const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
-        if (contact?.assigned_to && salesRepFilter.includes(contact.assigned_to)) return true;
-        // Check appointment assigned_user_id
-        const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
-        return oppAppointments.some((a) => a.assigned_user_id && salesRepFilter.includes(a.assigned_user_id));
+        const ownerId = opp.assigned_to ?? "__unassigned__";
+        return salesRepFilter.includes(ownerId);
       });
     }
-
-    // Helper to get effective date from contact (quickbase stage = 90 days ago)
-    const getEffectiveDate = (opp: Opportunity): number => {
-      if (opp.stage_name?.toLowerCase() === "quickbase") {
-        const ninetyDaysAgo = new Date();
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-        return ninetyDaysAgo.getTime();
-      }
-      // Use contact's date if available, otherwise fall back to opportunity date
-      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
-      const dateStr = contact?.ghl_date_added || opp.ghl_date_added;
-      return dateStr ? new Date(dateStr).getTime() : 0;
-    };
 
     // Helper: normalize a Date to midnight (so only the day matters)
     const toDayTimestamp = (dateStr: string | null | undefined): number => {
       if (!dateStr) return 0;
       const d = new Date(dateStr);
-      // strip time, keep local date; use setUTCHours(0,0,0,0) if you prefer UTC
       d.setHours(0, 0, 0, 0);
       return d.getTime();
     };
@@ -323,7 +301,6 @@ export function OpportunitiesTable({
     sortDirection,
     contactsWithAppointments,
     contactMap,
-    appointmentsByContact,
   ]);
 
   // Reset to page 1 when filters change
@@ -386,11 +363,9 @@ export function OpportunitiesTable({
               (a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime(),
             )[0]
           : null;
-      const salesRepName = latestAppt?.assigned_user_id
-        ? userMap.get(latestAppt.assigned_user_id)
-        : opp.assigned_to
-          ? userMap.get(opp.assigned_to)
-          : "";
+
+      const salesRepName = opp.assigned_to ? (userMap.get(opp.assigned_to) ?? "Unknown") : "Unassigned";
+
       const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
 
       const address = getCustomFieldValue(contact, "b7oTVsUQrLgZt84bHpCn");
@@ -640,9 +615,10 @@ export function OpportunitiesTable({
                           (a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime(),
                         )[0]
                       : null;
-                  const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : null;
                   const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
                   const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
+
+                  const salesRepName = opp.assigned_to ? (userMap.get(opp.assigned_to) ?? "Unknown") : "Unassigned";
 
                   return (
                     <TableRow
@@ -698,7 +674,7 @@ export function OpportunitiesTable({
                           "-"
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{salesRepName || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{salesRepName}</TableCell>
                     </TableRow>
                   );
                 })
