@@ -61,13 +61,11 @@ const getPSTOffset = (utcDate: Date): number => {
   const isDST = utcDate >= marchSecondSunday && utcDate < novFirstSunday;
   return isDST ? 7 : 8; // PDT is UTC-7, PST is UTC-8
 };
-
 const CUSTOM_FIELD_IDS = {
   ADDRESS: "b7oTVsUQrLgZt84bHpCn",
   SCOPE_OF_WORK: "KwQRtJT0aMSHnq3mwR68",
   NOTES: "588ddQgiGEg3AWtTQB2i",
 };
-
 interface Opportunity {
   ghl_id: string;
   name: string | null;
@@ -82,7 +80,6 @@ interface Opportunity {
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
 }
-
 interface Appointment {
   ghl_id: string;
   title: string | null;
@@ -93,7 +90,6 @@ interface Appointment {
   contact_id: string | null;
   address?: string | null;
 }
-
 interface Contact {
   ghl_id: string;
   contact_name: string | null;
@@ -105,7 +101,6 @@ interface Contact {
   custom_fields?: unknown;
   location_id?: string;
 }
-
 interface GHLUser {
   ghl_id: string;
   name: string | null;
@@ -113,7 +108,6 @@ interface GHLUser {
   last_name: string | null;
   email: string | null;
 }
-
 interface Message {
   id: string;
   body: string;
@@ -123,7 +117,6 @@ interface Message {
   dateAdded: string;
   attachments?: any[];
 }
-
 interface Conversation {
   ghl_id: string;
   contact_id: string | null;
@@ -136,14 +129,12 @@ interface Conversation {
   last_message_direction: string | null;
   messages?: Message[];
 }
-
 interface ContactNote {
   id: string;
   body: string;
   userId: string | null;
   dateAdded: string;
 }
-
 interface GHLTask {
   id: string;
   ghl_id: string;
@@ -155,7 +146,6 @@ interface GHLTask {
   assigned_to: string | null;
   created_at: string;
 }
-
 interface DisplayTask {
   id: string;
   ghl_id: string;
@@ -166,7 +156,6 @@ interface DisplayTask {
   assigned_to: string | null;
   created_at: string;
 }
-
 interface OpportunityDetailSheetProps {
   opportunity: Opportunity | null;
   appointments: Appointment[];
@@ -177,15 +166,12 @@ interface OpportunityDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   allOpportunities?: Opportunity[];
 }
-
 const OPPORTUNITY_STATUSES = ["open", "won", "lost", "abandoned"];
-
 const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
   if (!customFields || !Array.isArray(customFields)) return null;
   const field = customFields.find((f: any) => f.id === fieldId);
   return field?.value || null;
 };
-
 export function OpportunityDetailSheet({
   opportunity,
   appointments,
@@ -198,11 +184,6 @@ export function OpportunityDetailSheet({
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-
-  // Map logged-in Supabase user → GHL user by email
-  const currentGhlUserId =
-    users.find((u) => u.email && u.email.toLowerCase() === (user?.email || "").toLowerCase())?.ghl_id || null;
-
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedStatus, setEditedStatus] = useState<string>("");
@@ -242,7 +223,7 @@ export function OpportunityDetailSheet({
   const [taskDueTime, setTaskDueTime] = useState("09:00");
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [editingTask, setEditingTask] = useState<DisplayTask | null>(null);
-  const [IsDeletingTask, setIsDeletingTask] = useState<string | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState<string | null>(null);
   const [isUpdatingTaskStatus, setIsUpdatingTaskStatus] = useState<string | null>(null);
 
   // Appointment creation/editing
@@ -278,7 +259,7 @@ export function OpportunityDetailSheet({
       setSavedValues({});
     }
     setWasOpen(open);
-  }, [open, wasOpen]);
+  }, [open]);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -324,7 +305,6 @@ export function OpportunityDetailSheet({
           setIsLoadingNotes(false);
         }
       };
-
       // Fetch tasks from ghl_tasks table only
       const fetchTasks = async () => {
         setIsLoadingTasks(true);
@@ -350,9 +330,7 @@ export function OpportunityDetailSheet({
             .order("due_date", {
               ascending: true,
             });
-
           if (error) throw error;
-
           const tasks: DisplayTask[] = (data || []).map((t: GHLTask) => ({
             id: t.id,
             ghl_id: t.ghl_id,
@@ -363,7 +341,6 @@ export function OpportunityDetailSheet({
             assigned_to: t.assigned_to,
             created_at: t.created_at,
           }));
-
           setTasks(tasks);
         } catch (err) {
           console.error("Failed to fetch tasks:", err);
@@ -390,7 +367,6 @@ export function OpportunityDetailSheet({
           console.error("Failed to fetch estimated cost:", err);
         }
       };
-
       fetchConversations();
       fetchNotes();
       fetchTasks();
@@ -402,7 +378,6 @@ export function OpportunityDetailSheet({
       setEstimatedCost("");
     }
   }, [open, opportunity?.contact_id, opportunity?.ghl_id]);
-
   const handleRefreshConversations = async () => {
     if (!opportunity?.contact_id) return;
     setIsLoadingConversations(true);
@@ -424,7 +399,6 @@ export function OpportunityDetailSheet({
       setIsLoadingConversations(false);
     }
   };
-
   const handleCreateNote = async () => {
     if (!opportunity?.contact_id || !newNoteText.trim()) return;
     setIsCreatingNote(true);
@@ -433,13 +407,9 @@ export function OpportunityDetailSheet({
         body: {
           contactId: opportunity.contact_id,
           body: newNoteText.trim(),
-          // Use GHL user id as author
-          enteredBy: currentGhlUserId,
-          // Optional: pass email for debugging/audit
-          enteredByEmail: user?.email || null,
+          enteredBy: user?.id || null,
         },
       });
-
       if (error) {
         toast.error("Failed to create note");
         console.error("Error creating note:", error);
@@ -491,7 +461,6 @@ export function OpportunityDetailSheet({
     }));
     setTasks(tasks);
   };
-
   const openTaskDialog = () => {
     const contact = contacts.find((c) => c.ghl_id === opportunity?.contact_id);
     const contactName =
@@ -503,7 +472,6 @@ export function OpportunityDetailSheet({
     setTaskDueTime("09:00");
     setTaskDialogOpen(true);
   };
-
   const handleCreateTask = async () => {
     if (!opportunity || !taskTitle.trim()) {
       toast.error("Please enter a task title");
@@ -535,10 +503,9 @@ export function OpportunityDetailSheet({
           assignedTo: assignedToValue,
           contactId: opportunity.contact_id,
           locationId: locationId,
-          enteredBy: currentGhlUserId,
+          enteredBy: user?.id || null,
         },
       });
-
       if (ghlResponse.error) {
         console.error("GHL sync error:", ghlResponse.error);
         toast.error("Failed to create task in GHL");
@@ -561,7 +528,6 @@ export function OpportunityDetailSheet({
       setIsCreatingTask(false);
     }
   };
-
   const openEditTaskDialog = (task: DisplayTask) => {
     setEditingTask(task);
     setTaskTitle(task.title);
@@ -580,7 +546,6 @@ export function OpportunityDetailSheet({
     }
     setTaskDialogOpen(true);
   };
-
   const handleUpdateTask = async () => {
     if (!editingTask || !taskTitle.trim()) {
       toast.error("Please enter a task title");
@@ -646,7 +611,6 @@ export function OpportunityDetailSheet({
       setIsCreatingTask(false);
     }
   };
-
   const handleDeleteTask = async (task: DisplayTask) => {
     setIsDeletingTask(task.id);
     try {
@@ -676,7 +640,6 @@ export function OpportunityDetailSheet({
       setIsDeletingTask(null);
     }
   };
-
   const handleToggleTaskStatus = async (task: DisplayTask) => {
     setIsUpdatingTaskStatus(task.id);
     const newStatus = task.status === "completed" ? "pending" : "completed";
@@ -736,7 +699,6 @@ export function OpportunityDetailSheet({
     setAppointmentNotes("");
     setAppointmentDialogOpen(true);
   };
-
   const handleCreateAppointment = async () => {
     if (!opportunity || !appointmentDate || !appointmentTitle.trim()) {
       toast.error("Please enter appointment title and date");
@@ -762,7 +724,7 @@ export function OpportunityDetailSheet({
           startTime: utcDate.toISOString(),
           assignedUserId: assignedToValue,
           notes: appointmentNotes.trim() || null,
-          enteredBy: currentGhlUserId,
+          enteredBy: user?.id || null,
         },
       });
       if (response.error) {
@@ -790,7 +752,6 @@ export function OpportunityDetailSheet({
       setIsCreatingAppointment(false);
     }
   };
-
   const openEditAppointmentDialog = (appt: Appointment) => {
     setEditingAppointment(appt);
     setAppointmentTitle(appt.title || "");
@@ -822,7 +783,6 @@ export function OpportunityDetailSheet({
     }
     setAppointmentDialogOpen(true);
   };
-
   const handleUpdateAppointment = async () => {
     if (!editingAppointment || !appointmentDate || !appointmentTitle.trim()) {
       toast.error("Please enter appointment title and date");
@@ -875,7 +835,9 @@ export function OpportunityDetailSheet({
         console.error("Appointment update error:", response.error);
         console.log("Response data:", response.data);
         // The error message from edge function is in response.data
-        const errorData = response.data as { error?: string } | null;
+        const errorData = response.data as {
+          error?: string;
+        } | null;
         const errorMsg = errorData?.error || "";
         if (errorMsg.includes("slot") || errorMsg.includes("available")) {
           toast.error(
@@ -936,7 +898,6 @@ export function OpportunityDetailSheet({
     }
   });
   const availableStages = Array.from(stageMap.keys()).sort();
-
   const handleEditClick = () => {
     // Use savedValues if available (for re-editing without closing), otherwise use opportunity prop
     setEditedStatus(savedValues.status ?? opportunity?.status?.toLowerCase() ?? "open");
@@ -946,7 +907,6 @@ export function OpportunityDetailSheet({
     setEditedAssignedTo(savedValues.assigned_to ?? opportunity?.assigned_to ?? "__unassigned__");
     setIsEditing(true);
   };
-
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedStatus("");
@@ -955,7 +915,6 @@ export function OpportunityDetailSheet({
     setEditedMonetaryValue("");
     setEditedAssignedTo("");
   };
-
   const handlePipelineChange = (newPipelineId: string) => {
     setEditedPipeline(newPipelineId);
     // Reset stage when pipeline changes - will be set to first available stage
@@ -966,7 +925,6 @@ export function OpportunityDetailSheet({
       .sort();
     setEditedStage(stagesForNewPipeline[0] || "");
   };
-
   const handleSave = async () => {
     if (!opportunity) return;
     setIsSaving(true);
@@ -1017,7 +975,6 @@ export function OpportunityDetailSheet({
       setIsSaving(false);
     }
   };
-
   const handleSaveEstimatedCost = async () => {
     if (!opportunity) return;
     setIsSavingCost(true);
@@ -1029,7 +986,7 @@ export function OpportunityDetailSheet({
         {
           opportunity_id: opportunity.ghl_id,
           estimated_cost: costValue,
-          entered_by: currentGhlUserId,
+          entered_by: user?.id || null,
         },
         {
           onConflict: "opportunity_id",
@@ -1045,7 +1002,6 @@ export function OpportunityDetailSheet({
       setIsSavingCost(false);
     }
   };
-
   const handleDeleteOpportunity = async () => {
     if (!opportunity) return;
     setIsDeletingOpportunity(true);
@@ -1069,7 +1025,6 @@ export function OpportunityDetailSheet({
       setIsDeletingOpportunity(false);
     }
   };
-
   const handleDeleteAppointmentFromDialog = async () => {
     if (!editingAppointment) return;
     setIsDeletingAppointment(true);
@@ -1094,9 +1049,7 @@ export function OpportunityDetailSheet({
       setIsDeletingAppointment(false);
     }
   };
-
   if (!opportunity) return null;
-
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleString("en-US", {
@@ -1108,7 +1061,6 @@ export function OpportunityDetailSheet({
       hour12: true,
     });
   };
-
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -1117,7 +1069,6 @@ export function OpportunityDetailSheet({
       year: "numeric",
     });
   };
-
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
       case "won":
@@ -1131,7 +1082,6 @@ export function OpportunityDetailSheet({
         return "bg-amber-500/20 text-amber-400 border-amber-500/30";
     }
   };
-
   const getAppointmentStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
       case "confirmed":
@@ -1145,7 +1095,6 @@ export function OpportunityDetailSheet({
         return "bg-amber-500/20 text-amber-400 border-amber-500/30";
     }
   };
-
   const formatCurrency = (value: number | null) => {
     if (!value) return "$0";
     return new Intl.NumberFormat("en-US", {
@@ -1154,7 +1103,6 @@ export function OpportunityDetailSheet({
       minimumFractionDigits: 0,
     }).format(value);
   };
-
   const contact = contacts.find((c) => c.ghl_id === opportunity.contact_id);
   const relatedAppointments = appointments.filter((a) => a.contact_id === opportunity.contact_id);
   const effectiveAssignedTo = savedValues.assigned_to !== undefined ? savedValues.assigned_to : opportunity.assigned_to;
@@ -1169,14 +1117,12 @@ export function OpportunityDetailSheet({
     (assignedUser?.first_name && assignedUser?.last_name
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
       : "Unassigned");
-
   // Get address from contact custom_fields, or fall back to appointment address from GHL calendar
   const contactAddress = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-  const appointmentAddress = relatedAppointments.find((a) => a.address)?.address || null;
+  const appointmentAddress = relatedAppointments.find(a => a.address)?.address || null;
   const address = contactAddress || appointmentAddress;
   const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
   const contactNotes = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.NOTES);
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-3xl overflow-y-auto p-0">
@@ -1676,7 +1622,6 @@ export function OpportunityDetailSheet({
                 const dateB = new Date(b.dateAdded).getTime();
                 return dateB - dateA; // Most recent first
               });
-
             return (
               <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={false}>
                 <CollapsibleTrigger asChild>
@@ -1729,11 +1674,7 @@ export function OpportunityDetailSheet({
                             className={`flex flex-col ${msg.direction === "inbound" ? "items-start" : "items-end"}`}
                           >
                             <div
-                              className={`max-w-[85%] rounded-lg px-3 py-2 ${
-                                msg.direction === "inbound"
-                                  ? "bg-muted/60 text-foreground"
-                                  : "bg-primary/20 text-foreground"
-                              }`}
+                              className={`max-w-[85%] rounded-lg px-3 py-2 ${msg.direction === "inbound" ? "bg-muted/60 text-foreground" : "bg-primary/20 text-foreground"}`}
                             >
                               <p className="text-sm whitespace-pre-wrap break-words">{msg.body || "(No content)"}</p>
                             </div>
@@ -1891,9 +1832,7 @@ export function OpportunityDetailSheet({
                               )}
                             </Button>
                             <span
-                              className={`font-medium text-sm truncate ${
-                                task.status === "completed" ? "line-through text-muted-foreground" : ""
-                              }`}
+                              className={`font-medium text-sm truncate ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}
                             >
                               {task.title}
                             </span>
@@ -1912,9 +1851,9 @@ export function OpportunityDetailSheet({
                               size="icon"
                               className="h-6 w-6 text-destructive hover:text-destructive"
                               onClick={() => handleDeleteTask(task)}
-                              disabled={IsDeletingTask === task.id}
+                              disabled={isDeletingTask === task.id}
                             >
-                              {IsDeletingTask === task.id ? (
+                              {isDeletingTask === task.id ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
                                 <Trash2 className="h-3 w-3" />
