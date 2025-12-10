@@ -107,7 +107,7 @@ export function OpportunitiesTable({
   const [stageFilter, setStageFilter] = useState<string[]>([]);
   const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
   const [salesRepFilter, setSalesRepFilter] = useState<string[]>([]);
-  const [sortColumn, setSortColumn] = useState<SortColumn>("date");
+  const [sortColumn, setSortColumn] = useState<SortColumn>("UpdatedDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -451,12 +451,13 @@ export function OpportunitiesTable({
   };
 
   const handleSort = (column: SortColumn) => {
-    setCurrentPage(1); // 👈 jump to top of sorted dataset
+    setCurrentPage(1);
+
     if (sortColumn === column) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortColumn(column);
-      setSortDirection(column === "date" || column === "value" ? "desc" : "asc");
+      setSortDirection(column === "value" || column === "createdDate" || column === "updatedDate" ? "desc" : "asc");
     }
   };
 
