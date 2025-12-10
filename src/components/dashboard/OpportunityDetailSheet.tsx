@@ -88,6 +88,7 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  address?: string | null;
 }
 interface Contact {
   ghl_id: string;
@@ -1116,7 +1117,10 @@ export function OpportunityDetailSheet({
     (assignedUser?.first_name && assignedUser?.last_name
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
       : "Unassigned");
-  const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+  // Get address from contact custom_fields, or fall back to appointment address from GHL calendar
+  const contactAddress = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+  const appointmentAddress = relatedAppointments.find(a => a.address)?.address || null;
+  const address = contactAddress || appointmentAddress;
   const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
   const contactNotes = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.NOTES);
   return (
