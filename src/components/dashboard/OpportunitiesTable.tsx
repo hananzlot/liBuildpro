@@ -237,11 +237,6 @@ export function OpportunitiesTable({
 
     // Helper to get Created date
     const getCreatedDate = (opp: Opportunity): number => {
-      if (opp.stage_name?.toLowerCase() === "quickbase") {
-        const ninetyDaysAgo = new Date();
-        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-        return ninetyDaysAgo.getTime();
-      }
       const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
       const dateStr = contact?.ghl_date_added || opp.ghl_date_added;
       return dateStr ? new Date(dateStr).getTime() : 0;
