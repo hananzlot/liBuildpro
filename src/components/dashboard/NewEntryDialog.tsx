@@ -1,7 +1,15 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Plus, Upload, Loader2, X, FileSpreadsheet, Download, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,7 +46,7 @@ interface CSVEntry {
   appointmentTime?: string;
   source?: string;
   assignedTo?: string;
-  status: 'pending' | 'success' | 'error';
+  status: "pending" | "success" | "error";
   error?: string;
 }
 
@@ -56,47 +64,47 @@ interface CalendarMapping {
 }
 
 const SOURCES = [
-  'Angi',
-  'Facebook',
-  'Google',
-  'Home Advisor',
-  'Instagram',
-  'Other',
-  'Referral',
-  'Thumbtack',
-  'Website',
-  'Yelp',
+  "Angi",
+  "Facebook",
+  "Google",
+  "Home Advisor",
+  "Instagram",
+  "Other",
+  "Referral",
+  "Thumbtack",
+  "Website",
+  "Yelp",
 ];
 
 export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps) {
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('single');
+  const [activeTab, setActiveTab] = useState("single");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Single entry form state
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [address, setAddress] = useState('');
-  const [scope, setScope] = useState('');
-  const [notes, setNotes] = useState('');
-  const [appointmentDate, setAppointmentDate] = useState('');
-  const [appointmentTime, setAppointmentTime] = useState('09:00');
-  const [source, setSource] = useState('');
-  const [assignedTo, setAssignedTo] = useState('');
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [scope, setScope] = useState("");
+  const [notes, setNotes] = useState("");
+  const [appointmentDate, setAppointmentDate] = useState("");
+  const [appointmentTime, setAppointmentTime] = useState("09:00");
+  const [source, setSource] = useState("");
+  const [assignedTo, setAssignedTo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [phoneError, setPhoneError] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   // Pipeline/stage state
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
-  const [selectedPipeline, setSelectedPipeline] = useState('');
-  const [selectedStage, setSelectedStage] = useState('');
+  const [selectedPipeline, setSelectedPipeline] = useState("");
+  const [selectedStage, setSelectedStage] = useState("");
 
   // Calendar state
   const [calendarMappings, setCalendarMappings] = useState<CalendarMapping[]>([]);
-  const [selectedCalendar, setSelectedCalendar] = useState('');
+  const [selectedCalendar, setSelectedCalendar] = useState("");
 
   // CSV upload state
   const [csvEntries, setCsvEntries] = useState<CSVEntry[]>([]);
@@ -107,16 +115,16 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   useEffect(() => {
     const fetchPipelineStages = async () => {
       const { data } = await supabase
-        .from('opportunities')
-        .select('pipeline_id, pipeline_name, pipeline_stage_id, stage_name')
-        .not('pipeline_id', 'is', null)
-        .not('pipeline_stage_id', 'is', null);
-      
+        .from("opportunities")
+        .select("pipeline_id, pipeline_name, pipeline_stage_id, stage_name")
+        .not("pipeline_id", "is", null)
+        .not("pipeline_stage_id", "is", null);
+
       if (data) {
         // Get unique pipeline/stage combinations
         const uniqueStages = data.reduce((acc: PipelineStage[], curr) => {
           const exists = acc.find(
-            s => s.pipeline_id === curr.pipeline_id && s.pipeline_stage_id === curr.pipeline_stage_id
+            (s) => s.pipeline_id === curr.pipeline_id && s.pipeline_stage_id === curr.pipeline_stage_id,
           );
           if (!exists && curr.pipeline_id && curr.pipeline_name && curr.pipeline_stage_id && curr.stage_name) {
             acc.push({
@@ -129,9 +137,9 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
           return acc;
         }, []);
         setPipelineStages(uniqueStages);
-        
+
         // Set default to Annabella > New Lead
-        const defaultStage = uniqueStages.find(s => s.stage_name === 'New Lead (No Contacted Yet)');
+        const defaultStage = uniqueStages.find((s) => s.stage_name === "New Lead (No Contacted Yet)");
         if (defaultStage) {
           setSelectedPipeline(defaultStage.pipeline_id);
           setSelectedStage(defaultStage.pipeline_stage_id);
@@ -145,20 +153,20 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   useEffect(() => {
     const fetchCalendarMappings = async () => {
       const { data } = await supabase
-        .from('appointments')
-        .select('assigned_user_id, calendar_id')
-        .not('assigned_user_id', 'is', null)
-        .not('calendar_id', 'is', null);
-      
+        .from("appointments")
+        .select("assigned_user_id, calendar_id")
+        .not("assigned_user_id", "is", null)
+        .not("calendar_id", "is", null);
+
       if (data) {
         // Get unique user-calendar mappings
         const mappings = data.reduce((acc: CalendarMapping[], curr) => {
-          if (!acc.find(m => m.userId === curr.assigned_user_id)) {
-            const user = users.find(u => u.ghl_id === curr.assigned_user_id);
+          if (!acc.find((m) => m.userId === curr.assigned_user_id)) {
+            const user = users.find((u) => u.ghl_id === curr.assigned_user_id);
             acc.push({
               userId: curr.assigned_user_id!,
               calendarId: curr.calendar_id!,
-              userName: user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown',
+              userName: user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Unknown",
             });
           }
           return acc;
@@ -174,50 +182,50 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   // Auto-select calendar when rep is selected
   useEffect(() => {
     if (assignedTo) {
-      const mapping = calendarMappings.find(m => m.userId === assignedTo);
+      const mapping = calendarMappings.find((m) => m.userId === assignedTo);
       if (mapping) {
         setSelectedCalendar(mapping.calendarId);
       } else {
-        setSelectedCalendar('');
+        setSelectedCalendar("");
       }
     } else {
-      setSelectedCalendar('');
+      setSelectedCalendar("");
     }
   }, [assignedTo, calendarMappings]);
 
   // Check if selected rep has a calendar
   const selectedRepHasCalendar = useMemo(() => {
     if (!assignedTo) return true; // No rep selected, no warning needed
-    return calendarMappings.some(m => m.userId === assignedTo);
+    return calendarMappings.some((m) => m.userId === assignedTo);
   }, [assignedTo, calendarMappings]);
 
   // Get unique pipelines and stages for current pipeline
   const uniquePipelines = pipelineStages.reduce((acc: { id: string; name: string }[], curr) => {
-    if (!acc.find(p => p.id === curr.pipeline_id)) {
+    if (!acc.find((p) => p.id === curr.pipeline_id)) {
       acc.push({ id: curr.pipeline_id, name: curr.pipeline_name });
     }
     return acc;
   }, []);
-  
-  const stagesForPipeline = pipelineStages.filter(s => s.pipeline_id === selectedPipeline);
+
+  const stagesForPipeline = pipelineStages.filter((s) => s.pipeline_id === selectedPipeline);
 
   const resetForm = () => {
-    setFirstName('');
-    setLastName('');
-    setPhone('');
-    setEmail('');
-    setAddress('');
-    setScope('');
-    setNotes('');
-    setAppointmentDate('');
-    setAppointmentTime('09:00');
-    setSource('');
-    setAssignedTo('');
-    setSelectedCalendar('');
-    setPhoneError('');
-    setEmailError('');
+    setFirstName("");
+    setLastName("");
+    setPhone("");
+    setEmail("");
+    setAddress("");
+    setScope("");
+    setNotes("");
+    setAppointmentDate("");
+    setAppointmentTime("09:00");
+    setSource("");
+    setAssignedTo("");
+    setSelectedCalendar("");
+    setPhoneError("");
+    setEmailError("");
     // Reset to default pipeline/stage
-    const defaultStage = pipelineStages.find(s => s.stage_name === 'New Lead (No Contacted Yet)');
+    const defaultStage = pipelineStages.find((s) => s.stage_name === "New Lead (No Contacted Yet)");
     if (defaultStage) {
       setSelectedPipeline(defaultStage.pipeline_id);
       setSelectedStage(defaultStage.pipeline_stage_id);
@@ -225,15 +233,15 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   };
 
   const getUserName = (userId: string): string => {
-    const user = users.find(u => u.ghl_id === userId);
-    return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown';
+    const user = users.find((u) => u.ghl_id === userId);
+    return user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Unknown";
   };
 
   const validatePhone = (value: string): boolean => {
     if (!value.trim()) return true; // Optional field
     // Accept various phone formats: (555) 123-4567, 555-123-4567, 5551234567, +1 555 123 4567
     const phoneRegex = /^[\+]?[(]?[0-9]{1,3}[)]?[-\s\.]?[(]?[0-9]{1,3}[)]?[-\s\.]?[0-9]{3,4}[-\s\.]?[0-9]{4}$/;
-    const digitsOnly = value.replace(/\D/g, '');
+    const digitsOnly = value.replace(/\D/g, "");
     return phoneRegex.test(value) || (digitsOnly.length >= 10 && digitsOnly.length <= 15);
   };
 
@@ -246,26 +254,26 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const handlePhoneChange = (value: string) => {
     setPhone(value);
     if (value.trim() && !validatePhone(value)) {
-      setPhoneError('Please enter a valid phone number');
+      setPhoneError("Please enter a valid phone number");
     } else {
-      setPhoneError('');
+      setPhoneError("");
     }
   };
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
     if (value.trim() && !validateEmail(value)) {
-      setEmailError('Please enter a valid email address');
+      setEmailError("Please enter a valid email address");
     } else {
-      setEmailError('');
+      setEmailError("");
     }
   };
 
   const buildAppointmentDateTime = (date: string, time: string): string | null => {
     if (!date) return null;
     const pstOffset = -8; // PST offset
-    const [year, month, day] = date.split('-').map(Number);
-    const [hours, minutes] = time.split(':').map(Number);
+    const [year, month, day] = date.split("-").map(Number);
+    const [hours, minutes] = time.split(":").map(Number);
     const utcHours = hours - pstOffset;
     const dateObj = new Date(Date.UTC(year, month - 1, day, utcHours, minutes, 0));
     return dateObj.toISOString();
@@ -273,17 +281,17 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
 
   const handleSubmitSingle = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      toast.error('First name and last name are required');
+      toast.error("First name and last name are required");
       return;
     }
 
     // Validate phone and email
     if (phone.trim() && !validatePhone(phone)) {
-      toast.error('Please enter a valid phone number');
+      toast.error("Please enter a valid phone number");
       return;
     }
     if (email.trim() && !validateEmail(email)) {
-      toast.error('Please enter a valid email address');
+      toast.error("Please enter a valid email address");
       return;
     }
 
@@ -291,7 +299,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     try {
       const appointmentDateTime = buildAppointmentDateTime(appointmentDate, appointmentTime);
 
-      const { data, error } = await supabase.functions.invoke('create-ghl-entry', {
+      const { data, error } = await supabase.functions.invoke("create-ghl-entry", {
         body: {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -317,32 +325,32 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       setOpen(false);
       onSuccess?.();
     } catch (error) {
-      console.error('Error creating entry:', error);
-      toast.error('Failed to create entry');
+      console.error("Error creating entry:", error);
+      toast.error("Failed to create entry");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const parseCSV = (text: string): CSVEntry[] => {
-    const lines = text.split('\n').filter(line => line.trim());
+    const lines = text.split("\n").filter((line) => line.trim());
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+    const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/['"]/g, ""));
     const entries: CSVEntry[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       // Parse CSV line handling quoted values
       const values: string[] = [];
-      let current = '';
+      let current = "";
       let inQuotes = false;
-      
+
       for (const char of lines[i]) {
         if (char === '"') {
           inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
+        } else if (char === "," && !inQuotes) {
           values.push(current.trim());
-          current = '';
+          current = "";
         } else {
           current += char;
         }
@@ -350,66 +358,66 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       values.push(current.trim());
 
       const entry: CSVEntry = {
-        firstName: '',
-        lastName: '',
-        status: 'pending',
+        firstName: "",
+        lastName: "",
+        status: "pending",
       };
 
       headers.forEach((header, index) => {
-        const value = values[index]?.replace(/^["']|["']$/g, '') || '';
-        
+        const value = values[index]?.replace(/^["']|["']$/g, "") || "";
+
         switch (header) {
-          case 'firstname':
-          case 'first_name':
-          case 'first name':
+          case "firstname":
+          case "first_name":
+          case "first name":
             entry.firstName = value;
             break;
-          case 'lastname':
-          case 'last_name':
-          case 'last name':
+          case "lastname":
+          case "last_name":
+          case "last name":
             entry.lastName = value;
             break;
-          case 'phone':
-          case 'phone number':
+          case "phone":
+          case "phone number":
             entry.phone = value;
             break;
-          case 'email':
-          case 'email address':
+          case "email":
+          case "email address":
             entry.email = value;
             break;
-          case 'address':
-          case 'street address':
+          case "address":
+          case "street address":
             entry.address = value;
             break;
-          case 'scope':
-          case 'scope of work':
+          case "scope":
+          case "scope of work":
             entry.scope = value;
             break;
-          case 'notes':
-          case 'note':
+          case "notes":
+          case "note":
             entry.notes = value;
             break;
-          case 'appointmentdate':
-          case 'appointment_date':
-          case 'appointment date':
-          case 'date':
+          case "appointmentdate":
+          case "appointment_date":
+          case "appointment date":
+          case "date":
             entry.appointmentDate = value;
             break;
-          case 'appointmenttime':
-          case 'appointment_time':
-          case 'appointment time':
-          case 'time':
-            entry.appointmentTime = value || '09:00';
+          case "appointmenttime":
+          case "appointment_time":
+          case "appointment time":
+          case "time":
+            entry.appointmentTime = value || "09:00";
             break;
-          case 'source':
-          case 'lead source':
+          case "source":
+          case "lead source":
             entry.source = value;
             break;
-          case 'assignedto':
-          case 'assigned_to':
-          case 'assigned to':
-          case 'rep':
-          case 'sales rep':
+          case "assignedto":
+          case "assigned_to":
+          case "assigned to":
+          case "rep":
+          case "sales rep":
             entry.assignedTo = value;
             break;
         }
@@ -433,16 +441,16 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       const entries = parseCSV(text);
       setCsvEntries(entries);
       if (entries.length === 0) {
-        toast.error('No valid entries found in CSV');
+        toast.error("No valid entries found in CSV");
       } else {
         toast.success(`Found ${entries.length} entries in CSV`);
       }
     };
     reader.readAsText(file);
-    
+
     // Reset file input
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
@@ -458,14 +466,14 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
 
     for (let i = 0; i < updatedEntries.length; i++) {
       const entry = updatedEntries[i];
-      
+
       try {
         // Find assigned user by name if provided
         let assignedToId = entry.assignedTo;
         if (assignedToId && !assignedToId.match(/^[a-zA-Z0-9]{20,}$/)) {
           // Looks like a name, not an ID - try to find the user
-          const matchedUser = users.find(u => {
-            const fullName = u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim();
+          const matchedUser = users.find((u) => {
+            const fullName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim();
             return fullName.toLowerCase().includes(assignedToId!.toLowerCase());
           });
           assignedToId = matchedUser?.ghl_id || null;
@@ -476,20 +484,20 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
         if (entry.appointmentDate) {
           // Try to parse various date formats
           let dateStr = entry.appointmentDate;
-          if (dateStr.includes('/')) {
-            const parts = dateStr.split('/');
+          if (dateStr.includes("/")) {
+            const parts = dateStr.split("/");
             if (parts.length === 3) {
               // Assume MM/DD/YYYY or M/D/YYYY
-              const month = parts[0].padStart(2, '0');
-              const day = parts[1].padStart(2, '0');
+              const month = parts[0].padStart(2, "0");
+              const day = parts[1].padStart(2, "0");
               const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
               dateStr = `${year}-${month}-${day}`;
             }
           }
-          appointmentDateTime = buildAppointmentDateTime(dateStr, entry.appointmentTime || '09:00');
+          appointmentDateTime = buildAppointmentDateTime(dateStr, entry.appointmentTime || "09:00");
         }
 
-        const { error } = await supabase.functions.invoke('create-ghl-entry', {
+        const { error } = await supabase.functions.invoke("create-ghl-entry", {
           body: {
             firstName: entry.firstName.trim(),
             lastName: entry.lastName.trim(),
@@ -509,14 +517,14 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
 
         if (error) throw error;
 
-        updatedEntries[i] = { ...entry, status: 'success' };
+        updatedEntries[i] = { ...entry, status: "success" };
         successCount++;
       } catch (error) {
         console.error(`Error creating entry for ${entry.firstName} ${entry.lastName}:`, error);
-        updatedEntries[i] = { 
-          ...entry, 
-          status: 'error', 
-          error: error instanceof Error ? error.message : 'Unknown error' 
+        updatedEntries[i] = {
+          ...entry,
+          status: "error",
+          error: error instanceof Error ? error.message : "Unknown error",
         };
         errorCount++;
       }
@@ -525,11 +533,11 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       setUploadProgress(Math.round(((i + 1) / updatedEntries.length) * 100));
 
       // Small delay between requests to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     setIsUploading(false);
-    
+
     if (successCount > 0) {
       toast.success(`Created ${successCount} entries successfully`);
       onSuccess?.();
@@ -540,18 +548,39 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   };
 
   const downloadCSVTemplate = () => {
-    const headers = ['FirstName', 'LastName', 'Phone', 'Email', 'Address', 'Scope', 'Notes', 'AppointmentDate', 'AppointmentTime', 'Source', 'AssignedTo'];
-    const sampleRow = ['John', 'Doe', '(555) 123-4567', 'john@example.com', '123 Main St, City, CA 90210', 'Kitchen remodel', 'Initial consultation', '12/15/2024', '09:00', 'Google', 'Sales Rep Name'];
-    
-    const csvContent = [
-      headers.join(','),
-      sampleRow.join(','),
-    ].join('\n');
+    const headers = [
+      "FirstName",
+      "LastName",
+      "Phone",
+      "Email",
+      "Address",
+      "Scope",
+      "Notes",
+      "AppointmentDate",
+      "AppointmentTime",
+      "Source",
+      "AssignedTo",
+    ];
+    const sampleRow = [
+      "John",
+      "Doe",
+      "(555) 123-4567",
+      "john@example.com",
+      "123 Main St, City, CA 90210",
+      "Kitchen remodel",
+      "Initial consultation",
+      "12/15/2024",
+      "09:00",
+      "Google",
+      "Sales Rep Name",
+    ];
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const csvContent = [headers.join(","), sampleRow.join(",")].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = 'new_entries_template.csv';
+    link.download = "new_entries_template.csv";
     link.click();
     URL.revokeObjectURL(link.href);
   };
@@ -562,16 +591,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   };
 
   return (
-    
-  
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="single">Single Entry</TabsTrigger>
-            <TabsTrigger value="csv">CSV Upload</TabsTrigger>
-
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
         <Button size="sm" className="gap-2">
           <Plus className="h-4 w-4" />
           New Entry
@@ -580,11 +601,13 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Add New Entry</DialogTitle>
-          <DialogDescription>
-            Create a new contact with opportunity and appointment
-          </DialogDescription>
+          <DialogDescription>Create a new contact with opportunity and appointment</DialogDescription>
         </DialogHeader>
-            
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="single">Single Entry</TabsTrigger>
+            <TabsTrigger value="csv">CSV Upload</TabsTrigger>
           </TabsList>
 
           <TabsContent value="single" className="flex-1 overflow-auto">
@@ -619,7 +642,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                     value={phone}
                     onChange={(e) => handlePhoneChange(e.target.value)}
                     placeholder="(555) 123-4567"
-                    className={phoneError ? 'border-red-500' : ''}
+                    className={phoneError ? "border-red-500" : ""}
                   />
                   {phoneError && <p className="text-xs text-red-500">{phoneError}</p>}
                 </div>
@@ -631,7 +654,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                     value={email}
                     onChange={(e) => handleEmailChange(e.target.value)}
                     placeholder="john@example.com"
-                    className={emailError ? 'border-red-500' : ''}
+                    className={emailError ? "border-red-500" : ""}
                   />
                   {emailError && <p className="text-xs text-red-500">{emailError}</p>}
                 </div>
@@ -697,8 +720,10 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                       <SelectValue placeholder="Select source" />
                     </SelectTrigger>
                     <SelectContent>
-                      {SOURCES.map(s => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      {SOURCES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -710,15 +735,25 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                       <SelectValue placeholder="Select rep" />
                     </SelectTrigger>
                     <SelectContent>
-                      {[...users].sort((a, b) => {
-                        const nameA = (a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || 'Unknown').toLowerCase();
-                        const nameB = (b.name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || 'Unknown').toLowerCase();
-                        return nameA.localeCompare(nameB);
-                      }).map(user => (
-                        <SelectItem key={user.ghl_id} value={user.ghl_id}>
-                          {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown'}
-                        </SelectItem>
-                      ))}
+                      {[...users]
+                        .sort((a, b) => {
+                          const nameA = (
+                            a.name ||
+                            `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
+                            "Unknown"
+                          ).toLowerCase();
+                          const nameB = (
+                            b.name ||
+                            `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
+                            "Unknown"
+                          ).toLowerCase();
+                          return nameA.localeCompare(nameB);
+                        })
+                        .map((user) => (
+                          <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                            {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown"}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -741,7 +776,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                         <SelectValue placeholder="Select calendar" />
                       </SelectTrigger>
                       <SelectContent>
-                        {calendarMappings.map(m => (
+                        {calendarMappings.map((m) => (
                           <SelectItem key={m.calendarId} value={m.calendarId}>
                             {m.userName}'s Calendar
                           </SelectItem>
@@ -755,21 +790,23 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="pipeline">Pipeline *</Label>
-                  <Select 
-                    value={selectedPipeline} 
+                  <Select
+                    value={selectedPipeline}
                     onValueChange={(val) => {
                       setSelectedPipeline(val);
                       // Reset stage when pipeline changes
-                      const firstStage = pipelineStages.find(s => s.pipeline_id === val);
-                      setSelectedStage(firstStage?.pipeline_stage_id || '');
+                      const firstStage = pipelineStages.find((s) => s.pipeline_id === val);
+                      setSelectedStage(firstStage?.pipeline_stage_id || "");
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select pipeline" />
                     </SelectTrigger>
                     <SelectContent>
-                      {uniquePipelines.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      {uniquePipelines.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -781,7 +818,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                       <SelectValue placeholder="Select stage" />
                     </SelectTrigger>
                     <SelectContent>
-                      {stagesForPipeline.map(s => (
+                      {stagesForPipeline.map((s) => (
                         <SelectItem key={s.pipeline_stage_id} value={s.pipeline_stage_id}>
                           {s.stage_name}
                         </SelectItem>
@@ -796,8 +833,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                onClick={handleSubmitSingle} 
+              <Button
+                onClick={handleSubmitSingle}
                 disabled={isSubmitting || !firstName.trim() || !lastName.trim() || !!phoneError || !!emailError}
               >
                 {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -812,15 +849,10 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                 <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-8">
                   <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground text-center mb-4">
-                    Upload a CSV file with columns: FirstName, LastName, Phone, Email, Address, Scope, Notes, AppointmentDate, AppointmentTime, Source, AssignedTo
+                    Upload a CSV file with columns: FirstName, LastName, Phone, Email, Address, Scope, Notes,
+                    AppointmentDate, AppointmentTime, Source, AssignedTo
                   </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
+                  <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileSelect} className="hidden" />
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={downloadCSVTemplate}>
                       <Download className="h-4 w-4 mr-2" />
@@ -838,10 +870,10 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">{csvEntries.length} entries</Badge>
                       <Badge variant="outline" className="text-green-600">
-                        {csvEntries.filter(e => e.status === 'success').length} success
+                        {csvEntries.filter((e) => e.status === "success").length} success
                       </Badge>
                       <Badge variant="outline" className="text-red-600">
-                        {csvEntries.filter(e => e.status === 'error').length} errors
+                        {csvEntries.filter((e) => e.status === "error").length} errors
                       </Badge>
                     </div>
                     <Button variant="ghost" size="sm" onClick={clearCSV}>
@@ -853,14 +885,12 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                   {isUploading && (
                     <div className="space-y-2">
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className="h-full bg-primary transition-all duration-300"
                           style={{ width: `${uploadProgress}%` }}
                         />
                       </div>
-                      <p className="text-sm text-muted-foreground text-center">
-                        Uploading... {uploadProgress}%
-                      </p>
+                      <p className="text-sm text-muted-foreground text-center">Uploading... {uploadProgress}%</p>
                     </div>
                   )}
 
@@ -881,20 +911,22 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                             <TableCell className="font-medium">
                               {entry.firstName} {entry.lastName}
                             </TableCell>
-                            <TableCell>{entry.phone || '-'}</TableCell>
-                            <TableCell>{entry.email || '-'}</TableCell>
+                            <TableCell>{entry.phone || "-"}</TableCell>
+                            <TableCell>{entry.email || "-"}</TableCell>
                             <TableCell>
-                              {entry.appointmentDate ? `${entry.appointmentDate} ${entry.appointmentTime || ''}` : '-'}
+                              {entry.appointmentDate ? `${entry.appointmentDate} ${entry.appointmentTime || ""}` : "-"}
                             </TableCell>
                             <TableCell>
-                              {entry.status === 'pending' && (
-                                <Badge variant="secondary">Pending</Badge>
+                              {entry.status === "pending" && <Badge variant="secondary">Pending</Badge>}
+                              {entry.status === "success" && (
+                                <Badge variant="default" className="bg-green-600">
+                                  Success
+                                </Badge>
                               )}
-                              {entry.status === 'success' && (
-                                <Badge variant="default" className="bg-green-600">Success</Badge>
-                              )}
-                              {entry.status === 'error' && (
-                                <Badge variant="destructive" title={entry.error}>Error</Badge>
+                              {entry.status === "error" && (
+                                <Badge variant="destructive" title={entry.error}>
+                                  Error
+                                </Badge>
                               )}
                             </TableCell>
                           </TableRow>
@@ -910,12 +942,12 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button 
-                onClick={handleUploadCSV} 
-                disabled={isUploading || csvEntries.length === 0 || csvEntries.every(e => e.status !== 'pending')}
+              <Button
+                onClick={handleUploadCSV}
+                disabled={isUploading || csvEntries.length === 0 || csvEntries.every((e) => e.status !== "pending")}
               >
                 {isUploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Upload {csvEntries.filter(e => e.status === 'pending').length} Entries
+                Upload {csvEntries.filter((e) => e.status === "pending").length} Entries
               </Button>
             </DialogFooter>
           </TabsContent>
