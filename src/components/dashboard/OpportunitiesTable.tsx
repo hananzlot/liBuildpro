@@ -255,51 +255,54 @@ export function OpportunitiesTable({
 
     // Sort opportunities
     return [...filtered].sort((a, b) => {
+      const dir = sortDirection === "asc" ? 1 : -1;
       let comparison = 0;
+
+      const aCreated = getCreatedDate(a);
+      const bCreated = getCreatedDate(b);
+      const aUpdated = getUpdatedDate(a);
+      const bUpdated = getUpdatedDate(b);
 
       switch (sortColumn) {
         case "name":
           comparison = (a.name || "").localeCompare(b.name || "");
-          break;
+          return dir * comparison;
 
         case "stage":
           comparison = (a.stage_name || "").localeCompare(b.stage_name || "");
-          if (comparison === 0) {
-            return getCreatedDate(b) - getCreatedDate(a); // Secondary
-          }
-          break;
+          if (comparison !== 0) return dir * comparison;
+          // secondary: created date
+          return dir * (aCreated - bCreated);
 
         case "value":
           comparison = (a.monetary_value || 0) - (b.monetary_value || 0);
-          break;
+          return dir * comparison;
 
         case "source": {
           const contactA = a.contact_id ? contactMap.get(a.contact_id) : null;
           const contactB = b.contact_id ? contactMap.get(b.contact_id) : null;
           comparison = (contactA?.source || "").localeCompare(contactB?.source || "");
-          break;
+          return dir * comparison;
         }
 
         case "status":
           comparison = (a.status || "").localeCompare(b.status || "");
-          break;
+          return dir * comparison;
 
         case "createdDate":
-          comparison = getCreatedDate(a) - getCreatedDate(b);
-          break;
+          // primary: created date only
+          return dir * (aCreated - bCreated);
 
         case "updatedDate":
-          // 🔥 Primary
-          comparison = getUpdatedDate(a) - getUpdatedDate(b);
-
-          // 🔥 Secondary when updatedDate is equal
-          if (comparison === 0) {
-            comparison = getCreatedDate(a) - getCreatedDate(b);
+        default:
+          // primary: updated date
+          comparison = aUpdated - bUpdated;
+          if (comparison !== 0) {
+            return dir * comparison;
           }
-          break;
+          // secondary: created date
+          return dir * (aCreated - bCreated);
       }
-
-      return sortDirection === "asc" ? comparison : -comparison;
     });
   }, [
     opportunities,
