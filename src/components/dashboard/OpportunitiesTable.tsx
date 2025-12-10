@@ -87,8 +87,9 @@ interface OpportunitiesTableProps {
   conversations?: Conversation[];
 }
 
-//type SortColumn = "name" | "stage" | "value" | "status" | "date";
-type SortColumn = "name" | "stage" | "value" | "status" | "date" | "source";
+type SortColumn = "name" | "stage" | "value" | "status" | "source" | "createdDate" | "updatedDate";
+
+const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
 
 type SortDirection = "asc" | "desc";
 
@@ -234,6 +235,12 @@ export function OpportunitiesTable({
       return dateStr ? new Date(dateStr).getTime() : 0;
     };
 
+    // Helper to get UPDATED date
+    const getUpdatedDate = (opp: Opportunity): number => {
+      const dateStr = opp.ghl_date_updated || opp.ghl_date_added;
+      return dateStr ? new Date(dateStr).getTime() : 0;
+    };
+
     // Sort opportunities
     return [...filtered].sort((a, b) => {
       let comparison = 0;
@@ -242,16 +249,19 @@ export function OpportunitiesTable({
         case "name":
           comparison = (a.name || "").localeCompare(b.name || "");
           break;
+
         case "stage":
           comparison = (a.stage_name || "").localeCompare(b.stage_name || "");
-          // Secondary sort by date descending when sorting by stage
+          // still keep secondary sort by CREATED date desc if you like
           if (comparison === 0) {
-            return getEffectiveDate(b) - getEffectiveDate(a); // Always descending for secondary date sort
+            return getCreatedDate(b) - getCreatedDate(a);
           }
           break;
+
         case "value":
           comparison = (a.monetary_value || 0) - (b.monetary_value || 0);
           break;
+
         case "source": {
           const contactA = a.contact_id ? contactMap.get(a.contact_id) : null;
           const contactB = b.contact_id ? contactMap.get(b.contact_id) : null;
@@ -262,8 +272,13 @@ export function OpportunitiesTable({
         case "status":
           comparison = (a.status || "").localeCompare(b.status || "");
           break;
-        case "date":
-          comparison = getEffectiveDate(a) - getEffectiveDate(b);
+
+        case "createdDate":
+          comparison = getCreatedDate(a) - getCreatedDate(b);
+          break;
+
+        case "updatedDate":
+          comparison = getUpdatedDate(a) - getUpdatedDate(b);
           break;
       }
 
@@ -547,20 +562,20 @@ export function OpportunitiesTable({
                 </TableHead>
                 <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-                  onClick={() => handleSort("date")}
+                  onClick={() => handleSort("createdDate")}
                 >
                   <div className="flex items-center">
                     Contact Created
-                    <SortIcon column="date" />
+                    <SortIcon column="createdDate" />
                   </div>
                 </TableHead>
                 <TableHead
                   className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-                  onClick={() => handleSort("date")}
+                  onClick={() => handleSort("updatedDate")}
                 >
                   <div className="flex items-center">
                     Last Edited
-                    <SortIcon column="date" />
+                    <SortIcon column="updatedDate" />
                   </div>
                 </TableHead>
 
