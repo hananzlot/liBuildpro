@@ -252,6 +252,13 @@ export function OpportunitiesTable({
         case "value":
           comparison = (a.monetary_value || 0) - (b.monetary_value || 0);
           break;
+        case "source": {
+          const contactA = a.contact_id ? contactMap.get(a.contact_id) : null;
+          const contactB = b.contact_id ? contactMap.get(b.contact_id) : null;
+          comparison = (contactA?.source || "").localeCompare(contactB?.source || "");
+          break;
+        }
+
         case "status":
           comparison = (a.status || "").localeCompare(b.status || "");
           break;
