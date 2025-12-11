@@ -157,6 +157,8 @@ export function FollowUpManagement({
   const [needsAttentionPage, setNeedsAttentionPage] = useState(1);
   const [missingScopeOpen, setMissingScopeOpen] = useState(false);
   const [missingScopeRepFilter, setMissingScopeRepFilter] = useState<string>("all");
+  const [staleNewOpen, setStaleNewOpen] = useState(false);
+  const [staleNewRepFilter, setStaleNewRepFilter] = useState<string>("all");
   const NEEDS_ATTENTION_PAGE_SIZE = 10;
 
   // Tasks Helper State
@@ -766,6 +768,63 @@ export function FollowUpManagement({
 
     return set;
   }, [appointments]);
+
+  // Contacts with future tasks
+  const contactsWithFutureTasks = useMemo(() => {
+    const now = new Date();
+    const set = new Set<string>();
+
+    ghlTasks.forEach((t) => {
+      if (!t.contact_id || !t.due_date) return;
+      if (t.completed) return;
+
+      const taskDate = new Date(t.due_date);
+      if (taskDate > now) {
+        set.add(t.contact_id);
+      }
+    });
+
+    return set;
+  }, [ghlTasks]);
+
+  // Stale New Opportunities - stage contains "New", no future appointments, no future tasks
+  const staleNewData = useMemo(() => {
+    const results = opportunities.filter((o) => {
+      if (!o.contact_id) return false;
+      if (o.status?.toLowerCase() !== "open") return false;
+      
+      // Check if stage contains "New"
+      const stageName = o.stage_name?.toLowerCase() || "";
+      if (!stageName.includes("new")) return false;
+      
+      // Check if has future appointment
+      if (contactsWithFutureAppointments.has(o.contact_id)) return false;
+      
+      // Check if has future task
+      if (contactsWithFutureTasks.has(o.contact_id)) return false;
+      
+      return true;
+    });
+
+    // Deduplicate by contact_id
+    const uniqueMap = new Map<string, DBOpportunity>();
+    results.forEach((o) => {
+      if (!o.contact_id) return;
+      const existing = uniqueMap.get(o.contact_id);
+      if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
+        uniqueMap.set(o.contact_id, o);
+      }
+    });
+    let unique = Array.from(uniqueMap.values());
+
+    // Apply rep filter
+    if (staleNewRepFilter !== "all") {
+      unique = unique.filter((o) => o.assigned_to === staleNewRepFilter);
+    }
+
+    // Sort by monetary value descending
+    return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
+  }, [opportunities, contactsWithFutureAppointments, contactsWithFutureTasks, staleNewRepFilter]);
 
   const staleNotesData = useMemo(() => {
     const results: Array<{
@@ -1459,6 +1518,100 @@ export function FollowUpManagement({
                             </TableRow>
                           );
                         })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Stale New Opportunities */}
+        <Collapsible
+          open={staleNewOpen}
+          onOpenChange={setStaleNewOpen}
+          className={staleNewOpen ? "lg:col-span-2" : ""}
+        >
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <Clock className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        Stale New Opportunities
+                        <Badge variant="destructive" className="text-xs">
+                          {staleNewData.length}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs hidden sm:block">
+                        New stage with no future appointment or task
+                      </CardDescription>
+                    </div>
+                  </div>
+                  {staleNewOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                {/* Filter */}
+                <div className="flex items-center gap-4 mb-4">
+                  <Select value={staleNewRepFilter} onValueChange={setStaleNewRepFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by rep" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Reps</SelectItem>
+                      {uniqueReps.map((rep) => (
+                        <SelectItem key={rep.id} value={rep.id}>
+                          {rep.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {staleNewData.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">No stale new opportunities found</div>
+                ) : (
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Opportunity</TableHead>
+                          <TableHead>Address</TableHead>
+                          <TableHead>Pipeline Stage</TableHead>
+                          <TableHead>Assigned Rep</TableHead>
+                          <TableHead className="text-right">Value</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {staleNewData.map((opp) => (
+                          <TableRow
+                            key={opp.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => onOpenOpportunity(opp)}
+                          >
+                            <TableCell className="font-medium">{opp.name || "Unnamed"}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">
+                              {getAddress(opp.contact_id)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30">
+                                {opp.stage_name || "Unknown"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{getUserName(opp.assigned_to)}</TableCell>
+                            <TableCell className="font-medium text-green-600 text-right">
+                              {formatCurrency(opp.monetary_value)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </div>
