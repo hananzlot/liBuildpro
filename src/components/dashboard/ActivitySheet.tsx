@@ -1,8 +1,10 @@
+import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DollarSign, CheckSquare, FileText, User, Calendar, MapPin, UserCheck } from "lucide-react";
 
 interface DBOpportunity {
@@ -156,7 +158,28 @@ export function ActivitySheet({
   profiles,
   onOpportunityClick,
 }: ActivitySheetProps) {
-  const totalActivity = editedOpportunities.length + filteredTasks.length + filteredNotes.length;
+  const [creatorFilter, setCreatorFilter] = useState<string>("all");
+
+  // Get unique creators from tasks and notes
+  const availableCreators = useMemo(() => {
+    const creatorIds = new Set<string>();
+    filteredTasks.forEach(t => { if (t.entered_by) creatorIds.add(t.entered_by); });
+    filteredNotes.forEach(n => { if (n.entered_by) creatorIds.add(n.entered_by); });
+    return profiles.filter(p => creatorIds.has(p.id));
+  }, [filteredTasks, filteredNotes, profiles]);
+
+  // Filter tasks and notes by creator
+  const displayedTasks = useMemo(() => {
+    if (creatorFilter === "all") return filteredTasks;
+    return filteredTasks.filter(t => t.entered_by === creatorFilter);
+  }, [filteredTasks, creatorFilter]);
+
+  const displayedNotes = useMemo(() => {
+    if (creatorFilter === "all") return filteredNotes;
+    return filteredNotes.filter(n => n.entered_by === creatorFilter);
+  }, [filteredNotes, creatorFilter]);
+
+  const totalActivity = editedOpportunities.length + displayedTasks.length + displayedNotes.length;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -168,6 +191,24 @@ export function ActivitySheet({
               {totalActivity} items
             </Badge>
           </SheetTitle>
+          {availableCreators.length > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-muted-foreground">Filter by creator:</span>
+              <Select value={creatorFilter} onValueChange={setCreatorFilter}>
+                <SelectTrigger className="w-[180px] h-8 text-xs">
+                  <SelectValue placeholder="All creators" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All creators</SelectItem>
+                  {availableCreators.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.full_name || p.email?.split('@')[0] || "Unknown"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </SheetHeader>
 
         <Tabs defaultValue="opportunities" className="flex-1 flex flex-col overflow-hidden mt-4">
@@ -178,11 +219,11 @@ export function ActivitySheet({
             </TabsTrigger>
             <TabsTrigger value="tasks" className="gap-1 text-xs">
               <CheckSquare className="h-3 w-3" />
-              Tasks ({filteredTasks.length})
+              Tasks ({displayedTasks.length})
             </TabsTrigger>
             <TabsTrigger value="notes" className="gap-1 text-xs">
               <FileText className="h-3 w-3" />
-              Notes ({filteredNotes.length})
+              Notes ({displayedNotes.length})
             </TabsTrigger>
           </TabsList>
 
@@ -250,12 +291,12 @@ export function ActivitySheet({
           <TabsContent value="tasks" className="flex-1 overflow-hidden mt-4">
             <ScrollArea className="h-[calc(100vh-220px)]">
               <div className="space-y-2 pr-4">
-                {filteredTasks.length === 0 ? (
+                {displayedTasks.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
-                    No tasks created in this period
+                    {creatorFilter !== "all" ? "No tasks by this creator" : "No tasks created in this period"}
                   </p>
                 ) : (
-                  filteredTasks
+                  displayedTasks
                     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                     .map((task) => {
                       const contact = contacts.find(c => c.ghl_id === task.contact_id);
@@ -327,12 +368,12 @@ export function ActivitySheet({
           <TabsContent value="notes" className="flex-1 overflow-hidden mt-4">
             <ScrollArea className="h-[calc(100vh-220px)]">
               <div className="space-y-2 pr-4">
-                {filteredNotes.length === 0 ? (
+                {displayedNotes.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
-                    No notes created in this period
+                    {creatorFilter !== "all" ? "No notes by this creator" : "No notes created in this period"}
                   </p>
                 ) : (
-                  filteredNotes
+                  displayedNotes
                     .sort((a, b) => new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime())
                     .map((note) => {
                       const contact = contacts.find(c => c.ghl_id === note.contact_id);
