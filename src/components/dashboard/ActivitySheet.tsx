@@ -66,6 +66,7 @@ interface ActivitySheetProps {
 
 const CUSTOM_FIELD_IDS = {
   ADDRESS: "b7oTVsUQrLgZt84bHpCn",
+  SCOPE_OF_WORK: "KwQRtJT0aMSHnq3mwR68",
 };
 
 const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
@@ -73,6 +74,12 @@ const extractCustomField = (customFields: unknown, fieldId: string): string | nu
   const field = customFields.find((f: { id: string }) => f.id === fieldId);
   return field?.value || null;
 };
+
+interface DBOpportunityExtended extends DBOpportunity {
+  contact?: DBContact;
+  address?: string | null;
+  scopeOfWork?: string | null;
+}
 
 const getContactName = (contact: DBContact | undefined): string => {
   if (!contact) return "Unknown";
@@ -175,6 +182,7 @@ export function ActivitySheet({
                     .map((opp) => {
                       const contact = contacts.find(c => c.ghl_id === opp.contact_id);
                       const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+                      const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
                       return (
                         <Card 
                           key={opp.id} 
@@ -185,16 +193,20 @@ export function ActivitySheet({
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <p className="font-medium text-sm truncate capitalize">
-                                  {opp.name?.toLowerCase() || "Unnamed"}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">
                                   {getContactName(contact)}
                                 </p>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                  <MapPin className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{address || "No address"}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                  <span className="truncate">{scopeOfWork || "No scope"}</span>
+                                  <span className="shrink-0 font-semibold text-emerald-400">
+                                    {formatCurrency(opp.monetary_value)}
+                                  </span>
+                                </div>
                               </div>
                               <div className="flex flex-col items-end gap-1 shrink-0">
-                                <span className="font-semibold text-emerald-400 text-sm">
-                                  {formatCurrency(opp.monetary_value)}
-                                </span>
                                 <Badge variant="outline" className={`text-[10px] ${getStatusColor(opp.status)}`}>
                                   {opp.status}
                                 </Badge>
@@ -202,16 +214,12 @@ export function ActivitySheet({
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                <span className="truncate max-w-[150px]">{address || "No address"}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
                                 <span>{getUserName(opp.assigned_to, users)}</span>
                               </div>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground/70">
-                              Updated: {formatDate(opp.ghl_date_updated)}
+                              <div className="text-[10px] text-muted-foreground/70">
+                                Updated: {formatDate(opp.ghl_date_updated)}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
@@ -234,23 +242,41 @@ export function ActivitySheet({
                     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                     .map((task) => {
                       const contact = contacts.find(c => c.ghl_id === task.contact_id);
+                      const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+                      const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                      // Find opportunity for this contact to get value
+                      const relatedOpp = editedOpportunities.find(o => o.contact_id === task.contact_id);
                       return (
                         <Card key={task.id} className="border-border/50">
                           <CardContent className="p-3 space-y-2">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm">{task.title}</p>
-                                <p className="text-xs text-muted-foreground truncate">
+                                <p className="font-medium text-sm truncate capitalize">
                                   {getContactName(contact)}
                                 </p>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                  <MapPin className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{address || "No address"}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                  <span className="truncate">{scopeOfWork || "No scope"}</span>
+                                  {relatedOpp && (
+                                    <span className="shrink-0 font-semibold text-emerald-400">
+                                      {formatCurrency(relatedOpp.monetary_value)}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               <Badge variant={task.completed ? "default" : "secondary"} className="text-[10px] shrink-0">
                                 {task.completed ? "Done" : "Pending"}
                               </Badge>
                             </div>
-                            {task.body && (
-                              <p className="text-xs text-muted-foreground line-clamp-2">{task.body}</p>
-                            )}
+                            <div className="bg-muted/50 rounded p-2 mt-2">
+                              <p className="text-xs font-medium">{task.title}</p>
+                              {task.body && (
+                                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{task.body}</p>
+                              )}
+                            </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
@@ -287,19 +313,41 @@ export function ActivitySheet({
                     .sort((a, b) => new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime())
                     .map((note) => {
                       const contact = contacts.find(c => c.ghl_id === note.contact_id);
+                      const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+                      const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                      // Find opportunity for this contact to get value
+                      const relatedOpp = editedOpportunities.find(o => o.contact_id === note.contact_id);
                       return (
                         <Card key={note.id} className="border-border/50">
                           <CardContent className="p-3 space-y-2">
                             <div className="flex items-start justify-between gap-2">
-                              <p className="font-medium text-sm">{getContactName(contact)}</p>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate capitalize">
+                                  {getContactName(contact)}
+                                </p>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                  <MapPin className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{address || "No address"}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                  <span className="truncate">{scopeOfWork || "No scope"}</span>
+                                  {relatedOpp && (
+                                    <span className="shrink-0 font-semibold text-emerald-400">
+                                      {formatCurrency(relatedOpp.monetary_value)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                               <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                                 <User className="h-3 w-3" />
                                 <span>{getUserName(note.user_id, users)}</span>
                               </div>
                             </div>
-                            <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
-                              {note.body || "(No content)"}
-                            </p>
+                            <div className="bg-muted/50 rounded p-2">
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
+                                {note.body || "(No content)"}
+                              </p>
+                            </div>
                             <div className="text-[10px] text-muted-foreground/70">
                               Added: {formatDate(note.ghl_date_added)}
                             </div>
