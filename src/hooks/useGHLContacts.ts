@@ -303,6 +303,17 @@ function processMetrics(
     return dateAdded && dateAdded >= startOfMonth;
   }).length;
 
+  // Helper: Normalize source name to proper capitalization (title case)
+  const normalizeSourceName = (source: string): string => {
+    if (!source) return "Direct";
+    // Convert to title case: capitalize first letter of each word
+    return source
+      .toLowerCase()
+      .split(/[\s-_]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   // Helper: Get source priority (Facebook=0, Google=1, Others=2)
   const getSourcePriority = (source: string): number => {
     const lower = source.toLowerCase();
@@ -322,10 +333,10 @@ function processMetrics(
     });
   };
 
-  // Group by source
+  // Group by source (normalized)
   const sourceMap = new Map<string, number>();
   filteredContacts.forEach((c) => {
-    const source = c.source || "Direct";
+    const source = normalizeSourceName(c.source || "Direct");
     sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
   });
 
@@ -477,10 +488,10 @@ function processMetrics(
   const wonOpportunitiesCount = wonOpportunities.length;
   const wonOpportunitiesValue = wonOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
-  // Won by source - group won opportunities by contact source
+  // Won by source - group won opportunities by contact source (normalized)
   const contactSourceMap = new Map<string, string>();
   contacts.forEach((c) => {
-    contactSourceMap.set(c.ghl_id, c.source || "Direct");
+    contactSourceMap.set(c.ghl_id, normalizeSourceName(c.source || "Direct"));
   });
 
   const wonBySourceMap = new Map<string, { count: number; value: number }>();
