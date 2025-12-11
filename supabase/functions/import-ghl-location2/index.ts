@@ -12,8 +12,12 @@ const LOCATION_1_ID = Deno.env.get('GHL_LOCATION_ID')!;
 const LOCATION_2_API_KEY = Deno.env.get('GHL_API_KEY_2')!;
 const LOCATION_2_ID = Deno.env.get('GHL_LOCATION_ID_2')!;
 
-async function fetchFromGHL(endpoint: string, apiKey: string) {
-  const response = await fetch(`https://services.leadconnectorhq.com${endpoint}`, {
+// Location 1 pipeline configuration (default pipeline for imported opportunities)
+const LOCATION_1_DEFAULT_PIPELINE_ID = '6bUqC98F6LCM9zuUitXw';
+const LOCATION_1_DEFAULT_STAGE_ID = 'bb6ea1e4-3cf0-44cb-a498-faca5cd59a1a'; // New Lead stage
+
+async function fetchContactDetails(contactId: string, apiKey: string) {
+  const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Version': '2021-07-28',
@@ -22,9 +26,31 @@ async function fetchFromGHL(endpoint: string, apiKey: string) {
   });
   
   if (!response.ok) {
+    console.error(`Failed to fetch contact details: ${response.status}`);
+    return null;
+  }
+  
+  const data = await response.json();
+  return data.contact;
+}
+
+async function updateContactInGHL(contactId: string, updates: any, apiKey: string) {
+  console.log(`Updating contact ${contactId} with:`, JSON.stringify(updates, null, 2));
+  
+  const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Version': '2021-07-28',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updates),
+  });
+  
+  if (!response.ok) {
     const errorText = await response.text();
-    console.error(`GHL API error: ${response.status} - ${errorText}`);
-    throw new Error(`GHL API error: ${response.status}`);
+    console.error(`Failed to update contact: ${response.status} - ${errorText}`);
+    return null;
   }
   
   return response.json();
@@ -42,33 +68,49 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
   if (contact.source) payload.source = contact.source;
   if (contact.tags && contact.tags.length > 0) payload.tags = contact.tags;
   
+  // Add address fields
+  if (contact.address1) payload.address1 = contact.address1;
+  if (contact.city) payload.city = contact.city;
+  if (contact.state) payload.state = contact.state;
+  if (contact.postalCode) payload.postalCode = contact.postalCode;
+  if (contact.country) payload.country = contact.country;
+  
   // Map Location 2 fields to Location 1 custom fields
-  // Location 2 stores scope of work in attributions.utmContent
-  // Location 1 uses custom field KwQRtJT0aMSHnq3mwR68 for scope
   const customFields: Array<{ id: string; value: string }> = [];
   
-  // Get scope from utm_content (could be in attributions or directly on contact)
-  const utmContent = contact.attributions?.utmContent || 
-                     contact.attributions?.utm_content ||
-                     contact.utmContent ||
-                     contact.utm_content;
+  // Get scope from utm_content in attributions array
+  let utmContent = '';
+  if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
+    utmContent = contact.attributions[0]?.utmContent || '';
+  } else if (contact.attributions?.utmContent) {
+    utmContent = contact.attributions.utmContent;
+  }
   
   if (utmContent) {
     customFields.push({ id: 'KwQRtJT0aMSHnq3mwR68', value: utmContent }); // Scope of work
     console.log(`Mapping utm_content to scope: ${utmContent}`);
   }
   
-  // Copy address if exists (field ID b7oTVsUQrLgZt84bHpCn)
-  if (contact.address1 || contact.address) {
-    customFields.push({ id: 'b7oTVsUQrLgZt84bHpCn', value: contact.address1 || contact.address });
+  // Create address string from address fields for custom field
+  const addressParts = [
+    contact.address1,
+    contact.city,
+    contact.state,
+    contact.postalCode
+  ].filter(Boolean);
+  
+  if (addressParts.length > 0) {
+    const fullAddress = addressParts.join(', ');
+    customFields.push({ id: 'b7oTVsUQrLgZt84bHpCn', value: fullAddress }); // Address custom field
+    console.log(`Mapping address: ${fullAddress}`);
   }
   
-  // Only set customFields if we have mapped values
   if (customFields.length > 0) {
     payload.customFields = customFields;
   }
   
   console.log(`Creating contact in Location 1: ${payload.firstName} ${payload.lastName}`);
+  console.log('Contact payload:', JSON.stringify(payload, null, 2));
   
   const response = await fetch('https://services.leadconnectorhq.com/contacts/', {
     method: 'POST',
@@ -83,6 +125,16 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Failed to create contact: ${response.status} - ${errorText}`);
+    
+    // If duplicate, return the existing contact ID from error
+    try {
+      const errorData = JSON.parse(errorText);
+      if (errorData.meta?.contactId) {
+        console.log(`Contact already exists: ${errorData.meta.contactId}`);
+        return { contact: { id: errorData.meta.contactId }, alreadyExists: true };
+      }
+    } catch {}
+    
     throw new Error(`Failed to create contact: ${response.status}`);
   }
   
@@ -90,12 +142,13 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
 }
 
 async function createOpportunityInGHL(opportunity: any, contactId: string, apiKey: string) {
-  // Use default pipeline from Location 1 or the same pipeline structure
+  // Use Location 1's default pipeline since Location 2 has different pipeline IDs
   const payload: any = {
     name: opportunity.name || 'Imported Opportunity',
     contactId: contactId,
-    pipelineId: opportunity.pipelineId || opportunity.pipeline_id,
-    pipelineStageId: opportunity.pipelineStageId || opportunity.pipeline_stage_id,
+    locationId: LOCATION_1_ID,
+    pipelineId: LOCATION_1_DEFAULT_PIPELINE_ID,
+    pipelineStageId: LOCATION_1_DEFAULT_STAGE_ID,
     status: opportunity.status || 'open',
   };
   
@@ -104,6 +157,7 @@ async function createOpportunityInGHL(opportunity: any, contactId: string, apiKe
   }
   
   console.log(`Creating opportunity in Location 1: ${payload.name}`);
+  console.log('Opportunity payload:', JSON.stringify(payload, null, 2));
   
   const response = await fetch('https://services.leadconnectorhq.com/opportunities/', {
     method: 'POST',
@@ -167,32 +221,25 @@ serve(async (req) => {
     
     console.log(`Already imported: ${importedContacts.size} contacts, ${importedOpportunities.size} opportunities`);
     
-    // Fetch contacts from Location 2
-    let allContacts: any[] = [];
-    let startAfterId = '';
-    let hasMore = true;
+    // Get Location 2 contacts from Supabase (which has full data including attributions)
+    const { data: location2Contacts, error: contactsError } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('location_id', LOCATION_2_ID);
     
-    while (hasMore) {
-      const endpoint = `/contacts/?locationId=${LOCATION_2_ID}&limit=100${startAfterId ? `&startAfterId=${startAfterId}` : ''}`;
-      const data = await fetchFromGHL(endpoint, LOCATION_2_API_KEY);
-      const contacts = data.contacts || [];
-      allContacts = [...allContacts, ...contacts];
-      
-      if (contacts.length < 100) {
-        hasMore = false;
-      } else {
-        startAfterId = contacts[contacts.length - 1]?.id || '';
-      }
+    if (contactsError) {
+      console.error('Failed to fetch Location 2 contacts from Supabase:', contactsError);
+      throw new Error('Failed to fetch contacts');
     }
     
-    console.log(`Fetched ${allContacts.length} contacts from Location 2`);
+    console.log(`Found ${location2Contacts?.length || 0} contacts in Location 2 (from Supabase)`);
     
     // Import new contacts
     let contactsImported = 0;
     let contactsSkipped = 0;
     
-    for (const contact of allContacts) {
-      const contactGhlId = contact.id;
+    for (const contact of location2Contacts || []) {
+      const contactGhlId = contact.ghl_id;
       const email = contact.email?.toLowerCase();
       
       // Skip if already imported
@@ -200,28 +247,49 @@ serve(async (req) => {
         continue;
       }
       
-      // Skip if email already exists in Location 1
-      if (email && existingEmails.has(email)) {
-        console.log(`Skipping contact ${contact.firstName} ${contact.lastName} - email already exists`);
-        contactsSkipped++;
-        
-        // Mark as imported (with null target since it was a duplicate)
-        await supabase.from('imported_records').insert({
-          source_location_id: LOCATION_2_ID,
-          source_ghl_id: contactGhlId,
-          record_type: 'contact',
-          target_ghl_id: null,
-        });
-        continue;
-      }
+      // Note: We don't skip by email anymore - we try to create and handle duplicates
+      // This allows us to update existing contacts with scope data
       
       try {
+        // Fetch full contact details from GHL to get address
+        const fullContact = await fetchContactDetails(contactGhlId, LOCATION_2_API_KEY);
+        
+        // Get scope from utm_content in attributions array
+        let utmContent = '';
+        if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
+          utmContent = contact.attributions[0]?.utmContent || '';
+        }
+        
+        // Merge Supabase data (has attributions) with GHL data (has address)
+        const mergedContact = {
+          ...fullContact,
+          attributions: contact.attributions, // Use Supabase attributions (has utmContent)
+          firstName: fullContact?.firstName || contact.first_name,
+          lastName: fullContact?.lastName || contact.last_name,
+          email: fullContact?.email || contact.email,
+          phone: fullContact?.phone || contact.phone,
+          source: fullContact?.source || contact.source,
+          tags: fullContact?.tags || contact.tags,
+        };
+        
+        console.log(`Processing contact ${contact.contact_name}, utmContent: ${utmContent}`);
+        
         // Create contact in Location 1
-        const newContact = await createContactInGHL(contact, LOCATION_1_API_KEY, LOCATION_1_ID);
+        const newContact = await createContactInGHL(mergedContact, LOCATION_1_API_KEY, LOCATION_1_ID);
         const newContactId = newContact.contact?.id;
+        const alreadyExists = newContact.alreadyExists;
         
         if (newContactId) {
-          // Mark as imported
+          // If contact already exists, update it with scope custom field
+          if (alreadyExists && utmContent) {
+            console.log(`Contact exists, updating with scope: ${utmContent}`);
+            await updateContactInGHL(newContactId, {
+              customFields: [
+                { id: 'KwQRtJT0aMSHnq3mwR68', value: utmContent } // Scope of work
+              ]
+            }, LOCATION_1_API_KEY);
+          }
+          
           await supabase.from('imported_records').insert({
             source_location_id: LOCATION_2_ID,
             source_ghl_id: contactGhlId,
@@ -232,58 +300,34 @@ serve(async (req) => {
           importedContacts.set(contactGhlId, newContactId);
           if (email) existingEmails.add(email);
           contactsImported++;
-          console.log(`Imported contact: ${contact.firstName} ${contact.lastName} -> ${newContactId}`);
+          console.log(`${alreadyExists ? 'Linked existing' : 'Imported'} contact: ${contact.contact_name} -> ${newContactId}`);
         }
         
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 300));
       } catch (error) {
         console.error(`Failed to import contact ${contactGhlId}:`, error);
       }
     }
     
-    // Fetch opportunities from Location 2
-    let allOpportunities: any[] = [];
-    let startAfter = '';
-    hasMore = true;
+    // Get Location 2 opportunities from Supabase
+    const { data: location2Opportunities, error: oppsError } = await supabase
+      .from('opportunities')
+      .select('*')
+      .eq('location_id', LOCATION_2_ID);
     
-    while (hasMore) {
-      const endpoint = `/opportunities/search?location_id=${LOCATION_2_ID}&limit=100${startAfter ? `&startAfter=${startAfter}` : ''}`;
-      const response = await fetch(`https://services.leadconnectorhq.com${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOCATION_2_API_KEY}`,
-          'Version': '2021-07-28',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({}),
-      });
-      
-      if (!response.ok) {
-        console.error(`Failed to fetch opportunities: ${response.status}`);
-        break;
-      }
-      
-      const data = await response.json();
-      const opportunities = data.opportunities || [];
-      allOpportunities = [...allOpportunities, ...opportunities];
-      
-      if (opportunities.length < 100 || !data.meta?.nextPageUrl) {
-        hasMore = false;
-      } else {
-        startAfter = data.meta?.startAfter || '';
-      }
+    if (oppsError) {
+      console.error('Failed to fetch Location 2 opportunities from Supabase:', oppsError);
     }
     
-    console.log(`Fetched ${allOpportunities.length} opportunities from Location 2`);
+    console.log(`Found ${location2Opportunities?.length || 0} opportunities in Location 2 (from Supabase)`);
     
     // Import new opportunities
     let opportunitiesImported = 0;
     let opportunitiesSkipped = 0;
     
-    for (const opportunity of allOpportunities) {
-      const oppGhlId = opportunity.id;
-      const sourceContactId = opportunity.contactId || opportunity.contact?.id;
+    for (const opportunity of location2Opportunities || []) {
+      const oppGhlId = opportunity.ghl_id;
+      const sourceContactId = opportunity.contact_id;
       
       // Skip if already imported
       if (importedOpportunities.has(oppGhlId)) {
@@ -297,7 +341,6 @@ serve(async (req) => {
         console.log(`Skipping opportunity ${opportunity.name} - contact not imported or was duplicate`);
         opportunitiesSkipped++;
         
-        // Mark as imported (skipped)
         await supabase.from('imported_records').insert({
           source_location_id: LOCATION_2_ID,
           source_ghl_id: oppGhlId,
@@ -313,7 +356,6 @@ serve(async (req) => {
         const newOppId = newOpportunity.opportunity?.id;
         
         if (newOppId) {
-          // Mark as imported
           await supabase.from('imported_records').insert({
             source_location_id: LOCATION_2_ID,
             source_ghl_id: oppGhlId,
@@ -325,8 +367,7 @@ serve(async (req) => {
           console.log(`Imported opportunity: ${opportunity.name} -> ${newOppId}`);
         }
         
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 300));
       } catch (error) {
         console.error(`Failed to import opportunity ${oppGhlId}:`, error);
       }
@@ -337,8 +378,8 @@ serve(async (req) => {
       contactsSkipped,
       opportunitiesImported,
       opportunitiesSkipped,
-      totalContactsFetched: allContacts.length,
-      totalOpportunitiesFetched: allOpportunities.length,
+      totalContactsFetched: location2Contacts?.length || 0,
+      totalOpportunitiesFetched: location2Opportunities?.length || 0,
     };
     
     console.log('Import complete:', summary);
