@@ -691,128 +691,145 @@ export function AppointmentDetailSheet({
     }
   };
 
+  // Helper to properly capitalize contact name
+  const capitalizeContactName = (name: string) => {
+    return name
+      .split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl overflow-y-auto p-0">
-        {/* Header */}
+        {/* Header - Contact Details First */}
         <div className="sticky top-0 bg-background border-b p-4 z-10">
-          <SheetHeader className="space-y-1">
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <SheetTitle className="text-lg font-semibold leading-tight truncate min-w-0 flex-1">
-                {appointment.title || "Untitled Appointment"}
-              </SheetTitle>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={openAppointmentEditDialog}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete this appointment? This will also remove it from GoHighLevel.
-                        This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDeleteAppointment}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        disabled={isDeletingAppointment}
-                      >
-                        {isDeletingAppointment ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                        Delete
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+          <SheetHeader className="space-y-2">
+            {/* Contact Details - Clickable to open opportunity */}
+            <div 
+              className={`border rounded-lg overflow-hidden ${primaryOpportunity && onOpenOpportunity ? "cursor-pointer hover:bg-muted/20 transition-colors" : ""}`}
+              onClick={() => primaryOpportunity && handleOpenOpportunity(primaryOpportunity)}
+            >
+              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+                <div className="flex items-center gap-2">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
+                </div>
+                {primaryOpportunity && onOpenOpportunity && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>View Opportunity</span>
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </div>
+                )}
+              </div>
+              <div className="p-3 grid gap-1.5 text-sm">
+                <div className="font-medium text-foreground">
+                  {capitalizeContactName(contactName)}
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {contact?.phone || <span className="italic text-muted-foreground/60">No phone</span>}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    {contact?.email || <span className="italic text-muted-foreground/60">No email</span>}
+                  </span>
+                </div>
+                <div className="flex items-start gap-2 text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
+                </div>
               </div>
             </div>
-            {/* Date & Time */}
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>{formatDateTime(appointment.start_time)}</span>
-              <span>→</span>
-              <span>{formatTime(appointment.end_time)}</span>
-            </div>
-            {/* Status badges + Sales Rep + Value on same line */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge
-                variant="outline"
-                className={`text-xs h-6 px-2 inline-flex items-center ${getStatusColor(appointment.appointment_status)}`}
-              >
-                {appointment.appointment_status === "confirmed"
-                  ? "Cust. Confirmed"
-                  : appointment.appointment_status || "Unknown"}
-              </Badge>
-              <Badge
-                variant="outline"
-                className={`text-xs h-6 px-2 inline-flex items-center gap-1 ${salespersonConfirmed ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
-              >
-                <PhoneCall className="h-3 w-3" />
-                {salespersonConfirmed ? "Rep Confirmed" : "Not Confirmed"}
-              </Badge>
-              <span className="text-xs text-muted-foreground">|</span>
-              <span className="text-xs font-medium">{userName}</span>
-              {primaryOpportunity && (
-                <>
+
+            {/* Appointment Info Section */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Appointment</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={openAppointmentEditDialog}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete this appointment? This will also remove it from GoHighLevel.
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteAppointment}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={isDeletingAppointment}
+                        >
+                          {isDeletingAppointment ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+              <div className="p-3 space-y-2">
+                <SheetTitle className="text-base font-semibold leading-tight">
+                  {appointment.title || "Untitled Appointment"}
+                </SheetTitle>
+                {/* Date & Time */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="h-4 w-4" />
+                  <span>{formatDateTime(appointment.start_time)}</span>
+                  <span>→</span>
+                  <span>{formatTime(appointment.end_time)}</span>
+                </div>
+                {/* Status badges + Sales Rep + Value on same line */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge
+                    variant="outline"
+                    className={`text-xs h-6 px-2 inline-flex items-center ${getStatusColor(appointment.appointment_status)}`}
+                  >
+                    {appointment.appointment_status === "confirmed"
+                      ? "Cust. Confirmed"
+                      : appointment.appointment_status || "Unknown"}
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={`text-xs h-6 px-2 inline-flex items-center gap-1 ${salespersonConfirmed ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
+                  >
+                    <PhoneCall className="h-3 w-3" />
+                    {salespersonConfirmed ? "Rep Confirmed" : "Not Confirmed"}
+                  </Badge>
                   <span className="text-xs text-muted-foreground">|</span>
-                  <span className="text-sm font-bold text-emerald-400">
-                    {formatCurrency(primaryOpportunity.monetary_value)}
-                  </span>
-                </>
-              )}
+                  <span className="text-xs font-medium">{userName}</span>
+                  {primaryOpportunity && (
+                    <>
+                      <span className="text-xs text-muted-foreground">|</span>
+                      <span className="text-sm font-bold text-emerald-400">
+                        {formatCurrency(primaryOpportunity.monetary_value)}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </SheetHeader>
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Contact Details - Clickable to open opportunity */}
-          <div 
-            className={`border rounded-lg overflow-hidden ${primaryOpportunity && onOpenOpportunity ? "cursor-pointer hover:bg-muted/20 transition-colors" : ""}`}
-            onClick={() => primaryOpportunity && handleOpenOpportunity(primaryOpportunity)}
-          >
-            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-              <div className="flex items-center gap-2">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
-              </div>
-              {primaryOpportunity && onOpenOpportunity && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span>View Opportunity</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </div>
-              )}
-            </div>
-            <div className="p-3 grid gap-1.5 text-sm">
-              <div className="font-medium text-foreground">
-                {contactName}
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">
-                  {contact?.phone || <span className="italic text-muted-foreground/60">No phone</span>}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Mail className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">
-                  {contact?.email || <span className="italic text-muted-foreground/60">No email</span>}
-                </span>
-              </div>
-              <div className="flex items-start gap-2 text-muted-foreground">
-                <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
-              </div>
-            </div>
-          </div>
-
           {/* Scope of Work */}
           {scopeOfWork && (
             <div className="border rounded-lg overflow-hidden">
