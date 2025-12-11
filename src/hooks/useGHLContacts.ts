@@ -54,6 +54,7 @@ interface DBAppointment {
   start_time: string | null;
   end_time: string | null;
   notes: string | null;
+  salesperson_confirmed?: boolean;
 }
 
 interface DBUser {
@@ -246,6 +247,7 @@ function processMetrics(
   totalAppointments: number;
   cancelledAppointments: number;
   appointmentsToday: number;
+  unconfirmedTodayAppointments: number;
   upcomingAppointments: number;
   upcomingNextWeek: number;
   opportunities: DBOpportunity[];
@@ -549,11 +551,17 @@ function processMetrics(
   startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
 
   // All appointments today (regardless of time - includes past ones)
-  const appointmentsToday = appointments.filter((a) => {
+  const todayAppointments = appointments.filter((a) => {
     if (!a.start_time) return false;
     const startTime = new Date(a.start_time);
     return startTime >= startOfToday && startTime < startOfTomorrow;
-  }).length;
+  });
+  const appointmentsToday = todayAppointments.length;
+
+  // Today's appointments not confirmed by rep (excluding cancelled)
+  const unconfirmedTodayAppointments = todayAppointments.filter(
+    (a) => !a.salesperson_confirmed && a.appointment_status?.toLowerCase() !== "cancelled"
+  ).length;
 
   // Upcoming appointments (after today)
   const upcomingAppointments = appointments.filter((a) => {
@@ -582,6 +590,7 @@ function processMetrics(
     cancelledAppointments: filteredAppointments.filter((a) => a.appointment_status?.toLowerCase() === "cancelled")
       .length,
     appointmentsToday,
+    unconfirmedTodayAppointments,
     upcomingAppointments,
     upcomingNextWeek,
     opportunities: filteredOpportunities,
