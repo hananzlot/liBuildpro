@@ -193,6 +193,8 @@ export function OpportunityDetailSheet({
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
   const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
   const [editedSource, setEditedSource] = useState<string>("");
+  const [customSourceInput, setCustomSourceInput] = useState<string>("");
+  const [showCustomSourceInput, setShowCustomSourceInput] = useState(false);
 
   // Track saved values to display immediately after save (before query refresh)
   const [savedValues, setSavedValues] = useState<{
@@ -906,6 +908,26 @@ export function OpportunityDetailSheet({
     }
   });
   const availableStages = Array.from(stageMap.keys()).sort();
+  
+  // Build unique sources list from all contacts (properly capitalized)
+  const normalizeSourceName = (sourceName: string): string => {
+    if (!sourceName) return "Direct";
+    return sourceName
+      .toLowerCase()
+      .split(/[\s-_]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+  
+  const availableSources = Array.from(
+    new Set(
+      contacts
+        .map(c => c.source)
+        .filter(Boolean)
+        .map(s => normalizeSourceName(s!))
+    )
+  ).sort();
+
   const handleEditClick = () => {
     // Use savedValues if available (for re-editing without closing), otherwise use opportunity prop
     setEditedStatus(savedValues.status ?? opportunity?.status?.toLowerCase() ?? "open");
@@ -914,7 +936,10 @@ export function OpportunityDetailSheet({
     setEditedMonetaryValue((savedValues.monetary_value ?? opportunity?.monetary_value)?.toString() ?? "0");
     setEditedAssignedTo(savedValues.assigned_to ?? opportunity?.assigned_to ?? "__unassigned__");
     const contact = contacts.find((c) => c.ghl_id === opportunity?.contact_id);
-    setEditedSource(savedValues.source ?? contact?.source ?? "");
+    const contactSource = contact?.source ? normalizeSourceName(contact.source) : "";
+    setEditedSource(savedValues.source ?? contactSource);
+    setShowCustomSourceInput(false);
+    setCustomSourceInput("");
     setIsEditing(true);
   };
   const handleCancelEdit = () => {
@@ -925,6 +950,8 @@ export function OpportunityDetailSheet({
     setEditedMonetaryValue("");
     setEditedAssignedTo("");
     setEditedSource("");
+    setShowCustomSourceInput(false);
+    setCustomSourceInput("");
   };
   const handlePipelineChange = (newPipelineId: string) => {
     setEditedPipeline(newPipelineId);
@@ -1571,14 +1598,71 @@ export function OpportunityDetailSheet({
                 <Megaphone className="h-3 w-3" /> Source
               </div>
               {isEditing ? (
-                <Input
-                  value={editedSource}
-                  onChange={(e) => setEditedSource(e.target.value)}
-                  className="h-7 text-xs"
-                  placeholder="Enter source"
-                />
+                showCustomSourceInput ? (
+                  <div className="flex gap-1">
+                    <Input
+                      value={customSourceInput}
+                      onChange={(e) => setCustomSourceInput(e.target.value)}
+                      className="h-7 text-xs flex-1"
+                      placeholder="Enter new source"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={() => {
+                        if (customSourceInput.trim()) {
+                          setEditedSource(customSourceInput.trim());
+                        }
+                        setShowCustomSourceInput(false);
+                        setCustomSourceInput("");
+                      }}
+                    >
+                      <Check className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={() => {
+                        setShowCustomSourceInput(false);
+                        setCustomSourceInput("");
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Select 
+                    value={editedSource} 
+                    onValueChange={(val) => {
+                      if (val === "__custom__") {
+                        setShowCustomSourceInput(true);
+                      } else {
+                        setEditedSource(val);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-7 text-xs">
+                      <SelectValue placeholder="Select source" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      {availableSources.map((source) => (
+                        <SelectItem key={source} value={source} className="text-xs">
+                          {source}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__custom__" className="text-xs text-primary">
+                        + Add New Source
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                )
               ) : (
-                <div className="font-medium truncate">{savedValues.source ?? contact?.source ?? "No source"}</div>
+                <div className="font-medium truncate">
+                  {savedValues.source ?? (contact?.source ? normalizeSourceName(contact.source) : "No source")}
+                </div>
               )}
             </div>
 
