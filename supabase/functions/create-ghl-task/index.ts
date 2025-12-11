@@ -6,23 +6,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to get the correct GHL API key based on location_id
+function getGHLApiKey(locationId: string): string {
+  const location1Id = Deno.env.get('GHL_LOCATION_ID');
+  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
+  
+  if (locationId === location2Id) {
+    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
+    if (apiKey2) return apiKey2;
+  }
+  
+  // Default to primary API key
+  const apiKey1 = Deno.env.get('GHL_API_KEY');
+  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  return apiKey1;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const ghlApiKey = Deno.env.get('GHL_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!ghlApiKey) {
-      throw new Error('Missing GHL_API_KEY');
-    }
 
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Missing Supabase credentials');
     }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { 
       title, 
@@ -42,7 +55,21 @@ serve(async (req) => {
       throw new Error('Missing contactId');
     }
 
-    console.log(`Creating GHL task: title=${title}, contactId=${contactId}, assignedTo=${assignedTo}, dueDate=${dueDate}`);
+    // If locationId not provided, look it up from the contact
+    let effectiveLocationId = locationId;
+    if (!effectiveLocationId) {
+      const { data: contactData } = await supabase
+        .from('contacts')
+        .select('location_id')
+        .eq('ghl_id', contactId)
+        .single();
+      
+      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+    }
+
+    const ghlApiKey = getGHLApiKey(effectiveLocationId);
+
+    console.log(`Creating GHL task (location: ${effectiveLocationId}): title=${title}, contactId=${contactId}, assignedTo=${assignedTo}, dueDate=${dueDate}`);
 
     // Build the GHL task payload - contactId goes in URL, not body
     const ghlPayload: Record<string, string | boolean> = {
@@ -87,9 +114,6 @@ serve(async (req) => {
 
     // Insert into ghl_tasks table
     if (ghlTaskId) {
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      const finalLocationId = locationId || "pVeFrqvtYWNIPRIi0Fmr";
-      
       const { error: supabaseError } = await supabase
         .from('ghl_tasks')
         .insert({
@@ -99,7 +123,7 @@ serve(async (req) => {
           due_date: dueDate || null,
           assigned_to: assignedTo || null,
           contact_id: contactId,
-          location_id: finalLocationId,
+          location_id: effectiveLocationId,
           completed: false,
           entered_by: enteredBy || null
         });

@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,13 +17,29 @@ interface Message {
   attachments?: any[];
 }
 
+// Helper to get the correct GHL credentials based on location_id
+function getGHLCredentials(locationId: string): { apiKey: string; locationId: string } {
+  const location1Id = Deno.env.get('GHL_LOCATION_ID') || '';
+  const location2Id = Deno.env.get('GHL_LOCATION_ID_2') || '';
+  
+  if (locationId === location2Id) {
+    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
+    if (apiKey2) return { apiKey: apiKey2, locationId: location2Id };
+  }
+  
+  // Default to primary credentials
+  const apiKey1 = Deno.env.get('GHL_API_KEY');
+  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  return { apiKey: apiKey1, locationId: location1Id };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { contact_id } = await req.json();
+    const { contact_id, location_id } = await req.json();
 
     if (!contact_id) {
       return new Response(JSON.stringify({ error: 'contact_id is required' }), {
@@ -31,17 +48,25 @@ serve(async (req) => {
       });
     }
 
-    const ghlApiKey = Deno.env.get('GHL_API_KEY');
-    const locationId = Deno.env.get('GHL_LOCATION_ID');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
-    if (!ghlApiKey || !locationId) {
-      return new Response(JSON.stringify({ error: 'GHL credentials not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // If location_id not provided, look it up from the contact
+    let effectiveLocationId = location_id;
+    if (!effectiveLocationId) {
+      const { data: contactData } = await supabase
+        .from('contacts')
+        .select('location_id')
+        .eq('ghl_id', contact_id)
+        .single();
+      
+      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID');
     }
 
-    console.log(`Fetching conversations for contact: ${contact_id}`);
+    const { apiKey: ghlApiKey, locationId } = getGHLCredentials(effectiveLocationId);
+
+    console.log(`Fetching conversations for contact: ${contact_id} (location: ${locationId})`);
 
     // Fetch conversations filtered by contact ID
     const params = new URLSearchParams({

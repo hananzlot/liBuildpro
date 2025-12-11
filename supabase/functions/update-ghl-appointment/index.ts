@@ -7,6 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to get the correct GHL API key based on location_id
+function getGHLApiKey(locationId: string): string {
+  const location1Id = Deno.env.get('GHL_LOCATION_ID');
+  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
+  
+  if (locationId === location2Id) {
+    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
+    if (apiKey2) return apiKey2;
+  }
+  
+  // Default to primary API key
+  const apiKey1 = Deno.env.get('GHL_API_KEY');
+  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  return apiKey1;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -14,13 +30,8 @@ serve(async (req) => {
   }
 
   try {
-    const GHL_API_KEY = Deno.env.get('GHL_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!GHL_API_KEY) {
-      throw new Error('GHL_API_KEY not configured');
-    }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -32,13 +43,28 @@ serve(async (req) => {
       endTime,    // ISO string in UTC (optional)
       assignedUserId,
       notes,
+      location_id,
     } = await req.json();
 
     if (!ghl_id) {
       throw new Error('ghl_id is required');
     }
 
-    console.log(`Updating GHL appointment ${ghl_id}`);
+    // If location_id not provided, look it up from the database
+    let effectiveLocationId = location_id;
+    if (!effectiveLocationId) {
+      const { data: apptData } = await supabase
+        .from('appointments')
+        .select('location_id')
+        .eq('ghl_id', ghl_id)
+        .single();
+      
+      effectiveLocationId = apptData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+    }
+
+    const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
+
+    console.log(`Updating GHL appointment ${ghl_id} (location: ${effectiveLocationId})`);
 
     // Build update payload - only include provided fields
     const updatePayload: Record<string, unknown> = {};

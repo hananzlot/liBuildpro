@@ -7,20 +7,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to get the correct GHL credentials based on location_id
+function getGHLCredentials(locationId: string): { apiKey: string; locationId: string } {
+  const location1Id = Deno.env.get('GHL_LOCATION_ID') || '';
+  const location2Id = Deno.env.get('GHL_LOCATION_ID_2') || '';
+  
+  if (locationId === location2Id) {
+    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
+    if (apiKey2) return { apiKey: apiKey2, locationId: location2Id };
+  }
+  
+  // Default to primary credentials
+  const apiKey1 = Deno.env.get('GHL_API_KEY');
+  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  return { apiKey: apiKey1, locationId: location1Id };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const GHL_API_KEY = Deno.env.get('GHL_API_KEY');
-    const GHL_LOCATION_ID = Deno.env.get('GHL_LOCATION_ID');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!GHL_API_KEY || !GHL_LOCATION_ID) {
-      throw new Error('GHL credentials not configured');
-    }
 
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
@@ -39,6 +49,7 @@ serve(async (req) => {
       pipelineId,
       pipelineStageId,
       calendarId, // Calendar ID for appointments
+      locationId, // Optional: which GHL location to use
     } = await req.json();
 
     if (!firstName || !lastName) {
@@ -49,7 +60,11 @@ serve(async (req) => {
       throw new Error('Pipeline and stage are required');
     }
 
-    console.log(`Creating entry for ${firstName} ${lastName}`);
+    // Determine which GHL location to use (default to primary)
+    const effectiveLocationId = locationId || Deno.env.get('GHL_LOCATION_ID')!;
+    const { apiKey: GHL_API_KEY, locationId: GHL_LOCATION_ID } = getGHLCredentials(effectiveLocationId);
+
+    console.log(`Creating entry for ${firstName} ${lastName} (location: ${GHL_LOCATION_ID})`);
 
     // Step 1: Create Contact in GHL
     const contactPayload: Record<string, unknown> = {
@@ -185,6 +200,7 @@ serve(async (req) => {
           .from('appointments')
           .select('calendar_id')
           .eq('assigned_user_id', assignedTo)
+          .eq('location_id', GHL_LOCATION_ID)
           .not('calendar_id', 'is', null)
           .limit(1)
           .maybeSingle();
