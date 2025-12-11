@@ -375,7 +375,7 @@ export function AppointmentDetailSheet({
         .eq("ghl_id", appointment.ghl_id);
 
       if (error) throw error;
-      
+
       setSalespersonConfirmed(newValue);
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       toast.success(newValue ? "Salesperson confirmed" : "Confirmation removed");
@@ -645,7 +645,9 @@ export function AppointmentDetailSheet({
 
   const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
   // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
-  const scopeFromCustomField = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK) : null;
+  const scopeFromCustomField = contact
+    ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
+    : null;
   const scopeFromAttributions = (() => {
     if (!contact?.attributions) return null;
     const attrs = contact.attributions as Array<{ utmContent?: string }> | null;
@@ -733,8 +735,13 @@ export function AppointmentDetailSheet({
             </div>
             {/* Status badges row */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <Badge variant="outline" className={`text-xs h-6 px-2 inline-flex items-center ${getStatusColor(appointment.appointment_status)}`}>
-                {appointment.appointment_status === "confirmed" ? "Cust. Confirmed" : (appointment.appointment_status || "Unknown")}
+              <Badge
+                variant="outline"
+                className={`text-xs h-6 px-2 inline-flex items-center ${getStatusColor(appointment.appointment_status)}`}
+              >
+                {appointment.appointment_status === "confirmed"
+                  ? "Cust. Confirmed"
+                  : appointment.appointment_status || "Unknown"}
               </Badge>
               <Badge
                 variant="outline"
@@ -776,7 +783,9 @@ export function AppointmentDetailSheet({
                 <div className="text-xl font-bold text-emerald-400">
                   {formatCurrency(primaryOpportunity.monetary_value)}
                 </div>
-                {onOpenOpportunity && <span className="text-xs text-muted-foreground">Click for full details</span>}
+                {onOpenOpportunity && (
+                  <span className="text-xs text-muted-foreground">Click for full Opportuninty details</span>
+                )}
               </div>
             </div>
           )}
