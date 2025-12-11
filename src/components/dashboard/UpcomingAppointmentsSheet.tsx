@@ -236,7 +236,7 @@ export function UpcomingAppointmentsSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-2xl p-0">
+        <SheetContent className="w-full sm:max-w-3xl p-0">
           <div className="sticky top-0 bg-background border-b p-4">
             <SheetHeader>
               <div className="flex items-center gap-2">
@@ -349,7 +349,9 @@ export function UpcomingAppointmentsSheet({
                                   ) : (
                                     <PhoneCall className="h-3 w-3" />
                                   )}
-                                  {(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed) ? "Confirmed" : "Confirm"}
+                                  {(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
+                                    ? "Confirmed"
+                                    : "Confirm"}
                                 </Button>
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               </div>
