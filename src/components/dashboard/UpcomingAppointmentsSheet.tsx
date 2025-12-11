@@ -1,13 +1,17 @@
 import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2 } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DBAppointment {
   id: string;
@@ -23,6 +27,8 @@ interface DBAppointment {
   location_id?: string;
   ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
+  salesperson_confirmed?: boolean;
+  salesperson_confirmed_at?: string | null;
 }
 
 interface DBContact {
@@ -85,10 +91,39 @@ export function UpcomingAppointmentsSheet({
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<DBOpportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
+  const [confirmingApptId, setConfirmingApptId] = useState<string | null>(null);
+  const [localConfirmedState, setLocalConfirmedState] = useState<Record<string, boolean>>({});
+
+  const queryClient = useQueryClient();
 
   const handleOpenOpportunity = (opportunity: DBOpportunity) => {
     setSelectedOpportunity(opportunity);
     setOpportunitySheetOpen(true);
+  };
+
+  const handleToggleConfirmed = async (appt: DBAppointment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmingApptId(appt.ghl_id);
+    const newValue = !(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed);
+    try {
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          salesperson_confirmed: newValue,
+          salesperson_confirmed_at: newValue ? new Date().toISOString() : null,
+        })
+        .eq("ghl_id", appt.ghl_id);
+
+      if (error) throw error;
+      setLocalConfirmedState((prev) => ({ ...prev, [appt.ghl_id]: newValue }));
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success(newValue ? "Confirmed" : "Unconfirmed");
+    } catch (error) {
+      console.error("Error updating confirmation:", error);
+      toast.error("Failed to update");
+    } finally {
+      setConfirmingApptId(null);
+    }
   };
 
   // Build user map early for filtering
@@ -297,6 +332,25 @@ export function UpcomingAppointmentsSheet({
                                 >
                                   {appt.appointment_status || "Pending"}
                                 </Badge>
+                                {/* Salesperson Confirmed Toggle */}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className={`h-6 px-2 text-xs gap-1 ${
+                                    (localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
+                                      ? "text-emerald-500 hover:text-emerald-600"
+                                      : "text-muted-foreground hover:text-foreground"
+                                  }`}
+                                  onClick={(e) => handleToggleConfirmed(appt, e)}
+                                  disabled={confirmingApptId === appt.ghl_id}
+                                >
+                                  {confirmingApptId === appt.ghl_id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <PhoneCall className="h-3 w-3" />
+                                  )}
+                                  {(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed) ? "Confirmed" : "Confirm"}
+                                </Button>
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               </div>
                             </div>
