@@ -99,7 +99,7 @@ type SortColumn = "name" | "stage" | "value" | "status" | "source" | "createdDat
 
 type SortDirection = "asc" | "desc";
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 25;
 
 export function OpportunitiesTable({
   opportunities,
