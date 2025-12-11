@@ -15,10 +15,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  CalendarIcon,
 } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelectFilter } from "./MultiSelectFilter";
+import { DateRange } from "react-day-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
@@ -111,6 +117,13 @@ export function OpportunitiesTable({
   const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
+  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(() => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    return { from: start, to: end };
+  });
 
   const uniqueStages = useMemo(() => {
     const stages = new Set<string>();
@@ -245,6 +258,27 @@ export function OpportunitiesTable({
       });
     }
 
+    // Apply table date range filter
+    if (tableDateRange?.from) {
+      filtered = filtered.filter((opp) => {
+        let dateStr: string | null | undefined;
+        if (tableDateField === "updatedDate") {
+          dateStr = opp.ghl_date_updated || opp.ghl_date_added;
+        } else {
+          const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+          dateStr = contact?.ghl_date_added || opp.ghl_date_added;
+        }
+        if (!dateStr) return false;
+        const date = new Date(dateStr);
+        const from = tableDateRange.from!;
+        const to = tableDateRange.to || tableDateRange.from!;
+        // Normalize to start/end of day
+        const fromStart = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+        const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59);
+        return date >= fromStart && date <= toEnd;
+      });
+    }
+
     // Helper to get effective date from contact (quickbase stage = 90 days ago)
     const getEffectiveDate = (opp: Opportunity): number => {
       if (opp.stage_name?.toLowerCase() === "quickbase") {
@@ -348,6 +382,8 @@ export function OpportunitiesTable({
     contactsWithAppointments,
     contactMap,
     appointmentsByContact,
+    tableDateRange,
+    tableDateField,
   ]);
 
   // Reset to page 1 when filters change
@@ -530,6 +566,55 @@ export function OpportunitiesTable({
             </Button>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Date Range Filter for Table */}
+            <div className="flex items-center gap-1">
+              <Select value={tableDateField} onValueChange={(v) => { setTableDateField(v as "updatedDate" | "createdDate"); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[130px] h-8 text-xs bg-background border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  <SelectItem value="updatedDate">Last Edited</SelectItem>
+                  <SelectItem value="createdDate">Contact Created</SelectItem>
+                </SelectContent>
+              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                    <CalendarIcon className="h-3 w-3" />
+                    {tableDateRange?.from ? (
+                      tableDateRange.to && tableDateRange.from.toDateString() !== tableDateRange.to.toDateString() ? (
+                        <span>{format(tableDateRange.from, "MMM d")} - {format(tableDateRange.to, "MMM d")}</span>
+                      ) : (
+                        <span>{format(tableDateRange.from, "MMM d, yyyy")}</span>
+                      )
+                    ) : (
+                      <span>Pick date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={tableDateRange?.from}
+                    selected={tableDateRange}
+                    onSelect={(range) => { setTableDateRange(range); setCurrentPage(1); }}
+                    numberOfMonths={2}
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              {tableDateRange && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground px-2"
+                  onClick={() => { setTableDateRange(undefined); setCurrentPage(1); }}
+                >
+                  ×
+                </Button>
+              )}
+            </div>
             <Select value={appointmentFilter} onValueChange={handleAppointmentFilterChange}>
               <SelectTrigger className="w-[160px] h-8 text-xs bg-background border-border">
                 <SelectValue placeholder="Filter by appointment" />
@@ -559,7 +644,7 @@ export function OpportunitiesTable({
               placeholder="All Sales Reps"
               icon={<User className="h-3 w-3" />}
             />
-            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
+            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0 || tableDateRange) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -569,6 +654,7 @@ export function OpportunitiesTable({
                   setSourceFilter([]);
                   setAppointmentFilter("all");
                   setSalesRepFilter([]);
+                  setTableDateRange(undefined);
                   setCurrentPage(1);
                 }}
               >

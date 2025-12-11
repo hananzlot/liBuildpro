@@ -33,9 +33,9 @@ const Index = () => {
     signOut
   } = useAuth();
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - 30);
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
     return {
       from: start,
       to: end
