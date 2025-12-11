@@ -436,6 +436,36 @@ export type Database = {
         }
         Relationships: []
       }
+      imported_records: {
+        Row: {
+          created_at: string | null
+          id: string
+          imported_at: string | null
+          record_type: string
+          source_ghl_id: string
+          source_location_id: string
+          target_ghl_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          imported_at?: string | null
+          record_type: string
+          source_ghl_id: string
+          source_location_id: string
+          target_ghl_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          imported_at?: string | null
+          record_type?: string
+          source_ghl_id?: string
+          source_location_id?: string
+          target_ghl_id?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           appointment_ghl_id: string | null

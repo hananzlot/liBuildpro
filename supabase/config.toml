@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.sync-lost-opportunity-stages]
 verify_jwt = false
+
+[functions.import-ghl-location2]
+verify_jwt = false
