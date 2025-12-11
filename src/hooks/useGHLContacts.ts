@@ -312,8 +312,7 @@ function processMetrics(
 
   const leadsBySource: LeadsBySource[] = Array.from(sourceMap.entries())
     .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .sort((a, b) => b.count - a.count);
 
   // Filter appointments by date range (using start_time)
   const filteredAppointments = dateRange?.from
@@ -479,8 +478,7 @@ function processMetrics(
 
   const wonBySource = Array.from(wonBySourceMap.entries())
     .map(([source, data]) => ({ source, count: data.count, value: data.value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 10);
+    .sort((a, b) => b.value - a.value);
 
   // Opportunities by source - group filtered opportunities by contact source (excluding quickbase stage)
   const opportunitiesBySourceMap = new Map<string, number>();
@@ -495,8 +493,7 @@ function processMetrics(
 
   const opportunitiesBySource = Array.from(opportunitiesBySourceMap.entries())
     .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .sort((a, b) => b.count - a.count);
 
   // Build set of contact IDs from the filtered opportunities (same as Opps tab)
   const filteredOppsContactIds = new Set<string>();
@@ -528,8 +525,7 @@ function processMetrics(
 
   const appointmentsBySource = Array.from(appointmentsBySourceMap.entries())
     .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .sort((a, b) => b.count - a.count);
 
   // Opportunities WITHOUT any appointments by source - leftovers from Opps tab
   const oppsWithoutAppointmentsBySourceMap = new Map<string, number>();
@@ -545,8 +541,7 @@ function processMetrics(
 
   const oppsWithoutAppointmentsBySource = Array.from(oppsWithoutAppointmentsBySourceMap.entries())
     .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
+    .sort((a, b) => b.count - a.count);
 
   // Appointments metrics
   // Start of today (midnight)
