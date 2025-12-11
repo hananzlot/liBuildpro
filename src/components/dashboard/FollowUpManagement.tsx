@@ -74,6 +74,7 @@ interface DBContact {
   assigned_to: string | null;
   location_id?: string;
   custom_fields?: unknown;
+  attributions?: unknown;
 }
 interface DBUser {
   id: string;
@@ -610,13 +611,27 @@ export function FollowUpManagement({
   const getScope = (contactId: string | null): string => {
     if (!contactId) return "";
     const contact = contacts.find((c) => c.ghl_id === contactId);
-    if (!contact?.custom_fields) return "";
-    const customFields = contact.custom_fields as Array<{
-      id: string;
-      value: string;
-    }>;
-    const scopeField = customFields.find((f) => f.id === "KwQRtJT0aMSHnq3mwR68");
-    return scopeField?.value || "";
+    if (!contact) return "";
+    
+    // Try custom_fields first
+    if (contact.custom_fields) {
+      const customFields = contact.custom_fields as Array<{
+        id: string;
+        value: string;
+      }>;
+      if (Array.isArray(customFields)) {
+        const scopeField = customFields.find((f) => f.id === "KwQRtJT0aMSHnq3mwR68");
+        if (scopeField?.value) return scopeField.value;
+      }
+    }
+    
+    // Fall back to attributions.utmContent for Location 2 contacts
+    if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
+      const attrs = contact.attributions as Array<{ utmContent?: string }>;
+      if (attrs[0]?.utmContent) return attrs[0].utmContent;
+    }
+    
+    return "";
   };
 
   // Close to Sale Data - opportunities with pipeline stage containing "close to sale", "important", or "second appointment"
