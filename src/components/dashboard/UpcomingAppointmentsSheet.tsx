@@ -386,7 +386,7 @@ export function UpcomingAppointmentsSheet({
                                 >
                                   <Badge
                                     variant="outline"
-                                    className={`text-xs cursor-pointer hover:opacity-80 ${getStatusColor(localStatusState[appt.ghl_id] ?? appt.appointment_status)}`}
+                                    className={`text-xs h-6 px-2 cursor-pointer hover:opacity-80 inline-flex items-center ${getStatusColor(localStatusState[appt.ghl_id] ?? appt.appointment_status)}`}
                                   >
                                     {updatingStatusId === appt.ghl_id ? (
                                       <Loader2 className="h-3 w-3 animate-spin mr-1" />
