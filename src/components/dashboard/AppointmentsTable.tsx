@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, ChevronLeft, ChevronRight, User, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, User, Filter, ArrowUpDown, ArrowUp, ArrowDown, PhoneCall } from "lucide-react";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
@@ -27,6 +27,8 @@ interface Appointment {
   assigned_user_id: string | null;
   calendar_id: string | null;
   address?: string | null;
+  salesperson_confirmed?: boolean;
+  salesperson_confirmed_at?: string | null;
 }
 
 interface Opportunity {
@@ -458,9 +460,16 @@ export function AppointmentsTable({
                       {formatDateTime(appt.start_time)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={getStatusColor(appt.appointment_status)}>
-                        {appt.appointment_status || 'Unknown'}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className={getStatusColor(appt.appointment_status)}>
+                          {appt.appointment_status || 'Unknown'}
+                        </Badge>
+                        {appt.salesperson_confirmed && (
+                          <span title="Salesperson Confirmed" className="text-emerald-500">
+                            <PhoneCall className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm truncate max-w-[100px]">
                       {getUserName(appt.assigned_user_id)}

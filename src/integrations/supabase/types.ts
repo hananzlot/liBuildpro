@@ -64,6 +64,8 @@ export type Database = {
           last_synced_at: string | null
           location_id: string
           notes: string | null
+          salesperson_confirmed: boolean
+          salesperson_confirmed_at: string | null
           start_time: string | null
           title: string | null
           updated_at: string
@@ -84,6 +86,8 @@ export type Database = {
           last_synced_at?: string | null
           location_id: string
           notes?: string | null
+          salesperson_confirmed?: boolean
+          salesperson_confirmed_at?: string | null
           start_time?: string | null
           title?: string | null
           updated_at?: string
@@ -104,6 +108,8 @@ export type Database = {
           last_synced_at?: string | null
           location_id?: string
           notes?: string | null
+          salesperson_confirmed?: boolean
+          salesperson_confirmed_at?: string | null
           start_time?: string | null
           title?: string | null
           updated_at?: string
