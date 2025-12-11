@@ -495,6 +495,7 @@ export function UpcomingAppointmentsSheet({
         opportunities={opportunities}
         contacts={contacts}
         users={users}
+        appointments={appointments}
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
         onOpenOpportunity={handleOpenOpportunity}

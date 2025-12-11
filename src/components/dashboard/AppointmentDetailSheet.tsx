@@ -148,6 +148,7 @@ interface AppointmentDetailSheetProps {
   opportunities: Opportunity[];
   contacts: Contact[];
   users: GHLUser[];
+  appointments?: Appointment[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenOpportunity?: (opportunity: Opportunity) => void;
@@ -162,6 +163,7 @@ export function AppointmentDetailSheet({
   opportunities,
   contacts,
   users,
+  appointments = [],
   open,
   onOpenChange,
   onOpenOpportunity,
@@ -636,9 +638,13 @@ export function AppointmentDetailSheet({
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
       : "Unassigned");
 
-  // Get address: first try contact custom_fields, then current appointment's address directly
+  // Get address: first try contact custom_fields, then current appointment, then any other appointment for this contact
   const contactAddress = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
-  const address = contactAddress || appointment?.address || null;
+  const currentAppointmentAddress = appointment?.address;
+  const otherAppointmentAddress = appointment?.contact_id 
+    ? appointments.find(a => a.contact_id === appointment.contact_id && a.address)?.address 
+    : null;
+  const address = contactAddress || currentAppointmentAddress || otherAppointmentAddress || null;
   // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
   const scopeFromCustomField = contact
     ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
