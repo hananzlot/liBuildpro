@@ -733,21 +733,14 @@ export function AppointmentDetailSheet({
                   {appointment.appointment_status || "Unknown"}
                 </Badge>
               </div>
-              {/* Salesperson Confirmation Toggle */}
-              <Button
-                variant={salespersonConfirmed ? "default" : "outline"}
-                size="sm"
-                className={`text-xs gap-1.5 ${salespersonConfirmed ? "bg-emerald-600 hover:bg-emerald-700" : "border-amber-500/50 text-amber-500 hover:bg-amber-500/10"}`}
-                onClick={handleToggleSalespersonConfirmed}
-                disabled={isUpdatingSalespersonConfirmed}
+              {/* Salesperson Confirmation (Read-only) */}
+              <Badge
+                variant="outline"
+                className={`text-xs gap-1.5 ${salespersonConfirmed ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
               >
-                {isUpdatingSalespersonConfirmed ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <PhoneCall className="h-3 w-3" />
-                )}
-                {salespersonConfirmed ? "Rep Confirmed" : "Confirm Rep"}
-              </Button>
+                <PhoneCall className="h-3 w-3" />
+                {salespersonConfirmed ? "Confirmed" : "Not Confirmed"}
+              </Badge>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
