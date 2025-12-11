@@ -260,6 +260,11 @@ export function OpportunityDetailSheet({
   const [editedScope, setEditedScope] = useState("");
   const [isSavingScope, setIsSavingScope] = useState(false);
 
+  // Address editing
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [editedAddress, setEditedAddress] = useState("");
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+
   // Track if sheet was previously closed, to reset savedValues only on fresh open
   const [wasOpen, setWasOpen] = useState(false);
 
@@ -1086,6 +1091,30 @@ export function OpportunityDetailSheet({
     }
   };
 
+  const handleSaveAddress = async () => {
+    if (!opportunity?.contact_id) return;
+    setIsSavingAddress(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-contact-address", {
+        body: {
+          contactId: opportunity.contact_id,
+          address: editedAddress.trim(),
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Address saved");
+      setIsEditingAddress(false);
+      // Refresh contacts to get updated custom_fields
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    } catch (error) {
+      console.error("Error saving address:", error);
+      toast.error("Failed to save address");
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
   const handleDeleteOpportunity = async () => {
     if (!opportunity) return;
     setIsDeletingOpportunity(true);
@@ -1401,19 +1430,55 @@ export function OpportunityDetailSheet({
 
                 <div className="flex items-start gap-2">
                   <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  <span className="flex-1">
-                    {address || <span className="italic text-muted-foreground/60">No address</span>}
-                  </span>
-                  {address && (
-                    <a
-                      href={`https://propwire.com/search?q=${encodeURIComponent(address)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded-sm hover:bg-muted transition-colors"
-                      title="Look up on Propwire"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                  {isEditingAddress ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <Input
+                        value={editedAddress}
+                        onChange={(e) => setEditedAddress(e.target.value)}
+                        placeholder="Enter address..."
+                        className="h-7 text-sm flex-1"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={handleSaveAddress}
+                        disabled={isSavingAddress}
+                      >
+                        {isSavingAddress ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2"
+                        onClick={() => setIsEditingAddress(false)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditedAddress(address || "");
+                          setIsEditingAddress(true);
+                        }}
+                        className="flex-1 text-left hover:underline"
+                      >
+                        {address || <span className="italic text-muted-foreground/60">No address - click to add</span>}
+                      </button>
+                      {address && (
+                        <a
+                          href={`https://propwire.com/search?q=${encodeURIComponent(address)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center h-5 w-5 shrink-0 rounded-sm hover:bg-muted transition-colors"
+                          title="Look up on Propwire"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="flex items-center gap-2">

@@ -56,3 +56,9 @@ verify_jwt = false
 
 [functions.fix-location2-scope]
 verify_jwt = false
+
+[functions.update-contact-scope]
+verify_jwt = false
+
+[functions.update-contact-address]
+verify_jwt = false
