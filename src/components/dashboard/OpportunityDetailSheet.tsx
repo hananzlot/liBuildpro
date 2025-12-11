@@ -192,6 +192,7 @@ export function OpportunityDetailSheet({
   const [editedPipeline, setEditedPipeline] = useState<string>("");
   const [editedMonetaryValue, setEditedMonetaryValue] = useState<string>("");
   const [editedAssignedTo, setEditedAssignedTo] = useState<string>("");
+  const [editedSource, setEditedSource] = useState<string>("");
 
   // Track saved values to display immediately after save (before query refresh)
   const [savedValues, setSavedValues] = useState<{
@@ -201,6 +202,7 @@ export function OpportunityDetailSheet({
     pipeline_id?: string;
     monetary_value?: number;
     assigned_to?: string | null;
+    source?: string | null;
   }>({});
 
   // Real-time conversation fetching
@@ -911,6 +913,8 @@ export function OpportunityDetailSheet({
     setEditedStage(savedValues.stage_name ?? opportunity?.stage_name ?? "");
     setEditedMonetaryValue((savedValues.monetary_value ?? opportunity?.monetary_value)?.toString() ?? "0");
     setEditedAssignedTo(savedValues.assigned_to ?? opportunity?.assigned_to ?? "__unassigned__");
+    const contact = contacts.find((c) => c.ghl_id === opportunity?.contact_id);
+    setEditedSource(savedValues.source ?? contact?.source ?? "");
     setIsEditing(true);
   };
   const handleCancelEdit = () => {
@@ -920,6 +924,7 @@ export function OpportunityDetailSheet({
     setEditedStage("");
     setEditedMonetaryValue("");
     setEditedAssignedTo("");
+    setEditedSource("");
   };
   const handlePipelineChange = (newPipelineId: string) => {
     setEditedPipeline(newPipelineId);
@@ -956,6 +961,23 @@ export function OpportunityDetailSheet({
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      // If source was changed, update contact source separately
+      const contact = contacts.find((c) => c.ghl_id === opportunity.contact_id);
+      const originalSource = contact?.source || "";
+      if (editedSource !== originalSource && opportunity.contact_id) {
+        try {
+          await supabase.functions.invoke("update-contact-source", {
+            body: {
+              contactId: opportunity.contact_id,
+              source: editedSource,
+            },
+          });
+        } catch (sourceError) {
+          console.error("Error updating source:", sourceError);
+          // Don't fail the whole save if source update fails
+        }
+      }
+
       // Store saved values to display immediately (before query refresh)
       const newSavedValues = {
         status: editedStatus,
@@ -964,6 +986,7 @@ export function OpportunityDetailSheet({
         pipeline_id: editedPipeline,
         monetary_value: monetaryValue,
         assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo,
+        source: editedSource || null,
       };
       console.log("Saving values:", newSavedValues);
       setSavedValues(newSavedValues);
@@ -973,6 +996,9 @@ export function OpportunityDetailSheet({
       // Invalidate queries to refresh data
       queryClient.invalidateQueries({
         queryKey: ["opportunities"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["contacts"],
       });
     } catch (error) {
       console.error("Error updating opportunity:", error);
@@ -1544,7 +1570,16 @@ export function OpportunityDetailSheet({
               <div className="text-muted-foreground text-xs mb-[1px] flex items-center gap-1">
                 <Megaphone className="h-3 w-3" /> Source
               </div>
-              <div className="font-medium truncate">{contact?.source || "No source"}</div>
+              {isEditing ? (
+                <Input
+                  value={editedSource}
+                  onChange={(e) => setEditedSource(e.target.value)}
+                  className="h-7 text-xs"
+                  placeholder="Enter source"
+                />
+              ) : (
+                <div className="font-medium truncate">{savedValues.source ?? contact?.source ?? "No source"}</div>
+              )}
             </div>
 
             {/* Stage */}

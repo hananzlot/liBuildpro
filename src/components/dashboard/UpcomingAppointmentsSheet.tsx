@@ -329,18 +329,18 @@ export function UpcomingAppointmentsSheet({
                                 {/* Customer Confirmed Badge */}
                                 <Badge
                                   variant="outline"
-                                  className={`text-xs ${appt.appointment_status?.toLowerCase() === "confirmed" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
+                                  className={`text-xs ${appt.appointment_status?.toLowerCase() === "confirmed" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}
                                 >
-                                  {appt.appointment_status?.toLowerCase() === "confirmed" ? "Cust. Confirmed" : (appt.appointment_status || "Pending")}
+                                  {appt.appointment_status?.toLowerCase() === "confirmed" ? "Cust. Confirmed" : "Cust. Unconfirmed"}
                                 </Badge>
                                 {/* Rep Confirmed Toggle */}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className={`h-6 px-2 text-xs gap-1 ${
+                                  className={`h-6 px-2 text-xs gap-1 border ${
                                     (localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
-                                      ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
-                                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
+                                      : "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
                                   }`}
                                   onClick={(e) => handleToggleConfirmed(appt, e)}
                                   disabled={confirmingApptId === appt.ghl_id}
@@ -352,7 +352,7 @@ export function UpcomingAppointmentsSheet({
                                   )}
                                   {(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
                                     ? "Rep Confirmed"
-                                    : "Rep Confirm"}
+                                    : "Rep Unconfirmed"}
                                 </Button>
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               </div>
