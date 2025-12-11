@@ -274,7 +274,7 @@ export function UpcomingAppointmentsSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-3xl p-0">
+        <SheetContent className="w-full sm:max-w-3xl p-0 overflow-hidden flex flex-col max-h-screen">
           <div className="sticky top-0 bg-background border-b p-4">
             <SheetHeader>
               <div className="flex items-center gap-2">
@@ -317,7 +317,7 @@ export function UpcomingAppointmentsSheet({
             </div>
           </div>
 
-          <ScrollArea className="h-[calc(100vh-180px)]">
+          <ScrollArea className="flex-1 min-h-0">
             <div className="p-4 space-y-6">
               {groupedAppointments.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-8">
@@ -377,7 +377,7 @@ export function UpcomingAppointmentsSheet({
                                       {localStatusState[appt.ghl_id] ?? appt.appointment_status ?? "No Status"}
                                     </Badge>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                  <DropdownMenuContent align="start" side="bottom" className="z-[100] bg-popover" onClick={(e) => e.stopPropagation()}>
                                     {APPOINTMENT_STATUSES.map((status) => (
                                       <DropdownMenuItem
                                         key={status}
