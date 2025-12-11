@@ -6,6 +6,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to get the correct GHL API key based on location_id
+function getGHLApiKey(locationId: string): string {
+  const location1Id = Deno.env.get('GHL_LOCATION_ID');
+  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
+  
+  if (locationId === location2Id) {
+    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
+    if (apiKey2) return apiKey2;
+  }
+  
+  // Default to primary API key
+  const apiKey1 = Deno.env.get('GHL_API_KEY');
+  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  return apiKey1;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -13,7 +29,7 @@ serve(async (req) => {
   }
 
   try {
-    const { contact_id } = await req.json();
+    const { contact_id, location_id } = await req.json();
     
     if (!contact_id) {
       return new Response(
@@ -22,15 +38,26 @@ serve(async (req) => {
       );
     }
 
-    const ghlApiKey = Deno.env.get('GHL_API_KEY');
-    const ghlLocationId = Deno.env.get('GHL_LOCATION_ID');
-    
-    if (!ghlApiKey || !ghlLocationId) {
-      throw new Error('Missing GHL API credentials');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // If location_id not provided, look it up from the contact
+    let effectiveLocationId = location_id;
+    if (!effectiveLocationId) {
+      const { data: contactData } = await supabase
+        .from('contacts')
+        .select('location_id')
+        .eq('ghl_id', contact_id)
+        .single();
+      
+      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID');
     }
 
+    const ghlApiKey = getGHLApiKey(effectiveLocationId);
+
     // Fetch tasks from GHL for this contact
-    console.log(`Fetching GHL tasks for contact: ${contact_id}`);
+    console.log(`Fetching GHL tasks for contact: ${contact_id} (location: ${effectiveLocationId})`);
     
     const tasksResponse = await fetch(
       `https://services.leadconnectorhq.com/contacts/${contact_id}/tasks`,
@@ -56,11 +83,6 @@ serve(async (req) => {
     const ghlTasks = tasksData.tasks || [];
     
     console.log(`Found ${ghlTasks.length} tasks in GHL for contact ${contact_id}`);
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get existing tasks from Supabase for this contact that have GHL IDs
     const { data: existingTasks, error: fetchError } = await supabase
