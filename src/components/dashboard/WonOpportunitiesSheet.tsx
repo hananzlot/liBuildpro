@@ -62,6 +62,7 @@ interface DBContact {
   phone: string | null;
   source: string | null;
   custom_fields: unknown;
+  attributions?: unknown;
   ghl_date_added?: string | null; // 👈 add this
 }
 
@@ -190,9 +191,19 @@ export function WonOpportunitiesSheet({
                 const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
                 const salesPerson = opp.assigned_to ? userMap.get(opp.assigned_to) : null;
                 const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
-                const scopeOfWork = contact
+                // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
+                const scopeFromCustomField = contact
                   ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
                   : null;
+                const scopeFromAttributions = (() => {
+                  if (!contact?.attributions) return null;
+                  const attrs = contact.attributions as Array<{ utmContent?: string }> | null;
+                  if (Array.isArray(attrs) && attrs.length > 0) {
+                    return attrs[0]?.utmContent || null;
+                  }
+                  return null;
+                })();
+                const scopeOfWork = scopeFromCustomField || scopeFromAttributions;
                 const notes = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES) : null;
                 const contactName =
                   contact?.contact_name ||

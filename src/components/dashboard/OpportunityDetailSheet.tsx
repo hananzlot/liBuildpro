@@ -100,6 +100,7 @@ interface Contact {
   source: string | null;
   custom_fields?: unknown;
   location_id?: string;
+  attributions?: unknown;
 }
 interface GHLUser {
   ghl_id: string;
@@ -1121,7 +1122,17 @@ export function OpportunityDetailSheet({
   const contactAddress = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
   const appointmentAddress = relatedAppointments.find(a => a.address)?.address || null;
   const address = contactAddress || appointmentAddress;
-  const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+  // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
+  const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+  const scopeFromAttributions = (() => {
+    if (!contact?.attributions) return null;
+    const attrs = contact.attributions as Array<{ utmContent?: string }> | null;
+    if (Array.isArray(attrs) && attrs.length > 0) {
+      return attrs[0]?.utmContent || null;
+    }
+    return null;
+  })();
+  const scopeOfWork = scopeFromCustomField || scopeFromAttributions;
   const contactNotes = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.NOTES);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
