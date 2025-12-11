@@ -110,8 +110,8 @@ export function SourceChart({
       ? (oppsWithoutAppointmentsBySource || [])
       : data;
   
-  // Show top 8 sources for better visibility
-  const chartData = rawChartData.slice(0, 8);
+  // Show top 6 sources for quick view
+  const chartData = rawChartData.slice(0, 6);
   
   // Get max value for percentage calculation (use sqrt for better distribution)
   const maxValue = Math.max(...chartData.map(d => {
@@ -217,14 +217,14 @@ export function SourceChart({
 
         <div className="flex items-center justify-center gap-2 mt-1 pt-1 border-t border-border/30">
           <p className="text-xs text-muted-foreground">Click to see details</p>
-          {rawChartData.length > 8 && (
+          {rawChartData.length > 6 && (
             <>
               <span className="text-xs text-muted-foreground">·</span>
               <button 
                 onClick={() => setViewAllOpen(true)}
                 className="text-xs text-primary hover:underline"
               >
-                +{rawChartData.length - 8} more
+                +{rawChartData.length - 6} more
               </button>
             </>
           )}
