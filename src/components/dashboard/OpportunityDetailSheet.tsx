@@ -251,6 +251,11 @@ export function OpportunityDetailSheet({
   const [deletePassword, setDeletePassword] = useState("");
   const [deletePasswordError, setDeletePasswordError] = useState("");
 
+  // Scope of Work editing
+  const [isEditingScope, setIsEditingScope] = useState(false);
+  const [editedScope, setEditedScope] = useState("");
+  const [isSavingScope, setIsSavingScope] = useState(false);
+
   // Track if sheet was previously closed, to reset savedValues only on fresh open
   const [wasOpen, setWasOpen] = useState(false);
 
@@ -1003,6 +1008,31 @@ export function OpportunityDetailSheet({
       setIsSavingCost(false);
     }
   };
+
+  const handleSaveScope = async () => {
+    if (!opportunity?.contact_id) return;
+    setIsSavingScope(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-contact-scope", {
+        body: {
+          contactId: opportunity.contact_id,
+          scopeOfWork: editedScope.trim(),
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Scope of work saved");
+      setIsEditingScope(false);
+      // Refresh contacts to get updated custom_fields
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+    } catch (error) {
+      console.error("Error saving scope of work:", error);
+      toast.error("Failed to save scope of work");
+    } finally {
+      setIsSavingScope(false);
+    }
+  };
+
   const handleDeleteOpportunity = async () => {
     if (!opportunity) return;
     setIsDeletingOpportunity(true);
@@ -1341,19 +1371,76 @@ export function OpportunityDetailSheet({
                 </div>
 
                 {/* Scope of Work */}
-                {scopeOfWork && (
-                  <div className="border rounded-lg overflow-hidden">
-                    <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
+                <div className="border rounded-lg overflow-hidden mt-2">
+                  <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+                    <div className="flex items-center gap-2">
                       <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         Scope of Work
                       </span>
+                      {!scopeOfWork && !isEditingScope && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4">
+                          Missing
+                        </Badge>
+                      )}
                     </div>
-                    <div className="p-3">
-                      <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
-                    </div>
+                    {!isEditingScope && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => {
+                          setEditedScope(scopeOfWork || "");
+                          setIsEditingScope(true);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3 mr-1" />
+                        {scopeOfWork ? "Edit" : "Add"}
+                      </Button>
+                    )}
                   </div>
-                )}
+                  <div className="p-3">
+                    {isEditingScope ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editedScope}
+                          onChange={(e) => setEditedScope(e.target.value)}
+                          placeholder="Enter scope of work..."
+                          className="min-h-[80px] text-sm resize-none"
+                          disabled={isSavingScope}
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7"
+                            onClick={() => setIsEditingScope(false)}
+                            disabled={isSavingScope}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-7"
+                            onClick={handleSaveScope}
+                            disabled={isSavingScope}
+                          >
+                            {isSavingScope ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                            ) : (
+                              <Save className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : scopeOfWork ? (
+                      <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground/60 italic">No scope of work defined</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
