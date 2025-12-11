@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
 import { SourceDetailSheet } from "./SourceDetailSheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 
 interface SourceData {
   source: string;
@@ -77,38 +77,6 @@ interface SourceChartProps {
   userId?: string | null;
 }
 
-const LEAD_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--primary) / 0.8)",
-  "hsl(var(--primary) / 0.6)",
-  "hsl(var(--primary) / 0.4)",
-  "hsl(var(--primary) / 0.3)",
-];
-
-const WON_COLORS = [
-  "hsl(142 76% 36%)",
-  "hsl(142 76% 36% / 0.8)",
-  "hsl(142 76% 36% / 0.6)",
-  "hsl(142 76% 36% / 0.4)",
-  "hsl(142 76% 36% / 0.3)",
-];
-
-const APPOINTMENT_COLORS = [
-  "hsl(262 83% 58%)",
-  "hsl(262 83% 58% / 0.8)",
-  "hsl(262 83% 58% / 0.6)",
-  "hsl(262 83% 58% / 0.4)",
-  "hsl(262 83% 58% / 0.3)",
-];
-
-const NO_APPOINTMENT_COLORS = [
-  "hsl(25 95% 53%)",
-  "hsl(25 95% 53% / 0.8)",
-  "hsl(25 95% 53% / 0.6)",
-  "hsl(25 95% 53% / 0.4)",
-  "hsl(25 95% 53% / 0.3)",
-];
-
 export function SourceChart({ 
   title, 
   data, 
@@ -136,22 +104,20 @@ export function SourceChart({
   const showingAppointments = isOpportunitiesMode && activeTab === "appointments";
   const showingNoAppointments = isOpportunitiesMode && activeTab === "noAppointments";
   
-  // Limit to top 5 sources to fit in compact height
   const rawChartData = showingAppointments 
     ? (appointmentsBySource || []) 
     : showingNoAppointments 
       ? (oppsWithoutAppointmentsBySource || [])
       : data;
   
-  const chartData = rawChartData.slice(0, 5);
+  // Show top 8 sources for better visibility
+  const chartData = rawChartData.slice(0, 8);
   
-  const colors = mode === "won" 
-    ? WON_COLORS 
-    : showingAppointments 
-      ? APPOINTMENT_COLORS 
-      : showingNoAppointments
-        ? NO_APPOINTMENT_COLORS
-        : LEAD_COLORS;
+  // Get max value for percentage calculation (use sqrt for better distribution)
+  const maxValue = Math.max(...chartData.map(d => {
+    const val = dataKey === "value" && !showingAppointments && !showingNoAppointments ? (d.value || 0) : d.count;
+    return Math.sqrt(val);
+  }), 1);
 
   const handleBarClick = (entry: SourceData) => {
     setSelectedSource(entry.source);
@@ -179,10 +145,34 @@ export function SourceChart({
     }
   };
 
+  // Get color based on source type
+  const getSourceColor = (source: string) => {
+    const lower = source.toLowerCase();
+    if (lower.includes('facebook')) return 'hsl(221 83% 53%)'; // Blue for Facebook
+    if (lower.includes('google')) return 'hsl(142 76% 36%)'; // Green for Google
+    if (mode === 'won') return 'hsl(142 76% 36%)';
+    if (showingAppointments) return 'hsl(262 83% 58%)';
+    if (showingNoAppointments) return 'hsl(25 95% 53%)';
+    return 'hsl(var(--primary))';
+  };
+
+  const getProgressValue = (item: SourceData) => {
+    const val = dataKey === "value" && !showingAppointments && !showingNoAppointments ? (item.value || 0) : item.count;
+    // Use square root scaling for better distribution
+    return (Math.sqrt(val) / maxValue) * 100;
+  };
+
+  const getDisplayValue = (item: SourceData) => {
+    if (dataKey === "value" && !showingAppointments && !showingNoAppointments) {
+      return formatValue(item.value || 0);
+    }
+    return item.count;
+  };
+
   return (
     <>
       <div className="rounded-2xl bg-card p-4 border border-border/50 h-[280px] flex flex-col">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <h3 className="text-base font-semibold text-foreground">{getChartTitle()}</h3>
           {isOpportunitiesMode && (
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as OpportunitiesViewTab)}>
@@ -194,70 +184,47 @@ export function SourceChart({
             </Tabs>
           )}
         </div>
-        <div className="flex-1 min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 15, top: 5, bottom: 5 }} barCategoryGap="15%">
-              <XAxis 
-                type="number" 
-                stroke="hsl(var(--muted-foreground))" 
-                fontSize={10}
-                tickFormatter={(value) => String(formatValue(value))}
-              />
-              <YAxis 
-                type="category" 
-                dataKey="source" 
-                stroke="hsl(var(--muted-foreground))" 
-                fontSize={10}
-                width={80}
-                tickFormatter={(value) => value.length > 10 ? `${value.slice(0, 10)}...` : value}
-              />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  color: "hsl(var(--foreground))",
-                }}
-                formatter={(value: number) => [
-                  dataKey === "value" && !showingAppointments && !showingNoAppointments ? String(formatValue(value)) : String(value),
-                  showingAppointments ? "Unique Contacts" : showingNoAppointments ? "Opps w/o Appts" : (dataKey === "value" ? "Value" : "Count")
-                ]}
-              />
-              <Bar 
-                dataKey={showingAppointments || showingNoAppointments ? "count" : dataKey} 
-                radius={[0, 4, 4, 0]}
-                cursor="pointer"
-                onClick={(_, index) => handleBarClick(chartData[index])}
+        
+        <ScrollArea className="flex-1 min-h-0">
+          <div className="space-y-1.5 pr-2">
+            {chartData.map((item) => (
+              <div 
+                key={item.source}
+                className="group cursor-pointer hover:bg-muted/30 rounded-md p-1.5 transition-colors"
+                onClick={() => handleBarClick(item)}
               >
-                {chartData.map((_, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={colors[index % colors.length]}
-                    className="hover:opacity-80 transition-opacity"
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs font-medium text-foreground truncate max-w-[140px]" title={item.source}>
+                    {item.source}
+                  </span>
+                  <span className="text-xs font-bold text-foreground ml-2">
+                    {getDisplayValue(item)}
+                  </span>
+                </div>
+                <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full rounded-full transition-all group-hover:opacity-80"
+                    style={{ 
+                      width: `${getProgressValue(item)}%`,
+                      backgroundColor: getSourceColor(item.source)
+                    }}
                   />
-                ))}
-                <LabelList 
-                  dataKey={showingAppointments || showingNoAppointments ? "count" : dataKey}
-                  position="insideRight"
-                  fill="hsl(var(--background))"
-                  fontSize={10}
-                  fontWeight={600}
-                  formatter={(value: number) => showingAppointments || showingNoAppointments || dataKey === "count" ? value : formatValue(value)}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="flex items-center justify-center gap-2 mt-1">
-          <p className="text-xs text-muted-foreground">Click a bar to see details</p>
-          {rawChartData.length > 5 && (
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+
+        <div className="flex items-center justify-center gap-2 mt-1 pt-1 border-t border-border/30">
+          <p className="text-xs text-muted-foreground">Click to see details</p>
+          {rawChartData.length > 8 && (
             <>
               <span className="text-xs text-muted-foreground">·</span>
               <button 
                 onClick={() => setViewAllOpen(true)}
                 className="text-xs text-primary hover:underline"
               >
-                View all {rawChartData.length} sources
+                +{rawChartData.length - 8} more
               </button>
             </>
           )}
@@ -289,7 +256,7 @@ export function SourceChart({
           </SheetHeader>
           <ScrollArea className="h-[calc(100vh-120px)] mt-4">
             <div className="space-y-2 pr-4">
-              {rawChartData.map((item, index) => (
+              {rawChartData.map((item) => (
                 <div 
                   key={item.source}
                   className="flex items-center justify-between p-3 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
@@ -301,14 +268,12 @@ export function SourceChart({
                   <div className="flex items-center gap-3">
                     <div 
                       className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: colors[index % colors.length] }}
+                      style={{ backgroundColor: getSourceColor(item.source) }}
                     />
                     <span className="text-sm font-medium text-foreground">{item.source}</span>
                   </div>
                   <span className="text-sm font-semibold text-foreground">
-                    {dataKey === "value" && !showingAppointments && !showingNoAppointments 
-                      ? formatValue(item.value || 0) 
-                      : item.count}
+                    {getDisplayValue(item)}
                   </span>
                 </div>
               ))}
