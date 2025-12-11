@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, X, Search } from "lucide-react";
 
 interface Option {
   value: string;
@@ -32,6 +33,16 @@ export function MultiSelectFilter({
   className = "w-[160px]",
 }: MultiSelectFilterProps) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter options based on search query
+  const filteredOptions = useMemo(() => {
+    if (!searchQuery.trim()) return options;
+    const query = searchQuery.toLowerCase();
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(query)
+    );
+  }, [options, searchQuery]);
 
   const handleToggle = (value: string) => {
     if (selected.includes(value)) {
@@ -42,16 +53,30 @@ export function MultiSelectFilter({
   };
 
   const handleSelectAll = () => {
-    if (selected.length === options.length) {
-      onChange([]);
+    // Select/deselect only filtered options
+    const filteredValues = filteredOptions.map((o) => o.value);
+    const allFilteredSelected = filteredValues.every((v) => selected.includes(v));
+    
+    if (allFilteredSelected) {
+      // Deselect filtered options
+      onChange(selected.filter((v) => !filteredValues.includes(v)));
     } else {
-      onChange(options.map((o) => o.value));
+      // Select all filtered options (add to existing selection)
+      const newSelected = [...new Set([...selected, ...filteredValues])];
+      onChange(newSelected);
     }
   };
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     onChange([]);
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      setSearchQuery(""); // Clear search when closing
+    }
   };
 
   const getDisplayText = () => {
@@ -63,8 +88,11 @@ export function MultiSelectFilter({
     return `${selected.length} selected`;
   };
 
+  const filteredValues = filteredOptions.map((o) => o.value);
+  const allFilteredSelected = filteredValues.length > 0 && filteredValues.every((v) => selected.includes(v));
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -86,7 +114,19 @@ export function MultiSelectFilter({
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0" align="start">
+      <PopoverContent className="w-[220px] p-0 bg-popover border-border" align="start">
+        {/* Search input */}
+        <div className="p-2 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Type to filter..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-7 text-xs bg-background"
+            />
+          </div>
+        </div>
         <div className="p-2 border-b border-border">
           <Button
             variant="ghost"
@@ -94,25 +134,32 @@ export function MultiSelectFilter({
             className="w-full justify-start text-xs h-7"
             onClick={handleSelectAll}
           >
-            {selected.length === options.length ? "Deselect All" : "Select All"}
+            {allFilteredSelected ? "Deselect All" : "Select All"}
+            {searchQuery && ` (${filteredOptions.length})`}
           </Button>
         </div>
         <ScrollArea className="h-[200px]">
           <div className="p-2 space-y-1">
-            {options.map((option) => (
-              <div
-                key={option.value}
-                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
-                onClick={() => handleToggle(option.value)}
-              >
-                <Checkbox
-                  checked={selected.includes(option.value)}
-                  onCheckedChange={() => handleToggle(option.value)}
-                  className="h-4 w-4"
-                />
-                <span className="text-sm truncate">{option.label}</span>
+            {filteredOptions.length === 0 ? (
+              <div className="px-2 py-3 text-xs text-muted-foreground text-center">
+                No matches found
               </div>
-            ))}
+            ) : (
+              filteredOptions.map((option) => (
+                <div
+                  key={option.value}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                  onClick={() => handleToggle(option.value)}
+                >
+                  <Checkbox
+                    checked={selected.includes(option.value)}
+                    onCheckedChange={() => handleToggle(option.value)}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm truncate">{option.label}</span>
+                </div>
+              ))
+            )}
           </div>
         </ScrollArea>
       </PopoverContent>
