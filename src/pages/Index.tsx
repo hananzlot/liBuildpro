@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Phone, LogOut } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocationFilter } from "@/hooks/useLocationFilter";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { SourceChart } from "@/components/dashboard/SourceChart";
@@ -10,6 +11,7 @@ import { RecentWonDeals } from "@/components/dashboard/RecentWonDeals";
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
 import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
+import { LocationFilter } from "@/components/dashboard/LocationFilter";
 import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSheet";
 import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
 import { CallLogsSheet } from "@/components/dashboard/CallLogsSheet";
@@ -45,12 +47,59 @@ const Index = () => {
   const [callLogsSheetOpen, setCallLogsSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
+  
   const {
-    data: metrics,
+    data: rawMetrics,
     isLoading,
     error,
     refetch
   } = useGHLMetrics(dateRange);
+
+  // Apply location filter to all data - users don't have location_id so we don't filter them
+  const metrics = useMemo(() => {
+    if (!rawMetrics) return undefined;
+    
+    // Filter arrays that have location_id
+    const filteredContacts = filterByLocation(rawMetrics.allContacts || []);
+    const filteredOpportunities = filterByLocation(rawMetrics.allOpportunities || []);
+    const filteredAppointments = filterByLocation(rawMetrics.allAppointments || []);
+    const filteredConversations = filterByLocation(rawMetrics.conversations || []);
+    const filteredTasks = filterByLocation(rawMetrics.tasks || []);
+    const filteredCallLogs = filterByLocation(rawMetrics.callLogs || []);
+    const filteredContactNotes = filterByLocation(rawMetrics.contactNotes || []);
+    const filteredWonOpportunities = filterByLocation(rawMetrics.wonOpportunities || []);
+    
+    // Recalculate metrics based on filtered data
+    const wonOpportunitiesValue = filteredWonOpportunities.reduce((sum, o) => sum + ((o as any).monetary_value || 0), 0);
+    
+    return {
+      ...rawMetrics,
+      allContacts: filteredContacts,
+      contacts: filterByLocation(rawMetrics.contacts || []),
+      allOpportunities: filteredOpportunities,
+      opportunities: filterByLocation(rawMetrics.opportunities || []),
+      filteredOpportunitiesList: filterByLocation(rawMetrics.filteredOpportunitiesList || []),
+      allAppointments: filteredAppointments,
+      appointments: filterByLocation(rawMetrics.appointments || []),
+      filteredAppointmentsList: filterByLocation(rawMetrics.filteredAppointmentsList || []),
+      // Users don't have location_id - keep all users
+      users: rawMetrics.users,
+      conversations: filteredConversations,
+      tasks: filteredTasks,
+      callLogs: filteredCallLogs,
+      contactNotes: filteredContactNotes,
+      wonOpportunities: filteredWonOpportunities,
+      wonOpportunitiesCount: filteredWonOpportunities.length,
+      wonOpportunitiesValue,
+      totalOpportunities: filteredOpportunities.filter((o: any) => o.stage_name?.toLowerCase() !== "quickbase").length,
+      totalAppointments: filterByLocation(rawMetrics.filteredAppointmentsList || []).length,
+      cancelledAppointments: filterByLocation(rawMetrics.filteredAppointmentsList || []).filter((a: any) => a.appointment_status?.toLowerCase() === "cancelled").length,
+      totalCalls: filteredCallLogs.length,
+      outboundCalls: filteredCallLogs.filter((c: any) => c.direction === "outbound").length,
+      inboundCalls: filteredCallLogs.filter((c: any) => c.direction === "inbound").length,
+      uniqueContactsCalled: new Set(filteredCallLogs.map((c: any) => c.contact_id)).size,
+    };
+  }, [rawMetrics, filterByLocation]);
   const syncMutation = useSyncContacts();
   const handleOpenOpportunity = (opportunity: any) => {
     setSelectedOpportunity(opportunity);
@@ -138,9 +187,17 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-8">
-            {/* Date Range Filter */}
+            {/* Date Range and Location Filters */}
             <section className="flex items-center justify-between flex-wrap gap-4">
-              <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
+              <div className="flex items-center gap-4 flex-wrap">
+                <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
+                <LocationFilter
+                  value={selectedLocation}
+                  onChange={setSelectedLocation}
+                  location1Name="CA Pro Builders"
+                  location2Name="Location 2"
+                />
+              </div>
               {dateRange?.from && <p className="text-sm text-muted-foreground">
                   Showing {metrics?.totalLeads || 0} leads in selected range
                 </p>}

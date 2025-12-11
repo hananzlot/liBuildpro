@@ -498,19 +498,392 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
   return allCalls;
 }
 
+// Sync data for a single GHL location
+async function syncLocationData(
+  supabase: any,
+  ghlApiKey: string,
+  locationId: string,
+  locationLabel: string
+): Promise<{
+  contacts: number;
+  opportunities: number;
+  appointments: number;
+  users: number;
+  pipelines: number;
+  conversations: number;
+  tasks: number;
+  callLogs: number;
+}> {
+  console.log(`\n========== Starting sync for ${locationLabel} (${locationId}) ==========`);
+
+  // Fetch all data in parallel (including pipelines for name resolution)
+  const [contacts, opportunities, appointments, users, pipelines, conversations] = await Promise.all([
+    fetchAllFromGHL('contacts/', ghlApiKey, locationId, 'contacts'),
+    fetchOpportunities(ghlApiKey, locationId),
+    fetchAppointments(ghlApiKey, locationId),
+    fetchUsers(ghlApiKey, locationId),
+    fetchPipelines(ghlApiKey, locationId),
+    fetchConversations(ghlApiKey, locationId),
+  ]);
+
+  // Fetch tasks after contacts (needs contact IDs)
+  const tasks = await fetchAllTasks(ghlApiKey, contacts);
+
+  // Build pipeline/stage lookup maps
+  const { pipelineNames, stageNames } = buildPipelineLookups(pipelines);
+
+  // Current sync timestamp for tracking
+  const syncTimestamp = new Date().toISOString();
+
+  // Sync users first (needed for name resolution)
+  if (users.length > 0) {
+    console.log(`Syncing ${users.length} users...`);
+    const usersToUpsert = users.map(u => ({
+      ghl_id: u.id,
+      location_id: locationId,
+      name: u.name || null,
+      first_name: u.firstName || null,
+      last_name: u.lastName || null,
+      email: u.email || null,
+      phone: u.phone || null,
+      role: u.role || null,
+    }));
+
+    const { error: usersError } = await supabase
+      .from('ghl_users')
+      .upsert(usersToUpsert, { onConflict: 'ghl_id' });
+
+    if (usersError) {
+      console.error('Users upsert error:', usersError);
+    }
+  }
+
+  // Sync contacts with last_synced_at tracking
+  if (contacts.length > 0) {
+    console.log(`Syncing ${contacts.length} contacts...`);
+    const contactsToUpsert = contacts.map(c => ({
+      ghl_id: c.id,
+      location_id: c.locationId || locationId,
+      contact_name: c.contactName || null,
+      first_name: c.firstName || null,
+      last_name: c.lastName || null,
+      email: c.email || null,
+      phone: c.phone || null,
+      source: c.source || null,
+      tags: c.tags || [],
+      assigned_to: c.assignedTo || null,
+      ghl_date_added: c.dateAdded || null,
+      ghl_date_updated: c.dateUpdated || null,
+      custom_fields: c.customFields || null,
+      attributions: c.attributions || null,
+      last_synced_at: syncTimestamp,
+    }));
+
+    for (let i = 0; i < contactsToUpsert.length; i += 100) {
+      const batch = contactsToUpsert.slice(i, i + 100);
+      const { error } = await supabase.from('contacts').upsert(batch, { onConflict: 'ghl_id' });
+      if (error) console.error('Contacts upsert error:', error);
+    }
+  }
+
+  // Sync opportunities with last_synced_at tracking
+  if (opportunities.length > 0) {
+    console.log(`Syncing ${opportunities.length} opportunities...`);
+    const oppsToUpsert = opportunities.map(o => ({
+      ghl_id: o.id,
+      location_id: o.locationId || locationId,
+      contact_id: o.contactId || null,
+      pipeline_id: o.pipelineId || null,
+      pipeline_stage_id: o.pipelineStageId || null,
+      pipeline_name: pipelineNames.get(o.pipelineId) || null,
+      stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
+      name: o.name || null,
+      monetary_value: o.monetaryValue || null,
+      status: o.status || null,
+      assigned_to: o.assignedTo || null,
+      ghl_date_added: o.createdAt || null,
+      ghl_date_updated: o.updatedAt || null,
+      custom_fields: o.customFields || null,
+      last_synced_at: syncTimestamp,
+    }));
+
+    for (let i = 0; i < oppsToUpsert.length; i += 100) {
+      const batch = oppsToUpsert.slice(i, i + 100);
+      const { error } = await supabase.from('opportunities').upsert(batch, { onConflict: 'ghl_id' });
+      if (error) console.error('Opportunities upsert error:', error);
+    }
+  }
+
+  // Sync appointments with last_synced_at tracking
+  if (appointments.length > 0) {
+    console.log(`Syncing ${appointments.length} appointments...`);
+    const apptsToUpsert = appointments.map(a => ({
+      ghl_id: a.id,
+      location_id: a.locationId || locationId,
+      contact_id: a.contactId || null,
+      calendar_id: a.calendarId || null,
+      title: a.title || null,
+      appointment_status: a.appointmentStatus || a.status || null,
+      assigned_user_id: a.assignedUserId || null,
+      start_time: a.startTime || null,
+      end_time: a.endTime || null,
+      notes: a.notes || null,
+      address: a.address || null,
+      ghl_date_added: a.dateAdded || a.createdAt || null,
+      ghl_date_updated: a.dateUpdated || a.updatedAt || null,
+      last_synced_at: syncTimestamp,
+    }));
+
+    for (let i = 0; i < apptsToUpsert.length; i += 100) {
+      const batch = apptsToUpsert.slice(i, i + 100);
+      const { error } = await supabase.from('appointments').upsert(batch, { onConflict: 'ghl_id' });
+      if (error) console.error('Appointments upsert error:', error);
+    }
+  }
+
+  // Sync conversations with last_synced_at tracking
+  if (conversations.length > 0) {
+    console.log(`Syncing ${conversations.length} conversations...`);
+    
+    // Helper to convert Unix timestamp (ms) to ISO string
+    const toISODate = (val: any): string | null => {
+      if (!val) return null;
+      if (typeof val === 'number') {
+        return new Date(val).toISOString();
+      }
+      if (typeof val === 'string') {
+        return val;
+      }
+      return null;
+    };
+
+    const convsToUpsert = conversations.map(c => ({
+      ghl_id: c.id,
+      location_id: c.locationId || locationId,
+      contact_id: c.contactId || null,
+      type: c.type || null,
+      unread_count: c.unreadCount || 0,
+      inbox_status: c.inboxStatus || null,
+      last_message_body: c.lastMessageBody || null,
+      last_message_date: toISODate(c.lastMessageDate),
+      last_message_type: c.lastMessageType || null,
+      last_message_direction: c.lastMessageDirection || null,
+      ghl_date_added: toISODate(c.dateAdded) || toISODate(c.createdAt),
+      ghl_date_updated: toISODate(c.dateUpdated) || toISODate(c.updatedAt),
+      last_synced_at: syncTimestamp,
+    }));
+
+    for (let i = 0; i < convsToUpsert.length; i += 100) {
+      const batch = convsToUpsert.slice(i, i + 100);
+      const { error } = await supabase.from('conversations').upsert(batch, { onConflict: 'ghl_id' });
+      if (error) console.error('Conversations upsert error:', error);
+    }
+  }
+
+  // Sync tasks with last_synced_at tracking
+  if (tasks.length > 0) {
+    console.log(`Syncing ${tasks.length} tasks...`);
+    const tasksToUpsert = tasks.map(t => ({
+      ghl_id: t.id,
+      location_id: locationId,
+      contact_id: t.contactId,
+      title: t.title || 'Untitled Task',
+      body: t.body || null,
+      assigned_to: t.assignedTo || null,
+      due_date: t.dueDate || null,
+      completed: t.completed || false,
+      last_synced_at: syncTimestamp,
+    }));
+
+    for (let i = 0; i < tasksToUpsert.length; i += 100) {
+      const batch = tasksToUpsert.slice(i, i + 100);
+      const { error } = await supabase.from('ghl_tasks').upsert(batch, { onConflict: 'ghl_id' });
+      if (error) console.error('Tasks upsert error:', error);
+    }
+  }
+
+  // Fetch and sync call logs (after conversations are fetched)
+  const callLogs = await fetchCallLogs(ghlApiKey, conversations, locationId);
+  
+  if (callLogs.length > 0) {
+    console.log(`Syncing ${callLogs.length} call logs...`);
+    const callsToUpsert = callLogs.map(c => ({
+      ghl_message_id: c.messageId,
+      conversation_id: c.conversationId,
+      contact_id: c.contactId,
+      direction: c.direction,
+      call_date: c.callDate,
+      user_id: c.userId,
+      location_id: c.locationId,
+      duration: c.duration || 0,
+    }));
+
+    for (let i = 0; i < callsToUpsert.length; i += 100) {
+      const batch = callsToUpsert.slice(i, i + 100);
+      const { error } = await supabase.from('call_logs').upsert(batch, { onConflict: 'ghl_message_id' });
+      if (error) console.error('Call logs upsert error:', error);
+    }
+  }
+
+  console.log(`========== Sync complete for ${locationLabel} ==========\n`);
+
+  return {
+    contacts: contacts.length,
+    opportunities: opportunities.length,
+    appointments: appointments.length,
+    users: users.length,
+    pipelines: pipelines.length,
+    conversations: conversations.length,
+    tasks: tasks.length,
+    callLogs: callLogs.length,
+  };
+}
+
+// Run stale record cleanup for a specific location
+async function cleanupStaleRecords(
+  supabase: any,
+  locationId: string,
+  counts: { contacts: number; opportunities: number; appointments: number; tasks: number; conversations: number }
+): Promise<number> {
+  // SAFE STALE RECORD CLEANUP
+  // Only delete records that haven't been seen in 1+ hour
+  const staleThreshold = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
+  
+  // Only run cleanup if we fetched a reasonable number of records
+  const minRecordsForCleanup = {
+    contacts: 100,
+    opportunities: 50,
+    appointments: 10,
+    tasks: 5,
+    conversations: 10,
+  };
+
+  console.log(`Starting safe stale record cleanup for location ${locationId} (1hr threshold)...`);
+  let totalDeleted = 0;
+
+  // Cleanup contacts (only if we fetched enough)
+  if (counts.contacts >= minRecordsForCleanup.contacts) {
+    const { data: staleContacts, error: staleContactsErr } = await supabase
+      .from('contacts')
+      .select('ghl_id')
+      .eq('location_id', locationId)
+      .lt('last_synced_at', staleThreshold);
+    
+    if (!staleContactsErr && staleContacts && staleContacts.length > 0) {
+      console.log(`Found ${staleContacts.length} stale contacts`);
+      const { error: delErr } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('location_id', locationId)
+        .lt('last_synced_at', staleThreshold);
+      if (!delErr) totalDeleted += staleContacts.length;
+      else console.error('Error deleting stale contacts:', delErr);
+    }
+  }
+
+  // Cleanup opportunities (only if we fetched enough)
+  if (counts.opportunities >= minRecordsForCleanup.opportunities) {
+    const { data: staleOpps, error: staleOppsErr } = await supabase
+      .from('opportunities')
+      .select('ghl_id')
+      .eq('location_id', locationId)
+      .lt('last_synced_at', staleThreshold);
+    
+    if (!staleOppsErr && staleOpps && staleOpps.length > 0) {
+      console.log(`Found ${staleOpps.length} stale opportunities`);
+      const { error: delErr } = await supabase
+        .from('opportunities')
+        .delete()
+        .eq('location_id', locationId)
+        .lt('last_synced_at', staleThreshold);
+      if (!delErr) totalDeleted += staleOpps.length;
+      else console.error('Error deleting stale opportunities:', delErr);
+    }
+  }
+
+  // Cleanup appointments (only if we fetched enough)
+  if (counts.appointments >= minRecordsForCleanup.appointments) {
+    const { data: staleAppts, error: staleApptsErr } = await supabase
+      .from('appointments')
+      .select('ghl_id')
+      .eq('location_id', locationId)
+      .lt('last_synced_at', staleThreshold);
+    
+    if (!staleApptsErr && staleAppts && staleAppts.length > 0) {
+      console.log(`Found ${staleAppts.length} stale appointments`);
+      const { error: delErr } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('location_id', locationId)
+        .lt('last_synced_at', staleThreshold);
+      if (!delErr) totalDeleted += staleAppts.length;
+      else console.error('Error deleting stale appointments:', delErr);
+    }
+  }
+
+  // Cleanup tasks (only if we fetched enough)
+  if (counts.tasks >= minRecordsForCleanup.tasks) {
+    const { data: staleTasks, error: staleTasksErr } = await supabase
+      .from('ghl_tasks')
+      .select('ghl_id')
+      .eq('location_id', locationId)
+      .lt('last_synced_at', staleThreshold);
+    
+    if (!staleTasksErr && staleTasks && staleTasks.length > 0) {
+      console.log(`Found ${staleTasks.length} stale tasks`);
+      const { error: delErr } = await supabase
+        .from('ghl_tasks')
+        .delete()
+        .eq('location_id', locationId)
+        .lt('last_synced_at', staleThreshold);
+      if (!delErr) totalDeleted += staleTasks.length;
+      else console.error('Error deleting stale tasks:', delErr);
+    }
+  }
+
+  // Cleanup conversations (only if we fetched enough)
+  if (counts.conversations >= minRecordsForCleanup.conversations) {
+    const { data: staleConvs, error: staleConvsErr } = await supabase
+      .from('conversations')
+      .select('ghl_id')
+      .eq('location_id', locationId)
+      .lt('last_synced_at', staleThreshold);
+    
+    if (!staleConvsErr && staleConvs && staleConvs.length > 0) {
+      console.log(`Found ${staleConvs.length} stale conversations`);
+      const { error: delErr } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('location_id', locationId)
+        .lt('last_synced_at', staleThreshold);
+      if (!delErr) totalDeleted += staleConvs.length;
+      else console.error('Error deleting stale conversations:', delErr);
+    }
+  }
+
+  console.log(`Stale cleanup complete for location ${locationId}! Deleted ${totalDeleted} records.`);
+  return totalDeleted;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const ghlApiKey = Deno.env.get('GHL_API_KEY');
-    const locationId = Deno.env.get('GHL_LOCATION_ID');
+    // Get credentials for Location 1 (primary)
+    const ghlApiKey1 = Deno.env.get('GHL_API_KEY');
+    const locationId1 = Deno.env.get('GHL_LOCATION_ID');
+    
+    // Get credentials for Location 2 (secondary)
+    const ghlApiKey2 = Deno.env.get('GHL_API_KEY_2');
+    const locationId2 = Deno.env.get('GHL_LOCATION_ID_2');
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!ghlApiKey || !locationId) {
-      throw new Error('Missing GHL_API_KEY or GHL_LOCATION_ID');
+    if (!ghlApiKey1 || !locationId1) {
+      throw new Error('Missing GHL_API_KEY or GHL_LOCATION_ID for primary location');
     }
 
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -519,348 +892,73 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch all data in parallel (including pipelines for name resolution)
-    console.log('Starting full GHL sync...');
-    const [contacts, opportunities, appointments, users, pipelines, conversations] = await Promise.all([
-      fetchAllFromGHL('contacts/', ghlApiKey, locationId, 'contacts'),
-      fetchOpportunities(ghlApiKey, locationId),
-      fetchAppointments(ghlApiKey, locationId),
-      fetchUsers(ghlApiKey, locationId),
-      fetchPipelines(ghlApiKey, locationId),
-      fetchConversations(ghlApiKey, locationId),
-    ]);
-
-    // Fetch tasks after contacts (needs contact IDs)
-    const tasks = await fetchAllTasks(ghlApiKey, contacts);
-
-    // Build pipeline/stage lookup maps
-    const { pipelineNames, stageNames } = buildPipelineLookups(pipelines);
-
-    // Current sync timestamp for tracking
-    const syncTimestamp = new Date().toISOString();
-
-    // Sync users first (needed for name resolution)
-    if (users.length > 0) {
-      console.log(`Syncing ${users.length} users...`);
-      const usersToUpsert = users.map(u => ({
-        ghl_id: u.id,
-        location_id: locationId,
-        name: u.name || null,
-        first_name: u.firstName || null,
-        last_name: u.lastName || null,
-        email: u.email || null,
-        phone: u.phone || null,
-        role: u.role || null,
-      }));
-
-      const { error: usersError } = await supabase
-        .from('ghl_users')
-        .upsert(usersToUpsert, { onConflict: 'ghl_id' });
-
-      if (usersError) {
-        console.error('Users upsert error:', usersError);
-      }
-    }
-
-    // Sync contacts with last_synced_at tracking
-    if (contacts.length > 0) {
-      console.log(`Syncing ${contacts.length} contacts...`);
-      const contactsToUpsert = contacts.map(c => ({
-        ghl_id: c.id,
-        location_id: c.locationId || locationId,
-        contact_name: c.contactName || null,
-        first_name: c.firstName || null,
-        last_name: c.lastName || null,
-        email: c.email || null,
-        phone: c.phone || null,
-        source: c.source || null,
-        tags: c.tags || [],
-        assigned_to: c.assignedTo || null,
-        ghl_date_added: c.dateAdded || null,
-        ghl_date_updated: c.dateUpdated || null,
-        custom_fields: c.customFields || null,
-        attributions: c.attributions || null,
-        last_synced_at: syncTimestamp,
-      }));
-
-      for (let i = 0; i < contactsToUpsert.length; i += 100) {
-        const batch = contactsToUpsert.slice(i, i + 100);
-        const { error } = await supabase.from('contacts').upsert(batch, { onConflict: 'ghl_id' });
-        if (error) console.error('Contacts upsert error:', error);
-      }
-    }
-
-    // Sync opportunities with last_synced_at tracking
-    if (opportunities.length > 0) {
-      console.log(`Syncing ${opportunities.length} opportunities...`);
-      const oppsToUpsert = opportunities.map(o => ({
-        ghl_id: o.id,
-        location_id: o.locationId || locationId,
-        contact_id: o.contactId || null,
-        pipeline_id: o.pipelineId || null,
-        pipeline_stage_id: o.pipelineStageId || null,
-        pipeline_name: pipelineNames.get(o.pipelineId) || null,
-        stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
-        name: o.name || null,
-        monetary_value: o.monetaryValue || null,
-        status: o.status || null,
-        assigned_to: o.assignedTo || null,
-        ghl_date_added: o.createdAt || null,
-        ghl_date_updated: o.updatedAt || null,
-        custom_fields: o.customFields || null,
-        last_synced_at: syncTimestamp,
-      }));
-
-      for (let i = 0; i < oppsToUpsert.length; i += 100) {
-        const batch = oppsToUpsert.slice(i, i + 100);
-        const { error } = await supabase.from('opportunities').upsert(batch, { onConflict: 'ghl_id' });
-        if (error) console.error('Opportunities upsert error:', error);
-      }
-    }
-
-    // Sync appointments with last_synced_at tracking
-    if (appointments.length > 0) {
-      console.log(`Syncing ${appointments.length} appointments...`);
-      const apptsToUpsert = appointments.map(a => ({
-        ghl_id: a.id,
-        location_id: a.locationId || locationId,
-        contact_id: a.contactId || null,
-        calendar_id: a.calendarId || null,
-        title: a.title || null,
-        appointment_status: a.appointmentStatus || a.status || null,
-        assigned_user_id: a.assignedUserId || null,
-        start_time: a.startTime || null,
-        end_time: a.endTime || null,
-        notes: a.notes || null,
-        address: a.address || null,
-        ghl_date_added: a.dateAdded || a.createdAt || null,
-        ghl_date_updated: a.dateUpdated || a.updatedAt || null,
-        last_synced_at: syncTimestamp,
-      }));
-
-      for (let i = 0; i < apptsToUpsert.length; i += 100) {
-        const batch = apptsToUpsert.slice(i, i + 100);
-        const { error } = await supabase.from('appointments').upsert(batch, { onConflict: 'ghl_id' });
-        if (error) console.error('Appointments upsert error:', error);
-      }
-    }
-
-    // Sync conversations with last_synced_at tracking
-    if (conversations.length > 0) {
-      console.log(`Syncing ${conversations.length} conversations...`);
-      
-      // Helper to convert Unix timestamp (ms) to ISO string
-      const toISODate = (val: any): string | null => {
-        if (!val) return null;
-        if (typeof val === 'number') {
-          return new Date(val).toISOString();
-        }
-        if (typeof val === 'string') {
-          return val;
-        }
-        return null;
-      };
-
-      const convsToUpsert = conversations.map(c => ({
-        ghl_id: c.id,
-        location_id: c.locationId || locationId,
-        contact_id: c.contactId || null,
-        type: c.type || null,
-        unread_count: c.unreadCount || 0,
-        inbox_status: c.inboxStatus || null,
-        last_message_body: c.lastMessageBody || null,
-        last_message_date: toISODate(c.lastMessageDate),
-        last_message_type: c.lastMessageType || null,
-        last_message_direction: c.lastMessageDirection || null,
-        ghl_date_added: toISODate(c.dateAdded) || toISODate(c.createdAt),
-        ghl_date_updated: toISODate(c.dateUpdated) || toISODate(c.updatedAt),
-        last_synced_at: syncTimestamp,
-      }));
-
-      for (let i = 0; i < convsToUpsert.length; i += 100) {
-        const batch = convsToUpsert.slice(i, i + 100);
-        const { error } = await supabase.from('conversations').upsert(batch, { onConflict: 'ghl_id' });
-        if (error) console.error('Conversations upsert error:', error);
-      }
-    }
-
-    // Sync tasks with last_synced_at tracking
-    if (tasks.length > 0) {
-      console.log(`Syncing ${tasks.length} tasks...`);
-      const tasksToUpsert = tasks.map(t => ({
-        ghl_id: t.id,
-        location_id: locationId,
-        contact_id: t.contactId,
-        title: t.title || 'Untitled Task',
-        body: t.body || null,
-        assigned_to: t.assignedTo || null,
-        due_date: t.dueDate || null,
-        completed: t.completed || false,
-        last_synced_at: syncTimestamp,
-      }));
-
-      for (let i = 0; i < tasksToUpsert.length; i += 100) {
-        const batch = tasksToUpsert.slice(i, i + 100);
-        const { error } = await supabase.from('ghl_tasks').upsert(batch, { onConflict: 'ghl_id' });
-        if (error) console.error('Tasks upsert error:', error);
-      }
-    }
-
-    // Fetch and sync call logs (after conversations are fetched)
-    const callLogs = await fetchCallLogs(ghlApiKey, conversations, locationId);
+    console.log('Starting multi-location GHL sync...');
     
-    if (callLogs.length > 0) {
-      console.log(`Syncing ${callLogs.length} call logs...`);
-      const callsToUpsert = callLogs.map(c => ({
-        ghl_message_id: c.messageId,
-        conversation_id: c.conversationId,
-        contact_id: c.contactId,
-        direction: c.direction,
-        call_date: c.callDate,
-        user_id: c.userId,
-        location_id: c.locationId,
-        duration: c.duration || 0,
-      }));
-
-      for (let i = 0; i < callsToUpsert.length; i += 100) {
-        const batch = callsToUpsert.slice(i, i + 100);
-        const { error } = await supabase.from('call_logs').upsert(batch, { onConflict: 'ghl_message_id' });
-        if (error) console.error('Call logs upsert error:', error);
-      }
-    }
-
-    console.log('Full sync complete!');
-
-    // SAFE STALE RECORD CLEANUP
-    // Only delete records that haven't been seen in 1+ hour
-    // This ensures records aren't deleted due to temporary API failures or incomplete fetches
-    const staleThreshold = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString();
+    // Sync Location 1
+    const location1Results = await syncLocationData(supabase, ghlApiKey1, locationId1, 'Location 1 (Primary)');
     
-    // Only run cleanup if we fetched a reasonable number of records (protection against empty fetches)
-    const minRecordsForCleanup = {
-      contacts: 100,
-      opportunities: 50,
-      appointments: 10,
-      tasks: 5,
-      conversations: 10,
+    // Cleanup stale records for Location 1
+    const staleDeleted1 = await cleanupStaleRecords(supabase, locationId1, {
+      contacts: location1Results.contacts,
+      opportunities: location1Results.opportunities,
+      appointments: location1Results.appointments,
+      tasks: location1Results.tasks,
+      conversations: location1Results.conversations,
+    });
+
+    // Sync Location 2 if credentials are available
+    let location2Results = {
+      contacts: 0,
+      opportunities: 0,
+      appointments: 0,
+      users: 0,
+      pipelines: 0,
+      conversations: 0,
+      tasks: 0,
+      callLogs: 0,
     };
+    let staleDeleted2 = 0;
 
-    console.log('Starting safe stale record cleanup (1hr threshold)...');
-    let totalDeleted = 0;
-
-    // Cleanup contacts (only if we fetched enough)
-    if (contacts.length >= minRecordsForCleanup.contacts) {
-      const { data: staleContacts, error: staleContactsErr } = await supabase
-        .from('contacts')
-        .select('ghl_id')
-        .lt('last_synced_at', staleThreshold);
+    if (ghlApiKey2 && locationId2) {
+      console.log('\nLocation 2 credentials found, syncing...');
+      location2Results = await syncLocationData(supabase, ghlApiKey2, locationId2, 'Location 2 (Secondary)');
       
-      if (!staleContactsErr && staleContacts && staleContacts.length > 0) {
-        console.log(`Found ${staleContacts.length} stale contacts (not seen in 24hrs)`);
-        const { error: delErr } = await supabase
-          .from('contacts')
-          .delete()
-          .lt('last_synced_at', staleThreshold);
-        if (!delErr) totalDeleted += staleContacts.length;
-        else console.error('Error deleting stale contacts:', delErr);
-      }
+      staleDeleted2 = await cleanupStaleRecords(supabase, locationId2, {
+        contacts: location2Results.contacts,
+        opportunities: location2Results.opportunities,
+        appointments: location2Results.appointments,
+        tasks: location2Results.tasks,
+        conversations: location2Results.conversations,
+      });
     } else {
-      console.log(`Skipping contacts cleanup (only ${contacts.length} fetched, need ${minRecordsForCleanup.contacts})`);
+      console.log('\nNo Location 2 credentials found, skipping secondary sync.');
     }
 
-    // Cleanup opportunities (only if we fetched enough)
-    if (opportunities.length >= minRecordsForCleanup.opportunities) {
-      const { data: staleOpps, error: staleOppsErr } = await supabase
-        .from('opportunities')
-        .select('ghl_id')
-        .lt('last_synced_at', staleThreshold);
-      
-      if (!staleOppsErr && staleOpps && staleOpps.length > 0) {
-        console.log(`Found ${staleOpps.length} stale opportunities (not seen in 24hrs)`);
-        const { error: delErr } = await supabase
-          .from('opportunities')
-          .delete()
-          .lt('last_synced_at', staleThreshold);
-        if (!delErr) totalDeleted += staleOpps.length;
-        else console.error('Error deleting stale opportunities:', delErr);
-      }
-    } else {
-      console.log(`Skipping opportunities cleanup (only ${opportunities.length} fetched, need ${minRecordsForCleanup.opportunities})`);
-    }
-
-    // Cleanup appointments (only if we fetched enough)
-    if (appointments.length >= minRecordsForCleanup.appointments) {
-      const { data: staleAppts, error: staleApptsErr } = await supabase
-        .from('appointments')
-        .select('ghl_id')
-        .lt('last_synced_at', staleThreshold);
-      
-      if (!staleApptsErr && staleAppts && staleAppts.length > 0) {
-        console.log(`Found ${staleAppts.length} stale appointments (not seen in 24hrs)`);
-        const { error: delErr } = await supabase
-          .from('appointments')
-          .delete()
-          .lt('last_synced_at', staleThreshold);
-        if (!delErr) totalDeleted += staleAppts.length;
-        else console.error('Error deleting stale appointments:', delErr);
-      }
-    } else {
-      console.log(`Skipping appointments cleanup (only ${appointments.length} fetched, need ${minRecordsForCleanup.appointments})`);
-    }
-
-    // Cleanup tasks (only if we fetched enough)
-    if (tasks.length >= minRecordsForCleanup.tasks) {
-      const { data: staleTasks, error: staleTasksErr } = await supabase
-        .from('ghl_tasks')
-        .select('ghl_id')
-        .lt('last_synced_at', staleThreshold);
-      
-      if (!staleTasksErr && staleTasks && staleTasks.length > 0) {
-        console.log(`Found ${staleTasks.length} stale tasks (not seen in 24hrs)`);
-        const { error: delErr } = await supabase
-          .from('ghl_tasks')
-          .delete()
-          .lt('last_synced_at', staleThreshold);
-        if (!delErr) totalDeleted += staleTasks.length;
-        else console.error('Error deleting stale tasks:', delErr);
-      }
-    } else {
-      console.log(`Skipping tasks cleanup (only ${tasks.length} fetched, need ${minRecordsForCleanup.tasks})`);
-    }
-
-    // Cleanup conversations (only if we fetched enough)
-    if (conversations.length >= minRecordsForCleanup.conversations) {
-      const { data: staleConvs, error: staleConvsErr } = await supabase
-        .from('conversations')
-        .select('ghl_id')
-        .lt('last_synced_at', staleThreshold);
-      
-      if (!staleConvsErr && staleConvs && staleConvs.length > 0) {
-        console.log(`Found ${staleConvs.length} stale conversations (not seen in 24hrs)`);
-        const { error: delErr } = await supabase
-          .from('conversations')
-          .delete()
-          .lt('last_synced_at', staleThreshold);
-        if (!delErr) totalDeleted += staleConvs.length;
-        else console.error('Error deleting stale conversations:', delErr);
-      }
-    } else {
-      console.log(`Skipping conversations cleanup (only ${conversations.length} fetched, need ${minRecordsForCleanup.conversations})`);
-    }
-
-    console.log(`Safe stale cleanup complete! Deleted ${totalDeleted} total stale records.`);
+    console.log('\n========== Full multi-location sync complete! ==========');
 
     return new Response(JSON.stringify({
       meta: {
-        contacts: contacts.length,
-        opportunities: opportunities.length,
-        appointments: appointments.length,
-        users: users.length,
-        pipelines: pipelines.length,
-        conversations: conversations.length,
-        tasks: tasks.length,
-        callLogs: callLogs.length,
-        staleRecordsDeleted: totalDeleted,
+        location1: {
+          locationId: locationId1,
+          ...location1Results,
+          staleRecordsDeleted: staleDeleted1,
+        },
+        location2: ghlApiKey2 && locationId2 ? {
+          locationId: locationId2,
+          ...location2Results,
+          staleRecordsDeleted: staleDeleted2,
+        } : null,
+        totals: {
+          contacts: location1Results.contacts + location2Results.contacts,
+          opportunities: location1Results.opportunities + location2Results.opportunities,
+          appointments: location1Results.appointments + location2Results.appointments,
+          users: location1Results.users + location2Results.users,
+          pipelines: location1Results.pipelines + location2Results.pipelines,
+          conversations: location1Results.conversations + location2Results.conversations,
+          tasks: location1Results.tasks + location2Results.tasks,
+          callLogs: location1Results.callLogs + location2Results.callLogs,
+          staleRecordsDeleted: staleDeleted1 + staleDeleted2,
+        }
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
