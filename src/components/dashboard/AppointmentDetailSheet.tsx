@@ -28,6 +28,7 @@ import {
   ArrowDownLeft,
   Pencil,
   Trash2,
+  PhoneCall,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -67,6 +68,8 @@ interface Appointment {
   contact_id: string | null;
   assigned_user_id: string | null;
   calendar_id: string | null;
+  salesperson_confirmed?: boolean;
+  salesperson_confirmed_at?: string | null;
 }
 
 interface Opportunity {
@@ -204,6 +207,10 @@ export function AppointmentDetailSheet({
 
   // Delete state
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
+
+  // Salesperson confirmation state
+  const [salespersonConfirmed, setSalespersonConfirmed] = useState(false);
+  const [isUpdatingSalespersonConfirmed, setIsUpdatingSalespersonConfirmed] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -343,6 +350,40 @@ export function AppointmentDetailSheet({
         console.error("Error updating task:", error);
         toast.error("Failed to update task");
       }
+    }
+  };
+
+  // Sync salesperson confirmed state with appointment prop
+  useEffect(() => {
+    if (appointment) {
+      setSalespersonConfirmed(appointment.salesperson_confirmed || false);
+    }
+  }, [appointment]);
+
+  // Toggle salesperson confirmed
+  const handleToggleSalespersonConfirmed = async () => {
+    if (!appointment?.ghl_id) return;
+    setIsUpdatingSalespersonConfirmed(true);
+    try {
+      const newValue = !salespersonConfirmed;
+      const { error } = await supabase
+        .from("appointments")
+        .update({
+          salesperson_confirmed: newValue,
+          salesperson_confirmed_at: newValue ? new Date().toISOString() : null,
+        })
+        .eq("ghl_id", appointment.ghl_id);
+
+      if (error) throw error;
+      
+      setSalespersonConfirmed(newValue);
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success(newValue ? "Salesperson confirmed" : "Confirmation removed");
+    } catch (error) {
+      console.error("Error updating salesperson confirmation:", error);
+      toast.error("Failed to update confirmation");
+    } finally {
+      setIsUpdatingSalespersonConfirmed(false);
     }
   };
 
@@ -692,6 +733,21 @@ export function AppointmentDetailSheet({
                   {appointment.appointment_status || "Unknown"}
                 </Badge>
               </div>
+              {/* Salesperson Confirmation Toggle */}
+              <Button
+                variant={salespersonConfirmed ? "default" : "outline"}
+                size="sm"
+                className={`text-xs gap-1.5 ${salespersonConfirmed ? "bg-emerald-600 hover:bg-emerald-700" : "border-amber-500/50 text-amber-500 hover:bg-amber-500/10"}`}
+                onClick={handleToggleSalespersonConfirmed}
+                disabled={isUpdatingSalespersonConfirmed}
+              >
+                {isUpdatingSalespersonConfirmed ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <PhoneCall className="h-3 w-3" />
+                )}
+                {salespersonConfirmed ? "Rep Confirmed" : "Confirm Rep"}
+              </Button>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
