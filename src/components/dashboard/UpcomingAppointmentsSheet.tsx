@@ -349,73 +349,82 @@ export function UpcomingAppointmentsSheet({
                             }`}
                             onClick={() => handleAppointmentClick(appt)}
                           >
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <div className="flex items-center gap-1.5 truncate">
-                                {isPast && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                                <span
-                                  className={`font-medium text-sm truncate ${isPast ? "text-muted-foreground" : ""}`}
-                                >
-                                  {appt.title || "Untitled"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {isPast && (
-                                  <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
-                                    Past
-                                  </Badge>
-                                )}
-                                {/* Appointment Status Dropdown */}
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                                    <Badge
-                                      variant="outline"
-                                      className={`text-xs cursor-pointer hover:opacity-80 ${getStatusColor(localStatusState[appt.ghl_id] ?? appt.appointment_status)}`}
-                                    >
-                                      {updatingStatusId === appt.ghl_id ? (
-                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                      ) : null}
-                                      {localStatusState[appt.ghl_id] ?? appt.appointment_status ?? "No Status"}
-                                    </Badge>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" side="bottom" className="z-[100] bg-popover" onClick={(e) => e.stopPropagation()}>
-                                    {APPOINTMENT_STATUSES.map((status) => (
-                                      <DropdownMenuItem
-                                        key={status}
-                                        onClick={(e) => handleUpdateStatus(appt, status, e)}
-                                        className="capitalize"
-                                      >
-                                        {status.replace("_", " ")}
-                                      </DropdownMenuItem>
-                                    ))}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                                {/* Rep Confirmed Toggle */}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className={`h-6 px-2 text-xs gap-1 border ${
-                                    (localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
-                                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
-                                      : "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
-                                  }`}
-                                  onClick={(e) => handleToggleConfirmed(appt, e)}
-                                  disabled={confirmingApptId === appt.ghl_id}
-                                >
-                                  {confirmingApptId === appt.ghl_id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <PhoneCall className="h-3 w-3" />
-                                  )}
-                                  {(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
-                                    ? "Rep Confirmed"
-                                    : "Rep Unconfirmed"}
-                                </Button>
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                              </div>
+                            {/* Title row */}
+                            <div className="flex items-center gap-2 mb-1">
+                              {isPast && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                              <span
+                                className={`font-medium text-sm truncate flex-1 ${isPast ? "text-muted-foreground" : ""}`}
+                              >
+                                {appt.title || "Untitled"}
+                              </span>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                             </div>
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
-                              <User className="h-3 w-3" />
+                            
+                            {/* Contact info */}
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                              <User className="h-3 w-3 shrink-0" />
                               <span className="truncate">{contactName}</span>
+                              {assignedUser && (
+                                <>
+                                  <span className="mx-1">•</span>
+                                  <span className="truncate">{assignedUser}</span>
+                                </>
+                              )}
+                            </div>
+                            
+                            {/* Badges row - wrap on small screens */}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {isPast && (
+                                <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
+                                  Past
+                                </Badge>
+                              )}
+                              {/* Appointment Status Dropdown */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs cursor-pointer hover:opacity-80 ${getStatusColor(localStatusState[appt.ghl_id] ?? appt.appointment_status)}`}
+                                  >
+                                    {updatingStatusId === appt.ghl_id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                    ) : null}
+                                    {localStatusState[appt.ghl_id] ?? appt.appointment_status ?? "No Status"}
+                                  </Badge>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" side="top" sideOffset={4} className="z-[200] bg-popover" onClick={(e) => e.stopPropagation()}>
+                                  {APPOINTMENT_STATUSES.map((status) => (
+                                    <DropdownMenuItem
+                                      key={status}
+                                      onClick={(e) => handleUpdateStatus(appt, status, e)}
+                                      className="capitalize"
+                                    >
+                                      {status.replace("_", " ")}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                              {/* Rep Confirmed Toggle */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-6 px-2 text-xs gap-1 border ${
+                                  (localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
+                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
+                                    : "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
+                                }`}
+                                onClick={(e) => handleToggleConfirmed(appt, e)}
+                                disabled={confirmingApptId === appt.ghl_id}
+                              >
+                                {confirmingApptId === appt.ghl_id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <PhoneCall className="h-3 w-3" />
+                                )}
+                                {(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
+                                  ? "Confirmed"
+                                  : "Unconfirmed"}
+                              </Button>
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <div className="flex items-center gap-1">
