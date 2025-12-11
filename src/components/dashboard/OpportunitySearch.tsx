@@ -34,6 +34,7 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  address?: string | null;
 }
 
 interface Contact {
@@ -104,7 +105,6 @@ export function OpportunitySearch({
     if (Array.isArray(contact.custom_fields)) {
       fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
     } else if (typeof contact.custom_fields === 'object') {
-      // Handle if it's an object with array inside
       fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
     }
     
@@ -112,6 +112,18 @@ export function OpportunitySearch({
     
     const addressField = fieldsArray.find(f => f?.id === "b7oTVsUQrLgZt84bHpCn");
     return addressField?.value || "";
+  };
+
+  // Helper to get address with appointment fallback (same logic as detail sheet)
+  const getAddressWithFallback = (contactId: string | null): string => {
+    if (!contactId) return "";
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    const contactAddress = getAddressFromContact(contact);
+    if (contactAddress) return contactAddress;
+    
+    // Fall back to appointment address
+    const appointmentAddress = appointments.find(a => a.contact_id === contactId && a.address)?.address;
+    return appointmentAddress || "";
   };
 
   // Helper to normalize phone numbers (digits only)
@@ -156,10 +168,7 @@ export function OpportunitySearch({
   }, [searchQuery, opportunities, contacts]);
 
   const getAddress = (contactId: string | null) => {
-    if (!contactId) return null;
-    const contact = contacts.find(c => c.ghl_id === contactId);
-    const address = getAddressFromContact(contact);
-    return address || null;
+    return getAddressWithFallback(contactId) || null;
   };
 
   const formatCurrency = (value: number | null) => {
