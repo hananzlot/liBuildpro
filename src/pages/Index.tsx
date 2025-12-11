@@ -271,8 +271,32 @@ const Index = () => {
       </main>
 
       {/* Won Opportunities Sheet */}
-      <WonOpportunitiesSheet open={wonOpportunitiesSheetOpen} onOpenChange={setWonOpportunitiesSheetOpen} opportunities={metrics?.wonOpportunities || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} dateRange={dateRange} // 👈 add this
-    />
+      <WonOpportunitiesSheet 
+        open={wonOpportunitiesSheetOpen} 
+        onOpenChange={setWonOpportunitiesSheetOpen} 
+        opportunities={metrics?.wonOpportunities || []} 
+        contacts={metrics?.allContacts || []} 
+        users={metrics?.users || []} 
+        dateRange={dateRange}
+        onOpportunityClick={(opp) => {
+          setSelectedOpportunity({
+            ghl_id: opp.ghl_id,
+            name: opp.name,
+            status: opp.status,
+            monetary_value: opp.monetary_value,
+            pipeline_id: null,
+            pipeline_name: opp.pipeline_name,
+            pipeline_stage_id: null,
+            stage_name: opp.stage_name,
+            contact_id: opp.contact_id,
+            assigned_to: opp.assigned_to,
+            ghl_date_added: opp.ghl_date_added,
+            ghl_date_updated: opp.ghl_date_updated,
+          });
+          setWonOpportunitiesSheetOpen(false);
+          setOppDetailSheetOpen(true);
+        }}
+      />
 
       {/* Upcoming Appointments Sheet */}
       <UpcomingAppointmentsSheet open={upcomingAppointmentsSheetOpen} onOpenChange={setUpcomingAppointmentsSheetOpen} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} opportunities={metrics?.allOpportunities || []} users={metrics?.users || []} />

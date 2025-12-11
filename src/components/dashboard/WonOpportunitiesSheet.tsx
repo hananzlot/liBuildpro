@@ -80,7 +80,8 @@ interface WonOpportunitiesSheetProps {
   opportunities: DBOpportunity[];
   contacts: DBContact[];
   users: DBUser[];
-  dateRange?: DateRange; // 👈 NEW
+  dateRange?: DateRange;
+  onOpportunityClick?: (opportunity: DBOpportunity) => void;
 }
 
 // Custom field IDs from GHL
@@ -111,7 +112,8 @@ export function WonOpportunitiesSheet({
   opportunities,
   contacts,
   users,
-  dateRange, // 👈 NEW
+  dateRange,
+  onOpportunityClick,
 }: WonOpportunitiesSheetProps) {
   const [sourceFilter, setSourceFilter] = useState("");
 
@@ -225,7 +227,11 @@ export function WonOpportunitiesSheet({
                 }
 
                 return (
-                  <Card key={opp.id} className="border-border/50">
+                  <Card 
+                    key={opp.id} 
+                    className={`border-border/50 ${onOpportunityClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+                    onClick={() => onOpportunityClick?.(opp)}
+                  >
                     <CardContent className="pt-4 space-y-4">
                       {/* Header with name and value */}
                       <div className="flex items-start justify-between gap-4">
