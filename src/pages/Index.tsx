@@ -177,7 +177,7 @@ const Index = () => {
                     </div>
                     <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
                   </div>
-                  <ClickableMetricCard title="Appointments" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined} />
+                  <ClickableMetricCard title="Appointments (Today's & Future)" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
                   <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02]" onClick={() => setActivitySheetOpen(true)}>
                     <div className="flex items-start justify-between">
