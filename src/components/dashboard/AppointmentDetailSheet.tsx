@@ -730,7 +730,7 @@ export function AppointmentDetailSheet({
                   </AlertDialogContent>
                 </AlertDialog>
                 <Badge variant="outline" className={`text-xs ${getStatusColor(appointment.appointment_status)}`}>
-                  {appointment.appointment_status || "Unknown"}
+                  {appointment.appointment_status === "confirmed" ? "Cust. Confirmed" : (appointment.appointment_status || "Unknown")}
                 </Badge>
               </div>
               {/* Salesperson Confirmation (Read-only) */}
@@ -739,7 +739,7 @@ export function AppointmentDetailSheet({
                 className={`text-xs gap-1.5 ${salespersonConfirmed ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
               >
                 <PhoneCall className="h-3 w-3" />
-                {salespersonConfirmed ? "Confirmed" : "Not Confirmed"}
+                {salespersonConfirmed ? "Rep Confirmed" : "Not Confirmed"}
               </Badge>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
