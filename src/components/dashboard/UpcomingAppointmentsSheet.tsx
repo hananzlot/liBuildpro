@@ -326,20 +326,21 @@ export function UpcomingAppointmentsSheet({
                                     Past
                                   </Badge>
                                 )}
+                                {/* Customer Confirmed Badge */}
                                 <Badge
                                   variant="outline"
-                                  className={`text-xs ${getStatusColor(appt.appointment_status)}`}
+                                  className={`text-xs ${appt.appointment_status?.toLowerCase() === "confirmed" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
                                 >
-                                  {appt.appointment_status || "Pending"}
+                                  {appt.appointment_status?.toLowerCase() === "confirmed" ? "Cust. Confirmed" : (appt.appointment_status || "Pending")}
                                 </Badge>
-                                {/* Salesperson Confirmed Toggle */}
+                                {/* Rep Confirmed Toggle */}
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className={`h-6 px-2 text-xs gap-1 ${
                                     (localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
-                                      ? "text-emerald-500 hover:text-emerald-600"
-                                      : "text-muted-foreground hover:text-foreground"
+                                      ? "bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30"
+                                      : "bg-muted text-muted-foreground hover:bg-muted/80"
                                   }`}
                                   onClick={(e) => handleToggleConfirmed(appt, e)}
                                   disabled={confirmingApptId === appt.ghl_id}
@@ -350,8 +351,8 @@ export function UpcomingAppointmentsSheet({
                                     <PhoneCall className="h-3 w-3" />
                                   )}
                                   {(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
-                                    ? "Confirmed"
-                                    : "Confirm"}
+                                    ? "Rep Confirmed"
+                                    : "Rep Confirm"}
                                 </Button>
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               </div>
