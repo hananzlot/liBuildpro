@@ -91,6 +91,7 @@ interface DBTask {
   location_id: string;
   created_at: string;
   updated_at: string;
+  entered_by: string | null;
 }
 
 interface DBContactNote {
@@ -101,6 +102,7 @@ interface DBContactNote {
   ghl_date_added: string | null;
   location_id: string;
   user_id: string | null;
+  entered_by: string | null;
 }
 
 interface DBCallLog {
@@ -113,6 +115,13 @@ interface DBCallLog {
   user_id: string | null;
   location_id: string;
   created_at: string;
+}
+
+interface DBProfile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  ghl_user_id: string | null;
 }
 
 // Generic paginated fetch for any table
@@ -187,6 +196,12 @@ async function fetchContactNotesFromDB(): Promise<DBContactNote[]> {
 
 async function fetchCallLogsFromDB(): Promise<DBCallLog[]> {
   const { data, error } = await supabase.from("call_logs").select("*").order("call_date", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchProfilesFromDB(): Promise<DBProfile[]> {
+  const { data, error } = await supabase.from("profiles").select("*");
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -664,6 +679,15 @@ export function useCallLogs() {
   });
 }
 
+export function useProfiles() {
+  return useQuery({
+    queryKey: ["profiles"],
+    queryFn: fetchProfilesFromDB,
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
+  });
+}
+
 export function useSyncContacts() {
   const queryClient = useQueryClient();
 
@@ -690,6 +714,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const tasksQuery = useTasks();
   const contactNotesQuery = useContactNotes();
   const callLogsQuery = useCallLogs();
+  const profilesQuery = useProfiles();
 
   const isLoading =
     contactsQuery.isLoading ||
@@ -771,6 +796,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
           conversations: conversationsQuery.data || [],
           tasks: tasksQuery.data || [],
           contactNotes: contactNotesQuery.data || [],
+          profiles: profilesQuery.data || [],
           callLogs: filteredCallLogs,
           totalCalls: filteredCallLogs.length,
           outboundCalls: filteredCallLogs.filter((c) => c.direction === "outbound").length,
