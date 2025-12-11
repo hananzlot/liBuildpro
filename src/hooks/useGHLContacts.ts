@@ -498,27 +498,15 @@ function processMetrics(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // Appointments by source - group filtered appointments by contact source (unique contacts only, exclude cancelled)
-  const appointmentsBySourceMap = new Map<string, Set<string>>();
-  filteredAppointments
-    .filter((a) => a.appointment_status?.toLowerCase() !== "cancelled")
-    .forEach((a) => {
-      if (a.contact_id) {
-        const source = contactSourceMap.get(a.contact_id) || "Direct";
-        if (!appointmentsBySourceMap.has(source)) {
-          appointmentsBySourceMap.set(source, new Set());
-        }
-        appointmentsBySourceMap.get(source)!.add(a.contact_id);
-      }
+  // Build set of contact IDs from the filtered opportunities (same as Opps tab)
+  const filteredOppsContactIds = new Set<string>();
+  filteredOpportunities
+    .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
+    .forEach((o) => {
+      if (o.contact_id) filteredOppsContactIds.add(o.contact_id);
     });
 
-  const appointmentsBySource = Array.from(appointmentsBySourceMap.entries())
-    .map(([source, contactIds]) => ({ source, count: contactIds.size }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 10);
-
   // Build set of contact IDs that have ANY appointments ever (non-cancelled)
-  // Using ALL appointments, not filtered by date range
   const contactIdsWithAnyAppointments = new Set<string>();
   appointments
     .filter((a) => a.appointment_status?.toLowerCase() !== "cancelled")
@@ -526,7 +514,24 @@ function processMetrics(
       if (a.contact_id) contactIdsWithAnyAppointments.add(a.contact_id);
     });
 
-  // Opportunities WITHOUT any appointments by source
+  // Appointments by source - from the Opps contacts, which ones have appointments
+  const appointmentsBySourceMap = new Map<string, number>();
+  filteredOpportunities
+    .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
+    .filter((o) => o.contact_id && contactIdsWithAnyAppointments.has(o.contact_id))
+    .forEach((o) => {
+      if (o.contact_id) {
+        const source = contactSourceMap.get(o.contact_id) || "Direct";
+        appointmentsBySourceMap.set(source, (appointmentsBySourceMap.get(source) || 0) + 1);
+      }
+    });
+
+  const appointmentsBySource = Array.from(appointmentsBySourceMap.entries())
+    .map(([source, count]) => ({ source, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
+
+  // Opportunities WITHOUT any appointments by source - leftovers from Opps tab
   const oppsWithoutAppointmentsBySourceMap = new Map<string, number>();
   filteredOpportunities
     .filter((o) => o.stage_name?.toLowerCase() !== "quickbase")
