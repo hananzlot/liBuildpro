@@ -380,8 +380,11 @@ export function UpcomingAppointmentsSheet({
                                 </Badge>
                               )}
                               {/* Appointment Status Dropdown */}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger 
+                                  onClick={(e) => e.stopPropagation()}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                >
                                   <Badge
                                     variant="outline"
                                     className={`text-xs cursor-pointer hover:opacity-80 ${getStatusColor(localStatusState[appt.ghl_id] ?? appt.appointment_status)}`}
@@ -392,12 +395,21 @@ export function UpcomingAppointmentsSheet({
                                     {localStatusState[appt.ghl_id] ?? appt.appointment_status ?? "No Status"}
                                   </Badge>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" side="top" sideOffset={4} className="z-[200] bg-popover" onClick={(e) => e.stopPropagation()}>
+                                <DropdownMenuContent 
+                                  align="end" 
+                                  side="bottom" 
+                                  sideOffset={4} 
+                                  className="z-[9999] bg-popover border shadow-lg"
+                                  onCloseAutoFocus={(e) => e.preventDefault()}
+                                >
                                   {APPOINTMENT_STATUSES.map((status) => (
                                     <DropdownMenuItem
                                       key={status}
-                                      onClick={(e) => handleUpdateStatus(appt, status, e)}
-                                      className="capitalize"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleUpdateStatus(appt, status, e);
+                                      }}
+                                      className="capitalize cursor-pointer"
                                     >
                                       {status.replace("_", " ")}
                                     </DropdownMenuItem>
