@@ -158,10 +158,8 @@ export function OpportunitySearch({
   const getAddress = (contactId: string | null) => {
     if (!contactId) return null;
     const contact = contacts.find(c => c.ghl_id === contactId);
-    if (!contact?.custom_fields) return null;
-    const customFields = contact.custom_fields as Array<{ id: string; value: string }>;
-    const addressField = customFields?.find?.(f => f.id === "b7oTVsUQrLgZt84bHpCn");
-    return addressField?.value || null;
+    const address = getAddressFromContact(contact);
+    return address || null;
   };
 
   const formatCurrency = (value: number | null) => {
