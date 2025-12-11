@@ -326,12 +326,12 @@ export function UpcomingAppointmentsSheet({
                                     Past
                                   </Badge>
                                 )}
-                                {/* Customer Confirmed Badge */}
+                                {/* Appointment Status Badge */}
                                 <Badge
                                   variant="outline"
-                                  className={`text-xs ${appt.appointment_status?.toLowerCase() === "confirmed" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-red-500/20 text-red-400 border-red-500/30"}`}
+                                  className={`text-xs ${getStatusColor(appt.appointment_status)}`}
                                 >
-                                  {appt.appointment_status?.toLowerCase() === "confirmed" ? "Cust. Confirmed" : "Cust. Unconfirmed"}
+                                  {appt.appointment_status || "No Status"}
                                 </Badge>
                                 {/* Rep Confirmed Toggle */}
                                 <Button
