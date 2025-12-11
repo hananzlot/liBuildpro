@@ -726,15 +726,37 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const uniqueContactsCalled = new Set(filteredCallLogs.map((c) => c.contact_id)).size;
 
   // Calculate opportunity edits (opportunities with ghl_date_updated in date range)
-  const opportunityEdits = opportunitiesQuery.data && dateRange?.from
+  const editedOpportunities = opportunitiesQuery.data && dateRange?.from
     ? opportunitiesQuery.data.filter((o) => {
         if (!o.ghl_date_updated) return false;
         const updateDate = new Date(o.ghl_date_updated);
         const endDate = dateRange.to || new Date();
         endDate.setHours(23, 59, 59, 999);
         return updateDate >= dateRange.from! && updateDate <= endDate;
-      }).length
-    : opportunitiesQuery.data?.length || 0;
+      })
+    : opportunitiesQuery.data || [];
+
+  // Filter tasks created in date range
+  const filteredTasks = tasksQuery.data && dateRange?.from
+    ? tasksQuery.data.filter((t) => {
+        if (!t.created_at) return false;
+        const createDate = new Date(t.created_at);
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return createDate >= dateRange.from! && createDate <= endDate;
+      })
+    : tasksQuery.data || [];
+
+  // Filter contact notes created in date range
+  const filteredNotes = contactNotesQuery.data && dateRange?.from
+    ? contactNotesQuery.data.filter((n) => {
+        if (!n.ghl_date_added) return false;
+        const addDate = new Date(n.ghl_date_added);
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return addDate >= dateRange.from! && addDate <= endDate;
+      })
+    : contactNotesQuery.data || [];
 
   const data =
     contactsQuery.data && opportunitiesQuery.data && appointmentsQuery.data && usersQuery.data
@@ -754,7 +776,12 @@ export function useGHLMetrics(dateRange?: DateRange) {
           outboundCalls: filteredCallLogs.filter((c) => c.direction === "outbound").length,
           inboundCalls: filteredCallLogs.filter((c) => c.direction === "inbound").length,
           uniqueContactsCalled,
-          opportunityEdits,
+          opportunityEdits: editedOpportunities.length,
+          editedOpportunities,
+          filteredTasks,
+          filteredNotes,
+          tasksCreatedCount: filteredTasks.length,
+          notesCreatedCount: filteredNotes.length,
         }
       : undefined;
 
