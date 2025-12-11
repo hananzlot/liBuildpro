@@ -186,22 +186,22 @@ export function SourceChart({
         </div>
         
         <ScrollArea className="flex-1 min-h-0">
-          <div className="space-y-1.5 pr-2">
+          <div className="space-y-1 pr-2">
             {chartData.map((item) => (
               <div 
                 key={item.source}
-                className="group cursor-pointer hover:bg-muted/30 rounded-md p-1.5 transition-colors"
+                className="group cursor-pointer hover:bg-muted/30 rounded-md px-1.5 py-1 transition-colors"
                 onClick={() => handleBarClick(item)}
               >
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-xs font-medium text-foreground truncate max-w-[140px]" title={item.source}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-foreground truncate max-w-[140px]" title={item.source}>
                     {item.source}
                   </span>
-                  <span className="text-xs font-bold text-foreground ml-2">
+                  <span className="text-[11px] font-bold text-foreground ml-2">
                     {getDisplayValue(item)}
                   </span>
                 </div>
-                <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-muted/50 rounded-full overflow-hidden mt-0.5">
                   <div 
                     className="h-full rounded-full transition-all group-hover:opacity-80"
                     style={{ 
