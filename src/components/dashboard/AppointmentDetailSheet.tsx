@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { stripHtml } from "@/lib/utils";
+import { stripHtml, getAddressFromContact, CUSTOM_FIELD_IDS as SHARED_CUSTOM_FIELD_IDS, extractCustomField as sharedExtractCustomField } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -68,6 +68,7 @@ interface Appointment {
   contact_id: string | null;
   assigned_user_id: string | null;
   calendar_id: string | null;
+  address?: string | null;
   salesperson_confirmed?: boolean;
   salesperson_confirmed_at?: string | null;
 }
@@ -152,17 +153,9 @@ interface AppointmentDetailSheetProps {
   onOpenOpportunity?: (opportunity: Opportunity) => void;
 }
 
-const CUSTOM_FIELD_IDS = {
-  ADDRESS: "b7oTVsUQrLgZt84bHpCn",
-  SCOPE_OF_WORK: "KwQRtJT0aMSHnq3mwR68",
-  NOTES: "588ddQgiGEg3AWtTQB2i",
-};
-
-function extractCustomField(customFields: unknown, fieldId: string): string | null {
-  if (!customFields || !Array.isArray(customFields)) return null;
-  const field = customFields.find((f: CustomField) => f.id === fieldId);
-  return field?.value || null;
-}
+// Use shared CUSTOM_FIELD_IDS and extractCustomField from utils
+const CUSTOM_FIELD_IDS = SHARED_CUSTOM_FIELD_IDS;
+const extractCustomField = sharedExtractCustomField;
 
 export function AppointmentDetailSheet({
   appointment,
@@ -643,7 +636,7 @@ export function AppointmentDetailSheet({
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
       : "Unassigned");
 
-  const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
+  const address = getAddressFromContact(contact, appointment ? [appointment] : [], appointment?.contact_id);
   // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
   const scopeFromCustomField = contact
     ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
