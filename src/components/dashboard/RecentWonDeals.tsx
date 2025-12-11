@@ -3,9 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemo, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-//import type { DateRange } from "react-day-picker";
 import type { DateRange } from "@/hooks/useGHLContacts";
 import { differenceInCalendarDays } from "date-fns";
+import { getAddressFromContact } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
@@ -25,6 +25,12 @@ interface Contact {
   custom_fields?: unknown;
 }
 
+interface Appointment {
+  ghl_id: string;
+  contact_id: string | null;
+  address?: string | null;
+}
+
 interface ProjectCost {
   opportunity_id: string;
   estimated_cost: number;
@@ -33,7 +39,8 @@ interface ProjectCost {
 interface RecentWonDealsProps {
   wonOpportunities: Opportunity[];
   contacts: Contact[];
-  dateRange?: DateRange; // 👈 NEW
+  appointments?: Appointment[];
+  dateRange?: DateRange;
   onOpportunityClick?: (opportunity: Opportunity) => void;
 }
 
@@ -61,7 +68,7 @@ function parseGhlDate(value: string | null | undefined): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-export function RecentWonDeals({ wonOpportunities, contacts, dateRange, onOpportunityClick }: RecentWonDealsProps) {
+export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], dateRange, onOpportunityClick }: RecentWonDealsProps) {
   const [projectCosts, setProjectCosts] = useState<Map<string, number>>(new Map());
 
   const contactMap = new Map<string, Contact>();
@@ -129,11 +136,7 @@ export function RecentWonDeals({ wonOpportunities, contacts, dateRange, onOpport
   const getAddress = (contactId: string | null): string | null => {
     if (!contactId) return null;
     const contact = contactMap.get(contactId);
-    if (!contact?.custom_fields) return null;
-    const customFields = contact.custom_fields as { id: string; value: string }[];
-    if (!Array.isArray(customFields)) return null;
-    const addressField = customFields.find((f) => f.id === "b7oTVsUQrLgZt84bHpCn");
-    return addressField?.value || null;
+    return getAddressFromContact(contact, appointments, contactId);
   };
 
   const totalWonValue = filteredWon.reduce((sum, o) => sum + (o.monetary_value || 0), 0);

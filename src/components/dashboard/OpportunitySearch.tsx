@@ -10,6 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
+import { getAddressFromContact as getAddressUtil } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
@@ -96,34 +97,11 @@ export function OpportunitySearch({
     }
   };
 
-  // Helper to extract address from contact custom_fields (handles various formats)
-  const getAddressFromContact = (contact: Contact | undefined): string => {
-    if (!contact?.custom_fields) return "";
-    
-    let fieldsArray: Array<{ id: string; value: string }> | null = null;
-    
-    if (Array.isArray(contact.custom_fields)) {
-      fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
-    } else if (typeof contact.custom_fields === 'object') {
-      fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
-    }
-    
-    if (!fieldsArray || !Array.isArray(fieldsArray)) return "";
-    
-    const addressField = fieldsArray.find(f => f?.id === "b7oTVsUQrLgZt84bHpCn");
-    return addressField?.value || "";
-  };
-
-  // Helper to get address with appointment fallback (same logic as detail sheet)
+  // Helper to get address with appointment fallback (uses shared utility)
   const getAddressWithFallback = (contactId: string | null): string => {
     if (!contactId) return "";
     const contact = contacts.find(c => c.ghl_id === contactId);
-    const contactAddress = getAddressFromContact(contact);
-    if (contactAddress) return contactAddress;
-    
-    // Fall back to appointment address
-    const appointmentAddress = appointments.find(a => a.contact_id === contactId && a.address)?.address;
-    return appointmentAddress || "";
+    return getAddressUtil(contact, appointments, contactId) || "";
   };
 
   // Helper to normalize phone numbers (digits only)
@@ -147,7 +125,7 @@ export function OpportunitySearch({
           `${contact?.first_name || ""} ${contact?.last_name || ""}`.toLowerCase();
         
         // Get address using robust extraction
-        const address = getAddressFromContact(contact).toLowerCase();
+        const address = getAddressWithFallback(opp.contact_id).toLowerCase();
         
         // Get phone (digits only)
         const phone = normalizePhone(contact?.phone);

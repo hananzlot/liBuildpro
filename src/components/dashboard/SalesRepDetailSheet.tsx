@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch, ChevronRight, Search, MapPin } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
+import { getAddressFromContact } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
@@ -42,6 +43,7 @@ interface Appointment {
   notes: string | null;
   contact_id: string | null;
   assigned_user_id: string | null;
+  address?: string | null;
 }
 
 interface Contact {
@@ -347,15 +349,8 @@ export function SalesRepDetailSheet({
                         const contact = contacts.find(c => c.ghl_id === appt.contact_id);
                         const opportunity = opportunities.find(o => o.contact_id === appt.contact_id);
                         
-                        // Extract address from contact custom_fields
-                        let address: string | null = null;
-                        if (contact?.custom_fields) {
-                          const customFields = contact.custom_fields as { id: string; value: string }[];
-                          if (Array.isArray(customFields)) {
-                            const addressField = customFields.find(f => f.id === 'b7oTVsUQrLgZt84bHpCn');
-                            address = addressField?.value || null;
-                          }
-                        }
+                        // Extract address from contact with appointment fallback
+                        const address = getAddressFromContact(contact, appointments, appt.contact_id);
                         
                         const contactName = capitalizeWords(
                           contact?.contact_name || 

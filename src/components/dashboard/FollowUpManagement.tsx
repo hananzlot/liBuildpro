@@ -39,7 +39,7 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { stripHtml } from "@/lib/utils";
+import { stripHtml, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 interface DBOpportunity {
   id: string;
@@ -643,17 +643,11 @@ export function FollowUpManagement({
     }
   };
 
-  // Helper to get address from contact custom_fields
+  // Helper to get address from contact custom_fields with appointment fallback
   const getAddress = (contactId: string | null): string => {
     if (!contactId) return "No address";
     const contact = contacts.find((c) => c.ghl_id === contactId);
-    if (!contact?.custom_fields) return "No address";
-    const customFields = contact.custom_fields as Array<{
-      id: string;
-      value: string;
-    }>;
-    const addressField = customFields.find((f) => f.id === "b7oTVsUQrLgZt84bHpCn");
-    return addressField?.value || "No address";
+    return getAddressFromContact(contact, appointments, contactId) || "No address";
   };
 
   // Helper to get scope from contact custom_fields

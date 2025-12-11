@@ -24,7 +24,7 @@ import { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
@@ -407,21 +407,13 @@ export function OpportunitiesTable({
     setAppointmentFilter(value);
   };
 
-  // Helper to extract custom field value
-  const getCustomFieldValue = (contact: Contact | undefined, fieldId: string): string => {
-    if (!contact?.custom_fields) return "";
-    const customFields = contact.custom_fields;
-    let fieldsArray: Array<{ id: string; value: string }> | null = null;
-
-    if (Array.isArray(customFields)) {
-      fieldsArray = customFields as Array<{ id: string; value: string }>;
-    } else if (typeof customFields === "object") {
-      fieldsArray = Object.values(customFields as Record<string, { id: string; value: string }>);
+  // Helper to extract custom field value (use shared util for address with fallback)
+  const getCustomFieldValue = (contact: Contact | undefined, fieldId: string, contactId?: string | null): string => {
+    // For address, use the shared utility with appointment fallback
+    if (fieldId === CUSTOM_FIELD_IDS.ADDRESS) {
+      return getAddressFromContact(contact, appointments, contactId) || "";
     }
-
-    if (!fieldsArray || !Array.isArray(fieldsArray)) return "";
-    const field = fieldsArray.find((f) => f.id === fieldId);
-    return field?.value || "";
+    return extractCustomField(contact?.custom_fields, fieldId) || "";
   };
 
   // CSV download function
@@ -458,8 +450,8 @@ export function OpportunitiesTable({
           : "";
       const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
 
-      const address = getCustomFieldValue(contact, "b7oTVsUQrLgZt84bHpCn");
-      const scopeOfWork = getCustomFieldValue(contact, "KwQRtJT0aMSHnq3mwR68");
+      const address = getCustomFieldValue(contact, CUSTOM_FIELD_IDS.ADDRESS, opp.contact_id);
+      const scopeOfWork = getCustomFieldValue(contact, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
       const contactName =
         contact?.contact_name || [contact?.first_name, contact?.last_name].filter(Boolean).join(" ") || "";
 
