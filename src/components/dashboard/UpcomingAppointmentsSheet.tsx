@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2 } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
@@ -93,6 +94,10 @@ export function UpcomingAppointmentsSheet({
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
   const [confirmingApptId, setConfirmingApptId] = useState<string | null>(null);
   const [localConfirmedState, setLocalConfirmedState] = useState<Record<string, boolean>>({});
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  const [localStatusState, setLocalStatusState] = useState<Record<string, string>>({});
+
+  const APPOINTMENT_STATUSES = ["confirmed", "showed", "no_show", "cancelled"];
 
   const queryClient = useQueryClient();
 
@@ -126,6 +131,39 @@ export function UpcomingAppointmentsSheet({
     }
   };
 
+  const handleUpdateStatus = async (appt: DBAppointment, newStatus: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setUpdatingStatusId(appt.ghl_id);
+    try {
+      // Update in GHL first
+      const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
+        body: {
+          appointmentId: appt.ghl_id,
+          calendarId: appt.calendar_id,
+          appointmentStatus: newStatus,
+        },
+      });
+
+      if (ghlError) throw ghlError;
+
+      // Update in Supabase
+      const { error } = await supabase
+        .from("appointments")
+        .update({ appointment_status: newStatus })
+        .eq("ghl_id", appt.ghl_id);
+
+      if (error) throw error;
+
+      setLocalStatusState((prev) => ({ ...prev, [appt.ghl_id]: newStatus }));
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success(`Status updated to ${newStatus}`);
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast.error("Failed to update status");
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
   // Build user map early for filtering
   const userMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -326,13 +364,31 @@ export function UpcomingAppointmentsSheet({
                                     Past
                                   </Badge>
                                 )}
-                                {/* Appointment Status Badge */}
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs ${getStatusColor(appt.appointment_status)}`}
-                                >
-                                  {appt.appointment_status || "No Status"}
-                                </Badge>
+                                {/* Appointment Status Dropdown */}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs cursor-pointer hover:opacity-80 ${getStatusColor(localStatusState[appt.ghl_id] ?? appt.appointment_status)}`}
+                                    >
+                                      {updatingStatusId === appt.ghl_id ? (
+                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                      ) : null}
+                                      {localStatusState[appt.ghl_id] ?? appt.appointment_status ?? "No Status"}
+                                    </Badge>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                    {APPOINTMENT_STATUSES.map((status) => (
+                                      <DropdownMenuItem
+                                        key={status}
+                                        onClick={(e) => handleUpdateStatus(appt, status, e)}
+                                        className="capitalize"
+                                      >
+                                        {status.replace("_", " ")}
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                                 {/* Rep Confirmed Toggle */}
                                 <Button
                                   variant="ghost"
