@@ -54,6 +54,7 @@ interface DBAppointment {
   start_time: string | null;
   end_time: string | null;
   notes: string | null;
+  address?: string | null;
   salesperson_confirmed?: boolean;
 }
 
