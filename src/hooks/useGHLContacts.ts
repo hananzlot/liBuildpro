@@ -519,22 +519,7 @@ function processMetrics(
 
   const wonBySource = Array.from(wonBySourceMap.entries())
     .map(([source, data]) => ({ source, count: data.count, value: data.value }))
-    .sort((a, b) => {
-      const priorityA = getSourcePriority(a.source);
-      const priorityB = getSourcePriority(b.source);
-      const priorityDiff = priorityA - priorityB;
-      if (priorityDiff !== 0) return priorityDiff;
-      
-      // Within Facebook/Google: sort by value desc
-      if (priorityA < 2) {
-        return b.value - a.value;
-      }
-      
-      // Within Others: sort alphabetically, then by value desc
-      const alphaDiff = a.source.localeCompare(b.source);
-      if (alphaDiff !== 0) return alphaDiff;
-      return b.value - a.value;
-    });
+    .sort((a, b) => b.value - a.value);
 
   // Opportunities by source - group filtered opportunities by contact source (excluding quickbase stage)
   const opportunitiesBySourceMap = new Map<string, number>();
