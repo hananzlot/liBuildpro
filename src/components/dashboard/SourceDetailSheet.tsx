@@ -112,6 +112,7 @@ interface SourceDetailSheetProps {
   users: GHLUser[];
   showAppointments?: boolean;
   showNoAppointments?: boolean;
+  userId?: string | null;
 }
 
 export function SourceDetailSheet({
@@ -128,6 +129,7 @@ export function SourceDetailSheet({
   users,
   showAppointments = false,
   showNoAppointments = false,
+  userId,
 }: SourceDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -198,7 +200,7 @@ export function SourceDetailSheet({
     try {
       // Get location_id from contact
       const contact = contacts.find(c => c.ghl_id === taskOpp.contact_id);
-      const locationId = contact?.location_id || "default";
+      const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
 
       const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
       
@@ -213,44 +215,27 @@ export function SourceDetailSheet({
         dueDateValue = utcDate.toISOString();
       }
 
-      // First insert into Supabase
-      const { data: insertedTask, error } = await supabase.from("tasks").insert({
-        opportunity_id: taskOpp.ghl_id,
-        contact_id: taskOpp.contact_id,
-        title: taskTitle.trim(),
-        notes: taskNotes.trim() || null,
-        assigned_to: assignedToValue,
-        due_date: dueDateValue,
-        location_id: locationId,
-        status: "pending"
-      }).select().single();
-
-      if (error) throw error;
-
-      // Now sync to GHL
-      try {
-        const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
-          body: {
-            title: taskTitle.trim(),
-            body: taskNotes.trim() || null,
-            dueDate: dueDateValue,
-            assignedTo: assignedToValue,
-            contactId: taskOpp.contact_id,
-            supabaseTaskId: insertedTask?.id
-          }
-        });
-
-        if (ghlResponse.error) {
-          console.error('GHL sync error:', ghlResponse.error);
-          toast.success("Task created locally (GHL sync failed)");
-        } else {
-          console.log('Task synced to GHL:', ghlResponse.data);
-          toast.success("Task created and synced to GHL");
+      // Create task in GHL (edge function will also insert into ghl_tasks)
+      const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
+        body: {
+          title: taskTitle.trim(),
+          body: taskNotes.trim() || null,
+          dueDate: dueDateValue,
+          assignedTo: assignedToValue,
+          contactId: taskOpp.contact_id,
+          locationId: locationId,
+          enteredBy: userId || null,
         }
-      } catch (ghlError) {
-        console.error('GHL sync error:', ghlError);
-        toast.success("Task created locally (GHL sync failed)");
+      });
+
+      if (ghlResponse.error) {
+        console.error('GHL sync error:', ghlResponse.error);
+        toast.error("Failed to create task");
+      } else {
+        console.log('Task synced to GHL:', ghlResponse.data);
+        toast.success("Task created and synced to GHL");
       }
+
       setTaskDialogOpen(false);
       setTaskOpp(null);
       setTaskTitle("");

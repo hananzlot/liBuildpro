@@ -74,6 +74,7 @@ interface SourceChartProps {
   users: GHLUser[];
   appointmentsBySource?: SourceData[];
   oppsWithoutAppointmentsBySource?: SourceData[];
+  userId?: string | null;
 }
 
 const LEAD_COLORS = [
@@ -122,6 +123,7 @@ export function SourceChart({
   users,
   appointmentsBySource,
   oppsWithoutAppointmentsBySource,
+  userId,
 }: SourceChartProps) {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -276,6 +278,7 @@ export function SourceChart({
         users={users}
         showAppointments={clickedFromAppointments}
         showNoAppointments={clickedFromNoAppointments}
+        userId={userId}
       />
 
       {/* View All Sources Sheet */}
