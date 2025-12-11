@@ -346,7 +346,12 @@ export function UpcomingAppointmentsSheet({
                           contact?.contact_name ||
                           `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() ||
                           "Unknown";
-                        const address = getAddressFromContact(contact, [appt], appt.contact_id);
+                        // Get address: contact custom_fields, then current appt, then any other appt for this contact
+                        const contactAddress = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
+                        const otherApptAddress = appt.contact_id 
+                          ? appointments.find(a => a.contact_id === appt.contact_id && a.address)?.address 
+                          : null;
+                        const address = contactAddress || appt.address || otherApptAddress || null;
                         const phone = contact?.phone || null;
                         const assignedUser = appt.assigned_user_id ? userMap.get(appt.assigned_user_id) : null;
                         const isPast = new Date(appt.start_time!) < new Date();
