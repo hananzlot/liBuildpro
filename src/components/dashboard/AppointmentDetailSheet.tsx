@@ -734,8 +734,15 @@ export function AppointmentDetailSheet({
                 </AlertDialog>
               </div>
             </div>
-            {/* Status badges row */}
-            <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Date & Time */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>{formatDateTime(appointment.start_time)}</span>
+              <span>→</span>
+              <span>{formatTime(appointment.end_time)}</span>
+            </div>
+            {/* Status badges + Sales Rep + Value on same line */}
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge
                 variant="outline"
                 className={`text-xs h-6 px-2 inline-flex items-center ${getStatusColor(appointment.appointment_status)}`}
@@ -751,78 +758,55 @@ export function AppointmentDetailSheet({
                 <PhoneCall className="h-3 w-3" />
                 {salespersonConfirmed ? "Rep Confirmed" : "Not Confirmed"}
               </Badge>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              <span>{formatDateTime(appointment.start_time)}</span>
-              <span>→</span>
-              <span>{formatTime(appointment.end_time)}</span>
+              <span className="text-xs text-muted-foreground">|</span>
+              <span className="text-xs font-medium">{userName}</span>
+              {primaryOpportunity && (
+                <>
+                  <span className="text-xs text-muted-foreground">|</span>
+                  <span className="text-sm font-bold text-emerald-400">
+                    {formatCurrency(primaryOpportunity.monetary_value)}
+                  </span>
+                </>
+              )}
             </div>
           </SheetHeader>
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Clickable Pipeline Status (if opportunity exists) */}
-          {primaryOpportunity && (
-            <div
-              className={`bg-primary/5 border border-primary/20 rounded-lg p-3 ${onOpenOpportunity ? "cursor-pointer hover:bg-primary/10 transition-colors" : ""}`}
-              onClick={() => handleOpenOpportunity(primaryOpportunity)}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <span className="font-medium text-sm">{primaryOpportunity.pipeline_name || "Pipeline"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-xs">
-                    {primaryOpportunity.stage_name || "Unknown"}
-                  </Badge>
-                  {onOpenOpportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="text-xl font-bold text-emerald-400">
-                  {formatCurrency(primaryOpportunity.monetary_value)}
-                </div>
-                {onOpenOpportunity && (
-                  <span className="text-xs text-muted-foreground">Click for full Opportuninty details</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Key Info Grid */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-muted/40 rounded-md p-2.5">
-              <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
-              <div className="font-medium truncate">{userName}</div>
-            </div>
-            <div className="bg-muted/40 rounded-md p-2.5">
-              <div className="text-muted-foreground text-xs mb-0.5">Contact</div>
-              <div className="font-medium truncate">{contactName}</div>
-            </div>
-          </div>
-
-          {/* Contact Details */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
-            </div>
-            <div className="p-3 grid gap-1.5 text-sm text-muted-foreground">
+          {/* Contact Details - Clickable to open opportunity */}
+          <div 
+            className={`border rounded-lg overflow-hidden ${primaryOpportunity && onOpenOpportunity ? "cursor-pointer hover:bg-muted/20 transition-colors" : ""}`}
+            onClick={() => primaryOpportunity && handleOpenOpportunity(primaryOpportunity)}
+          >
+            <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
               <div className="flex items-center gap-2">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
+              </div>
+              {primaryOpportunity && onOpenOpportunity && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>View Opportunity</span>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </div>
+              )}
+            </div>
+            <div className="p-3 grid gap-1.5 text-sm">
+              <div className="font-medium text-foreground">
+                {contactName}
+              </div>
+              <div className="flex items-center gap-2 text-muted-foreground">
                 <Phone className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">
                   {contact?.phone || <span className="italic text-muted-foreground/60">No phone</span>}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
                 <Mail className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">
                   {contact?.email || <span className="italic text-muted-foreground/60">No email</span>}
                 </span>
               </div>
-              <div className="flex items-start gap-2">
+              <div className="flex items-start gap-2 text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                 <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
               </div>
