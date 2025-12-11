@@ -41,7 +41,32 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
   if (contact.phone) payload.phone = contact.phone;
   if (contact.source) payload.source = contact.source;
   if (contact.tags && contact.tags.length > 0) payload.tags = contact.tags;
-  if (contact.customFields) payload.customFields = contact.customFields;
+  
+  // Map Location 2 fields to Location 1 custom fields
+  // Location 2 stores scope of work in attributions.utmContent
+  // Location 1 uses custom field KwQRtJT0aMSHnq3mwR68 for scope
+  const customFields: Array<{ id: string; value: string }> = [];
+  
+  // Get scope from utm_content (could be in attributions or directly on contact)
+  const utmContent = contact.attributions?.utmContent || 
+                     contact.attributions?.utm_content ||
+                     contact.utmContent ||
+                     contact.utm_content;
+  
+  if (utmContent) {
+    customFields.push({ id: 'KwQRtJT0aMSHnq3mwR68', value: utmContent }); // Scope of work
+    console.log(`Mapping utm_content to scope: ${utmContent}`);
+  }
+  
+  // Copy address if exists (field ID b7oTVsUQrLgZt84bHpCn)
+  if (contact.address1 || contact.address) {
+    customFields.push({ id: 'b7oTVsUQrLgZt84bHpCn', value: contact.address1 || contact.address });
+  }
+  
+  // Only set customFields if we have mapped values
+  if (customFields.length > 0) {
+    payload.customFields = customFields;
+  }
   
   console.log(`Creating contact in Location 1: ${payload.firstName} ${payload.lastName}`);
   
