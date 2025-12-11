@@ -315,6 +315,7 @@ const Index = () => {
         filteredNotes={metrics?.filteredNotes || []} 
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []}
+        profiles={metrics?.profiles || []}
         onOpportunityClick={(opp) => {
           setSelectedOpportunity({
             ghl_id: opp.ghl_id,

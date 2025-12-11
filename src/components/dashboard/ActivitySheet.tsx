@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DollarSign, CheckSquare, FileText, User, Calendar, MapPin } from "lucide-react";
+import { DollarSign, CheckSquare, FileText, User, Calendar, MapPin, UserCheck } from "lucide-react";
 
 interface DBOpportunity {
   id: string;
@@ -27,6 +27,7 @@ interface DBTask {
   completed: boolean;
   assigned_to: string | null;
   created_at: string;
+  entered_by: string | null;
 }
 
 interface DBContactNote {
@@ -36,6 +37,14 @@ interface DBContactNote {
   body: string | null;
   ghl_date_added: string | null;
   user_id: string | null;
+  entered_by: string | null;
+}
+
+interface DBProfile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  ghl_user_id: string | null;
 }
 
 interface DBContact {
@@ -61,6 +70,7 @@ interface ActivitySheetProps {
   filteredNotes: DBContactNote[];
   contacts: DBContact[];
   users: DBUser[];
+  profiles: DBProfile[];
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
 }
 
@@ -129,6 +139,12 @@ const getStatusColor = (status: string | null): string => {
   }
 };
 
+const getCreatorName = (enteredBy: string | null, profiles: DBProfile[]): string | null => {
+  if (!enteredBy) return null;
+  const profile = profiles.find(p => p.id === enteredBy);
+  return profile?.full_name || profile?.email?.split('@')[0] || null;
+};
+
 export function ActivitySheet({
   open,
   onOpenChange,
@@ -137,6 +153,7 @@ export function ActivitySheet({
   filteredNotes,
   contacts,
   users,
+  profiles,
   onOpportunityClick,
 }: ActivitySheetProps) {
   const totalActivity = editedOpportunities.length + filteredTasks.length + filteredNotes.length;
@@ -289,8 +306,14 @@ export function ActivitySheet({
                                 </div>
                               )}
                             </div>
-                            <div className="text-[10px] text-muted-foreground/70">
-                              Created: {formatDate(task.created_at)}
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+                              <span>Created: {formatDate(task.created_at)}</span>
+                              {getCreatorName(task.entered_by, profiles) && (
+                                <span className="flex items-center gap-1">
+                                  <UserCheck className="h-3 w-3" />
+                                  By: {getCreatorName(task.entered_by, profiles)}
+                                </span>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -348,8 +371,14 @@ export function ActivitySheet({
                                 {note.body || "(No content)"}
                               </p>
                             </div>
-                            <div className="text-[10px] text-muted-foreground/70">
-                              Added: {formatDate(note.ghl_date_added)}
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+                              <span>Added: {formatDate(note.ghl_date_added)}</span>
+                              {getCreatorName(note.entered_by, profiles) && (
+                                <span className="flex items-center gap-1">
+                                  <UserCheck className="h-3 w-3" />
+                                  By: {getCreatorName(note.entered_by, profiles)}
+                                </span>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
