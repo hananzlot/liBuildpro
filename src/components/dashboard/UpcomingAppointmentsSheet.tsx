@@ -25,6 +25,7 @@ interface DBAppointment {
   end_time: string | null;
   notes: string | null;
   assigned_user_id: string | null;
+  address?: string | null;
   location_id?: string;
   ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
