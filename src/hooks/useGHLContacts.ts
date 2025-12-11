@@ -303,6 +303,25 @@ function processMetrics(
     return dateAdded && dateAdded >= startOfMonth;
   }).length;
 
+  // Helper: Get source priority (Facebook=0, Google=1, Others=2)
+  const getSourcePriority = (source: string): number => {
+    const lower = source.toLowerCase();
+    if (lower.includes('facebook')) return 0;
+    if (lower.includes('google')) return 1;
+    return 2;
+  };
+
+  // Helper: Sort sources by priority, then alphabetically, then by count desc
+  const sortSources = <T extends { source: string; count: number }>(items: T[]): T[] => {
+    return items.sort((a, b) => {
+      const priorityDiff = getSourcePriority(a.source) - getSourcePriority(b.source);
+      if (priorityDiff !== 0) return priorityDiff;
+      const alphaDiff = a.source.localeCompare(b.source);
+      if (alphaDiff !== 0) return alphaDiff;
+      return b.count - a.count;
+    });
+  };
+
   // Group by source
   const sourceMap = new Map<string, number>();
   filteredContacts.forEach((c) => {
@@ -310,9 +329,9 @@ function processMetrics(
     sourceMap.set(source, (sourceMap.get(source) || 0) + 1);
   });
 
-  const leadsBySource: LeadsBySource[] = Array.from(sourceMap.entries())
-    .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => a.source.localeCompare(b.source) || b.count - a.count);
+  const leadsBySource: LeadsBySource[] = sortSources(
+    Array.from(sourceMap.entries()).map(([source, count]) => ({ source, count }))
+  );
 
   // Filter appointments by date range (using start_time)
   const filteredAppointments = dateRange?.from
@@ -478,7 +497,13 @@ function processMetrics(
 
   const wonBySource = Array.from(wonBySourceMap.entries())
     .map(([source, data]) => ({ source, count: data.count, value: data.value }))
-    .sort((a, b) => a.source.localeCompare(b.source) || b.value - a.value);
+    .sort((a, b) => {
+      const priorityDiff = getSourcePriority(a.source) - getSourcePriority(b.source);
+      if (priorityDiff !== 0) return priorityDiff;
+      const alphaDiff = a.source.localeCompare(b.source);
+      if (alphaDiff !== 0) return alphaDiff;
+      return b.value - a.value;
+    });
 
   // Opportunities by source - group filtered opportunities by contact source (excluding quickbase stage)
   const opportunitiesBySourceMap = new Map<string, number>();
@@ -491,9 +516,9 @@ function processMetrics(
       }
     });
 
-  const opportunitiesBySource = Array.from(opportunitiesBySourceMap.entries())
-    .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => a.source.localeCompare(b.source) || b.count - a.count);
+  const opportunitiesBySource = sortSources(
+    Array.from(opportunitiesBySourceMap.entries()).map(([source, count]) => ({ source, count }))
+  );
 
   // Build set of contact IDs from the filtered opportunities (same as Opps tab)
   const filteredOppsContactIds = new Set<string>();
@@ -523,9 +548,9 @@ function processMetrics(
       }
     });
 
-  const appointmentsBySource = Array.from(appointmentsBySourceMap.entries())
-    .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => a.source.localeCompare(b.source) || b.count - a.count);
+  const appointmentsBySource = sortSources(
+    Array.from(appointmentsBySourceMap.entries()).map(([source, count]) => ({ source, count }))
+  );
 
   // Opportunities WITHOUT any appointments by source - leftovers from Opps tab
   const oppsWithoutAppointmentsBySourceMap = new Map<string, number>();
@@ -539,9 +564,9 @@ function processMetrics(
       }
     });
 
-  const oppsWithoutAppointmentsBySource = Array.from(oppsWithoutAppointmentsBySourceMap.entries())
-    .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => a.source.localeCompare(b.source) || b.count - a.count);
+  const oppsWithoutAppointmentsBySource = sortSources(
+    Array.from(oppsWithoutAppointmentsBySourceMap.entries()).map(([source, count]) => ({ source, count }))
+  );
 
   // Appointments metrics
   // Start of today (midnight)
