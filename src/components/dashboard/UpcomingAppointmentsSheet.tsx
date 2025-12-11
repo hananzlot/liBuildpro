@@ -138,9 +138,8 @@ export function UpcomingAppointmentsSheet({
       // Update in GHL first
       const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
         body: {
-          appointmentId: appt.ghl_id,
-          calendarId: appt.calendar_id,
-          appointmentStatus: newStatus,
+          ghl_id: appt.ghl_id,
+          appointment_status: newStatus,
         },
       });
 
