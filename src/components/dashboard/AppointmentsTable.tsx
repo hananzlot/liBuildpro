@@ -503,6 +503,7 @@ export function AppointmentsTable({
         opportunities={opportunities}
         contacts={contacts}
         users={users}
+        appointments={appointments}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         onOpenOpportunity={handleOpenOpportunity}
