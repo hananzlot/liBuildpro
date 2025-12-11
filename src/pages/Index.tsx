@@ -48,6 +48,9 @@ const Index = () => {
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   
+  // Location filter for multi-GHL support
+  const { selectedLocation, setSelectedLocation, filterByLocation } = useLocationFilter();
+  
   const {
     data: rawMetrics,
     isLoading,
