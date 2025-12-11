@@ -1427,18 +1427,24 @@ export function OpportunityDetailSheet({
                     <SelectItem value="__unassigned__" className="text-xs">
                       Unassigned
                     </SelectItem>
-                    {users.map((user) => {
-                      const name =
-                        user.name ||
-                        (user.first_name && user.last_name
-                          ? `${user.first_name} ${user.last_name}`
-                          : user.first_name || user.last_name || user.email || "Unknown");
-                      return (
-                        <SelectItem key={user.ghl_id} value={user.ghl_id} className="text-xs">
-                          {name}
-                        </SelectItem>
-                      );
-                    })}
+                    {[...users]
+                      .sort((a, b) => {
+                        const nameA = (a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email || 'Unknown').toLowerCase();
+                        const nameB = (b.name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.email || 'Unknown').toLowerCase();
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map((user) => {
+                        const name =
+                          user.name ||
+                          (user.first_name && user.last_name
+                            ? `${user.first_name} ${user.last_name}`
+                            : user.first_name || user.last_name || user.email || "Unknown");
+                        return (
+                          <SelectItem key={user.ghl_id} value={user.ghl_id} className="text-xs">
+                            {name}
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               ) : (
