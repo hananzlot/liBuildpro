@@ -105,6 +105,7 @@ export function OpportunitiesTable({
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
   const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
   const [salesRepFilter, setSalesRepFilter] = useState<string[]>([]);
   const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
@@ -138,6 +139,20 @@ export function OpportunitiesTable({
   const salesRepOptions = useMemo(() => {
     return uniqueSalesReps.map((rep) => ({ value: rep.ghl_id, label: rep.name }));
   }, [uniqueSalesReps]);
+
+  // Get unique sources from contacts
+  const uniqueSources = useMemo(() => {
+    const sources = new Set<string>();
+    contacts.forEach((c) => {
+      if (c.source) sources.add(c.source);
+    });
+    return Array.from(sources).sort();
+  }, [contacts]);
+
+  // Format sources for multi-select
+  const sourceOptions = useMemo(() => {
+    return uniqueSources.map((source) => ({ value: source, label: source }));
+  }, [uniqueSources]);
 
   // Track which contacts have appointments (excluding cancelled)
   const contactsWithAppointments = useMemo(() => {
@@ -199,6 +214,14 @@ export function OpportunitiesTable({
     // Apply stage filter (multi-select)
     if (stageFilter.length > 0) {
       filtered = filtered.filter((opp) => opp.stage_name && stageFilter.includes(opp.stage_name));
+    }
+
+    // Apply source filter (multi-select)
+    if (sourceFilter.length > 0) {
+      filtered = filtered.filter((opp) => {
+        const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+        return contact?.source && sourceFilter.includes(contact.source);
+      });
     }
 
     // Apply appointment filter
@@ -317,6 +340,7 @@ export function OpportunitiesTable({
   }, [
     opportunities,
     stageFilter,
+    sourceFilter,
     appointmentFilter,
     salesRepFilter,
     sortColumn,
@@ -330,6 +354,11 @@ export function OpportunitiesTable({
   const handleStageFilterChange = (selected: string[]) => {
     setCurrentPage(1);
     setStageFilter(selected);
+  };
+
+  const handleSourceFilterChange = (selected: string[]) => {
+    setCurrentPage(1);
+    setSourceFilter(selected);
   };
 
   const handleSalesRepFilterChange = (selected: string[]) => {
@@ -518,19 +547,26 @@ export function OpportunitiesTable({
               placeholder="All Stages"
             />
             <MultiSelectFilter
+              options={sourceOptions}
+              selected={sourceFilter}
+              onChange={handleSourceFilterChange}
+              placeholder="All Sources"
+            />
+            <MultiSelectFilter
               options={salesRepOptions}
               selected={salesRepFilter}
               onChange={handleSalesRepFilterChange}
               placeholder="All Sales Reps"
               icon={<User className="h-3 w-3" />}
             />
-            {(stageFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
+            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   setStageFilter([]);
+                  setSourceFilter([]);
                   setAppointmentFilter("all");
                   setSalesRepFilter([]);
                   setCurrentPage(1);
