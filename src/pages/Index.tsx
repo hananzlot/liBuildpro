@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Phone, LogOut } from "lucide-react";
+import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -179,30 +179,12 @@ const Index = () => {
                   </div>
                   <ClickableMetricCard title="Appointments" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
-                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setCallLogsSheetOpen(true)}>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">Calls</p>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-3xl font-bold tracking-tight text-foreground">
-                            {metrics?.uniqueContactsCalled || 0}
-                          </p>
-                          <span className="text-sm text-muted-foreground">contacts</span>
-                        </div>
-                        <div className="flex flex-col gap-1 text-xs">
-                          <span className="text-muted-foreground">{metrics?.totalCalls || 0} total</span>
-                          <div className="flex items-center gap-3">
-                            <span className="text-green-600 font-medium">{metrics?.outboundCalls || 0}↑</span>
-                            <span className="text-blue-500 font-medium">{metrics?.inboundCalls || 0}↓</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="rounded-xl bg-primary/10 p-3">
-                        <Phone className="h-5 w-5 text-primary" />
-                      </div>
-                    </div>
-                    <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
-                  </div>
+                  <MetricCard 
+                    title="Opportunity Edits" 
+                    value={metrics?.opportunityEdits || 0} 
+                    subtitle={dateRange?.from ? "Updated in selected range" : "All time"} 
+                    icon={Pencil} 
+                  />
                 </>}
             </section>
 
