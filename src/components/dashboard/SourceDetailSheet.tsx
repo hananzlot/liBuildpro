@@ -251,9 +251,19 @@ export function SourceDetailSheet({
     }
   };
 
-  // Get ALL contacts for this source (to build proper contact ID lookup)
+  // Helper to normalize source names (same logic as in useGHLContacts)
+  const normalizeSourceName = (sourceName: string): string => {
+    if (!sourceName) return "Direct";
+    return sourceName
+      .toLowerCase()
+      .split(/[\s-_]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Get ALL contacts for this source (normalized matching)
   const allSourceContacts = useMemo(() => {
-    return contacts.filter(c => (c.source || "Direct") === source);
+    return contacts.filter(c => normalizeSourceName(c.source || "Direct") === source);
   }, [contacts, source]);
 
   const allSourceContactIds = useMemo(() => {
