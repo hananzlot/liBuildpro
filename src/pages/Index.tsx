@@ -214,8 +214,7 @@ const Index = () => {
                   <SourceChart title="Opportunities by Source" data={metrics?.opportunitiesBySource || []} mode="opportunities" dataKey="count" contacts={metrics?.allContacts || []} filteredContacts={metrics?.contacts || []} opportunities={metrics?.allOpportunities || []} filteredOpportunities={metrics?.filteredOpportunitiesList || []} appointments={metrics?.allAppointments || []} filteredAppointments={metrics?.filteredAppointmentsList || []} users={metrics?.users || []} appointmentsBySource={metrics?.appointmentsBySource || []} oppsWithoutAppointmentsBySource={metrics?.oppsWithoutAppointmentsBySource || []} userId={user?.id} />
                   <SourceChart title="Won by Source" data={metrics?.wonBySource || []} mode="won" dataKey="value" contacts={metrics?.allContacts || []} filteredContacts={metrics?.contacts || []} opportunities={metrics?.allOpportunities || []} filteredOpportunities={metrics?.wonOpportunities || []} appointments={metrics?.allAppointments || []} users={metrics?.users || []} userId={user?.id} />
                   <SalesRepLeaderboard data={metrics?.salesRepPerformance || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.filteredAppointmentsList || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} />
-                  <RecentWonDeals wonOpportunities={metrics?.wonOpportunities || []} contacts={metrics?.allContacts || []} dateRange={dateRange} // 👈 add this
-              onOpportunityClick={handleOpenOpportunity} />
+                  <RecentWonDeals wonOpportunities={metrics?.wonOpportunities || []} contacts={metrics?.allContacts || []} appointments={metrics?.allAppointments || []} dateRange={dateRange} onOpportunityClick={handleOpenOpportunity} />
                 </>}
             </section>
 

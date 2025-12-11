@@ -15,6 +15,7 @@ import { Calendar, ChevronLeft, ChevronRight, User, Filter, ArrowUpDown, ArrowUp
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
+import { getAddressFromContact } from "@/lib/utils";
 
 interface Appointment {
   ghl_id: string;
@@ -150,24 +151,10 @@ export function AppointmentsTable({
   };
 
   const getAddress = (appointment: Appointment): string => {
-    // First try to get address from contact custom_fields
-    if (appointment.contact_id) {
-      const contact = contacts.find(c => c.ghl_id === appointment.contact_id);
-      if (contact?.custom_fields) {
-        const customFields = contact.custom_fields as Record<string, unknown>[];
-        if (Array.isArray(customFields)) {
-          const addressField = customFields.find((f: Record<string, unknown>) => f.id === 'b7oTVsUQrLgZt84bHpCn');
-          if (addressField?.value) {
-            return addressField.value as string;
-          }
-        }
-      }
-    }
-    // Fall back to appointment address from GHL calendar
-    if (appointment.address) {
-      return appointment.address;
-    }
-    return '-';
+    const contact = appointment.contact_id 
+      ? contacts.find(c => c.ghl_id === appointment.contact_id) 
+      : undefined;
+    return getAddressFromContact(contact, appointments, appointment.contact_id) || '-';
   };
 
   // Get unique statuses and reps for filters
