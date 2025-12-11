@@ -101,6 +101,15 @@ export function UpcomingAppointmentsSheet({
 
   const APPOINTMENT_STATUSES = ["confirmed", "showed", "no_show", "cancelled"];
 
+  // Helper to capitalize words properly
+  const capitalizeWords = (str: string): string => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const queryClient = useQueryClient();
 
   const handleOpenOpportunity = (opportunity: DBOpportunity) => {
@@ -359,7 +368,7 @@ export function UpcomingAppointmentsSheet({
                               <span
                                 className={`font-medium text-sm truncate flex-1 ${isPast ? "text-muted-foreground" : ""}`}
                               >
-                                {contactName}
+                                {capitalizeWords(contactName)}
                               </span>
                               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                             </div>
@@ -383,7 +392,7 @@ export function UpcomingAppointmentsSheet({
                             {/* Appointment title */}
                             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 ml-5">
                               <Calendar className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{appt.title || "Untitled"}</span>
+                              <span className="truncate font-semibold">{appt.title || "Untitled"}</span>
                               {assignedUser && (
                                 <>
                                   <span className="mx-1">•</span>
