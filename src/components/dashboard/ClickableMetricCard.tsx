@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, AlertTriangle } from "lucide-react";
 
 interface ClickableMetricCardProps {
   title: string;
@@ -9,6 +9,7 @@ interface ClickableMetricCardProps {
   icon: LucideIcon;
   onClick?: () => void;
   className?: string;
+  warningText?: string;
 }
 
 export function ClickableMetricCard({ 
@@ -18,7 +19,8 @@ export function ClickableMetricCard({
   subtitle, 
   icon: Icon, 
   onClick,
-  className 
+  className,
+  warningText 
 }: ClickableMetricCardProps) {
   return (
     <div 
@@ -41,6 +43,12 @@ export function ClickableMetricCard({
           </div>
           {subtitle && (
             <p className="text-xs text-muted-foreground">{subtitle}</p>
+          )}
+          {warningText && (
+            <div className="flex items-center gap-1.5 text-xs text-red-500 font-medium">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span>{warningText}</span>
+            </div>
           )}
         </div>
         <div className="rounded-xl bg-primary/10 p-3">
