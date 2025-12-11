@@ -636,7 +636,9 @@ export function AppointmentDetailSheet({
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
       : "Unassigned");
 
-  const address = getAddressFromContact(contact, appointment ? [appointment] : [], appointment?.contact_id);
+  // Get address: first try contact custom_fields, then current appointment's address directly
+  const contactAddress = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
+  const address = contactAddress || appointment?.address || null;
   // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
   const scopeFromCustomField = contact
     ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
