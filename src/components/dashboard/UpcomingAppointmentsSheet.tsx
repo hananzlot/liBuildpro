@@ -6,13 +6,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2 } from "lucide-react";
+import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
 
 interface DBAppointment {
   id: string;
@@ -336,6 +337,8 @@ export function UpcomingAppointmentsSheet({
                           contact?.contact_name ||
                           `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() ||
                           "Unknown";
+                        const address = getAddressFromContact(contact, [appt], appt.contact_id);
+                        const phone = contact?.phone || null;
                         const assignedUser = appt.assigned_user_id ? userMap.get(appt.assigned_user_id) : null;
                         const isPast = new Date(appt.start_time!) < new Date();
 
@@ -349,21 +352,38 @@ export function UpcomingAppointmentsSheet({
                             }`}
                             onClick={() => handleAppointmentClick(appt)}
                           >
-                            {/* Title row */}
+                            {/* Customer name - main line */}
                             <div className="flex items-center gap-2 mb-1">
                               {isPast && <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                              <User className="h-3.5 w-3.5 text-primary shrink-0" />
                               <span
                                 className={`font-medium text-sm truncate flex-1 ${isPast ? "text-muted-foreground" : ""}`}
                               >
-                                {appt.title || "Untitled"}
+                                {contactName}
                               </span>
                               <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                             </div>
                             
-                            {/* Contact info */}
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                              <User className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{contactName}</span>
+                            {/* Address */}
+                            {address && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 ml-5">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{address}</span>
+                              </div>
+                            )}
+                            
+                            {/* Phone */}
+                            {phone && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 ml-5">
+                                <Phone className="h-3 w-3 shrink-0" />
+                                <span>{phone}</span>
+                              </div>
+                            )}
+                            
+                            {/* Appointment title */}
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 ml-5">
+                              <Calendar className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{appt.title || "Untitled"}</span>
                               {assignedUser && (
                                 <>
                                   <span className="mx-1">•</span>
