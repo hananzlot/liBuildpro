@@ -47,14 +47,12 @@ const Index = () => {
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
-  
   const {
     data: metrics,
     isLoading,
     error,
     refetch
   } = useGHLMetrics(dateRange);
-
   const syncMutation = useSyncContacts();
   const handleOpenOpportunity = (opportunity: any) => {
     setSelectedOpportunity(opportunity);
@@ -159,7 +157,7 @@ const Index = () => {
                   <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">Appointments</p>
+                        <p className="text-sm font-medium text-muted-foreground">Total Appointments (in date range)</p>
                         <div className="flex items-baseline gap-2">
                           <p className="text-3xl font-bold tracking-tight text-foreground">
                             {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
@@ -179,20 +177,9 @@ const Index = () => {
                     </div>
                     <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-primary/5" />
                   </div>
-                  <ClickableMetricCard 
-                    title="Appointments" 
-                    value={metrics?.appointmentsToday || 0} 
-                    secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} 
-                    subtitle="Today & upcoming" 
-                    icon={Calendar} 
-                    onClick={() => setUpcomingAppointmentsSheetOpen(true)} 
-                    warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined}
-                  />
+                  <ClickableMetricCard title="Appointments" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
-                  <div 
-                    className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02]"
-                    onClick={() => setActivitySheetOpen(true)}
-                  >
+                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02]" onClick={() => setActivitySheetOpen(true)}>
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">Activity</p>
@@ -281,32 +268,24 @@ const Index = () => {
       </main>
 
       {/* Won Opportunities Sheet */}
-      <WonOpportunitiesSheet 
-        open={wonOpportunitiesSheetOpen} 
-        onOpenChange={setWonOpportunitiesSheetOpen} 
-        opportunities={metrics?.wonOpportunities || []} 
-        contacts={metrics?.allContacts || []} 
-        users={metrics?.users || []} 
-        dateRange={dateRange}
-        onOpportunityClick={(opp) => {
-          setSelectedOpportunity({
-            ghl_id: opp.ghl_id,
-            name: opp.name,
-            status: opp.status,
-            monetary_value: opp.monetary_value,
-            pipeline_id: null,
-            pipeline_name: opp.pipeline_name,
-            pipeline_stage_id: null,
-            stage_name: opp.stage_name,
-            contact_id: opp.contact_id,
-            assigned_to: opp.assigned_to,
-            ghl_date_added: opp.ghl_date_added,
-            ghl_date_updated: opp.ghl_date_updated,
-          });
-          setWonOpportunitiesSheetOpen(false);
-          setOppDetailSheetOpen(true);
-        }}
-      />
+      <WonOpportunitiesSheet open={wonOpportunitiesSheetOpen} onOpenChange={setWonOpportunitiesSheetOpen} opportunities={metrics?.wonOpportunities || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} dateRange={dateRange} onOpportunityClick={opp => {
+      setSelectedOpportunity({
+        ghl_id: opp.ghl_id,
+        name: opp.name,
+        status: opp.status,
+        monetary_value: opp.monetary_value,
+        pipeline_id: null,
+        pipeline_name: opp.pipeline_name,
+        pipeline_stage_id: null,
+        stage_name: opp.stage_name,
+        contact_id: opp.contact_id,
+        assigned_to: opp.assigned_to,
+        ghl_date_added: opp.ghl_date_added,
+        ghl_date_updated: opp.ghl_date_updated
+      });
+      setWonOpportunitiesSheetOpen(false);
+      setOppDetailSheetOpen(true);
+    }} />
 
       {/* Upcoming Appointments Sheet */}
       <UpcomingAppointmentsSheet open={upcomingAppointmentsSheetOpen} onOpenChange={setUpcomingAppointmentsSheetOpen} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} opportunities={metrics?.allOpportunities || []} users={metrics?.users || []} />
@@ -315,34 +294,24 @@ const Index = () => {
       <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
 
       {/* Activity Sheet */}
-      <ActivitySheet 
-        open={activitySheetOpen} 
-        onOpenChange={setActivitySheetOpen} 
-        editedOpportunities={metrics?.editedOpportunities || []} 
-        filteredTasks={metrics?.filteredTasks || []} 
-        filteredNotes={metrics?.filteredNotes || []} 
-        contacts={metrics?.allContacts || []} 
-        users={metrics?.users || []}
-        profiles={metrics?.profiles || []}
-        onOpportunityClick={(opp) => {
-          setSelectedOpportunity({
-            ghl_id: opp.ghl_id,
-            name: opp.name,
-            status: opp.status,
-            monetary_value: opp.monetary_value,
-            pipeline_id: null,
-            pipeline_name: null,
-            pipeline_stage_id: null,
-            stage_name: opp.stage_name,
-            contact_id: opp.contact_id,
-            assigned_to: opp.assigned_to,
-            ghl_date_added: null,
-            ghl_date_updated: opp.ghl_date_updated,
-          });
-          setActivitySheetOpen(false);
-          setOppDetailSheetOpen(true);
-        }}
-      />
+      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} editedOpportunities={metrics?.editedOpportunities || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
+      setSelectedOpportunity({
+        ghl_id: opp.ghl_id,
+        name: opp.name,
+        status: opp.status,
+        monetary_value: opp.monetary_value,
+        pipeline_id: null,
+        pipeline_name: null,
+        pipeline_stage_id: null,
+        stage_name: opp.stage_name,
+        contact_id: opp.contact_id,
+        assigned_to: opp.assigned_to,
+        ghl_date_added: null,
+        ghl_date_updated: opp.ghl_date_updated
+      });
+      setActivitySheetOpen(false);
+      setOppDetailSheetOpen(true);
+    }} />
 
       {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
       <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={setOppDetailSheetOpen} allOpportunities={metrics?.allOpportunities || []} />
