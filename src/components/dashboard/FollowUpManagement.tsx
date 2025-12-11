@@ -16,6 +16,8 @@ import {
   CheckSquare,
   TrendingUp,
   Snowflake,
+  Briefcase,
+  Save,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -153,6 +155,8 @@ export function FollowUpManagement({
   const [needsAttentionOpen, setNeedsAttentionOpen] = useState(false);
   const [needsAttentionRepFilter, setNeedsAttentionRepFilter] = useState<string>("all");
   const [needsAttentionPage, setNeedsAttentionPage] = useState(1);
+  const [missingScopeOpen, setMissingScopeOpen] = useState(false);
+  const [missingScopeRepFilter, setMissingScopeRepFilter] = useState<string>("all");
   const NEEDS_ATTENTION_PAGE_SIZE = 10;
 
   // Tasks Helper State
@@ -206,6 +210,14 @@ export function FollowUpManagement({
   // Appointment Status Update State
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
   const [updatingPipelineStageId, setUpdatingPipelineStageId] = useState<string | null>(null);
+
+  // Scope Dialog State
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const [scopeDialogOpportunity, setScopeDialogOpportunity] = useState<DBOpportunity | null>(null);
+  const [scopeDialogContactId, setScopeDialogContactId] = useState<string | null>(null);
+  const [scopeDialogContactName, setScopeDialogContactName] = useState<string>("");
+  const [scopeText, setScopeText] = useState("");
+  const [isSavingScope, setIsSavingScope] = useState(false);
 
   // Helper functions
   const getUserName = (userId: string | null): string => {
@@ -541,6 +553,41 @@ export function FollowUpManagement({
     }
   };
 
+  // Scope handlers
+  const handleOpenScopeDialog = (opportunity: DBOpportunity) => {
+    const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+    const contactName = getContactName(opportunity.contact_id);
+    setScopeDialogOpportunity(opportunity);
+    setScopeDialogContactId(opportunity.contact_id);
+    setScopeDialogContactName(contactName);
+    setScopeText("");
+    setScopeDialogOpen(true);
+  };
+
+  const handleSaveScope = async () => {
+    if (!scopeDialogContactId || !scopeText.trim()) return;
+    setIsSavingScope(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-contact-scope", {
+        body: {
+          contactId: scopeDialogContactId,
+          scopeOfWork: scopeText.trim(),
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Scope of work saved");
+      setScopeDialogOpen(false);
+      setScopeText("");
+      onDataRefresh?.();
+    } catch (error) {
+      console.error("Error saving scope:", error);
+      toast.error("Failed to save scope of work");
+    } finally {
+      setIsSavingScope(false);
+    }
+  };
+
   // Build stage map for pipeline stage dropdown
   const stageMap = useMemo(() => {
     const map = new Map<
@@ -663,6 +710,45 @@ export function FollowUpManagement({
     // Sort by monetary value descending
     return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
   }, [opportunities, closeToSaleRepFilter]);
+
+  // Missing Scope Data - Won opportunities or close-to-sale stages without scope of work
+  const missingScopeData = useMemo(() => {
+    const results = opportunities.filter((o) => {
+      if (!o.contact_id) return false;
+      
+      // Check if won OR in close-to-sale stage
+      const isWon = o.status?.toLowerCase() === "won";
+      const stageName = o.stage_name?.toLowerCase() || "";
+      const isCloseToSale = stageName.includes("close") && stageName.includes("sale");
+      const isImportant = stageName === "important";
+      const isSecondAppointment = stageName.includes("second") && stageName.includes("appointment");
+      
+      if (!isWon && !isCloseToSale && !isImportant && !isSecondAppointment) return false;
+      
+      // Check if scope is missing
+      const scope = getScope(o.contact_id);
+      return !scope || scope.trim() === "";
+    });
+
+    // Deduplicate by contact_id (keep the one with highest monetary value)
+    const uniqueMap = new Map<string, DBOpportunity>();
+    results.forEach((o) => {
+      if (!o.contact_id) return;
+      const existing = uniqueMap.get(o.contact_id);
+      if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
+        uniqueMap.set(o.contact_id, o);
+      }
+    });
+    let unique = Array.from(uniqueMap.values());
+
+    // Apply rep filter
+    if (missingScopeRepFilter !== "all") {
+      unique = unique.filter((o) => o.assigned_to === missingScopeRepFilter);
+    }
+
+    // Sort by monetary value descending
+    return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
+  }, [opportunities, contacts, missingScopeRepFilter]);
 
   const contactsWithFutureAppointments = useMemo(() => {
     const now = new Date();
@@ -1124,6 +1210,46 @@ export function FollowUpManagement({
         </DialogContent>
       </Dialog>
 
+      {/* Scope Dialog */}
+      <Dialog open={scopeDialogOpen} onOpenChange={setScopeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Scope of Work</DialogTitle>
+            <DialogDescription>
+              Add scope of work for {scopeDialogContactName}
+              {scopeDialogOpportunity?.name && ` - ${scopeDialogOpportunity.name}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <p className="text-sm text-muted-foreground">
+                {getAddress(scopeDialogContactId)}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="scope-text">Scope of Work</Label>
+              <Textarea
+                id="scope-text"
+                placeholder="Enter scope of work..."
+                value={scopeText}
+                onChange={(e) => setScopeText(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScopeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveScope} disabled={isSavingScope || !scopeText.trim()}>
+              {isSavingScope ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+              Save Scope
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Grid layout for sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Close to Sale View */}
@@ -1211,6 +1337,124 @@ export function FollowUpManagement({
                               <TableCell>{getUserName(opp.assigned_to)}</TableCell>
                               <TableCell className="font-medium text-green-600">
                                 {formatCurrency(opp.monetary_value)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Missing Scope of Work */}
+        <Collapsible
+          open={missingScopeOpen}
+          onOpenChange={setMissingScopeOpen}
+          className={missingScopeOpen ? "lg:col-span-2" : ""}
+        >
+          <Card>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                      <Briefcase className="h-4 w-4 text-amber-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        Missing Scope
+                        <Badge variant="destructive" className="text-xs">
+                          {missingScopeData.length}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription className="text-xs hidden sm:block">
+                        Won or close-to-sale opportunities without scope of work
+                      </CardDescription>
+                    </div>
+                  </div>
+                  {missingScopeOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </div>
+              </CardHeader>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                {/* Filter */}
+                <div className="flex items-center gap-4 mb-4">
+                  <Select value={missingScopeRepFilter} onValueChange={setMissingScopeRepFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by rep" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Reps</SelectItem>
+                      {uniqueReps.map((rep) => (
+                        <SelectItem key={rep.id} value={rep.id}>
+                          {rep.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {missingScopeData.length === 0 ? (
+                  <p className="text-muted-foreground text-sm text-center py-4">
+                    All won and close-to-sale opportunities have scope of work defined
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Opportunity</TableHead>
+                          <TableHead>Address</TableHead>
+                          <TableHead>Status/Stage</TableHead>
+                          <TableHead>Assigned To</TableHead>
+                          <TableHead className="text-right">Value</TableHead>
+                          <TableHead className="w-[100px]">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {missingScopeData.map((opp) => {
+                          const isWon = opp.status?.toLowerCase() === "won";
+                          return (
+                            <TableRow key={opp.id}>
+                              <TableCell 
+                                className="font-medium cursor-pointer hover:underline"
+                                onClick={() => onOpenOpportunity(opp)}
+                              >
+                                {opp.name || "Unnamed"}
+                              </TableCell>
+                              <TableCell className="max-w-[200px] truncate">
+                                {getAddress(opp.contact_id)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant="outline" 
+                                  className={isWon 
+                                    ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" 
+                                    : "bg-green-500/10 text-green-700 border-green-500/30"
+                                  }
+                                >
+                                  {isWon ? "Won" : opp.stage_name || "Unknown"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{getUserName(opp.assigned_to)}</TableCell>
+                              <TableCell className="font-medium text-green-600 text-right">
+                                {formatCurrency(opp.monetary_value)}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() => handleOpenScopeDialog(opp)}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Add Scope
+                                </Button>
                               </TableCell>
                             </TableRow>
                           );
