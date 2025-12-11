@@ -694,7 +694,7 @@ export function AppointmentDetailSheet({
         {/* Header */}
         <div className="sticky top-0 bg-background border-b p-4 z-10">
           <SheetHeader className="space-y-1">
-            <div className="flex items-start justify-between gap-3 min-w-0">
+            <div className="flex items-center justify-between gap-2 min-w-0">
               <SheetTitle className="text-lg font-semibold leading-tight truncate min-w-0 flex-1">
                 {appointment.title || "Untitled Appointment"}
               </SheetTitle>
@@ -729,14 +729,16 @@ export function AppointmentDetailSheet({
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-                <Badge variant="outline" className={`text-xs ${getStatusColor(appointment.appointment_status)}`}>
-                  {appointment.appointment_status === "confirmed" ? "Cust. Confirmed" : (appointment.appointment_status || "Unknown")}
-                </Badge>
               </div>
-              {/* Salesperson Confirmation (Read-only) */}
+            </div>
+            {/* Status badges row */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge variant="outline" className={`text-xs h-6 px-2 inline-flex items-center ${getStatusColor(appointment.appointment_status)}`}>
+                {appointment.appointment_status === "confirmed" ? "Cust. Confirmed" : (appointment.appointment_status || "Unknown")}
+              </Badge>
               <Badge
                 variant="outline"
-                className={`text-xs gap-1.5 ${salespersonConfirmed ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
+                className={`text-xs h-6 px-2 inline-flex items-center gap-1 ${salespersonConfirmed ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
               >
                 <PhoneCall className="h-3 w-3" />
                 {salespersonConfirmed ? "Rep Confirmed" : "Not Confirmed"}
