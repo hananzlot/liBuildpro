@@ -990,6 +990,7 @@ export function OpportunityDetailSheet({
           pipeline_stage_id: pipeline_stage_id,
           monetary_value: monetaryValue,
           assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo,
+          edited_by: user?.id || null,
         },
       });
       if (error) throw error;
@@ -1004,6 +1005,8 @@ export function OpportunityDetailSheet({
             body: {
               contactId: opportunity.contact_id,
               source: editedSource,
+              editedBy: user?.id || null,
+              opportunityGhlId: opportunity.ghl_id,
             },
           });
         } catch (sourceError) {
@@ -1077,6 +1080,8 @@ export function OpportunityDetailSheet({
         body: {
           contactId: opportunity.contact_id,
           scopeOfWork: editedScope.trim(),
+          editedBy: user?.id || null,
+          opportunityGhlId: opportunity.ghl_id,
         },
       });
       if (error) throw error;
@@ -1101,6 +1106,8 @@ export function OpportunityDetailSheet({
         body: {
           contactId: opportunity.contact_id,
           address: editedAddress.trim(),
+          editedBy: user?.id || null,
+          opportunityGhlId: opportunity.ghl_id,
         },
       });
       if (error) throw error;

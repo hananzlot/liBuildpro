@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Opportunity {
   id: string;
@@ -88,6 +89,7 @@ const OPP_STATUS_OPTIONS = [
 ];
 
 export function AdminCleanup({ opportunities, contacts, appointments, users, onDataUpdated, onOpenOpportunity }: AdminCleanupProps) {
+  const { user } = useAuth();
   const [updatingOppIds, setUpdatingOppIds] = useState<Set<string>>(new Set());
   const [updatingApptIds, setUpdatingApptIds] = useState<Set<string>>(new Set());
   const [selectedStages, setSelectedStages] = useState<Record<string, string>>({});
@@ -241,6 +243,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
         dbUpdate.stage_name = newStage;
         dbUpdate.pipeline_stage_id = pipelineStageId;
       }
+      updatePayload.edited_by = user?.id || null;
       
       const { error } = await supabase.functions.invoke('update-ghl-opportunity', { body: updatePayload });
       if (error) throw error;
@@ -302,6 +305,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
               status: newOppStatus,
               stage_name: newOppStage,
               pipeline_stage_id: pipelineStageId,
+              edited_by: user?.id || null,
             }
           });
 
@@ -344,7 +348,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
       setUpdatingOppIds(prev => new Set(prev).add(opp.id));
       try {
         const { error } = await supabase.functions.invoke('update-ghl-opportunity', {
-          body: { ghl_id: opp.ghl_id, status: newStatus }
+          body: { ghl_id: opp.ghl_id, status: newStatus, edited_by: user?.id || null }
         });
         if (!error) {
           await supabase.from('opportunities').update({ status: newStatus }).eq('id', opp.id);

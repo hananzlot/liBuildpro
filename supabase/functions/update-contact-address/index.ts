@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,13 +9,12 @@ const corsHeaders = {
 const ADDRESS_FIELD_ID = "b7oTVsUQrLgZt84bHpCn";
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { contactId, address } = await req.json();
+    const { contactId, address, editedBy, opportunityGhlId } = await req.json();
 
     if (!contactId) {
       return new Response(
@@ -25,15 +25,14 @@ serve(async (req) => {
 
     console.log(`Updating address for contact ${contactId}`);
 
-    // First, fetch the contact to get its location_id
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Fetch contact with current custom_fields to get old address
     const { data: contact, error: contactError } = await supabase
       .from("contacts")
-      .select("location_id")
+      .select("location_id, custom_fields")
       .eq("ghl_id", contactId)
       .single();
 
@@ -45,8 +44,15 @@ serve(async (req) => {
       );
     }
 
-    // Determine which API key to use based on location_id
-    const locationId1 = Deno.env.get("GHL_LOCATION_ID");
+    // Extract old address from custom_fields
+    let oldAddress = "";
+    if (Array.isArray(contact.custom_fields)) {
+      const addressField = contact.custom_fields.find((f: { id: string; value?: string }) => f.id === ADDRESS_FIELD_ID);
+      oldAddress = addressField?.value || "";
+    }
+    const newAddress = address || "";
+
+    // Determine which API key to use
     const locationId2 = Deno.env.get("GHL_LOCATION_ID_2");
     let apiKey: string;
 
@@ -63,7 +69,7 @@ serve(async (req) => {
       );
     }
 
-    // Update the contact in GHL with the new address custom field
+    // Update the contact in GHL
     const ghlResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
       method: "PUT",
       headers: {
@@ -75,7 +81,7 @@ serve(async (req) => {
         customFields: [
           {
             id: ADDRESS_FIELD_ID,
-            value: address || "",
+            value: newAddress,
           },
         ],
       }),
@@ -90,31 +96,34 @@ serve(async (req) => {
       );
     }
 
-    const ghlData = await ghlResponse.json();
-    console.log("GHL update successful:", ghlData.contact?.id);
+    console.log("GHL address update successful");
 
-    // Update the contact in Supabase to reflect the new custom field value
-    const { data: currentContact, error: fetchError } = await supabase
+    // Update Supabase custom_fields
+    let customFields = Array.isArray(contact.custom_fields) ? [...contact.custom_fields] : [];
+    const existingIndex = customFields.findIndex((f: { id: string }) => f.id === ADDRESS_FIELD_ID);
+    if (existingIndex >= 0) {
+      customFields[existingIndex] = { id: ADDRESS_FIELD_ID, value: newAddress };
+    } else {
+      customFields.push({ id: ADDRESS_FIELD_ID, value: newAddress });
+    }
+
+    await supabase
       .from("contacts")
-      .select("custom_fields")
-      .eq("ghl_id", contactId)
-      .single();
+      .update({ custom_fields: customFields, updated_at: new Date().toISOString() })
+      .eq("ghl_id", contactId);
 
-    if (!fetchError && currentContact) {
-      let customFields = Array.isArray(currentContact.custom_fields) ? [...currentContact.custom_fields] : [];
-      
-      // Find and update or add the address field
-      const existingIndex = customFields.findIndex((f: { id: string }) => f.id === ADDRESS_FIELD_ID);
-      if (existingIndex >= 0) {
-        customFields[existingIndex] = { id: ADDRESS_FIELD_ID, value: address || "" };
-      } else {
-        customFields.push({ id: ADDRESS_FIELD_ID, value: address || "" });
-      }
-
-      await supabase
-        .from("contacts")
-        .update({ custom_fields: customFields, updated_at: new Date().toISOString() })
-        .eq("ghl_id", contactId);
+    // Track the edit if value changed
+    if (oldAddress !== newAddress && opportunityGhlId) {
+      console.log(`Tracking address edit: "${oldAddress}" -> "${newAddress}"`);
+      await supabase.from("opportunity_edits").insert({
+        opportunity_ghl_id: opportunityGhlId,
+        contact_ghl_id: contactId,
+        field_name: "address",
+        old_value: oldAddress || null,
+        new_value: newAddress || null,
+        edited_by: editedBy || null,
+        location_id: contact.location_id,
+      });
     }
 
     return new Response(

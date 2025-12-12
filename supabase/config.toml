@@ -62,3 +62,9 @@ verify_jwt = false
 
 [functions.update-contact-address]
 verify_jwt = false
+
+[functions.update-contact-source]
+verify_jwt = false
+
+[functions.update-contact-phone]
+verify_jwt = false

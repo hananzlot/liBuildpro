@@ -8,7 +8,6 @@ const corsHeaders = {
 
 // Helper to get the correct GHL API key based on location_id
 function getGHLApiKey(locationId: string): string {
-  const location1Id = Deno.env.get('GHL_LOCATION_ID');
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
   
   if (locationId === location2Id) {
@@ -37,22 +36,23 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id } = await req.json();
+    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by } = await req.json();
 
     if (!ghl_id) {
       throw new Error('Missing ghl_id');
     }
 
-    // If location_id not provided, look it up from the database
+    // Fetch current opportunity values BEFORE update
+    const { data: currentOpp } = await supabase
+      .from('opportunities')
+      .select('status, stage_name, pipeline_name, monetary_value, assigned_to, location_id')
+      .eq('ghl_id', ghl_id)
+      .single();
+
+    // If location_id not provided, use from database
     let effectiveLocationId = location_id;
-    if (!effectiveLocationId) {
-      const { data: oppData } = await supabase
-        .from('opportunities')
-        .select('location_id')
-        .eq('ghl_id', ghl_id)
-        .single();
-      
-      effectiveLocationId = oppData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+    if (!effectiveLocationId && currentOpp) {
+      effectiveLocationId = currentOpp.location_id || Deno.env.get('GHL_LOCATION_ID');
     }
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
@@ -133,7 +133,94 @@ serve(async (req) => {
 
     if (supabaseError) {
       console.error('Supabase update error:', supabaseError);
-      // Don't throw here - GHL is updated, just log the error
+    }
+
+    // Track edits - compare old vs new values
+    if (currentOpp) {
+      const editsToInsert: Array<{
+        opportunity_ghl_id: string;
+        field_name: string;
+        old_value: string | null;
+        new_value: string | null;
+        edited_by: string | null;
+        location_id: string;
+      }> = [];
+
+      // Check status
+      if (status && currentOpp.status !== status) {
+        editsToInsert.push({
+          opportunity_ghl_id: ghl_id,
+          field_name: 'status',
+          old_value: currentOpp.status || null,
+          new_value: status,
+          edited_by: edited_by || null,
+          location_id: effectiveLocationId,
+        });
+      }
+
+      // Check stage_name
+      if (stage_name && currentOpp.stage_name !== stage_name) {
+        editsToInsert.push({
+          opportunity_ghl_id: ghl_id,
+          field_name: 'stage_name',
+          old_value: currentOpp.stage_name || null,
+          new_value: stage_name,
+          edited_by: edited_by || null,
+          location_id: effectiveLocationId,
+        });
+      }
+
+      // Check pipeline_name
+      if (pipeline_name && currentOpp.pipeline_name !== pipeline_name) {
+        editsToInsert.push({
+          opportunity_ghl_id: ghl_id,
+          field_name: 'pipeline_name',
+          old_value: currentOpp.pipeline_name || null,
+          new_value: pipeline_name,
+          edited_by: edited_by || null,
+          location_id: effectiveLocationId,
+        });
+      }
+
+      // Check monetary_value
+      if (monetary_value !== undefined && monetary_value !== null) {
+        const oldValue = currentOpp.monetary_value;
+        const newValue = Number(monetary_value);
+        if (oldValue !== newValue) {
+          editsToInsert.push({
+            opportunity_ghl_id: ghl_id,
+            field_name: 'monetary_value',
+            old_value: oldValue?.toString() || null,
+            new_value: newValue.toString(),
+            edited_by: edited_by || null,
+            location_id: effectiveLocationId,
+          });
+        }
+      }
+
+      // Check assigned_to
+      if (assigned_to && currentOpp.assigned_to !== assigned_to) {
+        editsToInsert.push({
+          opportunity_ghl_id: ghl_id,
+          field_name: 'assigned_to',
+          old_value: currentOpp.assigned_to || null,
+          new_value: assigned_to,
+          edited_by: edited_by || null,
+          location_id: effectiveLocationId,
+        });
+      }
+
+      // Insert all edits
+      if (editsToInsert.length > 0) {
+        console.log(`Tracking ${editsToInsert.length} field edits for opportunity ${ghl_id}`);
+        const { error: editError } = await supabase
+          .from('opportunity_edits')
+          .insert(editsToInsert);
+        
+        if (editError) {
+          console.error('Error inserting edits:', editError);
+        }
+      }
     }
 
     console.log('Opportunity updated successfully in both GHL and Supabase');

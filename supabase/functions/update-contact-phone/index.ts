@@ -6,15 +6,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SCOPE_OF_WORK_FIELD_ID = "KwQRtJT0aMSHnq3mwR68";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { contactId, scopeOfWork, editedBy, opportunityGhlId } = await req.json();
+    const { contactId, phone, editedBy, opportunityGhlId } = await req.json();
 
     if (!contactId) {
       return new Response(
@@ -23,16 +21,16 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Updating scope of work for contact ${contactId}`);
+    console.log(`Updating phone for contact ${contactId} to: ${phone}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch contact with current custom_fields to get old scope
+    // Fetch contact to get location_id and current phone
     const { data: contact, error: contactError } = await supabase
       .from("contacts")
-      .select("location_id, custom_fields")
+      .select("location_id, phone")
       .eq("ghl_id", contactId)
       .single();
 
@@ -44,13 +42,8 @@ serve(async (req) => {
       );
     }
 
-    // Extract old scope from custom_fields
-    let oldScope = "";
-    if (Array.isArray(contact.custom_fields)) {
-      const scopeField = contact.custom_fields.find((f: { id: string; value?: string }) => f.id === SCOPE_OF_WORK_FIELD_ID);
-      oldScope = scopeField?.value || "";
-    }
-    const newScope = scopeOfWork || "";
+    const oldPhone = contact.phone || "";
+    const newPhone = phone || "";
 
     // Determine which API key to use
     const locationId2 = Deno.env.get("GHL_LOCATION_ID_2");
@@ -69,7 +62,7 @@ serve(async (req) => {
       );
     }
 
-    // Update the contact in GHL
+    // Update contact in GHL
     const ghlResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
       method: "PUT",
       headers: {
@@ -77,14 +70,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
         Version: "2021-07-28",
       },
-      body: JSON.stringify({
-        customFields: [
-          {
-            id: SCOPE_OF_WORK_FIELD_ID,
-            value: newScope,
-          },
-        ],
-      }),
+      body: JSON.stringify({ phone: newPhone }),
     });
 
     if (!ghlResponse.ok) {
@@ -96,31 +82,23 @@ serve(async (req) => {
       );
     }
 
-    console.log("GHL scope update successful");
+    console.log("GHL phone update successful");
 
-    // Update Supabase custom_fields
-    let customFields = Array.isArray(contact.custom_fields) ? [...contact.custom_fields] : [];
-    const existingIndex = customFields.findIndex((f: { id: string }) => f.id === SCOPE_OF_WORK_FIELD_ID);
-    if (existingIndex >= 0) {
-      customFields[existingIndex] = { id: SCOPE_OF_WORK_FIELD_ID, value: newScope };
-    } else {
-      customFields.push({ id: SCOPE_OF_WORK_FIELD_ID, value: newScope });
-    }
-
+    // Update Supabase
     await supabase
       .from("contacts")
-      .update({ custom_fields: customFields, updated_at: new Date().toISOString() })
+      .update({ phone: newPhone || null, updated_at: new Date().toISOString() })
       .eq("ghl_id", contactId);
 
     // Track the edit if value changed
-    if (oldScope !== newScope && opportunityGhlId) {
-      console.log(`Tracking scope edit: "${oldScope}" -> "${newScope}"`);
+    if (oldPhone !== newPhone && opportunityGhlId) {
+      console.log(`Tracking phone edit: "${oldPhone}" -> "${newPhone}"`);
       await supabase.from("opportunity_edits").insert({
         opportunity_ghl_id: opportunityGhlId,
         contact_ghl_id: contactId,
-        field_name: "scope_of_work",
-        old_value: oldScope || null,
-        new_value: newScope || null,
+        field_name: "phone",
+        old_value: oldPhone || null,
+        new_value: newPhone || null,
         edited_by: editedBy || null,
         location_id: contact.location_id,
       });
@@ -131,7 +109,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
-    console.error("Error updating scope:", error);
+    console.error("Error updating phone:", error);
     const errorMessage = error instanceof Error ? error.message : "Internal server error";
     return new Response(
       JSON.stringify({ error: errorMessage }),

@@ -629,6 +629,7 @@ export function FollowUpManagement({
           pipeline_stage_id: stageInfo.stageId,
           monetary_value: opportunity.monetary_value,
           assigned_to: opportunity.assigned_to,
+          edited_by: user?.id || null,
         },
       });
       if (error) throw error;
