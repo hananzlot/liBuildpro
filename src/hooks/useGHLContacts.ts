@@ -140,19 +140,32 @@ export interface DBOpportunityEdit {
   location_id: string | null;
 }
 
+// Location 2 ID - contacts from this location are imported to Location 1, so exclude from display
+const LOCATION_2_ID = "XYDIgpHivVWHii65sId5";
+
 // Generic paginated fetch for any table
-async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]> {
+async function fetchAllFromTable(
+  table: string, 
+  orderBy: string,
+  excludeLocationId?: string
+): Promise<any[]> {
   const allItems: any[] = [];
   const pageSize = 1000;
   let from = 0;
   let hasMore = true;
 
   while (hasMore) {
-    const { data, error } = await supabase
+    let query = supabase
       .from(table as "contacts" | "opportunities" | "appointments")
       .select("*")
-      .order(orderBy as any, { ascending: false })
-      .range(from, from + pageSize - 1);
+      .order(orderBy as any, { ascending: false });
+    
+    // Exclude Location 2 records if specified
+    if (excludeLocationId) {
+      query = query.neq("location_id", excludeLocationId);
+    }
+    
+    const { data, error } = await query.range(from, from + pageSize - 1);
 
     if (error) throw new Error(error.message);
 
@@ -169,11 +182,13 @@ async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]>
 }
 
 async function fetchContactsFromDB(): Promise<DBContact[]> {
-  return fetchAllFromTable("contacts", "ghl_date_added") as Promise<DBContact[]>;
+  // Exclude Location 2 contacts - they are imported to Location 1
+  return fetchAllFromTable("contacts", "ghl_date_added", LOCATION_2_ID) as Promise<DBContact[]>;
 }
 
 async function fetchOpportunitiesFromDB(): Promise<DBOpportunity[]> {
-  return fetchAllFromTable("opportunities", "ghl_date_added") as Promise<DBOpportunity[]>;
+  // Exclude Location 2 opportunities - they are imported to Location 1  
+  return fetchAllFromTable("opportunities", "ghl_date_added", LOCATION_2_ID) as Promise<DBOpportunity[]>;
 }
 
 async function fetchAppointmentsFromDB(): Promise<DBAppointment[]> {
