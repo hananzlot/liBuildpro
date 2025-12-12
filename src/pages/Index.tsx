@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench } from "lucide-react";
-import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
+import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
@@ -65,6 +65,7 @@ const Index = () => {
     refetch
   } = useGHLMetrics(dateRange);
   const syncMutation = useSyncContacts();
+  const syncGHL2Mutation = useSyncGHL2();
   const handleOpenOpportunity = (opportunity: any) => {
     setSelectedOpportunity(opportunity);
     setOppDetailSheetOpen(true);
@@ -80,6 +81,15 @@ const Index = () => {
       toast.success(`Sync complete! ${result.total} contacts synced`);
     } catch (err) {
       toast.error(`Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+  const handleSyncGHL2 = async () => {
+    toast.info("Importing from GHL Location 2...");
+    try {
+      const result = await syncGHL2Mutation.mutateAsync();
+      toast.success(`GHL2 sync complete! ${result.contactsImported} contacts and ${result.opportunitiesImported} opportunities imported`);
+    } catch (err) {
+      toast.error(`GHL2 sync failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
   const formatCurrency = (value: number) => {
@@ -168,6 +178,10 @@ const Index = () => {
               <Button size="sm" onClick={handleSync} disabled={syncMutation.isPending}>
                 <Database className={`h-4 w-4 mr-2 ${syncMutation.isPending ? "animate-pulse" : ""}`} />
                 {syncMutation.isPending ? "Syncing..." : "Sync GHL"}
+              </Button>
+              <Button size="sm" onClick={handleSyncGHL2} disabled={syncGHL2Mutation.isPending} variant="outline">
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncGHL2Mutation.isPending ? "animate-spin" : ""}`} />
+                {syncGHL2Mutation.isPending ? "Syncing..." : "Sync GHL2"}
               </Button>
             </div>
           </div>

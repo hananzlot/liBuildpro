@@ -240,6 +240,16 @@ async function syncContacts(): Promise<{ total: number }> {
   return { total: data.meta?.contacts || 0 };
 }
 
+async function syncGHL2(): Promise<{ contactsImported: number; opportunitiesImported: number }> {
+  const { data, error } = await supabase.functions.invoke("import-ghl-location2");
+
+  if (error) throw new Error(error.message);
+  return { 
+    contactsImported: data?.contactsImported || 0, 
+    opportunitiesImported: data?.opportunitiesImported || 0 
+  };
+}
+
 function filterByDateRange<T extends { ghl_date_added?: string | null }>(
   items: T[],
   dateRange?: DateRange,
@@ -784,6 +794,18 @@ export function useSyncContacts() {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
       queryClient.invalidateQueries({ queryKey: ["call_logs"] });
+    },
+  });
+}
+
+export function useSyncGHL2() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: syncGHL2,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
     },
   });
 }
