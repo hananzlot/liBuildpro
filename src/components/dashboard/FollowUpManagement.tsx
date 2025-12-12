@@ -766,10 +766,10 @@ export function FollowUpManagement({
     return set;
   }, [ghlTasks]);
 
-  // Stale Opportunities - no future appointments, no future tasks, excluding lost/abandoned
+  // Stale Opportunities - no future appointments, no future tasks, excluding lost/abandoned/won
   const staleOpportunitiesRaw = useMemo(() => {
     const excludedStages = ["lost", "abandon", "dnc", "do not call"];
-    const excludedStatuses = ["lost", "abandoned"];
+    const excludedStatuses = ["lost", "abandoned", "won"];
     
     return opportunities.filter(o => {
       if (!o.contact_id) return false;
