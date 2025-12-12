@@ -18,6 +18,7 @@ import {
   Snowflake,
   Briefcase,
   Save,
+  PartyPopper,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1356,7 +1357,11 @@ export function FollowUpManagement({
                 </div>
 
                 {closeToSaleData.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">No opportunities close to sale</div>
+                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                    <PartyPopper className="h-8 w-8 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">Nothing to update!</span>
+                    <span className="text-muted-foreground text-sm">All close-to-sale opportunities are handled</span>
+                  </div>
                 ) : (
                   <div className="rounded-md border overflow-x-auto">
                     <Table>
@@ -1454,9 +1459,11 @@ export function FollowUpManagement({
                 </div>
 
                 {missingScopeData.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-4">
-                    All won and close-to-sale opportunities have scope of work defined
-                  </p>
+                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                    <PartyPopper className="h-8 w-8 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">Nothing to update!</span>
+                    <span className="text-muted-foreground text-sm">All opportunities have scope of work defined</span>
+                  </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
@@ -1572,7 +1579,11 @@ export function FollowUpManagement({
                 </div>
 
                 {staleNewData.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">No stale new opportunities found</div>
+                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                    <PartyPopper className="h-8 w-8 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">Nothing to update!</span>
+                    <span className="text-muted-foreground text-sm">No stale new opportunities found</span>
+                  </div>
                 ) : (
                   <div className="rounded-md border overflow-x-auto">
                     <Table>
@@ -1724,7 +1735,11 @@ export function FollowUpManagement({
                     <span>Loading tasks from GHL...</span>
                   </div>
                 ) : filteredGhlTasks.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">No pending tasks found</div>
+                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                    <PartyPopper className="h-8 w-8 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">Nothing to update!</span>
+                    <span className="text-muted-foreground text-sm">All tasks are handled</span>
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     {filteredGhlTasks.map((task) => {
@@ -1840,7 +1855,11 @@ export function FollowUpManagement({
                 </div>
 
                 {needsAttentionData.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">No cold opportunities needing attention</div>
+                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                    <PartyPopper className="h-8 w-8 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">Nothing to update!</span>
+                    <span className="text-muted-foreground text-sm">No cold opportunities needing attention</span>
+                  </div>
                 ) : (
                   <>
                     <div className="rounded-md border overflow-x-auto">
@@ -2037,7 +2056,11 @@ export function FollowUpManagement({
                 </div>
 
                 {staleNotesData.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">No appointments needing note updates</div>
+                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                    <PartyPopper className="h-8 w-8 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">Nothing to update!</span>
+                    <span className="text-muted-foreground text-sm">All appointments have recent notes</span>
+                  </div>
                 ) : (
                   <div className="rounded-md border overflow-x-auto">
                     <Table>
@@ -2176,8 +2199,10 @@ export function FollowUpManagement({
                 </div>
 
                 {noTasksData.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    All open opportunities have tasks assigned
+                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                    <PartyPopper className="h-8 w-8 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">Nothing to update!</span>
+                    <span className="text-muted-foreground text-sm">All open opportunities have tasks assigned</span>
                   </div>
                 ) : (
                   <div className="rounded-md border overflow-x-auto">
@@ -2307,8 +2332,10 @@ export function FollowUpManagement({
                 </div>
 
                 {pastConfirmedData.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No past appointments requiring status or stage update
+                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                    <PartyPopper className="h-8 w-8 text-emerald-500" />
+                    <span className="text-emerald-600 font-medium">Nothing to update!</span>
+                    <span className="text-muted-foreground text-sm">No past appointments requiring updates</span>
                   </div>
                 ) : (
                   <div className="rounded-md border overflow-x-auto">

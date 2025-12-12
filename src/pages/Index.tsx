@@ -188,12 +188,12 @@ const Index = () => {
                         <p className="text-sm font-medium text-muted-foreground">Activity</p>
                         <div className="flex items-baseline gap-2">
                           <p className="text-3xl font-bold tracking-tight text-foreground">
-                            {(metrics?.opportunityEdits || 0) + (metrics?.tasksCreatedCount || 0) + (metrics?.notesCreatedCount || 0)}
+                            {(metrics?.filteredOpportunityEdits?.length || 0) + (metrics?.tasksCreatedCount || 0) + (metrics?.notesCreatedCount || 0)}
                           </p>
                           <span className="text-sm text-muted-foreground">total</span>
                         </div>
                         <div className="flex flex-col gap-0.5 text-xs">
-                          <span className="text-muted-foreground">{metrics?.opportunityEdits || 0} opp edits</span>
+                          <span className="text-muted-foreground">{metrics?.filteredOpportunityEdits?.length || 0} field edits tracked</span>
                           <span className="text-muted-foreground">{metrics?.tasksCreatedCount || 0} tasks • {metrics?.notesCreatedCount || 0} notes</span>
                         </div>
                       </div>
@@ -296,7 +296,7 @@ const Index = () => {
       <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
 
       {/* Activity Sheet */}
-      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} editedOpportunities={metrics?.editedOpportunities || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
+      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} editedOpportunities={metrics?.editedOpportunities || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onRefresh={refetch} onOpportunityClick={opp => {
       setSelectedOpportunity({
         ghl_id: opp.ghl_id,
         name: opp.name,
