@@ -315,7 +315,7 @@ export function ActivitySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-hidden flex flex-col">
+      <SheetContent className="w-full sm:max-w-2xl lg:max-w-3xl overflow-hidden flex flex-col">
         <SheetHeader className="pb-4 border-b">
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-2">
