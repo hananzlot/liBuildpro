@@ -1431,9 +1431,16 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Missing Scope
-                        <Badge variant="destructive" className="text-xs">
-                          {missingScopeData.length}
-                        </Badge>
+                        {missingScopeData.length === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                            <PartyPopper className="h-3 w-3 mr-1" />
+                            All set!
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            {missingScopeData.length}
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Won or close-to-sale opportunities without scope of work
