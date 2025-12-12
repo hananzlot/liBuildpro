@@ -296,7 +296,7 @@ const Index = () => {
       <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
 
       {/* Activity Sheet */}
-      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} editedOpportunities={metrics?.editedOpportunities || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
+      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} editedOpportunities={metrics?.editedOpportunities || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
       setSelectedOpportunity({
         ghl_id: opp.ghl_id,
         name: opp.name,
