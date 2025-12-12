@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -91,6 +91,7 @@ interface ActivitySheetProps {
   profiles: DBProfile[];
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
   onAppointmentClick?: (appointment: DBAppointment) => void;
+  defaultTab?: "edits" | "appointments" | "tasks" | "notes";
 }
 
 const CUSTOM_FIELD_IDS = {
@@ -221,8 +222,15 @@ export function ActivitySheet({
   profiles,
   onOpportunityClick,
   onAppointmentClick,
+  defaultTab = "edits",
 }: ActivitySheetProps) {
+  const [activeTab, setActiveTab] = useState<string>(defaultTab);
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
+
+  // Sync activeTab when defaultTab changes (from parent)
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   // Get unique creators from tasks, notes, and edits
   const availableCreators = useMemo(() => {
@@ -308,7 +316,7 @@ export function ActivitySheet({
           )}
         </SheetHeader>
 
-        <Tabs defaultValue="edits" className="flex-1 flex flex-col overflow-hidden mt-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden mt-4">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="edits" className="gap-1 text-xs">
               <History className="h-3 w-3" />
