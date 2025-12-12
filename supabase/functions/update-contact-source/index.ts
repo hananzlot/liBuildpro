@@ -93,7 +93,7 @@ serve(async (req) => {
     // Track the edit if value changed
     if (oldSource !== newSource && opportunityGhlId) {
       console.log(`Tracking source edit: "${oldSource}" -> "${newSource}"`);
-      await supabase.from("opportunity_edits").insert({
+      const { error: editError } = await supabase.from("opportunity_edits").insert({
         opportunity_ghl_id: opportunityGhlId,
         contact_ghl_id: contactId,
         field_name: "source",
@@ -102,6 +102,11 @@ serve(async (req) => {
         edited_by: editedBy || null,
         location_id: contact.location_id,
       });
+      if (editError) {
+        console.error("Error tracking edit:", editError);
+      } else {
+        console.log("Edit tracked successfully");
+      }
     }
 
     return new Response(
