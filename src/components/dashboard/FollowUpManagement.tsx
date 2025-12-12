@@ -138,6 +138,7 @@ export function FollowUpManagement({
   const [staleNewOpen, setStaleNewOpen] = useState(false);
   const [staleNewRepFilter, setStaleNewRepFilter] = useState<string>("all");
   const [staleNewStageFilter, setStaleNewStageFilter] = useState<"all" | "new" | "other">("all");
+  const [staleNewSort, setStaleNewSort] = useState<{ field: "name" | "address" | "stage" | "source" | "rep" | "value"; direction: SortDirection }>({ field: "value", direction: "desc" });
   const NEEDS_ATTENTION_PAGE_SIZE = 10;
 
   // Tasks Helper State
@@ -809,7 +810,14 @@ export function FollowUpManagement({
     return { newStage, otherStage };
   }, [staleOpportunitiesRaw]);
 
-  // Stale New Data - filtered and deduplicated
+  // Helper to get source from contact
+  const getContactSource = (contactId: string | null): string => {
+    if (!contactId) return "";
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    return contact?.source || "";
+  };
+
+  // Stale New Data - filtered, deduplicated, and sorted
   const staleNewData = useMemo(() => {
     // Determine which opportunities to include based on filter
     let results: DBOpportunity[];
@@ -837,9 +845,26 @@ export function FollowUpManagement({
       unique = unique.filter(o => o.assigned_to === staleNewRepFilter);
     }
 
-    // Sort by monetary value descending
-    return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
-  }, [staleOpportunitiesByCategory, staleNewStageFilter, staleNewRepFilter]);
+    // Apply sorting
+    const direction = staleNewSort.direction === "asc" ? 1 : -1;
+    return unique.sort((a, b) => {
+      switch (staleNewSort.field) {
+        case "name":
+          return direction * (a.name || "").localeCompare(b.name || "");
+        case "address":
+          return direction * getAddress(a.contact_id).localeCompare(getAddress(b.contact_id));
+        case "stage":
+          return direction * (a.stage_name || "").localeCompare(b.stage_name || "");
+        case "source":
+          return direction * getContactSource(a.contact_id).localeCompare(getContactSource(b.contact_id));
+        case "rep":
+          return direction * getUserName(a.assigned_to).localeCompare(getUserName(b.assigned_to));
+        case "value":
+        default:
+          return direction * ((a.monetary_value || 0) - (b.monetary_value || 0));
+      }
+    });
+  }, [staleOpportunitiesByCategory, staleNewStageFilter, staleNewRepFilter, staleNewSort, contacts]);
 
   // Counts for badges (before rep filter, deduplicated by contact)
   const staleNewCounts = useMemo(() => {
@@ -1553,15 +1578,64 @@ export function FollowUpManagement({
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">No stale opportunities found</span>
-                  </div> : <div className="rounded-md border overflow-x-auto">
+                  </div> : <div className="rounded-md border overflow-x-auto max-h-[400px] overflow-y-auto">
                     <Table>
-                      <TableHeader>
+                      <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
-                          <TableHead>Opportunity</TableHead>
-                          <TableHead>Address</TableHead>
-                          <TableHead>Pipeline Stage</TableHead>
-                          <TableHead>Assigned Rep</TableHead>
-                          <TableHead className="text-right">Value</TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setStaleNewSort(prev => ({ field: "name", direction: prev.field === "name" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Opportunity
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setStaleNewSort(prev => ({ field: "address", direction: prev.field === "address" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Address
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setStaleNewSort(prev => ({ field: "stage", direction: prev.field === "stage" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Pipeline Stage
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setStaleNewSort(prev => ({ field: "source", direction: prev.field === "source" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Source
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setStaleNewSort(prev => ({ field: "rep", direction: prev.field === "rep" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Assigned Rep
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50 text-right"
+                            onClick={() => setStaleNewSort(prev => ({ field: "value", direction: prev.field === "value" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1 justify-end">
+                              Value
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1583,6 +1657,9 @@ export function FollowUpManagement({
                                 >
                                   {opp.stage_name || "Unknown"}
                                 </Badge>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {getContactSource(opp.contact_id) || "-"}
                               </TableCell>
                               <TableCell>{getUserName(opp.assigned_to)}</TableCell>
                               <TableCell className="font-medium text-green-600 text-right">
