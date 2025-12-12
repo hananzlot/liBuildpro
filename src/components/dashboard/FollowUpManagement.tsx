@@ -1078,6 +1078,25 @@ export function FollowUpManagement({
       setIsRefreshing(false);
     }
   };
+
+  // Compute section order: Close to Sale first (order 0), Cold last (order 99), others by count descending
+  const sectionOrder = useMemo(() => {
+    const middleSections = [
+      { id: 'missingScope', count: missingScopeData.length },
+      { id: 'staleNew', count: staleNewData.length },
+      { id: 'tasksHelper', count: taskCounts.total },
+      { id: 'staleNotes', count: staleNotesData.length },
+      { id: 'noTasks', count: noTasksData.length },
+      { id: 'pastConfirmed', count: pastConfirmedData.length },
+    ].sort((a, b) => b.count - a.count);
+
+    const order: Record<string, number> = { closeToSale: 0 };
+    middleSections.forEach((section, index) => {
+      order[section.id] = index + 1;
+    });
+    order['needsAttention'] = 99; // Cold always last
+    return order;
+  }, [missingScopeData.length, staleNewData.length, taskCounts.total, staleNotesData.length, noTasksData.length, pastConfirmedData.length]);
   return <div className="space-y-3">
       {/* Header with Refresh Button */}
       
@@ -1191,10 +1210,10 @@ export function FollowUpManagement({
         </DialogContent>
       </Dialog>
 
-      {/* Grid layout for sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Close to Sale View */}
-        <Collapsible open={closeToSaleOpen} onOpenChange={setCloseToSaleOpen} className={closeToSaleOpen ? "lg:col-span-2" : ""}>
+      {/* Flex layout for sections - ordered by item count */}
+      <div className="flex flex-wrap gap-3">
+        {/* Close to Sale View - Always First */}
+        <Collapsible open={closeToSaleOpen} onOpenChange={setCloseToSaleOpen} className={`w-full ${closeToSaleOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.closeToSale }}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1283,7 +1302,7 @@ export function FollowUpManagement({
         </Collapsible>
 
         {/* Missing Scope of Work */}
-        <Collapsible open={missingScopeOpen} onOpenChange={setMissingScopeOpen} className={missingScopeOpen ? "lg:col-span-2" : ""}>
+        <Collapsible open={missingScopeOpen} onOpenChange={setMissingScopeOpen} className={`w-full ${missingScopeOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.missingScope }}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1380,7 +1399,7 @@ export function FollowUpManagement({
         </Collapsible>
 
         {/* Stale New Opportunities */}
-        <Collapsible open={staleNewOpen} onOpenChange={setStaleNewOpen} className={staleNewOpen ? "lg:col-span-2" : ""}>
+        <Collapsible open={staleNewOpen} onOpenChange={setStaleNewOpen} className={`w-full ${staleNewOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.staleNew }}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1465,7 +1484,7 @@ export function FollowUpManagement({
         </Collapsible>
 
         {/* Tasks Helper */}
-        <Collapsible open={tasksHelperOpen} onOpenChange={setTasksHelperOpen} className={tasksHelperOpen ? "lg:col-span-2" : ""}>
+        <Collapsible open={tasksHelperOpen} onOpenChange={setTasksHelperOpen} className={`w-full ${tasksHelperOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.tasksHelper }}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1602,7 +1621,7 @@ export function FollowUpManagement({
         </Collapsible>
 
         {/* Needs Attention (Cold) View */}
-        <Collapsible open={needsAttentionOpen} onOpenChange={setNeedsAttentionOpen} className={needsAttentionOpen ? "lg:col-span-2" : ""}>
+        <Collapsible open={needsAttentionOpen} onOpenChange={setNeedsAttentionOpen} className={`w-full ${needsAttentionOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.needsAttention }}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1742,7 +1761,7 @@ export function FollowUpManagement({
         </Collapsible>
 
         {/* Stale Notes View */}
-        <Collapsible open={staleNotesOpen} onOpenChange={setStaleNotesOpen} className={staleNotesOpen ? "lg:col-span-2" : ""}>
+        <Collapsible open={staleNotesOpen} onOpenChange={setStaleNotesOpen} className={`w-full ${staleNotesOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.staleNotes }}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1863,7 +1882,7 @@ export function FollowUpManagement({
         </Collapsible>
 
         {/* No Tasks View */}
-        <Collapsible open={noTasksOpen} onOpenChange={setNoTasksOpen} className={noTasksOpen ? "lg:col-span-2" : ""}>
+        <Collapsible open={noTasksOpen} onOpenChange={setNoTasksOpen} className={`w-full ${noTasksOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.noTasks }}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1971,7 +1990,7 @@ export function FollowUpManagement({
         </Collapsible>
 
         {/* Past Confirmed Appointments View */}
-        <Collapsible open={pastConfirmedOpen} onOpenChange={setPastConfirmedOpen} className={pastConfirmedOpen ? "lg:col-span-2" : ""}>
+        <Collapsible open={pastConfirmedOpen} onOpenChange={setPastConfirmedOpen} className={`w-full ${pastConfirmedOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.pastConfirmed }}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
