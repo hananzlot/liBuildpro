@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.bulk-update-source]
 verify_jwt = false
+
+[functions.update-contact-name]
+verify_jwt = false
