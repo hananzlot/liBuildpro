@@ -1,39 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
-import {
-  AlertTriangle,
-  ClipboardList,
-  ChevronDown,
-  ChevronUp,
-  ArrowUpDown,
-  Calendar,
-  User,
-  Clock,
-  Plus,
-  FileText,
-  Loader2,
-  RefreshCw,
-  ExternalLink,
-  CheckSquare,
-  TrendingUp,
-  Snowflake,
-  Briefcase,
-  Save,
-  PartyPopper,
-} from "lucide-react";
+import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2, RefreshCw, ExternalLink, CheckSquare, TrendingUp, Snowflake, Briefcase, Save, PartyPopper } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -119,8 +92,8 @@ type DueDateFilter = "all" | "past_due" | "today_tomorrow" | "after_tomorrow";
 // Calculate PST/PDT offset for a given UTC date
 const getPSTOffset = (utcDate: Date): number => {
   const year = utcDate.getUTCFullYear();
-  const marchSecondSunday = new Date(Date.UTC(year, 2, 8 + ((7 - new Date(Date.UTC(year, 2, 1)).getUTCDay()) % 7), 10));
-  const novFirstSunday = new Date(Date.UTC(year, 10, 1 + ((7 - new Date(Date.UTC(year, 10, 1)).getUTCDay()) % 7), 9));
+  const marchSecondSunday = new Date(Date.UTC(year, 2, 8 + (7 - new Date(Date.UTC(year, 2, 1)).getUTCDay()) % 7, 10));
+  const novFirstSunday = new Date(Date.UTC(year, 10, 1 + (7 - new Date(Date.UTC(year, 10, 1)).getUTCDay()) % 7, 9));
   const isDST = utcDate >= marchSecondSunday && utcDate < novFirstSunday;
   return isDST ? 7 : 8;
 };
@@ -145,9 +118,11 @@ export function FollowUpManagement({
   contactNotes,
   tasks,
   onOpenOpportunity,
-  onDataRefresh,
+  onDataRefresh
 }: FollowUpManagementProps) {
-  const { user } = useAuth();
+  const {
+    user
+  } = useAuth();
   const queryClient = useQueryClient();
   const [staleNotesOpen, setStaleNotesOpen] = useState(false);
   const [noTasksOpen, setNoTasksOpen] = useState(false);
@@ -174,21 +149,21 @@ export function FollowUpManagement({
     direction: SortDirection;
   }>({
     field: "appointment_date",
-    direction: "desc",
+    direction: "desc"
   });
   const [noTasksSort, setNoTasksSort] = useState<{
     field: SortField;
     direction: SortDirection;
   }>({
     field: "appointment_date",
-    direction: "desc",
+    direction: "desc"
   });
   const [pastConfirmedSort, setPastConfirmedSort] = useState<{
     field: SortField;
     direction: SortDirection;
   }>({
     field: "appointment_date",
-    direction: "desc",
+    direction: "desc"
   });
   const [staleNotesRepFilter, setStaleNotesRepFilter] = useState<string>("all");
   const [noTasksRepFilter, setNoTasksRepFilter] = useState<string>("all");
@@ -227,54 +202,50 @@ export function FollowUpManagement({
   // Helper functions
   const getUserName = (userId: string | null): string => {
     if (!userId) return "Unassigned";
-    const user = users.find((u) => u.ghl_id === userId);
+    const user = users.find(u => u.ghl_id === userId);
     return user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Unknown";
   };
   const getContactName = (contactId: string | null): string => {
     if (!contactId) return "Unknown Contact";
-    const contact = contacts.find((c) => c.ghl_id === contactId);
-    return (
-      contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown Contact"
-    );
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    return contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown Contact";
   };
   const getOpportunityForAppointment = (contactId: string | null): DBOpportunity | undefined => {
     if (!contactId) return undefined;
-    return opportunities.find((o) => o.contact_id === contactId && o.status?.toLowerCase() === "open");
+    return opportunities.find(o => o.contact_id === contactId && o.status?.toLowerCase() === "open");
   };
   const getLatestNoteDate = (contactId: string): Date | null => {
-    const notes = contactNotes.filter((n) => n.contact_id === contactId);
+    const notes = contactNotes.filter(n => n.contact_id === contactId);
     if (notes.length === 0) return null;
-    const latest = notes.reduce(
-      (latest, note) => {
-        if (!note.ghl_date_added) return latest;
-        const noteDate = new Date(note.ghl_date_added);
-        return !latest || noteDate > latest ? noteDate : latest;
-      },
-      null as Date | null,
-    );
+    const latest = notes.reduce((latest, note) => {
+      if (!note.ghl_date_added) return latest;
+      const noteDate = new Date(note.ghl_date_added);
+      return !latest || noteDate > latest ? noteDate : latest;
+    }, null as Date | null);
     return latest;
   };
 
   // Get unique reps for filter
   const uniqueReps = useMemo(() => {
     const reps = new Set<string>();
-    appointments.forEach((a) => {
+    appointments.forEach(a => {
       if (a.assigned_user_id) reps.add(a.assigned_user_id);
     });
-    return Array.from(reps)
-      .map((id) => ({
-        id,
-        name: getUserName(id),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(reps).map(id => ({
+      id,
+      name: getUserName(id)
+    })).sort((a, b) => a.name.localeCompare(b.name));
   }, [appointments, users]);
 
   // Fetch GHL Tasks
   const fetchGhlTasks = async () => {
     setIsLoadingTasks(true);
     try {
-      const { data, error } = await supabase.from("ghl_tasks").select("*").eq("completed", false).order("due_date", {
-        ascending: true,
+      const {
+        data,
+        error
+      } = await supabase.from("ghl_tasks").select("*").eq("completed", false).order("due_date", {
+        ascending: true
       });
       if (error) {
         console.error("Error fetching tasks:", error);
@@ -295,23 +266,21 @@ export function FollowUpManagement({
 
   // Get unique assignees from GHL tasks
   const uniqueTaskAssignees = useMemo(() => {
-    const assigneeIds = new Set(ghlTasks.map((t) => t.assigned_to).filter(Boolean));
-    return Array.from(assigneeIds)
-      .map((id) => ({
-        id: id!,
-        name: getUserName(id!),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const assigneeIds = new Set(ghlTasks.map(t => t.assigned_to).filter(Boolean));
+    return Array.from(assigneeIds).map(id => ({
+      id: id!,
+      name: getUserName(id!)
+    })).sort((a, b) => a.name.localeCompare(b.name));
   }, [ghlTasks, users]);
 
   // Get opportunity for a contact (for tasks) - prioritize open over lost
   const getOpportunityForContact = (contactId: string): DBOpportunity | undefined => {
-    const contactOpps = opportunities.filter((o) => o.contact_id === contactId);
+    const contactOpps = opportunities.filter(o => o.contact_id === contactId);
     if (contactOpps.length === 0) return undefined;
     // Prioritize open opportunities over lost/abandoned
-    const openOpp = contactOpps.find((o) => o.status?.toLowerCase() === "open");
+    const openOpp = contactOpps.find(o => o.status?.toLowerCase() === "open");
     if (openOpp) return openOpp;
-    const wonOpp = contactOpps.find((o) => o.status?.toLowerCase() === "won");
+    const wonOpp = contactOpps.find(o => o.status?.toLowerCase() === "won");
     if (wonOpp) return wonOpp;
     // Return first if no open/won found
     return contactOpps[0];
@@ -329,7 +298,7 @@ export function FollowUpManagement({
       year: "numeric",
       hour: "numeric",
       minute: "2-digit",
-      hour12: true,
+      hour12: true
     });
     return pstDateString + " PST";
   };
@@ -342,7 +311,9 @@ export function FollowUpManagement({
   const getPSTDayBoundaries = () => {
     const now = new Date();
     // Get current time in PST
-    const pstNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+    const pstNow = new Date(now.toLocaleString("en-US", {
+      timeZone: "America/Los_Angeles"
+    }));
     // Start of today in PST (converted back to UTC for comparison)
     const todayPST = new Date(pstNow.getFullYear(), pstNow.getMonth(), pstNow.getDate());
     const pstOffset = getPSTOffset(now);
@@ -350,45 +321,48 @@ export function FollowUpManagement({
     const todayStartUTC = new Date(todayPST.getTime() + pstOffset * 60 * 60 * 1000);
     const tomorrowStartUTC = new Date(todayStartUTC.getTime() + 24 * 60 * 60 * 1000);
     const dayAfterTomorrowStartUTC = new Date(todayStartUTC.getTime() + 48 * 60 * 60 * 1000);
-    return { todayStartUTC, tomorrowStartUTC, dayAfterTomorrowStartUTC };
+    return {
+      todayStartUTC,
+      tomorrowStartUTC,
+      dayAfterTomorrowStartUTC
+    };
   };
 
   // Calculate task counts by category (using PST)
   const taskCounts = useMemo(() => {
-    let baseTasks = ghlTasks.filter((t) => !t.completed);
+    let baseTasks = ghlTasks.filter(t => !t.completed);
 
     // Filter out tasks where the associated opportunity is lost
-    baseTasks = baseTasks.filter((t) => {
+    baseTasks = baseTasks.filter(t => {
       const opportunity = getOpportunityForContact(t.contact_id);
       if (!opportunity) return true;
       return opportunity.status?.toLowerCase() !== "lost";
     });
-
-    const { todayStartUTC, dayAfterTomorrowStartUTC } = getPSTDayBoundaries();
-
-    const pastDue = baseTasks.filter((t) => t.due_date && new Date(t.due_date) < todayStartUTC).length;
-    const todayTomorrow = baseTasks.filter((t) => {
+    const {
+      todayStartUTC,
+      dayAfterTomorrowStartUTC
+    } = getPSTDayBoundaries();
+    const pastDue = baseTasks.filter(t => t.due_date && new Date(t.due_date) < todayStartUTC).length;
+    const todayTomorrow = baseTasks.filter(t => {
       if (!t.due_date) return false;
       const dueDate = new Date(t.due_date);
       return dueDate >= todayStartUTC && dueDate < dayAfterTomorrowStartUTC;
     }).length;
-    const afterTomorrow = baseTasks.filter(
-      (t) => t.due_date && new Date(t.due_date) >= dayAfterTomorrowStartUTC,
-    ).length;
+    const afterTomorrow = baseTasks.filter(t => t.due_date && new Date(t.due_date) >= dayAfterTomorrowStartUTC).length;
     return {
       pastDue,
       todayTomorrow,
       afterTomorrow,
-      total: baseTasks.length,
+      total: baseTasks.length
     };
   }, [ghlTasks, opportunities]);
 
   // Filter GHL tasks (using PST)
   const filteredGhlTasks = useMemo(() => {
-    let filtered = ghlTasks.filter((t) => !t.completed);
+    let filtered = ghlTasks.filter(t => !t.completed);
 
     // Filter out tasks where the associated opportunity is lost
-    filtered = filtered.filter((t) => {
+    filtered = filtered.filter(t => {
       const opportunity = getOpportunityForContact(t.contact_id);
       if (!opportunity) return true;
       return opportunity.status?.toLowerCase() !== "lost";
@@ -396,25 +370,27 @@ export function FollowUpManagement({
 
     // Assignee filter
     if (tasksAssigneeFilter !== "all") {
-      filtered = filtered.filter((t) => t.assigned_to === tasksAssigneeFilter);
+      filtered = filtered.filter(t => t.assigned_to === tasksAssigneeFilter);
     }
 
     // Due date filter (using PST boundaries)
-    const { todayStartUTC, dayAfterTomorrowStartUTC } = getPSTDayBoundaries();
-
+    const {
+      todayStartUTC,
+      dayAfterTomorrowStartUTC
+    } = getPSTDayBoundaries();
     if (tasksDueDateFilter === "past_due") {
-      filtered = filtered.filter((t) => {
+      filtered = filtered.filter(t => {
         if (!t.due_date) return false;
         return new Date(t.due_date) < todayStartUTC;
       });
     } else if (tasksDueDateFilter === "today_tomorrow") {
-      filtered = filtered.filter((t) => {
+      filtered = filtered.filter(t => {
         if (!t.due_date) return false;
         const dueDate = new Date(t.due_date);
         return dueDate >= todayStartUTC && dueDate < dayAfterTomorrowStartUTC;
       });
     } else if (tasksDueDateFilter === "after_tomorrow") {
-      filtered = filtered.filter((t) => {
+      filtered = filtered.filter(t => {
         if (!t.due_date) return false;
         return new Date(t.due_date) >= dayAfterTomorrowStartUTC;
       });
@@ -448,12 +424,15 @@ export function FollowUpManagement({
     if (!noteDialogContactId || !noteText.trim()) return;
     setIsCreatingNote(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-contact-note", {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke("create-contact-note", {
         body: {
           contactId: noteDialogContactId,
           body: noteText.trim(),
-          enteredBy: user?.id || null,
-        },
+          enteredBy: user?.id || null
+        }
       });
       if (error) throw error;
       toast.success("Note created successfully");
@@ -493,11 +472,13 @@ export function FollowUpManagement({
       }
 
       // Get location_id from contact
-      const contact = contacts.find((c) => c.ghl_id === taskDialogContactId);
+      const contact = contacts.find(c => c.ghl_id === taskDialogContactId);
       const locationId = contact?.location_id || DEFAULT_LOCATION_ID;
 
       // Create in GHL first (edge function will also insert into ghl_tasks)
-      const { error: ghlError } = await supabase.functions.invoke("create-ghl-task", {
+      const {
+        error: ghlError
+      } = await supabase.functions.invoke("create-ghl-task", {
         body: {
           title: taskTitle.trim(),
           body: taskNotes.trim() || null,
@@ -505,16 +486,14 @@ export function FollowUpManagement({
           assignedTo: taskAssignee === "unassigned" ? null : taskAssignee || null,
           contactId: taskDialogContactId,
           locationId: locationId,
-          enteredBy: user?.id || null,
-        },
+          enteredBy: user?.id || null
+        }
       });
-
       if (ghlError) {
         console.error("GHL sync error:", ghlError);
         toast.error("Failed to create task");
         return;
       }
-
       toast.success("Task created successfully");
       setTaskDialogOpen(false);
 
@@ -532,21 +511,22 @@ export function FollowUpManagement({
     setUpdatingAppointmentId(appointmentGhlId);
     try {
       // Update in GHL
-      const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
+      const {
+        error: ghlError
+      } = await supabase.functions.invoke("update-ghl-appointment", {
         body: {
           ghl_id: appointmentGhlId,
-          appointment_status: newStatus,
-        },
+          appointment_status: newStatus
+        }
       });
       if (ghlError) throw ghlError;
 
       // Update in Supabase
-      const { error: dbError } = await supabase
-        .from("appointments")
-        .update({
-          appointment_status: newStatus,
-        })
-        .eq("ghl_id", appointmentGhlId);
+      const {
+        error: dbError
+      } = await supabase.from("appointments").update({
+        appointment_status: newStatus
+      }).eq("ghl_id", appointmentGhlId);
       if (dbError) throw dbError;
       toast.success(`Appointment marked as "${newStatus}"`);
       onDataRefresh?.();
@@ -568,18 +548,20 @@ export function FollowUpManagement({
     setScopeText("");
     setScopeDialogOpen(true);
   };
-
   const handleSaveScope = async () => {
     if (!scopeDialogContactId || !scopeText.trim()) return;
     setIsSavingScope(true);
     try {
-      const { data, error } = await supabase.functions.invoke("update-contact-scope", {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke("update-contact-scope", {
         body: {
           contactId: scopeDialogContactId,
           scopeOfWork: scopeText.trim(),
           editedBy: user?.id || null,
-          opportunityGhlId: scopeDialogOpportunity?.ghl_id || null,
-        },
+          opportunityGhlId: scopeDialogOpportunity?.ghl_id || null
+        }
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -587,7 +569,9 @@ export function FollowUpManagement({
       setScopeDialogOpen(false);
       setScopeText("");
       onDataRefresh?.();
-      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+      queryClient.invalidateQueries({
+        queryKey: ["opportunity_edits"]
+      });
     } catch (error) {
       console.error("Error saving scope:", error);
       toast.error("Failed to save scope of work");
@@ -598,18 +582,15 @@ export function FollowUpManagement({
 
   // Build stage map for pipeline stage dropdown
   const stageMap = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        stageId: string;
-        pipelineId: string;
-      }
-    >();
-    opportunities.forEach((o) => {
+    const map = new Map<string, {
+      stageId: string;
+      pipelineId: string;
+    }>();
+    opportunities.forEach(o => {
       if (o.stage_name && o.pipeline_stage_id && o.pipeline_id) {
         map.set(o.stage_name, {
           stageId: o.pipeline_stage_id,
-          pipelineId: o.pipeline_id,
+          pipelineId: o.pipeline_id
         });
       }
     });
@@ -627,7 +608,10 @@ export function FollowUpManagement({
     }
     setUpdatingPipelineStageId(opportunity.ghl_id);
     try {
-      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
           status: opportunity.status,
@@ -635,8 +619,8 @@ export function FollowUpManagement({
           pipeline_stage_id: stageInfo.stageId,
           monetary_value: opportunity.monetary_value,
           assigned_to: opportunity.assigned_to,
-          edited_by: user?.id || null,
-        },
+          edited_by: user?.id || null
+        }
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -653,16 +637,16 @@ export function FollowUpManagement({
   // Helper to get address from contact custom_fields with appointment fallback
   const getAddress = (contactId: string | null): string => {
     if (!contactId) return "No address";
-    const contact = contacts.find((c) => c.ghl_id === contactId);
+    const contact = contacts.find(c => c.ghl_id === contactId);
     return getAddressFromContact(contact, appointments, contactId) || "No address";
   };
 
   // Helper to get scope from contact custom_fields
   const getScope = (contactId: string | null): string => {
     if (!contactId) return "";
-    const contact = contacts.find((c) => c.ghl_id === contactId);
+    const contact = contacts.find(c => c.ghl_id === contactId);
     if (!contact) return "";
-    
+
     // Try custom_fields first
     if (contact.custom_fields) {
       const customFields = contact.custom_fields as Array<{
@@ -670,23 +654,24 @@ export function FollowUpManagement({
         value: string;
       }>;
       if (Array.isArray(customFields)) {
-        const scopeField = customFields.find((f) => f.id === "KwQRtJT0aMSHnq3mwR68");
+        const scopeField = customFields.find(f => f.id === "KwQRtJT0aMSHnq3mwR68");
         if (scopeField?.value) return scopeField.value;
       }
     }
-    
+
     // Fall back to attributions.utmContent for Location 2 contacts
     if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
-      const attrs = contact.attributions as Array<{ utmContent?: string }>;
+      const attrs = contact.attributions as Array<{
+        utmContent?: string;
+      }>;
       if (attrs[0]?.utmContent) return attrs[0].utmContent;
     }
-    
     return "";
   };
 
   // Close to Sale Data - opportunities with pipeline stage containing "close to sale", "important", or "second appointment"
   const closeToSaleData = useMemo(() => {
-    const results = opportunities.filter((o) => {
+    const results = opportunities.filter(o => {
       const stageName = o.stage_name?.toLowerCase() || "";
       const isCloseToSale = stageName.includes("close") && stageName.includes("sale");
       const isImportant = stageName === "important";
@@ -696,7 +681,7 @@ export function FollowUpManagement({
 
     // Deduplicate by contact_id (keep the one with highest monetary value)
     const uniqueMap = new Map<string, DBOpportunity>();
-    results.forEach((o) => {
+    results.forEach(o => {
       if (!o.contact_id) return;
       const existing = uniqueMap.get(o.contact_id);
       if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
@@ -707,7 +692,7 @@ export function FollowUpManagement({
 
     // Apply rep filter
     if (closeToSaleRepFilter !== "all") {
-      unique = unique.filter((o) => o.assigned_to === closeToSaleRepFilter);
+      unique = unique.filter(o => o.assigned_to === closeToSaleRepFilter);
     }
 
     // Sort by monetary value descending
@@ -716,18 +701,17 @@ export function FollowUpManagement({
 
   // Missing Scope Data - Won opportunities or close-to-sale stages without scope of work
   const missingScopeData = useMemo(() => {
-    const results = opportunities.filter((o) => {
+    const results = opportunities.filter(o => {
       if (!o.contact_id) return false;
-      
+
       // Check if won OR in close-to-sale stage
       const isWon = o.status?.toLowerCase() === "won";
       const stageName = o.stage_name?.toLowerCase() || "";
       const isCloseToSale = stageName.includes("close") && stageName.includes("sale");
       const isImportant = stageName === "important";
       const isSecondAppointment = stageName.includes("second") && stageName.includes("appointment");
-      
       if (!isWon && !isCloseToSale && !isImportant && !isSecondAppointment) return false;
-      
+
       // Check if scope is missing
       const scope = getScope(o.contact_id);
       return !scope || scope.trim() === "";
@@ -735,7 +719,7 @@ export function FollowUpManagement({
 
     // Deduplicate by contact_id (keep the one with highest monetary value)
     const uniqueMap = new Map<string, DBOpportunity>();
-    results.forEach((o) => {
+    results.forEach(o => {
       if (!o.contact_id) return;
       const existing = uniqueMap.get(o.contact_id);
       if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
@@ -746,27 +730,23 @@ export function FollowUpManagement({
 
     // Apply rep filter
     if (missingScopeRepFilter !== "all") {
-      unique = unique.filter((o) => o.assigned_to === missingScopeRepFilter);
+      unique = unique.filter(o => o.assigned_to === missingScopeRepFilter);
     }
 
     // Sort by monetary value descending
     return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
   }, [opportunities, contacts, missingScopeRepFilter]);
-
   const contactsWithFutureAppointments = useMemo(() => {
     const now = new Date();
     const set = new Set<string>();
-
-    appointments.forEach((a) => {
+    appointments.forEach(a => {
       if (!a.contact_id || !a.start_time) return;
       if (a.appointment_status?.toLowerCase() === "cancelled") return;
-
       const apptDate = new Date(a.start_time);
       if (apptDate > now) {
         set.add(a.contact_id);
       }
     });
-
     return set;
   }, [appointments]);
 
@@ -774,42 +754,38 @@ export function FollowUpManagement({
   const contactsWithFutureTasks = useMemo(() => {
     const now = new Date();
     const set = new Set<string>();
-
-    ghlTasks.forEach((t) => {
+    ghlTasks.forEach(t => {
       if (!t.contact_id || !t.due_date) return;
       if (t.completed) return;
-
       const taskDate = new Date(t.due_date);
       if (taskDate > now) {
         set.add(t.contact_id);
       }
     });
-
     return set;
   }, [ghlTasks]);
 
   // Stale New Opportunities - stage contains "New", no future appointments, no future tasks
   const staleNewData = useMemo(() => {
-    const results = opportunities.filter((o) => {
+    const results = opportunities.filter(o => {
       if (!o.contact_id) return false;
       if (o.status?.toLowerCase() !== "open") return false;
-      
+
       // Check if stage contains "New"
       const stageName = o.stage_name?.toLowerCase() || "";
       if (!stageName.includes("new")) return false;
-      
+
       // Check if has future appointment
       if (contactsWithFutureAppointments.has(o.contact_id)) return false;
-      
+
       // Check if has future task
       if (contactsWithFutureTasks.has(o.contact_id)) return false;
-      
       return true;
     });
 
     // Deduplicate by contact_id
     const uniqueMap = new Map<string, DBOpportunity>();
-    results.forEach((o) => {
+    results.forEach(o => {
       if (!o.contact_id) return;
       const existing = uniqueMap.get(o.contact_id);
       if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
@@ -820,13 +796,12 @@ export function FollowUpManagement({
 
     // Apply rep filter
     if (staleNewRepFilter !== "all") {
-      unique = unique.filter((o) => o.assigned_to === staleNewRepFilter);
+      unique = unique.filter(o => o.assigned_to === staleNewRepFilter);
     }
 
     // Sort by monetary value descending
     return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
   }, [opportunities, contactsWithFutureAppointments, contactsWithFutureTasks, staleNewRepFilter]);
-
   const staleNotesData = useMemo(() => {
     const results: Array<{
       appointment: DBAppointment;
@@ -836,37 +811,30 @@ export function FollowUpManagement({
       daysSinceNote: number | null;
     }> = [];
     const now = new Date();
-
-    appointments.forEach((appointment) => {
+    appointments.forEach(appointment => {
       if (!appointment.contact_id || !appointment.start_time) return;
       if (appointment.appointment_status?.toLowerCase() === "cancelled") return;
 
       // 🔴 NEW: if this contact has any future appointment, skip entirely
       if (contactsWithFutureAppointments.has(appointment.contact_id)) return;
-
       const appointmentDate = new Date(appointment.start_time);
 
       // Only include past appointments
       if (appointmentDate >= now) return;
-
       const opportunity = getOpportunityForAppointment(appointment.contact_id);
       if (!opportunity) return;
-
       const lastNoteDate = getLatestNoteDate(appointment.contact_id);
 
       // Include if no notes exist OR last note is before appointment
       if (lastNoteDate === null || lastNoteDate < appointmentDate) {
-        const contact = contacts.find((c) => c.ghl_id === appointment.contact_id);
-        const daysSinceNote = lastNoteDate
-          ? Math.floor((Date.now() - lastNoteDate.getTime()) / (1000 * 60 * 60 * 24))
-          : null;
-
+        const contact = contacts.find(c => c.ghl_id === appointment.contact_id);
+        const daysSinceNote = lastNoteDate ? Math.floor((Date.now() - lastNoteDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
         results.push({
           appointment,
           opportunity,
           contact,
           lastNoteDate,
-          daysSinceNote,
+          daysSinceNote
         });
       }
     });
@@ -874,40 +842,26 @@ export function FollowUpManagement({
     // ... your existing rep filter + sort stays the same
     let filtered = results;
     if (staleNotesRepFilter !== "all") {
-      filtered = results.filter((r) => r.appointment.assigned_user_id === staleNotesRepFilter);
+      filtered = results.filter(r => r.appointment.assigned_user_id === staleNotesRepFilter);
     }
-
     filtered.sort((a, b) => {
       const direction = staleNotesSort.direction === "asc" ? 1 : -1;
       switch (staleNotesSort.field) {
         case "appointment_date":
-          return (
-            direction * (new Date(a.appointment.start_time!).getTime() - new Date(b.appointment.start_time!).getTime())
-          );
+          return direction * (new Date(a.appointment.start_time!).getTime() - new Date(b.appointment.start_time!).getTime());
         case "last_note_date":
           if (!a.lastNoteDate && !b.lastNoteDate) return 0;
           if (!a.lastNoteDate) return direction;
           if (!b.lastNoteDate) return -direction;
           return direction * (a.lastNoteDate.getTime() - b.lastNoteDate.getTime());
         case "contact_name":
-          return (
-            direction * getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id))
-          );
+          return direction * getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id));
         default:
           return 0;
       }
     });
-
     return filtered;
-  }, [
-    appointments,
-    opportunities,
-    contacts,
-    contactNotes,
-    staleNotesSort,
-    staleNotesRepFilter,
-    contactsWithFutureAppointments,
-  ]);
+  }, [appointments, opportunities, contacts, contactNotes, staleNotesSort, staleNotesRepFilter, contactsWithFutureAppointments]);
 
   // View 2: No Tasks Assigned - Open opportunities with past appointments but no tasks
   const noTasksData = useMemo(() => {
@@ -919,41 +873,30 @@ export function FollowUpManagement({
     }> = [];
 
     // Get open opportunities
-    const openOpportunities = opportunities.filter((o) => o.status?.toLowerCase() === "open");
-    openOpportunities.forEach((opportunity) => {
+    const openOpportunities = opportunities.filter(o => o.status?.toLowerCase() === "open");
+    openOpportunities.forEach(opportunity => {
       if (!opportunity.contact_id) return;
 
       // Check if this opportunity has any past appointments (exclude future appointments)
-      const oppAppointments = appointments.filter(
-        (a) =>
-          a.contact_id === opportunity.contact_id &&
-          a.appointment_status?.toLowerCase() !== "cancelled" &&
-          a.start_time &&
-          new Date(a.start_time) < now,
-      );
+      const oppAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id && a.appointment_status?.toLowerCase() !== "cancelled" && a.start_time && new Date(a.start_time) < now);
       if (oppAppointments.length === 0) return;
 
       // Check if any tasks exist for this contact in ghl_tasks
-      const contactTasks = ghlTasks.filter((t) => t.contact_id === opportunity.contact_id);
+      const contactTasks = ghlTasks.filter(t => t.contact_id === opportunity.contact_id);
       if (contactTasks.length > 0) return;
-
-      const contact = contacts.find((c) => c.ghl_id === opportunity.contact_id);
-      const latestAppointment = oppAppointments.sort(
-        (a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime(),
-      )[0];
+      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      const latestAppointment = oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0];
       results.push({
         opportunity,
         contact,
-        latestAppointment,
+        latestAppointment
       });
     });
 
     // Apply rep filter (using opportunity assigned_to or contact assigned_to)
     let filtered = results;
     if (noTasksRepFilter !== "all") {
-      filtered = results.filter(
-        (r) => r.opportunity.assigned_to === noTasksRepFilter || r.contact?.assigned_to === noTasksRepFilter,
-      );
+      filtered = results.filter(r => r.opportunity.assigned_to === noTasksRepFilter || r.contact?.assigned_to === noTasksRepFilter);
     }
 
     // Sort
@@ -965,9 +908,7 @@ export function FollowUpManagement({
           const bDate = b.latestAppointment?.start_time ? new Date(b.latestAppointment.start_time).getTime() : 0;
           return direction * (aDate - bDate);
         case "contact_name":
-          return (
-            direction * getContactName(a.opportunity.contact_id).localeCompare(getContactName(b.opportunity.contact_id))
-          );
+          return direction * getContactName(a.opportunity.contact_id).localeCompare(getContactName(b.opportunity.contact_id));
         default:
           return 0;
       }
@@ -984,29 +925,26 @@ export function FollowUpManagement({
       contact: DBContact | undefined;
       daysPast: number;
     }> = [];
-    appointments.forEach((appointment) => {
+    appointments.forEach(appointment => {
       if (!appointment.start_time) return;
       const appointmentDate = new Date(appointment.start_time);
       if (appointmentDate >= now) return; // Only past appointments
 
       const appointmentStatus = appointment.appointment_status?.toLowerCase();
-      const opportunity = appointment.contact_id
-        ? opportunities.find((o) => o.contact_id === appointment.contact_id)
-        : undefined;
+      const opportunity = appointment.contact_id ? opportunities.find(o => o.contact_id === appointment.contact_id) : undefined;
       const pipelineStage = opportunity?.stage_name?.toLowerCase();
 
       // Include if: appointment status is "confirmed" OR pipeline stage contains "appointment" and "confirmed"
       const isAppointmentConfirmed = appointmentStatus === "confirmed";
-      const isPipelineStageAppointmentConfirmed =
-        pipelineStage?.includes("appointment") && pipelineStage?.includes("confirmed");
+      const isPipelineStageAppointmentConfirmed = pipelineStage?.includes("appointment") && pipelineStage?.includes("confirmed");
       if (isAppointmentConfirmed || isPipelineStageAppointmentConfirmed) {
-        const contact = appointment.contact_id ? contacts.find((c) => c.ghl_id === appointment.contact_id) : undefined;
+        const contact = appointment.contact_id ? contacts.find(c => c.ghl_id === appointment.contact_id) : undefined;
         const daysPast = Math.floor((now.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24));
         results.push({
           appointment,
           opportunity,
           contact,
-          daysPast,
+          daysPast
         });
       }
     });
@@ -1014,7 +952,7 @@ export function FollowUpManagement({
     // Apply rep filter
     let filtered = results;
     if (pastConfirmedRepFilter !== "all") {
-      filtered = results.filter((r) => r.appointment.assigned_user_id === pastConfirmedRepFilter);
+      filtered = results.filter(r => r.appointment.assigned_user_id === pastConfirmedRepFilter);
     }
 
     // Sort
@@ -1022,13 +960,9 @@ export function FollowUpManagement({
       const direction = pastConfirmedSort.direction === "asc" ? 1 : -1;
       switch (pastConfirmedSort.field) {
         case "appointment_date":
-          return (
-            direction * (new Date(a.appointment.start_time!).getTime() - new Date(b.appointment.start_time!).getTime())
-          );
+          return direction * (new Date(a.appointment.start_time!).getTime() - new Date(b.appointment.start_time!).getTime());
         case "contact_name":
-          return (
-            direction * getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id))
-          );
+          return direction * getContactName(a.appointment.contact_id).localeCompare(getContactName(b.appointment.contact_id));
         case "opportunity_name":
           const aName = a.opportunity?.name || "";
           const bName = b.opportunity?.name || "";
@@ -1045,7 +979,6 @@ export function FollowUpManagement({
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const now = new Date();
-
     const results: Array<{
       opportunity: DBOpportunity;
       contact: DBContact | undefined;
@@ -1056,79 +989,70 @@ export function FollowUpManagement({
     }> = [];
 
     // Filter open opportunities only
-    const openOpportunities = opportunities.filter((o) => o.status?.toLowerCase() === "open");
-
-    openOpportunities.forEach((opportunity) => {
+    const openOpportunities = opportunities.filter(o => o.status?.toLowerCase() === "open");
+    openOpportunities.forEach(opportunity => {
       if (!opportunity.contact_id) return;
 
       // MUST HAVE: Check for NO appointments ever (not even cancelled)
-      const contactAppointments = appointments.filter((a) => a.contact_id === opportunity.contact_id);
+      const contactAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id);
       if (contactAppointments.length > 0) return; // Skip if any appointments exist
 
       // Check notes condition
-      const contactNotesList = contactNotes.filter((n) => n.contact_id === opportunity.contact_id);
+      const contactNotesList = contactNotes.filter(n => n.contact_id === opportunity.contact_id);
       const latestNoteDate = getLatestNoteDate(opportunity.contact_id);
-      const hasStaleOrNoNotes =
-        contactNotesList.length === 0 || (latestNoteDate !== null && latestNoteDate < sevenDaysAgo);
+      const hasStaleOrNoNotes = contactNotesList.length === 0 || latestNoteDate !== null && latestNoteDate < sevenDaysAgo;
 
       // Check tasks condition - from ghl_tasks only
-      const contactGhlTasks = ghlTasks.filter((t) => t.contact_id === opportunity.contact_id && !t.completed);
-
+      const contactGhlTasks = ghlTasks.filter(t => t.contact_id === opportunity.contact_id && !t.completed);
       const hasNoTasks = contactGhlTasks.length === 0;
-      const overdueTasks = contactGhlTasks.filter((t) => t.due_date && new Date(t.due_date) < now);
+      const overdueTasks = contactGhlTasks.filter(t => t.due_date && new Date(t.due_date) < now);
       const hasOverdueTasks = overdueTasks.length > 0;
       const hasExpiredOrNoTasks = hasNoTasks || hasOverdueTasks;
 
       // MUST HAVE one of: stale notes OR expired/no tasks
       if (!hasStaleOrNoNotes && !hasExpiredOrNoTasks) return;
-
-      const contact = contacts.find((c) => c.ghl_id === opportunity.contact_id);
+      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
 
       // Find earliest overdue task date
       let earliestOverdueDate: Date | null = null;
       if (hasOverdueTasks) {
-        const dates = overdueTasks.map((t) => new Date(t.due_date!)).sort((a, b) => a.getTime() - b.getTime());
+        const dates = overdueTasks.map(t => new Date(t.due_date!)).sort((a, b) => a.getTime() - b.getTime());
         earliestOverdueDate = dates[0] || null;
       }
-
       results.push({
         opportunity,
         contact,
         hasStaleOrNoNotes,
         hasExpiredOrNoTasks,
         latestNoteDate,
-        earliestOverdueDate,
+        earliestOverdueDate
       });
     });
 
     // Apply rep filter
     let filtered = results;
     if (needsAttentionRepFilter !== "all") {
-      filtered = results.filter(
-        (r) =>
-          r.opportunity.assigned_to === needsAttentionRepFilter || r.contact?.assigned_to === needsAttentionRepFilter,
-      );
+      filtered = results.filter(r => r.opportunity.assigned_to === needsAttentionRepFilter || r.contact?.assigned_to === needsAttentionRepFilter);
     }
 
     // Sort by monetary value descending
     return filtered.sort((a, b) => (b.opportunity.monetary_value || 0) - (a.opportunity.monetary_value || 0));
   }, [opportunities, appointments, contacts, contactNotes, tasks, ghlTasks, needsAttentionRepFilter]);
-
   const toggleSort = (view: "stale" | "noTasks" | "pastConfirmed", field: SortField) => {
     if (view === "stale") {
-      setStaleNotesSort((prev) => ({
+      setStaleNotesSort(prev => ({
         field,
-        direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+        direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc"
       }));
     } else if (view === "noTasks") {
-      setNoTasksSort((prev) => ({
+      setNoTasksSort(prev => ({
         field,
-        direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+        direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc"
       }));
     } else {
-      setPastConfirmedSort((prev) => ({
+      setPastConfirmedSort(prev => ({
         field,
-        direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc",
+        direction: prev.field === field && prev.direction === "desc" ? "asc" : "desc"
       }));
     }
   };
@@ -1138,11 +1062,10 @@ export function FollowUpManagement({
       style: "currency",
       currency: "USD",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(value);
   };
   const [isRefreshing, setIsRefreshing] = useState(false);
-
   const handleRefreshAll = async () => {
     setIsRefreshing(true);
     try {
@@ -1155,17 +1078,9 @@ export function FollowUpManagement({
       setIsRefreshing(false);
     }
   };
-
-  return (
-    <div className="space-y-3">
+  return <div className="space-y-3">
       {/* Header with Refresh Button */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">Follow-up Management</h2>
-        <Button variant="outline" size="sm" onClick={handleRefreshAll} disabled={isRefreshing}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
-      </div>
+      
 
       {/* Note Dialog */}
       <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
@@ -1175,12 +1090,7 @@ export function FollowUpManagement({
             <DialogDescription>Add a note for {noteDialogContactName}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <Textarea
-              placeholder="Enter your note..."
-              value={noteText}
-              onChange={(e) => setNoteText(e.target.value)}
-              rows={4}
-            />
+            <Textarea placeholder="Enter your note..." value={noteText} onChange={e => setNoteText(e.target.value)} rows={4} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNoteDialogOpen(false)}>
@@ -1204,22 +1114,11 @@ export function FollowUpManagement({
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="task-title">Title</Label>
-              <Input
-                id="task-title"
-                value={taskTitle}
-                onChange={(e) => setTaskTitle(e.target.value)}
-                placeholder="Task title"
-              />
+              <Input id="task-title" value={taskTitle} onChange={e => setTaskTitle(e.target.value)} placeholder="Task title" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="task-notes">Notes</Label>
-              <Textarea
-                id="task-notes"
-                value={taskNotes}
-                onChange={(e) => setTaskNotes(e.target.value)}
-                placeholder="Optional notes..."
-                rows={3}
-              />
+              <Textarea id="task-notes" value={taskNotes} onChange={e => setTaskNotes(e.target.value)} placeholder="Optional notes..." rows={3} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="task-assignee">Assign To</Label>
@@ -1229,32 +1128,20 @@ export function FollowUpManagement({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.ghl_id} value={user.ghl_id}>
+                  {users.map(user => <SelectItem key={user.ghl_id} value={user.ghl_id}>
                       {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown"}
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="task-date">Due Date</Label>
-                <Input
-                  id="task-date"
-                  type="date"
-                  value={taskDueDate}
-                  onChange={(e) => setTaskDueDate(e.target.value)}
-                />
+                <Input id="task-date" type="date" value={taskDueDate} onChange={e => setTaskDueDate(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="task-time">Due Time (PST)</Label>
-                <Input
-                  id="task-time"
-                  type="time"
-                  value={taskDueTime}
-                  onChange={(e) => setTaskDueTime(e.target.value)}
-                />
+                <Input id="task-time" type="time" value={taskDueTime} onChange={e => setTaskDueTime(e.target.value)} />
               </div>
             </div>
           </div>
@@ -1289,13 +1176,7 @@ export function FollowUpManagement({
             </div>
             <div className="space-y-2">
               <Label htmlFor="scope-text">Scope of Work</Label>
-              <Textarea
-                id="scope-text"
-                placeholder="Enter scope of work..."
-                value={scopeText}
-                onChange={(e) => setScopeText(e.target.value)}
-                rows={4}
-              />
+              <Textarea id="scope-text" placeholder="Enter scope of work..." value={scopeText} onChange={e => setScopeText(e.target.value)} rows={4} />
             </div>
           </div>
           <DialogFooter>
@@ -1313,11 +1194,7 @@ export function FollowUpManagement({
       {/* Grid layout for sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Close to Sale View */}
-        <Collapsible
-          open={closeToSaleOpen}
-          onOpenChange={setCloseToSaleOpen}
-          className={closeToSaleOpen ? "lg:col-span-2" : ""}
-        >
+        <Collapsible open={closeToSaleOpen} onOpenChange={setCloseToSaleOpen} className={closeToSaleOpen ? "lg:col-span-2" : ""}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1329,16 +1206,12 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Close to Sale
-                        {closeToSaleData.length === 0 ? (
-                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                        {closeToSaleData.length === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">
+                          </Badge> : <Badge variant="secondary" className="text-xs">
                             {closeToSaleData.length}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Close to Sale, Important, or Second Appointment stages
@@ -1359,23 +1232,18 @@ export function FollowUpManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map((rep) => (
-                        <SelectItem key={rep.id} value={rep.id}>
+                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>
                           {rep.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {closeToSaleData.length === 0 ? (
-                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                {closeToSaleData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">All close-to-sale opportunities are handled</span>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
+                  </div> : <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1388,13 +1256,8 @@ export function FollowUpManagement({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {closeToSaleData.map((opp) => {
-                          return (
-                            <TableRow
-                              key={opp.id}
-                              className="cursor-pointer hover:bg-muted/50"
-                              onClick={() => onOpenOpportunity(opp)}
-                            >
+                        {closeToSaleData.map(opp => {
+                      return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
                               <TableCell className="font-medium">{opp.name || "Unnamed"}</TableCell>
                               <TableCell className="max-w-[200px] truncate">{getAddress(opp.contact_id)}</TableCell>
                               <TableCell className="max-w-[150px] truncate">
@@ -1409,24 +1272,18 @@ export function FollowUpManagement({
                               <TableCell className="font-medium text-green-600">
                                 {formatCurrency(opp.monetary_value)}
                               </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                            </TableRow>;
+                    })}
                       </TableBody>
                     </Table>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
 
         {/* Missing Scope of Work */}
-        <Collapsible
-          open={missingScopeOpen}
-          onOpenChange={setMissingScopeOpen}
-          className={missingScopeOpen ? "lg:col-span-2" : ""}
-        >
+        <Collapsible open={missingScopeOpen} onOpenChange={setMissingScopeOpen} className={missingScopeOpen ? "lg:col-span-2" : ""}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1438,16 +1295,12 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Missing Scope
-                        {missingScopeData.length === 0 ? (
-                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                        {missingScopeData.length === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs">
+                          </Badge> : <Badge variant="destructive" className="text-xs">
                             {missingScopeData.length}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Won or close-to-sale opportunities without scope of work
@@ -1468,23 +1321,18 @@ export function FollowUpManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map((rep) => (
-                        <SelectItem key={rep.id} value={rep.id}>
+                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>
                           {rep.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {missingScopeData.length === 0 ? (
-                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                {missingScopeData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">All opportunities have scope of work defined</span>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
+                  </div> : <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1497,27 +1345,17 @@ export function FollowUpManagement({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {missingScopeData.map((opp) => {
-                          const isWon = opp.status?.toLowerCase() === "won";
-                          return (
-                            <TableRow key={opp.id}>
-                              <TableCell 
-                                className="font-medium cursor-pointer hover:underline"
-                                onClick={() => onOpenOpportunity(opp)}
-                              >
+                        {missingScopeData.map(opp => {
+                      const isWon = opp.status?.toLowerCase() === "won";
+                      return <TableRow key={opp.id}>
+                              <TableCell className="font-medium cursor-pointer hover:underline" onClick={() => onOpenOpportunity(opp)}>
                                 {opp.name || "Unnamed"}
                               </TableCell>
                               <TableCell className="max-w-[200px] truncate">
                                 {getAddress(opp.contact_id)}
                               </TableCell>
                               <TableCell>
-                                <Badge 
-                                  variant="outline" 
-                                  className={isWon 
-                                    ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" 
-                                    : "bg-green-500/10 text-green-700 border-green-500/30"
-                                  }
-                                >
+                                <Badge variant="outline" className={isWon ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/30" : "bg-green-500/10 text-green-700 border-green-500/30"}>
                                   {isWon ? "Won" : opp.stage_name || "Unknown"}
                                 </Badge>
                               </TableCell>
@@ -1526,34 +1364,23 @@ export function FollowUpManagement({
                                 {formatCurrency(opp.monetary_value)}
                               </TableCell>
                               <TableCell>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
-                                  onClick={() => handleOpenScopeDialog(opp)}
-                                >
+                                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleOpenScopeDialog(opp)}>
                                   <Plus className="h-3 w-3 mr-1" />
                                   Add Scope
                                 </Button>
                               </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                            </TableRow>;
+                    })}
                       </TableBody>
                     </Table>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
 
         {/* Stale New Opportunities */}
-        <Collapsible
-          open={staleNewOpen}
-          onOpenChange={setStaleNewOpen}
-          className={staleNewOpen ? "lg:col-span-2" : ""}
-        >
+        <Collapsible open={staleNewOpen} onOpenChange={setStaleNewOpen} className={staleNewOpen ? "lg:col-span-2" : ""}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1565,16 +1392,12 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Stale New Opportunities
-                        {staleNewData.length === 0 ? (
-                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                        {staleNewData.length === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive" className="text-xs">
+                          </Badge> : <Badge variant="destructive" className="text-xs">
                             {staleNewData.length}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         New stage with no future appointment or task
@@ -1595,23 +1418,18 @@ export function FollowUpManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map((rep) => (
-                        <SelectItem key={rep.id} value={rep.id}>
+                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>
                           {rep.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {staleNewData.length === 0 ? (
-                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                {staleNewData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">No stale new opportunities found</span>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
+                  </div> : <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -1623,12 +1441,7 @@ export function FollowUpManagement({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {staleNewData.map((opp) => (
-                          <TableRow
-                            key={opp.id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => onOpenOpportunity(opp)}
-                          >
+                        {staleNewData.map(opp => <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
                             <TableCell className="font-medium">{opp.name || "Unnamed"}</TableCell>
                             <TableCell className="max-w-[200px] truncate">
                               {getAddress(opp.contact_id)}
@@ -1642,23 +1455,17 @@ export function FollowUpManagement({
                             <TableCell className="font-medium text-green-600 text-right">
                               {formatCurrency(opp.monetary_value)}
                             </TableCell>
-                          </TableRow>
-                        ))}
+                          </TableRow>)}
                       </TableBody>
                     </Table>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
 
         {/* Tasks Helper */}
-        <Collapsible
-          open={tasksHelperOpen}
-          onOpenChange={setTasksHelperOpen}
-          className={tasksHelperOpen ? "lg:col-span-2" : ""}
-        >
+        <Collapsible open={tasksHelperOpen} onOpenChange={setTasksHelperOpen} className={tasksHelperOpen ? "lg:col-span-2" : ""}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1670,51 +1477,35 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 flex-wrap text-base">
                         Tasks Helper
-                        {taskCounts.total === 0 ? (
-                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                        {taskCounts.total === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge>
-                        ) : (
-                          <>
+                          </Badge> : <>
                             <Badge variant="secondary" className="text-xs">
                               {taskCounts.total}
                             </Badge>
-                            <Badge
-                              variant="outline"
-                              className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTasksDueDateFilter("past_due");
-                                setTasksHelperOpen(true);
-                              }}
-                            >
+                            <Badge variant="outline" className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`} onClick={e => {
+                          e.stopPropagation();
+                          setTasksDueDateFilter("past_due");
+                          setTasksHelperOpen(true);
+                        }}>
                               {taskCounts.pastDue} past due
                             </Badge>
-                            <Badge
-                              variant="outline"
-                              className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTasksDueDateFilter("today_tomorrow");
-                                setTasksHelperOpen(true);
-                              }}
-                            >
+                            <Badge variant="outline" className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`} onClick={e => {
+                          e.stopPropagation();
+                          setTasksDueDateFilter("today_tomorrow");
+                          setTasksHelperOpen(true);
+                        }}>
                               {taskCounts.todayTomorrow} today/tomorrow
                             </Badge>
-                            <Badge
-                              variant="outline"
-                              className="cursor-pointer hover:opacity-80 text-muted-foreground text-xs hidden sm:inline-flex"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTasksDueDateFilter("after_tomorrow");
-                                setTasksHelperOpen(true);
-                              }}
-                            >
+                            <Badge variant="outline" className="cursor-pointer hover:opacity-80 text-muted-foreground text-xs hidden sm:inline-flex" onClick={e => {
+                          e.stopPropagation();
+                          setTasksDueDateFilter("after_tomorrow");
+                          setTasksHelperOpen(true);
+                        }}>
                               {taskCounts.afterTomorrow} after
                             </Badge>
-                          </>
-                        )}
+                          </>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         GHL tasks - click to view opportunity
@@ -1729,11 +1520,7 @@ export function FollowUpManagement({
               <CardContent>
                 <div className="flex flex-wrap items-center gap-4 mb-4">
                   <Button variant="outline" size="sm" onClick={fetchGhlTasks} disabled={isLoadingTasks}>
-                    {isLoadingTasks ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                    )}
+                    {isLoadingTasks ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                     Refresh
                   </Button>
                   <Select value={tasksAssigneeFilter} onValueChange={setTasksAssigneeFilter}>
@@ -1743,14 +1530,12 @@ export function FollowUpManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Assignees</SelectItem>
-                      {uniqueTaskAssignees.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
+                      {uniqueTaskAssignees.map(a => <SelectItem key={a.id} value={a.id}>
                           {a.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
-                  <Select value={tasksDueDateFilter} onValueChange={(v) => setTasksDueDateFilter(v as DueDateFilter)}>
+                  <Select value={tasksDueDateFilter} onValueChange={v => setTasksDueDateFilter(v as DueDateFilter)}>
                     <SelectTrigger className="w-[180px]">
                       <Clock className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Due Date" />
@@ -1764,38 +1549,26 @@ export function FollowUpManagement({
                   </Select>
                 </div>
 
-                {isLoadingTasks && ghlTasks.length === 0 ? (
-                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                {isLoadingTasks && ghlTasks.length === 0 ? <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin" />
                     <span>Loading tasks from GHL...</span>
-                  </div>
-                ) : filteredGhlTasks.length === 0 ? (
-                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                  </div> : filteredGhlTasks.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">All tasks are handled</span>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredGhlTasks.map((task) => {
-                      const overdue = isTaskOverdue(task.due_date);
-                      const contactName = getContactName(task.contact_id);
-                      const opportunity = getOpportunityForContact(task.contact_id);
-                      return (
-                        <div
-                          key={task.id}
-                          className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${overdue ? "bg-destructive/5 border-destructive/30" : "bg-card border-border/50"}`}
-                          onClick={() => handleTaskClick(task)}
-                        >
+                  </div> : <div className="space-y-3">
+                    {filteredGhlTasks.map(task => {
+                  const overdue = isTaskOverdue(task.due_date);
+                  const contactName = getContactName(task.contact_id);
+                  const opportunity = getOpportunityForContact(task.contact_id);
+                  return <div key={task.id} className={`border rounded-lg p-4 transition-colors cursor-pointer hover:bg-muted/50 ${overdue ? "bg-destructive/5 border-destructive/30" : "bg-card border-border/50"}`} onClick={() => handleTaskClick(task)}>
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium">{task.title}</span>
-                                {overdue && (
-                                  <Badge variant="destructive" className="text-xs">
+                                {overdue && <Badge variant="destructive" className="text-xs">
                                     Overdue
-                                  </Badge>
-                                )}
+                                  </Badge>}
                               </div>
                               <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground flex-wrap">
                                 <span className="flex items-center gap-1">
@@ -1809,37 +1582,27 @@ export function FollowUpManagement({
                               </div>
                               <div className="mt-2 text-sm">
                                 <span className="text-muted-foreground">​</span>{" "}
-                                {opportunity && (
-                                  <>
+                                {opportunity && <>
                                     <span className="text-muted-foreground ml-3 mx-0">Opp:</span>{" "}
                                     <span className="font-medium">{opportunity.name || "Unnamed"}</span>
-                                  </>
-                                )}
+                                  </>}
                               </div>
-                              {task.body && (
-                                <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
+                              {task.body && <p className="text-sm text-muted-foreground mt-2 italic line-clamp-2">
                                   {stripHtml(task.body)}
-                                </p>
-                              )}
+                                </p>}
                             </div>
                             <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        </div>;
+                })}
+                  </div>}
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
 
         {/* Needs Attention (Cold) View */}
-        <Collapsible
-          open={needsAttentionOpen}
-          onOpenChange={setNeedsAttentionOpen}
-          className={needsAttentionOpen ? "lg:col-span-2" : ""}
-        >
+        <Collapsible open={needsAttentionOpen} onOpenChange={setNeedsAttentionOpen} className={needsAttentionOpen ? "lg:col-span-2" : ""}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -1851,16 +1614,12 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Needs Attention (Cold)
-                        {needsAttentionData.length === 0 ? (
-                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                        {needsAttentionData.length === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">
+                          </Badge> : <Badge variant="secondary" className="text-xs">
                             {needsAttentionData.length}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         No appointments ever + stale notes or expired tasks
@@ -1874,36 +1633,28 @@ export function FollowUpManagement({
             <CollapsibleContent>
               <CardContent>
                 <div className="flex items-center gap-4 mb-4">
-                  <Select
-                    value={needsAttentionRepFilter}
-                    onValueChange={(v) => {
-                      setNeedsAttentionRepFilter(v);
-                      setNeedsAttentionPage(1);
-                    }}
-                  >
+                  <Select value={needsAttentionRepFilter} onValueChange={v => {
+                  setNeedsAttentionRepFilter(v);
+                  setNeedsAttentionPage(1);
+                }}>
                     <SelectTrigger className="w-[200px]">
                       <User className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Filter by rep" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map((rep) => (
-                        <SelectItem key={rep.id} value={rep.id}>
+                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>
                           {rep.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {needsAttentionData.length === 0 ? (
-                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                {needsAttentionData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">No cold opportunities needing attention</span>
-                  </div>
-                ) : (
-                  <>
+                  </div> : <>
                     <div className="rounded-md border overflow-x-auto">
                       <Table>
                         <TableHeader>
@@ -1918,18 +1669,8 @@ export function FollowUpManagement({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {needsAttentionData
-                            .slice(
-                              (needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE,
-                              needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE,
-                            )
-                            .map((row) => {
-                              return (
-                                <TableRow
-                                  key={row.opportunity.id}
-                                  className="cursor-pointer hover:bg-muted/50"
-                                  onClick={() => onOpenOpportunity(row.opportunity)}
-                                >
+                          {needsAttentionData.slice((needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE, needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE).map(row => {
+                        return <TableRow key={row.opportunity.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(row.opportunity)}>
                                   <TableCell className="font-medium">
                                     {getContactName(row.opportunity.contact_id)}
                                   </TableCell>
@@ -1941,28 +1682,15 @@ export function FollowUpManagement({
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex flex-wrap gap-1">
-                                      <Badge
-                                        variant="outline"
-                                        className="bg-cyan-500/10 text-cyan-700 border-cyan-500/30 text-xs"
-                                      >
+                                      <Badge variant="outline" className="bg-cyan-500/10 text-cyan-700 border-cyan-500/30 text-xs">
                                         No Appts
                                       </Badge>
-                                      {row.hasStaleOrNoNotes && (
-                                        <Badge
-                                          variant="outline"
-                                          className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-xs"
-                                        >
+                                      {row.hasStaleOrNoNotes && <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30 text-xs">
                                           {row.latestNoteDate ? "Stale Notes" : "No Notes"}
-                                        </Badge>
-                                      )}
-                                      {row.hasExpiredOrNoTasks && (
-                                        <Badge
-                                          variant="outline"
-                                          className="bg-orange-500/10 text-orange-700 border-orange-500/30 text-xs"
-                                        >
+                                        </Badge>}
+                                      {row.hasExpiredOrNoTasks && <Badge variant="outline" className="bg-orange-500/10 text-orange-700 border-orange-500/30 text-xs">
                                           {row.earliestOverdueDate ? "Overdue Tasks" : "No Tasks"}
-                                        </Badge>
-                                      )}
+                                        </Badge>}
                                     </div>
                                   </TableCell>
                                   <TableCell>
@@ -1973,87 +1701,48 @@ export function FollowUpManagement({
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex gap-1">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenNoteDialog(
-                                            row.opportunity.contact_id!,
-                                            getContactName(row.opportunity.contact_id),
-                                          );
-                                        }}
-                                      >
+                                      <Button variant="outline" size="sm" onClick={e => {
+                                e.stopPropagation();
+                                handleOpenNoteDialog(row.opportunity.contact_id!, getContactName(row.opportunity.contact_id));
+                              }}>
                                         <FileText className="h-4 w-4" />
                                       </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenTaskDialog(
-                                            row.opportunity,
-                                            row.opportunity.contact_id,
-                                            getContactName(row.opportunity.contact_id),
-                                          );
-                                        }}
-                                      >
+                                      <Button variant="outline" size="sm" onClick={e => {
+                                e.stopPropagation();
+                                handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
+                              }}>
                                         <Plus className="h-4 w-4" />
                                       </Button>
                                     </div>
                                   </TableCell>
-                                </TableRow>
-                              );
-                            })}
+                                </TableRow>;
+                      })}
                         </TableBody>
                       </Table>
                     </div>
-                    {needsAttentionData.length > NEEDS_ATTENTION_PAGE_SIZE && (
-                      <div className="flex items-center justify-between mt-4">
+                    {needsAttentionData.length > NEEDS_ATTENTION_PAGE_SIZE && <div className="flex items-center justify-between mt-4">
                         <span className="text-sm text-muted-foreground">
                           Showing {(needsAttentionPage - 1) * NEEDS_ATTENTION_PAGE_SIZE + 1}-
                           {Math.min(needsAttentionPage * NEEDS_ATTENTION_PAGE_SIZE, needsAttentionData.length)} of{" "}
                           {needsAttentionData.length}
                         </span>
                         <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setNeedsAttentionPage((p) => Math.max(1, p - 1))}
-                            disabled={needsAttentionPage === 1}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => setNeedsAttentionPage(p => Math.max(1, p - 1))} disabled={needsAttentionPage === 1}>
                             Previous
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setNeedsAttentionPage((p) =>
-                                Math.min(Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE), p + 1),
-                              )
-                            }
-                            disabled={
-                              needsAttentionPage >= Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE)
-                            }
-                          >
+                          <Button variant="outline" size="sm" onClick={() => setNeedsAttentionPage(p => Math.min(Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE), p + 1))} disabled={needsAttentionPage >= Math.ceil(needsAttentionData.length / NEEDS_ATTENTION_PAGE_SIZE)}>
                             Next
                           </Button>
                         </div>
-                      </div>
-                    )}
-                  </>
-                )}
+                      </div>}
+                  </>}
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
 
         {/* Stale Notes View */}
-        <Collapsible
-          open={staleNotesOpen}
-          onOpenChange={setStaleNotesOpen}
-          className={staleNotesOpen ? "lg:col-span-2" : ""}
-        >
+        <Collapsible open={staleNotesOpen} onOpenChange={setStaleNotesOpen} className={staleNotesOpen ? "lg:col-span-2" : ""}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -2065,16 +1754,12 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Stale Notes
-                        {staleNotesData.length === 0 ? (
-                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                        {staleNotesData.length === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">
+                          </Badge> : <Badge variant="secondary" className="text-xs">
                             {staleNotesData.length}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Notes before appointment or no notes exist
@@ -2095,23 +1780,18 @@ export function FollowUpManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map((rep) => (
-                        <SelectItem key={rep.id} value={rep.id}>
+                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>
                           {rep.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {staleNotesData.length === 0 ? (
-                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                {staleNotesData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">All appointments have recent notes</span>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
+                  </div> : <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -2137,35 +1817,24 @@ export function FollowUpManagement({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {staleNotesData.map((row) => {
-                          const isOld = row.daysSinceNote !== null && row.daysSinceNote > 7;
-                          return (
-                            <TableRow
-                              key={row.appointment.id}
-                              className={`cursor-pointer hover:bg-muted/50 ${isOld || row.daysSinceNote === null ? "bg-red-50 dark:bg-red-950/20" : ""}`}
-                              onClick={() => onOpenOpportunity(row.opportunity)}
-                            >
+                        {staleNotesData.map(row => {
+                      const isOld = row.daysSinceNote !== null && row.daysSinceNote > 7;
+                      return <TableRow key={row.appointment.id} className={`cursor-pointer hover:bg-muted/50 ${isOld || row.daysSinceNote === null ? "bg-red-50 dark:bg-red-950/20" : ""}`} onClick={() => onOpenOpportunity(row.opportunity)}>
                               <TableCell className="font-medium">
                                 {getContactName(row.appointment.contact_id)}
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
                                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                                  {row.appointment.start_time
-                                    ? format(new Date(row.appointment.start_time), "MMM d, yyyy h:mm a")
-                                    : "No date"}
+                                  {row.appointment.start_time ? format(new Date(row.appointment.start_time), "MMM d, yyyy h:mm a") : "No date"}
                                 </div>
                               </TableCell>
                               <TableCell>
-                                {row.lastNoteDate ? (
-                                  <span className={isOld ? "text-red-600 font-medium" : ""}>
+                                {row.lastNoteDate ? <span className={isOld ? "text-red-600 font-medium" : ""}>
                                     {formatDistanceToNow(row.lastNoteDate, {
-                                      addSuffix: true,
-                                    })}
-                                  </span>
-                                ) : (
-                                  <Badge variant="destructive">No notes</Badge>
-                                )}
+                              addSuffix: true
+                            })}
+                                  </span> : <Badge variant="destructive">No notes</Badge>}
                               </TableCell>
                               <TableCell>
                                 <Badge variant="outline">{row.opportunity.stage_name || "Unknown"}</Badge>
@@ -2175,28 +1844,19 @@ export function FollowUpManagement({
                                 {formatCurrency(row.opportunity.monetary_value)}
                               </TableCell>
                               <TableCell>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenNoteDialog(
-                                      row.appointment.contact_id!,
-                                      getContactName(row.appointment.contact_id),
-                                    );
-                                  }}
-                                >
+                                <Button variant="outline" size="sm" onClick={e => {
+                            e.stopPropagation();
+                            handleOpenNoteDialog(row.appointment.contact_id!, getContactName(row.appointment.contact_id));
+                          }}>
                                   <FileText className="h-4 w-4 mr-1" />
                                   Add Note
                                 </Button>
                               </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                            </TableRow>;
+                    })}
                       </TableBody>
                     </Table>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
             </CollapsibleContent>
           </Card>
@@ -2215,16 +1875,12 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         No Tasks - Post Appt
-                        {noTasksData.length === 0 ? (
-                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                        {noTasksData.length === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">
+                          </Badge> : <Badge variant="secondary" className="text-xs">
                             {noTasksData.length}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Past appointments but no tasks created
@@ -2245,23 +1901,18 @@ export function FollowUpManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map((rep) => (
-                        <SelectItem key={rep.id} value={rep.id}>
+                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>
                           {rep.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {noTasksData.length === 0 ? (
-                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                {noTasksData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">All open opportunities have tasks assigned</span>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
+                  </div> : <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -2283,23 +1934,14 @@ export function FollowUpManagement({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {noTasksData.map((row) => (
-                          <TableRow
-                            key={row.opportunity.id}
-                            className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => onOpenOpportunity(row.opportunity)}
-                          >
+                        {noTasksData.map(row => <TableRow key={row.opportunity.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(row.opportunity)}>
                             <TableCell className="font-medium">{getContactName(row.opportunity.contact_id)}</TableCell>
                             <TableCell>{row.opportunity.name || "Unnamed"}</TableCell>
                             <TableCell>
-                              {row.latestAppointment?.start_time ? (
-                                <div className="flex items-center gap-2">
+                              {row.latestAppointment?.start_time ? <div className="flex items-center gap-2">
                                   <Calendar className="h-4 w-4 text-muted-foreground" />
                                   {format(new Date(row.latestAppointment.start_time), "MMM d, yyyy")}
-                                </div>
-                              ) : (
-                                "No date"
-                              )}
+                                </div> : "No date"}
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline">{row.opportunity.stage_name || "Unknown"}</Badge>
@@ -2311,39 +1953,25 @@ export function FollowUpManagement({
                               {formatCurrency(row.opportunity.monetary_value)}
                             </TableCell>
                             <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenTaskDialog(
-                                    row.opportunity,
-                                    row.opportunity.contact_id,
-                                    getContactName(row.opportunity.contact_id),
-                                  );
-                                }}
-                              >
+                              <Button variant="outline" size="sm" onClick={e => {
+                          e.stopPropagation();
+                          handleOpenTaskDialog(row.opportunity, row.opportunity.contact_id, getContactName(row.opportunity.contact_id));
+                        }}>
                                 <Plus className="h-4 w-4 mr-1" />
                                 Add Task
                               </Button>
                             </TableCell>
-                          </TableRow>
-                        ))}
+                          </TableRow>)}
                       </TableBody>
                     </Table>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
 
         {/* Past Confirmed Appointments View */}
-        <Collapsible
-          open={pastConfirmedOpen}
-          onOpenChange={setPastConfirmedOpen}
-          className={pastConfirmedOpen ? "lg:col-span-2" : ""}
-        >
+        <Collapsible open={pastConfirmedOpen} onOpenChange={setPastConfirmedOpen} className={pastConfirmedOpen ? "lg:col-span-2" : ""}>
           <Card>
             <CollapsibleTrigger asChild>
               <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors py-3">
@@ -2355,16 +1983,12 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Past Confirmed
-                        {pastConfirmedData.length === 0 ? (
-                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                        {pastConfirmedData.length === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">
+                          </Badge> : <Badge variant="secondary" className="text-xs">
                             {pastConfirmedData.length}
-                          </Badge>
-                        )}
+                          </Badge>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Past appointments still "Confirmed"
@@ -2385,42 +2009,29 @@ export function FollowUpManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map((rep) => (
-                        <SelectItem key={rep.id} value={rep.id}>
+                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>
                           {rep.name}
-                        </SelectItem>
-                      ))}
+                        </SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
 
-                {pastConfirmedData.length === 0 ? (
-                  <div className="text-center py-8 flex flex-col items-center gap-2">
+                {pastConfirmedData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
                     <span className="text-muted-foreground text-sm">No past appointments requiring updates</span>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-x-auto">
+                  </div> : <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleSort("pastConfirmed", "opportunity_name")}
-                            >
+                            <Button variant="ghost" size="sm" onClick={() => toggleSort("pastConfirmed", "opportunity_name")}>
                               Opportunity <ArrowUpDown className="h-3 w-3 ml-1" />
                             </Button>
                           </TableHead>
                           <TableHead>Title</TableHead>
                           <TableHead>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleSort("pastConfirmed", "appointment_date")}
-                            >
+                            <Button variant="ghost" size="sm" onClick={() => toggleSort("pastConfirmed", "appointment_date")}>
                               Appointment Date <ArrowUpDown className="h-3 w-3 ml-1" />
                             </Button>
                           </TableHead>
@@ -2431,20 +2042,13 @@ export function FollowUpManagement({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pastConfirmedData.map((row) => (
-                          <TableRow
-                            key={row.appointment.id}
-                            className={`cursor-pointer hover:bg-muted/50 ${row.daysPast > 7 ? "bg-red-50 dark:bg-red-950/20" : ""}`}
-                            onClick={() => row.opportunity && onOpenOpportunity(row.opportunity)}
-                          >
+                        {pastConfirmedData.map(row => <TableRow key={row.appointment.id} className={`cursor-pointer hover:bg-muted/50 ${row.daysPast > 7 ? "bg-red-50 dark:bg-red-950/20" : ""}`} onClick={() => row.opportunity && onOpenOpportunity(row.opportunity)}>
                             <TableCell className="font-medium">{row.opportunity?.name || "No opportunity"}</TableCell>
                             <TableCell>{row.appointment.title || "No title"}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                                {row.appointment.start_time
-                                  ? format(new Date(row.appointment.start_time), "MMM d, yyyy h:mm a")
-                                  : "No date"}
+                                {row.appointment.start_time ? format(new Date(row.appointment.start_time), "MMM d, yyyy h:mm a") : "No date"}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -2454,43 +2058,21 @@ export function FollowUpManagement({
                             </TableCell>
                             <TableCell>{getUserName(row.appointment.assigned_user_id)}</TableCell>
                             <TableCell>
-                              {row.opportunity ? (
-                                <Select
-                                  value=""
-                                  onValueChange={(value) => handleUpdatePipelineStage(row.opportunity!, value)}
-                                  disabled={updatingPipelineStageId === row.opportunity.ghl_id}
-                                >
-                                  <SelectTrigger className="w-[160px]" onClick={(e) => e.stopPropagation()}>
-                                    {updatingPipelineStageId === row.opportunity.ghl_id ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      <SelectValue placeholder={row.opportunity.stage_name || "Set stage"} />
-                                    )}
+                              {row.opportunity ? <Select value="" onValueChange={value => handleUpdatePipelineStage(row.opportunity!, value)} disabled={updatingPipelineStageId === row.opportunity.ghl_id}>
+                                  <SelectTrigger className="w-[160px]" onClick={e => e.stopPropagation()}>
+                                    {updatingPipelineStageId === row.opportunity.ghl_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue placeholder={row.opportunity.stage_name || "Set stage"} />}
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {availableStages.map((stage) => (
-                                      <SelectItem key={stage} value={stage}>
+                                    {availableStages.map(stage => <SelectItem key={stage} value={stage}>
                                         {stage}
-                                      </SelectItem>
-                                    ))}
+                                      </SelectItem>)}
                                   </SelectContent>
-                                </Select>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">-</span>
-                              )}
+                                </Select> : <span className="text-muted-foreground text-sm">-</span>}
                             </TableCell>
                             <TableCell>
-                              <Select
-                                value={row.appointment.appointment_status?.toLowerCase() || ""}
-                                onValueChange={(value) => handleUpdateAppointmentStatus(row.appointment.ghl_id, value)}
-                                disabled={updatingAppointmentId === row.appointment.ghl_id}
-                              >
-                                <SelectTrigger className="w-[130px]" onClick={(e) => e.stopPropagation()}>
-                                  {updatingAppointmentId === row.appointment.ghl_id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <SelectValue />
-                                  )}
+                              <Select value={row.appointment.appointment_status?.toLowerCase() || ""} onValueChange={value => handleUpdateAppointmentStatus(row.appointment.ghl_id, value)} disabled={updatingAppointmentId === row.appointment.ghl_id}>
+                                <SelectTrigger className="w-[130px]" onClick={e => e.stopPropagation()}>
+                                  {updatingAppointmentId === row.appointment.ghl_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue />}
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="confirmed">Confirmed</SelectItem>
@@ -2500,17 +2082,14 @@ export function FollowUpManagement({
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                          </TableRow>
-                        ))}
+                          </TableRow>)}
                       </TableBody>
                     </Table>
-                  </div>
-                )}
+                  </div>}
               </CardContent>
             </CollapsibleContent>
           </Card>
         </Collapsible>
       </div>
-    </div>
-  );
+    </div>;
 }
