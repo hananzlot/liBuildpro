@@ -810,6 +810,27 @@ export function useSyncGHL2() {
   });
 }
 
+async function fetchSyncTimestamps(): Promise<{ lastGHLSync: string | null; lastGHL2Import: string | null }> {
+  const [ghlResult, ghl2Result] = await Promise.all([
+    supabase.from("contacts").select("last_synced_at").order("last_synced_at", { ascending: false }).limit(1),
+    supabase.from("imported_records").select("imported_at").order("imported_at", { ascending: false }).limit(1),
+  ]);
+
+  return {
+    lastGHLSync: ghlResult.data?.[0]?.last_synced_at || null,
+    lastGHL2Import: ghl2Result.data?.[0]?.imported_at || null,
+  };
+}
+
+export function useSyncTimestamps() {
+  return useQuery({
+    queryKey: ["sync_timestamps"],
+    queryFn: fetchSyncTimestamps,
+    staleTime: 60000, // 1 minute
+    refetchInterval: 60000,
+  });
+}
+
 export function useGHLMetrics(dateRange?: DateRange) {
   const contactsQuery = useContacts();
   const opportunitiesQuery = useOpportunities();
