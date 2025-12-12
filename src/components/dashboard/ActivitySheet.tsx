@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, CheckSquare, FileText, User, Calendar, MapPin, UserCheck } from "lucide-react";
+import { DollarSign, CheckSquare, FileText, User, Calendar, MapPin, UserCheck, History, ArrowRight } from "lucide-react";
+import type { DBOpportunityEdit } from "@/hooks/useGHLContacts";
 
 interface DBOpportunity {
   id: string;
@@ -70,6 +71,7 @@ interface ActivitySheetProps {
   editedOpportunities: DBOpportunity[];
   filteredTasks: DBTask[];
   filteredNotes: DBContactNote[];
+  filteredOpportunityEdits: DBOpportunityEdit[];
   contacts: DBContact[];
   users: DBUser[];
   profiles: DBProfile[];
@@ -147,12 +149,43 @@ const getCreatorName = (enteredBy: string | null, profiles: DBProfile[]): string
   return profile?.full_name || profile?.email?.split('@')[0] || null;
 };
 
+const getFieldDisplayName = (fieldName: string): string => {
+  const fieldNames: Record<string, string> = {
+    status: "Status",
+    stage_name: "Stage",
+    pipeline_name: "Pipeline",
+    monetary_value: "Value",
+    assigned_to: "Assigned To",
+    address: "Address",
+    scope_of_work: "Scope of Work",
+    source: "Source",
+    phone: "Phone",
+  };
+  return fieldNames[fieldName] || fieldName;
+};
+
+const formatFieldValue = (fieldName: string, value: string | null, users: DBUser[]): string => {
+  if (!value) return "(empty)";
+  
+  if (fieldName === "monetary_value") {
+    const num = parseFloat(value);
+    return isNaN(num) ? value : formatCurrency(num);
+  }
+  
+  if (fieldName === "assigned_to") {
+    return getUserName(value, users);
+  }
+  
+  return value;
+};
+
 export function ActivitySheet({
   open,
   onOpenChange,
   editedOpportunities,
   filteredTasks,
   filteredNotes,
+  filteredOpportunityEdits,
   contacts,
   users,
   profiles,
@@ -160,15 +193,16 @@ export function ActivitySheet({
 }: ActivitySheetProps) {
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
 
-  // Get unique creators from tasks and notes
+  // Get unique creators from tasks, notes, and edits
   const availableCreators = useMemo(() => {
     const creatorIds = new Set<string>();
     filteredTasks.forEach(t => { if (t.entered_by) creatorIds.add(t.entered_by); });
     filteredNotes.forEach(n => { if (n.entered_by) creatorIds.add(n.entered_by); });
+    filteredOpportunityEdits.forEach(e => { if (e.edited_by) creatorIds.add(e.edited_by); });
     return profiles.filter(p => creatorIds.has(p.id));
-  }, [filteredTasks, filteredNotes, profiles]);
+  }, [filteredTasks, filteredNotes, filteredOpportunityEdits, profiles]);
 
-  // Filter tasks and notes by creator
+  // Filter tasks, notes, and edits by creator
   const displayedTasks = useMemo(() => {
     if (creatorFilter === "all") return filteredTasks;
     return filteredTasks.filter(t => t.entered_by === creatorFilter);
@@ -179,7 +213,37 @@ export function ActivitySheet({
     return filteredNotes.filter(n => n.entered_by === creatorFilter);
   }, [filteredNotes, creatorFilter]);
 
-  const totalActivity = editedOpportunities.length + displayedTasks.length + displayedNotes.length;
+  const displayedEdits = useMemo(() => {
+    if (creatorFilter === "all") return filteredOpportunityEdits;
+    return filteredOpportunityEdits.filter(e => e.edited_by === creatorFilter);
+  }, [filteredOpportunityEdits, creatorFilter]);
+
+  // Group edits by opportunity for better display
+  const groupedEdits = useMemo(() => {
+    const groups = new Map<string, DBOpportunityEdit[]>();
+    displayedEdits.forEach(edit => {
+      const key = edit.opportunity_ghl_id;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(edit);
+    });
+    // Sort each group by edited_at desc
+    groups.forEach((edits) => {
+      edits.sort((a, b) => 
+        new Date(b.edited_at || 0).getTime() - new Date(a.edited_at || 0).getTime()
+      );
+    });
+    // Convert to array and sort by most recent edit
+    return Array.from(groups.entries())
+      .map(([oppGhlId, edits]) => ({ oppGhlId, edits }))
+      .sort((a, b) => 
+        new Date(b.edits[0]?.edited_at || 0).getTime() - 
+        new Date(a.edits[0]?.edited_at || 0).getTime()
+      );
+  }, [displayedEdits]);
+
+  const totalActivity = editedOpportunities.length + displayedTasks.length + displayedNotes.length + displayedEdits.length;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -211,8 +275,12 @@ export function ActivitySheet({
           )}
         </SheetHeader>
 
-        <Tabs defaultValue="opportunities" className="flex-1 flex flex-col overflow-hidden mt-4">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="edits" className="flex-1 flex flex-col overflow-hidden mt-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="edits" className="gap-1 text-xs">
+              <History className="h-3 w-3" />
+              Edits ({displayedEdits.length})
+            </TabsTrigger>
             <TabsTrigger value="opportunities" className="gap-1 text-xs">
               <DollarSign className="h-3 w-3" />
               Opps ({editedOpportunities.length})
@@ -226,6 +294,84 @@ export function ActivitySheet({
               Notes ({displayedNotes.length})
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="edits" className="flex-1 overflow-hidden mt-4">
+            <ScrollArea className="h-[calc(100vh-220px)]">
+              <div className="space-y-3 pr-4">
+                {groupedEdits.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8 italic">
+                    No field edits recorded in this period
+                  </p>
+                ) : (
+                  groupedEdits.map(({ oppGhlId, edits }) => {
+                    const opportunity = editedOpportunities.find(o => o.ghl_id === oppGhlId);
+                    const contact = opportunity?.contact_id 
+                      ? contacts.find(c => c.ghl_id === opportunity.contact_id) 
+                      : edits[0]?.contact_ghl_id 
+                        ? contacts.find(c => c.ghl_id === edits[0].contact_ghl_id)
+                        : undefined;
+                    const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+                    
+                    return (
+                      <Card 
+                        key={oppGhlId} 
+                        className={`border-border/50 ${opportunity && onOpportunityClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+                        onClick={() => opportunity && onOpportunityClick?.(opportunity)}
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate capitalize">
+                                {getContactName(contact)}
+                              </p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{address || "No address"}</span>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] shrink-0">
+                              {edits.length} edit{edits.length !== 1 ? 's' : ''}
+                            </Badge>
+                          </div>
+                          
+                          <div className="bg-muted/50 rounded p-2 space-y-2">
+                            {edits.map((edit, idx) => {
+                              const editorName = getCreatorName(edit.edited_by, profiles);
+                              return (
+                                <div key={edit.id} className={`${idx > 0 ? 'border-t border-border/30 pt-2' : ''}`}>
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="font-medium text-primary">
+                                      {getFieldDisplayName(edit.field_name)}
+                                    </span>
+                                    <span className="text-muted-foreground line-through">
+                                      {formatFieldValue(edit.field_name, edit.old_value, users)}
+                                    </span>
+                                    <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                    <span className="text-foreground font-medium">
+                                      {formatFieldValue(edit.field_name, edit.new_value, users)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-1">
+                                    <span>{formatDate(edit.edited_at)}</span>
+                                    {editorName && (
+                                      <span className="flex items-center gap-1">
+                                        <UserCheck className="h-3 w-3" />
+                                        By: {editorName}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
           <TabsContent value="opportunities" className="flex-1 overflow-hidden mt-4">
             <ScrollArea className="h-[calc(100vh-220px)]">

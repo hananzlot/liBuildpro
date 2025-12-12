@@ -126,6 +126,18 @@ interface DBProfile {
   ghl_user_id: string | null;
 }
 
+export interface DBOpportunityEdit {
+  id: string;
+  opportunity_ghl_id: string;
+  contact_ghl_id: string | null;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  edited_by: string | null;
+  edited_at: string | null;
+  location_id: string | null;
+}
+
 // Generic paginated fetch for any table
 async function fetchAllFromTable(table: string, orderBy: string): Promise<any[]> {
   const allItems: any[] = [];
@@ -204,6 +216,15 @@ async function fetchCallLogsFromDB(): Promise<DBCallLog[]> {
 
 async function fetchProfilesFromDB(): Promise<DBProfile[]> {
   const { data, error } = await supabase.from("profiles").select("*");
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchOpportunityEditsFromDB(): Promise<DBOpportunityEdit[]> {
+  const { data, error } = await supabase
+    .from("opportunity_edits")
+    .select("*")
+    .order("edited_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -739,6 +760,15 @@ export function useProfiles() {
   });
 }
 
+export function useOpportunityEdits() {
+  return useQuery({
+    queryKey: ["opportunity_edits"],
+    queryFn: fetchOpportunityEditsFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
 export function useSyncContacts() {
   const queryClient = useQueryClient();
 
@@ -766,6 +796,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const contactNotesQuery = useContactNotes();
   const callLogsQuery = useCallLogs();
   const profilesQuery = useProfiles();
+  const opportunityEditsQuery = useOpportunityEdits();
 
   const isLoading =
     contactsQuery.isLoading ||
@@ -775,7 +806,8 @@ export function useGHLMetrics(dateRange?: DateRange) {
     conversationsQuery.isLoading ||
     tasksQuery.isLoading ||
     contactNotesQuery.isLoading ||
-    callLogsQuery.isLoading;
+    callLogsQuery.isLoading ||
+    opportunityEditsQuery.isLoading;
   const error =
     contactsQuery.error ||
     opportunitiesQuery.error ||
@@ -784,7 +816,8 @@ export function useGHLMetrics(dateRange?: DateRange) {
     conversationsQuery.error ||
     tasksQuery.error ||
     contactNotesQuery.error ||
-    callLogsQuery.error;
+    callLogsQuery.error ||
+    opportunityEditsQuery.error;
 
   // Filter call logs by date range
   const filteredCallLogs =
@@ -834,6 +867,17 @@ export function useGHLMetrics(dateRange?: DateRange) {
       })
     : contactNotesQuery.data || [];
 
+  // Filter opportunity edits by date range (edited_at)
+  const filteredOpportunityEdits = opportunityEditsQuery.data && dateRange?.from
+    ? opportunityEditsQuery.data.filter((e) => {
+        if (!e.edited_at) return false;
+        const editDate = new Date(e.edited_at);
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return editDate >= dateRange.from! && editDate <= endDate;
+      })
+    : opportunityEditsQuery.data || [];
+
   const data =
     contactsQuery.data && opportunitiesQuery.data && appointmentsQuery.data && usersQuery.data
       ? {
@@ -859,6 +903,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
           filteredNotes,
           tasksCreatedCount: filteredTasks.length,
           notesCreatedCount: filteredNotes.length,
+          filteredOpportunityEdits,
         }
       : undefined;
 
@@ -875,6 +920,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
       tasksQuery.refetch();
       contactNotesQuery.refetch();
       callLogsQuery.refetch();
+      opportunityEditsQuery.refetch();
     },
   };
 }
