@@ -5,8 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, CheckSquare, FileText, User, Calendar, MapPin, UserCheck, History, ArrowRight, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { DollarSign, CheckSquare, FileText, User, Calendar, MapPin, UserCheck, History, ArrowRight } from "lucide-react";
+
 import type { DBOpportunityEdit } from "@/hooks/useGHLContacts";
 
 interface DBOpportunity {
@@ -77,7 +77,6 @@ interface ActivitySheetProps {
   users: DBUser[];
   profiles: DBProfile[];
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
-  onRefresh?: () => void;
 }
 
 const CUSTOM_FIELD_IDS = {
@@ -192,7 +191,6 @@ export function ActivitySheet({
   users,
   profiles,
   onOpportunityClick,
-  onRefresh,
 }: ActivitySheetProps) {
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
 
@@ -259,11 +257,6 @@ export function ActivitySheet({
                 {totalActivity} items
               </Badge>
             </SheetTitle>
-            {onRefresh && (
-              <Button variant="ghost" size="sm" onClick={onRefresh} className="h-8 px-2">
-                <RefreshCw className="h-4 w-4" />
-              </Button>
-            )}
           </div>
           {availableCreators.length > 0 && (
             <div className="flex items-center gap-2 mt-2">
