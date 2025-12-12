@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.update-contact-phone]
 verify_jwt = false
+
+[functions.bulk-update-source]
+verify_jwt = false

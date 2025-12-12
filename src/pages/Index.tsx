@@ -16,6 +16,7 @@ import { CallLogsSheet } from "@/components/dashboard/CallLogsSheet";
 import { ActivitySheet } from "@/components/dashboard/ActivitySheet";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
+import { SourceManagement } from "@/components/dashboard/SourceManagement";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
@@ -51,6 +52,7 @@ const Index = () => {
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
+  const [sourceManagementOpen, setSourceManagementOpen] = useState(false);
   const {
     data: metrics,
     isLoading,
@@ -289,11 +291,20 @@ const Index = () => {
                   </CardDescription>
                 </CardHeader>
               </Card> : <>
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground mb-1">Data Cleanup</h2>
-                  <p className="text-sm text-muted-foreground">Find and fix inconsistent data in your GHL account</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-foreground mb-1">Data Cleanup</h2>
+                    <p className="text-sm text-muted-foreground">Find and fix inconsistent data in your GHL account</p>
+                  </div>
+                  <Button variant="outline" onClick={() => setSourceManagementOpen(true)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Manage Sources
+                  </Button>
                 </div>
                 {isLoading ? <Skeleton className="h-[400px] rounded-2xl" /> : <AdminCleanup opportunities={metrics?.allOpportunities || []} contacts={metrics?.allContacts || []} appointments={metrics?.allAppointments || []} users={metrics?.users || []} onDataUpdated={() => refetch()} onOpenOpportunity={handleOpenOpportunity} />}
+                
+                {/* Source Management Dialog */}
+                <SourceManagement contacts={metrics?.allContacts || []} open={sourceManagementOpen} onOpenChange={setSourceManagementOpen} />
               </>}
           </TabsContent>
         </Tabs>
