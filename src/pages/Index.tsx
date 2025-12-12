@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut } from "lucide-react";
+import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -23,6 +23,7 @@ import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetail
 import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +54,8 @@ const Index = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
   const [sourceManagementOpen, setSourceManagementOpen] = useState(false);
+  const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("dashboard");
   const {
     data: metrics,
     isLoading,
@@ -114,6 +117,25 @@ const Index = () => {
             {!isLoading && <OpportunitySearch opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} />}
             <div className="flex items-center gap-2 pl-2 border-l border-border">
               <NotificationBell />
+              {isAdmin && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" title="Admin tools">
+                      <Wrench className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setAdminCleanupOpen(true)}>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Data Cleanup
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSourceManagementOpen(true)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Manage Sources
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <span className="text-sm text-muted-foreground hidden sm:inline">
                 {profile?.full_name || user?.email}
               </span>
@@ -126,17 +148,13 @@ const Index = () => {
       </header>
 
       <main className="px-8 py-6">
-        <Tabs defaultValue="dashboard" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <TabsList>
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="follow-up" className="gap-2">
                 <ListChecks className="h-4 w-4" />
                 Follow-up
-              </TabsTrigger>
-              <TabsTrigger value="admin" className="gap-2">
-                <Settings className="h-4 w-4" />
-                Admin
               </TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
@@ -278,36 +296,41 @@ const Index = () => {
             {isLoading ? <Skeleton className="h-[400px] rounded-2xl" /> : <FollowUpManagement opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} contactNotes={metrics?.contactNotes || []} tasks={metrics?.tasks || []} onOpenOpportunity={handleOpenOpportunity} onDataRefresh={refetch} />}
           </TabsContent>
 
-          <TabsContent value="admin" className="space-y-6">
-            {!isAdmin ? <Card className="max-w-md mx-auto mt-12">
-                <CardHeader className="text-center">
-                  <div className="mx-auto w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
-                    <Settings className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <CardTitle>Admin Access Required</CardTitle>
-                  <CardDescription>
-                    You need admin privileges to access data cleanup tools. Contact your administrator if you need
-                    access.
-                  </CardDescription>
-                </CardHeader>
-              </Card> : <>
+        </Tabs>
+
+        {/* Admin Cleanup Dialog */}
+        {adminCleanupOpen && (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 overflow-y-auto">
+            <div className="min-h-screen px-4 py-8">
+              <div className="max-w-6xl mx-auto bg-card rounded-2xl border border-border shadow-lg p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold text-foreground mb-1">Data Cleanup</h2>
+                    <h2 className="text-xl font-semibold text-foreground">Data Cleanup</h2>
                     <p className="text-sm text-muted-foreground">Find and fix inconsistent data in your GHL account</p>
                   </div>
-                  <Button variant="outline" onClick={() => setSourceManagementOpen(true)}>
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Manage Sources
+                  <Button variant="outline" size="sm" onClick={() => setAdminCleanupOpen(false)}>
+                    Close
                   </Button>
                 </div>
-                {isLoading ? <Skeleton className="h-[400px] rounded-2xl" /> : <AdminCleanup opportunities={metrics?.allOpportunities || []} contacts={metrics?.allContacts || []} appointments={metrics?.allAppointments || []} users={metrics?.users || []} onDataUpdated={() => refetch()} onOpenOpportunity={handleOpenOpportunity} />}
-                
-                {/* Source Management Dialog */}
-                <SourceManagement contacts={metrics?.allContacts || []} open={sourceManagementOpen} onOpenChange={setSourceManagementOpen} />
-              </>}
-          </TabsContent>
-        </Tabs>
+                {isLoading ? (
+                  <Skeleton className="h-[400px] rounded-2xl" />
+                ) : (
+                  <AdminCleanup 
+                    opportunities={metrics?.allOpportunities || []} 
+                    contacts={metrics?.allContacts || []} 
+                    appointments={metrics?.allAppointments || []} 
+                    users={metrics?.users || []} 
+                    onDataUpdated={() => refetch()} 
+                    onOpenOpportunity={handleOpenOpportunity} 
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Source Management Dialog */}
+        <SourceManagement contacts={metrics?.allContacts || []} open={sourceManagementOpen} onOpenChange={setSourceManagementOpen} />
       </main>
 
       {/* Won Opportunities Sheet */}
