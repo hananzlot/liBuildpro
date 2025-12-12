@@ -137,6 +137,7 @@ export function FollowUpManagement({
   const [missingScopeRepFilter, setMissingScopeRepFilter] = useState<string>("all");
   const [staleNewOpen, setStaleNewOpen] = useState(false);
   const [staleNewRepFilter, setStaleNewRepFilter] = useState<string>("all");
+  const [staleNewStageFilter, setStaleNewStageFilter] = useState<"all" | "new" | "other">("all");
   const NEEDS_ATTENTION_PAGE_SIZE = 10;
 
   // Tasks Helper State
@@ -765,25 +766,62 @@ export function FollowUpManagement({
     return set;
   }, [ghlTasks]);
 
-  // Stale New Opportunities - stage contains "New", no future appointments, no future tasks
-  const staleNewData = useMemo(() => {
-    const results = opportunities.filter(o => {
+  // Stale Opportunities - no future appointments, no future tasks, excluding lost/abandoned
+  const staleOpportunitiesRaw = useMemo(() => {
+    const excludedStages = ["lost", "abandon", "dnc", "do not call"];
+    const excludedStatuses = ["lost", "abandoned"];
+    
+    return opportunities.filter(o => {
       if (!o.contact_id) return false;
-      if (o.status?.toLowerCase() !== "open") return false;
-
-      // Check if stage contains "New"
+      
+      // Exclude lost/abandoned status
+      const status = o.status?.toLowerCase() || "";
+      if (excludedStatuses.includes(status)) return false;
+      
+      // Exclude lost/abandoned/dnc stages
       const stageName = o.stage_name?.toLowerCase() || "";
-      if (!stageName.includes("new")) return false;
-
+      if (excludedStages.some(ex => stageName.includes(ex))) return false;
+      
       // Check if has future appointment
       if (contactsWithFutureAppointments.has(o.contact_id)) return false;
-
+      
       // Check if has future task
       if (contactsWithFutureTasks.has(o.contact_id)) return false;
+      
       return true;
     });
+  }, [opportunities, contactsWithFutureAppointments, contactsWithFutureTasks]);
 
-    // Deduplicate by contact_id
+  // Categorize stale opportunities by stage type
+  const staleOpportunitiesByCategory = useMemo(() => {
+    const newStage: DBOpportunity[] = [];
+    const otherStage: DBOpportunity[] = [];
+    
+    staleOpportunitiesRaw.forEach(o => {
+      const stageName = o.stage_name?.toLowerCase() || "";
+      if (stageName.includes("new")) {
+        newStage.push(o);
+      } else {
+        otherStage.push(o);
+      }
+    });
+    
+    return { newStage, otherStage };
+  }, [staleOpportunitiesRaw]);
+
+  // Stale New Data - filtered and deduplicated
+  const staleNewData = useMemo(() => {
+    // Determine which opportunities to include based on filter
+    let results: DBOpportunity[];
+    if (staleNewStageFilter === "new") {
+      results = staleOpportunitiesByCategory.newStage;
+    } else if (staleNewStageFilter === "other") {
+      results = staleOpportunitiesByCategory.otherStage;
+    } else {
+      results = [...staleOpportunitiesByCategory.newStage, ...staleOpportunitiesByCategory.otherStage];
+    }
+
+    // Deduplicate by contact_id (keep the one with highest monetary value)
     const uniqueMap = new Map<string, DBOpportunity>();
     results.forEach(o => {
       if (!o.contact_id) return;
@@ -801,7 +839,36 @@ export function FollowUpManagement({
 
     // Sort by monetary value descending
     return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
-  }, [opportunities, contactsWithFutureAppointments, contactsWithFutureTasks, staleNewRepFilter]);
+  }, [staleOpportunitiesByCategory, staleNewStageFilter, staleNewRepFilter]);
+
+  // Counts for badges (before rep filter, deduplicated by contact)
+  const staleNewCounts = useMemo(() => {
+    // Dedupe new stage
+    const newMap = new Map<string, DBOpportunity>();
+    staleOpportunitiesByCategory.newStage.forEach(o => {
+      if (!o.contact_id) return;
+      const existing = newMap.get(o.contact_id);
+      if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
+        newMap.set(o.contact_id, o);
+      }
+    });
+    
+    // Dedupe other stage
+    const otherMap = new Map<string, DBOpportunity>();
+    staleOpportunitiesByCategory.otherStage.forEach(o => {
+      if (!o.contact_id) return;
+      const existing = otherMap.get(o.contact_id);
+      if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
+        otherMap.set(o.contact_id, o);
+      }
+    });
+    
+    return {
+      newCount: newMap.size,
+      otherCount: otherMap.size,
+      total: newMap.size + otherMap.size
+    };
+  }, [staleOpportunitiesByCategory]);
   const staleNotesData = useMemo(() => {
     const results: Array<{
       appointment: DBAppointment;
@@ -1083,7 +1150,7 @@ export function FollowUpManagement({
   const sectionOrder = useMemo(() => {
     const middleSections = [
       { id: 'missingScope', count: missingScopeData.length },
-      { id: 'staleNew', count: staleNewData.length },
+      { id: 'staleNew', count: staleNewCounts.total },
       { id: 'tasksHelper', count: taskCounts.total },
       { id: 'staleNotes', count: staleNotesData.length },
       { id: 'noTasks', count: noTasksData.length },
@@ -1096,7 +1163,7 @@ export function FollowUpManagement({
     });
     order['needsAttention'] = 99; // Cold always last
     return order;
-  }, [missingScopeData.length, staleNewData.length, taskCounts.total, staleNotesData.length, noTasksData.length, pastConfirmedData.length]);
+  }, [missingScopeData.length, staleNewCounts.total, taskCounts.total, staleNotesData.length, noTasksData.length, pastConfirmedData.length]);
   return <div className="space-y-3">
       {/* Header with Refresh Button */}
       
@@ -1398,7 +1465,7 @@ export function FollowUpManagement({
           </Card>
         </Collapsible>
 
-        {/* Stale New Opportunities */}
+        {/* Stale Opportunities (No Future Appts/Tasks) */}
         <Collapsible open={staleNewOpen} onOpenChange={setStaleNewOpen} className={`w-full ${staleNewOpen ? "" : "lg:w-[calc(50%-0.375rem)]"}`} style={{ order: sectionOrder.staleNew }}>
           <Card>
             <CollapsibleTrigger asChild>
@@ -1409,17 +1476,45 @@ export function FollowUpManagement({
                       <Clock className="h-4 w-4 text-blue-500" />
                     </div>
                     <div>
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        Stale New Opportunities
-                        {staleNewData.length === 0 ? <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                      <CardTitle className="flex items-center gap-2 flex-wrap text-base">
+                        Stale Opportunities
+                        {staleNewCounts.total === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
                             <PartyPopper className="h-3 w-3 mr-1" />
                             All set!
-                          </Badge> : <Badge variant="destructive" className="text-xs">
-                            {staleNewData.length}
-                          </Badge>}
+                          </Badge>
+                        ) : (
+                          <>
+                            <Badge variant="secondary" className="text-xs">
+                              {staleNewCounts.total}
+                            </Badge>
+                            <Badge 
+                              variant="outline" 
+                              className={`cursor-pointer hover:opacity-80 text-xs ${staleNewCounts.newCount > 0 ? "bg-blue-500/10 text-blue-600 border-blue-500/30" : "text-muted-foreground"}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStaleNewStageFilter("new");
+                                setStaleNewOpen(true);
+                              }}
+                            >
+                              {staleNewCounts.newCount} New
+                            </Badge>
+                            <Badge 
+                              variant="outline" 
+                              className={`cursor-pointer hover:opacity-80 text-xs ${staleNewCounts.otherCount > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setStaleNewStageFilter("other");
+                                setStaleNewOpen(true);
+                              }}
+                            >
+                              {staleNewCounts.otherCount} Other
+                            </Badge>
+                          </>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
-                        New stage with no future appointment or task
+                        No future appointment or task scheduled
                       </CardDescription>
                     </div>
                   </div>
@@ -1429,8 +1524,18 @@ export function FollowUpManagement({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent>
-                {/* Filter */}
-                <div className="flex items-center gap-4 mb-4">
+                {/* Filters */}
+                <div className="flex items-center gap-4 mb-4 flex-wrap">
+                  <Select value={staleNewStageFilter} onValueChange={(val) => setStaleNewStageFilter(val as "all" | "new" | "other")}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Stage type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Stages</SelectItem>
+                      <SelectItem value="new">New Stages</SelectItem>
+                      <SelectItem value="other">Other Stages</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Select value={staleNewRepFilter} onValueChange={setStaleNewRepFilter}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Filter by rep" />
@@ -1447,7 +1552,7 @@ export function FollowUpManagement({
                 {staleNewData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>
-                    <span className="text-muted-foreground text-sm">No stale new opportunities found</span>
+                    <span className="text-muted-foreground text-sm">No stale opportunities found</span>
                   </div> : <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -1460,21 +1565,32 @@ export function FollowUpManagement({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {staleNewData.map(opp => <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
-                            <TableCell className="font-medium">{opp.name || "Unnamed"}</TableCell>
-                            <TableCell className="max-w-[200px] truncate">
-                              {getAddress(opp.contact_id)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30">
-                                {opp.stage_name || "Unknown"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{getUserName(opp.assigned_to)}</TableCell>
-                            <TableCell className="font-medium text-green-600 text-right">
-                              {formatCurrency(opp.monetary_value)}
-                            </TableCell>
-                          </TableRow>)}
+                        {staleNewData.map(opp => {
+                          const isNewStage = opp.stage_name?.toLowerCase().includes("new");
+                          return (
+                            <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
+                              <TableCell className="font-medium">{opp.name || "Unnamed"}</TableCell>
+                              <TableCell className="max-w-[200px] truncate">
+                                {getAddress(opp.contact_id)}
+                              </TableCell>
+                              <TableCell>
+                                <Badge 
+                                  variant="outline" 
+                                  className={isNewStage 
+                                    ? "bg-blue-500/10 text-blue-700 border-blue-500/30" 
+                                    : "bg-orange-500/10 text-orange-700 border-orange-500/30"
+                                  }
+                                >
+                                  {opp.stage_name || "Unknown"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{getUserName(opp.assigned_to)}</TableCell>
+                              <TableCell className="font-medium text-green-600 text-right">
+                                {formatCurrency(opp.monetary_value)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>}
