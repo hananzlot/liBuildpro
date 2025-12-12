@@ -56,6 +56,8 @@ interface DBAppointment {
   notes: string | null;
   address?: string | null;
   salesperson_confirmed?: boolean;
+  ghl_date_updated?: string | null;
+  updated_at?: string;
 }
 
 interface DBUser {
@@ -845,6 +847,17 @@ export function useGHLMetrics(dateRange?: DateRange) {
       })
     : opportunitiesQuery.data || [];
 
+  // Filter appointments edited in date range (by ghl_date_updated or updated_at)
+  const filteredAppointments = appointmentsQuery.data && dateRange?.from
+    ? appointmentsQuery.data.filter((a) => {
+        const updateDate = a.ghl_date_updated ? new Date(a.ghl_date_updated) : a.updated_at ? new Date(a.updated_at) : null;
+        if (!updateDate) return false;
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return updateDate >= dateRange.from! && updateDate <= endDate;
+      })
+    : appointmentsQuery.data || [];
+
   // Filter tasks created in date range
   const filteredTasks = tasksQuery.data && dateRange?.from
     ? tasksQuery.data.filter((t) => {
@@ -899,6 +912,8 @@ export function useGHLMetrics(dateRange?: DateRange) {
           uniqueContactsCalled,
           opportunityEdits: editedOpportunities.length,
           editedOpportunities,
+          filteredAppointments,
+          appointmentsEditedCount: filteredAppointments.length,
           filteredTasks,
           filteredNotes,
           tasksCreatedCount: filteredTasks.length,

@@ -18,6 +18,7 @@ import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
+import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,6 +48,8 @@ const Index = () => {
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
   const {
     data: metrics,
     isLoading,
@@ -296,27 +299,34 @@ const Index = () => {
       <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
 
       {/* Activity Sheet */}
-      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} editedOpportunities={metrics?.editedOpportunities || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
-      setSelectedOpportunity({
-        ghl_id: opp.ghl_id,
-        name: opp.name,
-        status: opp.status,
-        monetary_value: opp.monetary_value,
-        pipeline_id: null,
-        pipeline_name: null,
-        pipeline_stage_id: null,
-        stage_name: opp.stage_name,
-        contact_id: opp.contact_id,
-        assigned_to: opp.assigned_to,
-        ghl_date_added: null,
-        ghl_date_updated: opp.ghl_date_updated
-      });
-      setActivitySheetOpen(false);
-      setOppDetailSheetOpen(true);
-    }} />
+      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} editedOpportunities={metrics?.editedOpportunities || []} filteredAppointments={metrics?.filteredAppointments || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
+        setSelectedOpportunity({
+          ghl_id: opp.ghl_id,
+          name: opp.name,
+          status: opp.status,
+          monetary_value: opp.monetary_value,
+          pipeline_id: null,
+          pipeline_name: null,
+          pipeline_stage_id: null,
+          stage_name: opp.stage_name,
+          contact_id: opp.contact_id,
+          assigned_to: opp.assigned_to,
+          ghl_date_added: null,
+          ghl_date_updated: opp.ghl_date_updated
+        });
+        setActivitySheetOpen(false);
+        setOppDetailSheetOpen(true);
+      }} onAppointmentClick={appt => {
+        setSelectedAppointment(appt);
+        setActivitySheetOpen(false);
+        setAppointmentDetailSheetOpen(true);
+      }} />
 
       {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
       <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={setOppDetailSheetOpen} allOpportunities={metrics?.allOpportunities || []} />
+
+      {/* Appointment Detail Sheet (for Activity tab) */}
+      <AppointmentDetailSheet appointment={selectedAppointment} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={appointmentDetailSheetOpen} onOpenChange={setAppointmentDetailSheetOpen} opportunities={metrics?.allOpportunities || []} />
     </div>;
 };
 export default Index;

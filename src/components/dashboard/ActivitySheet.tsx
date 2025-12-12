@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, CheckSquare, FileText, User, Calendar, MapPin, UserCheck, History, ArrowRight } from "lucide-react";
+import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock } from "lucide-react";
 
 import type { DBOpportunityEdit } from "@/hooks/useGHLContacts";
 
@@ -19,6 +19,18 @@ interface DBOpportunity {
   contact_id: string | null;
   assigned_to: string | null;
   ghl_date_updated: string | null;
+}
+
+interface DBAppointment {
+  id: string;
+  ghl_id: string;
+  contact_id: string | null;
+  title: string | null;
+  appointment_status: string | null;
+  assigned_user_id: string | null;
+  start_time: string | null;
+  ghl_date_updated?: string | null;
+  updated_at?: string;
 }
 
 interface DBTask {
@@ -70,6 +82,7 @@ interface ActivitySheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editedOpportunities: DBOpportunity[];
+  filteredAppointments: DBAppointment[];
   filteredTasks: DBTask[];
   filteredNotes: DBContactNote[];
   filteredOpportunityEdits: DBOpportunityEdit[];
@@ -77,6 +90,7 @@ interface ActivitySheetProps {
   users: DBUser[];
   profiles: DBProfile[];
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
+  onAppointmentClick?: (appointment: DBAppointment) => void;
 }
 
 const CUSTOM_FIELD_IDS = {
@@ -144,6 +158,20 @@ const getStatusColor = (status: string | null): string => {
   }
 };
 
+const getAppointmentStatusColor = (status: string | null): string => {
+  switch (status?.toLowerCase()) {
+    case "confirmed":
+      return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+    case "showed":
+      return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+    case "noshow":
+    case "no show":
+    case "cancelled":
+      return "bg-red-500/20 text-red-400 border-red-500/30";
+    default:
+      return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+  }
+};
 const getCreatorName = (enteredBy: string | null, profiles: DBProfile[]): string | null => {
   if (!enteredBy) return null;
   const profile = profiles.find(p => p.id === enteredBy);
@@ -184,6 +212,7 @@ export function ActivitySheet({
   open,
   onOpenChange,
   editedOpportunities,
+  filteredAppointments,
   filteredTasks,
   filteredNotes,
   filteredOpportunityEdits,
@@ -191,6 +220,7 @@ export function ActivitySheet({
   users,
   profiles,
   onOpportunityClick,
+  onAppointmentClick,
 }: ActivitySheetProps) {
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
 
@@ -284,9 +314,9 @@ export function ActivitySheet({
               <History className="h-3 w-3" />
               Edits ({displayedEdits.length})
             </TabsTrigger>
-            <TabsTrigger value="opportunities" className="gap-1 text-xs">
-              <DollarSign className="h-3 w-3" />
-              Opps ({editedOpportunities.length})
+            <TabsTrigger value="appointments" className="gap-1 text-xs">
+              <Clock className="h-3 w-3" />
+              Appts ({filteredAppointments.length})
             </TabsTrigger>
             <TabsTrigger value="tasks" className="gap-1 text-xs">
               <CheckSquare className="h-3 w-3" />
@@ -358,7 +388,7 @@ export function ActivitySheet({
                                     <span>{formatDate(edit.edited_at)}</span>
                                     {editorName && (
                                       <span className="flex items-center gap-1">
-                                        <UserCheck className="h-3 w-3" />
+                                        <User className="h-3 w-3" />
                                         By: {editorName}
                                       </span>
                                     )}
@@ -376,25 +406,28 @@ export function ActivitySheet({
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="opportunities" className="flex-1 overflow-hidden mt-4">
+          <TabsContent value="appointments" className="flex-1 overflow-hidden mt-4">
             <ScrollArea className="h-[calc(100vh-220px)]">
               <div className="space-y-2 pr-4">
-                {editedOpportunities.length === 0 ? (
+                {filteredAppointments.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
-                    No opportunities updated in this period
+                    No appointments updated in this period
                   </p>
                 ) : (
-                  editedOpportunities
-                    .sort((a, b) => new Date(b.ghl_date_updated || 0).getTime() - new Date(a.ghl_date_updated || 0).getTime())
-                    .map((opp) => {
-                      const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+                  filteredAppointments
+                    .sort((a, b) => {
+                      const dateA = a.ghl_date_updated || a.updated_at || '0';
+                      const dateB = b.ghl_date_updated || b.updated_at || '0';
+                      return new Date(dateB).getTime() - new Date(dateA).getTime();
+                    })
+                    .map((appt) => {
+                      const contact = contacts.find(c => c.ghl_id === appt.contact_id);
                       const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-                      const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
                       return (
                         <Card 
-                          key={opp.id} 
-                          className={`border-border/50 ${onOpportunityClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
-                          onClick={() => onOpportunityClick?.(opp)}
+                          key={appt.id} 
+                          className={`border-border/50 ${onAppointmentClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+                          onClick={() => onAppointmentClick?.(appt)}
                         >
                           <CardContent className="p-3 space-y-2">
                             <div className="flex items-start justify-between gap-2">
@@ -406,26 +439,24 @@ export function ActivitySheet({
                                   <MapPin className="h-3 w-3 shrink-0" />
                                   <span className="truncate">{address || "No address"}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                  <span className="truncate">{scopeOfWork || "No scope"}</span>
-                                  <span className="shrink-0 font-semibold text-emerald-400">
-                                    {formatCurrency(opp.monetary_value)}
-                                  </span>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                  <Calendar className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{appt.title || "Untitled appointment"}</span>
                                 </div>
                               </div>
                               <div className="flex flex-col items-end gap-1 shrink-0">
-                                <Badge variant="outline" className={`text-[10px] ${getStatusColor(opp.status)}`}>
-                                  {opp.status}
+                                <Badge variant="outline" className={`text-[10px] ${getAppointmentStatusColor(appt.appointment_status)}`}>
+                                  {appt.appointment_status || "Unknown"}
                                 </Badge>
                               </div>
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <div className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
-                                <span>{getUserName(opp.assigned_to, users)}</span>
+                                <span>{getUserName(appt.assigned_user_id, users)}</span>
                               </div>
                               <div className="text-[10px] text-muted-foreground/70">
-                                Updated: {formatDate(opp.ghl_date_updated)}
+                                {appt.start_time ? `Scheduled: ${formatDate(appt.start_time)}` : "No date"}
                               </div>
                             </div>
                           </CardContent>
@@ -504,7 +535,7 @@ export function ActivitySheet({
                               <span>Created: {formatDate(task.created_at)}</span>
                               {getCreatorName(task.entered_by, profiles) && (
                                 <span className="flex items-center gap-1">
-                                  <UserCheck className="h-3 w-3" />
+                                  <User className="h-3 w-3" />
                                   By: {getCreatorName(task.entered_by, profiles)}
                                 </span>
                               )}
@@ -575,9 +606,9 @@ export function ActivitySheet({
                             <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
                               <span>Added: {formatDate(note.ghl_date_added)}</span>
                               {creatorName && (
-                                <span className="flex items-center gap-1">
-                                  <UserCheck className="h-3 w-3" />
-                                  By: {creatorName}
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                By: {creatorName}
                                 </span>
                               )}
                             </div>
