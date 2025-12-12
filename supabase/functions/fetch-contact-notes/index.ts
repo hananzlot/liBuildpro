@@ -89,8 +89,18 @@ serve(async (req) => {
 
     console.log(`Found ${notes.length} notes for contact ${contact_id}`);
 
-    // Upsert notes to Supabase
+    // Upsert notes to Supabase (preserving entered_by if already set)
     if (notes.length > 0) {
+      // Get existing notes to preserve entered_by
+      const { data: existingNotes } = await supabase
+        .from('contact_notes')
+        .select('ghl_id, entered_by')
+        .in('ghl_id', notes.map((n: any) => n.id));
+
+      const existingEnteredByMap = new Map(
+        (existingNotes || []).map((n: any) => [n.ghl_id, n.entered_by])
+      );
+
       const notesToUpsert = notes.map((note: any) => ({
         ghl_id: note.id,
         contact_id: contact_id,
@@ -98,6 +108,8 @@ serve(async (req) => {
         user_id: note.userId || null,
         ghl_date_added: note.dateAdded || note.createdAt || null,
         location_id: effectiveLocationId,
+        // Preserve existing entered_by if set
+        entered_by: existingEnteredByMap.get(note.id) || null,
       }));
 
       const { error: upsertError } = await supabase
@@ -109,16 +121,38 @@ serve(async (req) => {
       }
     }
 
-    // Return notes with user info
+    // Fetch notes from Supabase with entered_by and profile info
+    const { data: supabaseNotes } = await supabase
+      .from('contact_notes')
+      .select(`
+        ghl_id,
+        body,
+        user_id,
+        ghl_date_added,
+        entered_by,
+        profiles:entered_by (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq('contact_id', contact_id)
+      .order('ghl_date_added', { ascending: false });
+
+    // Return notes with both GHL userId and app entered_by info
+    const notesWithCreator = (supabaseNotes || []).map((note: any) => ({
+      id: note.ghl_id,
+      body: note.body,
+      userId: note.user_id,
+      dateAdded: note.ghl_date_added,
+      enteredBy: note.entered_by,
+      enteredByName: note.profiles?.full_name || null,
+    }));
+
     return new Response(
       JSON.stringify({ 
-        notes: notes.map((note: any) => ({
-          id: note.id,
-          body: note.body,
-          userId: note.userId,
-          dateAdded: note.dateAdded || note.createdAt,
-        })),
-        count: notes.length
+        notes: notesWithCreator,
+        count: notesWithCreator.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

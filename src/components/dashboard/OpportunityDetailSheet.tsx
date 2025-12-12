@@ -135,6 +135,8 @@ interface ContactNote {
   body: string;
   userId: string | null;
   dateAdded: string;
+  enteredBy: string | null;
+  enteredByName: string | null;
 }
 interface GHLTask {
   id: string;
@@ -1780,16 +1782,20 @@ export function OpportunityDetailSheet({
                     {contactNotesList
                       .sort((a, b) => new Date(b.dateAdded).getTime() - new Date(a.dateAdded).getTime())
                       .map((note) => {
-                        const noteUser = users.find((u) => u.ghl_id === note.userId);
-                        const noteUserName =
-                          noteUser?.name ||
-                          (noteUser?.first_name && noteUser?.last_name
-                            ? `${noteUser.first_name} ${noteUser.last_name}`
-                            : "Unknown");
+                        // Prefer entered_by (app user) over userId (GHL user)
+                        let noteUserName = note.enteredByName;
+                        if (!noteUserName && note.userId) {
+                          const noteUser = users.find((u) => u.ghl_id === note.userId);
+                          noteUserName =
+                            noteUser?.name ||
+                            (noteUser?.first_name && noteUser?.last_name
+                              ? `${noteUser.first_name} ${noteUser.last_name}`
+                              : null);
+                        }
                         return (
                           <div key={note.id} className="bg-muted/30 rounded p-2">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                              <span>{noteUserName}</span>
+                              <span>{noteUserName || "GHL User"}</span>
                               <span>
                                 {new Date(note.dateAdded).toLocaleDateString("en-US", {
                                   month: "short",

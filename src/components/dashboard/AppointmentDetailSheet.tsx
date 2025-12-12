@@ -129,6 +129,8 @@ interface ContactNote {
   body: string | null;
   user_id: string | null;
   ghl_date_added: string | null;
+  entered_by: string | null;
+  profiles?: { full_name: string | null } | null;
 }
 
 interface Task {
@@ -241,10 +243,10 @@ export function AppointmentDetailSheet({
       });
       if (ghlError) console.error("Error fetching from GHL:", ghlError);
 
-      // Then fetch from database
+      // Then fetch from database with creator info
       const { data, error } = await supabase
         .from("contact_notes")
-        .select("*")
+        .select("*, profiles:entered_by(full_name)")
         .eq("contact_id", appointment.contact_id)
         .order("ghl_date_added", { ascending: false });
 
@@ -975,14 +977,26 @@ export function AppointmentDetailSheet({
               {contactNotes.length === 0 && !loadingNotes ? (
                 <div className="p-3 text-sm text-muted-foreground text-center">No notes</div>
               ) : (
-                contactNotes.map((note) => (
-                  <div key={note.id} className="p-3">
-                    <div className="text-xs text-muted-foreground mb-1">
-                      {note.ghl_date_added ? formatDateShort(note.ghl_date_added) : "Unknown date"}
+                contactNotes.map((note) => {
+                  // Prefer entered_by (app user) over user_id (GHL user)
+                  let noteUserName = note.profiles?.full_name || null;
+                  if (!noteUserName && note.user_id) {
+                    const noteUser = users.find((u) => u.ghl_id === note.user_id);
+                    noteUserName = noteUser?.name || 
+                      (noteUser?.first_name && noteUser?.last_name
+                        ? `${noteUser.first_name} ${noteUser.last_name}`
+                        : null);
+                  }
+                  return (
+                    <div key={note.id} className="p-3">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                        <span>{noteUserName || "GHL User"}</span>
+                        <span>{note.ghl_date_added ? formatDateShort(note.ghl_date_added) : "Unknown date"}</span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body || "No content")}</p>
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body || "No content")}</p>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
