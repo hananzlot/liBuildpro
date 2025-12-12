@@ -305,7 +305,11 @@ export function ActivitySheet({
                       // Find opportunity for this contact to get value
                       const relatedOpp = editedOpportunities.find(o => o.contact_id === task.contact_id);
                       return (
-                        <Card key={task.id} className="border-border/50">
+                        <Card 
+                          key={task.id} 
+                          className={`border-border/50 ${relatedOpp && onOpportunityClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
+                          onClick={() => relatedOpp && onOpportunityClick?.(relatedOpp)}
+                        >
                           <CardContent className="p-3 space-y-2">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
@@ -379,10 +383,17 @@ export function ActivitySheet({
                       const contact = contacts.find(c => c.ghl_id === note.contact_id);
                       const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                       const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                      // Find opportunity for this contact to get value
+                      // Find opportunity for this contact to get value and for click navigation
                       const relatedOpp = editedOpportunities.find(o => o.contact_id === note.contact_id);
+                      // Prefer entered_by (app user) over user_id (GHL user)
+                      const creatorName = getCreatorName(note.entered_by, profiles);
+                      const displayUserName = creatorName || getUserName(note.user_id, users);
                       return (
-                        <Card key={note.id} className="border-border/50">
+                        <Card 
+                          key={note.id} 
+                          className={`border-border/50 ${relatedOpp && onOpportunityClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
+                          onClick={() => relatedOpp && onOpportunityClick?.(relatedOpp)}
+                        >
                           <CardContent className="p-3 space-y-2">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
@@ -404,7 +415,7 @@ export function ActivitySheet({
                               </div>
                               <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                                 <User className="h-3 w-3" />
-                                <span>{getUserName(note.user_id, users)}</span>
+                                <span>{displayUserName}</span>
                               </div>
                             </div>
                             <div className="bg-muted/50 rounded p-2">
@@ -414,10 +425,10 @@ export function ActivitySheet({
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
                               <span>Added: {formatDate(note.ghl_date_added)}</span>
-                              {getCreatorName(note.entered_by, profiles) && (
+                              {creatorName && (
                                 <span className="flex items-center gap-1">
                                   <UserCheck className="h-3 w-3" />
-                                  By: {getCreatorName(note.entered_by, profiles)}
+                                  By: {creatorName}
                                 </span>
                               )}
                             </div>
