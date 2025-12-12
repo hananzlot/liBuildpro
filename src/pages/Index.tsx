@@ -17,6 +17,7 @@ import { ActivitySheet } from "@/components/dashboard/ActivitySheet";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
+import { UserManagement } from "@/components/dashboard/UserManagement";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
@@ -55,6 +56,7 @@ const Index = () => {
   const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
   const [sourceManagementOpen, setSourceManagementOpen] = useState(false);
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
+  const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const {
     data: metrics,
@@ -132,6 +134,10 @@ const Index = () => {
                     <DropdownMenuItem onClick={() => setSourceManagementOpen(true)}>
                       <Pencil className="h-4 w-4 mr-2" />
                       Manage Sources
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setUserManagementOpen(true)}>
+                      <Users className="h-4 w-4 mr-2" />
+                      User Management
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -331,6 +337,9 @@ const Index = () => {
 
         {/* Source Management Dialog */}
         <SourceManagement contacts={metrics?.allContacts || []} open={sourceManagementOpen} onOpenChange={setSourceManagementOpen} />
+
+        {/* User Management Dialog */}
+        <UserManagement open={userManagementOpen} onOpenChange={setUserManagementOpen} />
       </main>
 
       {/* Won Opportunities Sheet */}
