@@ -1685,6 +1685,15 @@ export function OpportunityDetailSheet({
                       className="h-7 text-xs flex-1"
                       placeholder="Enter new source"
                       autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && customSourceInput.trim()) {
+                          setEditedSource(customSourceInput.trim());
+                          setShowCustomSourceInput(false);
+                        } else if (e.key === "Escape") {
+                          setShowCustomSourceInput(false);
+                          setCustomSourceInput("");
+                        }
+                      }}
                     />
                     <Button
                       size="sm"
@@ -1692,10 +1701,11 @@ export function OpportunityDetailSheet({
                       className="h-7 px-2"
                       onClick={() => {
                         if (customSourceInput.trim()) {
-                          setEditedSource(customSourceInput.trim());
+                          const newSource = customSourceInput.trim();
+                          setEditedSource(newSource);
+                          setShowCustomSourceInput(false);
+                          setCustomSourceInput("");
                         }
-                        setShowCustomSourceInput(false);
-                        setCustomSourceInput("");
                       }}
                     >
                       <Check className="h-3 w-3" />
@@ -1714,19 +1724,28 @@ export function OpportunityDetailSheet({
                   </div>
                 ) : (
                   <Select 
-                    value={editedSource} 
+                    value={editedSource || "__placeholder__"} 
                     onValueChange={(val) => {
                       if (val === "__custom__") {
                         setShowCustomSourceInput(true);
-                      } else {
+                        setCustomSourceInput("");
+                      } else if (val !== "__placeholder__") {
                         setEditedSource(val);
                       }
                     }}
                   >
                     <SelectTrigger className="h-7 text-xs">
-                      <SelectValue placeholder="Select source" />
+                      <SelectValue placeholder="Select source">
+                        {editedSource || "Select source"}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="bg-popover z-50">
+                      {/* Show current edited source if it's not in availableSources */}
+                      {editedSource && !availableSources.includes(editedSource) && (
+                        <SelectItem key={editedSource} value={editedSource} className="text-xs font-medium">
+                          {editedSource} (new)
+                        </SelectItem>
+                      )}
                       {availableSources.map((source) => (
                         <SelectItem key={source} value={source} className="text-xs">
                           {source}

@@ -1,0 +1,221 @@
+import { useState, useMemo } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2, Edit, ArrowRight, Search } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface Contact {
+  ghl_id: string;
+  source: string | null;
+}
+
+interface SourceManagementProps {
+  contacts: Contact[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+// Normalize source name to title case
+const normalizeSourceName = (source: string): string => {
+  return source
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+export function SourceManagement({ contacts, open, onOpenChange }: SourceManagementProps) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const [selectedSource, setSelectedSource] = useState<string>("");
+  const [newSourceName, setNewSourceName] = useState<string>("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Calculate source counts
+  const sourceCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    contacts.forEach((contact) => {
+      if (contact.source) {
+        const normalized = normalizeSourceName(contact.source);
+        counts.set(normalized, (counts.get(normalized) || 0) + 1);
+      }
+    });
+    return Array.from(counts.entries())
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [contacts]);
+
+  const filteredSources = useMemo(() => {
+    if (!searchQuery.trim()) return sourceCounts;
+    return sourceCounts.filter((item) =>
+      item.source.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [sourceCounts, searchQuery]);
+
+  const handleBulkRename = async () => {
+    if (!selectedSource || !newSourceName.trim()) {
+      toast.error("Please select a source and enter a new name");
+      return;
+    }
+
+    if (selectedSource === newSourceName.trim()) {
+      toast.error("New name must be different from the old name");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("bulk-update-source", {
+        body: {
+          oldSource: selectedSource,
+          newSource: newSourceName.trim(),
+          editedBy: user?.id || null,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success(`Renamed "${selectedSource}" to "${newSourceName.trim()}" for ${data.updated} contacts`);
+      
+      // Reset form
+      setSelectedSource("");
+      setNewSourceName("");
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+    } catch (error) {
+      console.error("Error bulk updating source:", error);
+      toast.error("Failed to rename source");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Manage Sources</DialogTitle>
+          <DialogDescription>
+            Rename sources across all opportunities at once. Changes will sync to GoHighLevel.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+          {/* Rename Section */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <h4 className="text-sm font-medium mb-3">Bulk Rename Source</h4>
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <Label className="text-xs text-muted-foreground">From</Label>
+                <Select value={selectedSource} onValueChange={setSelectedSource}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select source to rename" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sourceCounts.map(({ source, count }) => (
+                      <SelectItem key={source} value={source}>
+                        {source} ({count})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground mt-5" />
+              <div className="flex-1">
+                <Label className="text-xs text-muted-foreground">To</Label>
+                <Input
+                  value={newSourceName}
+                  onChange={(e) => setNewSourceName(e.target.value)}
+                  placeholder="New source name"
+                  className="h-9"
+                />
+              </div>
+              <Button
+                onClick={handleBulkRename}
+                disabled={isUpdating || !selectedSource || !newSourceName.trim()}
+                className="mt-5"
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Edit className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Source List */}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex items-center gap-2 mb-2">
+              <h4 className="text-sm font-medium">All Sources</h4>
+              <Badge variant="secondary" className="text-xs">
+                {sourceCounts.length}
+              </Badge>
+            </div>
+            <div className="relative mb-2">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search sources..."
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto border rounded-lg">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background">
+                  <TableRow>
+                    <TableHead>Source</TableHead>
+                    <TableHead className="text-right w-24">Contacts</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredSources.map(({ source, count }) => (
+                    <TableRow 
+                      key={source} 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => {
+                        setSelectedSource(source);
+                        setNewSourceName(source);
+                      }}
+                    >
+                      <TableCell className="font-medium">{source}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="secondary">{count}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {filteredSources.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
+                        No sources found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
