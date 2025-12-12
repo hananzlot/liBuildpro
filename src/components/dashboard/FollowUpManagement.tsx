@@ -1329,9 +1329,16 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Close to Sale
-                        <Badge variant="secondary" className="text-xs">
-                          {closeToSaleData.length}
-                        </Badge>
+                        {closeToSaleData.length === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                            <PartyPopper className="h-3 w-3 mr-1" />
+                            All set!
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {closeToSaleData.length}
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Close to Sale, Important, or Second Appointment stages
@@ -1558,9 +1565,16 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Stale New Opportunities
-                        <Badge variant="destructive" className="text-xs">
-                          {staleNewData.length}
-                        </Badge>
+                        {staleNewData.length === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                            <PartyPopper className="h-3 w-3 mr-1" />
+                            All set!
+                          </Badge>
+                        ) : (
+                          <Badge variant="destructive" className="text-xs">
+                            {staleNewData.length}
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         New stage with no future appointment or task
@@ -1656,42 +1670,51 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 flex-wrap text-base">
                         Tasks Helper
-                        <Badge variant="secondary" className="text-xs">
-                          {taskCounts.total}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setTasksDueDateFilter("past_due");
-                            setTasksHelperOpen(true);
-                          }}
-                        >
-                          {taskCounts.pastDue} past due
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setTasksDueDateFilter("today_tomorrow");
-                            setTasksHelperOpen(true);
-                          }}
-                        >
-                          {taskCounts.todayTomorrow} today/tomorrow
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className="cursor-pointer hover:opacity-80 text-muted-foreground text-xs hidden sm:inline-flex"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setTasksDueDateFilter("after_tomorrow");
-                            setTasksHelperOpen(true);
-                          }}
-                        >
-                          {taskCounts.afterTomorrow} after
-                        </Badge>
+                        {taskCounts.total === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                            <PartyPopper className="h-3 w-3 mr-1" />
+                            All set!
+                          </Badge>
+                        ) : (
+                          <>
+                            <Badge variant="secondary" className="text-xs">
+                              {taskCounts.total}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.pastDue > 0 ? "bg-red-500/10 text-red-600 border-red-500/30" : "text-muted-foreground"}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTasksDueDateFilter("past_due");
+                                setTasksHelperOpen(true);
+                              }}
+                            >
+                              {taskCounts.pastDue} past due
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTasksDueDateFilter("today_tomorrow");
+                                setTasksHelperOpen(true);
+                              }}
+                            >
+                              {taskCounts.todayTomorrow} today/tomorrow
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className="cursor-pointer hover:opacity-80 text-muted-foreground text-xs hidden sm:inline-flex"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setTasksDueDateFilter("after_tomorrow");
+                                setTasksHelperOpen(true);
+                              }}
+                            >
+                              {taskCounts.afterTomorrow} after
+                            </Badge>
+                          </>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         GHL tasks - click to view opportunity
@@ -1828,9 +1851,16 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Needs Attention (Cold)
-                        <Badge variant="secondary" className="text-xs">
-                          {needsAttentionData.length}
-                        </Badge>
+                        {needsAttentionData.length === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                            <PartyPopper className="h-3 w-3 mr-1" />
+                            All set!
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {needsAttentionData.length}
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         No appointments ever + stale notes or expired tasks
@@ -2035,9 +2065,16 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Stale Notes
-                        <Badge variant="secondary" className="text-xs">
-                          {staleNotesData.length}
-                        </Badge>
+                        {staleNotesData.length === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                            <PartyPopper className="h-3 w-3 mr-1" />
+                            All set!
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {staleNotesData.length}
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Notes before appointment or no notes exist
@@ -2178,9 +2215,16 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         No Tasks - Post Appt
-                        <Badge variant="secondary" className="text-xs">
-                          {noTasksData.length}
-                        </Badge>
+                        {noTasksData.length === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                            <PartyPopper className="h-3 w-3 mr-1" />
+                            All set!
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {noTasksData.length}
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Past appointments but no tasks created
@@ -2311,9 +2355,16 @@ export function FollowUpManagement({
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         Past Confirmed
-                        <Badge variant="secondary" className="text-xs">
-                          {pastConfirmedData.length}
-                        </Badge>
+                        {pastConfirmedData.length === 0 ? (
+                          <Badge className="text-xs bg-emerald-500/20 text-emerald-700 border-emerald-500/30">
+                            <PartyPopper className="h-3 w-3 mr-1" />
+                            All set!
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            {pastConfirmedData.length}
+                          </Badge>
+                        )}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
                         Past appointments still "Confirmed"
