@@ -267,6 +267,13 @@ export function OpportunityDetailSheet({
   const [editedAddress, setEditedAddress] = useState("");
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
+  // Contact name editing
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedFirstName, setEditedFirstName] = useState("");
+  const [editedLastName, setEditedLastName] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [savedContactName, setSavedContactName] = useState<string | null>(null);
+
   // Track if sheet was previously closed, to reset savedValues only on fresh open
   const [wasOpen, setWasOpen] = useState(false);
 
@@ -274,6 +281,7 @@ export function OpportunityDetailSheet({
   useEffect(() => {
     if (open && !wasOpen) {
       setSavedValues({});
+      setSavedContactName(null);
     }
     setWasOpen(open);
   }, [open]);
@@ -1129,6 +1137,34 @@ export function OpportunityDetailSheet({
     }
   };
 
+  const handleSaveName = async () => {
+    if (!opportunity?.contact_id) return;
+    setIsSavingName(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-contact-name", {
+        body: {
+          contactId: opportunity.contact_id,
+          firstName: editedFirstName.trim(),
+          lastName: editedLastName.trim(),
+          editedBy: user?.id || null,
+          opportunityGhlId: opportunity.ghl_id,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Name updated");
+      setIsEditingName(false);
+      setSavedContactName(data.newName || `${editedFirstName.trim()} ${editedLastName.trim()}`.trim());
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+    } catch (error) {
+      console.error("Error saving name:", error);
+      toast.error("Failed to save name");
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
   const handleDeleteOpportunity = async () => {
     if (!opportunity) return;
     setIsDeletingOpportunity(true);
@@ -1234,7 +1270,7 @@ export function OpportunityDetailSheet({
   const relatedAppointments = appointments.filter((a) => a.contact_id === opportunity.contact_id);
   const effectiveAssignedTo = savedValues.assigned_to !== undefined ? savedValues.assigned_to : opportunity.assigned_to;
   const assignedUser = users.find((u) => u.ghl_id === effectiveAssignedTo);
-  const contactName =
+  const contactName = savedContactName ||
     contact?.contact_name ||
     (contact?.first_name && contact?.last_name
       ? `${contact.first_name} ${contact.last_name}`
@@ -1360,8 +1396,51 @@ export function OpportunityDetailSheet({
           {/* Contact Section - Now at the top with opportunity value */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
-              <div className="flex flex-col">
-                <span className="font-bold capitalize">{opportunity.name?.toLowerCase() || "Unnamed Opportunity"}</span>
+              <div className="flex flex-col gap-0.5">
+                {isEditingName ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={editedFirstName}
+                      onChange={(e) => setEditedFirstName(e.target.value)}
+                      placeholder="First name"
+                      className="h-7 text-sm w-24"
+                    />
+                    <Input
+                      value={editedLastName}
+                      onChange={(e) => setEditedLastName(e.target.value)}
+                      placeholder="Last name"
+                      className="h-7 text-sm w-24"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={handleSaveName}
+                      disabled={isSavingName}
+                    >
+                      {isSavingName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => setIsEditingName(false)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setEditedFirstName(contact?.first_name || "");
+                      setEditedLastName(contact?.last_name || "");
+                      setIsEditingName(true);
+                    }}
+                    className="font-bold capitalize text-left hover:underline"
+                  >
+                    {contactName?.toLowerCase() || "Unnamed Contact"}
+                  </button>
+                )}
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" />
                   {userName}
