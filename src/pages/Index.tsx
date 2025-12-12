@@ -105,13 +105,7 @@ const Index = () => {
             <p className="text-sm text-muted-foreground">Executive Dashboard</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
-            {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
             {!isLoading && <OpportunitySearch opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} />}
-            
-            <Button size="sm" onClick={handleSync} disabled={syncMutation.isPending}>
-              <Database className={`h-4 w-4 mr-2 ${syncMutation.isPending ? "animate-pulse" : ""}`} />
-              {syncMutation.isPending ? "Syncing..." : "Sync GHL"}
-            </Button>
             <div className="flex items-center gap-2 pl-2 border-l border-border">
               <NotificationBell />
               <span className="text-sm text-muted-foreground hidden sm:inline">
@@ -127,17 +121,26 @@ const Index = () => {
 
       <main className="px-8 py-6">
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="follow-up" className="gap-2">
-              <ListChecks className="h-4 w-4" />
-              Follow-up
-            </TabsTrigger>
-            <TabsTrigger value="admin" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Admin
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <TabsList>
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="follow-up" className="gap-2">
+                <ListChecks className="h-4 w-4" />
+                Follow-up
+              </TabsTrigger>
+              <TabsTrigger value="admin" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Admin
+              </TabsTrigger>
+            </TabsList>
+            <div className="flex items-center gap-2">
+              {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
+              <Button size="sm" onClick={handleSync} disabled={syncMutation.isPending}>
+                <Database className={`h-4 w-4 mr-2 ${syncMutation.isPending ? "animate-pulse" : ""}`} />
+                {syncMutation.isPending ? "Syncing..." : "Sync GHL"}
+              </Button>
+            </div>
+          </div>
 
           <TabsContent value="dashboard" className="space-y-8">
             {/* Date Range Filter */}
