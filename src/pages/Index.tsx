@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, RefreshCw, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench } from "lucide-react";
+import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -22,6 +22,7 @@ import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
+import { SyncDropdown } from "@/components/dashboard/SyncDropdown";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -175,14 +176,12 @@ const Index = () => {
             </TabsList>
             <div className="flex items-center gap-2">
               {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
-              <Button size="sm" onClick={handleSync} disabled={syncMutation.isPending}>
-                <Database className={`h-4 w-4 mr-2 ${syncMutation.isPending ? "animate-pulse" : ""}`} />
-                {syncMutation.isPending ? "Syncing..." : "Sync GHL"}
-              </Button>
-              <Button size="sm" onClick={handleSyncGHL2} disabled={syncGHL2Mutation.isPending} variant="outline">
-                <RefreshCw className={`h-4 w-4 mr-2 ${syncGHL2Mutation.isPending ? "animate-spin" : ""}`} />
-                {syncGHL2Mutation.isPending ? "Syncing..." : "Sync GHL2"}
-              </Button>
+              <SyncDropdown 
+                onSyncGHL={handleSync} 
+                onSyncGHL2={handleSyncGHL2}
+                isSyncingGHL={syncMutation.isPending}
+                isSyncingGHL2={syncGHL2Mutation.isPending}
+              />
             </div>
           </div>
 
