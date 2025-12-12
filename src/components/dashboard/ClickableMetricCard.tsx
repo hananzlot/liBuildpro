@@ -1,6 +1,11 @@
 import { cn } from "@/lib/utils";
 import { LucideIcon, AlertTriangle } from "lucide-react";
 
+interface BreakdownItem {
+  label: string;
+  value: number;
+}
+
 interface ClickableMetricCardProps {
   title: string;
   value: string | number;
@@ -10,6 +15,7 @@ interface ClickableMetricCardProps {
   onClick?: () => void;
   className?: string;
   warningText?: string;
+  breakdown?: BreakdownItem[];
 }
 
 export function ClickableMetricCard({ 
@@ -20,7 +26,8 @@ export function ClickableMetricCard({
   icon: Icon, 
   onClick,
   className,
-  warningText 
+  warningText,
+  breakdown
 }: ClickableMetricCardProps) {
   return (
     <div 
@@ -43,6 +50,15 @@ export function ClickableMetricCard({
           </div>
           {subtitle && (
             <p className="text-xs text-muted-foreground">{subtitle}</p>
+          )}
+          {breakdown && breakdown.length > 0 && (
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {breakdown.map((item, index) => (
+                <span key={index}>
+                  <span className="font-medium text-foreground">{item.value}</span> {item.label}
+                </span>
+              ))}
+            </div>
           )}
           {warningText && (
             <div className="flex items-center gap-1.5 text-xs text-red-500 font-medium">
