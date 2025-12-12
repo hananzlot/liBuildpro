@@ -145,6 +145,22 @@ const formatCurrency = (value: number | null): string => {
   }).format(value);
 };
 
+// Strip HTML tags from content (GHL notes often contain HTML)
+const stripHtml = (html: string | null): string => {
+  if (!html) return "";
+  // Remove HTML tags and decode common entities
+  return html
+    .replace(/<[^>]*>/g, "") // Remove HTML tags
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ") // Normalize whitespace
+    .trim();
+};
+
 const getStatusColor = (status: string | null): string => {
   switch (status?.toLowerCase()) {
     case "won":
@@ -608,7 +624,7 @@ export function ActivitySheet({
                             </div>
                             <div className="bg-muted/50 rounded p-2">
                               <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
-                                {note.body || "(No content)"}
+                                {stripHtml(note.body) || "(No content)"}
                               </p>
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
