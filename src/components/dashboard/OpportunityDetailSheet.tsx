@@ -1037,6 +1037,9 @@ export function OpportunityDetailSheet({
       queryClient.invalidateQueries({
         queryKey: ["contacts"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["opportunity_edits"],
+      });
     } catch (error) {
       console.error("Error updating opportunity:", error);
       toast.error("Failed to update opportunity in GHL");
@@ -1090,6 +1093,7 @@ export function OpportunityDetailSheet({
       setIsEditingScope(false);
       // Refresh contacts to get updated custom_fields
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
     } catch (error) {
       console.error("Error saving scope of work:", error);
       toast.error("Failed to save scope of work");
@@ -1116,6 +1120,7 @@ export function OpportunityDetailSheet({
       setIsEditingAddress(false);
       // Refresh contacts to get updated custom_fields
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
     } catch (error) {
       console.error("Error saving address:", error);
       toast.error("Failed to save address");

@@ -42,6 +42,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { stripHtml, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 interface DBOpportunity {
   id: string;
   ghl_id: string;
@@ -147,6 +148,7 @@ export function FollowUpManagement({
   onDataRefresh,
 }: FollowUpManagementProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [staleNotesOpen, setStaleNotesOpen] = useState(false);
   const [noTasksOpen, setNoTasksOpen] = useState(false);
   const [pastConfirmedOpen, setPastConfirmedOpen] = useState(false);
@@ -575,6 +577,8 @@ export function FollowUpManagement({
         body: {
           contactId: scopeDialogContactId,
           scopeOfWork: scopeText.trim(),
+          editedBy: user?.id || null,
+          opportunityGhlId: scopeDialogOpportunity?.ghl_id || null,
         },
       });
       if (error) throw error;
@@ -583,6 +587,7 @@ export function FollowUpManagement({
       setScopeDialogOpen(false);
       setScopeText("");
       onDataRefresh?.();
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
     } catch (error) {
       console.error("Error saving scope:", error);
       toast.error("Failed to save scope of work");
