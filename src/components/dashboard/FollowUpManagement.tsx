@@ -137,7 +137,8 @@ export function FollowUpManagement({
   const [missingScopeRepFilter, setMissingScopeRepFilter] = useState<string>("all");
   const [staleNewOpen, setStaleNewOpen] = useState(false);
   const [staleNewRepFilter, setStaleNewRepFilter] = useState<string>("all");
-  const [staleNewStageFilter, setStaleNewStageFilter] = useState<"all" | "new" | "other">("all");
+  const [staleNewSourceFilter, setStaleNewSourceFilter] = useState<string>("all");
+  const [staleNewStageFilter, setStaleNewStageFilter] = useState<string>("all"); // Now uses actual stage names
   const [staleNewSort, setStaleNewSort] = useState<{ field: "name" | "address" | "stage" | "source" | "rep" | "value"; direction: SortDirection }>({ field: "value", direction: "desc" });
   const NEEDS_ATTENTION_PAGE_SIZE = 10;
 
@@ -767,6 +768,13 @@ export function FollowUpManagement({
     return set;
   }, [ghlTasks]);
 
+  // Helper to get source from contact
+  const getContactSource = (contactId: string | null): string => {
+    if (!contactId) return "";
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    return contact?.source || "";
+  };
+
   // Stale Opportunities - no future appointments, no future tasks, excluding lost/abandoned/won
   const staleOpportunitiesRaw = useMemo(() => {
     const excludedStages = ["lost", "abandon", "dnc", "do not call"];
@@ -793,40 +801,48 @@ export function FollowUpManagement({
     });
   }, [opportunities, contactsWithFutureAppointments, contactsWithFutureTasks]);
 
-  // Categorize stale opportunities by stage type
-  const staleOpportunitiesByCategory = useMemo(() => {
-    const newStage: DBOpportunity[] = [];
-    const otherStage: DBOpportunity[] = [];
+  // Get unique stages, sources, and reps from stale opportunities for filters
+  const staleFilterOptions = useMemo(() => {
+    const stages = new Set<string>();
+    const sources = new Set<string>();
+    const reps = new Set<string>();
     
     staleOpportunitiesRaw.forEach(o => {
-      const stageName = o.stage_name?.toLowerCase() || "";
-      if (stageName.includes("new")) {
-        newStage.push(o);
-      } else {
-        otherStage.push(o);
+      if (o.stage_name) stages.add(o.stage_name);
+      if (o.assigned_to) reps.add(o.assigned_to);
+      if (o.contact_id) {
+        const source = getContactSource(o.contact_id);
+        if (source) sources.add(source);
       }
     });
     
-    return { newStage, otherStage };
-  }, [staleOpportunitiesRaw]);
+    return {
+      stages: Array.from(stages).sort(),
+      sources: Array.from(sources).sort(),
+      reps: Array.from(reps).map(id => ({ id, name: getUserName(id) })).sort((a, b) => a.name.localeCompare(b.name))
+    };
+  }, [staleOpportunitiesRaw, contacts, users]);
 
-  // Helper to get source from contact
-  const getContactSource = (contactId: string | null): string => {
-    if (!contactId) return "";
-    const contact = contacts.find(c => c.ghl_id === contactId);
-    return contact?.source || "";
-  };
-
-  // Stale New Data - filtered, deduplicated, and sorted
+  // Stale opportunities filtered and deduplicated (excluding Quickbase by default)
   const staleNewData = useMemo(() => {
-    // Determine which opportunities to include based on filter
-    let results: DBOpportunity[];
-    if (staleNewStageFilter === "new") {
-      results = staleOpportunitiesByCategory.newStage;
-    } else if (staleNewStageFilter === "other") {
-      results = staleOpportunitiesByCategory.otherStage;
+    let results = [...staleOpportunitiesRaw];
+    
+    // Apply stage filter
+    if (staleNewStageFilter === "all") {
+      // Exclude Quickbase by default when "all" is selected
+      results = results.filter(o => o.stage_name?.toLowerCase() !== "quickbase");
+    } else if (staleNewStageFilter === "__new_stages__") {
+      // Filter to only "New" stages (for badge click)
+      results = results.filter(o => o.stage_name?.toLowerCase().includes("new"));
+    } else if (staleNewStageFilter === "__other_stages__") {
+      // Filter to "Other" stages (not New, not Quickbase)
+      results = results.filter(o => {
+        const stageName = o.stage_name?.toLowerCase() || "";
+        return !stageName.includes("new") && stageName !== "quickbase";
+      });
     } else {
-      results = [...staleOpportunitiesByCategory.newStage, ...staleOpportunitiesByCategory.otherStage];
+      // Filter to specific stage name
+      results = results.filter(o => o.stage_name === staleNewStageFilter);
     }
 
     // Deduplicate by contact_id (keep the one with highest monetary value)
@@ -843,6 +859,11 @@ export function FollowUpManagement({
     // Apply rep filter
     if (staleNewRepFilter !== "all") {
       unique = unique.filter(o => o.assigned_to === staleNewRepFilter);
+    }
+    
+    // Apply source filter
+    if (staleNewSourceFilter !== "all") {
+      unique = unique.filter(o => getContactSource(o.contact_id) === staleNewSourceFilter);
     }
 
     // Apply sorting
@@ -864,13 +885,29 @@ export function FollowUpManagement({
           return direction * ((a.monetary_value || 0) - (b.monetary_value || 0));
       }
     });
-  }, [staleOpportunitiesByCategory, staleNewStageFilter, staleNewRepFilter, staleNewSort, contacts]);
+  }, [staleOpportunitiesRaw, staleNewStageFilter, staleNewRepFilter, staleNewSourceFilter, staleNewSort, contacts]);
 
-  // Counts for badges (before rep filter, deduplicated by contact)
+  // Counts for badges (excluding Quickbase, before filters, deduplicated by contact)
   const staleNewCounts = useMemo(() => {
+    // Filter out Quickbase for badge counts
+    const filtered = staleOpportunitiesRaw.filter(o => o.stage_name?.toLowerCase() !== "quickbase");
+    
+    // Categorize by New vs Other
+    const newStage: DBOpportunity[] = [];
+    const otherStage: DBOpportunity[] = [];
+    
+    filtered.forEach(o => {
+      const stageName = o.stage_name?.toLowerCase() || "";
+      if (stageName.includes("new")) {
+        newStage.push(o);
+      } else {
+        otherStage.push(o);
+      }
+    });
+    
     // Dedupe new stage
     const newMap = new Map<string, DBOpportunity>();
-    staleOpportunitiesByCategory.newStage.forEach(o => {
+    newStage.forEach(o => {
       if (!o.contact_id) return;
       const existing = newMap.get(o.contact_id);
       if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
@@ -880,7 +917,7 @@ export function FollowUpManagement({
     
     // Dedupe other stage
     const otherMap = new Map<string, DBOpportunity>();
-    staleOpportunitiesByCategory.otherStage.forEach(o => {
+    otherStage.forEach(o => {
       if (!o.contact_id) return;
       const existing = otherMap.get(o.contact_id);
       if (!existing || (o.monetary_value || 0) > (existing.monetary_value || 0)) {
@@ -893,7 +930,7 @@ export function FollowUpManagement({
       otherCount: otherMap.size,
       total: newMap.size + otherMap.size
     };
-  }, [staleOpportunitiesByCategory]);
+  }, [staleOpportunitiesRaw]);
   const staleNotesData = useMemo(() => {
     const results: Array<{
       appointment: DBAppointment;
@@ -1518,7 +1555,9 @@ export function FollowUpManagement({
                               className={`cursor-pointer hover:opacity-80 text-xs ${staleNewCounts.newCount > 0 ? "bg-blue-500/10 text-blue-600 border-blue-500/30" : "text-muted-foreground"}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setStaleNewStageFilter("new");
+                                setStaleNewStageFilter("__new_stages__");
+                                setStaleNewSourceFilter("all");
+                                setStaleNewRepFilter("all");
                                 setStaleNewOpen(true);
                               }}
                             >
@@ -1529,7 +1568,9 @@ export function FollowUpManagement({
                               className={`cursor-pointer hover:opacity-80 text-xs ${staleNewCounts.otherCount > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setStaleNewStageFilter("other");
+                                setStaleNewStageFilter("__other_stages__");
+                                setStaleNewSourceFilter("all");
+                                setStaleNewRepFilter("all");
                                 setStaleNewOpen(true);
                               }}
                             >
@@ -1550,15 +1591,33 @@ export function FollowUpManagement({
             <CollapsibleContent>
               <CardContent>
                 {/* Filters */}
-                <div className="flex items-center gap-4 mb-4 flex-wrap">
-                  <Select value={staleNewStageFilter} onValueChange={(val) => setStaleNewStageFilter(val as "all" | "new" | "other")}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Stage type" />
+                <div className="flex items-center gap-3 mb-4 flex-wrap">
+                  <Select value={staleNewStageFilter} onValueChange={setStaleNewStageFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by stage" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Stages</SelectItem>
-                      <SelectItem value="new">New Stages</SelectItem>
-                      <SelectItem value="other">Other Stages</SelectItem>
+                      <SelectItem value="all">All Stages (excl. QB)</SelectItem>
+                      <SelectItem value="__new_stages__">New Stages Only</SelectItem>
+                      <SelectItem value="__other_stages__">Other Stages Only</SelectItem>
+                      {staleFilterOptions.stages.map(stage => (
+                        <SelectItem key={stage} value={stage}>
+                          {stage}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={staleNewSourceFilter} onValueChange={setStaleNewSourceFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sources</SelectItem>
+                      {staleFilterOptions.sources.map(source => (
+                        <SelectItem key={source} value={source}>
+                          {source}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select value={staleNewRepFilter} onValueChange={setStaleNewRepFilter}>
@@ -1567,11 +1626,26 @@ export function FollowUpManagement({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Reps</SelectItem>
-                      {uniqueReps.map(rep => <SelectItem key={rep.id} value={rep.id}>
+                      {staleFilterOptions.reps.map(rep => (
+                        <SelectItem key={rep.id} value={rep.id}>
                           {rep.name}
-                        </SelectItem>)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
+                  {(staleNewStageFilter !== "all" || staleNewSourceFilter !== "all" || staleNewRepFilter !== "all") && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        setStaleNewStageFilter("all");
+                        setStaleNewSourceFilter("all");
+                        setStaleNewRepFilter("all");
+                      }}
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
                 </div>
 
                 {staleNewData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
