@@ -192,41 +192,57 @@ async function fetchOpportunitiesFromDB(): Promise<DBOpportunity[]> {
 }
 
 async function fetchAppointmentsFromDB(): Promise<DBAppointment[]> {
-  return fetchAllFromTable("appointments", "start_time") as Promise<DBAppointment[]>;
+  // Exclude Location 2 appointments
+  return fetchAllFromTable("appointments", "start_time", LOCATION_2_ID) as Promise<DBAppointment[]>;
 }
 
 async function fetchUsersFromDB(): Promise<DBUser[]> {
+  // Users from both locations are fine - no filtering needed
   const { data, error } = await supabase.from("ghl_users").select("*");
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function fetchConversationsFromDB(): Promise<DBConversation[]> {
+  // Exclude Location 2 conversations
   const { data, error } = await supabase
     .from("conversations")
     .select("*")
+    .neq("location_id", LOCATION_2_ID)
     .order("last_message_date", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function fetchTasksFromDB(): Promise<DBTask[]> {
-  const { data, error } = await supabase.from("ghl_tasks").select("*").order("due_date", { ascending: true });
+  // Exclude Location 2 tasks
+  const { data, error } = await supabase
+    .from("ghl_tasks")
+    .select("*")
+    .neq("location_id", LOCATION_2_ID)
+    .order("due_date", { ascending: true });
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function fetchContactNotesFromDB(): Promise<DBContactNote[]> {
+  // Exclude Location 2 notes
   const { data, error } = await supabase
     .from("contact_notes")
     .select("*")
+    .neq("location_id", LOCATION_2_ID)
     .order("ghl_date_added", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
 
 async function fetchCallLogsFromDB(): Promise<DBCallLog[]> {
-  const { data, error } = await supabase.from("call_logs").select("*").order("call_date", { ascending: false });
+  // Exclude Location 2 call logs
+  const { data, error } = await supabase
+    .from("call_logs")
+    .select("*")
+    .neq("location_id", LOCATION_2_ID)
+    .order("call_date", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
