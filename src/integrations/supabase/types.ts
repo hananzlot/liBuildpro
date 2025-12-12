@@ -582,6 +582,50 @@ export type Database = {
           },
         ]
       }
+      opportunity_edits: {
+        Row: {
+          contact_ghl_id: string | null
+          edited_at: string | null
+          edited_by: string | null
+          field_name: string
+          id: string
+          location_id: string | null
+          new_value: string | null
+          old_value: string | null
+          opportunity_ghl_id: string
+        }
+        Insert: {
+          contact_ghl_id?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          field_name: string
+          id?: string
+          location_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          opportunity_ghl_id: string
+        }
+        Update: {
+          contact_ghl_id?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
+          field_name?: string
+          id?: string
+          location_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          opportunity_ghl_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_edits_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string | null

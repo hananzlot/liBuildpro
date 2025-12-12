@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,13 +7,12 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { contactId, source } = await req.json();
+    const { contactId, source, editedBy, opportunityGhlId } = await req.json();
 
     if (!contactId) {
       return new Response(
@@ -23,15 +23,14 @@ serve(async (req) => {
 
     console.log(`Updating source for contact ${contactId} to: ${source}`);
 
-    // First, fetch the contact to get its location_id
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Fetch contact to get location_id and current source
     const { data: contact, error: contactError } = await supabase
       .from("contacts")
-      .select("location_id")
+      .select("location_id, source")
       .eq("ghl_id", contactId)
       .single();
 
@@ -43,8 +42,10 @@ serve(async (req) => {
       );
     }
 
-    // Determine which API key to use based on location_id
-    const locationId1 = Deno.env.get("GHL_LOCATION_ID");
+    const oldSource = contact.source || "";
+    const newSource = source || "";
+
+    // Determine which API key to use
     const locationId2 = Deno.env.get("GHL_LOCATION_ID_2");
     let apiKey: string;
 
@@ -61,7 +62,7 @@ serve(async (req) => {
       );
     }
 
-    // Update the contact in GHL with the new source
+    // Update the contact in GHL
     const ghlResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
       method: "PUT",
       headers: {
@@ -69,9 +70,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
         Version: "2021-07-28",
       },
-      body: JSON.stringify({
-        source: source || "",
-      }),
+      body: JSON.stringify({ source: newSource }),
     });
 
     if (!ghlResponse.ok) {
@@ -83,14 +82,27 @@ serve(async (req) => {
       );
     }
 
-    const ghlData = await ghlResponse.json();
-    console.log("GHL update successful:", ghlData.contact?.id);
+    console.log("GHL source update successful");
 
-    // Update the contact in Supabase
+    // Update Supabase
     await supabase
       .from("contacts")
-      .update({ source: source || null, updated_at: new Date().toISOString() })
+      .update({ source: newSource || null, updated_at: new Date().toISOString() })
       .eq("ghl_id", contactId);
+
+    // Track the edit if value changed
+    if (oldSource !== newSource && opportunityGhlId) {
+      console.log(`Tracking source edit: "${oldSource}" -> "${newSource}"`);
+      await supabase.from("opportunity_edits").insert({
+        opportunity_ghl_id: opportunityGhlId,
+        contact_ghl_id: contactId,
+        field_name: "source",
+        old_value: oldSource || null,
+        new_value: newSource || null,
+        edited_by: editedBy || null,
+        location_id: contact.location_id,
+      });
+    }
 
     return new Response(
       JSON.stringify({ success: true }),
