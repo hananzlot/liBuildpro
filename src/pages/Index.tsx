@@ -46,6 +46,7 @@ const Index = () => {
   const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
   const [callLogsSheetOpen, setCallLogsSheetOpen] = useState(false);
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
+  const [activityDefaultTab, setActivityDefaultTab] = useState<"edits" | "appointments" | "tasks" | "notes">("edits");
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
@@ -185,24 +186,48 @@ const Index = () => {
                   </div>
                   <ClickableMetricCard title="Appointments (Today's & Future)" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
-                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02]" onClick={() => setActivitySheetOpen(true)}>
+                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">Activity</p>
-                        <div className="flex items-baseline gap-2">
+                        <div className="flex items-baseline gap-2 cursor-pointer hover:opacity-80" onClick={() => { setActivityDefaultTab("edits"); setActivitySheetOpen(true); }}>
                           <p className="text-3xl font-bold tracking-tight text-foreground">
                             {(metrics?.filteredOpportunityEdits?.length || 0) + (metrics?.appointmentsEditedCount || 0) + (metrics?.tasksCreatedCount || 0) + (metrics?.notesCreatedCount || 0)}
                           </p>
                           <span className="text-sm text-muted-foreground">total</span>
                         </div>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                          <span><span className="font-medium text-foreground">{metrics?.filteredOpportunityEdits?.length || 0}</span> edits</span>
-                          <span><span className="font-medium text-foreground">{metrics?.appointmentsEditedCount || 0}</span> appts</span>
-                          <span><span className="font-medium text-foreground">{metrics?.tasksCreatedCount || 0}</span> tasks</span>
-                          <span><span className="font-medium text-foreground">{metrics?.notesCreatedCount || 0}</span> notes</span>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                          <span 
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("edits"); setActivitySheetOpen(true); }}
+                          >
+                            <span className="font-medium text-blue-500">{metrics?.filteredOpportunityEdits?.length || 0}</span>
+                            <span className="text-blue-500/70"> edits</span>
+                          </span>
+                          <span 
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("appointments"); setActivitySheetOpen(true); }}
+                          >
+                            <span className="font-medium text-amber-500">{metrics?.appointmentsEditedCount || 0}</span>
+                            <span className="text-amber-500/70"> appts</span>
+                          </span>
+                          <span 
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("tasks"); setActivitySheetOpen(true); }}
+                          >
+                            <span className="font-medium text-emerald-500">{metrics?.tasksCreatedCount || 0}</span>
+                            <span className="text-emerald-500/70"> tasks</span>
+                          </span>
+                          <span 
+                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("notes"); setActivitySheetOpen(true); }}
+                          >
+                            <span className="font-medium text-purple-500">{metrics?.notesCreatedCount || 0}</span>
+                            <span className="text-purple-500/70"> notes</span>
+                          </span>
                         </div>
                       </div>
-                      <div className="rounded-xl bg-primary/10 p-3">
+                      <div className="rounded-xl bg-primary/10 p-3 cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => { setActivityDefaultTab("edits"); setActivitySheetOpen(true); }}>
                         <Pencil className="h-5 w-5 text-primary" />
                       </div>
                     </div>
@@ -301,7 +326,7 @@ const Index = () => {
       <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
 
       {/* Activity Sheet */}
-      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} editedOpportunities={metrics?.editedOpportunities || []} filteredAppointments={metrics?.filteredAppointments || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
+      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} defaultTab={activityDefaultTab} editedOpportunities={metrics?.editedOpportunities || []} filteredAppointments={metrics?.filteredAppointments || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
         setSelectedOpportunity({
           ghl_id: opp.ghl_id,
           name: opp.name,
