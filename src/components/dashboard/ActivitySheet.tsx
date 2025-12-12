@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock } from "lucide-react";
+import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock, ChevronDown, ChevronUp } from "lucide-react";
 
 import type { DBOpportunityEdit } from "@/hooks/useGHLContacts";
 
@@ -242,6 +242,19 @@ export function ActivitySheet({
 }: ActivitySheetProps) {
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+
+  const toggleNoteExpanded = (noteId: string) => {
+    setExpandedNotes(prev => {
+      const next = new Set(prev);
+      if (next.has(noteId)) {
+        next.delete(noteId);
+      } else {
+        next.add(noteId);
+      }
+      return next;
+    });
+  };
 
   // Sync activeTab when defaultTab changes (from parent)
   useEffect(() => {
@@ -622,10 +635,31 @@ export function ActivitySheet({
                                 <span>{displayUserName}</span>
                               </div>
                             </div>
-                            <div className="bg-muted/50 rounded p-2">
-                              <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
+                            <div 
+                              className="bg-muted/50 rounded p-2 cursor-pointer hover:bg-muted/70 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleNoteExpanded(note.id);
+                              }}
+                            >
+                              <p className={`text-sm text-muted-foreground whitespace-pre-wrap ${expandedNotes.has(note.id) ? '' : 'line-clamp-4'}`}>
                                 {stripHtml(note.body) || "(No content)"}
                               </p>
+                              {stripHtml(note.body)?.length > 200 && (
+                                <div className="flex items-center justify-center mt-2 text-xs text-primary">
+                                  {expandedNotes.has(note.id) ? (
+                                    <>
+                                      <ChevronUp className="h-3 w-3 mr-1" />
+                                      Show less
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ChevronDown className="h-3 w-3 mr-1" />
+                                      Show more
+                                    </>
+                                  )}
+                                </div>
+                              )}
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
                               <span>Added: {formatDate(note.ghl_date_added)}</span>
