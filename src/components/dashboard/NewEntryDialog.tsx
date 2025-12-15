@@ -57,10 +57,11 @@ interface PipelineStage {
   stage_name: string;
 }
 
-interface CalendarMapping {
-  userId: string;
-  calendarId: string;
-  userName: string;
+interface GHLCalendar {
+  ghl_id: string;
+  name: string | null;
+  is_active: boolean;
+  team_members: string[];
 }
 
 const SOURCES = [
@@ -103,7 +104,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const [selectedStage, setSelectedStage] = useState("");
 
   // Calendar state
-  const [calendarMappings, setCalendarMappings] = useState<CalendarMapping[]>([]);
+  const [calendars, setCalendars] = useState<GHLCalendar[]>([]);
   const [selectedCalendar, setSelectedCalendar] = useState("");
 
   // CSV upload state
@@ -149,55 +150,44 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     fetchPipelineStages();
   }, []);
 
-  // Fetch calendar mappings on mount
+  // Fetch active calendars on mount
   useEffect(() => {
-    const fetchCalendarMappings = async () => {
+    const fetchCalendars = async () => {
       const { data } = await supabase
-        .from("appointments")
-        .select("assigned_user_id, calendar_id")
-        .not("assigned_user_id", "is", null)
-        .not("calendar_id", "is", null);
+        .from("ghl_calendars")
+        .select("ghl_id, name, is_active, team_members")
+        .eq("is_active", true);
 
       if (data) {
-        // Get unique user-calendar mappings
-        const mappings = data.reduce((acc: CalendarMapping[], curr) => {
-          if (!acc.find((m) => m.userId === curr.assigned_user_id)) {
-            const user = users.find((u) => u.ghl_id === curr.assigned_user_id);
-            acc.push({
-              userId: curr.assigned_user_id!,
-              calendarId: curr.calendar_id!,
-              userName: user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Unknown",
-            });
-          }
-          return acc;
-        }, []);
-        setCalendarMappings(mappings);
+        setCalendars(data as GHLCalendar[]);
       }
     };
-    if (users.length > 0) {
-      fetchCalendarMappings();
-    }
-  }, [users]);
+    fetchCalendars();
+  }, []);
 
-  // Auto-select calendar when rep is selected
+  // Auto-select first calendar when rep is selected (or clear if no calendars)
   useEffect(() => {
-    if (assignedTo) {
-      const mapping = calendarMappings.find((m) => m.userId === assignedTo);
-      if (mapping) {
-        setSelectedCalendar(mapping.calendarId);
+    if (assignedTo && calendars.length > 0) {
+      // Try to find a calendar that has this user as a team member
+      const userCalendar = calendars.find((c) => c.team_members?.includes(assignedTo));
+      if (userCalendar) {
+        setSelectedCalendar(userCalendar.ghl_id);
+      } else if (calendars.length === 1) {
+        // If only one calendar, auto-select it
+        setSelectedCalendar(calendars[0].ghl_id);
       } else {
+        // Clear selection to force user to pick
         setSelectedCalendar("");
       }
     } else {
       setSelectedCalendar("");
     }
-  }, [assignedTo, calendarMappings]);
+  }, [assignedTo, calendars]);
 
-  // Check if selected rep has a calendar
-  const selectedRepHasCalendar = useMemo(() => {
-    if (!assignedTo) return true; // No rep selected, no warning needed
-    return calendarMappings.some((m) => m.userId === assignedTo);
-  }, [assignedTo, calendarMappings]);
+  // Check if there are active calendars available
+  const hasActiveCalendars = useMemo(() => {
+    return calendars.length > 0;
+  }, [calendars]);
 
   // Get unique pipelines and stages for current pipeline
   const uniquePipelines = pipelineStages.reduce((acc: { id: string; name: string }[], curr) => {
@@ -762,12 +752,12 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
               {/* Calendar selector and warning */}
               {assignedTo && (
                 <div className="space-y-2">
-                  <Label htmlFor="calendar">Calendar</Label>
-                  {!selectedRepHasCalendar ? (
+                  <Label htmlFor="calendar">Calendar *</Label>
+                  {!hasActiveCalendars ? (
                     <div className="flex items-center gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400">
                       <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                       <span className="text-sm">
-                        This rep doesn't have a calendar assigned. Appointments cannot be created for them.
+                        No active calendars available. Please activate a calendar in GHL.
                       </span>
                     </div>
                   ) : (
@@ -776,9 +766,9 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                         <SelectValue placeholder="Select calendar" />
                       </SelectTrigger>
                       <SelectContent>
-                        {calendarMappings.map((m) => (
-                          <SelectItem key={m.calendarId} value={m.calendarId}>
-                            {m.userName}'s Calendar
+                        {calendars.map((cal) => (
+                          <SelectItem key={cal.ghl_id} value={cal.ghl_id}>
+                            {cal.name || "Unnamed Calendar"}
                           </SelectItem>
                         ))}
                       </SelectContent>
