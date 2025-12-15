@@ -95,6 +95,7 @@ interface Contact {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  source: string | null;
   custom_fields?: CustomField[] | unknown;
   attributions?: unknown;
 }
@@ -779,6 +780,16 @@ export function AppointmentDetailSheet({
                 <div className="flex items-start gap-2 text-muted-foreground">
                   <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Target className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    {contact?.source ? (
+                      <span className="capitalize">{contact.source}</span>
+                    ) : (
+                      <span className="italic text-muted-foreground/60">No source</span>
+                    )}
+                  </span>
                 </div>
               </div>
             </div>
