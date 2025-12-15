@@ -766,7 +766,9 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                         <SelectValue placeholder="Select calendar" />
                       </SelectTrigger>
                       <SelectContent>
-                        {calendars.map((cal) => (
+                        {[...calendars]
+                          .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                          .map((cal) => (
                           <SelectItem key={cal.ghl_id} value={cal.ghl_id}>
                             {cal.name || "Unnamed Calendar"}
                           </SelectItem>

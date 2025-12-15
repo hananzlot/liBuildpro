@@ -2555,7 +2555,9 @@ export function OpportunityDetailSheet({
                   <SelectValue placeholder="Select calendar..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeCalendars.map((cal) => (
+                  {[...activeCalendars]
+                    .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                    .map((cal) => (
                     <SelectItem key={cal.ghl_id} value={cal.ghl_id}>
                       {cal.name || "Unnamed Calendar"}
                     </SelectItem>
