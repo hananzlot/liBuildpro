@@ -156,7 +156,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       const { data } = await supabase
         .from("ghl_calendars")
         .select("ghl_id, name, is_active, team_members")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
 
       if (data) {
         setCalendars(data as GHLCalendar[]);

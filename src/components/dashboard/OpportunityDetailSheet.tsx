@@ -294,7 +294,8 @@ export function OpportunityDetailSheet({
       const { data } = await supabase
         .from("ghl_calendars")
         .select("ghl_id, name")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
       if (data) {
         setActiveCalendars(data);
         // Auto-select first calendar if only one
