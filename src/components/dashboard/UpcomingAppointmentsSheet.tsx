@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone } from "lucide-react";
+import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
@@ -359,6 +359,7 @@ export function UpcomingAppointmentsSheet({
                           : null;
                         const address = contactAddress || appt.address || otherApptAddress || null;
                         const phone = contact?.phone || null;
+                        const source = contact?.source || null;
                         const assignedUser = appt.assigned_user_id ? userMap.get(appt.assigned_user_id) : null;
                         const isPast = new Date(appt.start_time!) < new Date();
 
@@ -397,6 +398,14 @@ export function UpcomingAppointmentsSheet({
                               <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 ml-5">
                                 <Phone className="h-3 w-3 shrink-0" />
                                 <span>{phone}</span>
+                              </div>
+                            )}
+
+                            {/* Source */}
+                            {source && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 ml-5">
+                                <Target className="h-3 w-3 shrink-0" />
+                                <span className="capitalize">{source}</span>
                               </div>
                             )}
                             

@@ -11,6 +11,7 @@ import {
   Phone,
   Clock,
   Search,
+  Target,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -34,6 +35,7 @@ interface DBContact {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  source: string | null;
   custom_fields: unknown;
 }
 
@@ -212,6 +214,13 @@ export function DateRangeAppointmentsSheet({
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-muted-foreground shrink-0" />
                             <span className="text-foreground">{salesPerson}</span>
+                          </div>
+                        )}
+
+                        {contact?.source && (
+                          <div className="flex items-center gap-2">
+                            <Target className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="text-foreground capitalize">{contact.source}</span>
                           </div>
                         )}
                       </div>
