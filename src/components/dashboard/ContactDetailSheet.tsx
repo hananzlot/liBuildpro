@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare } from "lucide-react";
+import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -88,6 +89,7 @@ interface ContactDetailSheetProps {
   conversations?: Conversation[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRefresh?: () => void;
 }
 
 const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
@@ -104,6 +106,7 @@ export function ContactDetailSheet({
   conversations = [],
   open,
   onOpenChange,
+  onRefresh,
 }: ContactDetailSheetProps) {
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
 
@@ -208,11 +211,18 @@ export function ContactDetailSheet({
               <SheetTitle className="text-lg font-semibold leading-tight">
                 {contactName}
               </SheetTitle>
-              {contact.source && (
-                <Badge variant="outline" className="shrink-0 text-xs bg-primary/10 text-primary border-primary/30">
-                  {contact.source}
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {onRefresh && (
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh}>
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                )}
+                {contact.source && (
+                  <Badge variant="outline" className="shrink-0 text-xs bg-primary/10 text-primary border-primary/30">
+                    {contact.source}
+                  </Badge>
+                )}
+              </div>
             </div>
             {totalValue > 0 && (
               <div className="text-2xl font-bold text-emerald-400">
