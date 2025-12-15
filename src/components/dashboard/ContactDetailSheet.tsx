@@ -1,12 +1,23 @@
+import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
   SCOPE_OF_WORK: 'KwQRtJT0aMSHnq3mwR68',
   NOTES: '588ddQgiGEg3AWtTQB2i',
 };
+
+const APPOINTMENT_STATUSES = [
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'showed', label: 'Showed' },
+  { value: 'noshow', label: 'No Show' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
 
 interface Contact {
   id: string;
@@ -45,6 +56,7 @@ interface Appointment {
   end_time?: string | null;
   appointment_status?: string | null;
   notes?: string | null;
+  location_id?: string | null;
 }
 
 interface GHLUser {
@@ -93,6 +105,33 @@ export function ContactDetailSheet({
   open,
   onOpenChange,
 }: ContactDetailSheetProps) {
+  const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
+
+  const handleUpdateAppointmentStatus = async (appointmentGhlId: string, newStatus: string, locationId?: string) => {
+    setUpdatingAppointmentId(appointmentGhlId);
+    try {
+      // Update in GHL
+      const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
+        body: { ghl_id: appointmentGhlId, appointment_status: newStatus, location_id: locationId }
+      });
+      if (ghlError) throw ghlError;
+
+      // Update in Supabase
+      const { error: dbError } = await supabase
+        .from('appointments')
+        .update({ appointment_status: newStatus, ghl_date_updated: new Date().toISOString() })
+        .eq('ghl_id', appointmentGhlId);
+      if (dbError) throw dbError;
+
+      toast({ title: "Status updated", description: `Appointment status changed to ${newStatus}` });
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      toast({ title: "Error", description: "Failed to update appointment status", variant: "destructive" });
+    } finally {
+      setUpdatingAppointmentId(null);
+    }
+  };
+
   if (!contact) return null;
 
   const formatDateTime = (dateString: string | null | undefined) => {
@@ -309,9 +348,22 @@ export function ContactDetailSheet({
                   <div key={apt.id} className="p-3 space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-medium text-sm truncate">{apt.title || "Untitled"}</span>
-                      <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(apt.appointment_status)}`}>
-                        {apt.appointment_status || "Unknown"}
-                      </Badge>
+                      <Select
+                        value={apt.appointment_status || ''}
+                        onValueChange={(value) => handleUpdateAppointmentStatus(apt.ghl_id, value, apt.location_id || undefined)}
+                        disabled={updatingAppointmentId === apt.ghl_id}
+                      >
+                        <SelectTrigger className={`h-6 w-[100px] text-xs ${getStatusColor(apt.appointment_status)}`}>
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {APPOINTMENT_STATUSES.map((status) => (
+                            <SelectItem key={status.value} value={status.value} className="text-xs">
+                              {status.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
