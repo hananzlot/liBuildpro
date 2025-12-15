@@ -344,6 +344,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ghl_calendars: {
+        Row: {
+          created_at: string
+          description: string | null
+          ghl_id: string
+          id: string
+          is_active: boolean | null
+          location_id: string
+          name: string | null
+          team_members: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          ghl_id: string
+          id?: string
+          is_active?: boolean | null
+          location_id: string
+          name?: string | null
+          team_members?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          ghl_id?: string
+          id?: string
+          is_active?: boolean | null
+          location_id?: string
+          name?: string | null
+          team_members?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ghl_tasks: {
         Row: {
           assigned_to: string | null

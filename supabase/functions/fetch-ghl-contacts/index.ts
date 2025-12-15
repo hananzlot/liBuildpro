@@ -194,7 +194,7 @@ function buildPipelineLookups(pipelines: any[]): {
   return { pipelineNames, stageNames };
 }
 
-async function fetchAppointments(ghlApiKey: string, locationId: string): Promise<any[]> {
+async function fetchAppointments(ghlApiKey: string, locationId: string): Promise<{ appointments: any[]; calendars: any[] }> {
   console.log('Fetching GHL calendars first...');
   
   // First fetch all calendars for the location
@@ -210,15 +210,15 @@ async function fetchAppointments(ghlApiKey: string, locationId: string): Promise
   if (!calendarsResponse.ok) {
     const errorText = await calendarsResponse.text();
     console.error('GHL Calendars API Error:', errorText);
-    return [];
+    return { appointments: [], calendars: [] };
   }
 
   const calendarsData = await calendarsResponse.json();
   const calendars = calendarsData.calendars || [];
-  console.log(`Found ${calendars.length} calendars`);
+  console.log(`Found ${calendars.length} calendars (${calendars.filter((c: any) => c.isActive).length} active)`);
 
   if (calendars.length === 0) {
-    return [];
+    return { appointments: [], calendars: [] };
   }
 
   // Fetch appointments for each calendar
@@ -264,7 +264,7 @@ async function fetchAppointments(ghlApiKey: string, locationId: string): Promise
   }
 
   console.log(`Fetched ${allAppointments.length} total appointments from ${calendars.length} calendars`);
-  return allAppointments;
+  return { appointments: allAppointments, calendars };
 }
 
 async function fetchConversations(ghlApiKey: string, locationId: string): Promise<any[]> {
@@ -517,7 +517,7 @@ async function syncLocationData(
   console.log(`\n========== Starting sync for ${locationLabel} (${locationId}) ==========`);
 
   // Fetch all data in parallel (including pipelines for name resolution)
-  const [contacts, opportunities, appointments, users, pipelines, conversations] = await Promise.all([
+  const [contacts, opportunities, appointmentsData, users, pipelines, conversations] = await Promise.all([
     fetchAllFromGHL('contacts/', ghlApiKey, locationId, 'contacts'),
     fetchOpportunities(ghlApiKey, locationId),
     fetchAppointments(ghlApiKey, locationId),
@@ -525,6 +525,8 @@ async function syncLocationData(
     fetchPipelines(ghlApiKey, locationId),
     fetchConversations(ghlApiKey, locationId),
   ]);
+
+  const { appointments, calendars } = appointmentsData;
 
   // Fetch tasks after contacts (needs contact IDs)
   const tasks = await fetchAllTasks(ghlApiKey, contacts);
@@ -555,6 +557,27 @@ async function syncLocationData(
 
     if (usersError) {
       console.error('Users upsert error:', usersError);
+    }
+  }
+
+  // Sync calendars with active status
+  if (calendars.length > 0) {
+    console.log(`Syncing ${calendars.length} calendars...`);
+    const calendarsToUpsert = calendars.map((c: any) => ({
+      ghl_id: c.id,
+      location_id: locationId,
+      name: c.name || null,
+      description: c.description || null,
+      is_active: c.isActive ?? true,
+      team_members: c.teamMembers || [],
+    }));
+
+    const { error: calendarsError } = await supabase
+      .from('ghl_calendars')
+      .upsert(calendarsToUpsert, { onConflict: 'ghl_id' });
+
+    if (calendarsError) {
+      console.error('Calendars upsert error:', calendarsError);
     }
   }
 
