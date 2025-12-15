@@ -112,6 +112,12 @@ export function UpcomingAppointmentsSheet({
 
   const queryClient = useQueryClient();
 
+  // Refresh function to re-fetch appointments data
+  const handleRefreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    queryClient.invalidateQueries({ queryKey: ["ghl-contacts"] });
+  };
+
   const handleOpenOpportunity = (opportunity: DBOpportunity) => {
     setSelectedOpportunity(opportunity);
     setOpportunitySheetOpen(true);
@@ -504,6 +510,7 @@ export function UpcomingAppointmentsSheet({
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
         onOpenOpportunity={handleOpenOpportunity}
+        onRefresh={handleRefreshData}
       />
 
       <OpportunityDetailSheet
