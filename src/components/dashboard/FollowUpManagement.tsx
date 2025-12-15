@@ -87,7 +87,7 @@ interface GHLTask {
   contact_id: string;
   assigned_to: string | null;
 }
-type DueDateFilter = "all" | "past_due" | "today_tomorrow" | "after_tomorrow";
+type DueDateFilter = "all" | "past_due" | "today" | "tomorrow" | "future";
 
 // Calculate PST/PDT offset for a given UTC date
 const getPSTOffset = (utcDate: Date): number => {
@@ -343,19 +343,26 @@ export function FollowUpManagement({
     });
     const {
       todayStartUTC,
+      tomorrowStartUTC,
       dayAfterTomorrowStartUTC
     } = getPSTDayBoundaries();
     const pastDue = baseTasks.filter(t => t.due_date && new Date(t.due_date) < todayStartUTC).length;
-    const todayTomorrow = baseTasks.filter(t => {
+    const today = baseTasks.filter(t => {
       if (!t.due_date) return false;
       const dueDate = new Date(t.due_date);
-      return dueDate >= todayStartUTC && dueDate < dayAfterTomorrowStartUTC;
+      return dueDate >= todayStartUTC && dueDate < tomorrowStartUTC;
     }).length;
-    const afterTomorrow = baseTasks.filter(t => t.due_date && new Date(t.due_date) >= dayAfterTomorrowStartUTC).length;
+    const tomorrow = baseTasks.filter(t => {
+      if (!t.due_date) return false;
+      const dueDate = new Date(t.due_date);
+      return dueDate >= tomorrowStartUTC && dueDate < dayAfterTomorrowStartUTC;
+    }).length;
+    const future = baseTasks.filter(t => t.due_date && new Date(t.due_date) >= dayAfterTomorrowStartUTC).length;
     return {
       pastDue,
-      todayTomorrow,
-      afterTomorrow,
+      today,
+      tomorrow,
+      future,
       total: baseTasks.length
     };
   }, [ghlTasks, opportunities]);
@@ -379,6 +386,7 @@ export function FollowUpManagement({
     // Due date filter (using PST boundaries)
     const {
       todayStartUTC,
+      tomorrowStartUTC,
       dayAfterTomorrowStartUTC
     } = getPSTDayBoundaries();
     if (tasksDueDateFilter === "past_due") {
@@ -386,13 +394,19 @@ export function FollowUpManagement({
         if (!t.due_date) return false;
         return new Date(t.due_date) < todayStartUTC;
       });
-    } else if (tasksDueDateFilter === "today_tomorrow") {
+    } else if (tasksDueDateFilter === "today") {
       filtered = filtered.filter(t => {
         if (!t.due_date) return false;
         const dueDate = new Date(t.due_date);
-        return dueDate >= todayStartUTC && dueDate < dayAfterTomorrowStartUTC;
+        return dueDate >= todayStartUTC && dueDate < tomorrowStartUTC;
       });
-    } else if (tasksDueDateFilter === "after_tomorrow") {
+    } else if (tasksDueDateFilter === "tomorrow") {
+      filtered = filtered.filter(t => {
+        if (!t.due_date) return false;
+        const dueDate = new Date(t.due_date);
+        return dueDate >= tomorrowStartUTC && dueDate < dayAfterTomorrowStartUTC;
+      });
+    } else if (tasksDueDateFilter === "future") {
       filtered = filtered.filter(t => {
         if (!t.due_date) return false;
         return new Date(t.due_date) >= dayAfterTomorrowStartUTC;
@@ -1777,19 +1791,26 @@ export function FollowUpManagement({
                         }}>
                               {taskCounts.pastDue} past due
                             </Badge>
-                            <Badge variant="outline" className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.todayTomorrow > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`} onClick={e => {
+                            <Badge variant="outline" className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.today > 0 ? "bg-orange-500/10 text-orange-600 border-orange-500/30" : "text-muted-foreground"}`} onClick={e => {
                           e.stopPropagation();
-                          setTasksDueDateFilter("today_tomorrow");
+                          setTasksDueDateFilter("today");
                           setTasksHelperOpen(true);
                         }}>
-                              {taskCounts.todayTomorrow} today/tomorrow
+                              {taskCounts.today} today
+                            </Badge>
+                            <Badge variant="outline" className={`cursor-pointer hover:opacity-80 text-xs ${taskCounts.tomorrow > 0 ? "bg-amber-500/10 text-amber-600 border-amber-500/30" : "text-muted-foreground"}`} onClick={e => {
+                          e.stopPropagation();
+                          setTasksDueDateFilter("tomorrow");
+                          setTasksHelperOpen(true);
+                        }}>
+                              {taskCounts.tomorrow} tomorrow
                             </Badge>
                             <Badge variant="outline" className="cursor-pointer hover:opacity-80 text-muted-foreground text-xs hidden sm:inline-flex" onClick={e => {
                           e.stopPropagation();
-                          setTasksDueDateFilter("after_tomorrow");
+                          setTasksDueDateFilter("future");
                           setTasksHelperOpen(true);
                         }}>
-                              {taskCounts.afterTomorrow} after
+                              {taskCounts.future} future
                             </Badge>
                           </>}
                       </CardTitle>
@@ -1829,8 +1850,9 @@ export function FollowUpManagement({
                     <SelectContent>
                       <SelectItem value="all">All Due Dates</SelectItem>
                       <SelectItem value="past_due">Past Due</SelectItem>
-                      <SelectItem value="today_tomorrow">Due: Today & Tomorrow</SelectItem>
-                      <SelectItem value="after_tomorrow">Due: After Tomorrow</SelectItem>
+                      <SelectItem value="today">Due: Today</SelectItem>
+                      <SelectItem value="tomorrow">Due: Tomorrow</SelectItem>
+                      <SelectItem value="future">Due: Future</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
