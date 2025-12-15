@@ -208,6 +208,9 @@ export function AppointmentDetailSheet({
   // Salesperson confirmation state
   const [salespersonConfirmed, setSalespersonConfirmed] = useState(false);
   const [isUpdatingSalespersonConfirmed, setIsUpdatingSalespersonConfirmed] = useState(false);
+  
+  // Direct status update state
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -381,6 +384,34 @@ export function AppointmentDetailSheet({
       toast.error("Failed to update confirmation");
     } finally {
       setIsUpdatingSalespersonConfirmed(false);
+    }
+  };
+
+  // Direct status update handler
+  const handleUpdateStatusDirect = async (newStatus: string) => {
+    if (!appointment?.ghl_id) return;
+    setIsUpdatingStatus(true);
+    try {
+      // Update in GHL
+      const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
+        body: { ghl_id: appointment.ghl_id, appointment_status: newStatus }
+      });
+      if (ghlError) throw ghlError;
+
+      // Update in Supabase
+      const { error: dbError } = await supabase
+        .from('appointments')
+        .update({ appointment_status: newStatus, ghl_date_updated: new Date().toISOString() })
+        .eq('ghl_id', appointment.ghl_id);
+      if (dbError) throw dbError;
+
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success(`Status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      toast.error("Failed to update status");
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -800,14 +831,22 @@ export function AppointmentDetailSheet({
                 </div>
                 {/* Status badges + Sales Rep + Value on same line */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge
-                    variant="outline"
-                    className={`text-xs h-6 px-2 inline-flex items-center ${getStatusColor(appointment.appointment_status)}`}
+                  <Select
+                    value={appointment.appointment_status || ''}
+                    onValueChange={handleUpdateStatusDirect}
+                    disabled={isUpdatingStatus}
                   >
-                    {appointment.appointment_status === "confirmed"
-                      ? "Cust. Confirmed"
-                      : appointment.appointment_status || "Unknown"}
-                  </Badge>
+                    <SelectTrigger className={`h-6 w-[100px] text-xs ${getStatusColor(appointment.appointment_status)}`}>
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {APPOINTMENT_STATUSES.map((status) => (
+                        <SelectItem key={status} value={status} className="text-xs">
+                          {status === 'confirmed' ? 'Confirmed' : status === 'no_show' ? 'No Show' : status.charAt(0).toUpperCase() + status.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Badge
                     variant="outline"
                     className={`text-xs h-6 px-2 inline-flex items-center gap-1 ${salespersonConfirmed ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
