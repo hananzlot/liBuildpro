@@ -154,6 +154,7 @@ interface AppointmentDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenOpportunity?: (opportunity: Opportunity) => void;
+  onRefresh?: () => void;
 }
 
 // Use shared CUSTOM_FIELD_IDS and extractCustomField from utils
@@ -169,6 +170,7 @@ export function AppointmentDetailSheet({
   open,
   onOpenChange,
   onOpenOpportunity,
+  onRefresh,
 }: AppointmentDetailSheetProps) {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -407,6 +409,9 @@ export function AppointmentDetailSheet({
 
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       toast.success(`Status updated to ${newStatus}`);
+      
+      // Auto-refresh after update
+      onRefresh?.();
     } catch (error) {
       console.error('Error updating appointment status:', error);
       toast.error("Failed to update status");
