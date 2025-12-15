@@ -119,8 +119,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/auth?mode=reset`;
-    
+    // IMPORTANT: Lovable preview URLs can be gated behind lovable.dev auth.
+    // When sending password reset emails, always redirect to a public app URL.
+    const hostname = window.location.hostname;
+    const isLovablePreview =
+      hostname.endsWith(".lovableproject.com") ||
+      hostname.startsWith("id-preview--") ||
+      hostname === "localhost";
+
+    // If you change your primary public domain, update this fallback.
+    const fallbackPublicUrl = "https://crm.ca-probuilders.com";
+    const baseUrl = isLovablePreview ? fallbackPublicUrl : window.location.origin;
+
+    const redirectUrl = `${baseUrl}/auth?mode=reset`;
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
     });
