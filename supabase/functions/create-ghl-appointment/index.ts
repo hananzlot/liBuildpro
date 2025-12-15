@@ -47,8 +47,8 @@ serve(async (req) => {
       enteredBy,
     } = await req.json();
 
-    if (!contactId || !title || !startTime) {
-      throw new Error('contactId, title, and startTime are required');
+    if (!contactId || !title || !startTime || !calendarId) {
+      throw new Error('contactId, title, startTime, and calendarId are required');
     }
 
     // If locationId not provided, look it up from the contact
@@ -78,7 +78,7 @@ serve(async (req) => {
       startTime: startDate.toISOString(),
       endTime: endDate.toISOString(),
       appointmentStatus: 'confirmed',
-      calendarId: calendarId || 'sNIFXjVWoVkfSLWzF1sB', // Default calendar
+      calendarId,
     };
 
     if (assignedUserId) apptPayload.assignedUserId = assignedUserId;
