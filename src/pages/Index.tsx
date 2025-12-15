@@ -12,6 +12,8 @@ import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSheet";
 import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
+import { OpportunitiesSheet } from "@/components/dashboard/OpportunitiesSheet";
+import { DateRangeAppointmentsSheet } from "@/components/dashboard/DateRangeAppointmentsSheet";
 import { CallLogsSheet } from "@/components/dashboard/CallLogsSheet";
 import { ActivitySheet } from "@/components/dashboard/ActivitySheet";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
@@ -48,6 +50,8 @@ const Index = () => {
   });
   const [wonOpportunitiesSheetOpen, setWonOpportunitiesSheetOpen] = useState(false);
   const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
+  const [opportunitiesSheetOpen, setOpportunitiesSheetOpen] = useState(false);
+  const [dateRangeAppointmentsSheetOpen, setDateRangeAppointmentsSheetOpen] = useState(false);
   const [callLogsSheetOpen, setCallLogsSheetOpen] = useState(false);
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
   const [activityDefaultTab, setActivityDefaultTab] = useState<"edits" | "appointments" | "tasks" | "notes">("edits");
@@ -199,8 +203,11 @@ const Index = () => {
               {isLoading ? <>
                   {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
                 </> : <>
-                  <MetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} />
-                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50">
+                  <ClickableMetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} onClick={() => setOpportunitiesSheetOpen(true)} />
+                  <div 
+                    className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02]"
+                    onClick={() => setDateRangeAppointmentsSheetOpen(true)}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">Total Appointments (in date range)</p>
@@ -377,6 +384,47 @@ const Index = () => {
 
       {/* Upcoming Appointments Sheet */}
       <UpcomingAppointmentsSheet open={upcomingAppointmentsSheetOpen} onOpenChange={setUpcomingAppointmentsSheetOpen} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} opportunities={metrics?.allOpportunities || []} users={metrics?.users || []} />
+
+      {/* Opportunities Sheet (for KPI card click) */}
+      <OpportunitiesSheet 
+        open={opportunitiesSheetOpen} 
+        onOpenChange={setOpportunitiesSheetOpen} 
+        opportunities={metrics?.filteredOpportunitiesList || []} 
+        contacts={metrics?.allContacts || []} 
+        users={metrics?.users || []} 
+        onOpportunityClick={opp => {
+          setSelectedOpportunity({
+            ghl_id: opp.ghl_id,
+            name: opp.name,
+            status: opp.status,
+            monetary_value: opp.monetary_value,
+            pipeline_id: null,
+            pipeline_name: opp.pipeline_name,
+            pipeline_stage_id: null,
+            stage_name: opp.stage_name,
+            contact_id: opp.contact_id,
+            assigned_to: opp.assigned_to,
+            ghl_date_added: opp.ghl_date_added,
+            ghl_date_updated: opp.ghl_date_updated
+          });
+          setOpportunitiesSheetOpen(false);
+          setOppDetailSheetOpen(true);
+        }}
+      />
+
+      {/* Date Range Appointments Sheet (for KPI card click) */}
+      <DateRangeAppointmentsSheet 
+        open={dateRangeAppointmentsSheetOpen} 
+        onOpenChange={setDateRangeAppointmentsSheetOpen} 
+        appointments={metrics?.filteredAppointmentsList || []} 
+        contacts={metrics?.allContacts || []} 
+        users={metrics?.users || []} 
+        onAppointmentClick={appt => {
+          setSelectedAppointment(appt);
+          setDateRangeAppointmentsSheetOpen(false);
+          setAppointmentDetailSheetOpen(true);
+        }}
+      />
 
       {/* Call Logs Sheet */}
       <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
