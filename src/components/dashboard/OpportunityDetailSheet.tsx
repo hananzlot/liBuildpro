@@ -240,6 +240,8 @@ export function OpportunityDetailSheet({
   const [appointmentTime, setAppointmentTime] = useState("09:00");
   const [appointmentAssignee, setAppointmentAssignee] = useState("");
   const [appointmentNotes, setAppointmentNotes] = useState("");
+  const [appointmentCalendar, setAppointmentCalendar] = useState("");
+  const [activeCalendars, setActiveCalendars] = useState<{ ghl_id: string; name: string | null }[]>([]);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
 
   // Estimated cost
@@ -285,6 +287,24 @@ export function OpportunityDetailSheet({
     }
     setWasOpen(open);
   }, [open]);
+
+  // Fetch active calendars on mount
+  useEffect(() => {
+    const fetchCalendars = async () => {
+      const { data } = await supabase
+        .from("ghl_calendars")
+        .select("ghl_id, name")
+        .eq("is_active", true);
+      if (data) {
+        setActiveCalendars(data);
+        // Auto-select first calendar if only one
+        if (data.length === 1) {
+          setAppointmentCalendar(data[0].ghl_id);
+        }
+      }
+    };
+    fetchCalendars();
+  }, []);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -729,6 +749,10 @@ export function OpportunityDetailSheet({
       toast.error("Please enter appointment title and date");
       return;
     }
+    if (!appointmentCalendar) {
+      toast.error("Please select a calendar");
+      return;
+    }
     setIsCreatingAppointment(true);
     try {
       const contact = contacts.find((c) => c.ghl_id === opportunity.contact_id);
@@ -747,6 +771,7 @@ export function OpportunityDetailSheet({
           locationId,
           title: appointmentTitle.trim(),
           startTime: utcDate.toISOString(),
+          calendarId: appointmentCalendar,
           assignedUserId: assignedToValue,
           notes: appointmentNotes.trim() || null,
           enteredBy: user?.id || null,
@@ -770,6 +795,7 @@ export function OpportunityDetailSheet({
       setAppointmentTime("09:00");
       setAppointmentAssignee("");
       setAppointmentNotes("");
+      setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
     } catch (err) {
       console.error("Error creating appointment:", err);
       toast.error("Failed to create appointment");
@@ -888,6 +914,7 @@ export function OpportunityDetailSheet({
       setAppointmentTime("09:00");
       setAppointmentAssignee("");
       setAppointmentNotes("");
+      setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
       setOriginalAppointmentDate("");
       setOriginalAppointmentTime("");
     } catch (err) {
@@ -2429,6 +2456,7 @@ export function OpportunityDetailSheet({
             setAppointmentTime("09:00");
             setAppointmentAssignee("");
             setAppointmentNotes("");
+            setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
           }
         }}
       >
@@ -2519,6 +2547,24 @@ export function OpportunityDetailSheet({
                     ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oppApptCalendar">Calendar *</Label>
+              <Select value={appointmentCalendar} onValueChange={setAppointmentCalendar}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select calendar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeCalendars.map((cal) => (
+                    <SelectItem key={cal.ghl_id} value={cal.ghl_id}>
+                      {cal.name || "Unnamed Calendar"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {activeCalendars.length === 0 && (
+                <p className="text-xs text-yellow-600">No active calendars. Run a sync to load calendars.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="oppApptNotes">Notes (optional)</Label>
