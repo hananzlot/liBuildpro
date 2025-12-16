@@ -364,9 +364,7 @@ export function DateRangeAppointmentsSheet({
                                 e.preventDefault();
                                 const email = contact.email?.trim();
                                 if (!email) return;
-                                const mailtoUrl = `mailto:${email}`;
-                                const win = window.open(mailtoUrl, "_blank", "noopener,noreferrer");
-                                if (!win) window.location.href = mailtoUrl;
+                                window.location.href = `mailto:${email}`;
                               }}
                             >
                               {contact.email}
