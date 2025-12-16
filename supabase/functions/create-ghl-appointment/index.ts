@@ -121,6 +121,7 @@ serve(async (req) => {
         end_time: endDate.toISOString(),
         appointment_status: 'confirmed',
         assigned_user_id: assignedUserId || null,
+        address: address || null,
         notes: notes || null,
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,

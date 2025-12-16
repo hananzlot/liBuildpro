@@ -240,6 +240,7 @@ export function OpportunityDetailSheet({
   const [appointmentTime, setAppointmentTime] = useState("09:00");
   const [appointmentAssignee, setAppointmentAssignee] = useState("");
   const [appointmentNotes, setAppointmentNotes] = useState("");
+  const [appointmentAddress, setAppointmentAddress] = useState("");
   const [appointmentCalendar, setAppointmentCalendar] = useState("");
   const [activeCalendars, setActiveCalendars] = useState<{ ghl_id: string; name: string | null }[]>([]);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
@@ -743,6 +744,13 @@ export function OpportunityDetailSheet({
     setAppointmentTime("09:00");
     setAppointmentAssignee(opportunity?.assigned_to || "__unassigned__");
     setAppointmentNotes("");
+    // Prefill address from contact's custom_fields
+    const contactAddress = contact?.custom_fields
+      ? (Array.isArray(contact.custom_fields)
+          ? contact.custom_fields.find((f: { id?: string }) => f.id === CUSTOM_FIELD_IDS.ADDRESS)?.value
+          : null) || ""
+      : "";
+    setAppointmentAddress(contactAddress);
     setAppointmentDialogOpen(true);
   };
   const handleCreateAppointment = async () => {
@@ -774,6 +782,7 @@ export function OpportunityDetailSheet({
           startTime: utcDate.toISOString(),
           calendarId: appointmentCalendar,
           assignedUserId: assignedToValue,
+          address: appointmentAddress.trim() || null,
           notes: appointmentNotes.trim() || null,
           enteredBy: user?.id || null,
         },
@@ -796,6 +805,7 @@ export function OpportunityDetailSheet({
       setAppointmentTime("09:00");
       setAppointmentAssignee("");
       setAppointmentNotes("");
+      setAppointmentAddress("");
       setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
     } catch (err) {
       console.error("Error creating appointment:", err);
@@ -808,6 +818,7 @@ export function OpportunityDetailSheet({
     setEditingAppointment(appt);
     setAppointmentTitle(appt.title || "");
     setAppointmentNotes(appt.notes || "");
+    setAppointmentAddress(appt.address || "");
     setUpdateAppointmentTime(false); // Default to NOT updating time
 
     // Find assigned user from appointments
@@ -850,6 +861,7 @@ export function OpportunityDetailSheet({
         ghl_id: editingAppointment.ghl_id,
         title: appointmentTitle.trim(),
         assignedUserId: assignedToValue,
+        address: appointmentAddress.trim() || null,
         notes: appointmentNotes.trim() || null,
       };
 
@@ -1310,8 +1322,8 @@ export function OpportunityDetailSheet({
       : "Unassigned");
   // Get address from contact custom_fields, or fall back to appointment address from GHL calendar
   const contactAddress = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-  const appointmentAddress = relatedAppointments.find(a => a.address)?.address || null;
-  const address = contactAddress || appointmentAddress;
+  const apptAddressFallback = relatedAppointments.find(a => a.address)?.address || null;
+  const address = contactAddress || apptAddressFallback;
   // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
   const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
   const scopeFromAttributions = (() => {
@@ -2457,6 +2469,7 @@ export function OpportunityDetailSheet({
             setAppointmentTime("09:00");
             setAppointmentAssignee("");
             setAppointmentNotes("");
+            setAppointmentAddress("");
             setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
           }
         }}
@@ -2477,6 +2490,16 @@ export function OpportunityDetailSheet({
                 onChange={(e) => setAppointmentTitle(e.target.value)}
                 placeholder="Enter appointment title..."
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oppApptAddress">Address</Label>
+              <Input
+                id="oppApptAddress"
+                value={appointmentAddress}
+                onChange={(e) => setAppointmentAddress(e.target.value)}
+                placeholder="Enter appointment address..."
+              />
+              <p className="text-xs text-muted-foreground">Prefilled from contact address if available</p>
             </div>
             <div className="space-y-2">
               <Label>Date & Time (PST)</Label>
