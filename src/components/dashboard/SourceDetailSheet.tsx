@@ -458,7 +458,7 @@ export function SourceDetailSheet({
                 </div>
                 <div>
                   <span className="text-muted-foreground">No Contact: </span>
-                  <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.contact_id && !contactIdsWithAnyAppointments.has(o.contact_id)).length}</span>
+                  <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted")).length}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Won Value: </span>
