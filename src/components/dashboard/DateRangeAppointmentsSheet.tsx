@@ -18,6 +18,7 @@ import {
   Check,
   X,
   Loader2,
+  Copy,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -348,6 +349,17 @@ export function DateRangeAppointmentsSheet({
                             >
                               {contact.phone}
                             </a>
+                            <button
+                              className="text-muted-foreground hover:text-primary p-0.5"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(contact.phone!);
+                                toast.success("Phone copied");
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
                           </div>
                         )}
 
@@ -365,6 +377,17 @@ export function DateRangeAppointmentsSheet({
                             >
                               {contact.email}
                             </a>
+                            <button
+                              className="text-muted-foreground hover:text-primary p-0.5"
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(contact.email!);
+                                toast.success("Email copied");
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
                             <a
                               href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${displayAddress ? `\n${displayAddress}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
                               target="_blank"

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw } from "lucide-react";
+import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -255,12 +255,23 @@ export function ContactDetailSheet({
               <div className="flex items-center gap-2">
                 <Phone className="h-3.5 w-3.5 shrink-0" />
                 {contact.phone ? (
-                  <a
-                    href={`tel:${contact.phone}`}
-                    className="text-primary hover:underline truncate"
-                  >
-                    {contact.phone}
-                  </a>
+                  <>
+                    <a
+                      href={`tel:${contact.phone}`}
+                      className="text-primary hover:underline truncate"
+                    >
+                      {contact.phone}
+                    </a>
+                    <button
+                      className="text-muted-foreground hover:text-primary p-0.5"
+                      onClick={() => {
+                        navigator.clipboard.writeText(contact.phone!);
+                        toast({ title: "Phone copied" });
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                  </>
                 ) : (
                   <span className="italic text-muted-foreground/60">No phone</span>
                 )}
@@ -277,6 +288,15 @@ export function ContactDetailSheet({
                     >
                       {contact.email}
                     </a>
+                    <button
+                      className="text-muted-foreground hover:text-primary p-0.5"
+                      onClick={() => {
+                        navigator.clipboard.writeText(contact.email!);
+                        toast({ title: "Email copied" });
+                      }}
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
                     <a
                       href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
                       target="_blank"
