@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail } from "lucide-react";
+import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail, Copy } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
@@ -413,6 +413,17 @@ export function UpcomingAppointmentsSheet({
                                 >
                                   {phone}
                                 </a>
+                                <button
+                                  className="text-muted-foreground hover:text-primary p-0.5"
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(phone);
+                                    toast.success("Phone copied");
+                                  }}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
                               </div>
                             )}
 
@@ -430,6 +441,17 @@ export function UpcomingAppointmentsSheet({
                                 >
                                   {contact.email}
                                 </a>
+                                <button
+                                  className="text-muted-foreground hover:text-primary p-0.5"
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(contact.email!);
+                                    toast.success("Email copied");
+                                  }}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
                                 <a
                                   href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
                                   target="_blank"

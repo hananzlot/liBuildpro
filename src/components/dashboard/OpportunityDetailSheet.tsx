@@ -44,6 +44,7 @@ import {
   Check,
   ExternalLink,
   ChevronDown,
+  Copy,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -1557,12 +1558,23 @@ export function OpportunityDetailSheet({
                 <div className="flex items-center gap-2">
                   <Phone className="h-3.5 w-3.5 shrink-0" />
                   {contact?.phone ? (
-                    <a
-                      href={`tel:${contact.phone}`}
-                      className="text-primary hover:underline truncate"
-                    >
-                      {contact.phone}
-                    </a>
+                    <>
+                      <a
+                        href={`tel:${contact.phone}`}
+                        className="text-primary hover:underline truncate"
+                      >
+                        {contact.phone}
+                      </a>
+                      <button
+                        className="text-muted-foreground hover:text-primary p-0.5"
+                        onClick={() => {
+                          navigator.clipboard.writeText(contact.phone!);
+                          toast.success("Phone copied");
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                    </>
                   ) : (
                     <span className="italic text-muted-foreground/60">No phone</span>
                   )}
@@ -1633,6 +1645,15 @@ export function OpportunityDetailSheet({
                       >
                         {contact.email}
                       </a>
+                      <button
+                        className="text-muted-foreground hover:text-primary p-0.5"
+                        onClick={() => {
+                          navigator.clipboard.writeText(contact.email!);
+                          toast.success("Email copied");
+                        }}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
                       <a
                         href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${contactAddress ? `\n${contactAddress}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
                         target="_blank"
