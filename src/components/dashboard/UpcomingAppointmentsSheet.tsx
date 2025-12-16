@@ -430,6 +430,16 @@ export function UpcomingAppointmentsSheet({
                                 >
                                   {contact.email}
                                 </a>
+                                <a
+                                  href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-primary text-[10px] ml-1"
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  (Gmail)
+                                </a>
                               </div>
                             )}
 
