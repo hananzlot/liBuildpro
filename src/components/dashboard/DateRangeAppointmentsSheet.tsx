@@ -366,7 +366,7 @@ export function DateRangeAppointmentsSheet({
                               {contact.email}
                             </a>
                             <a
-                              href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}`}
+                              href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${contact.first_name || ''} ${contact.last_name || ''}${displayAddress ? ` (${displayAddress})` : ''},\n\n\n\nBest regards,\nCA Pro Builders`)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-muted-foreground hover:text-primary text-xs"
