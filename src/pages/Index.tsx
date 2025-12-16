@@ -259,7 +259,7 @@ const Index = () => {
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">Total Appointments (in date range)</p>
+                        <p className="text-sm font-medium text-muted-foreground">Appointments Created (in date range)</p>
                         <div className="flex items-baseline gap-2">
                           <p className="text-3xl font-bold tracking-tight text-foreground">
                             {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
@@ -267,7 +267,7 @@ const Index = () => {
                           <span className="text-sm text-muted-foreground">net</span>
                         </div>
                         <div className="flex items-center gap-3 text-xs">
-                          <span className="text-muted-foreground">{metrics?.totalAppointments || 0} scheduled</span>
+                          <span className="text-muted-foreground">{metrics?.totalAppointments || 0} created</span>
                           <span className="text-red-500 font-medium">
                             -{metrics?.cancelledAppointments || 0} cancelled
                           </span>
@@ -465,7 +465,7 @@ const Index = () => {
       <DateRangeAppointmentsSheet 
         open={dateRangeAppointmentsSheetOpen} 
         onOpenChange={setDateRangeAppointmentsSheetOpen} 
-        appointments={metrics?.filteredAppointmentsList || []} 
+        appointments={metrics?.appointmentsCreatedInRangeList || []} 
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []} 
         onAppointmentClick={appt => {
