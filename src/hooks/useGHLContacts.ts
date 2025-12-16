@@ -56,6 +56,7 @@ interface DBAppointment {
   notes: string | null;
   address?: string | null;
   salesperson_confirmed?: boolean;
+  ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
   updated_at?: string;
 }
@@ -420,7 +421,7 @@ function processMetrics(
     Array.from(sourceMap.entries()).map(([source, count]) => ({ source, count }))
   );
 
-  // Filter appointments by date range (using start_time)
+  // Filter appointments by date range (using start_time) - for display/charts
   const filteredAppointments = dateRange?.from
     ? appointments.filter((a) => {
         if (!a.start_time) return false;
@@ -429,6 +430,18 @@ function processMetrics(
         const endDate = dateRange.to || new Date();
         endDate.setHours(23, 59, 59, 999);
         return startTime >= startDate && startTime <= endDate;
+      })
+    : appointments;
+
+  // Filter appointments by CREATION date (ghl_date_added) - for "Total Appointments in Date Range" KPI
+  const appointmentsByCreationDate = dateRange?.from
+    ? appointments.filter((a) => {
+        if (!a.ghl_date_added) return false;
+        const createdDate = new Date(a.ghl_date_added);
+        const startDate = dateRange.from!;
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return createdDate >= startDate && createdDate <= endDate;
       })
     : appointments;
 
@@ -692,8 +705,8 @@ function processMetrics(
     recentLeads,
     totalOpportunities: filteredOpportunities.filter((o) => o.stage_name?.toLowerCase() !== "quickbase").length,
     totalPipelineValue,
-    totalAppointments: filteredAppointments.length,
-    cancelledAppointments: filteredAppointments.filter((a) => a.appointment_status?.toLowerCase() === "cancelled")
+    totalAppointments: appointmentsByCreationDate.length,
+    cancelledAppointments: appointmentsByCreationDate.filter((a) => a.appointment_status?.toLowerCase() === "cancelled")
       .length,
     appointmentsToday,
     unconfirmedTodayAppointments,
