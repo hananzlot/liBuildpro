@@ -199,6 +199,7 @@ export function AppointmentDetailSheet({
   const [editApptDate, setEditApptDate] = useState("");
   const [editApptTime, setEditApptTime] = useState("");
   const [editApptAssignee, setEditApptAssignee] = useState("");
+  const [editApptAddress, setEditApptAddress] = useState("");
   const [editApptNotes, setEditApptNotes] = useState("");
   const [editApptStatus, setEditApptStatus] = useState<string>(""); // NEW: editable status
   const [originalApptDate, setOriginalApptDate] = useState("");
@@ -502,6 +503,7 @@ export function AppointmentDetailSheet({
     if (!appointment) return;
     setEditApptTitle(appointment.title || "");
     setEditApptNotes(appointment.notes || "");
+    setEditApptAddress(appointment.address || "");
     setEditApptAssignee(appointment.assigned_user_id || "__unassigned__");
     setEditApptStatus(appointment.appointment_status || "confirmed"); // NEW: seed status
 
@@ -539,6 +541,7 @@ export function AppointmentDetailSheet({
         ghl_id: appointment.ghl_id,
         title: editApptTitle.trim(),
         assignedUserId: assignedToValue,
+        address: editApptAddress.trim() || null,
         notes: editApptNotes.trim() || null,
         status: editApptStatus || null, // NEW: send status to edge function
       };
@@ -1262,6 +1265,7 @@ export function AppointmentDetailSheet({
             setEditApptDate("");
             setEditApptTime("");
             setEditApptAssignee("");
+            setEditApptAddress("");
             setEditApptNotes("");
             setEditApptStatus("");
           }
@@ -1282,6 +1286,16 @@ export function AppointmentDetailSheet({
                 value={editApptTitle}
                 onChange={(e) => setEditApptTitle(e.target.value)}
                 placeholder="Enter appointment title..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editApptAddress">Address</Label>
+              <Input
+                id="editApptAddress"
+                value={editApptAddress}
+                onChange={(e) => setEditApptAddress(e.target.value)}
+                placeholder="Enter appointment address..."
               />
             </div>
 
