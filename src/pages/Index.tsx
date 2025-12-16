@@ -412,7 +412,7 @@ const Index = () => {
       </main>
 
       {/* Won Opportunities Sheet */}
-      <WonOpportunitiesSheet open={wonOpportunitiesSheetOpen} onOpenChange={setWonOpportunitiesSheetOpen} opportunities={metrics?.wonOpportunities || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} dateRange={dateRange} onOpportunityClick={opp => {
+      <WonOpportunitiesSheet open={wonOpportunitiesSheetOpen} onOpenChange={setWonOpportunitiesSheetOpen} opportunities={metrics?.wonOpportunities || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} appointments={metrics?.allAppointments || []} dateRange={dateRange} onOpportunityClick={opp => {
       setSelectedOpportunity({
         ghl_id: opp.ghl_id,
         name: opp.name,

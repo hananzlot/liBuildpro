@@ -22,9 +22,13 @@ import {
   LayoutGrid,
   TableIcon,
   Download,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { format, differenceInCalendarDays } from "date-fns";
 import type { DateRange } from "@/hooks/useGHLContacts";
+import { getAddressFromContact, CUSTOM_FIELD_IDS, extractCustomField } from "@/lib/utils";
 
 function parseGhlDate(value: string | null | undefined): Date | null {
   if (!value) return null;
@@ -32,6 +36,15 @@ function parseGhlDate(value: string | null | undefined): Date | null {
   const d = new Date(normalized);
   if (isNaN(d.getTime())) return null;
   return d;
+}
+
+// Format name to proper title case
+function formatName(name: string): string {
+  if (!name) return "";
+  return name
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
 }
 
 interface DBOpportunity {
@@ -70,26 +83,21 @@ interface DBUser {
   email: string | null;
 }
 
+interface DBAppointment {
+  ghl_id: string;
+  contact_id?: string | null;
+  address?: string | null;
+}
+
 interface WonOpportunitiesSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   opportunities: DBOpportunity[];
   contacts: DBContact[];
   users: DBUser[];
+  appointments?: DBAppointment[];
   dateRange?: DateRange;
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
-}
-
-const CUSTOM_FIELD_IDS = {
-  ADDRESS: "b7oTVsUQrLgZt84bHpCn",
-  SCOPE_OF_WORK: "KwQRtJT0aMSHnq3mwR68",
-  NOTES: "588ddQgiGEg3AWtTQB2i",
-};
-
-function extractCustomField(customFields: unknown, fieldId: string): string | null {
-  if (!Array.isArray(customFields)) return null;
-  const field = customFields.find((f: any) => f.id === fieldId);
-  return field?.value || null;
 }
 
 function formatCurrency(value: number): string {
@@ -107,11 +115,14 @@ export function WonOpportunitiesSheet({
   opportunities,
   contacts,
   users,
+  appointments = [],
   dateRange,
   onOpportunityClick,
 }: WonOpportunitiesSheetProps) {
   const [sourceFilter, setSourceFilter] = useState("");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [sortColumn, setSortColumn] = useState<"contact" | "address" | "source" | "rep" | "value" | "date">("date");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const userMap = new Map<string, string>();
   users.forEach((u) => {
@@ -156,7 +167,8 @@ export function WonOpportunitiesSheet({
     return filteredOpportunities.map((opp) => {
       const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
       const salesPerson = opp.assigned_to ? userMap.get(opp.assigned_to) : null;
-      const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
+      // Use getAddressFromContact with appointments fallback
+      const address = getAddressFromContact(contact, appointments, opp.contact_id);
       const scopeFromCustomField = contact
         ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
         : null;
@@ -170,10 +182,11 @@ export function WonOpportunitiesSheet({
       })();
       const scopeOfWork = scopeFromCustomField || scopeFromAttributions;
       const notes = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES) : null;
-      const contactName =
+      const rawContactName =
         contact?.contact_name ||
         `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() ||
         "Unknown Contact";
+      const contactName = formatName(rawContactName);
 
       const startDate = parseGhlDate(opp.ghl_date_added || contact?.ghl_date_added || null);
       const endDate = parseGhlDate(opp.ghl_date_updated);
@@ -194,7 +207,52 @@ export function WonOpportunitiesSheet({
         daysWorked,
       };
     });
-  }, [filteredOpportunities, contactMap, userMap]);
+  }, [filteredOpportunities, contactMap, userMap, appointments]);
+
+  // Sorted opportunities for table view
+  const sortedOpportunities = useMemo(() => {
+    return [...enrichedOpportunities].sort((a, b) => {
+      let comparison = 0;
+      switch (sortColumn) {
+        case "contact":
+          comparison = (a.contactName || "").localeCompare(b.contactName || "");
+          break;
+        case "address":
+          comparison = (a.address || "").localeCompare(b.address || "");
+          break;
+        case "source":
+          comparison = (a.contact?.source || "").localeCompare(b.contact?.source || "");
+          break;
+        case "rep":
+          comparison = (a.salesPerson || "").localeCompare(b.salesPerson || "");
+          break;
+        case "value":
+          comparison = (a.monetary_value || 0) - (b.monetary_value || 0);
+          break;
+        case "date":
+        default:
+          comparison = new Date(a.ghl_date_updated || 0).getTime() - new Date(b.ghl_date_updated || 0).getTime();
+          break;
+      }
+      return sortDirection === "desc" ? -comparison : comparison;
+    });
+  }, [enrichedOpportunities, sortColumn, sortDirection]);
+
+  const handleSort = (column: typeof sortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection(column === "date" || column === "value" ? "desc" : "asc");
+    }
+  };
+
+  const SortIcon = ({ column }: { column: typeof sortColumn }) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    return sortDirection === "asc" 
+      ? <ArrowUp className="h-3 w-3 ml-1" /> 
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
   const handleExportCSV = () => {
     const headers = [
@@ -303,16 +361,46 @@ export function WonOpportunitiesSheet({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Sales Rep</TableHead>
-                  <TableHead className="text-right">Value</TableHead>
-                  <TableHead>Date Won</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("contact")}
+                  >
+                    <div className="flex items-center">Contact<SortIcon column="contact" /></div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("address")}
+                  >
+                    <div className="flex items-center">Address<SortIcon column="address" /></div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("source")}
+                  >
+                    <div className="flex items-center">Source<SortIcon column="source" /></div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("rep")}
+                  >
+                    <div className="flex items-center">Sales Rep<SortIcon column="rep" /></div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none text-right"
+                    onClick={() => handleSort("value")}
+                  >
+                    <div className="flex items-center justify-end">Value<SortIcon column="value" /></div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort("date")}
+                  >
+                    <div className="flex items-center">Date Won<SortIcon column="date" /></div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {enrichedOpportunities.map((opp) => (
+                {sortedOpportunities.map((opp) => (
                   <TableRow
                     key={opp.id}
                     className={onOpportunityClick ? "cursor-pointer hover:bg-muted/50" : ""}
