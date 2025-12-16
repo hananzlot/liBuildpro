@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target } from "lucide-react";
+import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail } from "lucide-react";
 import { format, isToday, isTomorrow, addDays } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
@@ -393,11 +393,31 @@ export function UpcomingAppointmentsSheet({
                               </div>
                             )}
                             
-                            {/* Phone */}
+                            {/* Phone - clickable */}
                             {phone && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 ml-5">
-                                <Phone className="h-3 w-3 shrink-0" />
-                                <span>{phone}</span>
+                              <div className="flex items-center gap-1 text-xs mb-1 ml-5">
+                                <Phone className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                <a
+                                  href={`tel:${phone}`}
+                                  className="text-primary hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {phone}
+                                </a>
+                              </div>
+                            )}
+
+                            {/* Email - clickable */}
+                            {contact?.email && (
+                              <div className="flex items-center gap-1 text-xs mb-1 ml-5">
+                                <Mail className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                <a
+                                  href={`mailto:${contact.email}`}
+                                  className="text-primary hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {contact.email}
+                                </a>
                               </div>
                             )}
 
