@@ -26,6 +26,7 @@ interface DBAppointment {
   appointment_status: string | null;
   assigned_user_id: string | null;
   address?: string | null;
+  ghl_date_added?: string | null;
 }
 
 interface DBContact {
@@ -106,9 +107,14 @@ export function DateRangeAppointmentsSheet({
     });
   }, [appointments, searchFilter, contactMap, userMap]);
 
-  // Sort by start_time
+  // Sort by ghl_date_added (desc)
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
+      const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
+      const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
+      if (dateA !== dateB) return dateB - dateA;
+
+      // Fallback to start_time (asc) when created date is missing/equal
       if (!a.start_time) return 1;
       if (!b.start_time) return -1;
       return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
@@ -121,10 +127,10 @@ export function DateRangeAppointmentsSheet({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-primary" />
-            Appointments in Date Range
+            Appointments Created in Date Range
           </SheetTitle>
           <SheetDescription>
-            {sortedAppointments.length} appointments (excluding cancelled)
+            {sortedAppointments.length} appointments created (excluding cancelled)
           </SheetDescription>
         </SheetHeader>
 
@@ -187,11 +193,20 @@ export function DateRangeAppointmentsSheet({
                       </div>
 
                       <div className="grid gap-1.5 text-sm">
+                        {apt.ghl_date_added && (
+                          <div className="flex items-center gap-2">
+                            <CalendarCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <span className="text-foreground">
+                              Created {format(new Date(apt.ghl_date_added), "MMM d, yyyy 'at' h:mm a")}
+                            </span>
+                          </div>
+                        )}
+
                         {apt.start_time && (
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
                             <span className="text-foreground">
-                              {format(new Date(apt.start_time), "MMM d, yyyy 'at' h:mm a")}
+                              Scheduled {format(new Date(apt.start_time), "MMM d, yyyy 'at' h:mm a")}
                             </span>
                           </div>
                         )}

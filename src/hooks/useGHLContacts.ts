@@ -321,6 +321,7 @@ function processMetrics(
   appointments: DBAppointment[];
   allAppointments: DBAppointment[];
   filteredAppointmentsList: DBAppointment[];
+  appointmentsCreatedInRangeList: DBAppointment[];
   contacts: DBContact[];
   allContacts: DBContact[];
   allOpportunities: DBOpportunity[];
@@ -722,6 +723,7 @@ function processMetrics(
       .filter((a) => a.start_time)
       .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime()),
     filteredAppointmentsList: filteredAppointments,
+    appointmentsCreatedInRangeList: appointmentsByCreationDate,
     contacts: filteredContacts,
     allContacts: contacts,
     allOpportunities: opportunities,
