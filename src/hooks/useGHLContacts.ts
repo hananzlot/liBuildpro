@@ -40,6 +40,7 @@ interface DBOpportunity {
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
+  updated_at: string | null;
 }
 
 interface DBAppointment {
@@ -557,8 +558,8 @@ function processMetrics(
     endDate.setHours(23, 59, 59, 999);
 
     wonOpportunities = allWonOpportunities.filter((o) => {
-      // Prefer ghl_date_updated as "close date", fall back to added date if missing
-      const dateStr = o.ghl_date_updated || o.ghl_date_added;
+      // Prefer Supabase updated_at for immediate local updates, fall back to GHL dates
+      const dateStr = o.updated_at || o.ghl_date_updated || o.ghl_date_added;
       if (!dateStr) return false;
       const d = new Date(dateStr);
       return d >= startDate && d <= endDate;
@@ -568,11 +569,11 @@ function processMetrics(
     wonOpportunities = allWonOpportunities;
   }
 
-  // Always sort by close date (ghl_date_updated) newest first
+  // Always sort by close date (updated_at preferred) newest first
   wonOpportunities = wonOpportunities.sort(
     (a, b) =>
-      new Date(b.ghl_date_updated || b.ghl_date_added || 0).getTime() -
-      new Date(a.ghl_date_updated || a.ghl_date_added || 0).getTime(),
+      new Date(b.updated_at || b.ghl_date_updated || b.ghl_date_added || 0).getTime() -
+      new Date(a.updated_at || a.ghl_date_updated || a.ghl_date_added || 0).getTime(),
   );
 
   const wonOpportunitiesCount = wonOpportunities.length;
