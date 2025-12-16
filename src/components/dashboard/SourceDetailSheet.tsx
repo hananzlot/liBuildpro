@@ -421,40 +421,48 @@ export function SourceDetailSheet({
             </SheetHeader>
           </div>
 
-          <div className="p-4 space-y-4">
-            {/* Summary */}
+          <div className="p-4 space-y-3">
+            {/* Compact Summary Stats */}
             {showAppointments ? (
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="bg-muted/40 rounded-md p-2.5">
-                  <div className="text-muted-foreground text-xs mb-0.5">Unique Appointments</div>
-                  <div className="font-medium">{uniqueAppointmentsCount}</div>
+              <div className="flex items-center gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Appointments: </span>
+                  <span className="font-medium">{uniqueAppointmentsCount}</span>
                 </div>
-                <div className="bg-muted/40 rounded-md p-2.5">
-                  <div className="text-muted-foreground text-xs mb-0.5">Unique Contacts</div>
-                  <div className="font-medium">{new Set(sourceAppointments.map(a => a.contact_id)).size}</div>
+                <div>
+                  <span className="text-muted-foreground">Contacts: </span>
+                  <span className="font-medium">{new Set(sourceAppointments.map(a => a.contact_id)).size}</span>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3 text-sm">
-                <div className="bg-muted/40 rounded-md p-2.5">
-                  <div className="text-muted-foreground text-xs mb-0.5">Total Opportunities</div>
-                  <div className="font-medium">{sourceOpportunities.length}</div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Total: </span>
+                  <span className="font-medium">{sourceOpportunities.length}</span>
                 </div>
-                <div className="bg-muted/40 rounded-md p-2.5">
-                  <div className="text-muted-foreground text-xs mb-0.5">Confirmed Appts</div>
-                  <div className="font-medium text-blue-400">{confirmedAppointmentsCount}</div>
+                <div>
+                  <span className="text-muted-foreground">Confirmed: </span>
+                  <span className="font-medium text-blue-400">{confirmedAppointmentsCount}</span>
                 </div>
-                <div className="bg-muted/40 rounded-md p-2.5">
-                  <div className="text-muted-foreground text-xs mb-0.5">Open</div>
-                  <div className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "open").length}</div>
+                <div>
+                  <span className="text-muted-foreground">Open: </span>
+                  <span className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "open").length}</span>
                 </div>
-                <div className="bg-muted/40 rounded-md p-2.5">
-                  <div className="text-muted-foreground text-xs mb-0.5">Won Deals</div>
-                  <div className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</div>
+                <div>
+                  <span className="text-muted-foreground">Won: </span>
+                  <span className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</span>
                 </div>
-                <div className="bg-muted/40 rounded-md p-2.5 col-span-2">
-                  <div className="text-muted-foreground text-xs mb-0.5">Won Value</div>
-                  <div className="font-medium text-emerald-400">{formatCurrency(wonValue)}</div>
+                <div>
+                  <span className="text-muted-foreground">Lost: </span>
+                  <span className="font-medium text-red-400">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "lost").length}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">No Contact: </span>
+                  <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.contact_id && !contactIdsWithAnyAppointments.has(o.contact_id)).length}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Won Value: </span>
+                  <span className="font-medium text-emerald-400">{formatCurrency(wonValue)}</span>
                 </div>
               </div>
             )}
