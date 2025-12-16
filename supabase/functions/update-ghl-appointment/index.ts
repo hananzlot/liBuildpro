@@ -42,6 +42,7 @@ serve(async (req) => {
       startTime,  // ISO string in UTC
       endTime,    // ISO string in UTC (optional)
       assignedUserId,
+      address,
       notes,
       location_id,
     } = await req.json();
@@ -88,6 +89,9 @@ serve(async (req) => {
     }
     if (assignedUserId !== undefined) {
       updatePayload.assignedUserId = assignedUserId;
+    }
+    if (address !== undefined) {
+      updatePayload.address = address;
     }
     if (notes !== undefined) {
       updatePayload.notes = notes;
@@ -141,6 +145,9 @@ serve(async (req) => {
     }
     if (assignedUserId !== undefined) {
       supabaseUpdate.assigned_user_id = assignedUserId;
+    }
+    if (address !== undefined) {
+      supabaseUpdate.address = address;
     }
     if (notes !== undefined) {
       supabaseUpdate.notes = notes;
