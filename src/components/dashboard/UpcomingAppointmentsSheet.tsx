@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Calendar as CalendarIcon, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail, Copy, List, CalendarDays } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
@@ -89,11 +90,26 @@ interface CalendarViewProps {
   currentMonth: Date;
   onMonthChange: (date: Date) => void;
   onAppointmentClick: (appt: DBAppointment) => void;
-  onReschedule: (appt: DBAppointment, newDate: Date) => Promise<void>;
+  onReschedule: (appt: DBAppointment, newDate: Date, newTime: string) => Promise<void>;
   capitalizeWords: (str: string) => string;
   getStatusColor: (status: string | null) => string;
   isRescheduling: boolean;
 }
+
+// Generate time slots for the picker
+const generateTimeSlots = () => {
+  const slots: string[] = [];
+  for (let hour = 6; hour <= 20; hour++) {
+    for (let min = 0; min < 60; min += 30) {
+      const h = hour.toString().padStart(2, "0");
+      const m = min.toString().padStart(2, "0");
+      slots.push(`${h}:${m}`);
+    }
+  }
+  return slots;
+};
+
+const TIME_SLOTS = generateTimeSlots();
 
 function CalendarView({
   appointments,
@@ -110,6 +126,11 @@ function CalendarView({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [draggedAppt, setDraggedAppt] = useState<DBAppointment | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  
+  // Reschedule dialog state
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [pendingReschedule, setPendingReschedule] = useState<{ appt: DBAppointment; targetDate: Date } | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string>("09:00");
   
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -179,7 +200,7 @@ function CalendarView({
     setDragOverDate(null);
   };
 
-  const handleDrop = async (e: React.DragEvent, targetDay: Date) => {
+  const handleDrop = (e: React.DragEvent, targetDay: Date) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOverDate(null);
@@ -194,8 +215,33 @@ function CalendarView({
       return;
     }
     
-    await onReschedule(draggedAppt, targetDay);
+    // Set default time from original appointment
+    const originalTime = format(originalDate, "HH:mm");
+    // Find closest time slot
+    const closestSlot = TIME_SLOTS.reduce((prev, curr) => {
+      return Math.abs(parseInt(curr.replace(":", "")) - parseInt(originalTime.replace(":", ""))) <
+        Math.abs(parseInt(prev.replace(":", "")) - parseInt(originalTime.replace(":", "")))
+        ? curr
+        : prev;
+    });
+    setSelectedTime(closestSlot);
+    
+    // Open dialog instead of directly rescheduling
+    setPendingReschedule({ appt: draggedAppt, targetDate: targetDay });
+    setRescheduleDialogOpen(true);
     setDraggedAppt(null);
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!pendingReschedule) return;
+    await onReschedule(pendingReschedule.appt, pendingReschedule.targetDate, selectedTime);
+    setRescheduleDialogOpen(false);
+    setPendingReschedule(null);
+  };
+
+  const handleCancelReschedule = () => {
+    setRescheduleDialogOpen(false);
+    setPendingReschedule(null);
   };
 
   return (
@@ -385,6 +431,95 @@ function CalendarView({
           </div>
         )}
       </div>
+
+      {/* Reschedule Time Picker Dialog */}
+      <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Reschedule Appointment
+            </DialogTitle>
+            <DialogDescription>
+              {pendingReschedule && (
+                <>
+                  Moving <span className="font-medium">{capitalizeWords(getContactName(pendingReschedule.appt))}</span> to{" "}
+                  <span className="font-medium">{format(pendingReschedule.targetDate, "EEEE, MMMM d, yyyy")}</span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Original time display */}
+            {pendingReschedule?.appt.start_time && (
+              <div className="text-sm text-muted-foreground">
+                Original time: <span className="font-medium text-foreground">{format(new Date(pendingReschedule.appt.start_time), "h:mm a")}</span>
+              </div>
+            )}
+
+            {/* Time selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select new time</label>
+              <Select value={selectedTime} onValueChange={setSelectedTime}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {TIME_SLOTS.map((slot) => {
+                    const [h, m] = slot.split(":");
+                    const hour = parseInt(h);
+                    const ampm = hour >= 12 ? "PM" : "AM";
+                    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                    return (
+                      <SelectItem key={slot} value={slot}>
+                        {hour12}:{m} {ampm}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Quick time buttons */}
+            <div className="flex flex-wrap gap-2">
+              {["08:00", "09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00"].map((time) => {
+                const [h, m] = time.split(":");
+                const hour = parseInt(h);
+                const ampm = hour >= 12 ? "PM" : "AM";
+                const hour12 = hour > 12 ? hour - 12 : hour;
+                return (
+                  <Button
+                    key={time}
+                    variant={selectedTime === time ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedTime(time)}
+                    className="text-xs"
+                  >
+                    {hour12}:{m} {ampm}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCancelReschedule} disabled={isRescheduling}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmReschedule} disabled={isRescheduling}>
+              {isRescheduling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Rescheduling...
+                </>
+              ) : (
+                "Confirm"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -616,16 +751,19 @@ export function UpcomingAppointmentsSheet({
   };
 
   // Handle drag-and-drop reschedule
-  const handleReschedule = async (appt: DBAppointment, newDate: Date) => {
+  const handleReschedule = async (appt: DBAppointment, newDate: Date, newTime: string) => {
     if (!appt.start_time) return;
     
     setIsRescheduling(true);
     try {
       const originalDate = new Date(appt.start_time);
       
-      // Keep the same time, just change the date
+      // Parse the selected time
+      const [hours, minutes] = newTime.split(":").map(Number);
+      
+      // Set the new date with selected time
       const newStartTime = new Date(newDate);
-      newStartTime.setHours(originalDate.getHours(), originalDate.getMinutes(), 0, 0);
+      newStartTime.setHours(hours, minutes, 0, 0);
       
       // Calculate new end time if we have one
       let newEndTime: Date | null = null;
@@ -665,7 +803,7 @@ export function UpcomingAppointmentsSheet({
 
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["ghl-contacts"] });
-      toast.success(`Appointment rescheduled to ${format(newStartTime, "MMM d, yyyy")}`);
+      toast.success(`Appointment rescheduled to ${format(newStartTime, "MMM d, yyyy 'at' h:mm a")}`);
     } catch (error) {
       console.error("Error rescheduling appointment:", error);
       toast.error("Failed to reschedule appointment");
