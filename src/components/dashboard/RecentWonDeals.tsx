@@ -217,13 +217,13 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
                     </div>
 
                     {/* Value & Profit */}
-                    <div className="flex items-center gap-1.5 text-right whitespace-nowrap">
-                      {cost !== undefined && <span className="text-xs text-amber-500">{formatCurrency(cost)}</span>}
-                      <span className="text-sm font-semibold text-emerald-500">
+                    <div className="flex items-center gap-1 text-right whitespace-nowrap text-[11px]">
+                      {cost !== undefined && <span className="text-amber-500">{formatCurrency(cost)}</span>}
+                      <span className="font-semibold text-emerald-500 min-w-[40px]">
                         {formatCurrency(opp.monetary_value)}
                       </span>
                       {profit !== null && (
-                        <span className={`text-xs font-medium ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        <span className={`font-medium ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                           {profit >= 0 ? "+" : ""}
                           {formatCurrency(profit)}
                         </span>
