@@ -6,14 +6,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Calendar, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail, Copy } from "lucide-react";
-import { format, isToday, isTomorrow, addDays } from "date-fns";
+import { Calendar as CalendarIcon, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail, Copy, List, CalendarDays } from "lucide-react";
+import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
+import { ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
 
 interface DBAppointment {
   id: string;
@@ -80,6 +81,144 @@ interface UpcomingAppointmentsSheetProps {
   users: DBUser[];
 }
 
+// Calendar View Component
+interface CalendarViewProps {
+  appointments: DBAppointment[];
+  contacts: DBContact[];
+  userMap: Map<string, string>;
+  currentMonth: Date;
+  onMonthChange: (date: Date) => void;
+  onAppointmentClick: (appt: DBAppointment) => void;
+  capitalizeWords: (str: string) => string;
+  getStatusColor: (status: string | null) => string;
+}
+
+function CalendarView({
+  appointments,
+  contacts,
+  userMap,
+  currentMonth,
+  onMonthChange,
+  onAppointmentClick,
+  capitalizeWords,
+  getStatusColor,
+}: CalendarViewProps) {
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const calendarStart = startOfWeek(monthStart);
+  const calendarEnd = endOfWeek(monthEnd);
+  
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  
+  const appointmentsByDate = useMemo(() => {
+    const map = new Map<string, DBAppointment[]>();
+    appointments.forEach((appt) => {
+      if (!appt.start_time) return;
+      const dateKey = format(new Date(appt.start_time), "yyyy-MM-dd");
+      if (!map.has(dateKey)) {
+        map.set(dateKey, []);
+      }
+      map.get(dateKey)!.push(appt);
+    });
+    // Sort appointments by time within each day
+    map.forEach((appts) => {
+      appts.sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
+    });
+    return map;
+  }, [appointments]);
+
+  const getContactName = (appt: DBAppointment) => {
+    const contact = contacts.find((c) => c.ghl_id === appt.contact_id);
+    return contact?.contact_name || 
+      `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || 
+      "Unknown";
+  };
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Month Navigation */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onMonthChange(subMonths(currentMonth, 1))}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="font-medium">{format(currentMonth, "MMMM yyyy")}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onMonthChange(addMonths(currentMonth, 1))}
+        >
+          <ChevronRightIcon className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* Calendar Grid */}
+      <div className="flex-1 overflow-auto">
+        {/* Day Headers */}
+        <div className="grid grid-cols-7 border-b sticky top-0 bg-background z-10">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+            <div key={day} className="p-2 text-center text-xs font-medium text-muted-foreground border-r last:border-r-0">
+              {day}
+            </div>
+          ))}
+        </div>
+        
+        {/* Calendar Days */}
+        <div className="grid grid-cols-7">
+          {days.map((day) => {
+            const dateKey = format(day, "yyyy-MM-dd");
+            const dayAppointments = appointmentsByDate.get(dateKey) || [];
+            const isCurrentMonth = isSameMonth(day, currentMonth);
+            const isDayToday = isToday(day);
+            
+            return (
+              <div
+                key={dateKey}
+                className={`min-h-[100px] border-r border-b p-1 ${
+                  !isCurrentMonth ? "bg-muted/20" : ""
+                } ${isDayToday ? "bg-primary/5" : ""}`}
+              >
+                <div className={`text-xs font-medium mb-1 ${
+                  isDayToday ? "text-primary" : !isCurrentMonth ? "text-muted-foreground" : ""
+                }`}>
+                  {format(day, "d")}
+                  {dayAppointments.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                      {dayAppointments.length}
+                    </Badge>
+                  )}
+                </div>
+                <div className="space-y-0.5 overflow-hidden">
+                  {dayAppointments.slice(0, 3).map((appt) => (
+                    <div
+                      key={appt.ghl_id}
+                      className={`text-[10px] px-1 py-0.5 rounded cursor-pointer truncate ${getStatusColor(appt.appointment_status)}`}
+                      onClick={() => onAppointmentClick(appt)}
+                      title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))}`}
+                    >
+                      <span className="font-medium">{format(new Date(appt.start_time!), "h:mm")}</span>
+                      {" "}
+                      {capitalizeWords(getContactName(appt)).split(" ")[0]}
+                    </div>
+                  ))}
+                  {dayAppointments.length > 3 && (
+                    <div className="text-[10px] text-muted-foreground px-1">
+                      +{dayAppointments.length - 3} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function UpcomingAppointmentsSheet({
   open,
   onOpenChange,
@@ -98,6 +237,8 @@ export function UpcomingAppointmentsSheet({
   const [localConfirmedState, setLocalConfirmedState] = useState<Record<string, boolean>>({});
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [localStatusState, setLocalStatusState] = useState<Record<string, string>>({});
+  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const APPOINTMENT_STATUSES = ["confirmed", "showed", "no_show", "cancelled"];
 
@@ -295,7 +436,7 @@ export function UpcomingAppointmentsSheet({
             <SheetHeader>
               <div className="flex items-center gap-2">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Calendar className="h-5 w-5 text-primary" />
+                  <CalendarIcon className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <SheetTitle>Today & Upcoming Appointments</SheetTitle>
@@ -308,8 +449,28 @@ export function UpcomingAppointmentsSheet({
 
             {/* Filters */}
             <div className="mt-4 flex items-center gap-2">
+              <div className="flex items-center border rounded-md">
+                <Button
+                  variant={viewMode === "calendar" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-9 px-2"
+                  onClick={() => setViewMode("calendar")}
+                  title="Calendar view"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  size="sm"
+                  className="h-9 px-2"
+                  onClick={() => setViewMode("list")}
+                  title="List view"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
               <Select value={repFilter} onValueChange={setRepFilter}>
-                <SelectTrigger className="h-9 w-36 text-sm">
+                <SelectTrigger className="h-9 w-32 text-sm">
                   <SelectValue placeholder="Sales Rep" />
                 </SelectTrigger>
                 <SelectContent>
@@ -333,7 +494,19 @@ export function UpcomingAppointmentsSheet({
             </div>
           </div>
 
-          <ScrollArea className="flex-1 min-h-0">
+          {viewMode === "calendar" ? (
+            <CalendarView
+              appointments={filteredAppointments}
+              contacts={contacts}
+              userMap={userMap}
+              currentMonth={currentMonth}
+              onMonthChange={setCurrentMonth}
+              onAppointmentClick={handleAppointmentClick}
+              capitalizeWords={capitalizeWords}
+              getStatusColor={getStatusColor}
+            />
+          ) : (
+            <ScrollArea className="flex-1 min-h-0">
             <div className="p-4 space-y-6">
               {groupedAppointments.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-8">
@@ -475,7 +648,7 @@ export function UpcomingAppointmentsSheet({
 
                             {/* Appointment title */}
                             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 ml-5">
-                              <Calendar className="h-3 w-3 shrink-0" />
+                              <CalendarIcon className="h-3 w-3 shrink-0" />
                               <span className="truncate font-semibold">{appt.title || "Untitled"}</span>
                               {assignedUser && (
                                 <>
@@ -571,6 +744,7 @@ export function UpcomingAppointmentsSheet({
               )}
             </div>
           </ScrollArea>
+          )}
         </SheetContent>
       </Sheet>
 
