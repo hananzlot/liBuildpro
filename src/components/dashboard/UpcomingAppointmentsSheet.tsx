@@ -89,8 +89,10 @@ interface CalendarViewProps {
   currentMonth: Date;
   onMonthChange: (date: Date) => void;
   onAppointmentClick: (appt: DBAppointment) => void;
+  onReschedule: (appt: DBAppointment, newDate: Date) => Promise<void>;
   capitalizeWords: (str: string) => string;
   getStatusColor: (status: string | null) => string;
+  isRescheduling: boolean;
 }
 
 function CalendarView({
@@ -100,10 +102,14 @@ function CalendarView({
   currentMonth,
   onMonthChange,
   onAppointmentClick,
+  onReschedule,
   capitalizeWords,
   getStatusColor,
+  isRescheduling,
 }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [draggedAppt, setDraggedAppt] = useState<DBAppointment | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -148,6 +154,50 @@ function CalendarView({
     }
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, appt: DBAppointment) => {
+    e.stopPropagation();
+    setDraggedAppt(appt);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", appt.ghl_id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAppt(null);
+    setDragOverDate(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, dateKey: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDate(dateKey);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverDate(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetDay: Date) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverDate(null);
+    
+    if (!draggedAppt || !draggedAppt.start_time) return;
+    
+    const originalDate = new Date(draggedAppt.start_time);
+    
+    // If dropping on the same day, do nothing
+    if (isSameDay(originalDate, targetDay)) {
+      setDraggedAppt(null);
+      return;
+    }
+    
+    await onReschedule(draggedAppt, targetDay);
+    setDraggedAppt(null);
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Month Navigation */}
@@ -159,7 +209,15 @@ function CalendarView({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="font-medium">{format(currentMonth, "MMMM yyyy")}</span>
+        <div className="text-center">
+          <span className="font-medium">{format(currentMonth, "MMMM yyyy")}</span>
+          {isRescheduling && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Rescheduling...</span>
+            </div>
+          )}
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -168,6 +226,13 @@ function CalendarView({
           <ChevronRightIcon className="h-4 w-4" />
         </Button>
       </div>
+
+      {/* Drag hint */}
+      {draggedAppt && (
+        <div className="px-4 py-1 bg-primary/10 text-xs text-primary text-center">
+          Drag to a new date to reschedule
+        </div>
+      )}
       
       <div className="flex-1 flex overflow-hidden">
         {/* Calendar Grid */}
@@ -189,14 +254,20 @@ function CalendarView({
               const isCurrentMonth = isSameMonth(day, currentMonth);
               const isDayToday = isToday(day);
               const isSelected = selectedDate && isSameDay(day, selectedDate);
+              const isDragOver = dragOverDate === dateKey;
               
               return (
                 <div
                   key={dateKey}
-                  className={`min-h-[100px] border-r border-b p-1 cursor-pointer transition-colors ${
+                  className={`min-h-[100px] border-r border-b p-1 cursor-pointer transition-all duration-150 ${
                     !isCurrentMonth ? "bg-muted/20" : ""
-                  } ${isDayToday ? "bg-primary/5" : ""} ${isSelected ? "bg-primary/10 ring-2 ring-primary ring-inset" : ""} hover:bg-muted/40`}
+                  } ${isDayToday ? "bg-primary/5" : ""} ${isSelected ? "bg-primary/10 ring-2 ring-primary ring-inset" : ""} ${
+                    isDragOver ? "bg-primary/20 ring-2 ring-primary ring-dashed scale-[1.02]" : ""
+                  } hover:bg-muted/40`}
                   onClick={() => handleDayClick(day)}
+                  onDragOver={(e) => handleDragOver(e, dateKey)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, day)}
                 >
                   <div className={`text-xs font-medium mb-1 ${
                     isDayToday ? "text-primary" : !isCurrentMonth ? "text-muted-foreground" : ""
@@ -212,17 +283,20 @@ function CalendarView({
                     {dayAppointments.slice(0, 3).map((appt) => (
                       <div
                         key={appt.ghl_id}
-                        className={`text-[10px] px-1 py-0.5 rounded cursor-pointer truncate ${getStatusColor(appt.appointment_status)} ${
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, appt)}
+                        onDragEnd={handleDragEnd}
+                        className={`text-[10px] px-1 py-0.5 rounded cursor-grab active:cursor-grabbing truncate transition-opacity ${getStatusColor(appt.appointment_status)} ${
                           userMap.get(appt.assigned_user_id || "") ? `border-l-2` : ""
-                        }`}
+                        } ${draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""}`}
                         style={{
                           borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : undefined,
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onAppointmentClick(appt);
+                          if (!draggedAppt) onAppointmentClick(appt);
                         }}
-                        title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"})`}
+                        title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"}) - Drag to reschedule`}
                       >
                         <span className="font-medium">{format(new Date(appt.start_time!), "h:mm")}</span>
                         {" "}
@@ -264,8 +338,13 @@ function CalendarView({
                     return (
                       <div
                         key={appt.ghl_id}
-                        className="p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-pointer transition-colors"
-                        onClick={() => onAppointmentClick(appt)}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, appt)}
+                        onDragEnd={handleDragEnd}
+                        className={`p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-grab active:cursor-grabbing transition-all ${
+                          draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""
+                        }`}
+                        onClick={() => !draggedAppt && onAppointmentClick(appt)}
                         style={{
                           borderLeftWidth: "3px",
                           borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : "var(--border)",
@@ -294,6 +373,9 @@ function CalendarView({
                             <span>{contact.phone}</span>
                           </div>
                         )}
+                        <div className="mt-2 text-[10px] text-muted-foreground/60">
+                          Drag to another day to reschedule
+                        </div>
                       </div>
                     );
                   })
@@ -346,6 +428,7 @@ export function UpcomingAppointmentsSheet({
   const [localStatusState, setLocalStatusState] = useState<Record<string, string>>({});
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [isRescheduling, setIsRescheduling] = useState(false);
 
   const APPOINTMENT_STATUSES = ["confirmed", "showed", "no_show", "cancelled"];
 
@@ -532,6 +615,65 @@ export function UpcomingAppointmentsSheet({
     setDetailSheetOpen(true);
   };
 
+  // Handle drag-and-drop reschedule
+  const handleReschedule = async (appt: DBAppointment, newDate: Date) => {
+    if (!appt.start_time) return;
+    
+    setIsRescheduling(true);
+    try {
+      const originalDate = new Date(appt.start_time);
+      
+      // Keep the same time, just change the date
+      const newStartTime = new Date(newDate);
+      newStartTime.setHours(originalDate.getHours(), originalDate.getMinutes(), 0, 0);
+      
+      // Calculate new end time if we have one
+      let newEndTime: Date | null = null;
+      if (appt.end_time) {
+        const originalEndDate = new Date(appt.end_time);
+        const duration = originalEndDate.getTime() - originalDate.getTime();
+        newEndTime = new Date(newStartTime.getTime() + duration);
+      }
+      
+      // GHL requires title change for reschedule workaround
+      const titleSuffix = appt.title?.endsWith(" -1") ? "" : " -1";
+      const newTitle = (appt.title || "Appointment") + titleSuffix;
+      
+      // Update in GHL first
+      const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
+        body: {
+          ghl_id: appt.ghl_id,
+          start_time: newStartTime.toISOString(),
+          end_time: newEndTime?.toISOString(),
+          title: newTitle,
+        },
+      });
+
+      if (ghlError) throw ghlError;
+
+      // Update in Supabase
+      const { error } = await supabase
+        .from("appointments")
+        .update({ 
+          start_time: newStartTime.toISOString(),
+          end_time: newEndTime?.toISOString(),
+          title: newTitle.replace(" -1", ""), // Clean up title suffix
+        })
+        .eq("ghl_id", appt.ghl_id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-contacts"] });
+      toast.success(`Appointment rescheduled to ${format(newStartTime, "MMM d, yyyy")}`);
+    } catch (error) {
+      console.error("Error rescheduling appointment:", error);
+      toast.error("Failed to reschedule appointment");
+    } finally {
+      setIsRescheduling(false);
+    }
+  };
+
   const todayCount = todayAndUpcomingAppointments.filter((a) => isToday(new Date(a.start_time!))).length;
   const upcomingCount = todayAndUpcomingAppointments.filter((a) => !isToday(new Date(a.start_time!))).length;
 
@@ -609,8 +751,10 @@ export function UpcomingAppointmentsSheet({
               currentMonth={currentMonth}
               onMonthChange={setCurrentMonth}
               onAppointmentClick={handleAppointmentClick}
+              onReschedule={handleReschedule}
               capitalizeWords={capitalizeWords}
               getStatusColor={getStatusColor}
+              isRescheduling={isRescheduling}
             />
           ) : (
             <ScrollArea className="flex-1 min-h-0">
