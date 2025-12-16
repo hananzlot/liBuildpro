@@ -1737,6 +1737,7 @@ export function FollowUpManagement({
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
+                          <TableHead>Days</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1768,6 +1769,9 @@ export function FollowUpManagement({
                               </TableCell>
                               <TableCell className="text-muted-foreground text-sm">
                                 {opp.ghl_date_added ? format(new Date(opp.ghl_date_added), "MMM d, yyyy") : "-"}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm">
+                                {opp.ghl_date_added ? Math.floor((Date.now() - new Date(opp.ghl_date_added).getTime()) / (1000 * 60 * 60 * 24)) : "-"}
                               </TableCell>
                             </TableRow>
                           );
