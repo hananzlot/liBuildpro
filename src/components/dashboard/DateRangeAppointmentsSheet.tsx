@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -12,9 +13,17 @@ import {
   Clock,
   Search,
   Target,
+  Mail,
+  Pencil,
+  Check,
+  X,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface DBAppointment {
   id: string;
@@ -36,6 +45,7 @@ interface DBContact {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  email: string | null;
   source: string | null;
   custom_fields: unknown;
 }
@@ -74,6 +84,12 @@ export function DateRangeAppointmentsSheet({
   onAppointmentClick,
 }: DateRangeAppointmentsSheetProps) {
   const [searchFilter, setSearchFilter] = useState("");
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [editAddressValue, setEditAddressValue] = useState("");
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [localAddressState, setLocalAddressState] = useState<Record<string, string>>({});
+
+  const queryClient = useQueryClient();
 
   const userMap = new Map<string, string>();
   users.forEach((u) => {
@@ -121,6 +137,52 @@ export function DateRangeAppointmentsSheet({
     });
   }, [filteredAppointments]);
 
+  const startEditingAddress = (apt: DBAppointment, currentAddress: string | null, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingAddressId(apt.ghl_id);
+    setEditAddressValue(localAddressState[apt.ghl_id] ?? apt.address ?? currentAddress ?? "");
+  };
+
+  const cancelEditingAddress = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingAddressId(null);
+    setEditAddressValue("");
+  };
+
+  const saveAddress = async (apt: DBAppointment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!apt.ghl_id) return;
+
+    setIsSavingAddress(true);
+    try {
+      // Update in GHL
+      const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
+        body: {
+          ghl_id: apt.ghl_id,
+          address: editAddressValue.trim() || null,
+        },
+      });
+
+      if (ghlError) throw ghlError;
+
+      // Update local state for immediate feedback
+      setLocalAddressState((prev) => ({ ...prev, [apt.ghl_id]: editAddressValue.trim() }));
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-contacts"] });
+      
+      toast.success("Address updated");
+      setEditingAddressId(null);
+      setEditAddressValue("");
+    } catch (error) {
+      console.error("Error updating address:", error);
+      toast.error("Failed to update address");
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl">
@@ -162,7 +224,10 @@ export function DateRangeAppointmentsSheet({
                     )
                   : "Unknown Contact";
                 
-                const address = getAddressFromContact(contact, appointments, apt.contact_id);
+                // Address: local state > appointment address > fallback from contact
+                const fallbackAddress = getAddressFromContact(contact, appointments, apt.contact_id);
+                const displayAddress = localAddressState[apt.ghl_id] ?? apt.address ?? fallbackAddress;
+                const isEditingThis = editingAddressId === apt.ghl_id;
 
                 const statusColor = {
                   confirmed: "bg-blue-500/10 text-blue-500 border-blue-500/20",
@@ -174,8 +239,8 @@ export function DateRangeAppointmentsSheet({
                 return (
                   <Card 
                     key={apt.id} 
-                    className={`border-border/50 ${onAppointmentClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
-                    onClick={() => onAppointmentClick?.(apt)}
+                    className={`border-border/50 ${onAppointmentClick && !isEditingThis ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+                    onClick={() => !isEditingThis && onAppointmentClick?.(apt)}
                   >
                     <CardContent className="pt-4 space-y-2">
                       <div className="flex items-start justify-between gap-3">
@@ -211,17 +276,83 @@ export function DateRangeAppointmentsSheet({
                           </div>
                         )}
 
-                        {address && (
-                          <div className="flex items-start gap-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                            <span className="text-foreground">{address}</span>
-                          </div>
-                        )}
+                        {/* Address - editable */}
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                          {isEditingThis ? (
+                            <div className="flex-1 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <Input
+                                value={editAddressValue}
+                                onChange={(e) => setEditAddressValue(e.target.value)}
+                                placeholder="Enter address..."
+                                className="h-7 text-sm flex-1"
+                                autoFocus
+                              />
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                onClick={(e) => saveAddress(apt, e)}
+                                disabled={isSavingAddress}
+                              >
+                                {isSavingAddress ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5 text-green-500" />
+                                )}
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                onClick={cancelEditingAddress}
+                                disabled={isSavingAddress}
+                              >
+                                <X className="h-3.5 w-3.5 text-red-500" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 flex-1 group">
+                              <span className="text-foreground flex-1">
+                                {displayAddress || <span className="text-muted-foreground italic">No address</span>}
+                              </span>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => startEditingAddress(apt, fallbackAddress, e)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
 
+                        {/* Phone - clickable */}
                         {contact?.phone && (
                           <div className="flex items-center gap-2">
                             <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="text-foreground">{contact.phone}</span>
+                            <a
+                              href={`tel:${contact.phone}`}
+                              className="text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {contact.phone}
+                            </a>
+                          </div>
+                        )}
+
+                        {/* Email - clickable */}
+                        {contact?.email && (
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <a
+                              href={`mailto:${contact.email}`}
+                              className="text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {contact.email}
+                            </a>
                           </div>
                         )}
 
