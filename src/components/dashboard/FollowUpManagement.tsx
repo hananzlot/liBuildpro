@@ -139,7 +139,7 @@ export function FollowUpManagement({
   const [staleNewRepFilter, setStaleNewRepFilter] = useState<string>("all");
   const [staleNewSourceFilter, setStaleNewSourceFilter] = useState<string>("all");
   const [staleNewStageFilter, setStaleNewStageFilter] = useState<string>("all"); // Now uses actual stage names
-  const [staleNewSort, setStaleNewSort] = useState<{ field: "name" | "address" | "stage" | "source" | "rep" | "value"; direction: SortDirection }>({ field: "value", direction: "desc" });
+  const [staleNewSort, setStaleNewSort] = useState<{ field: "name" | "address" | "stage" | "source" | "rep" | "value" | "date_added"; direction: SortDirection }>({ field: "date_added", direction: "desc" });
   const NEEDS_ATTENTION_PAGE_SIZE = 10;
 
   // Tasks Helper State
@@ -894,6 +894,10 @@ export function FollowUpManagement({
           return direction * getContactSource(a.contact_id).localeCompare(getContactSource(b.contact_id));
         case "rep":
           return direction * getUserName(a.assigned_to).localeCompare(getUserName(b.assigned_to));
+        case "date_added":
+          const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
+          const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
+          return direction * (dateA - dateB);
         case "value":
         default:
           return direction * ((a.monetary_value || 0) - (b.monetary_value || 0));
@@ -1724,6 +1728,15 @@ export function FollowUpManagement({
                               <ArrowUpDown className="h-3 w-3" />
                             </div>
                           </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setStaleNewSort(prev => ({ field: "date_added", direction: prev.field === "date_added" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Date Added
+                              <ArrowUpDown className="h-3 w-3" />
+                            </div>
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1749,9 +1762,12 @@ export function FollowUpManagement({
                               <TableCell className="text-muted-foreground">
                                 {getContactSource(opp.contact_id) || "-"}
                               </TableCell>
-                              <TableCell>{getUserName(opp.assigned_to)}</TableCell>
+                            <TableCell>{getUserName(opp.assigned_to)}</TableCell>
                               <TableCell className="font-medium text-green-600 text-right">
                                 {formatCurrency(opp.monetary_value)}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground text-sm">
+                                {opp.ghl_date_added ? format(new Date(opp.ghl_date_added), "MMM d, yyyy") : "-"}
                               </TableCell>
                             </TableRow>
                           );
