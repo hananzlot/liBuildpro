@@ -422,15 +422,11 @@ export function UpcomingAppointmentsSheet({
                                 <Mail className="h-3 w-3 shrink-0 text-muted-foreground" />
                                 <a
                                   href={`mailto:${contact.email}`}
+                                  target="_top"
+                                  rel="noreferrer"
                                   className="text-primary hover:underline"
                                   onPointerDown={(e) => e.stopPropagation()}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    const email = contact.email?.trim();
-                                    if (!email) return;
-                                    window.location.href = `mailto:${email}`;
-                                  }}
+                                  onClick={(e) => e.stopPropagation()}
                                 >
                                   {contact.email}
                                 </a>

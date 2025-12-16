@@ -357,15 +357,11 @@ export function DateRangeAppointmentsSheet({
                             <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
                             <a
                               href={`mailto:${contact.email}`}
+                              target="_top"
+                              rel="noreferrer"
                               className="text-primary hover:underline"
                               onPointerDown={(e) => e.stopPropagation()}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                const email = contact.email?.trim();
-                                if (!email) return;
-                                window.location.href = `mailto:${email}`;
-                              }}
+                              onClick={(e) => e.stopPropagation()}
                             >
                               {contact.email}
                             </a>
