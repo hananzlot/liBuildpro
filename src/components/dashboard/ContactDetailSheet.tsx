@@ -254,11 +254,41 @@ export function ContactDetailSheet({
             <div className="p-3 grid gap-1.5 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Phone className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{contact.phone || <span className="italic text-muted-foreground/60">No phone</span>}</span>
+                {contact.phone ? (
+                  <a
+                    href={`tel:${contact.phone}`}
+                    className="text-primary hover:underline truncate"
+                  >
+                    {contact.phone}
+                  </a>
+                ) : (
+                  <span className="italic text-muted-foreground/60">No phone</span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{contact.email || <span className="italic text-muted-foreground/60">No email</span>}</span>
+                {contact.email ? (
+                  <>
+                    <a
+                      href={`mailto:${contact.email}`}
+                      target="_top"
+                      rel="noreferrer"
+                      className="text-primary hover:underline truncate"
+                    >
+                      {contact.email}
+                    </a>
+                    <a
+                      href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-primary text-xs"
+                    >
+                      (Gmail)
+                    </a>
+                  </>
+                ) : (
+                  <span className="italic text-muted-foreground/60">No email</span>
+                )}
               </div>
               <div className="flex items-start gap-2">
                 <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
