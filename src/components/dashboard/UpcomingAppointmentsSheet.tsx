@@ -400,7 +400,16 @@ export function UpcomingAppointmentsSheet({
                                 <a
                                   href={`tel:${phone}`}
                                   className="text-primary hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const p = phone.trim();
+                                    if (!p) return;
+                                    const url = `tel:${p}`;
+                                    const win = window.open(url, "_blank", "noopener,noreferrer");
+                                    if (!win) window.location.href = url;
+                                  }}
                                 >
                                   {phone}
                                 </a>
@@ -414,7 +423,16 @@ export function UpcomingAppointmentsSheet({
                                 <a
                                   href={`mailto:${contact.email}`}
                                   className="text-primary hover:underline"
-                                  onClick={(e) => e.stopPropagation()}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const email = contact.email?.trim();
+                                    if (!email) return;
+                                    const mailtoUrl = `mailto:${email}`;
+                                    const win = window.open(mailtoUrl, "_blank", "noopener,noreferrer");
+                                    if (!win) window.location.href = mailtoUrl;
+                                  }}
                                 >
                                   {contact.email}
                                 </a>
@@ -428,7 +446,7 @@ export function UpcomingAppointmentsSheet({
                                 <span className="capitalize">{source}</span>
                               </div>
                             )}
-                            
+
                             {/* Appointment title */}
                             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 ml-5">
                               <Calendar className="h-3 w-3 shrink-0" />
