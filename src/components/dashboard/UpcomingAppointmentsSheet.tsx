@@ -103,6 +103,8 @@ function CalendarView({
   capitalizeWords,
   getStatusColor,
 }: CalendarViewProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const calendarStart = startOfWeek(monthStart);
@@ -134,6 +136,18 @@ function CalendarView({
       "Unknown";
   };
 
+  const selectedDateAppointments = selectedDate 
+    ? appointmentsByDate.get(format(selectedDate, "yyyy-MM-dd")) || []
+    : [];
+
+  const handleDayClick = (day: Date) => {
+    if (selectedDate && isSameDay(day, selectedDate)) {
+      setSelectedDate(null);
+    } else {
+      setSelectedDate(day);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Month Navigation */}
@@ -155,68 +169,161 @@ function CalendarView({
         </Button>
       </div>
       
-      {/* Calendar Grid */}
-      <div className="flex-1 overflow-auto">
-        {/* Day Headers */}
-        <div className="grid grid-cols-7 border-b sticky top-0 bg-background z-10">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="p-2 text-center text-xs font-medium text-muted-foreground border-r last:border-r-0">
-              {day}
-            </div>
-          ))}
-        </div>
-        
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7">
-          {days.map((day) => {
-            const dateKey = format(day, "yyyy-MM-dd");
-            const dayAppointments = appointmentsByDate.get(dateKey) || [];
-            const isCurrentMonth = isSameMonth(day, currentMonth);
-            const isDayToday = isToday(day);
-            
-            return (
-              <div
-                key={dateKey}
-                className={`min-h-[100px] border-r border-b p-1 ${
-                  !isCurrentMonth ? "bg-muted/20" : ""
-                } ${isDayToday ? "bg-primary/5" : ""}`}
-              >
-                <div className={`text-xs font-medium mb-1 ${
-                  isDayToday ? "text-primary" : !isCurrentMonth ? "text-muted-foreground" : ""
-                }`}>
-                  {format(day, "d")}
-                  {dayAppointments.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
-                      {dayAppointments.length}
-                    </Badge>
-                  )}
-                </div>
-                <div className="space-y-0.5 overflow-hidden">
-                  {dayAppointments.slice(0, 3).map((appt) => (
-                    <div
-                      key={appt.ghl_id}
-                      className={`text-[10px] px-1 py-0.5 rounded cursor-pointer truncate ${getStatusColor(appt.appointment_status)}`}
-                      onClick={() => onAppointmentClick(appt)}
-                      title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))}`}
-                    >
-                      <span className="font-medium">{format(new Date(appt.start_time!), "h:mm")}</span>
-                      {" "}
-                      {capitalizeWords(getContactName(appt)).split(" ")[0]}
-                    </div>
-                  ))}
-                  {dayAppointments.length > 3 && (
-                    <div className="text-[10px] text-muted-foreground px-1">
-                      +{dayAppointments.length - 3} more
-                    </div>
-                  )}
-                </div>
+      <div className="flex-1 flex overflow-hidden">
+        {/* Calendar Grid */}
+        <div className={`flex-1 overflow-auto ${selectedDate ? 'w-1/2' : 'w-full'}`}>
+          {/* Day Headers */}
+          <div className="grid grid-cols-7 border-b sticky top-0 bg-background z-10">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="p-2 text-center text-xs font-medium text-muted-foreground border-r last:border-r-0">
+                {day}
               </div>
-            );
-          })}
+            ))}
+          </div>
+          
+          {/* Calendar Days */}
+          <div className="grid grid-cols-7">
+            {days.map((day) => {
+              const dateKey = format(day, "yyyy-MM-dd");
+              const dayAppointments = appointmentsByDate.get(dateKey) || [];
+              const isCurrentMonth = isSameMonth(day, currentMonth);
+              const isDayToday = isToday(day);
+              const isSelected = selectedDate && isSameDay(day, selectedDate);
+              
+              return (
+                <div
+                  key={dateKey}
+                  className={`min-h-[100px] border-r border-b p-1 cursor-pointer transition-colors ${
+                    !isCurrentMonth ? "bg-muted/20" : ""
+                  } ${isDayToday ? "bg-primary/5" : ""} ${isSelected ? "bg-primary/10 ring-2 ring-primary ring-inset" : ""} hover:bg-muted/40`}
+                  onClick={() => handleDayClick(day)}
+                >
+                  <div className={`text-xs font-medium mb-1 ${
+                    isDayToday ? "text-primary" : !isCurrentMonth ? "text-muted-foreground" : ""
+                  }`}>
+                    {format(day, "d")}
+                    {dayAppointments.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                        {dayAppointments.length}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="space-y-0.5 overflow-hidden">
+                    {dayAppointments.slice(0, 3).map((appt) => (
+                      <div
+                        key={appt.ghl_id}
+                        className={`text-[10px] px-1 py-0.5 rounded cursor-pointer truncate ${getStatusColor(appt.appointment_status)} ${
+                          userMap.get(appt.assigned_user_id || "") ? `border-l-2` : ""
+                        }`}
+                        style={{
+                          borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : undefined,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAppointmentClick(appt);
+                        }}
+                        title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"})`}
+                      >
+                        <span className="font-medium">{format(new Date(appt.start_time!), "h:mm")}</span>
+                        {" "}
+                        {capitalizeWords(getContactName(appt)).split(" ")[0]}
+                      </div>
+                    ))}
+                    {dayAppointments.length > 3 && (
+                      <div className="text-[10px] text-muted-foreground px-1">
+                        +{dayAppointments.length - 3} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+
+        {/* Selected Day Panel */}
+        {selectedDate && (
+          <div className="w-1/2 border-l flex flex-col bg-background">
+            <div className="p-3 border-b bg-muted/30 flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">{format(selectedDate, "EEEE, MMM d")}</h4>
+                <p className="text-xs text-muted-foreground">{selectedDateAppointments.length} appointment{selectedDateAppointments.length !== 1 ? 's' : ''}</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedDate(null)}>
+                ✕
+              </Button>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-2">
+                {selectedDateAppointments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No appointments</p>
+                ) : (
+                  selectedDateAppointments.map((appt) => {
+                    const contact = contacts.find((c) => c.ghl_id === appt.contact_id);
+                    const repName = userMap.get(appt.assigned_user_id || "") || "Unassigned";
+                    return (
+                      <div
+                        key={appt.ghl_id}
+                        className="p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-pointer transition-colors"
+                        onClick={() => onAppointmentClick(appt)}
+                        style={{
+                          borderLeftWidth: "3px",
+                          borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : "var(--border)",
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {capitalizeWords(getContactName(appt))}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(appt.start_time!), "h:mm a")}
+                            </p>
+                          </div>
+                          <Badge className={`${getStatusColor(appt.appointment_status)} text-[10px] shrink-0`}>
+                            {appt.appointment_status || "pending"}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                          <User className="h-3 w-3" />
+                          <span>{repName}</span>
+                        </div>
+                        {contact?.phone && (
+                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            <span>{contact.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+// Generate consistent colors for sales reps based on their ID
+function getRepColor(repId: string): string {
+  const colors = [
+    "#3b82f6", // blue
+    "#10b981", // emerald
+    "#f59e0b", // amber
+    "#ef4444", // red
+    "#8b5cf6", // violet
+    "#ec4899", // pink
+    "#06b6d4", // cyan
+    "#84cc16", // lime
+  ];
+  let hash = 0;
+  for (let i = 0; i < repId.length; i++) {
+    hash = repId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
 }
 
 export function UpcomingAppointmentsSheet({

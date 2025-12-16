@@ -158,8 +158,8 @@ export function SalesRepLeaderboard({
                       {rep.assignedTo}
                     </span>
 
-                    {/* Stats - Inline */}
-                    <div className="flex items-center gap-3 text-xs">
+                    {/* Stats - Compact Inline */}
+                    <div className="flex items-center gap-1.5 text-[11px] shrink-0">
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-0.5 text-muted-foreground cursor-help">
@@ -177,7 +177,6 @@ export function SalesRepLeaderboard({
                           <div className="flex items-center gap-0.5 cursor-help">
                             <Trophy className="h-3 w-3 text-emerald-500" />
                             <span className="font-medium text-foreground">{rep.wonOpportunities}/{rep.uniqueAppointments}</span>
-                            <span className="text-muted-foreground">({rep.conversionRate.toFixed(0)}%)</span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="bg-popover border-border">
@@ -187,7 +186,7 @@ export function SalesRepLeaderboard({
 
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="font-semibold text-emerald-500 min-w-[50px] text-right cursor-help">
+                          <span className="font-semibold text-emerald-500 min-w-[40px] text-right cursor-help">
                             {formatCurrency(rep.wonValue)}
                           </span>
                         </TooltipTrigger>
