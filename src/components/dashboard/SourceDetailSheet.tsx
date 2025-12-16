@@ -306,6 +306,11 @@ export function SourceDetailSheet({
     return uniqueIds.size;
   }, [sourceAppointments]);
 
+  // Confirmed appointments count
+  const confirmedAppointmentsCount = useMemo(() => {
+    return sourceAppointments.filter(a => a.appointment_status?.toLowerCase() === 'confirmed').length;
+  }, [sourceAppointments]);
+
   // Filter based on mode and search
   const displayOpportunities = useMemo(() => {
     let opps = sourceOpportunities;
@@ -427,10 +432,14 @@ export function SourceDetailSheet({
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-3 gap-3 text-sm">
                 <div className="bg-muted/40 rounded-md p-2.5">
                   <div className="text-muted-foreground text-xs mb-0.5">Total Opportunities</div>
                   <div className="font-medium">{sourceOpportunities.length}</div>
+                </div>
+                <div className="bg-muted/40 rounded-md p-2.5">
+                  <div className="text-muted-foreground text-xs mb-0.5">Confirmed Appts</div>
+                  <div className="font-medium text-blue-400">{confirmedAppointmentsCount}</div>
                 </div>
                 <div className="bg-muted/40 rounded-md p-2.5">
                   <div className="text-muted-foreground text-xs mb-0.5">Open</div>
@@ -440,7 +449,7 @@ export function SourceDetailSheet({
                   <div className="text-muted-foreground text-xs mb-0.5">Won Deals</div>
                   <div className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</div>
                 </div>
-                <div className="bg-muted/40 rounded-md p-2.5">
+                <div className="bg-muted/40 rounded-md p-2.5 col-span-2">
                   <div className="text-muted-foreground text-xs mb-0.5">Won Value</div>
                   <div className="font-medium text-emerald-400">{formatCurrency(wonValue)}</div>
                 </div>
