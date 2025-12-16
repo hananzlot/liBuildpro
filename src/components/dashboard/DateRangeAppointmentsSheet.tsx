@@ -335,7 +335,16 @@ export function DateRangeAppointmentsSheet({
                             <a
                               href={`tel:${contact.phone}`}
                               className="text-primary hover:underline"
-                              onClick={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                const p = contact.phone?.trim();
+                                if (!p) return;
+                                const url = `tel:${p}`;
+                                const win = window.open(url, "_blank", "noopener,noreferrer");
+                                if (!win) window.location.href = url;
+                              }}
                             >
                               {contact.phone}
                             </a>
@@ -349,7 +358,16 @@ export function DateRangeAppointmentsSheet({
                             <a
                               href={`mailto:${contact.email}`}
                               className="text-primary hover:underline"
-                              onClick={(e) => e.stopPropagation()}
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                const email = contact.email?.trim();
+                                if (!email) return;
+                                const mailtoUrl = `mailto:${email}`;
+                                const win = window.open(mailtoUrl, "_blank", "noopener,noreferrer");
+                                if (!win) window.location.href = mailtoUrl;
+                              }}
                             >
                               {contact.email}
                             </a>
