@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { AlertTriangle, CheckCircle2, RefreshCw, Trash2, Merge, ExternalLink } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCw, Trash2, Merge, ExternalLink, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -31,7 +32,6 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight } from "lucide-react";
 
 interface Opportunity {
   id: string;
@@ -109,6 +109,13 @@ export function DuplicateOpportunitiesCleanup({
   const [pendingMerge, setPendingMerge] = useState<DuplicateGroup | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  
+  // Bulk delete state
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(new Set());
+  const [showBulkConfirmDialog, setShowBulkConfirmDialog] = useState(false);
+  const [bulkPasswordInput, setBulkPasswordInput] = useState("");
+  const [bulkPasswordError, setBulkPasswordError] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Find duplicate opportunities (same contact + same pipeline)
   const duplicateGroups = useMemo(() => {
@@ -309,6 +316,152 @@ export function DuplicateOpportunitiesCleanup({
 
   const { keepOpp, deleteOpps } = getDeleteSummary();
 
+  // Bulk selection helpers
+  const toggleGroupSelection = (groupKey: string) => {
+    setSelectedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) {
+        next.delete(groupKey);
+      } else {
+        next.add(groupKey);
+      }
+      return next;
+    });
+  };
+
+  const selectAllGroups = () => {
+    setSelectedGroups(new Set(duplicateGroups.map(g => getGroupKey(g))));
+  };
+
+  const deselectAllGroups = () => {
+    setSelectedGroups(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedGroups.size === 0) {
+      toast.error("No duplicates selected");
+      return;
+    }
+    setShowBulkConfirmDialog(true);
+    setBulkPasswordInput("");
+    setBulkPasswordError(false);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (bulkPasswordInput !== DELETE_PASSWORD) {
+      setBulkPasswordError(true);
+      return;
+    }
+
+    setShowBulkConfirmDialog(false);
+    setIsBulkDeleting(true);
+
+    let totalDeleted = 0;
+    let totalFailed = 0;
+
+    try {
+      for (const groupKey of selectedGroups) {
+        const group = duplicateGroups.find(g => getGroupKey(g) === groupKey);
+        if (!group) continue;
+
+        // Use custom selection if available, otherwise use recommended (first)
+        const keepId = selectedToKeep[groupKey] || group.opportunities[0].id;
+        const keepOpp = group.opportunities.find(o => o.id === keepId);
+        const deleteOpps = group.opportunities.filter(o => o.id !== keepId);
+
+        if (!keepOpp) continue;
+
+        // Mark as deleting
+        const deleteIds = deleteOpps.map(o => o.id);
+        setDeletingIds(prev => new Set([...prev, ...deleteIds]));
+
+        // Calculate merged value
+        let mergedValue = keepOpp.monetary_value || 0;
+        deleteOpps.forEach(opp => {
+          if (opp.monetary_value && opp.monetary_value > mergedValue) {
+            mergedValue = opp.monetary_value;
+          }
+        });
+
+        // Update kept opportunity if needed
+        if (mergedValue > (keepOpp.monetary_value || 0)) {
+          try {
+            await supabase.functions.invoke('update-ghl-opportunity', {
+              body: { ghl_id: keepOpp.ghl_id, monetary_value: mergedValue }
+            });
+            await supabase
+              .from('opportunities')
+              .update({ monetary_value: mergedValue })
+              .eq('id', keepOpp.id);
+          } catch (err) {
+            console.error('Update error:', err);
+          }
+        }
+
+        // Delete duplicates
+        for (const opp of deleteOpps) {
+          try {
+            const { error } = await supabase.functions.invoke('delete-ghl-opportunity', {
+              body: { opportunityId: opp.ghl_id }
+            });
+            if (error) {
+              totalFailed++;
+            } else {
+              totalDeleted++;
+            }
+          } catch (err) {
+            totalFailed++;
+          }
+        }
+
+        // Clear selection state for this group
+        setDeletingIds(prev => {
+          const next = new Set(prev);
+          deleteIds.forEach(id => next.delete(id));
+          return next;
+        });
+      }
+
+      if (totalDeleted > 0) {
+        toast.success(`Deleted ${totalDeleted} duplicate opportunity(ies)`);
+        setSelectedGroups(new Set());
+        setSelectedToKeep({});
+        setExpandedGroups(new Set());
+        onDataUpdated();
+      }
+      if (totalFailed > 0) {
+        toast.error(`Failed to delete ${totalFailed} opportunity(ies)`);
+      }
+    } catch (err) {
+      toast.error(`Bulk delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const getBulkDeleteSummary = () => {
+    let totalToDelete = 0;
+    const summaryGroups: { contactName: string; keepName: string; deleteCount: number }[] = [];
+    
+    for (const groupKey of selectedGroups) {
+      const group = duplicateGroups.find(g => getGroupKey(g) === groupKey);
+      if (!group) continue;
+      
+      const keepId = selectedToKeep[groupKey] || group.opportunities[0].id;
+      const keepOpp = group.opportunities.find(o => o.id === keepId);
+      const deleteCount = group.opportunities.length - 1;
+      
+      totalToDelete += deleteCount;
+      summaryGroups.push({
+        contactName: group.contactName,
+        keepName: keepOpp?.name || 'Unnamed',
+        deleteCount
+      });
+    }
+    
+    return { totalToDelete, summaryGroups };
+  };
+
   return (
     <>
       <Card>
@@ -331,9 +484,41 @@ export function DuplicateOpportunitiesCleanup({
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="text-sm text-muted-foreground mb-4">
+              {/* Bulk actions bar */}
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-4 p-3 rounded-lg bg-muted/30 border">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="select-all"
+                      checked={selectedGroups.size === duplicateGroups.length && duplicateGroups.length > 0}
+                      onCheckedChange={(checked) => checked ? selectAllGroups() : deselectAllGroups()}
+                    />
+                    <Label htmlFor="select-all" className="text-sm cursor-pointer">
+                      Select All
+                    </Label>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {selectedGroups.size} of {duplicateGroups.length} selected
+                  </span>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedGroups.size === 0 || isBulkDeleting}
+                >
+                  {isBulkDeleting ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete Selected ({selectedGroups.size})
+                </Button>
+              </div>
+              
+              <div className="text-sm text-muted-foreground mb-2">
                 Found {duplicateGroups.length} contact(s) with duplicate opportunities. 
-                Expand each to review and merge.
+                Select duplicates to delete in bulk, or expand to customize which to keep.
               </div>
               
               {duplicateGroups.map((group) => {
@@ -341,27 +526,36 @@ export function DuplicateOpportunitiesCleanup({
                 const isExpanded = expandedGroups.has(key);
                 const selectedId = selectedToKeep[key];
                 const isAnyDeleting = group.opportunities.some(o => deletingIds.has(o.id));
+                const isGroupSelected = selectedGroups.has(key);
                 
                 return (
                   <Collapsible key={key} open={isExpanded} onOpenChange={() => toggleGroup(group)}>
-                    <CollapsibleTrigger asChild>
-                      <div className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          <div>
-                            <div className="font-medium">{group.contactName}</div>
-                            <div className="text-sm text-muted-foreground">{group.pipelineName}</div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        checked={isGroupSelected}
+                        onCheckedChange={() => toggleGroupSelection(key)}
+                        onClick={(e) => e.stopPropagation()}
+                        disabled={isBulkDeleting || isAnyDeleting}
+                      />
+                      <CollapsibleTrigger asChild className="flex-1">
+                        <div className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            {isExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <div>
+                              <div className="font-medium">{group.contactName}</div>
+                              <div className="text-sm text-muted-foreground">{group.pipelineName}</div>
+                            </div>
                           </div>
+                          <Badge variant="destructive" className="text-xs">
+                            {group.opportunities.length} duplicates
+                          </Badge>
                         </div>
-                        <Badge variant="destructive" className="text-xs">
-                          {group.opportunities.length} duplicates
-                        </Badge>
-                      </div>
-                    </CollapsibleTrigger>
+                      </CollapsibleTrigger>
+                    </div>
                     
                     <CollapsibleContent>
                       <div className="mt-2 p-4 border rounded-lg bg-muted/20">
@@ -535,6 +729,64 @@ export function DuplicateOpportunitiesCleanup({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete Duplicates
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkConfirmDialog} onOpenChange={setShowBulkConfirmDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Confirm Bulk Delete
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  You are about to delete <strong>{getBulkDeleteSummary().totalToDelete}</strong> duplicate 
+                  opportunity(ies) across <strong>{selectedGroups.size}</strong> contact(s).
+                </p>
+                
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {getBulkDeleteSummary().summaryGroups.map((item, idx) => (
+                    <div key={idx} className="p-2 rounded border bg-muted/20 text-sm">
+                      <div className="font-medium">{item.contactName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Keep: "{item.keepName}" • Delete: {item.deleteCount} duplicate(s)
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bulk-password">Enter password to confirm:</Label>
+                  <Input
+                    id="bulk-password"
+                    type="password"
+                    placeholder="Enter password"
+                    value={bulkPasswordInput}
+                    onChange={(e) => {
+                      setBulkPasswordInput(e.target.value);
+                      setBulkPasswordError(false);
+                    }}
+                    className={bulkPasswordError ? 'border-destructive' : ''}
+                  />
+                  {bulkPasswordError && (
+                    <p className="text-xs text-destructive">Incorrect password</p>
+                  )}
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete {getBulkDeleteSummary().totalToDelete} Duplicates
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
