@@ -21,6 +21,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { DuplicateOpportunitiesCleanup } from "./DuplicateOpportunitiesCleanup";
 
 interface Opportunity {
   id: string;
@@ -33,6 +34,7 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  ghl_date_added?: string | null;
 }
 
 interface Contact {
@@ -402,6 +404,14 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
 
   return (
     <div className="space-y-6">
+      {/* Duplicate Opportunities */}
+      <DuplicateOpportunitiesCleanup
+        opportunities={opportunities}
+        contacts={contacts}
+        onDataUpdated={onDataUpdated}
+        onOpenOpportunity={onOpenOpportunity}
+      />
+
       {/* Inconsistent Status/Stage */}
       <Card>
         <CardHeader>
