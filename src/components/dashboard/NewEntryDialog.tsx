@@ -126,11 +126,15 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       console.log('NewEntryDialog fetched pipeline data:', pipelineData);
 
       if (pipelineData && pipelineData.length > 0) {
-        // Build pipeline stages from ghl_pipelines
+        // Build pipeline stages from ghl_pipelines, sorted by position
         const stages: PipelineStage[] = [];
         pipelineData.forEach((pipeline: any) => {
           const pipelineStages = pipeline.stages || [];
-          pipelineStages.forEach((stage: any) => {
+          // Sort stages by position to match GHL order
+          const sortedPipelineStages = [...pipelineStages].sort((a: any, b: any) => 
+            (a.position ?? 0) - (b.position ?? 0)
+          );
+          sortedPipelineStages.forEach((stage: any) => {
             stages.push({
               pipeline_id: pipeline.ghl_id,
               pipeline_name: pipeline.name,
