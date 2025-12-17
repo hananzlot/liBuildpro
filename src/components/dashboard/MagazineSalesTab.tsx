@@ -150,16 +150,12 @@ export const MagazineSalesTab = () => {
 
   return (
     <div className="space-y-6">
-      {/* Action Bar */}
-      <div className="flex justify-end">
-        <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }}>
+      {/* KPI Cards + New Entry Button */}
+      <section className="flex flex-wrap items-center gap-3">
+        <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm">
           <Plus className="h-4 w-4 mr-2" />
           New Entry
         </Button>
-      </div>
-
-      {/* KPI Cards */}
-      <section className="flex flex-wrap gap-3">
         <div className="w-40">
           <ClickableMetricCard
             title="Pages Sold"
