@@ -159,42 +159,46 @@ export const MagazineSalesTab = () => {
       </div>
 
       {/* KPI Cards */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <ClickableMetricCard
-          title="Pages Sold"
-          value={formatPageCount(totalPages)}
-          subtitle="Total pages across all issues"
-          icon={BookOpen}
-          onClick={() => setDetailSheetOpen(true)}
-        />
-        <ClickableMetricCard
-          title="Total Sales"
-          value={formatCurrency(totalSales)}
-          subtitle="Revenue to date"
-          icon={DollarSign}
-          onClick={() => setDetailSheetOpen(true)}
-        />
+      <section className="flex flex-wrap gap-3">
+        <div className="w-40">
+          <ClickableMetricCard
+            title="Pages Sold"
+            value={formatPageCount(totalPages)}
+            subtitle="All issues"
+            icon={BookOpen}
+            onClick={() => setDetailSheetOpen(true)}
+          />
+        </div>
+        <div className="w-40">
+          <ClickableMetricCard
+            title="Total Sales"
+            value={formatCurrency(totalSales)}
+            subtitle="Revenue"
+            icon={DollarSign}
+            onClick={() => setDetailSheetOpen(true)}
+          />
+        </div>
       </section>
 
       {/* Sales by Issue Summary */}
       {Object.keys(salesByIssue).length > 0 && (
-        <section className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">Sales by Issue</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold text-foreground">Sales by Issue</h3>
+          <div className="flex flex-wrap gap-2">
             {Object.entries(salesByIssue)
               .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
               .map(([issueDate, data]) => (
                 <div
                   key={issueDate}
-                  className="rounded-xl bg-card p-4 border border-border/50 cursor-pointer hover:border-primary/30 transition-all"
+                  className="rounded-lg bg-card px-3 py-2 border border-border/50 cursor-pointer hover:border-primary/30 transition-all"
                   onClick={() => setDetailSheetOpen(true)}
                 >
-                  <p className="text-sm text-muted-foreground">
-                    Issue: {new Date(issueDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(issueDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
                   </p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-lg font-semibold">{formatPageCount(data.pages)} pages</span>
-                    <span className="text-lg font-semibold text-emerald-500">{formatCurrency(data.total)}</span>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-sm font-semibold">{formatPageCount(data.pages)} pg</span>
+                    <span className="text-sm font-semibold text-emerald-500">{formatCurrency(data.total)}</span>
                   </div>
                 </div>
               ))}

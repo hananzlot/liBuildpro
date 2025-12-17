@@ -246,7 +246,7 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
         </div>
 
         {/* Page Grid - Each page is a 2x4 grid of sections */}
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
           {/* Cover Page */}
           {(() => {
             const pageData = sectionOccupancy["Cover"];
