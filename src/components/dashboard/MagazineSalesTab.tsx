@@ -152,7 +152,7 @@ export const MagazineSalesTab = () => {
     <div className="space-y-6">
       {/* KPI Cards */}
       <section className="flex flex-wrap gap-3">
-        <div className="w-40">
+        <div className="w-44">
           <ClickableMetricCard
             title="Pages Sold"
             value={formatPageCount(totalPages)}
@@ -161,7 +161,7 @@ export const MagazineSalesTab = () => {
             onClick={() => setDetailSheetOpen(true)}
           />
         </div>
-        <div className="w-40">
+        <div className="w-44">
           <ClickableMetricCard
             title="Total Sales"
             value={formatCurrency(totalSales)}
@@ -170,37 +170,34 @@ export const MagazineSalesTab = () => {
             onClick={() => setDetailSheetOpen(true)}
           />
         </div>
-      </section>
-
-      {/* Sales by Issue Summary */}
-      {Object.keys(salesByIssue).length > 0 && (
-        <section className="space-y-3">
-          <h3 className="text-base font-semibold text-foreground">Sales by Issue</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm" className="h-auto py-2">
-              <Plus className="h-4 w-4 mr-2" />
-              New Entry
-            </Button>
-            {Object.entries(salesByIssue)
-              .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-              .map(([issueDate, data]) => (
-                <div
-                  key={issueDate}
-                  className="rounded-lg bg-card px-3 py-2 border border-border/50 cursor-pointer hover:border-primary/30 transition-all"
-                  onClick={() => setDetailSheetOpen(true)}
-                >
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(issueDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                  </p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-sm font-semibold">{formatPageCount(data.pages)} pg</span>
-                    <span className="text-sm font-semibold text-emerald-500">{formatCurrency(data.total)}</span>
+        {/* Sales by Issue Card */}
+        {Object.keys(salesByIssue).length > 0 && (
+          <div className="w-44 rounded-2xl bg-card p-4 border border-border/50">
+            <p className="text-sm text-muted-foreground mb-2">Sales by Issue</p>
+            <div className="space-y-1">
+              {Object.entries(salesByIssue)
+                .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+                .slice(0, 4)
+                .map(([issueDate, data]) => (
+                  <div
+                    key={issueDate}
+                    className="flex items-center justify-between text-sm cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 py-0.5"
+                    onClick={() => setDetailSheetOpen(true)}
+                  >
+                    <span className="text-muted-foreground">
+                      {new Date(issueDate).toLocaleDateString("en-US", { month: "short", year: "2-digit" })}
+                    </span>
+                    <span className="font-semibold text-emerald-500">{formatCurrency(data.total)}</span>
                   </div>
-                </div>
-              ))}
+                ))}
+            </div>
           </div>
-        </section>
-      )}
+        )}
+        <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm" className="h-auto self-start">
+          <Plus className="h-4 w-4 mr-2" />
+          New Entry
+        </Button>
+      </section>
 
       {/* Page Availability Grid */}
       <MagazinePageAvailability sales={sales} />
