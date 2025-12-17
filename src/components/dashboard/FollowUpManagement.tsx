@@ -1024,7 +1024,16 @@ export function FollowUpManagement({
     openOpportunities.forEach(opportunity => {
       if (!opportunity.contact_id) return;
 
-      // Check if this opportunity has any past appointments (exclude future appointments)
+      // Check if contact has any future appointments - if so, skip (they have upcoming follow-up)
+      const hasFutureAppointment = appointments.some(a => 
+        a.contact_id === opportunity.contact_id && 
+        a.appointment_status?.toLowerCase() !== "cancelled" && 
+        a.start_time && 
+        new Date(a.start_time) >= now
+      );
+      if (hasFutureAppointment) return;
+
+      // Check if this opportunity has any past appointments
       const oppAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id && a.appointment_status?.toLowerCase() !== "cancelled" && a.start_time && new Date(a.start_time) < now);
       if (oppAppointments.length === 0) return;
 
