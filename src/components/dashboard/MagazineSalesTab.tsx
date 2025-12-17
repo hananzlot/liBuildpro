@@ -151,7 +151,7 @@ export const MagazineSalesTab = () => {
   return (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <section className="flex flex-wrap gap-3">
+      <section className="flex flex-wrap items-end gap-3">
         <div className="w-44">
           <ClickableMetricCard
             title="Pages Sold"
@@ -193,15 +193,12 @@ export const MagazineSalesTab = () => {
             </div>
           </div>
         )}
-      </section>
-
-      {/* New Entry Button */}
-      <div className="flex justify-end">
+        <div className="flex-1" />
         <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm">
           <Plus className="h-4 w-4 mr-2" />
           New Entry
         </Button>
-      </div>
+      </section>
 
       {/* Page Availability Grid */}
       <MagazinePageAvailability sales={sales} />
