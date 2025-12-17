@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
@@ -109,7 +109,9 @@ interface GHLUser {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
+  location_id?: string;
 }
+const PRIMARY_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
 interface Message {
   id: string;
   body: string;
@@ -295,6 +297,23 @@ export function OpportunityDetailSheet({
     }
     setWasOpen(open);
   }, [open]);
+
+  // Filter users to primary location only and deduplicate by ghl_id
+  const filteredUsers = useMemo(() => {
+    const seen = new Set<string>();
+    return users
+      .filter(u => {
+        if (u.location_id && u.location_id !== PRIMARY_LOCATION_ID) return false;
+        if (seen.has(u.ghl_id)) return false;
+        seen.add(u.ghl_id);
+        return true;
+      })
+      .sort((a, b) => {
+        const nameA = (a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email || 'Unknown').toLowerCase();
+        const nameB = (b.name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.email || 'Unknown').toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+  }, [users]);
 
   // Pipeline data from ghl_pipelines table
   const [pipelineData, setPipelineData] = useState<{ ghl_id: string; name: string; stages: { id: string; name: string; position: number }[] }[]>([]);
@@ -2030,13 +2049,7 @@ export function OpportunityDetailSheet({
                     <SelectItem value="__unassigned__" className="text-xs">
                       Unassigned
                     </SelectItem>
-                    {[...users]
-                      .sort((a, b) => {
-                        const nameA = (a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email || 'Unknown').toLowerCase();
-                        const nameB = (b.name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.email || 'Unknown').toLowerCase();
-                        return nameA.localeCompare(nameB);
-                      })
-                      .map((user) => {
+                    {filteredUsers.map((user) => {
                         const name =
                           user.name ||
                           (user.first_name && user.last_name
@@ -2687,23 +2700,7 @@ export function OpportunityDetailSheet({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {[...users]
-                    .sort((a, b) => {
-                      const nameA = (
-                        a.name ||
-                        `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
-                        a.email ||
-                        "Unknown"
-                      ).toLowerCase();
-                      const nameB = (
-                        b.name ||
-                        `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
-                        b.email ||
-                        "Unknown"
-                      ).toLowerCase();
-                      return nameA.localeCompare(nameB);
-                    })
-                    .map((user) => (
+                  {filteredUsers.map((user) => (
                       <SelectItem key={user.ghl_id} value={user.ghl_id}>
                         {user.name ||
                           `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
@@ -2840,23 +2837,7 @@ export function OpportunityDetailSheet({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {[...users]
-                    .sort((a, b) => {
-                      const nameA = (
-                        a.name ||
-                        `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
-                        a.email ||
-                        "Unknown"
-                      ).toLowerCase();
-                      const nameB = (
-                        b.name ||
-                        `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
-                        b.email ||
-                        "Unknown"
-                      ).toLowerCase();
-                      return nameA.localeCompare(nameB);
-                    })
-                    .map((user) => (
+                  {filteredUsers.map((user) => (
                       <SelectItem key={user.ghl_id} value={user.ghl_id}>
                         {user.name ||
                           `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
