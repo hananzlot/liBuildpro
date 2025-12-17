@@ -58,6 +58,7 @@ const Index = () => {
   const [upcomingAppointmentsSheetOpen, setUpcomingAppointmentsSheetOpen] = useState(false);
   const [opportunitiesSheetOpen, setOpportunitiesSheetOpen] = useState(false);
   const [dateRangeAppointmentsSheetOpen, setDateRangeAppointmentsSheetOpen] = useState(false);
+  const [dateRangeAppointmentsFilter, setDateRangeAppointmentsFilter] = useState<string>("all");
   const [callLogsSheetOpen, setCallLogsSheetOpen] = useState(false);
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
   const [activityDefaultTab, setActivityDefaultTab] = useState<"edits" | "appointments" | "tasks" | "notes">("edits");
@@ -266,20 +267,25 @@ const Index = () => {
                 </> : <>
                   <ClickableMetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} onClick={() => setOpportunitiesSheetOpen(true)} />
                   <div 
-                    className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 cursor-pointer transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.02]"
-                    onClick={() => setDateRangeAppointmentsSheetOpen(true)}
+                    className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">Appointments (in date range)</p>
                         <div className="flex flex-wrap gap-3 text-sm">
-                          <div className="flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-lg">
+                          <div 
+                            className="flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-blue-500/20 transition-colors"
+                            onClick={() => { setDateRangeAppointmentsFilter("all"); setDateRangeAppointmentsSheetOpen(true); }}
+                          >
                             <span className="text-xl font-bold text-blue-500">
                               {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
                             </span>
                             <span className="text-blue-500/70 text-xs">created</span>
                           </div>
-                          <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg">
+                          <div 
+                            className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-emerald-500/20 transition-colors"
+                            onClick={() => { setDateRangeAppointmentsFilter("showed"); setDateRangeAppointmentsSheetOpen(true); }}
+                          >
                             <span className="text-xl font-bold text-emerald-500">
                               {metrics?.appointmentsShowedInDateRange || 0}
                             </span>
@@ -495,7 +501,9 @@ const Index = () => {
       <DateRangeAppointmentsSheet 
         open={dateRangeAppointmentsSheetOpen} 
         onOpenChange={setDateRangeAppointmentsSheetOpen} 
-        appointments={metrics?.appointmentsCreatedInRangeList || []} 
+        appointments={dateRangeAppointmentsFilter === "showed" 
+          ? (metrics?.appointmentsShowedInDateRangeList || []) 
+          : (metrics?.appointmentsCreatedInRangeList || [])} 
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []} 
         onAppointmentClick={appt => {
@@ -503,6 +511,7 @@ const Index = () => {
           setDateRangeAppointmentsSheetOpen(false);
           setAppointmentDetailSheetOpen(true);
         }}
+        defaultStatusFilter={dateRangeAppointmentsFilter === "showed" ? "showed" : "all"}
       />
 
       {/* Call Logs Sheet */}
