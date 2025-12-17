@@ -193,11 +193,15 @@ export const MagazineSalesTab = () => {
             </div>
           </div>
         )}
-        <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm" className="h-auto self-start">
+      </section>
+
+      {/* New Entry Button */}
+      <div className="flex justify-end">
+        <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm">
           <Plus className="h-4 w-4 mr-2" />
           New Entry
         </Button>
-      </section>
+      </div>
 
       {/* Page Availability Grid */}
       <MagazinePageAvailability sales={sales} />
