@@ -552,6 +552,7 @@ export type Database = {
           page_number: string
           page_size: string
           price: number
+          sections_sold: number[] | null
           updated_at: string
         }
         Insert: {
@@ -567,6 +568,7 @@ export type Database = {
           page_number: string
           page_size: string
           price?: number
+          sections_sold?: number[] | null
           updated_at?: string
         }
         Update: {
@@ -582,6 +584,7 @@ export type Database = {
           page_number?: string
           page_size?: string
           price?: number
+          sections_sold?: number[] | null
           updated_at?: string
         }
         Relationships: [
