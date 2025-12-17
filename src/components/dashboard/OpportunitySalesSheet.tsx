@@ -29,6 +29,15 @@ interface Opportunity {
   ghl_id: string;
   name: string | null;
   contact_id: string | null;
+  status?: string | null;
+  monetary_value?: number | null;
+  pipeline_id?: string | null;
+  pipeline_name?: string | null;
+  pipeline_stage_id?: string | null;
+  stage_name?: string | null;
+  assigned_to?: string | null;
+  ghl_date_added?: string | null;
+  ghl_date_updated?: string | null;
 }
 
 interface Contact {
