@@ -23,6 +23,24 @@ function getGHLApiKey(locationId: string): string {
   return apiKey1;
 }
 
+// Map internal status values to valid GHL API enum values
+// Valid GHL values: confirmed, cancelled, showed, noshow, invalid
+function mapStatusToGHL(status: string): string {
+  const mapping: Record<string, string> = {
+    'no_show': 'noshow',
+    'no show': 'noshow',
+    'noshow': 'noshow',
+    'confirmed': 'confirmed',
+    'cancelled': 'cancelled',
+    'canceled': 'cancelled',
+    'showed': 'showed',
+    'invalid': 'invalid',
+  };
+  
+  const lowercaseStatus = status.toLowerCase().trim();
+  return mapping[lowercaseStatus] || lowercaseStatus;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -71,7 +89,7 @@ serve(async (req) => {
     const updatePayload: Record<string, unknown> = {};
     
     if (appointment_status !== undefined) {
-      updatePayload.appointmentStatus = appointment_status;
+      updatePayload.appointmentStatus = mapStatusToGHL(appointment_status);
     }
     if (title !== undefined) {
       updatePayload.title = title;
