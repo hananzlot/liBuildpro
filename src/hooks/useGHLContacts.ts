@@ -142,6 +142,21 @@ export interface DBOpportunityEdit {
   location_id: string | null;
 }
 
+export interface DBOpportunitySale {
+  id: string;
+  opportunity_id: string;
+  contact_id: string | null;
+  location_id: string;
+  sold_amount: number;
+  sold_date: string;
+  sold_to_name: string | null;
+  sold_to_phone: string | null;
+  sold_by: string | null;
+  entered_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Location 2 ID - contacts from this location are imported to Location 1, so exclude from display
 const LOCATION_2_ID = "XYDIgpHivVWHii65sId5";
 
@@ -260,6 +275,15 @@ async function fetchOpportunityEditsFromDB(): Promise<DBOpportunityEdit[]> {
     .from("opportunity_edits")
     .select("*")
     .order("edited_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchOpportunitySalesFromDB(): Promise<DBOpportunitySale[]> {
+  const { data, error } = await supabase
+    .from("opportunity_sales")
+    .select("*")
+    .order("sold_date", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -845,6 +869,15 @@ export function useOpportunityEdits() {
   });
 }
 
+export function useOpportunitySales() {
+  return useQuery({
+    queryKey: ["opportunity_sales"],
+    queryFn: fetchOpportunitySalesFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
 export function useSyncContacts() {
   const queryClient = useQueryClient();
 
@@ -906,6 +939,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const callLogsQuery = useCallLogs();
   const profilesQuery = useProfiles();
   const opportunityEditsQuery = useOpportunityEdits();
+  const opportunitySalesQuery = useOpportunitySales();
 
   const isLoading =
     contactsQuery.isLoading ||
@@ -916,7 +950,8 @@ export function useGHLMetrics(dateRange?: DateRange) {
     tasksQuery.isLoading ||
     contactNotesQuery.isLoading ||
     callLogsQuery.isLoading ||
-    opportunityEditsQuery.isLoading;
+    opportunityEditsQuery.isLoading ||
+    opportunitySalesQuery.isLoading;
   const error =
     contactsQuery.error ||
     opportunitiesQuery.error ||
@@ -926,7 +961,8 @@ export function useGHLMetrics(dateRange?: DateRange) {
     tasksQuery.error ||
     contactNotesQuery.error ||
     callLogsQuery.error ||
-    opportunityEditsQuery.error;
+    opportunityEditsQuery.error ||
+    opportunitySalesQuery.error;
 
   // Filter call logs by date range
   const filteredCallLogs =
@@ -998,6 +1034,19 @@ export function useGHLMetrics(dateRange?: DateRange) {
       })
     : opportunityEditsQuery.data || [];
 
+  // Filter opportunity sales by date range (sold_date)
+  const filteredOpportunitySales = opportunitySalesQuery.data && dateRange?.from
+    ? opportunitySalesQuery.data.filter((s) => {
+        if (!s.sold_date) return false;
+        const soldDate = new Date(s.sold_date);
+        const endDate = dateRange.to || new Date();
+        endDate.setHours(23, 59, 59, 999);
+        return soldDate >= dateRange.from! && soldDate <= endDate;
+      })
+    : opportunitySalesQuery.data || [];
+
+  const totalOpportunitySalesAmount = filteredOpportunitySales.reduce((sum, s) => sum + (s.sold_amount || 0), 0);
+
   const data =
     contactsQuery.data && opportunitiesQuery.data && appointmentsQuery.data && usersQuery.data
       ? {
@@ -1026,6 +1075,10 @@ export function useGHLMetrics(dateRange?: DateRange) {
           tasksCreatedCount: filteredTasks.length,
           notesCreatedCount: filteredNotes.length,
           filteredOpportunityEdits,
+          opportunitySales: opportunitySalesQuery.data || [],
+          filteredOpportunitySales,
+          opportunitySalesCount: filteredOpportunitySales.length,
+          totalOpportunitySalesAmount,
         }
       : undefined;
 
@@ -1043,6 +1096,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
       contactNotesQuery.refetch();
       callLogsQuery.refetch();
       opportunityEditsQuery.refetch();
+      opportunitySalesQuery.refetch();
     },
   };
 }
