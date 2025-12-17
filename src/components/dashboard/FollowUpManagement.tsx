@@ -2176,7 +2176,7 @@ export function FollowUpManagement({
                               <TableCell>
                                 <Badge variant="outline">{row.opportunity.stage_name || "Unknown"}</Badge>
                               </TableCell>
-                              <TableCell>{getUserName(row.appointment.assigned_user_id)}</TableCell>
+                              <TableCell>{getUserName(row.opportunity.assigned_to || row.contact?.assigned_to || row.appointment.assigned_user_id)}</TableCell>
                               <TableCell className="font-medium">
                                 {formatCurrency(row.opportunity.monetary_value)}
                               </TableCell>
