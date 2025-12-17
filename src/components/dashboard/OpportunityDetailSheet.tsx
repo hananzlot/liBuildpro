@@ -299,7 +299,7 @@ export function OpportunityDetailSheet({
   // Pipeline data from ghl_pipelines table
   const [pipelineData, setPipelineData] = useState<{ ghl_id: string; name: string; stages: { id: string; name: string; position: number }[] }[]>([]);
 
-  // Fetch active calendars and pipelines on mount
+  // Fetch active calendars on mount
   useEffect(() => {
     const fetchCalendars = async () => {
       const { data } = await supabase
@@ -315,20 +315,25 @@ export function OpportunityDetailSheet({
         }
       }
     };
+    fetchCalendars();
+  }, []);
 
+  // Fetch pipelines when sheet opens
+  useEffect(() => {
+    if (!open) return;
+    
     const fetchPipelines = async () => {
       const { data } = await supabase
         .from("ghl_pipelines")
         .select("ghl_id, name, stages")
         .eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
       if (data) {
-        setPipelineData(data as any);
+        console.log('Fetched pipeline data:', data);
+        setPipelineData(data as { ghl_id: string; name: string; stages: { id: string; name: string; position: number }[] }[]);
       }
     };
-
-    fetchCalendars();
     fetchPipelines();
-  }, []);
+  }, [open]);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {

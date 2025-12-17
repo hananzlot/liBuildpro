@@ -112,14 +112,18 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Fetch pipelines/stages on mount from ghl_pipelines table
+  // Fetch pipelines/stages when dialog opens from ghl_pipelines table
   useEffect(() => {
+    if (!open) return;
+    
     const fetchPipelineStages = async () => {
       // First try to get from ghl_pipelines table
       const { data: pipelineData } = await supabase
         .from("ghl_pipelines")
         .select("ghl_id, name, stages")
         .eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
+
+      console.log('NewEntryDialog fetched pipeline data:', pipelineData);
 
       if (pipelineData && pipelineData.length > 0) {
         // Build pipeline stages from ghl_pipelines
@@ -180,7 +184,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       }
     };
     fetchPipelineStages();
-  }, []);
+  }, [open]);
 
   // Fetch active calendars on mount
   useEffect(() => {
