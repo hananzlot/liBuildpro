@@ -150,12 +150,8 @@ export const MagazineSalesTab = () => {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards + New Entry Button */}
-      <section className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          New Entry
-        </Button>
+      {/* KPI Cards */}
+      <section className="flex flex-wrap gap-3">
         <div className="w-40">
           <ClickableMetricCard
             title="Pages Sold"
@@ -179,7 +175,13 @@ export const MagazineSalesTab = () => {
       {/* Sales by Issue Summary */}
       {Object.keys(salesByIssue).length > 0 && (
         <section className="space-y-3">
-          <h3 className="text-base font-semibold text-foreground">Sales by Issue</h3>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              New Entry
+            </Button>
+            <h3 className="text-base font-semibold text-foreground">Sales by Issue</h3>
+          </div>
           <div className="flex flex-wrap gap-2">
             {Object.entries(salesByIssue)
               .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
