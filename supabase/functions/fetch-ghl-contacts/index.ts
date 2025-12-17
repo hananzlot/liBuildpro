@@ -560,6 +560,29 @@ async function syncLocationData(
     }
   }
 
+  // Sync pipelines with their stages
+  if (pipelines.length > 0) {
+    console.log(`Syncing ${pipelines.length} pipelines...`);
+    const pipelinesToUpsert = pipelines.map((p: any) => ({
+      ghl_id: p.id,
+      location_id: locationId,
+      name: p.name || 'Unknown Pipeline',
+      stages: (p.stages || []).map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        position: s.position || 0,
+      })),
+    }));
+
+    const { error: pipelinesError } = await supabase
+      .from('ghl_pipelines')
+      .upsert(pipelinesToUpsert, { onConflict: 'ghl_id,location_id' });
+
+    if (pipelinesError) {
+      console.error('Pipelines upsert error:', pipelinesError);
+    }
+  }
+
   // Sync calendars with active status
   if (calendars.length > 0) {
     console.log(`Syncing ${calendars.length} calendars...`);

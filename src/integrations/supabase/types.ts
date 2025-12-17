@@ -380,6 +380,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ghl_pipelines: {
+        Row: {
+          created_at: string
+          ghl_id: string
+          id: string
+          location_id: string
+          name: string
+          stages: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ghl_id: string
+          id?: string
+          location_id: string
+          name: string
+          stages?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ghl_id?: string
+          id?: string
+          location_id?: string
+          name?: string
+          stages?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ghl_tasks: {
         Row: {
           assigned_to: string | null

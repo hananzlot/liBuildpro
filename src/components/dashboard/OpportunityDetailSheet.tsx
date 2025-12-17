@@ -296,7 +296,10 @@ export function OpportunityDetailSheet({
     setWasOpen(open);
   }, [open]);
 
-  // Fetch active calendars on mount
+  // Pipeline data from ghl_pipelines table
+  const [pipelineData, setPipelineData] = useState<{ ghl_id: string; name: string; stages: { id: string; name: string; position: number }[] }[]>([]);
+
+  // Fetch active calendars and pipelines on mount
   useEffect(() => {
     const fetchCalendars = async () => {
       const { data } = await supabase
@@ -312,7 +315,19 @@ export function OpportunityDetailSheet({
         }
       }
     };
+
+    const fetchPipelines = async () => {
+      const { data } = await supabase
+        .from("ghl_pipelines")
+        .select("ghl_id, name, stages")
+        .eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
+      if (data) {
+        setPipelineData(data as any);
+      }
+    };
+
     fetchCalendars();
+    fetchPipelines();
   }, []);
 
   // Fetch conversations and notes from GHL when sheet opens
@@ -945,31 +960,35 @@ export function OpportunityDetailSheet({
     }
   };
 
-  // Build pipeline and stage maps from all opportunities
-  const pipelineMap = new Map<string, string>();
-  const stageMap = new Map<string, string>();
+  // Build pipeline list from ghl_pipelines table (or fall back to opportunities)
+  const availablePipelines = pipelineData.length > 0
+    ? pipelineData.map(p => ({ id: p.ghl_id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name))
+    : Array.from(
+        allOpportunities.reduce((map, o) => {
+          if (o.pipeline_id && o.pipeline_name) map.set(o.pipeline_id, o.pipeline_name);
+          return map;
+        }, new Map<string, string>())
+      ).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
 
-  // Build unique pipelines list
-  allOpportunities.forEach((o) => {
-    if (o.pipeline_id && o.pipeline_name) {
-      pipelineMap.set(o.pipeline_id, o.pipeline_name);
-    }
-  });
-  const availablePipelines = Array.from(pipelineMap.entries())
-    .map(([id, name]) => ({
-      id,
-      name,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  // Build stages for the currently selected/edited pipeline
+  // Build stages for the currently selected/edited pipeline from ghl_pipelines table
   const activePipelineId = isEditing ? editedPipeline : (savedValues.pipeline_id ?? opportunity?.pipeline_id);
-  allOpportunities.forEach((o) => {
-    if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === activePipelineId) {
-      stageMap.set(o.stage_name, o.pipeline_stage_id);
-    }
-  });
-  const availableStages = Array.from(stageMap.keys()).sort();
+  const activePipeline = pipelineData.find(p => p.ghl_id === activePipelineId);
+  
+  // Build stage map - prefer ghl_pipelines data, fall back to opportunities
+  const stageMap = new Map<string, string>();
+  if (activePipeline && activePipeline.stages?.length > 0) {
+    // Use stages from ghl_pipelines table (sorted by position)
+    const sortedStages = [...activePipeline.stages].sort((a, b) => (a.position || 0) - (b.position || 0));
+    sortedStages.forEach(s => stageMap.set(s.name, s.id));
+  } else {
+    // Fall back to deriving from opportunities
+    allOpportunities.forEach((o) => {
+      if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === activePipelineId) {
+        stageMap.set(o.stage_name, o.pipeline_stage_id);
+      }
+    });
+  }
+  const availableStages = Array.from(stageMap.keys());
   
   // Build unique sources list from all contacts (properly capitalized)
   const normalizeSourceName = (sourceName: string): string => {
@@ -1031,13 +1050,22 @@ export function OpportunityDetailSheet({
     if (!opportunity) return;
     setIsSavingInline(true);
     try {
-      const newPipelineName = pipelineMap.get(newPipelineId) || "";
-      // Get first stage for new pipeline
-      const stagesForNewPipeline = allOpportunities
-        .filter((o) => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id)
-        .map((o) => ({ name: o.stage_name!, id: o.pipeline_stage_id! }))
-        .filter((v, i, a) => a.findIndex(x => x.name === v.name) === i)
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const newPipelineName = pipelineData.find(p => p.ghl_id === newPipelineId)?.name || 
+        allOpportunities.find(o => o.pipeline_id === newPipelineId)?.pipeline_name || "";
+      // Get first stage for new pipeline from ghl_pipelines
+      const pipelineForStages = pipelineData.find(p => p.ghl_id === newPipelineId);
+      let stagesForNewPipeline: { name: string; id: string }[] = [];
+      if (pipelineForStages && pipelineForStages.stages?.length > 0) {
+        stagesForNewPipeline = [...pipelineForStages.stages]
+          .sort((a, b) => (a.position || 0) - (b.position || 0))
+          .map(s => ({ name: s.name, id: s.id }));
+      } else {
+        stagesForNewPipeline = allOpportunities
+          .filter((o) => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id)
+          .map((o) => ({ name: o.stage_name!, id: o.pipeline_stage_id! }))
+          .filter((v, i, a) => a.findIndex(x => x.name === v.name) === i)
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }
       const newStageName = stagesForNewPipeline[0]?.name || opportunity.stage_name || "";
       const newStageId = stagesForNewPipeline[0]?.id || opportunity.pipeline_stage_id || "";
 
@@ -1150,7 +1178,9 @@ export function OpportunityDetailSheet({
     try {
       // Get the pipeline_stage_id for the selected stage
       const pipeline_stage_id = stageMap.get(editedStage) || opportunity.pipeline_stage_id;
-      const pipeline_name = pipelineMap.get(editedPipeline) || opportunity.pipeline_name;
+      const pipeline_name = pipelineData.find(p => p.ghl_id === editedPipeline)?.name || 
+        allOpportunities.find(o => o.pipeline_id === editedPipeline)?.pipeline_name || 
+        opportunity.pipeline_name;
       const monetaryValue = parseFloat(editedMonetaryValue) || 0;
 
       // Call edge function to update GHL first, then Supabase

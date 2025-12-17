@@ -112,9 +112,41 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Fetch pipelines/stages on mount
+  // Fetch pipelines/stages on mount from ghl_pipelines table
   useEffect(() => {
     const fetchPipelineStages = async () => {
+      // First try to get from ghl_pipelines table
+      const { data: pipelineData } = await supabase
+        .from("ghl_pipelines")
+        .select("ghl_id, name, stages")
+        .eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
+
+      if (pipelineData && pipelineData.length > 0) {
+        // Build pipeline stages from ghl_pipelines
+        const stages: PipelineStage[] = [];
+        pipelineData.forEach((pipeline: any) => {
+          const pipelineStages = pipeline.stages || [];
+          pipelineStages.forEach((stage: any) => {
+            stages.push({
+              pipeline_id: pipeline.ghl_id,
+              pipeline_name: pipeline.name,
+              pipeline_stage_id: stage.id,
+              stage_name: stage.name,
+            });
+          });
+        });
+        setPipelineStages(stages);
+
+        // Set default to Annabella > New Lead
+        const defaultStage = stages.find((s) => s.stage_name === "New Lead (No Contacted Yet)");
+        if (defaultStage) {
+          setSelectedPipeline(defaultStage.pipeline_id);
+          setSelectedStage(defaultStage.pipeline_stage_id);
+        }
+        return;
+      }
+
+      // Fall back to deriving from opportunities
       const { data } = await supabase
         .from("opportunities")
         .select("pipeline_id, pipeline_name, pipeline_stage_id, stage_name")
