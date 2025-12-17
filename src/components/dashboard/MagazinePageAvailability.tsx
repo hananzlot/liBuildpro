@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Settings2, Check } from "lucide-react";
@@ -19,19 +18,29 @@ interface MagazineSale {
   page_size: string;
   page_number: string;
   price: number;
+  sections_sold?: number[] | null;
 }
 
 interface MagazinePageAvailabilityProps {
   sales: MagazineSale[];
 }
 
-const PAGE_SIZE_VALUES: Record<string, number> = {
-  "1/4": 0.25,
-  "1/2": 0.5,
-  "3/4": 0.75,
-  "Full": 1,
-  "Cover": 1,
-  "Back Page": 1,
+// Convert legacy page_size to sections (for backward compatibility)
+const legacySizeToSections = (pageSize: string): number[] => {
+  switch (pageSize) {
+    case "Full":
+    case "Cover":
+    case "Back Page":
+      return [1, 2, 3, 4, 5, 6, 7, 8];
+    case "3/4":
+      return [1, 2, 3, 4, 5, 6];
+    case "1/2":
+      return [1, 2, 3, 4];
+    case "1/4":
+      return [1, 2];
+    default:
+      return [];
+  }
 };
 
 export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProps) => {
@@ -55,26 +64,32 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
 
   const currentPageCount = pageCountByIssue[selectedIssue] || 48;
 
-  // Calculate page occupancy for selected issue
-  const pageOccupancy = useMemo(() => {
+  // Calculate section occupancy for selected issue
+  const sectionOccupancy = useMemo(() => {
     if (!selectedIssue) return {};
 
-    const occupancy: Record<number, { sold: number; buyers: string[] }> = {};
+    const occupancy: Record<number, { sections: Set<number>; buyers: Map<number, string> }> = {};
     const issueSales = sales.filter((s) => s.magazine_issue_date === selectedIssue);
 
     issueSales.forEach((sale) => {
-      if (sale.page_number === "Random") return; // Skip random pages for grid
+      if (sale.page_number === "Random") return;
 
       const pageNum = parseInt(sale.page_number, 10);
       if (isNaN(pageNum)) return;
 
-      const sizeValue = PAGE_SIZE_VALUES[sale.page_size] || 0;
+      // Use sections_sold if available, otherwise convert from legacy page_size
+      const sections = sale.sections_sold?.length 
+        ? sale.sections_sold 
+        : legacySizeToSections(sale.page_size);
 
       if (!occupancy[pageNum]) {
-        occupancy[pageNum] = { sold: 0, buyers: [] };
+        occupancy[pageNum] = { sections: new Set(), buyers: new Map() };
       }
-      occupancy[pageNum].sold = Math.min(1, occupancy[pageNum].sold + sizeValue);
-      occupancy[pageNum].buyers.push(sale.buyer_name);
+
+      sections.forEach((sec) => {
+        occupancy[pageNum].sections.add(sec);
+        occupancy[pageNum].buyers.set(sec, sale.buyer_name);
+      });
     });
 
     return occupancy;
@@ -82,14 +97,18 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
 
   // Count random page sales
   const randomPagesSold = useMemo(() => {
-    if (!selectedIssue) return { count: 0, totalValue: 0 };
+    if (!selectedIssue) return { count: 0, totalSections: 0 };
 
     const randomSales = sales.filter(
       (s) => s.magazine_issue_date === selectedIssue && s.page_number === "Random"
     );
 
-    const totalValue = randomSales.reduce((sum, s) => sum + (PAGE_SIZE_VALUES[s.page_size] || 0), 0);
-    return { count: randomSales.length, totalValue };
+    const totalSections = randomSales.reduce((sum, s) => {
+      const sections = s.sections_sold?.length || legacySizeToSections(s.page_size).length;
+      return sum + sections;
+    }, 0);
+
+    return { count: randomSales.length, totalSections };
   }, [sales, selectedIssue]);
 
   // Stats
@@ -98,14 +117,14 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
     let fullySold = 0;
     let partiallySold = 0;
 
-    Object.values(pageOccupancy).forEach((page) => {
-      if (page.sold >= 1) fullySold++;
-      else if (page.sold > 0) partiallySold++;
+    Object.values(sectionOccupancy).forEach((page) => {
+      if (page.sections.size >= 8) fullySold++;
+      else if (page.sections.size > 0) partiallySold++;
     });
 
     const available = totalPages - fullySold - partiallySold;
     return { totalPages, fullySold, partiallySold, available };
-  }, [pageOccupancy, currentPageCount]);
+  }, [sectionOccupancy, currentPageCount]);
 
   const handleSavePageCount = () => {
     const count = parseInt(tempPageCount, 10);
@@ -115,29 +134,10 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
     setEditingPageCount(false);
   };
 
-  const getPageStatus = (pageNum: number) => {
-    const occupancy = pageOccupancy[pageNum];
-    if (!occupancy) return "available";
-    if (occupancy.sold >= 1) return "sold";
-    if (occupancy.sold >= 0.75) return "three-quarter";
-    if (occupancy.sold >= 0.5) return "half";
-    if (occupancy.sold > 0) return "quarter";
-    return "available";
-  };
-
-  const getPageColor = (status: string) => {
-    switch (status) {
-      case "sold":
-        return "bg-red-500 text-white border-red-600";
-      case "three-quarter":
-        return "bg-orange-400 text-white border-orange-500";
-      case "half":
-        return "bg-amber-400 text-amber-900 border-amber-500";
-      case "quarter":
-        return "bg-yellow-300 text-yellow-900 border-yellow-400";
-      default:
-        return "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700";
-    }
+  const getSectionColor = (isSold: boolean) => {
+    return isSold
+      ? "bg-red-500 border-red-600"
+      : "bg-emerald-100 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700";
   };
 
   if (issueDates.length === 0) {
@@ -206,18 +206,6 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
             <span className="text-muted-foreground">Available</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 rounded bg-yellow-300 border border-yellow-400" />
-            <span className="text-muted-foreground">1/4 Sold</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 rounded bg-amber-400 border border-amber-500" />
-            <span className="text-muted-foreground">1/2 Sold</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 rounded bg-orange-400 border border-orange-500" />
-            <span className="text-muted-foreground">3/4 Sold</span>
-          </div>
-          <div className="flex items-center gap-1.5">
             <div className="w-4 h-4 rounded bg-red-500 border border-red-600" />
             <span className="text-muted-foreground">Sold</span>
           </div>
@@ -226,40 +214,47 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
         {/* Stats Summary */}
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-            {stats.available} Available
+            {stats.available} Fully Available
           </Badge>
           <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
-            {stats.partiallySold} Partial
+            {stats.partiallySold} Partially Sold
           </Badge>
           <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
-            {stats.fullySold} Sold
+            {stats.fullySold} Fully Sold
           </Badge>
           {randomPagesSold.count > 0 && (
             <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
-              {randomPagesSold.count} Random ({randomPagesSold.totalValue.toFixed(2)} pages)
+              {randomPagesSold.count} Random ({randomPagesSold.totalSections} sections)
             </Badge>
           )}
         </div>
 
-        {/* Page Grid */}
-        <div className="grid grid-cols-8 sm:grid-cols-12 gap-1.5">
+        {/* Page Grid - Each page is a 2x4 grid of sections */}
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
           {Array.from({ length: currentPageCount }, (_, i) => i + 1).map((pageNum) => {
-            const status = getPageStatus(pageNum);
-            const occupancy = pageOccupancy[pageNum];
-            const tooltip = occupancy
-              ? `Page ${pageNum}: ${Math.round(occupancy.sold * 100)}% sold\n${occupancy.buyers.join(", ")}`
-              : `Page ${pageNum}: Available`;
+            const pageData = sectionOccupancy[pageNum];
+            const soldSections = pageData?.sections || new Set<number>();
+            const buyerMap = pageData?.buyers || new Map<number, string>();
 
             return (
-              <div
-                key={pageNum}
-                title={tooltip}
-                className={cn(
-                  "aspect-square flex items-center justify-center text-xs font-medium rounded border cursor-default transition-transform hover:scale-110",
-                  getPageColor(status)
-                )}
-              >
-                {pageNum}
+              <div key={pageNum} className="flex flex-col items-center">
+                <span className="text-xs text-muted-foreground mb-1">Pg {pageNum}</span>
+                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border border-border bg-card">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
+                    const isSold = soldSections.has(section);
+                    const buyer = buyerMap.get(section);
+                    return (
+                      <div
+                        key={section}
+                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
+                        className={cn(
+                          "w-3 h-3 rounded-sm border cursor-default",
+                          getSectionColor(isSold)
+                        )}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             );
           })}

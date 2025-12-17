@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageSectionSelector } from "./PageSectionSelector";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 
 interface MagazineSale {
@@ -25,6 +25,7 @@ interface MagazineSale {
   created_at: string;
   updated_at: string;
   entered_by: string | null;
+  sections_sold?: number[] | null;
 }
 
 interface MagazineSalesEntryDialogProps {
@@ -36,8 +37,36 @@ interface MagazineSalesEntryDialogProps {
   userId?: string;
 }
 
-const PAGE_SIZES = ["1/4", "1/2", "3/4", "Full", "Cover", "Back Page"];
 const PAGE_NUMBERS = ["Random", ...Array.from({ length: 50 }, (_, i) => String(i + 1))];
+
+// Convert legacy page_size to sections
+const legacySizeToSections = (pageSize: string): number[] => {
+  switch (pageSize) {
+    case "Full":
+    case "Cover":
+    case "Back Page":
+      return [1, 2, 3, 4, 5, 6, 7, 8];
+    case "3/4":
+      return [1, 2, 3, 4, 5, 6];
+    case "1/2":
+      return [1, 2, 3, 4];
+    case "1/4":
+      return [1, 2];
+    default:
+      return [];
+  }
+};
+
+// Convert sections to page_size label
+const sectionsToSize = (sections: number[]): string => {
+  const count = sections.length;
+  if (count === 8) return "Full";
+  if (count === 6) return "3/4";
+  if (count === 4) return "1/2";
+  if (count === 2) return "1/4";
+  if (count === 1) return "1/8";
+  return `${count}/8`;
+};
 
 export const MagazineSalesEntryDialog = ({
   open,
@@ -56,8 +85,8 @@ export const MagazineSalesEntryDialog = ({
   const [customIssueDate, setCustomIssueDate] = useState("");
   const [adSold, setAdSold] = useState("");
   const [customAdSold, setCustomAdSold] = useState("");
-  const [pageSize, setPageSize] = useState("");
   const [pageNumber, setPageNumber] = useState("");
+  const [selectedSections, setSelectedSections] = useState<number[]>([]);
   const [price, setPrice] = useState("");
 
   // Get unique issue dates from existing sales
@@ -72,6 +101,31 @@ export const MagazineSalesEntryDialog = ({
     return Array.from(ads).sort();
   }, [existingSales]);
 
+  // Get sold sections for selected page/issue
+  const soldSectionsForPage = useMemo(() => {
+    const finalIssueDate = magazineIssueDate === "custom" ? customIssueDate : magazineIssueDate;
+    if (!finalIssueDate || pageNumber === "Random" || !pageNumber) return [];
+
+    const pageNum = parseInt(pageNumber, 10);
+    if (isNaN(pageNum)) return [];
+
+    const soldSections: number[] = [];
+    existingSales
+      .filter((s) => 
+        s.magazine_issue_date === finalIssueDate && 
+        s.page_number === pageNumber &&
+        s.id !== editingSale?.id // Exclude current sale when editing
+      )
+      .forEach((sale) => {
+        const sections = sale.sections_sold?.length 
+          ? sale.sections_sold 
+          : legacySizeToSections(sale.page_size);
+        soldSections.push(...sections);
+      });
+
+    return [...new Set(soldSections)];
+  }, [existingSales, magazineIssueDate, customIssueDate, pageNumber, editingSale]);
+
   // Reset form when dialog opens/closes or editing sale changes
   useEffect(() => {
     if (open) {
@@ -84,8 +138,12 @@ export const MagazineSalesEntryDialog = ({
         setCustomIssueDate("");
         setAdSold(editingSale.ad_sold);
         setCustomAdSold("");
-        setPageSize(editingSale.page_size);
         setPageNumber(editingSale.page_number);
+        // Use sections_sold if available, otherwise convert from page_size
+        const sections = editingSale.sections_sold?.length 
+          ? editingSale.sections_sold 
+          : legacySizeToSections(editingSale.page_size);
+        setSelectedSections(sections);
         setPrice(String(editingSale.price));
       } else {
         setBuyerName("");
@@ -96,12 +154,19 @@ export const MagazineSalesEntryDialog = ({
         setCustomIssueDate("");
         setAdSold("");
         setCustomAdSold("");
-        setPageSize("");
         setPageNumber("");
+        setSelectedSections([]);
         setPrice("");
       }
     }
   }, [open, editingSale]);
+
+  // Clear sections when page number changes
+  useEffect(() => {
+    if (!editingSale) {
+      setSelectedSections([]);
+    }
+  }, [pageNumber, magazineIssueDate, editingSale]);
 
   const createMutation = useMutation({
     mutationFn: async (data: Omit<MagazineSale, "id" | "created_at" | "updated_at">) => {
@@ -124,14 +189,12 @@ export const MagazineSalesEntryDialog = ({
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data, changes }: { id: string; data: Partial<MagazineSale>; changes: { field: string; old: string; new: string }[] }) => {
-      // Update the sale
       const { error: updateError } = await supabase
         .from("magazine_sales")
         .update(data)
         .eq("id", id);
       if (updateError) throw updateError;
 
-      // Log the edits for audit trail
       if (changes.length > 0) {
         const edits = changes.map((change) => ({
           magazine_sale_id: id,
@@ -189,18 +252,29 @@ export const MagazineSalesEntryDialog = ({
       toast.error("Ad sold is required");
       return;
     }
-    if (!pageSize) {
-      toast.error("Page size is required");
-      return;
-    }
     if (!pageNumber) {
       toast.error("Page number is required");
+      return;
+    }
+    if (selectedSections.length === 0) {
+      toast.error("Please select at least one section");
       return;
     }
     if (!price || isNaN(Number(price))) {
       toast.error("Valid price is required");
       return;
     }
+
+    // Validate no overlap with sold sections (except for Random pages)
+    if (pageNumber !== "Random") {
+      const overlap = selectedSections.filter((s) => soldSectionsForPage.includes(s));
+      if (overlap.length > 0) {
+        toast.error(`Sections ${overlap.join(", ")} are already sold on this page`);
+        return;
+      }
+    }
+
+    const pageSize = sectionsToSize(selectedSections);
 
     const saleData = {
       buyer_name: buyerName.trim(),
@@ -211,12 +285,12 @@ export const MagazineSalesEntryDialog = ({
       ad_sold: finalAdSold.trim(),
       page_size: pageSize,
       page_number: pageNumber,
+      sections_sold: selectedSections,
       price: Number(price),
       entered_by: userId || null,
     };
 
     if (editingSale) {
-      // Track changes for audit
       const changes: { field: string; old: string; new: string }[] = [];
       if (editingSale.buyer_name !== saleData.buyer_name) changes.push({ field: "buyer_name", old: editingSale.buyer_name, new: saleData.buyer_name });
       if ((editingSale.buyer_phone || "") !== (saleData.buyer_phone || "")) changes.push({ field: "buyer_phone", old: editingSale.buyer_phone || "", new: saleData.buyer_phone || "" });
@@ -226,6 +300,9 @@ export const MagazineSalesEntryDialog = ({
       if (editingSale.ad_sold !== saleData.ad_sold) changes.push({ field: "ad_sold", old: editingSale.ad_sold, new: saleData.ad_sold });
       if (editingSale.page_size !== saleData.page_size) changes.push({ field: "page_size", old: editingSale.page_size, new: saleData.page_size });
       if (editingSale.page_number !== saleData.page_number) changes.push({ field: "page_number", old: editingSale.page_number, new: saleData.page_number });
+      const oldSections = editingSale.sections_sold?.join(",") || legacySizeToSections(editingSale.page_size).join(",");
+      const newSections = saleData.sections_sold.join(",");
+      if (oldSections !== newSections) changes.push({ field: "sections_sold", old: oldSections, new: newSections });
       if (Number(editingSale.price) !== saleData.price) changes.push({ field: "price", old: String(editingSale.price), new: String(saleData.price) });
 
       updateMutation.mutate({ id: editingSale.id, data: saleData, changes });
@@ -342,23 +419,6 @@ export const MagazineSalesEntryDialog = ({
             )}
           </div>
 
-          {/* Page Size */}
-          <div className="space-y-2">
-            <Label>Page Size *</Label>
-            <Select value={pageSize} onValueChange={setPageSize}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select page size" />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZES.map((size) => (
-                  <SelectItem key={size} value={size}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Page Number */}
           <div className="space-y-2">
             <Label>Page Number *</Label>
@@ -374,6 +434,17 @@ export const MagazineSalesEntryDialog = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Page Section Selector */}
+          <div className="space-y-2">
+            <Label>Page Sections *</Label>
+            <PageSectionSelector
+              selectedSections={selectedSections}
+              onSectionsChange={setSelectedSections}
+              soldSections={pageNumber === "Random" ? [] : soldSectionsForPage}
+              disabled={!pageNumber}
+            />
           </div>
 
           {/* Price */}

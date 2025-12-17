@@ -25,6 +25,7 @@ interface MagazineSale {
   created_at: string;
   updated_at: string;
   entered_by: string | null;
+  sections_sold?: number[] | null;
 }
 
 const PAGE_SIZE_VALUES: Record<string, number> = {
