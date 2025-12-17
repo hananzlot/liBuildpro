@@ -261,7 +261,16 @@ export function SourceDetailSheet({
       .join(' ');
   };
 
-  // Get ALL contacts for this source (normalized matching)
+  // Get contacts for this source within the date range (normalized matching)
+  const sourceContactsInDateRange = useMemo(() => {
+    return filteredContacts.filter(c => normalizeSourceName(c.source || "Direct") === source);
+  }, [filteredContacts, source]);
+
+  const sourceContactIdsInDateRange = useMemo(() => {
+    return new Set(sourceContactsInDateRange.map(c => c.ghl_id));
+  }, [sourceContactsInDateRange]);
+
+  // Keep all contacts for "No Appointments" check (need to know if contact EVER had appointments)
   const allSourceContacts = useMemo(() => {
     return contacts.filter(c => normalizeSourceName(c.source || "Direct") === source);
   }, [contacts, source]);
@@ -270,12 +279,12 @@ export function SourceDetailSheet({
     return new Set(allSourceContacts.map(c => c.ghl_id));
   }, [allSourceContacts]);
 
-  // Get appointments for this source (use filtered appointments, exclude cancelled)
+  // Get appointments for this source (use filtered appointments, filtered by contacts in date range)
   const sourceAppointments = useMemo(() => {
     return filteredAppointments
-      .filter(a => a.contact_id && allSourceContactIds.has(a.contact_id))
+      .filter(a => a.contact_id && sourceContactIdsInDateRange.has(a.contact_id))
       .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled');
-  }, [filteredAppointments, allSourceContactIds]);
+  }, [filteredAppointments, sourceContactIdsInDateRange]);
 
   // Get contact IDs that have appointments (for "Appointments" view - use filtered)
   const contactIdsWithFilteredAppointments = useMemo(() => {
@@ -293,12 +302,12 @@ export function SourceDetailSheet({
     return ids;
   }, [appointments]);
 
-  // Get opportunities for this source (use filtered opportunities, exclude quickbase)
+  // Get opportunities for this source (use filtered opportunities, filtered by contacts in date range)
   const sourceOpportunities = useMemo(() => {
     return filteredOpportunities
-      .filter(o => o.contact_id && allSourceContactIds.has(o.contact_id))
+      .filter(o => o.contact_id && sourceContactIdsInDateRange.has(o.contact_id))
       .filter(o => o.stage_name?.toLowerCase() !== 'quickbase');
-  }, [filteredOpportunities, allSourceContactIds]);
+  }, [filteredOpportunities, sourceContactIdsInDateRange]);
 
   // Unique appointments count (unique by appointment ghl_id)
   const uniqueAppointmentsCount = useMemo(() => {
