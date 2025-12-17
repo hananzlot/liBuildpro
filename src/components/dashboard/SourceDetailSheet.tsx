@@ -306,12 +306,6 @@ export function SourceDetailSheet({
     return uniqueIds.size;
   }, [sourceAppointments]);
 
-  // Confirmed appointments count (using date-filtered appointments to match other metrics)
-  const confirmedAppointmentsCount = useMemo(() => {
-    return sourceAppointments
-      .filter(a => a.appointment_status?.toLowerCase() === 'confirmed')
-      .length;
-  }, [sourceAppointments]);
 
   // Filter based on mode and search
   const displayOpportunities = useMemo(() => {
@@ -436,12 +430,8 @@ export function SourceDetailSheet({
             ) : (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Total: </span>
+                  <span className="text-muted-foreground">Opportunities: </span>
                   <span className="font-medium">{sourceOpportunities.length}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Confirmed: </span>
-                  <span className="font-medium text-blue-400">{confirmedAppointmentsCount}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Open: </span>
@@ -462,6 +452,10 @@ export function SourceDetailSheet({
                 <div>
                   <span className="text-muted-foreground">Won Value: </span>
                   <span className="font-medium text-emerald-400">{formatCurrency(wonValue)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Appointments: </span>
+                  <span className="font-medium">{uniqueAppointmentsCount}</span>
                 </div>
               </div>
             )}
