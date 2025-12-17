@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.update-contact-name]
 verify_jwt = false
+
+[functions.auto-create-never-answers-tasks]
+verify_jwt = false
