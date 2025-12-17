@@ -33,12 +33,49 @@ interface MagazineSalesDetailSheetProps {
 }
 
 const PAGE_SIZE_VALUES: Record<string, number> = {
+  "1/8": 0.125,
   "1/4": 0.25,
+  "3/8": 0.375,
   "1/2": 0.5,
+  "5/8": 0.625,
   "3/4": 0.75,
+  "7/8": 0.875,
   "Full": 1,
   "Cover": 1,
   "Back Page": 1,
+  "Inside Front Cover": 1,
+  "Inside Back Cover": 1,
+};
+
+// Calculate page value from sale (prioritize sections_sold)
+const getPageValue = (sale: MagazineSale): number => {
+  if (sale.sections_sold && sale.sections_sold.length > 0) {
+    return sale.sections_sold.length / 8;
+  }
+  return PAGE_SIZE_VALUES[sale.page_size] || 0;
+};
+
+// Format page count as fraction (e.g., 7/8, 1 1/2, 2 3/8)
+const formatPageCount = (value: number): string => {
+  const whole = Math.floor(value);
+  const fraction = value - whole;
+  
+  const fractionMap: Record<number, string> = {
+    0.125: "1/8",
+    0.25: "1/4",
+    0.375: "3/8",
+    0.5: "1/2",
+    0.625: "5/8",
+    0.75: "3/4",
+    0.875: "7/8",
+  };
+  
+  const roundedFraction = Math.round(fraction * 8) / 8;
+  const fractionStr = fractionMap[roundedFraction] || "";
+  
+  if (whole === 0 && fractionStr) return fractionStr;
+  if (fractionStr) return `${whole} ${fractionStr}`;
+  return String(whole);
 };
 
 export const MagazineSalesDetailSheet = ({
@@ -68,7 +105,7 @@ export const MagazineSalesDetailSheet = ({
     let totalPages = 0;
     let totalSales = 0;
     filteredSales.forEach((sale) => {
-      totalPages += PAGE_SIZE_VALUES[sale.page_size] || 0;
+      totalPages += getPageValue(sale);
       totalSales += Number(sale.price);
     });
     return { totalPages, totalSales };
@@ -118,7 +155,7 @@ export const MagazineSalesDetailSheet = ({
           <div className="flex items-center gap-6 p-4 rounded-lg bg-muted/50">
             <div>
               <span className="text-sm text-muted-foreground">Total Pages: </span>
-              <span className="font-semibold">{totalPages.toFixed(2)}</span>
+              <span className="font-semibold">{formatPageCount(totalPages)}</span>
             </div>
             <div>
               <span className="text-sm text-muted-foreground">Total Sales: </span>
