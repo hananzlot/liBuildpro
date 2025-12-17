@@ -175,14 +175,12 @@ export const MagazineSalesTab = () => {
       {/* Sales by Issue Summary */}
       {Object.keys(salesByIssue).length > 0 && (
         <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-foreground">Sales by Issue</h3>
-            <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm">
+          <h3 className="text-base font-semibold text-foreground">Sales by Issue</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm" className="h-auto py-2">
               <Plus className="h-4 w-4 mr-2" />
               New Entry
             </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
             {Object.entries(salesByIssue)
               .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
               .map(([issueDate, data]) => (
