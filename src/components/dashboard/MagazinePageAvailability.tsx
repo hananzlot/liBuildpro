@@ -112,11 +112,11 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
   }, [sales, selectedIssue]);
 
   // Special pages
-  const specialPages = ["Cover", "Back Page"] as const;
+  const specialPages = ["Cover", "Inside Front Cover", "Inside Back Cover", "Back Page"] as const;
 
   // Stats (including special pages)
   const stats = useMemo(() => {
-    const totalPages = currentPageCount + specialPages.length; // +2 for Cover and Back Page
+    const totalPages = currentPageCount + specialPages.length; // +4 for special pages
     let fullySold = 0;
     let partiallySold = 0;
 
@@ -272,6 +272,31 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
             );
           })()}
 
+          {/* Inside Front Cover */}
+          {(() => {
+            const pageData = sectionOccupancy["Inside Front Cover"];
+            const soldSections = pageData?.sections || new Set<number>();
+            const buyerMap = pageData?.buyers || new Map<number, string>();
+            return (
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-muted-foreground mb-1 font-medium">IFC</span>
+                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border-2 border-amber-500/50 bg-card">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
+                    const isSold = soldSections.has(section);
+                    const buyer = buyerMap.get(section);
+                    return (
+                      <div
+                        key={section}
+                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
+                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Numbered Pages */}
           {Array.from({ length: currentPageCount }, (_, i) => i + 1).map((pageNum) => {
             const pageData = sectionOccupancy[String(pageNum)];
@@ -297,6 +322,31 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
               </div>
             );
           })}
+
+          {/* Inside Back Cover */}
+          {(() => {
+            const pageData = sectionOccupancy["Inside Back Cover"];
+            const soldSections = pageData?.sections || new Set<number>();
+            const buyerMap = pageData?.buyers || new Map<number, string>();
+            return (
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-muted-foreground mb-1 font-medium">IBC</span>
+                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border-2 border-amber-500/50 bg-card">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
+                    const isSold = soldSections.has(section);
+                    const buyer = buyerMap.get(section);
+                    return (
+                      <div
+                        key={section}
+                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
+                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Back Page */}
           {(() => {

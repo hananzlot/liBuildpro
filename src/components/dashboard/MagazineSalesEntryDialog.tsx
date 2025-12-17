@@ -37,7 +37,7 @@ interface MagazineSalesEntryDialogProps {
   userId?: string;
 }
 
-const PAGE_NUMBERS = ["Cover", ...Array.from({ length: 50 }, (_, i) => String(i + 1)), "Back Page", "Random"];
+const PAGE_NUMBERS = ["Cover", "Inside Front Cover", ...Array.from({ length: 50 }, (_, i) => String(i + 1)), "Inside Back Cover", "Back Page", "Random"];
 
 // Convert legacy page_size to sections
 const legacySizeToSections = (pageSize: string): number[] => {
