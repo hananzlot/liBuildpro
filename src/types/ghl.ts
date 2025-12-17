@@ -51,4 +51,6 @@ export interface DashboardMetrics {
   leadsBySource: LeadsBySource[];
   salesRepPerformance: SalesRepPerformance[];
   recentLeads: GHLContact[];
+  appointmentsShowedInDateRange?: number;
+  appointmentsShowedInDateRangeList?: any[];
 }

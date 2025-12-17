@@ -271,15 +271,23 @@ const Index = () => {
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">Appointments Created (in date range)</p>
-                        <div className="flex items-baseline gap-2">
-                          <p className="text-3xl font-bold tracking-tight text-foreground">
-                            {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
-                          </p>
-                          <span className="text-sm text-muted-foreground">net</span>
+                        <p className="text-sm font-medium text-muted-foreground">Appointments (in date range)</p>
+                        <div className="flex flex-wrap gap-3 text-sm">
+                          <div className="flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-lg">
+                            <span className="text-xl font-bold text-blue-500">
+                              {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
+                            </span>
+                            <span className="text-blue-500/70 text-xs">created</span>
+                          </div>
+                          <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg">
+                            <span className="text-xl font-bold text-emerald-500">
+                              {metrics?.appointmentsShowedInDateRange || 0}
+                            </span>
+                            <span className="text-emerald-500/70 text-xs">showed</span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-3 text-xs">
-                          <span className="text-muted-foreground">{metrics?.totalAppointments || 0} created</span>
+                          <span className="text-muted-foreground">{metrics?.totalAppointments || 0} booked</span>
                           <span className="text-red-500 font-medium">
                             -{metrics?.cancelledAppointments || 0} cancelled
                           </span>
