@@ -447,6 +447,21 @@ function processMetrics(
       })
     : appointments;
 
+  // Filter appointments that were marked as "showed" within the date range (by updated_at date)
+  const appointmentsShowedInDateRange = dateRange?.from
+    ? appointments.filter((a) => {
+        const status = a.appointment_status?.toLowerCase();
+        if (status !== "showed") return false;
+        // Use updated_at as the date the status was changed
+        const updateDate = a.updated_at ? new Date(a.updated_at) : (a.ghl_date_updated ? new Date(a.ghl_date_updated) : null);
+        if (!updateDate) return false;
+        const startDate = dateRange.from!;
+        const endDate = new Date(dateRange.to || new Date());
+        endDate.setHours(23, 59, 59, 999);
+        return updateDate >= startDate && updateDate <= endDate;
+      })
+    : appointments.filter((a) => a.appointment_status?.toLowerCase() === "showed");
+
   // Create lookup maps for hybrid opportunity attribution
   // Map contact ghl_id -> contact.assigned_to
   const contactAssignmentMap = new Map<string, string>();
@@ -710,6 +725,8 @@ function processMetrics(
     totalAppointments: appointmentsByCreationDate.length,
     cancelledAppointments: appointmentsByCreationDate.filter((a) => a.appointment_status?.toLowerCase() === "cancelled")
       .length,
+    appointmentsShowedInDateRange: appointmentsShowedInDateRange.length,
+    appointmentsShowedInDateRangeList: appointmentsShowedInDateRange,
     appointmentsToday,
     unconfirmedTodayAppointments,
     upcomingAppointments,
