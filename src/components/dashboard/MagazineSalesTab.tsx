@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ClickableMetricCard } from "./ClickableMetricCard";
 import { MagazineSalesEntryDialog } from "./MagazineSalesEntryDialog";
 import { MagazineSalesDetailSheet } from "./MagazineSalesDetailSheet";
+import { MagazinePageAvailability } from "./MagazinePageAvailability";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -162,6 +163,9 @@ export const MagazineSalesTab = () => {
           </div>
         </section>
       )}
+
+      {/* Page Availability Grid */}
+      <MagazinePageAvailability sales={sales} />
 
       {/* Entry Dialog */}
       <MagazineSalesEntryDialog
