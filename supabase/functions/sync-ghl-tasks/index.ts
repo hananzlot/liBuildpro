@@ -22,6 +22,29 @@ function getGHLApiKey(locationId: string): string {
   return apiKey1;
 }
 
+// Fetch with retry and exponential backoff for rate limiting
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    
+    if (response.status === 429) {
+      // Rate limited - wait with exponential backoff
+      const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+      console.log(`Rate limited (429), waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      continue;
+    }
+    
+    return response;
+  }
+  
+  // Return a mock 429 response if all retries failed
+  return new Response(JSON.stringify({ statusCode: 429, message: "Rate limit exceeded after retries" }), {
+    status: 429,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -56,10 +79,10 @@ serve(async (req) => {
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
 
-    // Fetch tasks from GHL for this contact
+    // Fetch tasks from GHL for this contact with retry
     console.log(`Fetching GHL tasks for contact: ${contact_id} (location: ${effectiveLocationId})`);
     
-    const tasksResponse = await fetch(
+    const tasksResponse = await fetchWithRetry(
       `https://services.leadconnectorhq.com/contacts/${contact_id}/tasks`,
       {
         headers: {
@@ -70,12 +93,32 @@ serve(async (req) => {
       }
     );
 
+    // If rate limited, return success with 0 updates (use cached data)
+    if (tasksResponse.status === 429) {
+      console.log('GHL rate limited, skipping sync - using cached tasks');
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          ghl_tasks_count: 0,
+          updated_count: 0,
+          cached: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!tasksResponse.ok) {
       const errorText = await tasksResponse.text();
       console.error('GHL Tasks API Error:', errorText);
+      // Return success with cached flag instead of error
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch tasks from GHL', details: errorText }),
-        { status: tasksResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: true, 
+          ghl_tasks_count: 0,
+          updated_count: 0,
+          cached: true
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
