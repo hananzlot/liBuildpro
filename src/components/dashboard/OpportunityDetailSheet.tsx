@@ -281,6 +281,11 @@ export function OpportunityDetailSheet({
   // Track if sheet was previously closed, to reset savedValues only on fresh open
   const [wasOpen, setWasOpen] = useState(false);
 
+  // Inline editing states for pipeline and stage
+  const [isInlineEditingPipeline, setIsInlineEditingPipeline] = useState(false);
+  const [isInlineEditingStage, setIsInlineEditingStage] = useState(false);
+  const [isSavingInline, setIsSavingInline] = useState(false);
+
   // Reset saved values only when sheet opens fresh (was closed, now open)
   useEffect(() => {
     if (open && !wasOpen) {
@@ -957,7 +962,7 @@ export function OpportunityDetailSheet({
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Build stages for the currently selected/edited pipeline
-  const activePipelineId = isEditing ? editedPipeline : opportunity?.pipeline_id;
+  const activePipelineId = isEditing ? editedPipeline : (savedValues.pipeline_id ?? opportunity?.pipeline_id);
   allOpportunities.forEach((o) => {
     if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === activePipelineId) {
       stageMap.set(o.stage_name, o.pipeline_stage_id);
@@ -1018,6 +1023,94 @@ export function OpportunityDetailSheet({
       .filter((v, i, a) => a.indexOf(v) === i)
       .sort();
     setEditedStage(stagesForNewPipeline[0] || "");
+  };
+
+  // Inline save for pipeline change (without entering full edit mode)
+  const handleInlinePipelineChange = async (newPipelineId: string) => {
+    if (!opportunity) return;
+    setIsSavingInline(true);
+    try {
+      const newPipelineName = pipelineMap.get(newPipelineId) || "";
+      // Get first stage for new pipeline
+      const stagesForNewPipeline = allOpportunities
+        .filter((o) => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id)
+        .map((o) => ({ name: o.stage_name!, id: o.pipeline_stage_id! }))
+        .filter((v, i, a) => a.findIndex(x => x.name === v.name) === i)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      const newStageName = stagesForNewPipeline[0]?.name || opportunity.stage_name || "";
+      const newStageId = stagesForNewPipeline[0]?.id || opportunity.pipeline_stage_id || "";
+
+      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+        body: {
+          ghl_id: opportunity.ghl_id,
+          pipeline_id: newPipelineId,
+          pipeline_name: newPipelineName,
+          stage_name: newStageName,
+          pipeline_stage_id: newStageId,
+          edited_by: user?.id || null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setSavedValues(prev => ({
+        ...prev,
+        pipeline_name: newPipelineName,
+        pipeline_id: newPipelineId,
+        stage_name: newStageName,
+      }));
+      toast.success("Pipeline updated");
+      setIsInlineEditingPipeline(false);
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+    } catch (error) {
+      console.error("Error updating pipeline:", error);
+      toast.error("Failed to update pipeline");
+    } finally {
+      setIsSavingInline(false);
+    }
+  };
+
+  // Inline save for stage change (without entering full edit mode)
+  const handleInlineStageChange = async (newStageName: string) => {
+    if (!opportunity) return;
+    setIsSavingInline(true);
+    try {
+      // Get the stage ID from the stageMap
+      const activePipelineIdForStage = savedValues.pipeline_id ?? opportunity.pipeline_id;
+      const stageMapForPipeline = new Map<string, string>();
+      allOpportunities.forEach((o) => {
+        if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === activePipelineIdForStage) {
+          stageMapForPipeline.set(o.stage_name, o.pipeline_stage_id);
+        }
+      });
+      const newStageId = stageMapForPipeline.get(newStageName) || "";
+
+      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+        body: {
+          ghl_id: opportunity.ghl_id,
+          stage_name: newStageName,
+          pipeline_stage_id: newStageId,
+          edited_by: user?.id || null,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setSavedValues(prev => ({
+        ...prev,
+        stage_name: newStageName,
+      }));
+      toast.success("Stage updated");
+      setIsInlineEditingStage(false);
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+    } catch (error) {
+      console.error("Error updating stage:", error);
+      toast.error("Failed to update stage");
+    } finally {
+      setIsSavingInline(false);
+    }
   };
   const handleSave = async () => {
     if (!opportunity) return;
@@ -1753,7 +1846,32 @@ export function OpportunityDetailSheet({
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Select pipeline" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-popover z-50">
+                    {availablePipelines.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="text-xs">
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : isInlineEditingPipeline ? (
+                <Select
+                  value={savedValues.pipeline_id ?? opportunity.pipeline_id ?? ""}
+                  onValueChange={handleInlinePipelineChange}
+                  disabled={isSavingInline}
+                  onOpenChange={(open) => {
+                    if (!open && !isSavingInline) setIsInlineEditingPipeline(false);
+                  }}
+                  defaultOpen
+                >
+                  <SelectTrigger className="h-7 text-xs">
+                    {isSavingInline ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <SelectValue placeholder="Select pipeline" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
                     {availablePipelines.map((p) => (
                       <SelectItem key={p.id} value={p.id} className="text-xs">
                         {p.name}
@@ -1762,9 +1880,12 @@ export function OpportunityDetailSheet({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="font-medium truncate">
+                <button
+                  className="font-medium truncate hover:underline text-left w-full cursor-pointer"
+                  onClick={() => setIsInlineEditingPipeline(true)}
+                >
                   {savedValues.pipeline_name ?? opportunity.pipeline_name ?? "-"}
-                </div>
+                </button>
               )}
             </div>
 
@@ -1938,7 +2059,32 @@ export function OpportunityDetailSheet({
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Select stage" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-popover z-50">
+                    {availableStages.map((stage) => (
+                      <SelectItem key={stage} value={stage} className="text-xs">
+                        {stage}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : isInlineEditingStage ? (
+                <Select
+                  value={savedValues.stage_name ?? opportunity.stage_name ?? ""}
+                  onValueChange={handleInlineStageChange}
+                  disabled={isSavingInline}
+                  onOpenChange={(open) => {
+                    if (!open && !isSavingInline) setIsInlineEditingStage(false);
+                  }}
+                  defaultOpen
+                >
+                  <SelectTrigger className="h-7 text-xs">
+                    {isSavingInline ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <SelectValue placeholder="Select stage" />
+                    )}
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
                     {availableStages.map((stage) => (
                       <SelectItem key={stage} value={stage} className="text-xs">
                         {stage}
@@ -1947,7 +2093,12 @@ export function OpportunityDetailSheet({
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="font-medium truncate">{savedValues.stage_name ?? opportunity.stage_name ?? "-"}</div>
+                <button
+                  className="font-medium truncate hover:underline text-left w-full cursor-pointer"
+                  onClick={() => setIsInlineEditingStage(true)}
+                >
+                  {savedValues.stage_name ?? opportunity.stage_name ?? "-"}
+                </button>
               )}
             </div>
           </div>
