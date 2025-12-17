@@ -29,12 +29,49 @@ interface MagazineSale {
 }
 
 const PAGE_SIZE_VALUES: Record<string, number> = {
+  "1/8": 0.125,
   "1/4": 0.25,
+  "3/8": 0.375,
   "1/2": 0.5,
+  "5/8": 0.625,
   "3/4": 0.75,
+  "7/8": 0.875,
   "Full": 1,
   "Cover": 1,
   "Back Page": 1,
+  "Inside Front Cover": 1,
+  "Inside Back Cover": 1,
+};
+
+// Calculate page value from sale (prioritize sections_sold)
+const getPageValue = (sale: MagazineSale): number => {
+  if (sale.sections_sold && sale.sections_sold.length > 0) {
+    return sale.sections_sold.length / 8;
+  }
+  return PAGE_SIZE_VALUES[sale.page_size] || 0;
+};
+
+// Format page count as fraction (e.g., 7/8, 1 1/2, 2 3/8)
+const formatPageCount = (value: number): string => {
+  const whole = Math.floor(value);
+  const fraction = value - whole;
+  
+  const fractionMap: Record<number, string> = {
+    0.125: "1/8",
+    0.25: "1/4",
+    0.375: "3/8",
+    0.5: "1/2",
+    0.625: "5/8",
+    0.75: "3/4",
+    0.875: "7/8",
+  };
+  
+  const roundedFraction = Math.round(fraction * 8) / 8;
+  const fractionStr = fractionMap[roundedFraction] || "";
+  
+  if (whole === 0 && fractionStr) return fractionStr;
+  if (fractionStr) return `${whole} ${fractionStr}`;
+  return String(whole);
 };
 
 export const MagazineSalesTab = () => {
@@ -62,7 +99,7 @@ export const MagazineSalesTab = () => {
     const salesByIssue: Record<string, { pages: number; total: number }> = {};
 
     sales.forEach((sale) => {
-      const pageValue = PAGE_SIZE_VALUES[sale.page_size] || 0;
+      const pageValue = getPageValue(sale);
       totalPages += pageValue;
 
       if (!salesByIssue[sale.magazine_issue_date]) {
@@ -125,7 +162,7 @@ export const MagazineSalesTab = () => {
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <ClickableMetricCard
           title="Pages Sold"
-          value={totalPages.toFixed(2)}
+          value={formatPageCount(totalPages)}
           subtitle="Total pages across all issues"
           icon={BookOpen}
           onClick={() => setDetailSheetOpen(true)}
@@ -156,7 +193,7 @@ export const MagazineSalesTab = () => {
                     Issue: {new Date(issueDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                   </p>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-lg font-semibold">{data.pages.toFixed(2)} pages</span>
+                    <span className="text-lg font-semibold">{formatPageCount(data.pages)} pages</span>
                     <span className="text-lg font-semibold text-emerald-500">{formatCurrency(data.total)}</span>
                   </div>
                 </div>
