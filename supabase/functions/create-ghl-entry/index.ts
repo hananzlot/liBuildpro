@@ -149,6 +149,22 @@ serve(async (req) => {
     if (assignedTo) oppPayload.assignedTo = assignedTo;
     if (source) oppPayload.source = source;
 
+    // Look up pipeline and stage names from ghl_pipelines
+    let pipelineName = null;
+    let stageName = null;
+    const { data: pipelineData } = await supabase
+      .from('ghl_pipelines')
+      .select('name, stages')
+      .eq('ghl_id', pipelineId)
+      .maybeSingle();
+    
+    if (pipelineData) {
+      pipelineName = pipelineData.name;
+      const stages = pipelineData.stages as Array<{ id: string; name: string }> || [];
+      const stage = stages.find(s => s.id === pipelineStageId);
+      if (stage) stageName = stage.name;
+    }
+
     const oppResponse = await fetch(
       'https://services.leadconnectorhq.com/opportunities/',
       {
@@ -175,13 +191,17 @@ serve(async (req) => {
       opportunityId = oppData.opportunity?.id;
       console.log('Opportunity created:', opportunityId);
 
-      // Cache opportunity in Supabase
+      // Cache opportunity in Supabase with pipeline/stage info
       await supabase.from('opportunities').upsert({
         ghl_id: opportunityId,
         location_id: GHL_LOCATION_ID,
         contact_id: contactId,
         name: oppName,
         status: 'open',
+        pipeline_id: pipelineId,
+        pipeline_stage_id: pipelineStageId,
+        pipeline_name: pipelineName,
+        stage_name: stageName,
         assigned_to: assignedTo || null,
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
