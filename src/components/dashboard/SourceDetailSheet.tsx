@@ -447,24 +447,28 @@ export function SourceDetailSheet({
                   <span className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "open").length}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Won: </span>
-                  <span className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</span>
+                  <span className="text-muted-foreground">No Contact: </span>
+                  <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted")).length}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">No Answer: </span>
+                  <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no answer") || o.stage_name?.toLowerCase().includes("never answer")).length}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Appointments: </span>
+                  <span className="font-medium">{uniqueAppointmentsCount}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Lost: </span>
                   <span className="font-medium text-red-400">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "lost").length}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">No Contact: </span>
-                  <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted")).length}</span>
+                  <span className="text-muted-foreground">Won: </span>
+                  <span className="font-medium text-emerald-400">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Won Value: </span>
                   <span className="font-medium text-emerald-400">{formatCurrency(wonValue)}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Appointments: </span>
-                  <span className="font-medium">{uniqueAppointmentsCount}</span>
                 </div>
               </div>
             )}
