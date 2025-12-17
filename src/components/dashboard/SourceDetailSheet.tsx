@@ -306,13 +306,12 @@ export function SourceDetailSheet({
     return uniqueIds.size;
   }, [sourceAppointments]);
 
-  // Confirmed appointments count (from ALL appointments for this source, not date-filtered)
+  // Confirmed appointments count (using date-filtered appointments to match other metrics)
   const confirmedAppointmentsCount = useMemo(() => {
-    return appointments
-      .filter(a => a.contact_id && allSourceContactIds.has(a.contact_id))
+    return sourceAppointments
       .filter(a => a.appointment_status?.toLowerCase() === 'confirmed')
       .length;
-  }, [appointments, allSourceContactIds]);
+  }, [sourceAppointments]);
 
   // Filter based on mode and search
   const displayOpportunities = useMemo(() => {
