@@ -14,6 +14,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   isAdmin: boolean;
+  isMagazineEditor: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
@@ -29,6 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isMagazineEditor, setIsMagazineEditor] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,11 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           setTimeout(() => {
             fetchProfile(session.user.id);
-            checkAdminRole(session.user.id);
+            checkUserRoles(session.user.id);
           }, 0);
         } else {
           setProfile(null);
           setIsAdmin(false);
+          setIsMagazineEditor(false);
         }
       }
     );
@@ -58,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         fetchProfile(session.user.id);
-        checkAdminRole(session.user.id);
+        checkUserRoles(session.user.id);
       }
       setIsLoading(false);
     });
@@ -78,15 +81,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const checkAdminRole = async (userId: string) => {
+  const checkUserRoles = async (userId: string) => {
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .single();
+      .eq("user_id", userId);
 
-    setIsAdmin(!error && data !== null);
+    if (!error && data) {
+      const roles = data.map(r => r.role);
+      setIsAdmin(roles.includes("admin"));
+      setIsMagazineEditor(roles.includes("magazine_editor"));
+    } else {
+      setIsAdmin(false);
+      setIsMagazineEditor(false);
+    }
   };
 
   const signIn = async (email: string, password: string) => {
@@ -116,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setIsAdmin(false);
+    setIsMagazineEditor(false);
   };
 
   const resetPassword = async (email: string) => {
@@ -150,6 +159,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session, 
       profile, 
       isAdmin, 
+      isMagazineEditor,
       isLoading, 
       signIn, 
       signUp, 

@@ -41,6 +41,7 @@ const Index = () => {
     user,
     profile,
     isAdmin,
+    isMagazineEditor,
     signOut,
     updatePassword
   } = useAuth();
@@ -227,10 +228,12 @@ const Index = () => {
                 <ListChecks className="h-4 w-4" />
                 Follow-up
               </TabsTrigger>
-              <TabsTrigger value="magazine-sales" className="gap-2">
-                <BookOpen className="h-4 w-4" />
-                Magazine Sales
-              </TabsTrigger>
+              {(isAdmin || isMagazineEditor) && (
+                <TabsTrigger value="magazine-sales" className="gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Magazine Sales
+                </TabsTrigger>
+              )}
             </TabsList>
             <div className="flex items-center gap-2">
               {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
@@ -376,13 +379,15 @@ const Index = () => {
             {isLoading ? <Skeleton className="h-[400px] rounded-2xl" /> : <FollowUpManagement opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} contactNotes={metrics?.contactNotes || []} tasks={metrics?.tasks || []} onOpenOpportunity={handleOpenOpportunity} onDataRefresh={refetch} />}
           </TabsContent>
 
-          <TabsContent value="magazine-sales" className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold text-foreground mb-1">Magazine Sales</h2>
-              <p className="text-sm text-muted-foreground">Track magazine ad sales and revenue</p>
-            </div>
-            <MagazineSalesTab />
-          </TabsContent>
+          {(isAdmin || isMagazineEditor) && (
+            <TabsContent value="magazine-sales" className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground mb-1">Magazine Sales</h2>
+                <p className="text-sm text-muted-foreground">Track magazine ad sales and revenue</p>
+              </div>
+              <MagazineSalesTab />
+            </TabsContent>
+          )}
 
         </Tabs>
 
