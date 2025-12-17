@@ -538,6 +538,107 @@ export type Database = {
         }
         Relationships: []
       }
+      magazine_sales: {
+        Row: {
+          ad_sold: string
+          buyer_email: string | null
+          buyer_name: string
+          buyer_phone: string | null
+          company_name: string | null
+          created_at: string
+          entered_by: string | null
+          id: string
+          magazine_issue_date: string
+          page_number: string
+          page_size: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          ad_sold: string
+          buyer_email?: string | null
+          buyer_name: string
+          buyer_phone?: string | null
+          company_name?: string | null
+          created_at?: string
+          entered_by?: string | null
+          id?: string
+          magazine_issue_date: string
+          page_number: string
+          page_size: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          ad_sold?: string
+          buyer_email?: string | null
+          buyer_name?: string
+          buyer_phone?: string | null
+          company_name?: string | null
+          created_at?: string
+          entered_by?: string | null
+          id?: string
+          magazine_issue_date?: string
+          page_number?: string
+          page_size?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "magazine_sales_entered_by_fkey"
+            columns: ["entered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      magazine_sales_edits: {
+        Row: {
+          edited_at: string
+          edited_by: string | null
+          field_name: string
+          id: string
+          magazine_sale_id: string
+          new_value: string | null
+          old_value: string | null
+        }
+        Insert: {
+          edited_at?: string
+          edited_by?: string | null
+          field_name: string
+          id?: string
+          magazine_sale_id: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          edited_at?: string
+          edited_by?: string | null
+          field_name?: string
+          id?: string
+          magazine_sale_id?: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "magazine_sales_edits_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "magazine_sales_edits_magazine_sale_id_fkey"
+            columns: ["magazine_sale_id"]
+            isOneToOne: false
+            referencedRelation: "magazine_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           appointment_ghl_id: string | null
