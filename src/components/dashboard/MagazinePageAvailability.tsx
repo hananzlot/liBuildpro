@@ -64,31 +64,31 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
 
   const currentPageCount = pageCountByIssue[selectedIssue] || 48;
 
-  // Calculate section occupancy for selected issue
+  // Calculate section occupancy for selected issue (includes special pages)
   const sectionOccupancy = useMemo(() => {
     if (!selectedIssue) return {};
 
-    const occupancy: Record<number, { sections: Set<number>; buyers: Map<number, string> }> = {};
+    const occupancy: Record<string, { sections: Set<number>; buyers: Map<number, string> }> = {};
     const issueSales = sales.filter((s) => s.magazine_issue_date === selectedIssue);
 
     issueSales.forEach((sale) => {
       if (sale.page_number === "Random") return;
 
-      const pageNum = parseInt(sale.page_number, 10);
-      if (isNaN(pageNum)) return;
-
+      // Handle special pages (Cover, Back Page) and numbered pages
+      const pageKey = sale.page_number;
+      
       // Use sections_sold if available, otherwise convert from legacy page_size
       const sections = sale.sections_sold?.length 
         ? sale.sections_sold 
         : legacySizeToSections(sale.page_size);
 
-      if (!occupancy[pageNum]) {
-        occupancy[pageNum] = { sections: new Set(), buyers: new Map() };
+      if (!occupancy[pageKey]) {
+        occupancy[pageKey] = { sections: new Set(), buyers: new Map() };
       }
 
       sections.forEach((sec) => {
-        occupancy[pageNum].sections.add(sec);
-        occupancy[pageNum].buyers.set(sec, sale.buyer_name);
+        occupancy[pageKey].sections.add(sec);
+        occupancy[pageKey].buyers.set(sec, sale.buyer_name);
       });
     });
 
@@ -111,16 +111,32 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
     return { count: randomSales.length, totalSections };
   }, [sales, selectedIssue]);
 
-  // Stats
+  // Special pages
+  const specialPages = ["Cover", "Back Page"] as const;
+
+  // Stats (including special pages)
   const stats = useMemo(() => {
-    const totalPages = currentPageCount;
+    const totalPages = currentPageCount + specialPages.length; // +2 for Cover and Back Page
     let fullySold = 0;
     let partiallySold = 0;
 
-    Object.values(sectionOccupancy).forEach((page) => {
-      if (page.sections.size >= 8) fullySold++;
-      else if (page.sections.size > 0) partiallySold++;
+    // Count special pages
+    specialPages.forEach((page) => {
+      const pageData = sectionOccupancy[page];
+      if (pageData) {
+        if (pageData.sections.size >= 8) fullySold++;
+        else if (pageData.sections.size > 0) partiallySold++;
+      }
     });
+
+    // Count numbered pages
+    for (let i = 1; i <= currentPageCount; i++) {
+      const pageData = sectionOccupancy[String(i)];
+      if (pageData) {
+        if (pageData.sections.size >= 8) fullySold++;
+        else if (pageData.sections.size > 0) partiallySold++;
+      }
+    }
 
     const available = totalPages - fullySold - partiallySold;
     return { totalPages, fullySold, partiallySold, available };
@@ -231,8 +247,34 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
 
         {/* Page Grid - Each page is a 2x4 grid of sections */}
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+          {/* Cover Page */}
+          {(() => {
+            const pageData = sectionOccupancy["Cover"];
+            const soldSections = pageData?.sections || new Set<number>();
+            const buyerMap = pageData?.buyers || new Map<number, string>();
+            return (
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-muted-foreground mb-1 font-medium">Cover</span>
+                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border-2 border-primary/50 bg-card">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
+                    const isSold = soldSections.has(section);
+                    const buyer = buyerMap.get(section);
+                    return (
+                      <div
+                        key={section}
+                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
+                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Numbered Pages */}
           {Array.from({ length: currentPageCount }, (_, i) => i + 1).map((pageNum) => {
-            const pageData = sectionOccupancy[pageNum];
+            const pageData = sectionOccupancy[String(pageNum)];
             const soldSections = pageData?.sections || new Set<number>();
             const buyerMap = pageData?.buyers || new Map<number, string>();
 
@@ -247,10 +289,7 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
                       <div
                         key={section}
                         title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
-                        className={cn(
-                          "w-3 h-3 rounded-sm border cursor-default",
-                          getSectionColor(isSold)
-                        )}
+                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
                       />
                     );
                   })}
@@ -258,6 +297,31 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
               </div>
             );
           })}
+
+          {/* Back Page */}
+          {(() => {
+            const pageData = sectionOccupancy["Back Page"];
+            const soldSections = pageData?.sections || new Set<number>();
+            const buyerMap = pageData?.buyers || new Map<number, string>();
+            return (
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-muted-foreground mb-1 font-medium">Back</span>
+                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border-2 border-primary/50 bg-card">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
+                    const isSold = soldSections.has(section);
+                    const buyer = buyerMap.get(section);
+                    return (
+                      <div
+                        key={section}
+                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
+                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Random Pages Note */}
