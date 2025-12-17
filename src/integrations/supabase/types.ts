@@ -796,6 +796,51 @@ export type Database = {
           },
         ]
       }
+      opportunity_sales: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          entered_by: string | null
+          id: string
+          location_id: string
+          opportunity_id: string
+          sold_amount: number
+          sold_by: string | null
+          sold_date: string
+          sold_to_name: string | null
+          sold_to_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          entered_by?: string | null
+          id?: string
+          location_id: string
+          opportunity_id: string
+          sold_amount?: number
+          sold_by?: string | null
+          sold_date: string
+          sold_to_name?: string | null
+          sold_to_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          entered_by?: string | null
+          id?: string
+          location_id?: string
+          opportunity_id?: string
+          sold_amount?: number
+          sold_by?: string | null
+          sold_date?: string
+          sold_to_name?: string | null
+          sold_to_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null

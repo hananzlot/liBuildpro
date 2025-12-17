@@ -45,6 +45,7 @@ import {
   ExternalLink,
   ChevronDown,
   Copy,
+  Receipt,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -52,6 +53,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { stripHtml } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { OpportunitySalesDialog } from "./OpportunitySalesDialog";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -189,7 +191,7 @@ export function OpportunityDetailSheet({
   allOpportunities = [],
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedStatus, setEditedStatus] = useState<string>("");
@@ -262,6 +264,9 @@ export function OpportunityDetailSheet({
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deletePasswordError, setDeletePasswordError] = useState("");
+
+  // Sales dialog state
+  const [salesDialogOpen, setSalesDialogOpen] = useState(false);
 
   // Scope of Work editing
   const [isEditingScope, setIsEditingScope] = useState(false);
@@ -1564,6 +1569,15 @@ export function OpportunityDetailSheet({
                   Delete
                 </Button>
               </AlertDialogTrigger>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7"
+              onClick={() => setSalesDialogOpen(true)}
+            >
+              <Receipt className="h-3.5 w-3.5 mr-1" />
+              Sales
+            </Button>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Opportunity</AlertDialogTitle>
@@ -2933,6 +2947,21 @@ export function OpportunityDetailSheet({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Sales Dialog */}
+      {opportunity && (
+        <OpportunitySalesDialog
+          open={salesDialogOpen}
+          onOpenChange={setSalesDialogOpen}
+          opportunityId={opportunity.ghl_id}
+          contactId={opportunity.contact_id}
+          locationId="pVeFrqvtYWNIPRIi0Fmr"
+          users={users}
+          userId={user?.id}
+          userGhlId={profile?.ghl_user_id}
+          onSalesUpdated={() => queryClient.invalidateQueries({ queryKey: ["opportunity_sales"] })}
+        />
+      )}
     </Sheet>
   );
 }

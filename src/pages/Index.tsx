@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen } from "lucide-react";
+import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen, Receipt } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -27,6 +27,7 @@ import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetail
 import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
 import { SyncDropdown } from "@/components/dashboard/SyncDropdown";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
+import { OpportunitySalesSheet } from "@/components/dashboard/OpportunitySalesSheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -62,6 +63,7 @@ const Index = () => {
   const [callLogsSheetOpen, setCallLogsSheetOpen] = useState(false);
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
   const [activityDefaultTab, setActivityDefaultTab] = useState<"edits" | "appointments" | "tasks" | "notes">("edits");
+  const [opportunitySalesSheetOpen, setOpportunitySalesSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
@@ -261,7 +263,7 @@ const Index = () => {
             </section>
 
             {/* Metrics Grid */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               {isLoading ? <>
                   {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
                 </> : <>
@@ -307,6 +309,7 @@ const Index = () => {
                   </div>
                   <ClickableMetricCard title="Appointments (Today's & Future)" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
+                  <ClickableMetricCard title="Opp Sales" value={metrics?.opportunitySalesCount || 0} secondaryValue={formatCurrency(metrics?.totalOpportunitySalesAmount || 0)} subtitle="In date range" icon={Receipt} onClick={() => setOpportunitySalesSheetOpen(true)} />
                   <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
