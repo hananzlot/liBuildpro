@@ -457,9 +457,9 @@ const Index = () => {
         name: opp.name,
         status: opp.status,
         monetary_value: opp.monetary_value,
-        pipeline_id: null,
+        pipeline_id: opp.pipeline_id,
         pipeline_name: opp.pipeline_name,
-        pipeline_stage_id: null,
+        pipeline_stage_id: opp.pipeline_stage_id,
         stage_name: opp.stage_name,
         contact_id: opp.contact_id,
         assigned_to: opp.assigned_to,
@@ -486,9 +486,9 @@ const Index = () => {
             name: opp.name,
             status: opp.status,
             monetary_value: opp.monetary_value,
-            pipeline_id: null,
+            pipeline_id: opp.pipeline_id,
             pipeline_name: opp.pipeline_name,
-            pipeline_stage_id: null,
+            pipeline_stage_id: opp.pipeline_stage_id,
             stage_name: opp.stage_name,
             contact_id: opp.contact_id,
             assigned_to: opp.assigned_to,
@@ -546,6 +546,34 @@ const Index = () => {
 
       {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
       <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={setOppDetailSheetOpen} allOpportunities={metrics?.allOpportunities || []} />
+
+      {/* Opportunity Sales Sheet */}
+      <OpportunitySalesSheet 
+        open={opportunitySalesSheetOpen} 
+        onOpenChange={setOpportunitySalesSheetOpen} 
+        sales={metrics?.filteredOpportunitySales || []} 
+        users={metrics?.users || []} 
+        opportunities={metrics?.allOpportunities || []} 
+        contacts={metrics?.allContacts || []}
+        onOpportunityClick={opp => {
+          setSelectedOpportunity({
+            ghl_id: opp.ghl_id,
+            name: opp.name,
+            status: opp.status || null,
+            monetary_value: opp.monetary_value || null,
+            pipeline_id: opp.pipeline_id || null,
+            pipeline_name: opp.pipeline_name || null,
+            pipeline_stage_id: opp.pipeline_stage_id || null,
+            stage_name: opp.stage_name || null,
+            contact_id: opp.contact_id || null,
+            assigned_to: opp.assigned_to || null,
+            ghl_date_added: opp.ghl_date_added || null,
+            ghl_date_updated: opp.ghl_date_updated || null
+          });
+          setOpportunitySalesSheetOpen(false);
+          setOppDetailSheetOpen(true);
+        }}
+      />
 
       {/* Appointment Detail Sheet (for Activity tab) */}
       <AppointmentDetailSheet appointment={selectedAppointment} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={appointmentDetailSheetOpen} onOpenChange={setAppointmentDetailSheetOpen} opportunities={metrics?.allOpportunities || []} />

@@ -30,6 +30,8 @@ interface DBOpportunity {
   ghl_date_updated: string | null;
   stage_name: string | null;
   pipeline_name: string | null;
+  pipeline_id: string | null;
+  pipeline_stage_id: string | null;
 }
 
 interface DBContact {
