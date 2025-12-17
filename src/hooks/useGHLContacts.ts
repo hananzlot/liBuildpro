@@ -447,18 +447,18 @@ function processMetrics(
       })
     : appointments;
 
-  // Filter appointments that were marked as "showed" within the date range (by updated_at date)
+  // Filter appointments that were scheduled (start_time) in the date range AND marked as "showed"
   const appointmentsShowedInDateRange = dateRange?.from
     ? appointments.filter((a) => {
         const status = a.appointment_status?.toLowerCase();
         if (status !== "showed") return false;
-        // Use updated_at as the date the status was changed
-        const updateDate = a.updated_at ? new Date(a.updated_at) : (a.ghl_date_updated ? new Date(a.ghl_date_updated) : null);
-        if (!updateDate) return false;
+        // Use start_time - the appointment was scheduled in this date range and they showed up
+        if (!a.start_time) return false;
+        const appointmentDate = new Date(a.start_time);
         const startDate = dateRange.from!;
         const endDate = new Date(dateRange.to || new Date());
         endDate.setHours(23, 59, 59, 999);
-        return updateDate >= startDate && updateDate <= endDate;
+        return appointmentDate >= startDate && appointmentDate <= endDate;
       })
     : appointments.filter((a) => a.appointment_status?.toLowerCase() === "showed");
 

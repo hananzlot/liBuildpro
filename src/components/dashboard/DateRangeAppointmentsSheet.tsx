@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,6 +66,7 @@ interface DateRangeAppointmentsSheetProps {
   contacts: DBContact[];
   users: DBUser[];
   onAppointmentClick?: (appointment: DBAppointment) => void;
+  defaultStatusFilter?: string; // e.g., "showed" to filter only showed appointments
 }
 
 function capitalizeWords(str: string): string {
@@ -83,12 +84,21 @@ export function DateRangeAppointmentsSheet({
   contacts,
   users,
   onAppointmentClick,
+  defaultStatusFilter,
 }: DateRangeAppointmentsSheetProps) {
   const [searchFilter, setSearchFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>(defaultStatusFilter || "all");
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [editAddressValue, setEditAddressValue] = useState("");
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [localAddressState, setLocalAddressState] = useState<Record<string, string>>({});
+
+  // Reset status filter when defaultStatusFilter changes or sheet opens
+  useEffect(() => {
+    if (open && defaultStatusFilter) {
+      setStatusFilter(defaultStatusFilter);
+    }
+  }, [open, defaultStatusFilter]);
 
   const queryClient = useQueryClient();
 
@@ -101,16 +111,24 @@ export function DateRangeAppointmentsSheet({
   const contactMap = new Map<string, DBContact>();
   contacts.forEach((c) => contactMap.set(c.ghl_id, c));
 
-  // Filter out cancelled appointments and apply search
+  // Filter by status and apply search
   const filteredAppointments = useMemo(() => {
-    const nonCancelled = appointments.filter(
-      (apt) => apt.appointment_status?.toLowerCase() !== "cancelled"
-    );
+    let filtered = appointments;
+    
+    // Apply status filter
+    if (statusFilter === "showed") {
+      filtered = appointments.filter((apt) => apt.appointment_status?.toLowerCase() === "showed");
+    } else if (statusFilter === "all") {
+      // Show all except cancelled
+      filtered = appointments.filter((apt) => apt.appointment_status?.toLowerCase() !== "cancelled");
+    } else if (statusFilter !== "all") {
+      filtered = appointments.filter((apt) => apt.appointment_status?.toLowerCase() === statusFilter.toLowerCase());
+    }
 
-    if (!searchFilter.trim()) return nonCancelled;
+    if (!searchFilter.trim()) return filtered;
 
     const searchTerm = searchFilter.toLowerCase().trim();
-    return nonCancelled.filter((apt) => {
+    return filtered.filter((apt) => {
       const contact = apt.contact_id ? contactMap.get(apt.contact_id) : null;
       const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
       const title = apt.title || "";
@@ -122,7 +140,7 @@ export function DateRangeAppointmentsSheet({
         rep.toLowerCase().includes(searchTerm)
       );
     });
-  }, [appointments, searchFilter, contactMap, userMap]);
+  }, [appointments, searchFilter, statusFilter, contactMap, userMap]);
 
   // Sort by ghl_date_added (desc)
   const sortedAppointments = useMemo(() => {
@@ -190,10 +208,13 @@ export function DateRangeAppointmentsSheet({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 text-primary" />
-            Appointments Created in Date Range
+            {defaultStatusFilter === "showed" 
+              ? "Appointments Showed in Date Range" 
+              : "Appointments Created in Date Range"}
           </SheetTitle>
           <SheetDescription>
-            {sortedAppointments.length} appointments created (excluding cancelled)
+            {sortedAppointments.length} appointments 
+            {defaultStatusFilter === "showed" ? " (showed status, by scheduled date)" : " created (excluding cancelled)"}
           </SheetDescription>
         </SheetHeader>
 
