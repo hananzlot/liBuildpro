@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown } from "lucide-react";
+import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen } from "lucide-react";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -21,6 +21,7 @@ import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
 import { UserManagement } from "@/components/dashboard/UserManagement";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
+import { MagazineSalesTab } from "@/components/dashboard/MagazineSalesTab";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
@@ -226,6 +227,10 @@ const Index = () => {
                 <ListChecks className="h-4 w-4" />
                 Follow-up
               </TabsTrigger>
+              <TabsTrigger value="magazine-sales" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                Magazine Sales
+              </TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-2">
               {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
@@ -369,6 +374,14 @@ const Index = () => {
               <p className="text-sm text-muted-foreground">Track appointments and opportunities that need attention</p>
             </div>
             {isLoading ? <Skeleton className="h-[400px] rounded-2xl" /> : <FollowUpManagement opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} contactNotes={metrics?.contactNotes || []} tasks={metrics?.tasks || []} onOpenOpportunity={handleOpenOpportunity} onDataRefresh={refetch} />}
+          </TabsContent>
+
+          <TabsContent value="magazine-sales" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-foreground mb-1">Magazine Sales</h2>
+              <p className="text-sm text-muted-foreground">Track magazine ad sales and revenue</p>
+            </div>
+            <MagazineSalesTab />
           </TabsContent>
 
         </Tabs>
