@@ -27,6 +27,8 @@ interface MagazineSalesDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   sales: MagazineSale[];
   onEdit: (sale: MagazineSale) => void;
+  userId?: string;
+  isAdmin?: boolean;
 }
 
 const PAGE_SIZE_VALUES: Record<string, number> = {
@@ -43,6 +45,8 @@ export const MagazineSalesDetailSheet = ({
   onOpenChange,
   sales,
   onEdit,
+  userId,
+  isAdmin,
 }: MagazineSalesDetailSheetProps) => {
   const [filterIssueDate, setFilterIssueDate] = useState<string>("all");
 
@@ -179,13 +183,15 @@ export const MagazineSalesDetailSheet = ({
                         {format(new Date(sale.created_at), "MMM d, yyyy")}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEdit(sale)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        {(isAdmin || sale.entered_by === userId) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onEdit(sale)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

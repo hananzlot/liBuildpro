@@ -36,7 +36,7 @@ const PAGE_SIZE_VALUES: Record<string, number> = {
 };
 
 export const MagazineSalesTab = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
@@ -179,6 +179,8 @@ export const MagazineSalesTab = () => {
         onOpenChange={setDetailSheetOpen}
         sales={sales}
         onEdit={handleEdit}
+        userId={user?.id}
+        isAdmin={isAdmin}
       />
     </div>
   );
