@@ -33,6 +33,29 @@ function getGHLCredentials(locationId: string): { apiKey: string; locationId: st
   return { apiKey: apiKey1, locationId: location1Id };
 }
 
+// Fetch with retry and exponential backoff for rate limiting
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    
+    if (response.status === 429) {
+      // Rate limited - wait with exponential backoff
+      const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+      console.log(`Rate limited (429), waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      continue;
+    }
+    
+    return response;
+  }
+  
+  // Return a mock 429 response if all retries failed
+  return new Response(JSON.stringify({ statusCode: 429, message: "Rate limit exceeded after retries" }), {
+    status: 429,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -68,14 +91,14 @@ serve(async (req) => {
 
     console.log(`Fetching conversations for contact: ${contact_id} (location: ${locationId})`);
 
-    // Fetch conversations filtered by contact ID
+    // Fetch conversations filtered by contact ID with retry
     const params = new URLSearchParams({
       locationId,
       contactId: contact_id,
       limit: '20',
     });
 
-    const response = await fetch(`https://services.leadconnectorhq.com/conversations/search?${params.toString()}`, {
+    const response = await fetchWithRetry(`https://services.leadconnectorhq.com/conversations/search?${params.toString()}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${ghlApiKey}`,
@@ -84,11 +107,59 @@ serve(async (req) => {
       },
     });
 
+    // If rate limited, return cached conversations from Supabase
+    if (response.status === 429) {
+      console.log('GHL rate limited, returning cached conversations from Supabase');
+      
+      const { data: cachedConversations } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('contact_id', contact_id)
+        .order('last_message_date', { ascending: false });
+      
+      const formattedConversations = (cachedConversations || []).map((conv: any) => ({
+        ghl_id: conv.ghl_id,
+        contact_id: conv.contact_id,
+        type: conv.type,
+        unread_count: conv.unread_count || 0,
+        inbox_status: conv.inbox_status,
+        last_message_body: conv.last_message_body,
+        last_message_date: conv.last_message_date,
+        last_message_type: conv.last_message_type,
+        last_message_direction: conv.last_message_direction,
+        messages: [], // No messages available from cache
+      }));
+
+      return new Response(JSON.stringify({ conversations: formattedConversations, cached: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('GHL Conversations API Error:', errorText);
-      return new Response(JSON.stringify({ error: 'Failed to fetch conversations from GHL', details: errorText }), {
-        status: 500,
+      
+      // Return cached data on error
+      const { data: cachedConversations } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('contact_id', contact_id)
+        .order('last_message_date', { ascending: false });
+      
+      const formattedConversations = (cachedConversations || []).map((conv: any) => ({
+        ghl_id: conv.ghl_id,
+        contact_id: conv.contact_id,
+        type: conv.type,
+        unread_count: conv.unread_count || 0,
+        inbox_status: conv.inbox_status,
+        last_message_body: conv.last_message_body,
+        last_message_date: conv.last_message_date,
+        last_message_type: conv.last_message_type,
+        last_message_direction: conv.last_message_direction,
+        messages: [],
+      }));
+
+      return new Response(JSON.stringify({ conversations: formattedConversations, cached: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -98,12 +169,12 @@ serve(async (req) => {
     
     console.log(`Found ${conversations.length} conversations for contact ${contact_id}`);
 
-    // For each conversation, fetch the full message history
+    // For each conversation, fetch the full message history (with rate limit handling)
     const conversationsWithMessages = await Promise.all(
       conversations.map(async (conv: any) => {
         try {
-          // Fetch messages for this conversation
-          const messagesResponse = await fetch(
+          // Fetch messages for this conversation with retry
+          const messagesResponse = await fetchWithRetry(
             `https://services.leadconnectorhq.com/conversations/${conv.id}/messages?limit=50`,
             {
               method: 'GET',
@@ -118,7 +189,9 @@ serve(async (req) => {
           let messages: Message[] = [];
           if (messagesResponse.ok) {
             const messagesData = await messagesResponse.json();
-            messages = (messagesData.messages || []).map((msg: any) => ({
+            // Handle both array and object responses
+            const rawMessages = Array.isArray(messagesData.messages) ? messagesData.messages : [];
+            messages = rawMessages.map((msg: any) => ({
               id: msg.id,
               body: msg.body || msg.text || '',
               direction: msg.direction,
@@ -128,6 +201,8 @@ serve(async (req) => {
               attachments: msg.attachments,
             }));
             console.log(`Fetched ${messages.length} messages for conversation ${conv.id}`);
+          } else if (messagesResponse.status === 429) {
+            console.log(`Rate limited fetching messages for conversation ${conv.id}, skipping`);
           } else {
             console.error(`Failed to fetch messages for conversation ${conv.id}`);
           }
