@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2 } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, BookOpen } from "lucide-react";
 
 interface UserManagementProps {
   open: boolean;
@@ -23,12 +23,13 @@ interface Profile {
 
 interface UserRole {
   user_id: string;
-  role: "admin" | "user";
+  role: "admin" | "user" | "magazine_editor";
 }
 
 export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const queryClient = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [updatingRole, setUpdatingRole] = useState<string | null>(null);
 
   // Fetch all profiles
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
@@ -59,42 +60,46 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     enabled: open,
   });
 
-  const toggleAdminMutation = useMutation({
-    mutationFn: async ({ userId, isCurrentlyAdmin }: { userId: string; isCurrentlyAdmin: boolean }) => {
+  const toggleRoleMutation = useMutation({
+    mutationFn: async ({ userId, role, hasRole }: { userId: string; role: "admin" | "magazine_editor"; hasRole: boolean }) => {
       setUpdatingUserId(userId);
+      setUpdatingRole(role);
       
-      if (isCurrentlyAdmin) {
-        // Remove admin role
+      if (hasRole) {
+        // Remove role
         const { error } = await supabase
           .from("user_roles")
           .delete()
           .eq("user_id", userId)
-          .eq("role", "admin");
+          .eq("role", role);
         
         if (error) throw error;
       } else {
-        // Add admin role
+        // Add role
         const { error } = await supabase
           .from("user_roles")
-          .insert({ user_id: userId, role: "admin" });
+          .insert({ user_id: userId, role });
         
         if (error) throw error;
       }
+      return { role, hasRole };
     },
-    onSuccess: (_, { isCurrentlyAdmin }) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
-      toast.success(isCurrentlyAdmin ? "Admin role removed" : "Admin role granted");
+      const roleName = data.role === "admin" ? "Admin" : "Magazine Editor";
+      toast.success(data.hasRole ? `${roleName} role removed` : `${roleName} role granted`);
     },
     onError: (error) => {
       toast.error(`Failed to update role: ${error.message}`);
     },
     onSettled: () => {
       setUpdatingUserId(null);
+      setUpdatingRole(null);
     },
   });
 
-  const isAdmin = (userId: string) => {
-    return userRoles.some(role => role.user_id === userId && role.role === "admin");
+  const hasRole = (userId: string, role: "admin" | "magazine_editor") => {
+    return userRoles.some(r => r.user_id === userId && r.role === role);
   };
 
   const isLoading = profilesLoading || rolesLoading;
@@ -117,8 +122,10 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-2">
               {profiles.map((profile) => {
-                const userIsAdmin = isAdmin(profile.id);
-                const isUpdating = updatingUserId === profile.id;
+                const userIsAdmin = hasRole(profile.id, "admin");
+                const userIsMagazineEditor = hasRole(profile.id, "magazine_editor");
+                const isUpdatingAdmin = updatingUserId === profile.id && updatingRole === "admin";
+                const isUpdatingMagazine = updatingUserId === profile.id && updatingRole === "magazine_editor";
 
                 return (
                   <div
@@ -141,27 +148,54 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      {userIsAdmin && (
-                        <Badge variant="secondary" className="bg-primary/10 text-primary">
-                          Admin
-                        </Badge>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Admin</span>
-                        {isUpdating ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Switch
-                            checked={userIsAdmin}
-                            onCheckedChange={() => {
-                              toggleAdminMutation.mutate({
-                                userId: profile.id,
-                                isCurrentlyAdmin: userIsAdmin,
-                              });
-                            }}
-                          />
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-wrap gap-1">
+                        {userIsAdmin && (
+                          <Badge variant="secondary" className="bg-primary/10 text-primary">
+                            Admin
+                          </Badge>
                         )}
+                        {userIsMagazineEditor && (
+                          <Badge variant="secondary" className="bg-amber-500/10 text-amber-500">
+                            Magazine
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Admin</span>
+                          {isUpdatingAdmin ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Switch
+                              checked={userIsAdmin}
+                              onCheckedChange={() => {
+                                toggleRoleMutation.mutate({
+                                  userId: profile.id,
+                                  role: "admin",
+                                  hasRole: userIsAdmin,
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Magazine</span>
+                          {isUpdatingMagazine ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Switch
+                              checked={userIsMagazineEditor}
+                              onCheckedChange={() => {
+                                toggleRoleMutation.mutate({
+                                  userId: profile.id,
+                                  role: "magazine_editor",
+                                  hasRole: userIsMagazineEditor,
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
