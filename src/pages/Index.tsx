@@ -236,13 +236,17 @@ const Index = () => {
               )}
             </TabsList>
             <div className="flex items-center gap-2">
-              {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
-              <SyncDropdown 
-                onSyncGHL={handleSync} 
-                onSyncGHL2={handleSyncGHL2}
-                isSyncingGHL={syncMutation.isPending}
-                isSyncingGHL2={syncGHL2Mutation.isPending}
-              />
+              {!isLoading && activeTab !== "magazine-sales" && (
+                <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />
+              )}
+              {activeTab !== "magazine-sales" && (
+                <SyncDropdown 
+                  onSyncGHL={handleSync} 
+                  onSyncGHL2={handleSyncGHL2}
+                  isSyncingGHL={syncMutation.isPending}
+                  isSyncingGHL2={syncGHL2Mutation.isPending}
+                />
+              )}
             </div>
           </div>
 
