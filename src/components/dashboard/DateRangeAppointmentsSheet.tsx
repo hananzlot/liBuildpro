@@ -271,17 +271,17 @@ export function DateRangeAppointmentsSheet({
             </p>
           ) : viewMode === "table" ? (
             // Table View
-            <div className="p-4">
-              <Table>
+            <div className="p-4 overflow-x-auto">
+              <Table className="min-w-[800px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[180px]">Contact</TableHead>
-                    <TableHead>Title / Scope</TableHead>
-                    <TableHead className="w-[100px]">Status</TableHead>
-                    <TableHead className="w-[140px]">Created</TableHead>
-                    <TableHead className="w-[140px]">Scheduled</TableHead>
-                    <TableHead className="w-[120px]">Source</TableHead>
-                    <TableHead className="w-[120px]">Assigned To</TableHead>
+                    <TableHead className="min-w-[150px]">Contact</TableHead>
+                    <TableHead className="min-w-[150px]">Title / Scope</TableHead>
+                    <TableHead className="min-w-[80px]">Status</TableHead>
+                    <TableHead className="min-w-[90px]">Created</TableHead>
+                    <TableHead className="min-w-[100px]">Scheduled</TableHead>
+                    <TableHead className="min-w-[80px]">Source</TableHead>
+                    <TableHead className="min-w-[100px]">Assigned</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -317,15 +317,15 @@ export function DateRangeAppointmentsSheet({
                         className={onAppointmentClick ? "cursor-pointer hover:bg-muted/50" : ""}
                         onClick={() => onAppointmentClick?.(apt)}
                       >
-                        <TableCell>
+                        <TableCell className="max-w-[150px]">
                           <div className="flex flex-col">
                             <span className="font-medium truncate">{contactName}</span>
                             {contact?.phone && (
-                              <span className="text-xs text-muted-foreground">{contact.phone}</span>
+                              <span className="text-xs text-muted-foreground truncate">{contact.phone}</span>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="max-w-[150px]">
                           <div className="flex flex-col">
                             <span className="truncate">{apt.title || "No title"}</span>
                             {scopeOfWork && (
@@ -334,20 +334,20 @@ export function DateRangeAppointmentsSheet({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={statusColor}>
+                          <Badge className={`${statusColor} text-xs whitespace-nowrap`}>
                             {apt.appointment_status || "Unknown"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {apt.ghl_date_added ? format(new Date(apt.ghl_date_added), "MMM d, yyyy") : "-"}
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {apt.ghl_date_added ? format(new Date(apt.ghl_date_added), "MMM d") : "-"}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {apt.start_time ? format(new Date(apt.start_time), "MMM d, h:mm a") : "-"}
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {apt.start_time ? format(new Date(apt.start_time), "MMM d, h:mma") : "-"}
                         </TableCell>
-                        <TableCell className="text-sm capitalize">
+                        <TableCell className="text-xs capitalize truncate max-w-[80px]">
                           {contact?.source || "-"}
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="text-xs truncate max-w-[100px]">
                           {salesPerson || "-"}
                         </TableCell>
                       </TableRow>
