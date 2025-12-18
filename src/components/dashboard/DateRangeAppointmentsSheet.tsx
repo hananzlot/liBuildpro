@@ -276,13 +276,16 @@ export function DateRangeAppointmentsSheet({
                           </p>
                           {/* Scope of Work */}
                           {contact?.custom_fields && (() => {
-                            const customFields = contact.custom_fields as Record<string, unknown>;
-                            const scopeOfWork = customFields?.scope_of_work || customFields?.['Scope of Work'] || customFields?.scopeOfWork;
-                            if (scopeOfWork && typeof scopeOfWork === 'string') {
+                            // custom_fields is an array of {id, value} objects
+                            const fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
+                            if (!Array.isArray(fieldsArray)) return null;
+                            // Scope of Work field ID: KwQRtJT0aMSHnq3mwR68
+                            const scopeField = fieldsArray.find(f => f.id === 'KwQRtJT0aMSHnq3mwR68');
+                            if (scopeField?.value) {
                               return (
                                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
                                   <FileText className="h-3 w-3 shrink-0" />
-                                  <span className="truncate">{scopeOfWork}</span>
+                                  <span className="truncate">{scopeField.value}</span>
                                 </div>
                               );
                             }
