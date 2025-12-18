@@ -19,6 +19,7 @@ import {
   X,
   Loader2,
   Copy,
+  FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -273,6 +274,20 @@ export function DateRangeAppointmentsSheet({
                           <p className="text-sm text-muted-foreground truncate">
                             {apt.title || "No title"}
                           </p>
+                          {/* Scope of Work */}
+                          {contact?.custom_fields && (() => {
+                            const customFields = contact.custom_fields as Record<string, unknown>;
+                            const scopeOfWork = customFields?.scope_of_work || customFields?.['Scope of Work'] || customFields?.scopeOfWork;
+                            if (scopeOfWork && typeof scopeOfWork === 'string') {
+                              return (
+                                <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
+                                  <FileText className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{scopeOfWork}</span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                         <Badge className={statusColor}>
                           {apt.appointment_status || "Unknown"}
@@ -422,17 +437,21 @@ export function DateRangeAppointmentsSheet({
                           </div>
                         )}
 
-                        {salesPerson && (
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="text-foreground">{salesPerson}</span>
-                          </div>
-                        )}
-
-                        {contact?.source && (
-                          <div className="flex items-center gap-2">
-                            <Target className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="text-foreground capitalize">{contact.source}</span>
+                        {/* Source & Assigned To on same line */}
+                        {(contact?.source || salesPerson) && (
+                          <div className="flex items-center gap-4 flex-wrap">
+                            {contact?.source && (
+                              <div className="flex items-center gap-2">
+                                <Target className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <span className="text-foreground capitalize">{contact.source}</span>
+                              </div>
+                            )}
+                            {salesPerson && (
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                                <span className="text-foreground">{salesPerson}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
