@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail, Copy, List, CalendarDays } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail, Copy, List, CalendarDays, FileText } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
@@ -1036,7 +1036,7 @@ export function UpcomingAppointmentsSheet({
                             )}
 
                             {/* Appointment title */}
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 ml-5">
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1 ml-5">
                               <CalendarIcon className="h-3 w-3 shrink-0" />
                               <span className="truncate font-semibold">{appt.title || "Untitled"}</span>
                               {assignedUser && (
@@ -1046,6 +1046,20 @@ export function UpcomingAppointmentsSheet({
                                 </>
                               )}
                             </div>
+
+                            {/* Scope of Work */}
+                            {(() => {
+                              const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                              if (scopeOfWork) {
+                                return (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2 ml-5">
+                                    <FileText className="h-3 w-3 shrink-0" />
+                                    <span className="truncate">{scopeOfWork}</span>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
                             
                             {/* Badges row - wrap on small screens */}
                             <div className="flex flex-wrap items-center gap-1.5">
