@@ -321,7 +321,33 @@ export function DateRangeAppointmentsSheet({
                           <div className="flex flex-col">
                             <span className="font-medium truncate">{contactName}</span>
                             {contact?.phone && (
-                              <span className="text-xs text-muted-foreground truncate">{contact.phone}</span>
+                              <div className="flex items-center gap-1">
+                                <a
+                                  href={`tel:${contact.phone}`}
+                                  className="text-xs text-primary hover:underline truncate"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const p = contact.phone?.trim();
+                                    if (!p) return;
+                                    const url = `tel:${p}`;
+                                    const win = window.open(url, "_blank", "noopener,noreferrer");
+                                    if (!win) window.location.href = url;
+                                  }}
+                                >
+                                  {contact.phone}
+                                </a>
+                                <button
+                                  className="text-muted-foreground hover:text-primary p-0.5"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(contact.phone!);
+                                    toast.success("Phone copied");
+                                  }}
+                                >
+                                  <Copy className="h-2.5 w-2.5" />
+                                </button>
+                              </div>
                             )}
                           </div>
                         </TableCell>
