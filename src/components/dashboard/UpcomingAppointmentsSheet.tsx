@@ -658,7 +658,7 @@ export function UpcomingAppointmentsSheet({
 
   const nextWeekEnd = addDays(new Date(), 7);
 
-  // Filter to today and upcoming appointments only (includes past appointments today)
+  // Filter to today and upcoming appointments only (includes past appointments today) - used for list view
   const todayAndUpcomingAppointments = useMemo(() => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -668,6 +668,13 @@ export function UpcomingAppointmentsSheet({
         if (!a.start_time) return false;
         return new Date(a.start_time) >= startOfToday;
       })
+      .sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
+  }, [appointments]);
+
+  // All appointments with start_time for calendar view (including past)
+  const allAppointmentsForCalendar = useMemo(() => {
+    return appointments
+      .filter((a) => !!a.start_time)
       .sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
   }, [appointments]);
 
@@ -684,7 +691,7 @@ export function UpcomingAppointmentsSheet({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [todayAndUpcomingAppointments, userMap]);
 
-  // Apply search and rep filters
+  // Filtered appointments for list view (today + upcoming only)
   const filteredAppointments = useMemo(() => {
     let result = todayAndUpcomingAppointments;
 
@@ -705,6 +712,28 @@ export function UpcomingAppointmentsSheet({
 
     return result;
   }, [todayAndUpcomingAppointments, repFilter, searchFilter, contacts]);
+
+  // Filtered appointments for calendar view (all appointments including past)
+  const filteredCalendarAppointments = useMemo(() => {
+    let result = allAppointmentsForCalendar;
+
+    // Filter by rep
+    if (repFilter !== "all") {
+      result = result.filter((a) => a.assigned_user_id === repFilter);
+    }
+
+    // Filter by search
+    if (searchFilter.trim()) {
+      const term = searchFilter.toLowerCase();
+      result = result.filter((a) => {
+        const contact = contacts.find((c) => c.ghl_id === a.contact_id);
+        const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
+        return a.title?.toLowerCase().includes(term) || contactName.toLowerCase().includes(term);
+      });
+    }
+
+    return result;
+  }, [allAppointmentsForCalendar, repFilter, searchFilter, contacts]);
 
   // Group by time period
   const groupedAppointments = useMemo(() => {
@@ -883,7 +912,7 @@ export function UpcomingAppointmentsSheet({
 
           {viewMode === "calendar" ? (
             <CalendarView
-              appointments={filteredAppointments}
+              appointments={filteredCalendarAppointments}
               contacts={contacts}
               userMap={userMap}
               currentMonth={currentMonth}
