@@ -6,6 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   CalendarCheck,
   MapPin,
   User,
@@ -20,6 +28,8 @@ import {
   Loader2,
   Copy,
   FileText,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -89,6 +99,7 @@ export function DateRangeAppointmentsSheet({
 }: DateRangeAppointmentsSheetProps) {
   const [searchFilter, setSearchFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(defaultStatusFilter || "all");
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [editAddressValue, setEditAddressValue] = useState("");
   const [isSavingAddress, setIsSavingAddress] = useState(false);
@@ -205,38 +216,150 @@ export function DateRangeAppointmentsSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <CalendarCheck className="h-5 w-5 text-primary" />
-            {defaultStatusFilter === "showed" 
-              ? "Appointments Showed in Date Range" 
-              : "Appointments Created in Date Range"}
-          </SheetTitle>
-          <SheetDescription>
-            {sortedAppointments.length} appointments 
-            {defaultStatusFilter === "showed" ? " (showed status, by scheduled date)" : " created (excluding cancelled)"}
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent className="w-full sm:max-w-4xl p-0 flex flex-col">
+        <div className="p-4 border-b">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <CalendarCheck className="h-5 w-5 text-primary" />
+              {defaultStatusFilter === "showed" 
+                ? "Appointments Showed in Date Range" 
+                : "Appointments Created in Date Range"}
+            </SheetTitle>
+            <SheetDescription>
+              {sortedAppointments.length} appointments 
+              {defaultStatusFilter === "showed" ? " (showed status, by scheduled date)" : " created (excluding cancelled)"}
+            </SheetDescription>
+          </SheetHeader>
 
-        <div className="mt-4 relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, title, rep..."
-            value={searchFilter}
-            onChange={(e) => setSearchFilter(e.target.value)}
-            className="pl-8 h-9 text-sm"
-          />
+          <div className="mt-4 flex items-center gap-2">
+            <div className="flex items-center border rounded-md">
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-9 px-2"
+                onClick={() => setViewMode("table")}
+                title="Table view"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "cards" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-9 px-2"
+                onClick={() => setViewMode("cards")}
+                title="Card view"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, title, rep..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="pl-8 h-9 text-sm"
+              />
+            </div>
+          </div>
         </div>
 
-        <ScrollArea className="h-[calc(100vh-180px)] mt-4 pr-4">
-          <div className="space-y-3">
-            {sortedAppointments.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                {searchFilter ? "No appointments match the search" : "No appointments found"}
-              </p>
-            ) : (
-              sortedAppointments.map((apt) => {
+        <ScrollArea className="flex-1 min-h-0">
+          {sortedAppointments.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              {searchFilter ? "No appointments match the search" : "No appointments found"}
+            </p>
+          ) : viewMode === "table" ? (
+            // Table View
+            <div className="p-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[180px]">Contact</TableHead>
+                    <TableHead>Title / Scope</TableHead>
+                    <TableHead className="w-[100px]">Status</TableHead>
+                    <TableHead className="w-[140px]">Created</TableHead>
+                    <TableHead className="w-[140px]">Scheduled</TableHead>
+                    <TableHead className="w-[120px]">Source</TableHead>
+                    <TableHead className="w-[120px]">Assigned To</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedAppointments.map((apt) => {
+                    const contact = apt.contact_id ? contactMap.get(apt.contact_id) : null;
+                    const salesPerson = apt.assigned_user_id ? userMap.get(apt.assigned_user_id) : null;
+                    const contactName = contact
+                      ? capitalizeWords(
+                          contact.contact_name ||
+                          `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
+                          "Unknown"
+                        )
+                      : "Unknown Contact";
+                    
+                    const statusColor = {
+                      confirmed: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+                      showed: "bg-green-500/10 text-green-500 border-green-500/20",
+                      "no show": "bg-red-500/10 text-red-500 border-red-500/20",
+                      noshow: "bg-red-500/10 text-red-500 border-red-500/20",
+                    }[apt.appointment_status?.toLowerCase() || ""] || "bg-muted text-muted-foreground";
+
+                    // Get scope of work
+                    const scopeOfWork = contact?.custom_fields && (() => {
+                      const fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
+                      if (!Array.isArray(fieldsArray)) return null;
+                      const scopeField = fieldsArray.find(f => f.id === 'KwQRtJT0aMSHnq3mwR68');
+                      return scopeField?.value || null;
+                    })();
+
+                    return (
+                      <TableRow 
+                        key={apt.id}
+                        className={onAppointmentClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                        onClick={() => onAppointmentClick?.(apt)}
+                      >
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium truncate">{contactName}</span>
+                            {contact?.phone && (
+                              <span className="text-xs text-muted-foreground">{contact.phone}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="truncate">{apt.title || "No title"}</span>
+                            {scopeOfWork && (
+                              <span className="text-xs text-muted-foreground truncate">{scopeOfWork}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={statusColor}>
+                            {apt.appointment_status || "Unknown"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {apt.ghl_date_added ? format(new Date(apt.ghl_date_added), "MMM d, yyyy") : "-"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {apt.start_time ? format(new Date(apt.start_time), "MMM d, h:mm a") : "-"}
+                        </TableCell>
+                        <TableCell className="text-sm capitalize">
+                          {contact?.source || "-"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {salesPerson || "-"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            // Card View
+            <div className="p-4 space-y-3">
+              {sortedAppointments.map((apt) => {
                 const contact = apt.contact_id ? contactMap.get(apt.contact_id) : null;
                 const salesPerson = apt.assigned_user_id ? userMap.get(apt.assigned_user_id) : null;
                 const contactName = contact
@@ -276,10 +399,8 @@ export function DateRangeAppointmentsSheet({
                           </p>
                           {/* Scope of Work */}
                           {contact?.custom_fields && (() => {
-                            // custom_fields is an array of {id, value} objects
                             const fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
                             if (!Array.isArray(fieldsArray)) return null;
-                            // Scope of Work field ID: KwQRtJT0aMSHnq3mwR68
                             const scopeField = fieldsArray.find(f => f.id === 'KwQRtJT0aMSHnq3mwR68');
                             if (scopeField?.value) {
                               return (
@@ -461,9 +582,9 @@ export function DateRangeAppointmentsSheet({
                     </CardContent>
                   </Card>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </ScrollArea>
       </SheetContent>
     </Sheet>
