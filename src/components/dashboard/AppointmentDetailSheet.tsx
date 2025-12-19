@@ -597,6 +597,27 @@ export function AppointmentDetailSheet({
         return;
       }
 
+      // If notes were updated, also create a Contact Note in GHL for sync
+      const notesChanged = editApptNotes.trim() !== (appointment.notes || "").trim();
+      if (notesChanged && editApptNotes.trim() && appointment.contact_id) {
+        try {
+          const apptTitle = editApptTitle.trim() || appointment.title || "Appointment";
+          const noteBody = `[Appointment: ${apptTitle}]\n${editApptNotes.trim()}`;
+          await supabase.functions.invoke("create-contact-note", {
+            body: { 
+              contactId: appointment.contact_id, 
+              body: noteBody, 
+              enteredBy: user?.id || null 
+            },
+          });
+          // Refresh contact notes
+          fetchContactNotes();
+        } catch (noteError) {
+          console.error("Error creating contact note for appointment:", noteError);
+          // Don't fail the whole update if note creation fails
+        }
+      }
+
       toast.success("Appointment updated");
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       setAppointmentEditDialogOpen(false);
