@@ -40,6 +40,7 @@ interface DBAppointment {
   assigned_user_id: string | null;
   start_time: string | null;
   end_time: string | null;
+  location_id?: string;
 }
 interface DBContact {
   id: string;
@@ -526,6 +527,9 @@ export function FollowUpManagement({
   };
   const handleUpdateAppointmentStatus = async (appointmentGhlId: string, newStatus: string) => {
     setUpdatingAppointmentId(appointmentGhlId);
+    // Get old status before updating
+    const appointment = appointments.find(a => a.ghl_id === appointmentGhlId);
+    const oldStatus = appointment?.appointment_status;
     try {
       // Update in GHL
       const {
@@ -547,7 +551,20 @@ export function FollowUpManagement({
         edited_at: new Date().toISOString(),
       }).eq("ghl_id", appointmentGhlId);
       if (dbError) throw dbError;
+
+      // Record edit in appointment_edits table
+      await supabase.from("appointment_edits").insert({
+        appointment_ghl_id: appointmentGhlId,
+        contact_ghl_id: appointment?.contact_id || null,
+        field_name: "appointment_status",
+        old_value: oldStatus || null,
+        new_value: newStatus,
+        edited_by: user?.id || null,
+        location_id: appointment?.location_id || null,
+      });
+
       toast.success(`Appointment marked as "${newStatus}"`);
+      queryClient.invalidateQueries({ queryKey: ["appointment_edits"] });
       onDataRefresh?.();
     } catch (error) {
       console.error("Error updating appointment:", error);

@@ -72,6 +72,7 @@ interface Appointment {
   address?: string | null;
   salesperson_confirmed?: boolean;
   salesperson_confirmed_at?: string | null;
+  location_id?: string;
 }
 
 interface Opportunity {
@@ -327,6 +328,7 @@ export function AppointmentDetailSheet({
     if (task.ghl_id) {
       try {
         const newCompleted = !task.completed;
+        const oldCompleted = task.completed;
 
         // Update ghl_tasks table with edit tracking
         const { error: dbError } = await supabase
@@ -339,6 +341,17 @@ export function AppointmentDetailSheet({
           .eq("id", task.id);
 
         if (dbError) throw dbError;
+
+        // Record edit in task_edits table
+        await supabase.from("task_edits").insert({
+          task_ghl_id: task.ghl_id,
+          contact_ghl_id: appointment?.contact_id || null,
+          field_name: "completed",
+          old_value: String(oldCompleted),
+          new_value: String(newCompleted),
+          edited_by: user?.id || null,
+          location_id: appointment?.location_id || null,
+        });
 
         // Update GHL API
         const { error } = await supabase.functions.invoke("update-ghl-task", {
@@ -356,6 +369,7 @@ export function AppointmentDetailSheet({
             t.id === task.id ? { ...t, completed: newCompleted, status: newCompleted ? "completed" : "pending" } : t,
           ),
         );
+        queryClient.invalidateQueries({ queryKey: ["task_edits"] });
         toast.success(newCompleted ? "Task completed" : "Task reopened");
       } catch (error) {
         console.error("Error updating task:", error);
@@ -375,6 +389,7 @@ export function AppointmentDetailSheet({
   const handleToggleSalespersonConfirmed = async () => {
     if (!appointment?.ghl_id) return;
     setIsUpdatingSalespersonConfirmed(true);
+    const oldValue = salespersonConfirmed;
     try {
       const newValue = !salespersonConfirmed;
       const { error } = await supabase
@@ -389,8 +404,20 @@ export function AppointmentDetailSheet({
 
       if (error) throw error;
 
+      // Record edit in appointment_edits table
+      await supabase.from("appointment_edits").insert({
+        appointment_ghl_id: appointment.ghl_id,
+        contact_ghl_id: appointment.contact_id,
+        field_name: "salesperson_confirmed",
+        old_value: String(oldValue),
+        new_value: String(newValue),
+        edited_by: user?.id || null,
+        location_id: appointment.location_id,
+      });
+
       setSalespersonConfirmed(newValue);
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointment_edits"] });
       toast.success(newValue ? "Salesperson confirmed" : "Confirmation removed");
     } catch (error) {
       console.error("Error updating salesperson confirmation:", error);
