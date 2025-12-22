@@ -173,6 +173,7 @@ interface OpportunityDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   allOpportunities?: Opportunity[];
+  initialTaskGhlId?: string | null;
 }
 const OPPORTUNITY_STATUSES = ["open", "won", "lost", "abandoned"];
 const extractCustomField = (customFields: unknown, fieldId: string): string | null => {
@@ -189,6 +190,7 @@ export function OpportunityDetailSheet({
   open,
   onOpenChange,
   allOpportunities = [],
+  initialTaskGhlId = null,
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
@@ -476,6 +478,16 @@ export function OpportunityDetailSheet({
       setEstimatedCost("");
     }
   }, [open, opportunity?.contact_id, opportunity?.ghl_id]);
+
+  // Auto-open task edit dialog when initialTaskGhlId is provided and tasks are loaded
+  useEffect(() => {
+    if (initialTaskGhlId && tasks.length > 0 && open) {
+      const taskToEdit = tasks.find((t) => t.ghl_id === initialTaskGhlId);
+      if (taskToEdit) {
+        openEditTaskDialog(taskToEdit);
+      }
+    }
+  }, [initialTaskGhlId, tasks, open]);
   const handleRefreshConversations = async () => {
     if (!opportunity?.contact_id) return;
     setIsLoadingConversations(true);

@@ -91,6 +91,7 @@ interface ActivitySheetProps {
   profiles: DBProfile[];
   onOpportunityClick?: (opportunity: DBOpportunity) => void;
   onAppointmentClick?: (appointment: DBAppointment) => void;
+  onTaskClick?: (opportunity: DBOpportunity, task: DBTask) => void;
   defaultTab?: "edits" | "appointments" | "tasks" | "notes";
 }
 
@@ -238,6 +239,7 @@ export function ActivitySheet({
   profiles,
   onOpportunityClick,
   onAppointmentClick,
+  onTaskClick,
   defaultTab = "edits",
 }: ActivitySheetProps) {
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
@@ -524,8 +526,16 @@ export function ActivitySheet({
                       return (
                         <Card 
                           key={task.id} 
-                          className={`border-border/50 ${relatedOpp && onOpportunityClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
-                          onClick={() => relatedOpp && onOpportunityClick?.(relatedOpp)}
+                          className={`border-border/50 ${relatedOpp && (onTaskClick || onOpportunityClick) ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
+                          onClick={() => {
+                            if (relatedOpp) {
+                              if (onTaskClick) {
+                                onTaskClick(relatedOpp, task);
+                              } else {
+                                onOpportunityClick?.(relatedOpp);
+                              }
+                            }
+                          }}
                         >
                           <CardContent className="p-3 space-y-2">
                             <div className="flex items-start justify-between gap-2">
