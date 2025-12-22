@@ -82,6 +82,7 @@ interface ActivitySheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editedOpportunities: DBOpportunity[];
+  allOpportunities?: DBOpportunity[];
   filteredAppointments: DBAppointment[];
   filteredTasks: DBTask[];
   filteredNotes: DBContactNote[];
@@ -230,6 +231,7 @@ export function ActivitySheet({
   open,
   onOpenChange,
   editedOpportunities,
+  allOpportunities = [],
   filteredAppointments,
   filteredTasks,
   filteredNotes,
@@ -521,8 +523,9 @@ export function ActivitySheet({
                       const contact = contacts.find(c => c.ghl_id === task.contact_id);
                       const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                       const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                      // Find opportunity for this contact to get value
-                      const relatedOpp = editedOpportunities.find(o => o.contact_id === task.contact_id);
+                      // Find opportunity for this contact - first in edited, then in all
+                      const relatedOpp = editedOpportunities.find(o => o.contact_id === task.contact_id) 
+                        || allOpportunities.find(o => o.contact_id === task.contact_id);
                       return (
                         <Card 
                           key={task.id} 
