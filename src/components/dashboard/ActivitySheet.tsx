@@ -5,7 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import type { DBOpportunityEdit, DBTaskEdit, DBNoteEdit, DBAppointmentEdit } from "@/hooks/useGHLContacts";
 
@@ -619,6 +620,17 @@ export function ActivitySheet({
                   </SelectContent>
                 </Select>
               </div>
+            )}
+            {expandedHistory.size > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1"
+                onClick={() => setExpandedHistory(new Set())}
+              >
+                <ChevronsUpDown className="h-3 w-3" />
+                Collapse All ({expandedHistory.size})
+              </Button>
             )}
           </div>
         </SheetHeader>
