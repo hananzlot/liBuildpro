@@ -5,11 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock, ChevronDown, ChevronUp } from "lucide-react";
 
-import type { DBOpportunityEdit } from "@/hooks/useGHLContacts";
+import type { DBOpportunityEdit, DBTaskEdit, DBNoteEdit, DBAppointmentEdit } from "@/hooks/useGHLContacts";
 
 interface DBOpportunity {
   id: string;
@@ -85,6 +83,17 @@ interface DBUser {
   last_name: string | null;
 }
 
+// Unified activity item for display
+interface ActivityItem {
+  id: string;
+  type: "creation" | "edit";
+  date: string;
+  editedBy: string | null;
+  fieldName?: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+}
+
 interface ActivitySheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -94,6 +103,9 @@ interface ActivitySheetProps {
   filteredTasks: DBTask[];
   filteredNotes: DBContactNote[];
   filteredOpportunityEdits: DBOpportunityEdit[];
+  filteredTaskEdits: DBTaskEdit[];
+  filteredNoteEdits: DBNoteEdit[];
+  filteredAppointmentEdits: DBAppointmentEdit[];
   contacts: DBContact[];
   users: DBUser[];
   profiles: DBProfile[];
@@ -243,6 +255,9 @@ export function ActivitySheet({
   filteredTasks,
   filteredNotes,
   filteredOpportunityEdits,
+  filteredTaskEdits,
+  filteredNoteEdits,
+  filteredAppointmentEdits,
   contacts,
   users,
   profiles,
@@ -253,7 +268,6 @@ export function ActivitySheet({
 }: ActivitySheetProps) {
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
-  const [inAppOnly, setInAppOnly] = useState<boolean>(true); // Default to showing in-app activity only
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
 
   const toggleNoteExpanded = (noteId: string) => {
@@ -278,56 +292,167 @@ export function ActivitySheet({
     const creatorIds = new Set<string>();
     filteredTasks.forEach(t => { 
       if (t.entered_by) creatorIds.add(t.entered_by);
-      if (t.edited_by) creatorIds.add(t.edited_by);
     });
+    filteredTaskEdits.forEach(e => { if (e.edited_by) creatorIds.add(e.edited_by); });
     filteredNotes.forEach(n => { 
       if (n.entered_by) creatorIds.add(n.entered_by);
-      if (n.edited_by) creatorIds.add(n.edited_by);
     });
+    filteredNoteEdits.forEach(e => { if (e.edited_by) creatorIds.add(e.edited_by); });
     filteredOpportunityEdits.forEach(e => { if (e.edited_by) creatorIds.add(e.edited_by); });
+    filteredAppointmentEdits.forEach(e => { if (e.edited_by) creatorIds.add(e.edited_by); });
     return profiles.filter(p => creatorIds.has(p.id));
-  }, [filteredTasks, filteredNotes, filteredOpportunityEdits, profiles]);
+  }, [filteredTasks, filteredTaskEdits, filteredNotes, filteredNoteEdits, filteredOpportunityEdits, filteredAppointmentEdits, profiles]);
 
-  // Filter tasks, notes, and edits by creator and in-app only toggle
-  const displayedTasks = useMemo(() => {
-    let tasks = filteredTasks;
-    // If inAppOnly is enabled, only show tasks created or edited in the app
-    if (inAppOnly) {
-      tasks = tasks.filter(t => t.entered_by !== null || t.edited_by !== null);
-    }
-    // Then apply creator filter - match if user created OR edited
+  // Build task activity items: each task creation + each edit is a separate item
+  const taskActivityItems = useMemo(() => {
+    const items: Array<{ task: DBTask; activity: ActivityItem }> = [];
+    
+    // Add task creations (only if entered_by exists for in-app)
+    filteredTasks.forEach(task => {
+      if (task.entered_by) {
+        items.push({
+          task,
+          activity: {
+            id: `task-create-${task.id}`,
+            type: "creation",
+            date: task.created_at,
+            editedBy: task.entered_by,
+          }
+        });
+      }
+    });
+    
+    // Add each task edit as a separate item
+    filteredTaskEdits.forEach(edit => {
+      const task = filteredTasks.find(t => t.ghl_id === edit.task_ghl_id);
+      if (task && edit.edited_by) {
+        items.push({
+          task,
+          activity: {
+            id: `task-edit-${edit.id}`,
+            type: "edit",
+            date: edit.edited_at || "",
+            editedBy: edit.edited_by,
+            fieldName: edit.field_name,
+            oldValue: edit.old_value,
+            newValue: edit.new_value,
+          }
+        });
+      }
+    });
+    
+    // Filter by inAppOnly (already filtered since we require entered_by/edited_by)
+    // Filter by creator
+    let filtered = items;
     if (creatorFilter !== "all") {
-      tasks = tasks.filter(t => t.entered_by === creatorFilter || t.edited_by === creatorFilter);
+      filtered = items.filter(i => i.activity.editedBy === creatorFilter);
     }
-    return tasks;
-  }, [filteredTasks, creatorFilter, inAppOnly]);
+    
+    // Sort by date descending
+    return filtered.sort((a, b) => new Date(b.activity.date).getTime() - new Date(a.activity.date).getTime());
+  }, [filteredTasks, filteredTaskEdits, creatorFilter]);
 
-  const displayedNotes = useMemo(() => {
-    let notes = filteredNotes;
-    // If inAppOnly is enabled, only show notes created or edited in the app
-    if (inAppOnly) {
-      notes = notes.filter(n => n.entered_by !== null || n.edited_by !== null);
-    }
-    // Then apply creator filter - match if user created OR edited
+  // Build note activity items: each note creation + each edit is a separate item
+  const noteActivityItems = useMemo(() => {
+    const items: Array<{ note: DBContactNote; activity: ActivityItem }> = [];
+    
+    // Add note creations (only if entered_by exists for in-app)
+    filteredNotes.forEach(note => {
+      if (note.entered_by) {
+        items.push({
+          note,
+          activity: {
+            id: `note-create-${note.id}`,
+            type: "creation",
+            date: note.ghl_date_added || "",
+            editedBy: note.entered_by,
+          }
+        });
+      }
+    });
+    
+    // Add each note edit as a separate item
+    filteredNoteEdits.forEach(edit => {
+      const note = filteredNotes.find(n => n.ghl_id === edit.note_ghl_id);
+      if (note && edit.edited_by) {
+        items.push({
+          note,
+          activity: {
+            id: `note-edit-${edit.id}`,
+            type: "edit",
+            date: edit.edited_at || "",
+            editedBy: edit.edited_by,
+            fieldName: edit.field_name,
+            oldValue: edit.old_value,
+            newValue: edit.new_value,
+          }
+        });
+      }
+    });
+    
+    // Filter by creator
+    let filtered = items;
     if (creatorFilter !== "all") {
-      notes = notes.filter(n => n.entered_by === creatorFilter || n.edited_by === creatorFilter);
+      filtered = items.filter(i => i.activity.editedBy === creatorFilter);
     }
-    return notes;
-  }, [filteredNotes, creatorFilter, inAppOnly]);
+    
+    // Sort by date descending
+    return filtered.sort((a, b) => new Date(b.activity.date).getTime() - new Date(a.activity.date).getTime());
+  }, [filteredNotes, filteredNoteEdits, creatorFilter]);
+
+  // Build appointment activity items: each appointment creation + each edit is a separate item
+  const appointmentActivityItems = useMemo(() => {
+    const items: Array<{ appointment: DBAppointment; activity: ActivityItem }> = [];
+    
+    // Add appointment creations (only if entered_by exists for in-app)
+    filteredAppointments.forEach(appt => {
+      if (appt.entered_by) {
+        items.push({
+          appointment: appt,
+          activity: {
+            id: `appt-create-${appt.id}`,
+            type: "creation",
+            date: appt.ghl_date_updated || appt.updated_at || "",
+            editedBy: appt.entered_by,
+          }
+        });
+      }
+    });
+    
+    // Add each appointment edit as a separate item
+    filteredAppointmentEdits.forEach(edit => {
+      const appt = filteredAppointments.find(a => a.ghl_id === edit.appointment_ghl_id);
+      if (appt && edit.edited_by) {
+        items.push({
+          appointment: appt,
+          activity: {
+            id: `appt-edit-${edit.id}`,
+            type: "edit",
+            date: edit.edited_at || "",
+            editedBy: edit.edited_by,
+            fieldName: edit.field_name,
+            oldValue: edit.old_value,
+            newValue: edit.new_value,
+          }
+        });
+      }
+    });
+    
+    // Filter by creator
+    let filtered = items;
+    if (creatorFilter !== "all") {
+      filtered = items.filter(i => i.activity.editedBy === creatorFilter);
+    }
+    
+    // Sort by date descending
+    return filtered.sort((a, b) => new Date(b.activity.date).getTime() - new Date(a.activity.date).getTime());
+  }, [filteredAppointments, filteredAppointmentEdits, creatorFilter]);
 
   const displayedEdits = useMemo(() => {
     // Opportunity edits are always in-app (they have edited_by)
     if (creatorFilter === "all") return filteredOpportunityEdits;
     return filteredOpportunityEdits.filter(e => e.edited_by === creatorFilter);
   }, [filteredOpportunityEdits, creatorFilter]);
-
-  // Filter appointments by in-app only
-  const displayedAppointments = useMemo(() => {
-    if (inAppOnly) {
-      return filteredAppointments.filter(a => a.entered_by !== null);
-    }
-    return filteredAppointments;
-  }, [filteredAppointments, inAppOnly]);
 
   // Group edits by opportunity for better display
   const groupedEdits = useMemo(() => {
@@ -354,7 +479,7 @@ export function ActivitySheet({
       );
   }, [displayedEdits]);
 
-  const totalActivity = displayedEdits.length + displayedTasks.length + displayedNotes.length + displayedAppointments.length;
+  const totalActivity = displayedEdits.length + taskActivityItems.length + noteActivityItems.length + appointmentActivityItems.length;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -369,16 +494,6 @@ export function ActivitySheet({
             </SheetTitle>
           </div>
           <div className="flex items-center gap-4 mt-2 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Switch
-                id="in-app-only"
-                checked={inAppOnly}
-                onCheckedChange={setInAppOnly}
-              />
-              <Label htmlFor="in-app-only" className="text-xs text-muted-foreground cursor-pointer">
-                In-App Activity Only
-              </Label>
-            </div>
             {availableCreators.length > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Creator:</span>
@@ -408,15 +523,15 @@ export function ActivitySheet({
             </TabsTrigger>
             <TabsTrigger value="appointments" className="gap-1 text-xs">
               <Clock className="h-3 w-3" />
-              Appts ({displayedAppointments.length})
+              Appts ({appointmentActivityItems.length})
             </TabsTrigger>
             <TabsTrigger value="tasks" className="gap-1 text-xs">
               <CheckSquare className="h-3 w-3" />
-              Tasks ({displayedTasks.length})
+              Tasks ({taskActivityItems.length})
             </TabsTrigger>
             <TabsTrigger value="notes" className="gap-1 text-xs">
               <FileText className="h-3 w-3" />
-              Notes ({displayedNotes.length})
+              Notes ({noteActivityItems.length})
             </TabsTrigger>
           </TabsList>
 
@@ -501,60 +616,83 @@ export function ActivitySheet({
           <TabsContent value="appointments" className="flex-1 overflow-hidden mt-4">
             <ScrollArea className="h-[calc(100vh-220px)]">
               <div className="space-y-2 pr-4">
-                {displayedAppointments.length === 0 ? (
+                {appointmentActivityItems.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
-                    {inAppOnly ? "No in-app appointments in this period" : "No appointments updated in this period"}
+                    No appointment activity in this period
                   </p>
                 ) : (
-                  displayedAppointments
-                    .sort((a, b) => {
-                      const dateA = a.ghl_date_updated || a.updated_at || '0';
-                      const dateB = b.ghl_date_updated || b.updated_at || '0';
-                      return new Date(dateB).getTime() - new Date(dateA).getTime();
-                    })
-                    .map((appt) => {
-                      const contact = contacts.find(c => c.ghl_id === appt.contact_id);
-                      const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-                      return (
-                        <Card 
-                          key={appt.id} 
-                          className={`border-border/50 ${onAppointmentClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
-                          onClick={() => onAppointmentClick?.(appt)}
-                        >
-                          <CardContent className="p-3 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate capitalize">
-                                  {getContactName(contact)}
-                                </p>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                  <MapPin className="h-3 w-3 shrink-0" />
-                                  <span className="truncate">{address || "No address"}</span>
-                                </div>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                  <Calendar className="h-3 w-3 shrink-0" />
-                                  <span className="truncate">{appt.title || "Untitled appointment"}</span>
-                                </div>
+                  appointmentActivityItems.map(({ appointment: appt, activity }) => {
+                    const contact = contacts.find(c => c.ghl_id === appt.contact_id);
+                    const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+                    const actorName = getCreatorName(activity.editedBy, profiles);
+                    return (
+                      <Card 
+                        key={activity.id} 
+                        className={`border-border/50 ${onAppointmentClick ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+                        onClick={() => onAppointmentClick?.(appt)}
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate capitalize">
+                                {getContactName(contact)}
+                              </p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{address || "No address"}</span>
                               </div>
-                              <div className="flex flex-col items-end gap-1 shrink-0">
-                                <Badge variant="outline" className={`text-[10px] ${getAppointmentStatusColor(appt.appointment_status)}`}>
-                                  {appt.appointment_status || "Unknown"}
-                                </Badge>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                <Calendar className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{appt.title || "Untitled appointment"}</span>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <div className="flex items-center gap-1">
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <Badge variant="outline" className={`text-[10px] ${activity.type === "creation" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"}`}>
+                                {activity.type === "creation" ? "Created" : "Edited"}
+                              </Badge>
+                              <Badge variant="outline" className={`text-[10px] ${getAppointmentStatusColor(appt.appointment_status)}`}>
+                                {appt.appointment_status || "Unknown"}
+                              </Badge>
+                            </div>
+                          </div>
+                          {activity.type === "edit" && activity.fieldName && (
+                            <div className="bg-muted/50 rounded p-2">
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="font-medium text-primary">
+                                  {getFieldDisplayName(activity.fieldName)}
+                                </span>
+                                <span className="text-muted-foreground line-through">
+                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users)}
+                                </span>
+                                <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="text-foreground font-medium">
+                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users)}
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              <span>{getUserName(appt.assigned_user_id, users)}</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/70">
+                              {appt.start_time ? `Scheduled: ${formatDate(appt.start_time)}` : "No date"}
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+                            <span>{formatDate(activity.date)}</span>
+                            {actorName && (
+                              <span className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
-                                <span>{getUserName(appt.assigned_user_id, users)}</span>
-                              </div>
-                              <div className="text-[10px] text-muted-foreground/70">
-                                {appt.start_time ? `Scheduled: ${formatDate(appt.start_time)}` : "No date"}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
+                                {activity.type === "creation" ? "Created by" : "Edited by"}: {actorName}
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </ScrollArea>
@@ -563,92 +701,107 @@ export function ActivitySheet({
           <TabsContent value="tasks" className="flex-1 overflow-hidden mt-4">
             <ScrollArea className="h-[calc(100vh-220px)]">
               <div className="space-y-2 pr-4">
-                {displayedTasks.length === 0 ? (
+                {taskActivityItems.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
                     {creatorFilter !== "all" 
-                      ? "No tasks by this creator" 
-                      : inAppOnly 
-                        ? "No in-app tasks created in this period" 
-                        : "No tasks created in this period"}
+                      ? "No task activity by this creator" 
+                      : "No task activity in this period"}
                   </p>
                 ) : (
-                  displayedTasks
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                    .map((task) => {
-                      const contact = contacts.find(c => c.ghl_id === task.contact_id);
-                      const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-                      const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                      // Find opportunity for this contact - first in edited, then in all
-                      const relatedOpp = editedOpportunities.find(o => o.contact_id === task.contact_id) 
-                        || allOpportunities.find(o => o.contact_id === task.contact_id);
-                      return (
-                        <Card 
-                          key={task.id} 
-                          className={`border-border/50 ${relatedOpp && (onTaskClick || onOpportunityClick) ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
-                          onClick={() => {
-                            if (relatedOpp) {
-                              if (onTaskClick) {
-                                onTaskClick(relatedOpp, task);
-                              } else {
-                                onOpportunityClick?.(relatedOpp);
-                              }
+                  taskActivityItems.map(({ task, activity }) => {
+                    const contact = contacts.find(c => c.ghl_id === task.contact_id);
+                    const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+                    const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                    const relatedOpp = editedOpportunities.find(o => o.contact_id === task.contact_id) 
+                      || allOpportunities.find(o => o.contact_id === task.contact_id);
+                    const actorName = getCreatorName(activity.editedBy, profiles);
+                    return (
+                      <Card 
+                        key={activity.id} 
+                        className={`border-border/50 ${relatedOpp && (onTaskClick || onOpportunityClick) ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
+                        onClick={() => {
+                          if (relatedOpp) {
+                            if (onTaskClick) {
+                              onTaskClick(relatedOpp, task);
+                            } else {
+                              onOpportunityClick?.(relatedOpp);
                             }
-                          }}
-                        >
-                          <CardContent className="p-3 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate capitalize">
-                                  {getContactName(contact)}
-                                </p>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                  <MapPin className="h-3 w-3 shrink-0" />
-                                  <span className="truncate">{address || "No address"}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                  <span className="truncate">{scopeOfWork || "No scope"}</span>
-                                  {relatedOpp && (
-                                    <span className="shrink-0 font-semibold text-emerald-400">
-                                      {formatCurrency(relatedOpp.monetary_value)}
-                                    </span>
-                                  )}
-                                </div>
+                          }
+                        }}
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate capitalize">
+                                {getContactName(contact)}
+                              </p>
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{address || "No address"}</span>
                               </div>
-                              <Badge variant={task.completed ? "default" : "secondary"} className="text-[10px] shrink-0">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                <span className="truncate">{scopeOfWork || "No scope"}</span>
+                                {relatedOpp && (
+                                  <span className="shrink-0 font-semibold text-emerald-400">
+                                    {formatCurrency(relatedOpp.monetary_value)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <Badge variant="outline" className={`text-[10px] ${activity.type === "creation" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"}`}>
+                                {activity.type === "creation" ? "Created" : "Edited"}
+                              </Badge>
+                              <Badge variant={task.completed ? "default" : "secondary"} className="text-[10px]">
                                 {task.completed ? "Done" : "Pending"}
                               </Badge>
                             </div>
-                            <div className="bg-muted/50 rounded p-2 mt-2">
-                              <p className="text-xs font-medium">{task.title}</p>
-                              {task.body && (
-                                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{stripHtml(task.body)}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                <span>{getUserName(task.assigned_to, users)}</span>
-                              </div>
-                              {task.due_date && (
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  <span>Due: {formatDate(task.due_date)}</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
-                              <span>Created: {formatDate(task.created_at)}</span>
-                              {getCreatorName(task.entered_by, profiles) && (
-                                <span className="flex items-center gap-1">
-                                  <User className="h-3 w-3" />
-                                  By: {getCreatorName(task.entered_by, profiles)}
+                          </div>
+                          <div className="bg-muted/50 rounded p-2 mt-2">
+                            <p className="text-xs font-medium">{task.title}</p>
+                            {activity.type === "edit" && activity.fieldName && (
+                              <div className="flex items-center gap-2 text-xs mt-1">
+                                <span className="font-medium text-primary">
+                                  {getFieldDisplayName(activity.fieldName)}:
                                 </span>
-                              )}
+                                <span className="text-muted-foreground line-through">
+                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users)}
+                                </span>
+                                <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="text-foreground font-medium">
+                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users)}
+                                </span>
+                              </div>
+                            )}
+                            {activity.type === "creation" && task.body && (
+                              <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{stripHtml(task.body)}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              <span>{getUserName(task.assigned_to, users)}</span>
                             </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
+                            {task.due_date && (
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                <span>Due: {formatDate(task.due_date)}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+                            <span>{formatDate(activity.date)}</span>
+                            {actorName && (
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {activity.type === "creation" ? "Created by" : "Edited by"}: {actorName}
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </ScrollArea>
@@ -657,95 +810,105 @@ export function ActivitySheet({
           <TabsContent value="notes" className="flex-1 overflow-hidden mt-4">
             <ScrollArea className="h-[calc(100vh-220px)]">
               <div className="space-y-2 pr-4">
-                {displayedNotes.length === 0 ? (
+                {noteActivityItems.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
                     {creatorFilter !== "all" 
-                      ? "No notes by this creator" 
-                      : inAppOnly 
-                        ? "No in-app notes created in this period" 
-                        : "No notes created in this period"}
+                      ? "No note activity by this creator" 
+                      : "No note activity in this period"}
                   </p>
                 ) : (
-                  displayedNotes
-                    .sort((a, b) => new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime())
-                    .map((note) => {
-                      const contact = contacts.find(c => c.ghl_id === note.contact_id);
-                      const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-                      const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                      // Find opportunity for this contact to get value and for click navigation
-                      const relatedOpp = editedOpportunities.find(o => o.contact_id === note.contact_id);
-                      // Prefer entered_by (app user) over user_id (GHL user)
-                      const creatorName = getCreatorName(note.entered_by, profiles);
-                      const displayUserName = creatorName || getUserName(note.user_id, users);
-                      return (
-                        <Card 
-                          key={note.id} 
-                          className={`border-border/50 ${relatedOpp && onOpportunityClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
-                          onClick={() => relatedOpp && onOpportunityClick?.(relatedOpp)}
-                        >
-                          <CardContent className="p-3 space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate capitalize">
-                                  {getContactName(contact)}
-                                </p>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                  <MapPin className="h-3 w-3 shrink-0" />
-                                  <span className="truncate">{address || "No address"}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                  <span className="truncate">{scopeOfWork || "No scope"}</span>
-                                  {relatedOpp && (
-                                    <span className="shrink-0 font-semibold text-emerald-400">
-                                      {formatCurrency(relatedOpp.monetary_value)}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                                <User className="h-3 w-3" />
-                                <span>{displayUserName}</span>
-                              </div>
-                            </div>
-                            <div 
-                              className="bg-muted/50 rounded p-2 cursor-pointer hover:bg-muted/70 transition-colors"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleNoteExpanded(note.id);
-                              }}
-                            >
-                              <p className={`text-sm text-muted-foreground whitespace-pre-wrap ${expandedNotes.has(note.id) ? '' : 'line-clamp-4'}`}>
-                                {stripHtml(note.body) || "(No content)"}
+                  noteActivityItems.map(({ note, activity }) => {
+                    const contact = contacts.find(c => c.ghl_id === note.contact_id);
+                    const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+                    const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                    const relatedOpp = editedOpportunities.find(o => o.contact_id === note.contact_id);
+                    const actorName = getCreatorName(activity.editedBy, profiles);
+                    return (
+                      <Card 
+                        key={activity.id} 
+                        className={`border-border/50 ${relatedOpp && onOpportunityClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
+                        onClick={() => relatedOpp && onOpportunityClick?.(relatedOpp)}
+                      >
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate capitalize">
+                                {getContactName(contact)}
                               </p>
-                              {stripHtml(note.body)?.length > 200 && (
-                                <div className="flex items-center justify-center mt-2 text-xs text-primary">
-                                  {expandedNotes.has(note.id) ? (
-                                    <>
-                                      <ChevronUp className="h-3 w-3 mr-1" />
-                                      Show less
-                                    </>
-                                  ) : (
-                                    <>
-                                      <ChevronDown className="h-3 w-3 mr-1" />
-                                      Show more
-                                    </>
-                                  )}
-                                </div>
-                              )}
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{address || "No address"}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                <span className="truncate">{scopeOfWork || "No scope"}</span>
+                                {relatedOpp && (
+                                  <span className="shrink-0 font-semibold text-emerald-400">
+                                    {formatCurrency(relatedOpp.monetary_value)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
-                              <span>Added: {formatDate(note.ghl_date_added)}</span>
-                              {creatorName && (
+                            <Badge variant="outline" className={`text-[10px] shrink-0 ${activity.type === "creation" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-blue-500/20 text-blue-400 border-blue-500/30"}`}>
+                              {activity.type === "creation" ? "Created" : "Edited"}
+                            </Badge>
+                          </div>
+                          <div 
+                            className="bg-muted/50 rounded p-2 cursor-pointer hover:bg-muted/70 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleNoteExpanded(activity.id);
+                            }}
+                          >
+                            {activity.type === "edit" && activity.fieldName && (
+                              <div className="flex items-center gap-2 text-xs mb-1">
+                                <span className="font-medium text-primary">
+                                  {getFieldDisplayName(activity.fieldName)}:
+                                </span>
+                                <span className="text-muted-foreground line-through truncate max-w-[100px]">
+                                  {activity.oldValue || "(empty)"}
+                                </span>
+                                <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="text-foreground font-medium truncate max-w-[100px]">
+                                  {activity.newValue || "(empty)"}
+                                </span>
+                              </div>
+                            )}
+                            {activity.type === "creation" && (
+                              <>
+                                <p className={`text-sm text-muted-foreground whitespace-pre-wrap ${expandedNotes.has(activity.id) ? '' : 'line-clamp-4'}`}>
+                                  {stripHtml(note.body) || "(No content)"}
+                                </p>
+                                {stripHtml(note.body)?.length > 200 && (
+                                  <div className="flex items-center justify-center mt-2 text-xs text-primary">
+                                    {expandedNotes.has(activity.id) ? (
+                                      <>
+                                        <ChevronUp className="h-3 w-3 mr-1" />
+                                        Show less
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronDown className="h-3 w-3 mr-1" />
+                                        Show more
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+                            <span>{formatDate(activity.date)}</span>
+                            {actorName && (
                               <span className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
-                                By: {creatorName}
-                                </span>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
+                                {activity.type === "creation" ? "Created by" : "Edited by"}: {actorName}
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
                 )}
               </div>
             </ScrollArea>

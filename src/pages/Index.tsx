@@ -523,47 +523,66 @@ const Index = () => {
       <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
 
       {/* Activity Sheet */}
-      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} defaultTab={activityDefaultTab} editedOpportunities={metrics?.editedOpportunities || []} allOpportunities={metrics?.allOpportunities || []} filteredAppointments={metrics?.filteredAppointments || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
-        setSelectedOpportunity({
-          ghl_id: opp.ghl_id,
-          name: opp.name,
-          status: opp.status,
-          monetary_value: opp.monetary_value,
-          pipeline_id: null,
-          pipeline_name: null,
-          pipeline_stage_id: null,
-          stage_name: opp.stage_name,
-          contact_id: opp.contact_id,
-          assigned_to: opp.assigned_to,
-          ghl_date_added: null,
-          ghl_date_updated: opp.ghl_date_updated
-        });
-        setInitialTaskGhlId(null);
-        setActivitySheetOpen(false);
-        setOppDetailSheetOpen(true);
-      }} onTaskClick={(opp, task) => {
-        setSelectedOpportunity({
-          ghl_id: opp.ghl_id,
-          name: opp.name,
-          status: opp.status,
-          monetary_value: opp.monetary_value,
-          pipeline_id: null,
-          pipeline_name: null,
-          pipeline_stage_id: null,
-          stage_name: opp.stage_name,
-          contact_id: opp.contact_id,
-          assigned_to: opp.assigned_to,
-          ghl_date_added: null,
-          ghl_date_updated: opp.ghl_date_updated
-        });
-        setInitialTaskGhlId(task.ghl_id);
-        setActivitySheetOpen(false);
-        setOppDetailSheetOpen(true);
-      }} onAppointmentClick={appt => {
-        setSelectedAppointment(appt);
-        setActivitySheetOpen(false);
-        setAppointmentDetailSheetOpen(true);
-      }} />
+      <ActivitySheet 
+        open={activitySheetOpen} 
+        onOpenChange={setActivitySheetOpen} 
+        defaultTab={activityDefaultTab} 
+        editedOpportunities={metrics?.editedOpportunities || []} 
+        allOpportunities={metrics?.allOpportunities || []} 
+        filteredAppointments={metrics?.filteredAppointments || []} 
+        filteredTasks={metrics?.filteredTasks || []} 
+        filteredNotes={metrics?.filteredNotes || []} 
+        filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} 
+        filteredTaskEdits={metrics?.filteredTaskEdits || []}
+        filteredNoteEdits={metrics?.filteredNoteEdits || []}
+        filteredAppointmentEdits={metrics?.filteredAppointmentEdits || []}
+        contacts={metrics?.allContacts || []} 
+        users={metrics?.users || []} 
+        profiles={metrics?.profiles || []} 
+        onOpportunityClick={opp => {
+          setSelectedOpportunity({
+            ghl_id: opp.ghl_id,
+            name: opp.name,
+            status: opp.status,
+            monetary_value: opp.monetary_value,
+            pipeline_id: null,
+            pipeline_name: null,
+            pipeline_stage_id: null,
+            stage_name: opp.stage_name,
+            contact_id: opp.contact_id,
+            assigned_to: opp.assigned_to,
+            ghl_date_added: null,
+            ghl_date_updated: opp.ghl_date_updated
+          });
+          setInitialTaskGhlId(null);
+          setActivitySheetOpen(false);
+          setOppDetailSheetOpen(true);
+        }} 
+        onTaskClick={(opp, task) => {
+          setSelectedOpportunity({
+            ghl_id: opp.ghl_id,
+            name: opp.name,
+            status: opp.status,
+            monetary_value: opp.monetary_value,
+            pipeline_id: null,
+            pipeline_name: null,
+            pipeline_stage_id: null,
+            stage_name: opp.stage_name,
+            contact_id: opp.contact_id,
+            assigned_to: opp.assigned_to,
+            ghl_date_added: null,
+            ghl_date_updated: opp.ghl_date_updated
+          });
+          setInitialTaskGhlId(task.ghl_id);
+          setActivitySheetOpen(false);
+          setOppDetailSheetOpen(true);
+        }} 
+        onAppointmentClick={appt => {
+          setSelectedAppointment(appt);
+          setActivitySheetOpen(false);
+          setAppointmentDetailSheetOpen(true);
+        }} 
+      />
 
       {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
       <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={(open) => { setOppDetailSheetOpen(open); if (!open) setInitialTaskGhlId(null); }} allOpportunities={metrics?.allOpportunities || []} initialTaskGhlId={initialTaskGhlId} />
