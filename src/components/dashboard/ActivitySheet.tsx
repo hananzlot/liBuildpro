@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock, ChevronDown, ChevronUp } from "lucide-react";
 
 import type { DBOpportunityEdit } from "@/hooks/useGHLContacts";
@@ -31,6 +33,7 @@ interface DBAppointment {
   start_time: string | null;
   ghl_date_updated?: string | null;
   updated_at?: string;
+  entered_by?: string | null;
 }
 
 interface DBTask {
@@ -246,6 +249,7 @@ export function ActivitySheet({
 }: ActivitySheetProps) {
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
+  const [inAppOnly, setInAppOnly] = useState<boolean>(true); // Default to showing in-app activity only
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
 
   const toggleNoteExpanded = (noteId: string) => {
@@ -274,21 +278,46 @@ export function ActivitySheet({
     return profiles.filter(p => creatorIds.has(p.id));
   }, [filteredTasks, filteredNotes, filteredOpportunityEdits, profiles]);
 
-  // Filter tasks, notes, and edits by creator
+  // Filter tasks, notes, and edits by creator and in-app only toggle
   const displayedTasks = useMemo(() => {
-    if (creatorFilter === "all") return filteredTasks;
-    return filteredTasks.filter(t => t.entered_by === creatorFilter);
-  }, [filteredTasks, creatorFilter]);
+    let tasks = filteredTasks;
+    // If inAppOnly is enabled, only show tasks created in the app
+    if (inAppOnly) {
+      tasks = tasks.filter(t => t.entered_by !== null);
+    }
+    // Then apply creator filter
+    if (creatorFilter !== "all") {
+      tasks = tasks.filter(t => t.entered_by === creatorFilter);
+    }
+    return tasks;
+  }, [filteredTasks, creatorFilter, inAppOnly]);
 
   const displayedNotes = useMemo(() => {
-    if (creatorFilter === "all") return filteredNotes;
-    return filteredNotes.filter(n => n.entered_by === creatorFilter);
-  }, [filteredNotes, creatorFilter]);
+    let notes = filteredNotes;
+    // If inAppOnly is enabled, only show notes created in the app
+    if (inAppOnly) {
+      notes = notes.filter(n => n.entered_by !== null);
+    }
+    // Then apply creator filter
+    if (creatorFilter !== "all") {
+      notes = notes.filter(n => n.entered_by === creatorFilter);
+    }
+    return notes;
+  }, [filteredNotes, creatorFilter, inAppOnly]);
 
   const displayedEdits = useMemo(() => {
+    // Opportunity edits are always in-app (they have edited_by)
     if (creatorFilter === "all") return filteredOpportunityEdits;
     return filteredOpportunityEdits.filter(e => e.edited_by === creatorFilter);
   }, [filteredOpportunityEdits, creatorFilter]);
+
+  // Filter appointments by in-app only
+  const displayedAppointments = useMemo(() => {
+    if (inAppOnly) {
+      return filteredAppointments.filter(a => a.entered_by !== null);
+    }
+    return filteredAppointments;
+  }, [filteredAppointments, inAppOnly]);
 
   // Group edits by opportunity for better display
   const groupedEdits = useMemo(() => {
@@ -315,7 +344,7 @@ export function ActivitySheet({
       );
   }, [displayedEdits]);
 
-  const totalActivity = editedOpportunities.length + displayedTasks.length + displayedNotes.length + displayedEdits.length;
+  const totalActivity = displayedEdits.length + displayedTasks.length + displayedNotes.length + displayedAppointments.length;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -329,24 +358,36 @@ export function ActivitySheet({
               </Badge>
             </SheetTitle>
           </div>
-          {availableCreators.length > 0 && (
-            <div className="flex items-center gap-2 mt-2">
-              <span className="text-xs text-muted-foreground">Filter by creator:</span>
-              <Select value={creatorFilter} onValueChange={setCreatorFilter}>
-                <SelectTrigger className="w-[180px] h-8 text-xs">
-                  <SelectValue placeholder="All creators" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All creators</SelectItem>
-                  {availableCreators.map(p => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.full_name || p.email?.split('@')[0] || "Unknown"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="in-app-only"
+                checked={inAppOnly}
+                onCheckedChange={setInAppOnly}
+              />
+              <Label htmlFor="in-app-only" className="text-xs text-muted-foreground cursor-pointer">
+                In-App Activity Only
+              </Label>
             </div>
-          )}
+            {availableCreators.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Creator:</span>
+                <Select value={creatorFilter} onValueChange={setCreatorFilter}>
+                  <SelectTrigger className="w-[150px] h-8 text-xs">
+                    <SelectValue placeholder="All creators" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All creators</SelectItem>
+                    {availableCreators.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.full_name || p.email?.split('@')[0] || "Unknown"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden mt-4">
@@ -357,7 +398,7 @@ export function ActivitySheet({
             </TabsTrigger>
             <TabsTrigger value="appointments" className="gap-1 text-xs">
               <Clock className="h-3 w-3" />
-              Appts ({filteredAppointments.length})
+              Appts ({displayedAppointments.length})
             </TabsTrigger>
             <TabsTrigger value="tasks" className="gap-1 text-xs">
               <CheckSquare className="h-3 w-3" />
@@ -450,12 +491,12 @@ export function ActivitySheet({
           <TabsContent value="appointments" className="flex-1 overflow-hidden mt-4">
             <ScrollArea className="h-[calc(100vh-220px)]">
               <div className="space-y-2 pr-4">
-                {filteredAppointments.length === 0 ? (
+                {displayedAppointments.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
-                    No appointments updated in this period
+                    {inAppOnly ? "No in-app appointments in this period" : "No appointments updated in this period"}
                   </p>
                 ) : (
-                  filteredAppointments
+                  displayedAppointments
                     .sort((a, b) => {
                       const dateA = a.ghl_date_updated || a.updated_at || '0';
                       const dateB = b.ghl_date_updated || b.updated_at || '0';
@@ -514,7 +555,11 @@ export function ActivitySheet({
               <div className="space-y-2 pr-4">
                 {displayedTasks.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
-                    {creatorFilter !== "all" ? "No tasks by this creator" : "No tasks created in this period"}
+                    {creatorFilter !== "all" 
+                      ? "No tasks by this creator" 
+                      : inAppOnly 
+                        ? "No in-app tasks created in this period" 
+                        : "No tasks created in this period"}
                   </p>
                 ) : (
                   displayedTasks
@@ -604,7 +649,11 @@ export function ActivitySheet({
               <div className="space-y-2 pr-4">
                 {displayedNotes.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8 italic">
-                    {creatorFilter !== "all" ? "No notes by this creator" : "No notes created in this period"}
+                    {creatorFilter !== "all" 
+                      ? "No notes by this creator" 
+                      : inAppOnly 
+                        ? "No in-app notes created in this period" 
+                        : "No notes created in this period"}
                   </p>
                 ) : (
                   displayedNotes
