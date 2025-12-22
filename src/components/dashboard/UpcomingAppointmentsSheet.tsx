@@ -93,6 +93,7 @@ interface CalendarViewProps {
   onReschedule: (appt: DBAppointment, newDate: Date, newTime: string) => Promise<void>;
   capitalizeWords: (str: string) => string;
   getStatusColor: (status: string | null) => string;
+  normalizeStatus: (status: string | null) => string;
   isRescheduling: boolean;
 }
 
@@ -121,6 +122,7 @@ function CalendarView({
   onReschedule,
   capitalizeWords,
   getStatusColor,
+  normalizeStatus,
   isRescheduling,
 }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -406,7 +408,7 @@ function CalendarView({
                             </p>
                           </div>
                           <Badge className={`${getStatusColor(appt.appointment_status)} text-[10px] shrink-0`}>
-                            {appt.appointment_status || "pending"}
+                            {normalizeStatus(appt.appointment_status)}
                           </Badge>
                         </div>
                         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -565,7 +567,7 @@ export function UpcomingAppointmentsSheet({
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isRescheduling, setIsRescheduling] = useState(false);
 
-  const APPOINTMENT_STATUSES = ["confirmed", "showed", "no_show", "cancelled"];
+  const APPOINTMENT_STATUSES = ["new", "confirmed", "showed", "no_show", "cancelled"];
 
   // Helper to capitalize words properly
   const capitalizeWords = (str: string): string => {
@@ -766,12 +768,23 @@ export function UpcomingAppointmentsSheet({
         return "bg-emerald-500/20 text-emerald-400";
       case "cancelled":
       case "no_show":
+      case "noshow":
         return "bg-red-500/20 text-red-400";
       case "showed":
         return "bg-blue-500/20 text-blue-400";
+      case "new":
+        return "bg-amber-500/20 text-amber-300";
       default:
-        return "bg-amber-500/20 text-amber-400";
+        return "bg-muted text-foreground";
     }
+  };
+  
+  // Normalize status for display
+  const normalizeStatus = (status: string | null) => {
+    if (!status) return "No Status";
+    if (status === "noshow") return "No Show";
+    if (status === "no_show") return "No Show";
+    return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
   const handleAppointmentClick = (appointment: DBAppointment) => {
@@ -921,6 +934,7 @@ export function UpcomingAppointmentsSheet({
               onReschedule={handleReschedule}
               capitalizeWords={capitalizeWords}
               getStatusColor={getStatusColor}
+              normalizeStatus={normalizeStatus}
               isRescheduling={isRescheduling}
             />
           ) : (
@@ -1110,7 +1124,7 @@ export function UpcomingAppointmentsSheet({
                                     {updatingStatusId === appt.ghl_id ? (
                                       <Loader2 className="h-3 w-3 animate-spin mr-1" />
                                     ) : null}
-                                    {localStatusState[appt.ghl_id] ?? appt.appointment_status ?? "No Status"}
+                                    {normalizeStatus(localStatusState[appt.ghl_id] ?? appt.appointment_status)}
                                   </Badge>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent 
