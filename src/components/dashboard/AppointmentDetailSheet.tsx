@@ -676,13 +676,14 @@ export function AppointmentDetailSheet({
       case "confirmed":
         return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
       case "cancelled":
+        return "bg-red-500/20 text-red-400 border-red-500/30";
       case "no_show":
       case "noshow":
-        return "bg-red-500/20 text-red-400 border-red-500/30";
+        return "bg-amber-500/20 text-amber-400 border-amber-500/30";
       case "showed":
         return "bg-blue-500/20 text-blue-400 border-blue-500/30";
       case "new":
-        return "bg-amber-500/20 text-amber-300 border-amber-500/30";
+        return "bg-muted text-muted-foreground border-border";
       default:
         return "bg-muted text-foreground border-border";
     }

@@ -767,13 +767,14 @@ export function UpcomingAppointmentsSheet({
       case "confirmed":
         return "bg-emerald-500/20 text-emerald-400";
       case "cancelled":
+        return "bg-red-500/20 text-red-400";
       case "no_show":
       case "noshow":
-        return "bg-red-500/20 text-red-400";
+        return "bg-amber-500/20 text-amber-400";
       case "showed":
         return "bg-blue-500/20 text-blue-400";
       case "new":
-        return "bg-amber-500/20 text-amber-300";
+        return "bg-muted text-muted-foreground";
       default:
         return "bg-muted text-foreground";
     }
