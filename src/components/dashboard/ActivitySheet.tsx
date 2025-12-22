@@ -223,24 +223,71 @@ const getFieldDisplayName = (fieldName: string): string => {
     pipeline_name: "Pipeline",
     monetary_value: "Value",
     assigned_to: "Assigned To",
+    assigned_user_id: "Assigned To",
     address: "Address",
     scope_of_work: "Scope of Work",
     source: "Source",
     phone: "Phone",
+    completed: "Status",
+    title: "Title",
+    body: "Description",
+    due_date: "Due Date",
+    start_time: "Start Time",
+    end_time: "End Time",
+    appointment_status: "Appt Status",
+    salesperson_confirmed: "Rep Confirmed",
+    notes: "Notes",
   };
-  return fieldNames[fieldName] || fieldName;
+  return fieldNames[fieldName] || fieldName.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 };
 
-const formatFieldValue = (fieldName: string, value: string | null, users: DBUser[]): string => {
-  if (!value) return "(empty)";
+const formatFieldValue = (fieldName: string, value: string | null, users: DBUser[], profiles?: DBProfile[]): string => {
+  if (value === null || value === undefined || value === "") return "(empty)";
   
+  // Boolean fields
+  if (fieldName === "completed") {
+    return value === "true" ? "Done" : "Pending";
+  }
+  
+  if (fieldName === "salesperson_confirmed") {
+    return value === "true" ? "Confirmed" : "Not Confirmed";
+  }
+  
+  // Monetary values
   if (fieldName === "monetary_value") {
     const num = parseFloat(value);
     return isNaN(num) ? value : formatCurrency(num);
   }
   
-  if (fieldName === "assigned_to") {
+  // User assignments (GHL user IDs)
+  if (fieldName === "assigned_to" || fieldName === "assigned_user_id") {
     return getUserName(value, users);
+  }
+  
+  // Profile references (Supabase user IDs) - like edited_by, entered_by
+  if (fieldName === "edited_by" || fieldName === "entered_by") {
+    if (profiles) {
+      const profile = profiles.find(p => p.id === value);
+      if (profile) {
+        return profile.full_name || profile.email?.split('@')[0] || value;
+      }
+    }
+    return value;
+  }
+  
+  // Date/time fields
+  if (fieldName === "due_date" || fieldName === "start_time" || fieldName === "end_time") {
+    try {
+      return formatDate(value);
+    } catch {
+      return value;
+    }
+  }
+  
+  // Strip HTML from body/notes fields
+  if (fieldName === "body" || fieldName === "notes") {
+    const stripped = stripHtml(value);
+    return stripped.length > 50 ? stripped.substring(0, 50) + "..." : stripped;
   }
   
   return value;
@@ -584,11 +631,11 @@ export function ActivitySheet({
                                       {getFieldDisplayName(edit.field_name)}
                                     </span>
                                     <span className="text-muted-foreground line-through">
-                                      {formatFieldValue(edit.field_name, edit.old_value, users)}
+                                      {formatFieldValue(edit.field_name, edit.old_value, users, profiles)}
                                     </span>
                                     <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                     <span className="text-foreground font-medium">
-                                      {formatFieldValue(edit.field_name, edit.new_value, users)}
+                                      {formatFieldValue(edit.field_name, edit.new_value, users, profiles)}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-1">
@@ -662,11 +709,11 @@ export function ActivitySheet({
                                   {getFieldDisplayName(activity.fieldName)}
                                 </span>
                                 <span className="text-muted-foreground line-through">
-                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users)}
+                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles)}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                 <span className="text-foreground font-medium">
-                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users)}
+                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles)}
                                 </span>
                               </div>
                             </div>
@@ -765,11 +812,11 @@ export function ActivitySheet({
                                   {getFieldDisplayName(activity.fieldName)}:
                                 </span>
                                 <span className="text-muted-foreground line-through">
-                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users)}
+                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles)}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                 <span className="text-foreground font-medium">
-                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users)}
+                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles)}
                                 </span>
                               </div>
                             )}
@@ -860,11 +907,11 @@ export function ActivitySheet({
                                   {getFieldDisplayName(activity.fieldName)}:
                                 </span>
                                 <span className="text-muted-foreground line-through truncate max-w-[100px]">
-                                  {activity.oldValue || "(empty)"}
+                                  {formatFieldValue(activity.fieldName, activity.oldValue || null, users, profiles)}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                                 <span className="text-foreground font-medium truncate max-w-[100px]">
-                                  {activity.newValue || "(empty)"}
+                                  {formatFieldValue(activity.fieldName, activity.newValue || null, users, profiles)}
                                 </span>
                               </div>
                             )}
