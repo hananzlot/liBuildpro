@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
 import { ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface DBAppointment {
   id: string;
@@ -553,6 +554,7 @@ export function UpcomingAppointmentsSheet({
   opportunities,
   users,
 }: UpcomingAppointmentsSheetProps) {
+  const { user } = useAuth();
   const [searchFilter, setSearchFilter] = useState("");
   const [repFilter, setRepFilter] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<DBAppointment | null>(null);
@@ -594,19 +596,35 @@ export function UpcomingAppointmentsSheet({
   const handleToggleConfirmed = async (appt: DBAppointment, e: React.MouseEvent) => {
     e.stopPropagation();
     setConfirmingApptId(appt.ghl_id);
-    const newValue = !(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed);
+    const oldValue = localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed;
+    const newValue = !oldValue;
     try {
       const { error } = await supabase
         .from("appointments")
         .update({
           salesperson_confirmed: newValue,
           salesperson_confirmed_at: newValue ? new Date().toISOString() : null,
+          edited_by: user?.id || null,
+          edited_at: new Date().toISOString(),
         })
         .eq("ghl_id", appt.ghl_id);
 
       if (error) throw error;
+
+      // Record edit in appointment_edits table
+      await supabase.from("appointment_edits").insert({
+        appointment_ghl_id: appt.ghl_id,
+        contact_ghl_id: appt.contact_id,
+        field_name: "salesperson_confirmed",
+        old_value: String(oldValue),
+        new_value: String(newValue),
+        edited_by: user?.id || null,
+        location_id: appt.location_id,
+      });
+
       setLocalConfirmedState((prev) => ({ ...prev, [appt.ghl_id]: newValue }));
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointment_edits"] });
       toast.success(newValue ? "Confirmed" : "Unconfirmed");
     } catch (error) {
       console.error("Error updating confirmation:", error);
@@ -619,6 +637,7 @@ export function UpcomingAppointmentsSheet({
   const handleUpdateStatus = async (appt: DBAppointment, newStatus: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setUpdatingStatusId(appt.ghl_id);
+    const oldStatus = localStatusState[appt.ghl_id] ?? appt.appointment_status;
     try {
       // Update in GHL first
       const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
@@ -630,16 +649,32 @@ export function UpcomingAppointmentsSheet({
 
       if (ghlError) throw ghlError;
 
-      // Update in Supabase
+      // Update in Supabase with edit tracking
       const { error } = await supabase
         .from("appointments")
-        .update({ appointment_status: newStatus })
+        .update({ 
+          appointment_status: newStatus,
+          edited_by: user?.id || null,
+          edited_at: new Date().toISOString(),
+        })
         .eq("ghl_id", appt.ghl_id);
 
       if (error) throw error;
 
+      // Record edit in appointment_edits table
+      await supabase.from("appointment_edits").insert({
+        appointment_ghl_id: appt.ghl_id,
+        contact_ghl_id: appt.contact_id,
+        field_name: "appointment_status",
+        old_value: oldStatus || null,
+        new_value: newStatus,
+        edited_by: user?.id || null,
+        location_id: appt.location_id,
+      });
+
       setLocalStatusState((prev) => ({ ...prev, [appt.ghl_id]: newStatus }));
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointment_edits"] });
       toast.success(`Status updated to ${newStatus}`);
     } catch (error) {
       console.error("Error updating status:", error);
