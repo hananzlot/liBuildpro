@@ -922,7 +922,7 @@ export function AppointmentDetailSheet({
                 {/* Status badges + Sales Rep + Value on same line */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <Select
-                    value={appointment.appointment_status || ''}
+                    value={appointment.appointment_status === 'noshow' ? 'no_show' : (appointment.appointment_status || '')}
                     onValueChange={handleUpdateStatusDirect}
                     disabled={isUpdatingStatus}
                   >
