@@ -316,6 +316,7 @@ export function ActivitySheet({
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
 
   const toggleNoteExpanded = (noteId: string) => {
     setExpandedNotes(prev => {
@@ -324,6 +325,18 @@ export function ActivitySheet({
         next.delete(noteId);
       } else {
         next.add(noteId);
+      }
+      return next;
+    });
+  };
+
+  const toggleHistoryExpanded = (recordId: string) => {
+    setExpandedHistory(prev => {
+      const next = new Set(prev);
+      if (next.has(recordId)) {
+        next.delete(recordId);
+      } else {
+        next.add(recordId);
       }
       return next;
     });
@@ -500,6 +513,54 @@ export function ActivitySheet({
     if (creatorFilter === "all") return filteredOpportunityEdits;
     return filteredOpportunityEdits.filter(e => e.edited_by === creatorFilter);
   }, [filteredOpportunityEdits, creatorFilter]);
+
+  // Group task edits by task ghl_id for "View full history"
+  const taskEditsMap = useMemo(() => {
+    const map = new Map<string, DBTaskEdit[]>();
+    filteredTaskEdits.forEach(edit => {
+      if (!map.has(edit.task_ghl_id)) {
+        map.set(edit.task_ghl_id, []);
+      }
+      map.get(edit.task_ghl_id)!.push(edit);
+    });
+    // Sort each array by date ascending (chronological)
+    map.forEach(edits => {
+      edits.sort((a, b) => new Date(a.edited_at || 0).getTime() - new Date(b.edited_at || 0).getTime());
+    });
+    return map;
+  }, [filteredTaskEdits]);
+
+  // Group note edits by note ghl_id for "View full history"
+  const noteEditsMap = useMemo(() => {
+    const map = new Map<string, DBNoteEdit[]>();
+    filteredNoteEdits.forEach(edit => {
+      if (!map.has(edit.note_ghl_id)) {
+        map.set(edit.note_ghl_id, []);
+      }
+      map.get(edit.note_ghl_id)!.push(edit);
+    });
+    // Sort each array by date ascending (chronological)
+    map.forEach(edits => {
+      edits.sort((a, b) => new Date(a.edited_at || 0).getTime() - new Date(b.edited_at || 0).getTime());
+    });
+    return map;
+  }, [filteredNoteEdits]);
+
+  // Group appointment edits by appointment ghl_id for "View full history"
+  const appointmentEditsMap = useMemo(() => {
+    const map = new Map<string, DBAppointmentEdit[]>();
+    filteredAppointmentEdits.forEach(edit => {
+      if (!map.has(edit.appointment_ghl_id)) {
+        map.set(edit.appointment_ghl_id, []);
+      }
+      map.get(edit.appointment_ghl_id)!.push(edit);
+    });
+    // Sort each array by date ascending (chronological)
+    map.forEach(edits => {
+      edits.sort((a, b) => new Date(a.edited_at || 0).getTime() - new Date(b.edited_at || 0).getTime());
+    });
+    return map;
+  }, [filteredAppointmentEdits]);
 
   // Group edits by opportunity for better display
   const groupedEdits = useMemo(() => {
@@ -718,6 +779,56 @@ export function ActivitySheet({
                               </div>
                             </div>
                           )}
+                          {/* View full history button */}
+                          {(() => {
+                            const allApptEdits = appointmentEditsMap.get(appt.ghl_id) || [];
+                            if (allApptEdits.length > 0) {
+                              const isExpanded = expandedHistory.has(`appt-${appt.ghl_id}`);
+                              return (
+                                <div className="mt-2">
+                                  <button
+                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleHistoryExpanded(`appt-${appt.ghl_id}`);
+                                    }}
+                                  >
+                                    <History className="h-3 w-3" />
+                                    {isExpanded ? "Hide history" : `View full history (${allApptEdits.length} edits)`}
+                                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="mt-2 space-y-2 border-l-2 border-primary/30 pl-3">
+                                      {allApptEdits.map((edit) => {
+                                        const editorName = getCreatorName(edit.edited_by, profiles);
+                                        return (
+                                          <div key={edit.id} className="text-xs">
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium text-primary">
+                                                {getFieldDisplayName(edit.field_name)}:
+                                              </span>
+                                              <span className="text-muted-foreground line-through">
+                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles)}
+                                              </span>
+                                              <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                              <span className="text-foreground font-medium">
+                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles)}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-0.5">
+                                              <span>{formatDate(edit.edited_at)}</span>
+                                              {editorName && <span>By: {editorName}</span>}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User className="h-3 w-3" />
@@ -824,6 +935,56 @@ export function ActivitySheet({
                               <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{stripHtml(task.body)}</p>
                             )}
                           </div>
+                          {/* View full history button */}
+                          {(() => {
+                            const allTaskEdits = taskEditsMap.get(task.ghl_id) || [];
+                            if (allTaskEdits.length > 0) {
+                              const isExpanded = expandedHistory.has(`task-${task.ghl_id}`);
+                              return (
+                                <div className="mt-2">
+                                  <button
+                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleHistoryExpanded(`task-${task.ghl_id}`);
+                                    }}
+                                  >
+                                    <History className="h-3 w-3" />
+                                    {isExpanded ? "Hide history" : `View full history (${allTaskEdits.length} edits)`}
+                                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="mt-2 space-y-2 border-l-2 border-primary/30 pl-3">
+                                      {allTaskEdits.map((edit, idx) => {
+                                        const editorName = getCreatorName(edit.edited_by, profiles);
+                                        return (
+                                          <div key={edit.id} className="text-xs">
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium text-primary">
+                                                {getFieldDisplayName(edit.field_name)}:
+                                              </span>
+                                              <span className="text-muted-foreground line-through">
+                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles)}
+                                              </span>
+                                              <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                              <span className="text-foreground font-medium">
+                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles)}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-0.5">
+                                              <span>{formatDate(edit.edited_at)}</span>
+                                              {editorName && <span>By: {editorName}</span>}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User className="h-3 w-3" />
@@ -944,6 +1105,56 @@ export function ActivitySheet({
                               </>
                             )}
                           </div>
+                          {/* View full history button */}
+                          {(() => {
+                            const allNoteEdits = noteEditsMap.get(note.ghl_id) || [];
+                            if (allNoteEdits.length > 0) {
+                              const isExpanded = expandedHistory.has(`note-${note.ghl_id}`);
+                              return (
+                                <div className="mt-2">
+                                  <button
+                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleHistoryExpanded(`note-${note.ghl_id}`);
+                                    }}
+                                  >
+                                    <History className="h-3 w-3" />
+                                    {isExpanded ? "Hide history" : `View full history (${allNoteEdits.length} edits)`}
+                                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                  </button>
+                                  {isExpanded && (
+                                    <div className="mt-2 space-y-2 border-l-2 border-primary/30 pl-3">
+                                      {allNoteEdits.map((edit) => {
+                                        const editorName = getCreatorName(edit.edited_by, profiles);
+                                        return (
+                                          <div key={edit.id} className="text-xs">
+                                            <div className="flex items-center gap-2">
+                                              <span className="font-medium text-primary">
+                                                {getFieldDisplayName(edit.field_name)}:
+                                              </span>
+                                              <span className="text-muted-foreground line-through truncate max-w-[80px]">
+                                                {formatFieldValue(edit.field_name, edit.old_value, users, profiles)}
+                                              </span>
+                                              <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                                              <span className="text-foreground font-medium truncate max-w-[80px]">
+                                                {formatFieldValue(edit.field_name, edit.new_value, users, profiles)}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 mt-0.5">
+                                              <span>{formatDate(edit.edited_at)}</span>
+                                              {editorName && <span>By: {editorName}</span>}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
                             <span>{formatDate(activity.date)}</span>
                             {actorName && (
