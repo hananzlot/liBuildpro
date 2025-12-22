@@ -553,7 +553,7 @@ export function ActivitySheet({
                             <div className="bg-muted/50 rounded p-2 mt-2">
                               <p className="text-xs font-medium">{task.title}</p>
                               {task.body && (
-                                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{task.body}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{stripHtml(task.body)}</p>
                               )}
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
