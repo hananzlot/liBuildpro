@@ -1286,6 +1286,10 @@ export function useGHLMetrics(dateRange?: DateRange) {
           filteredTaskEdits,
           filteredNoteEdits,
           filteredAppointmentEdits,
+          // In-app activity counts (for Activity KPI)
+          inAppTaskActivityCount: filteredTasks.filter(t => t.entered_by).length + filteredTaskEdits.length,
+          inAppNoteActivityCount: filteredNotes.filter(n => n.entered_by).length + filteredNoteEdits.length,
+          inAppAppointmentActivityCount: filteredAppointments.filter(a => a.entered_by).length + filteredAppointmentEdits.length,
           taskEdits: taskEditsQuery.data || [],
           noteEdits: noteEditsQuery.data || [],
           appointmentEdits: appointmentEditsQuery.data || [],
