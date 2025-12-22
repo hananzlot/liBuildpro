@@ -852,13 +852,7 @@ export function ActivitySheet({
                               {activity.type === "creation" ? "Created" : "Edited"}
                             </Badge>
                           </div>
-                          <div 
-                            className="bg-muted/50 rounded p-2 cursor-pointer hover:bg-muted/70 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleNoteExpanded(activity.id);
-                            }}
-                          >
+                          <div className="bg-muted/50 rounded p-2">
                             {activity.type === "edit" && activity.fieldName && (
                               <div className="flex items-center gap-2 text-xs mb-1">
                                 <span className="font-medium text-primary">
@@ -879,7 +873,13 @@ export function ActivitySheet({
                                   {stripHtml(note.body) || "(No content)"}
                                 </p>
                                 {stripHtml(note.body)?.length > 200 && (
-                                  <div className="flex items-center justify-center mt-2 text-xs text-primary">
+                                  <div 
+                                    className="flex items-center justify-center mt-2 text-xs text-primary cursor-pointer hover:underline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleNoteExpanded(activity.id);
+                                    }}
+                                  >
                                     {expandedNotes.has(activity.id) ? (
                                       <>
                                         <ChevronUp className="h-3 w-3 mr-1" />
