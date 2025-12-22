@@ -60,6 +60,9 @@ interface DBAppointment {
   ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
   updated_at?: string;
+  entered_by?: string | null;
+  edited_by?: string | null;
+  edited_at?: string | null;
 }
 
 interface DBUser {
@@ -98,6 +101,8 @@ interface DBTask {
   created_at: string;
   updated_at: string;
   entered_by: string | null;
+  edited_by?: string | null;
+  edited_at?: string | null;
 }
 
 interface DBContactNote {
@@ -109,6 +114,8 @@ interface DBContactNote {
   location_id: string;
   user_id: string | null;
   entered_by: string | null;
+  edited_by?: string | null;
+  edited_at?: string | null;
 }
 
 interface DBCallLog {
@@ -990,36 +997,69 @@ export function useGHLMetrics(dateRange?: DateRange) {
       })
     : opportunitiesQuery.data || [];
 
-  // Filter appointments edited in date range (by ghl_date_updated or updated_at)
+  // Filter appointments edited in date range (by ghl_date_updated, updated_at, or edited_at)
   const filteredAppointments = appointmentsQuery.data && dateRange?.from
     ? appointmentsQuery.data.filter((a) => {
-        const updateDate = a.ghl_date_updated ? new Date(a.ghl_date_updated) : a.updated_at ? new Date(a.updated_at) : null;
-        if (!updateDate) return false;
         const endDate = dateRange.to || new Date();
         endDate.setHours(23, 59, 59, 999);
-        return updateDate >= dateRange.from! && updateDate <= endDate;
+        
+        // Check ghl_date_updated
+        if (a.ghl_date_updated) {
+          const updateDate = new Date(a.ghl_date_updated);
+          if (updateDate >= dateRange.from! && updateDate <= endDate) return true;
+        }
+        
+        // Check edited_at (in-app edits)
+        if (a.edited_at) {
+          const editDate = new Date(a.edited_at);
+          if (editDate >= dateRange.from! && editDate <= endDate) return true;
+        }
+        
+        return false;
       })
     : appointmentsQuery.data || [];
 
-  // Filter tasks created in date range
+  // Filter tasks created OR edited in date range
   const filteredTasks = tasksQuery.data && dateRange?.from
     ? tasksQuery.data.filter((t) => {
-        if (!t.created_at) return false;
-        const createDate = new Date(t.created_at);
         const endDate = dateRange.to || new Date();
         endDate.setHours(23, 59, 59, 999);
-        return createDate >= dateRange.from! && createDate <= endDate;
+        
+        // Check if created in range
+        if (t.created_at) {
+          const createDate = new Date(t.created_at);
+          if (createDate >= dateRange.from! && createDate <= endDate) return true;
+        }
+        
+        // Check if edited in range
+        if (t.edited_at) {
+          const editDate = new Date(t.edited_at);
+          if (editDate >= dateRange.from! && editDate <= endDate) return true;
+        }
+        
+        return false;
       })
     : tasksQuery.data || [];
 
-  // Filter contact notes created in date range
+  // Filter contact notes created OR edited in date range
   const filteredNotes = contactNotesQuery.data && dateRange?.from
     ? contactNotesQuery.data.filter((n) => {
-        if (!n.ghl_date_added) return false;
-        const addDate = new Date(n.ghl_date_added);
         const endDate = dateRange.to || new Date();
         endDate.setHours(23, 59, 59, 999);
-        return addDate >= dateRange.from! && addDate <= endDate;
+        
+        // Check if created in range
+        if (n.ghl_date_added) {
+          const addDate = new Date(n.ghl_date_added);
+          if (addDate >= dateRange.from! && addDate <= endDate) return true;
+        }
+        
+        // Check if edited in range
+        if (n.edited_at) {
+          const editDate = new Date(n.edited_at);
+          if (editDate >= dateRange.from! && editDate <= endDate) return true;
+        }
+        
+        return false;
       })
     : contactNotesQuery.data || [];
 
