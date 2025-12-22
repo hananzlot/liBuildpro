@@ -66,6 +66,7 @@ const Index = () => {
   const [opportunitySalesSheetOpen, setOpportunitySalesSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
+  const [initialTaskGhlId, setInitialTaskGhlId] = useState<string | null>(null);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
   const [sourceManagementOpen, setSourceManagementOpen] = useState(false);
@@ -86,8 +87,9 @@ const Index = () => {
   } = useGHLMetrics(dateRange);
   const syncMutation = useSyncContacts();
   const syncGHL2Mutation = useSyncGHL2();
-  const handleOpenOpportunity = (opportunity: any) => {
+  const handleOpenOpportunity = (opportunity: any, taskGhlId?: string | null) => {
     setSelectedOpportunity(opportunity);
+    setInitialTaskGhlId(taskGhlId || null);
     setOppDetailSheetOpen(true);
   };
   const handleLogout = async () => {
@@ -536,6 +538,25 @@ const Index = () => {
           ghl_date_added: null,
           ghl_date_updated: opp.ghl_date_updated
         });
+        setInitialTaskGhlId(null);
+        setActivitySheetOpen(false);
+        setOppDetailSheetOpen(true);
+      }} onTaskClick={(opp, task) => {
+        setSelectedOpportunity({
+          ghl_id: opp.ghl_id,
+          name: opp.name,
+          status: opp.status,
+          monetary_value: opp.monetary_value,
+          pipeline_id: null,
+          pipeline_name: null,
+          pipeline_stage_id: null,
+          stage_name: opp.stage_name,
+          contact_id: opp.contact_id,
+          assigned_to: opp.assigned_to,
+          ghl_date_added: null,
+          ghl_date_updated: opp.ghl_date_updated
+        });
+        setInitialTaskGhlId(task.ghl_id);
         setActivitySheetOpen(false);
         setOppDetailSheetOpen(true);
       }} onAppointmentClick={appt => {
@@ -545,7 +566,7 @@ const Index = () => {
       }} />
 
       {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
-      <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={setOppDetailSheetOpen} allOpportunities={metrics?.allOpportunities || []} />
+      <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={(open) => { setOppDetailSheetOpen(open); if (!open) setInitialTaskGhlId(null); }} allOpportunities={metrics?.allOpportunities || []} initialTaskGhlId={initialTaskGhlId} />
 
       {/* Opportunity Sales Sheet */}
       <OpportunitySalesSheet 
