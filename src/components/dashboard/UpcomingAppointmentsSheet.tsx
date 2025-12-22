@@ -867,19 +867,50 @@ export function UpcomingAppointmentsSheet({
 
       if (ghlError) throw ghlError;
 
-      // Update in Supabase
+      // Update in Supabase with edit tracking
       const { error } = await supabase
         .from("appointments")
         .update({ 
           start_time: newStartTime.toISOString(),
           end_time: newEndTime?.toISOString(),
           title: newTitle.replace(" -1", ""), // Clean up title suffix
+          edited_by: user?.id || null,
+          edited_at: new Date().toISOString(),
         })
         .eq("ghl_id", appt.ghl_id);
 
       if (error) throw error;
 
+      // Record edits in appointment_edits table
+      const editsToInsert = [];
+      if (appt.start_time !== newStartTime.toISOString()) {
+        editsToInsert.push({
+          appointment_ghl_id: appt.ghl_id,
+          contact_ghl_id: appt.contact_id,
+          field_name: "start_time",
+          old_value: appt.start_time,
+          new_value: newStartTime.toISOString(),
+          edited_by: user?.id || null,
+          location_id: appt.location_id,
+        });
+      }
+      if (appt.end_time !== newEndTime?.toISOString()) {
+        editsToInsert.push({
+          appointment_ghl_id: appt.ghl_id,
+          contact_ghl_id: appt.contact_id,
+          field_name: "end_time",
+          old_value: appt.end_time || null,
+          new_value: newEndTime?.toISOString() || null,
+          edited_by: user?.id || null,
+          location_id: appt.location_id,
+        });
+      }
+      if (editsToInsert.length > 0) {
+        await supabase.from("appointment_edits").insert(editsToInsert);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["appointment_edits"] });
       queryClient.invalidateQueries({ queryKey: ["ghl-contacts"] });
       toast.success(`Appointment rescheduled to ${format(newStartTime, "MMM d, yyyy 'at' h:mm a")}`);
     } catch (error) {

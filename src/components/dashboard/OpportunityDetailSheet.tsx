@@ -82,6 +82,7 @@ interface Opportunity {
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
+  location_id?: string;
 }
 interface Appointment {
   ghl_id: string;
@@ -159,6 +160,7 @@ interface DisplayTask {
   ghl_id: string;
   title: string;
   notes: string | null;
+  body?: string | null;
   status: string;
   due_date: string | null;
   assigned_to: string | null;
@@ -688,6 +690,60 @@ export function OpportunityDetailSheet({
         .eq("id", editingTask.id);
       if (error) throw error;
 
+      // Record edits in task_edits table for each changed field
+      const editsToInsert: { task_ghl_id: string; contact_ghl_id: string | null; field_name: string; old_value: string | null; new_value: string | null; edited_by: string | null; location_id: string | null }[] = [];
+      
+      if (editingTask.ghl_id) {
+        if (editingTask.title !== taskTitle.trim()) {
+          editsToInsert.push({
+            task_ghl_id: editingTask.ghl_id,
+            contact_ghl_id: opportunity?.contact_id || null,
+            field_name: "title",
+            old_value: editingTask.title || null,
+            new_value: taskTitle.trim(),
+            edited_by: user?.id || null,
+            location_id: opportunity?.location_id || null,
+          });
+        }
+        if ((editingTask.body || "") !== (taskNotes.trim() || "")) {
+          editsToInsert.push({
+            task_ghl_id: editingTask.ghl_id,
+            contact_ghl_id: opportunity?.contact_id || null,
+            field_name: "body",
+            old_value: editingTask.body || null,
+            new_value: taskNotes.trim() || null,
+            edited_by: user?.id || null,
+            location_id: opportunity?.location_id || null,
+          });
+        }
+        if (editingTask.assigned_to !== assignedToValue) {
+          editsToInsert.push({
+            task_ghl_id: editingTask.ghl_id,
+            contact_ghl_id: opportunity?.contact_id || null,
+            field_name: "assigned_to",
+            old_value: editingTask.assigned_to || null,
+            new_value: assignedToValue || null,
+            edited_by: user?.id || null,
+            location_id: opportunity?.location_id || null,
+          });
+        }
+        if (editingTask.due_date !== dueDateValue) {
+          editsToInsert.push({
+            task_ghl_id: editingTask.ghl_id,
+            contact_ghl_id: opportunity?.contact_id || null,
+            field_name: "due_date",
+            old_value: editingTask.due_date || null,
+            new_value: dueDateValue || null,
+            edited_by: user?.id || null,
+            location_id: opportunity?.location_id || null,
+          });
+        }
+
+        if (editsToInsert.length > 0) {
+          await supabase.from("task_edits").insert(editsToInsert);
+        }
+      }
+
       // Sync to GHL
       if (editingTask.ghl_id && opportunity?.contact_id) {
         try {
@@ -709,6 +765,7 @@ export function OpportunityDetailSheet({
 
       // Refresh tasks list
       await refreshTasksList();
+      queryClient.invalidateQueries({ queryKey: ["task_edits"] });
       setTaskDialogOpen(false);
       setEditingTask(null);
       setTaskTitle("");
@@ -756,15 +813,31 @@ export function OpportunityDetailSheet({
     setIsUpdatingTaskStatus(task.id);
     const newStatus = task.status === "completed" ? "pending" : "completed";
     const isCompleted = newStatus === "completed";
+    const oldCompleted = task.status === "completed";
     try {
-      // Update ghl_tasks table
+      // Update ghl_tasks table with edit tracking
       const { error } = await supabase
         .from("ghl_tasks")
         .update({
           completed: isCompleted,
+          edited_by: user?.id || null,
+          edited_at: new Date().toISOString(),
         })
         .eq("id", task.id);
       if (error) throw error;
+
+      // Record edit in task_edits table
+      if (task.ghl_id) {
+        await supabase.from("task_edits").insert({
+          task_ghl_id: task.ghl_id,
+          contact_ghl_id: opportunity?.contact_id || null,
+          field_name: "completed",
+          old_value: String(oldCompleted),
+          new_value: String(isCompleted),
+          edited_by: user?.id || null,
+          location_id: opportunity?.location_id || null,
+        });
+      }
 
       // Sync completion status to GHL
       if (task.ghl_id && opportunity?.contact_id) {
@@ -790,6 +863,7 @@ export function OpportunityDetailSheet({
             : t,
         ),
       );
+      queryClient.invalidateQueries({ queryKey: ["task_edits"] });
       toast.success(newStatus === "completed" ? "Task completed" : "Task reopened");
     } catch (err) {
       console.error("Error updating task status:", err);
