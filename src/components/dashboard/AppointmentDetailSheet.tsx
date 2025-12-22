@@ -57,7 +57,7 @@ const getPSTOffset = (utcDate: Date): number => {
   return isDST ? 7 : 8;
 };
 
-const APPOINTMENT_STATUSES = ["confirmed", "cancelled", "no_show", "showed"] as const;
+const APPOINTMENT_STATUSES = ["new", "confirmed", "cancelled", "no_show", "noshow", "showed"] as const;
 
 interface Appointment {
   ghl_id: string;
@@ -677,11 +677,14 @@ export function AppointmentDetailSheet({
         return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
       case "cancelled":
       case "no_show":
+      case "noshow":
         return "bg-red-500/20 text-red-400 border-red-500/30";
       case "showed":
         return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      case "new":
+        return "bg-amber-500/20 text-amber-300 border-amber-500/30";
       default:
-        return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+        return "bg-muted text-foreground border-border";
     }
   };
 
@@ -927,9 +930,9 @@ export function AppointmentDetailSheet({
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      {APPOINTMENT_STATUSES.map((status) => (
+                      {APPOINTMENT_STATUSES.filter(s => s !== 'noshow').map((status) => (
                         <SelectItem key={status} value={status} className="text-xs">
-                          {status === 'confirmed' ? 'Confirmed' : status === 'no_show' ? 'No Show' : status.charAt(0).toUpperCase() + status.slice(1)}
+                          {status === 'confirmed' ? 'Confirmed' : status === 'no_show' ? 'No Show' : status === 'new' ? 'New' : status.charAt(0).toUpperCase() + status.slice(1)}
                         </SelectItem>
                       ))}
                     </SelectContent>
