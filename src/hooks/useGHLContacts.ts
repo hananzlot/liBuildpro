@@ -164,6 +164,42 @@ export interface DBOpportunitySale {
   updated_at: string;
 }
 
+export interface DBTaskEdit {
+  id: string;
+  task_ghl_id: string;
+  contact_ghl_id: string | null;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  edited_by: string | null;
+  edited_at: string | null;
+  location_id: string | null;
+}
+
+export interface DBNoteEdit {
+  id: string;
+  note_ghl_id: string;
+  contact_ghl_id: string | null;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  edited_by: string | null;
+  edited_at: string | null;
+  location_id: string | null;
+}
+
+export interface DBAppointmentEdit {
+  id: string;
+  appointment_ghl_id: string;
+  contact_ghl_id: string | null;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  edited_by: string | null;
+  edited_at: string | null;
+  location_id: string | null;
+}
+
 // Location 2 ID - contacts from this location are imported to Location 1, so exclude from display
 const LOCATION_2_ID = "XYDIgpHivVWHii65sId5";
 
@@ -291,6 +327,33 @@ async function fetchOpportunitySalesFromDB(): Promise<DBOpportunitySale[]> {
     .from("opportunity_sales")
     .select("*")
     .order("sold_date", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchTaskEditsFromDB(): Promise<DBTaskEdit[]> {
+  const { data, error } = await supabase
+    .from("task_edits")
+    .select("*")
+    .order("edited_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchNoteEditsFromDB(): Promise<DBNoteEdit[]> {
+  const { data, error } = await supabase
+    .from("note_edits")
+    .select("*")
+    .order("edited_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function fetchAppointmentEditsFromDB(): Promise<DBAppointmentEdit[]> {
+  const { data, error } = await supabase
+    .from("appointment_edits")
+    .select("*")
+    .order("edited_at", { ascending: false });
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -885,6 +948,33 @@ export function useOpportunitySales() {
   });
 }
 
+export function useTaskEdits() {
+  return useQuery({
+    queryKey: ["task_edits"],
+    queryFn: fetchTaskEditsFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
+export function useNoteEdits() {
+  return useQuery({
+    queryKey: ["note_edits"],
+    queryFn: fetchNoteEditsFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
+export function useAppointmentEdits() {
+  return useQuery({
+    queryKey: ["appointment_edits"],
+    queryFn: fetchAppointmentEditsFromDB,
+    staleTime: 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  });
+}
+
 export function useSyncContacts() {
   const queryClient = useQueryClient();
 
@@ -947,6 +1037,9 @@ export function useGHLMetrics(dateRange?: DateRange) {
   const profilesQuery = useProfiles();
   const opportunityEditsQuery = useOpportunityEdits();
   const opportunitySalesQuery = useOpportunitySales();
+  const taskEditsQuery = useTaskEdits();
+  const noteEditsQuery = useNoteEdits();
+  const appointmentEditsQuery = useAppointmentEdits();
 
   const isLoading =
     contactsQuery.isLoading ||
@@ -958,7 +1051,10 @@ export function useGHLMetrics(dateRange?: DateRange) {
     contactNotesQuery.isLoading ||
     callLogsQuery.isLoading ||
     opportunityEditsQuery.isLoading ||
-    opportunitySalesQuery.isLoading;
+    opportunitySalesQuery.isLoading ||
+    taskEditsQuery.isLoading ||
+    noteEditsQuery.isLoading ||
+    appointmentEditsQuery.isLoading;
   const error =
     contactsQuery.error ||
     opportunitiesQuery.error ||
@@ -969,7 +1065,10 @@ export function useGHLMetrics(dateRange?: DateRange) {
     contactNotesQuery.error ||
     callLogsQuery.error ||
     opportunityEditsQuery.error ||
-    opportunitySalesQuery.error;
+    opportunitySalesQuery.error ||
+    taskEditsQuery.error ||
+    noteEditsQuery.error ||
+    appointmentEditsQuery.error;
 
   // Filter call logs by date range
   const filteredCallLogs =
@@ -977,7 +1076,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
       ? callLogsQuery.data.filter((c) => {
           if (!c.call_date) return false;
           const callDate = new Date(c.call_date);
-          const endDate = dateRange.to || new Date();
+          const endDate = new Date(dateRange.to || new Date());
           endDate.setHours(23, 59, 59, 999);
           return callDate >= dateRange.from! && callDate <= endDate;
         })
@@ -991,39 +1090,84 @@ export function useGHLMetrics(dateRange?: DateRange) {
     ? opportunitiesQuery.data.filter((o) => {
         if (!o.ghl_date_updated) return false;
         const updateDate = new Date(o.ghl_date_updated);
-        const endDate = dateRange.to || new Date();
+        const endDate = new Date(dateRange.to || new Date());
         endDate.setHours(23, 59, 59, 999);
         return updateDate >= dateRange.from! && updateDate <= endDate;
       })
     : opportunitiesQuery.data || [];
 
-  // Filter appointments edited in date range (by ghl_date_updated, updated_at, or edited_at)
+  // Build a set of task ghl_ids that have ANY edit in the date range
+  const taskGhlIdsWithEditsInRange = new Set<string>();
+  if (taskEditsQuery.data && dateRange?.from) {
+    const endDate = new Date(dateRange.to || new Date());
+    endDate.setHours(23, 59, 59, 999);
+    taskEditsQuery.data.forEach((e) => {
+      if (e.edited_at) {
+        const editDate = new Date(e.edited_at);
+        if (editDate >= dateRange.from! && editDate <= endDate) {
+          taskGhlIdsWithEditsInRange.add(e.task_ghl_id);
+        }
+      }
+    });
+  }
+
+  // Build a set of note ghl_ids that have ANY edit in the date range
+  const noteGhlIdsWithEditsInRange = new Set<string>();
+  if (noteEditsQuery.data && dateRange?.from) {
+    const endDate = new Date(dateRange.to || new Date());
+    endDate.setHours(23, 59, 59, 999);
+    noteEditsQuery.data.forEach((e) => {
+      if (e.edited_at) {
+        const editDate = new Date(e.edited_at);
+        if (editDate >= dateRange.from! && editDate <= endDate) {
+          noteGhlIdsWithEditsInRange.add(e.note_ghl_id);
+        }
+      }
+    });
+  }
+
+  // Build a set of appointment ghl_ids that have ANY edit in the date range
+  const appointmentGhlIdsWithEditsInRange = new Set<string>();
+  if (appointmentEditsQuery.data && dateRange?.from) {
+    const endDate = new Date(dateRange.to || new Date());
+    endDate.setHours(23, 59, 59, 999);
+    appointmentEditsQuery.data.forEach((e) => {
+      if (e.edited_at) {
+        const editDate = new Date(e.edited_at);
+        if (editDate >= dateRange.from! && editDate <= endDate) {
+          appointmentGhlIdsWithEditsInRange.add(e.appointment_ghl_id);
+        }
+      }
+    });
+  }
+
+  // Filter appointments: created in range OR any edit in range (from history table)
   const filteredAppointments = appointmentsQuery.data && dateRange?.from
     ? appointmentsQuery.data.filter((a) => {
-        const endDate = dateRange.to || new Date();
+        const endDate = new Date(dateRange.to || new Date());
         endDate.setHours(23, 59, 59, 999);
         
-        // Check ghl_date_updated
+        // Check if ANY edit exists in range (from history table)
+        if (appointmentGhlIdsWithEditsInRange.has(a.ghl_id)) return true;
+        
+        // Check ghl_date_updated (for GHL-side updates)
         if (a.ghl_date_updated) {
           const updateDate = new Date(a.ghl_date_updated);
           if (updateDate >= dateRange.from! && updateDate <= endDate) return true;
-        }
-        
-        // Check edited_at (in-app edits)
-        if (a.edited_at) {
-          const editDate = new Date(a.edited_at);
-          if (editDate >= dateRange.from! && editDate <= endDate) return true;
         }
         
         return false;
       })
     : appointmentsQuery.data || [];
 
-  // Filter tasks created OR edited in date range
+  // Filter tasks: created in range OR any edit in range (from history table)
   const filteredTasks = tasksQuery.data && dateRange?.from
     ? tasksQuery.data.filter((t) => {
-        const endDate = dateRange.to || new Date();
+        const endDate = new Date(dateRange.to || new Date());
         endDate.setHours(23, 59, 59, 999);
+        
+        // Check if ANY edit exists in range (from history table)
+        if (taskGhlIdsWithEditsInRange.has(t.ghl_id)) return true;
         
         // Check if created in range
         if (t.created_at) {
@@ -1031,32 +1175,23 @@ export function useGHLMetrics(dateRange?: DateRange) {
           if (createDate >= dateRange.from! && createDate <= endDate) return true;
         }
         
-        // Check if edited in range
-        if (t.edited_at) {
-          const editDate = new Date(t.edited_at);
-          if (editDate >= dateRange.from! && editDate <= endDate) return true;
-        }
-        
         return false;
       })
     : tasksQuery.data || [];
 
-  // Filter contact notes created OR edited in date range
+  // Filter contact notes: created in range OR any edit in range (from history table)
   const filteredNotes = contactNotesQuery.data && dateRange?.from
     ? contactNotesQuery.data.filter((n) => {
-        const endDate = dateRange.to || new Date();
+        const endDate = new Date(dateRange.to || new Date());
         endDate.setHours(23, 59, 59, 999);
+        
+        // Check if ANY edit exists in range (from history table)
+        if (noteGhlIdsWithEditsInRange.has(n.ghl_id)) return true;
         
         // Check if created in range
         if (n.ghl_date_added) {
           const addDate = new Date(n.ghl_date_added);
           if (addDate >= dateRange.from! && addDate <= endDate) return true;
-        }
-        
-        // Check if edited in range
-        if (n.edited_at) {
-          const editDate = new Date(n.edited_at);
-          if (editDate >= dateRange.from! && editDate <= endDate) return true;
         }
         
         return false;
@@ -1068,18 +1203,51 @@ export function useGHLMetrics(dateRange?: DateRange) {
     ? opportunityEditsQuery.data.filter((e) => {
         if (!e.edited_at) return false;
         const editDate = new Date(e.edited_at);
-        const endDate = dateRange.to || new Date();
+        const endDate = new Date(dateRange.to || new Date());
         endDate.setHours(23, 59, 59, 999);
         return editDate >= dateRange.from! && editDate <= endDate;
       })
     : opportunityEditsQuery.data || [];
+
+  // Filter task edits by date range
+  const filteredTaskEdits = taskEditsQuery.data && dateRange?.from
+    ? taskEditsQuery.data.filter((e) => {
+        if (!e.edited_at) return false;
+        const editDate = new Date(e.edited_at);
+        const endDate = new Date(dateRange.to || new Date());
+        endDate.setHours(23, 59, 59, 999);
+        return editDate >= dateRange.from! && editDate <= endDate;
+      })
+    : taskEditsQuery.data || [];
+
+  // Filter note edits by date range
+  const filteredNoteEdits = noteEditsQuery.data && dateRange?.from
+    ? noteEditsQuery.data.filter((e) => {
+        if (!e.edited_at) return false;
+        const editDate = new Date(e.edited_at);
+        const endDate = new Date(dateRange.to || new Date());
+        endDate.setHours(23, 59, 59, 999);
+        return editDate >= dateRange.from! && editDate <= endDate;
+      })
+    : noteEditsQuery.data || [];
+
+  // Filter appointment edits by date range
+  const filteredAppointmentEdits = appointmentEditsQuery.data && dateRange?.from
+    ? appointmentEditsQuery.data.filter((e) => {
+        if (!e.edited_at) return false;
+        const editDate = new Date(e.edited_at);
+        const endDate = new Date(dateRange.to || new Date());
+        endDate.setHours(23, 59, 59, 999);
+        return editDate >= dateRange.from! && editDate <= endDate;
+      })
+    : appointmentEditsQuery.data || [];
 
   // Filter opportunity sales by date range (sold_date)
   const filteredOpportunitySales = opportunitySalesQuery.data && dateRange?.from
     ? opportunitySalesQuery.data.filter((s) => {
         if (!s.sold_date) return false;
         const soldDate = new Date(s.sold_date);
-        const endDate = dateRange.to || new Date();
+        const endDate = new Date(dateRange.to || new Date());
         endDate.setHours(23, 59, 59, 999);
         return soldDate >= dateRange.from! && soldDate <= endDate;
       })
@@ -1115,6 +1283,12 @@ export function useGHLMetrics(dateRange?: DateRange) {
           tasksCreatedCount: filteredTasks.length,
           notesCreatedCount: filteredNotes.length,
           filteredOpportunityEdits,
+          filteredTaskEdits,
+          filteredNoteEdits,
+          filteredAppointmentEdits,
+          taskEdits: taskEditsQuery.data || [],
+          noteEdits: noteEditsQuery.data || [],
+          appointmentEdits: appointmentEditsQuery.data || [],
           opportunitySales: opportunitySalesQuery.data || [],
           filteredOpportunitySales,
           opportunitySalesCount: filteredOpportunitySales.length,
@@ -1137,6 +1311,9 @@ export function useGHLMetrics(dateRange?: DateRange) {
       callLogsQuery.refetch();
       opportunityEditsQuery.refetch();
       opportunitySalesQuery.refetch();
+      taskEditsQuery.refetch();
+      noteEditsQuery.refetch();
+      appointmentEditsQuery.refetch();
     },
   };
 }

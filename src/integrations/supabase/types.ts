@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointment_edits: {
+        Row: {
+          appointment_ghl_id: string
+          contact_ghl_id: string | null
+          edited_at: string
+          edited_by: string | null
+          field_name: string
+          id: string
+          location_id: string | null
+          new_value: string | null
+          old_value: string | null
+        }
+        Insert: {
+          appointment_ghl_id: string
+          contact_ghl_id?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          field_name: string
+          id?: string
+          location_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          appointment_ghl_id?: string
+          contact_ghl_id?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          field_name?: string
+          id?: string
+          location_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_edits_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointment_reminders: {
         Row: {
           appointment_ghl_id: string
@@ -681,6 +725,50 @@ export type Database = {
           },
         ]
       }
+      note_edits: {
+        Row: {
+          contact_ghl_id: string | null
+          edited_at: string
+          edited_by: string | null
+          field_name: string
+          id: string
+          location_id: string | null
+          new_value: string | null
+          note_ghl_id: string
+          old_value: string | null
+        }
+        Insert: {
+          contact_ghl_id?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          field_name: string
+          id?: string
+          location_id?: string | null
+          new_value?: string | null
+          note_ghl_id: string
+          old_value?: string | null
+        }
+        Update: {
+          contact_ghl_id?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          field_name?: string
+          id?: string
+          location_id?: string | null
+          new_value?: string | null
+          note_ghl_id?: string
+          old_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_edits_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           appointment_ghl_id: string | null
@@ -939,6 +1027,50 @@ export type Database = {
           {
             foreignKeyName: "project_costs_entered_by_fkey"
             columns: ["entered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_edits: {
+        Row: {
+          contact_ghl_id: string | null
+          edited_at: string
+          edited_by: string | null
+          field_name: string
+          id: string
+          location_id: string | null
+          new_value: string | null
+          old_value: string | null
+          task_ghl_id: string
+        }
+        Insert: {
+          contact_ghl_id?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          field_name: string
+          id?: string
+          location_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          task_ghl_id: string
+        }
+        Update: {
+          contact_ghl_id?: string | null
+          edited_at?: string
+          edited_by?: string | null
+          field_name?: string
+          id?: string
+          location_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          task_ghl_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_edits_edited_by_fkey"
+            columns: ["edited_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
