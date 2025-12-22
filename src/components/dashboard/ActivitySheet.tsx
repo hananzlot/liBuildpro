@@ -821,7 +821,8 @@ export function ActivitySheet({
                     const contact = contacts.find(c => c.ghl_id === note.contact_id);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                    const relatedOpp = editedOpportunities.find(o => o.contact_id === note.contact_id);
+                    const relatedOpp = editedOpportunities.find(o => o.contact_id === note.contact_id)
+                      || allOpportunities.find(o => o.contact_id === note.contact_id);
                     const actorName = getCreatorName(activity.editedBy, profiles);
                     return (
                       <Card 
