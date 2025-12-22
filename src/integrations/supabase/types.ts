@@ -55,6 +55,8 @@ export type Database = {
           calendar_id: string | null
           contact_id: string | null
           created_at: string
+          edited_at: string | null
+          edited_by: string | null
           end_time: string | null
           entered_by: string | null
           ghl_date_added: string | null
@@ -77,6 +79,8 @@ export type Database = {
           calendar_id?: string | null
           contact_id?: string | null
           created_at?: string
+          edited_at?: string | null
+          edited_by?: string | null
           end_time?: string | null
           entered_by?: string | null
           ghl_date_added?: string | null
@@ -99,6 +103,8 @@ export type Database = {
           calendar_id?: string | null
           contact_id?: string | null
           created_at?: string
+          edited_at?: string | null
+          edited_by?: string | null
           end_time?: string | null
           entered_by?: string | null
           ghl_date_added?: string | null
@@ -115,6 +121,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_entered_by_fkey"
             columns: ["entered_by"]
@@ -171,6 +184,8 @@ export type Database = {
           body: string | null
           contact_id: string
           created_at: string
+          edited_at: string | null
+          edited_by: string | null
           entered_by: string | null
           ghl_date_added: string | null
           ghl_id: string
@@ -183,6 +198,8 @@ export type Database = {
           body?: string | null
           contact_id: string
           created_at?: string
+          edited_at?: string | null
+          edited_by?: string | null
           entered_by?: string | null
           ghl_date_added?: string | null
           ghl_id: string
@@ -195,6 +212,8 @@ export type Database = {
           body?: string | null
           contact_id?: string
           created_at?: string
+          edited_at?: string | null
+          edited_by?: string | null
           entered_by?: string | null
           ghl_date_added?: string | null
           ghl_id?: string
@@ -204,6 +223,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contact_notes_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contact_notes_entered_by_fkey"
             columns: ["entered_by"]
@@ -418,6 +444,8 @@ export type Database = {
           contact_id: string
           created_at: string
           due_date: string | null
+          edited_at: string | null
+          edited_by: string | null
           entered_by: string | null
           ghl_id: string
           id: string
@@ -433,6 +461,8 @@ export type Database = {
           contact_id: string
           created_at?: string
           due_date?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
           entered_by?: string | null
           ghl_id: string
           id?: string
@@ -448,6 +478,8 @@ export type Database = {
           contact_id?: string
           created_at?: string
           due_date?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
           entered_by?: string | null
           ghl_id?: string
           id?: string
@@ -457,6 +489,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ghl_tasks_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ghl_tasks_entered_by_fkey"
             columns: ["entered_by"]

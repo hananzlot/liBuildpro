@@ -538,11 +538,13 @@ export function FollowUpManagement({
       });
       if (ghlError) throw ghlError;
 
-      // Update in Supabase
+      // Update in Supabase with edit tracking
       const {
         error: dbError
       } = await supabase.from("appointments").update({
-        appointment_status: newStatus
+        appointment_status: newStatus,
+        edited_by: user?.id || null,
+        edited_at: new Date().toISOString(),
       }).eq("ghl_id", appointmentGhlId);
       if (dbError) throw dbError;
       toast.success(`Appointment marked as "${newStatus}"`);

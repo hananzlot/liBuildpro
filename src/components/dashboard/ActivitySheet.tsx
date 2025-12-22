@@ -47,6 +47,8 @@ interface DBTask {
   assigned_to: string | null;
   created_at: string;
   entered_by: string | null;
+  edited_by?: string | null;
+  edited_at?: string | null;
 }
 
 interface DBContactNote {
@@ -57,6 +59,8 @@ interface DBContactNote {
   ghl_date_added: string | null;
   user_id: string | null;
   entered_by: string | null;
+  edited_by?: string | null;
+  edited_at?: string | null;
 }
 
 interface DBProfile {
@@ -269,11 +273,17 @@ export function ActivitySheet({
     setActiveTab(defaultTab);
   }, [defaultTab]);
 
-  // Get unique creators from tasks, notes, and edits
+  // Get unique creators from tasks, notes, and edits (both entered_by and edited_by)
   const availableCreators = useMemo(() => {
     const creatorIds = new Set<string>();
-    filteredTasks.forEach(t => { if (t.entered_by) creatorIds.add(t.entered_by); });
-    filteredNotes.forEach(n => { if (n.entered_by) creatorIds.add(n.entered_by); });
+    filteredTasks.forEach(t => { 
+      if (t.entered_by) creatorIds.add(t.entered_by);
+      if (t.edited_by) creatorIds.add(t.edited_by);
+    });
+    filteredNotes.forEach(n => { 
+      if (n.entered_by) creatorIds.add(n.entered_by);
+      if (n.edited_by) creatorIds.add(n.edited_by);
+    });
     filteredOpportunityEdits.forEach(e => { if (e.edited_by) creatorIds.add(e.edited_by); });
     return profiles.filter(p => creatorIds.has(p.id));
   }, [filteredTasks, filteredNotes, filteredOpportunityEdits, profiles]);
@@ -281,26 +291,26 @@ export function ActivitySheet({
   // Filter tasks, notes, and edits by creator and in-app only toggle
   const displayedTasks = useMemo(() => {
     let tasks = filteredTasks;
-    // If inAppOnly is enabled, only show tasks created in the app
+    // If inAppOnly is enabled, only show tasks created or edited in the app
     if (inAppOnly) {
-      tasks = tasks.filter(t => t.entered_by !== null);
+      tasks = tasks.filter(t => t.entered_by !== null || t.edited_by !== null);
     }
-    // Then apply creator filter
+    // Then apply creator filter - match if user created OR edited
     if (creatorFilter !== "all") {
-      tasks = tasks.filter(t => t.entered_by === creatorFilter);
+      tasks = tasks.filter(t => t.entered_by === creatorFilter || t.edited_by === creatorFilter);
     }
     return tasks;
   }, [filteredTasks, creatorFilter, inAppOnly]);
 
   const displayedNotes = useMemo(() => {
     let notes = filteredNotes;
-    // If inAppOnly is enabled, only show notes created in the app
+    // If inAppOnly is enabled, only show notes created or edited in the app
     if (inAppOnly) {
-      notes = notes.filter(n => n.entered_by !== null);
+      notes = notes.filter(n => n.entered_by !== null || n.edited_by !== null);
     }
-    // Then apply creator filter
+    // Then apply creator filter - match if user created OR edited
     if (creatorFilter !== "all") {
-      notes = notes.filter(n => n.entered_by === creatorFilter);
+      notes = notes.filter(n => n.entered_by === creatorFilter || n.edited_by === creatorFilter);
     }
     return notes;
   }, [filteredNotes, creatorFilter, inAppOnly]);

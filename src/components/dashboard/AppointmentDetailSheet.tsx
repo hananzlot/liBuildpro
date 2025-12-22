@@ -132,7 +132,9 @@ interface ContactNote {
   user_id: string | null;
   ghl_date_added: string | null;
   entered_by: string | null;
-  profiles?: { full_name: string | null } | null;
+  edited_by?: string | null;
+  edited_at?: string | null;
+  creator?: { full_name: string | null } | null;
 }
 
 interface Task {
@@ -254,7 +256,7 @@ export function AppointmentDetailSheet({
       // Then fetch from database with creator info
       const { data, error } = await supabase
         .from("contact_notes")
-        .select("*, profiles:entered_by(full_name)")
+        .select("*, creator:profiles!contact_notes_entered_by_fkey(full_name)")
         .eq("contact_id", appointment.contact_id)
         .order("ghl_date_added", { ascending: false });
 
@@ -326,10 +328,14 @@ export function AppointmentDetailSheet({
       try {
         const newCompleted = !task.completed;
 
-        // Update ghl_tasks table
+        // Update ghl_tasks table with edit tracking
         const { error: dbError } = await supabase
           .from("ghl_tasks")
-          .update({ completed: newCompleted })
+          .update({ 
+            completed: newCompleted,
+            edited_by: user?.id || null,
+            edited_at: new Date().toISOString(),
+          })
           .eq("id", task.id);
 
         if (dbError) throw dbError;
@@ -376,6 +382,8 @@ export function AppointmentDetailSheet({
         .update({
           salesperson_confirmed: newValue,
           salesperson_confirmed_at: newValue ? new Date().toISOString() : null,
+          edited_by: user?.id || null,
+          edited_at: new Date().toISOString(),
         })
         .eq("ghl_id", appointment.ghl_id);
 
@@ -403,10 +411,15 @@ export function AppointmentDetailSheet({
       });
       if (ghlError) throw ghlError;
 
-      // Update in Supabase
+      // Update in Supabase with edit tracking
       const { error: dbError } = await supabase
         .from('appointments')
-        .update({ appointment_status: newStatus, ghl_date_updated: new Date().toISOString() })
+        .update({ 
+          appointment_status: newStatus, 
+          ghl_date_updated: new Date().toISOString(),
+          edited_by: user?.id || null,
+          edited_at: new Date().toISOString(),
+        })
         .eq('ghl_id', appointment.ghl_id);
       if (dbError) throw dbError;
 
@@ -1109,7 +1122,7 @@ export function AppointmentDetailSheet({
               ) : (
                 contactNotes.map((note) => {
                   // Prefer entered_by (app user) over user_id (GHL user)
-                  let noteUserName = note.profiles?.full_name || null;
+                  let noteUserName = note.creator?.full_name || null;
                   if (!noteUserName && note.user_id) {
                     const noteUser = users.find((u) => u.ghl_id === note.user_id);
                     noteUserName = noteUser?.name || 

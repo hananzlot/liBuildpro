@@ -674,7 +674,7 @@ export function OpportunityDetailSheet({
         dueDateValue = utcDate.toISOString();
       }
 
-      // Update ghl_tasks table
+      // Update ghl_tasks table with edited_by and edited_at
       const { error } = await supabase
         .from("ghl_tasks")
         .update({
@@ -682,6 +682,8 @@ export function OpportunityDetailSheet({
           body: taskNotes.trim() || null,
           assigned_to: assignedToValue,
           due_date: dueDateValue,
+          edited_by: user?.id || null,
+          edited_at: new Date().toISOString(),
         })
         .eq("id", editingTask.id);
       if (error) throw error;
