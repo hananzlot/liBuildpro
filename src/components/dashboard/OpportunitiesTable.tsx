@@ -16,6 +16,8 @@ import {
   ChevronRight,
   Download,
   CalendarIcon,
+  StickyNote,
+  ListChecks,
 } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -85,12 +87,31 @@ interface Conversation {
   last_message_direction: string | null;
 }
 
+interface ContactNote {
+  ghl_id: string;
+  contact_id: string;
+  body: string | null;
+  ghl_date_added: string | null;
+}
+
+interface Task {
+  ghl_id: string;
+  contact_id: string;
+  title: string;
+  body: string | null;
+  due_date: string | null;
+  completed: boolean;
+  created_at: string;
+}
+
 interface OpportunitiesTableProps {
   opportunities: Opportunity[];
   appointments?: Appointment[];
   contacts?: Contact[];
   users?: GHLUser[];
   conversations?: Conversation[];
+  notes?: ContactNote[];
+  tasks?: Task[];
 }
 
 type SortColumn = "name" | "stage" | "value" | "status" | "source" | "createdDate" | "updatedDate";
@@ -107,6 +128,8 @@ export function OpportunitiesTable({
   contacts = [],
   users = [],
   conversations = [],
+  notes = [],
+  tasks = [],
 }: OpportunitiesTableProps) {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -210,6 +233,33 @@ export function OpportunitiesTable({
     });
     return map;
   }, [contacts]);
+
+  // Map contact_id to latest note
+  const latestNoteByContact = useMemo(() => {
+    const map = new Map<string, ContactNote>();
+    // Notes are already sorted by ghl_date_added desc, so first one for each contact is latest
+    notes.forEach((note) => {
+      if (note.contact_id && !map.has(note.contact_id)) {
+        map.set(note.contact_id, note);
+      }
+    });
+    return map;
+  }, [notes]);
+
+  // Map contact_id to latest task
+  const latestTaskByContact = useMemo(() => {
+    const map = new Map<string, Task>();
+    // Sort tasks by created_at desc to get latest first
+    const sortedTasks = [...tasks].sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    sortedTasks.forEach((task) => {
+      if (task.contact_id && !map.has(task.contact_id)) {
+        map.set(task.contact_id, task);
+      }
+    });
+    return map;
+  }, [tasks]);
 
   const formatAppointmentDateTime = (dateString: string | null) => {
     if (!dateString) return "-";
@@ -432,6 +482,9 @@ export function OpportunitiesTable({
       "Sales Rep",
       "Contact Created",
       "Latest Appointment",
+      "Latest Note Date",
+      "Latest Note Content",
+      "Latest Task Date",
     ];
 
     const rows = filteredAndSortedOpportunities.map((opp) => {
@@ -455,6 +508,15 @@ export function OpportunitiesTable({
       const contactName =
         contact?.contact_name || [contact?.first_name, contact?.last_name].filter(Boolean).join(" ") || "";
 
+      // Get latest note and task for this contact
+      const latestNote = opp.contact_id ? latestNoteByContact.get(opp.contact_id) : null;
+      const latestTask = opp.contact_id ? latestTaskByContact.get(opp.contact_id) : null;
+      
+      // Strip HTML from note body for CSV
+      const noteContent = latestNote?.body 
+        ? latestNote.body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+        : "";
+
       return [
         opp.name || "",
         opp.pipeline_name || "",
@@ -469,6 +531,9 @@ export function OpportunitiesTable({
         salesRepName || "",
         contactDate ? new Date(contactDate).toLocaleDateString() : "",
         latestAppt?.start_time ? new Date(latestAppt.start_time).toLocaleString() : "",
+        latestNote?.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString() : "",
+        noteContent,
+        latestTask?.created_at ? new Date(latestTask.created_at).toLocaleDateString() : "",
       ];
     });
 
@@ -732,6 +797,18 @@ export function OpportunitiesTable({
                 </TableHead>
                 <TableHead className="text-muted-foreground">
                   <div className="flex items-center gap-1">
+                    <StickyNote className="h-3.5 w-3.5" />
+                    Latest Note
+                  </div>
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <ListChecks className="h-3.5 w-3.5" />
+                    Latest Task
+                  </div>
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  <div className="flex items-center gap-1">
                     <User className="h-3.5 w-3.5" />
                     Sales Rep
                   </div>
@@ -741,7 +818,7 @@ export function OpportunitiesTable({
             <TableBody>
               {paginatedOpportunities.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                     No opportunities found
                   </TableCell>
                 </TableRow>
@@ -757,6 +834,15 @@ export function OpportunitiesTable({
                   const salesRepName = latestAppt?.assigned_user_id ? userMap.get(latestAppt.assigned_user_id) : null;
                   const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
                   const contactDate = contact?.ghl_date_added || opp.ghl_date_added;
+                  
+                  // Get latest note and task for this contact
+                  const latestNote = opp.contact_id ? latestNoteByContact.get(opp.contact_id) : null;
+                  const latestTask = opp.contact_id ? latestTaskByContact.get(opp.contact_id) : null;
+                  
+                  // Strip HTML from note body and truncate
+                  const notePreview = latestNote?.body 
+                    ? latestNote.body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().slice(0, 50) + (latestNote.body.length > 50 ? '...' : '')
+                    : null;
 
                   return (
                     <TableRow
@@ -807,6 +893,36 @@ export function OpportunitiesTable({
                                 +{oppAppointments.length - 1} more
                               </span>
                             )}
+                          </div>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm max-w-[180px]">
+                        {latestNote ? (
+                          <div className="flex flex-col">
+                            <span className="text-xs">
+                              {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString() : "-"}
+                            </span>
+                            {notePreview && (
+                              <span className="text-xs text-muted-foreground/70 truncate" title={latestNote.body?.replace(/<[^>]*>/g, '') || ''}>
+                                {notePreview}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {latestTask ? (
+                          <div className="flex flex-col">
+                            <span className="text-xs">
+                              {new Date(latestTask.created_at).toLocaleDateString()}
+                            </span>
+                            <span className="text-xs text-muted-foreground/70 truncate max-w-[120px]" title={latestTask.title}>
+                              {latestTask.title.slice(0, 30)}{latestTask.title.length > 30 ? '...' : ''}
+                            </span>
                           </div>
                         ) : (
                           "-"

@@ -385,7 +385,7 @@ const Index = () => {
                     <TabsTrigger value="appointments">Appointments</TabsTrigger>
                   </TabsList>
                   <TabsContent value="opportunities" className="mt-4">
-                    <OpportunitiesTable opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} />
+                    <OpportunitiesTable opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} notes={metrics?.contactNotes || []} tasks={metrics?.tasks || []} />
                   </TabsContent>
                   <TabsContent value="appointments" className="mt-4">
                     <AppointmentsTable appointments={metrics?.allAppointments || []} opportunities={metrics?.allOpportunities || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} />
