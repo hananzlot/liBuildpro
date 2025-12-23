@@ -51,11 +51,20 @@ serve(async (req) => {
       address,
       notes,
       enteredBy,
+      skipGHLSync, // If true, only save to Supabase without calling GHL API
     } = await req.json();
 
-    if (!contactId || !title || !startTime || !calendarId) {
+    // calendarId is required only when syncing to GHL
+    if (!contactId || !title || !startTime) {
       return jsonResponse(
-        { error: "contactId, title, startTime, and calendarId are required" },
+        { error: "contactId, title, and startTime are required" },
+        400,
+      );
+    }
+
+    if (!skipGHLSync && !calendarId) {
+      return jsonResponse(
+        { error: "calendarId is required when syncing to GHL" },
         400,
       );
     }
@@ -72,13 +81,51 @@ serve(async (req) => {
       effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID');
     }
 
-    const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
-
-    console.log(`Creating appointment for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
-
     // Calculate end time if not provided (default 1 hour)
     const startDate = new Date(startTime);
     const endDate = endTime ? new Date(endTime) : new Date(startDate.getTime() + 60 * 60 * 1000);
+
+    // If skipGHLSync, save directly to Supabase with a local ID
+    if (skipGHLSync) {
+      console.log(`Creating LOCAL appointment for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
+      
+      // Generate a local-only ID prefixed with "local_"
+      const localId = `local_${crypto.randomUUID()}`;
+      
+      const { error: dbError } = await supabase.from("appointments").insert({
+        ghl_id: localId,
+        location_id: effectiveLocationId,
+        contact_id: contactId,
+        calendar_id: calendarId || null,
+        title,
+        start_time: startDate.toISOString(),
+        end_time: endDate.toISOString(),
+        appointment_status: "confirmed",
+        assigned_user_id: assignedUserId || null,
+        address: address || null,
+        notes: notes ? `[LOCAL] ${notes}` : "[LOCAL - not synced to GHL]",
+        ghl_date_added: new Date().toISOString(),
+        entered_by: enteredBy || null,
+      });
+
+      if (dbError) {
+        console.error("Error saving local appointment:", dbError);
+        return jsonResponse({ error: "Failed to save appointment locally" }, 500);
+      }
+
+      console.log("Local appointment created:", localId);
+      return jsonResponse({
+        success: true,
+        appointmentId: localId,
+        local: true,
+        message: "Appointment saved locally (not synced to GHL)",
+      });
+    }
+
+    // --- Full GHL sync path ---
+    const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
+
+    console.log(`Creating appointment for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
 
     const apptPayload: Record<string, unknown> = {
       contactId,
@@ -86,7 +133,7 @@ serve(async (req) => {
       title,
       startTime: startDate.toISOString(),
       endTime: endDate.toISOString(),
-      appointmentStatus: 'confirmed',
+      appointmentStatus: "confirmed",
       calendarId,
     };
 
@@ -94,26 +141,25 @@ serve(async (req) => {
     if (address) apptPayload.address = address;
     if (notes) apptPayload.notes = notes;
 
-    console.log('Sending to GHL:', JSON.stringify(apptPayload));
+    console.log("Sending to GHL:", JSON.stringify(apptPayload));
 
     const apptResponse = await fetch(
-      'https://services.leadconnectorhq.com/calendars/events/appointments',
+      "https://services.leadconnectorhq.com/calendars/events/appointments",
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${GHL_API_KEY}`,
-          'Content-Type': 'application/json',
-          'Version': '2021-04-15',
+          Authorization: `Bearer ${GHL_API_KEY}`,
+          "Content-Type": "application/json",
+          Version: "2021-04-15",
         },
         body: JSON.stringify(apptPayload),
-      }
+      },
     );
 
     if (!apptResponse.ok) {
       const errorText = await apptResponse.text();
       console.error("GHL Appointment API error:", apptResponse.status, errorText);
 
-      // Return the upstream status (e.g. 400 / 422) so the frontend can handle it
       try {
         const parsed = JSON.parse(errorText);
         const msg = parsed?.message || parsed?.error || errorText;
@@ -134,40 +180,41 @@ serve(async (req) => {
 
     const apptData = await apptResponse.json();
     const appointmentId = apptData.id || apptData.appointment?.id;
-    console.log('Appointment created in GHL:', appointmentId);
+    console.log("Appointment created in GHL:", appointmentId);
 
     // Cache appointment in Supabase
     if (appointmentId) {
-      const { error: dbError } = await supabase.from('appointments').upsert({
-        ghl_id: appointmentId,
-        location_id: effectiveLocationId,
-        contact_id: contactId,
-        title,
-        start_time: startDate.toISOString(),
-        end_time: endDate.toISOString(),
-        appointment_status: 'confirmed',
-        assigned_user_id: assignedUserId || null,
-        address: address || null,
-        notes: notes || null,
-        ghl_date_added: new Date().toISOString(),
-        entered_by: enteredBy || null,
-      }, { onConflict: 'ghl_id' });
+      const { error: dbError } = await supabase.from("appointments").upsert(
+        {
+          ghl_id: appointmentId,
+          location_id: effectiveLocationId,
+          contact_id: contactId,
+          calendar_id: calendarId,
+          title,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          appointment_status: "confirmed",
+          assigned_user_id: assignedUserId || null,
+          address: address || null,
+          notes: notes || null,
+          ghl_date_added: new Date().toISOString(),
+          entered_by: enteredBy || null,
+        },
+        { onConflict: "ghl_id" },
+      );
 
       if (dbError) {
-        console.error('Error caching appointment:', dbError);
+        console.error("Error caching appointment:", dbError);
       } else {
-        console.log('Appointment cached in Supabase');
+        console.log("Appointment cached in Supabase");
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        appointmentId,
-        data: apptData,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({
+      success: true,
+      appointmentId,
+      data: apptData,
+    });
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
