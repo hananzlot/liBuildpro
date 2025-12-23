@@ -252,6 +252,7 @@ export function OpportunityDetailSheet({
   const [appointmentNotes, setAppointmentNotes] = useState("");
   const [appointmentAddress, setAppointmentAddress] = useState("");
   const [appointmentCalendar, setAppointmentCalendar] = useState("");
+  const [appointmentSkipGHL, setAppointmentSkipGHL] = useState(false);
   const [activeCalendars, setActiveCalendars] = useState<{ ghl_id: string; name: string | null }[]>([]);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
 
@@ -899,8 +900,9 @@ export function OpportunityDetailSheet({
       toast.error("Please enter appointment title and date");
       return;
     }
-    if (!appointmentCalendar) {
-      toast.error("Please select a calendar");
+    // Calendar is only required if NOT skipping GHL sync
+    if (!appointmentSkipGHL && !appointmentCalendar) {
+      toast.error("Please select a calendar (or enable 'Local only' to skip GHL)");
       return;
     }
     setIsCreatingAppointment(true);
@@ -921,11 +923,12 @@ export function OpportunityDetailSheet({
           locationId,
           title: appointmentTitle.trim(),
           startTime: utcDate.toISOString(),
-          calendarId: appointmentCalendar,
+          calendarId: appointmentCalendar || null,
           assignedUserId: assignedToValue,
           address: appointmentAddress.trim() || null,
           notes: appointmentNotes.trim() || null,
           enteredBy: user?.id || null,
+          skipGHLSync: appointmentSkipGHL,
         },
       });
       if (response.error) {
@@ -935,7 +938,7 @@ export function OpportunityDetailSheet({
 
         if (msg.toLowerCase().includes("slot") || msg.toLowerCase().includes("available")) {
           toast.error(
-            "That time slot isn't available in GHL. Pick a different time (try on the hour / half-hour) or another day.",
+            "That time slot isn't available in GHL. Pick a different time (try on the hour / half-hour) or another day, or use 'Local only'.",
           );
         } else if (msg.toLowerCase().includes("not part of calendar team")) {
           toast.error(
@@ -946,7 +949,9 @@ export function OpportunityDetailSheet({
         }
         return;
       }
-      toast.success("Appointment created and synced to GHL");
+
+      const isLocal = (response.data as any)?.local;
+      toast.success(isLocal ? "Appointment saved locally (not synced to GHL)" : "Appointment created and synced to GHL");
 
       // Invalidate queries to refresh appointment data
       queryClient.invalidateQueries({
@@ -957,6 +962,7 @@ export function OpportunityDetailSheet({
       setAppointmentTitle("");
       setAppointmentDate("");
       setAppointmentTime("09:00");
+      setAppointmentSkipGHL(false);
       setAppointmentAssignee("");
       setAppointmentNotes("");
       setAppointmentAddress("");
@@ -2857,6 +2863,7 @@ export function OpportunityDetailSheet({
             setAppointmentAssignee("");
             setAppointmentNotes("");
             setAppointmentAddress("");
+            setAppointmentSkipGHL(false);
             setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
           }
         }}
@@ -2928,9 +2935,13 @@ export function OpportunityDetailSheet({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="oppApptCalendar">Calendar *</Label>
-              <Select value={appointmentCalendar} onValueChange={setAppointmentCalendar}>
-                <SelectTrigger>
+              <Label htmlFor="oppApptCalendar">Calendar {!appointmentSkipGHL && "*"}</Label>
+              <Select 
+                value={appointmentCalendar} 
+                onValueChange={setAppointmentCalendar}
+                disabled={appointmentSkipGHL}
+              >
+                <SelectTrigger className={appointmentSkipGHL ? "opacity-50" : ""}>
                   <SelectValue placeholder="Select calendar..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -2943,9 +2954,22 @@ export function OpportunityDetailSheet({
                   ))}
                 </SelectContent>
               </Select>
-              {activeCalendars.length === 0 && (
+              {activeCalendars.length === 0 && !appointmentSkipGHL && (
                 <p className="text-xs text-yellow-600">No active calendars. Run a sync to load calendars.</p>
               )}
+            </div>
+            <div className="flex items-center space-x-2 py-2">
+              <Checkbox
+                id="skipGHL"
+                checked={appointmentSkipGHL}
+                onCheckedChange={(checked) => setAppointmentSkipGHL(checked === true)}
+              />
+              <label htmlFor="skipGHL" className="text-sm cursor-pointer">
+                <span className="font-medium">Local only</span>
+                <span className="text-muted-foreground ml-1">
+                  – Save to dashboard without syncing to GHL (bypasses slot availability)
+                </span>
+              </label>
             </div>
             <div className="space-y-2">
               <Label htmlFor="oppApptNotes">Notes (optional)</Label>
