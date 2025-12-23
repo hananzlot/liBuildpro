@@ -3,9 +3,15 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 
 // Helper to get the correct GHL API key based on location_id
 function getGHLApiKey(locationId: string): string {
@@ -48,7 +54,10 @@ serve(async (req) => {
     } = await req.json();
 
     if (!contactId || !title || !startTime || !calendarId) {
-      throw new Error('contactId, title, startTime, and calendarId are required');
+      return jsonResponse(
+        { error: "contactId, title, startTime, and calendarId are required" },
+        400,
+      );
     }
 
     // If locationId not provided, look it up from the contact
@@ -102,8 +111,25 @@ serve(async (req) => {
 
     if (!apptResponse.ok) {
       const errorText = await apptResponse.text();
-      console.error('GHL Appointment API error:', apptResponse.status, errorText);
-      throw new Error(`GHL API error: ${apptResponse.status} - ${errorText}`);
+      console.error("GHL Appointment API error:", apptResponse.status, errorText);
+
+      // Return the upstream status (e.g. 400 / 422) so the frontend can handle it
+      try {
+        const parsed = JSON.parse(errorText);
+        const msg = parsed?.message || parsed?.error || errorText;
+        return jsonResponse(
+          {
+            error: `GHL API error: ${apptResponse.status} - ${msg}`,
+            details: parsed,
+          },
+          apptResponse.status,
+        );
+      } catch {
+        return jsonResponse(
+          { error: `GHL API error: ${apptResponse.status} - ${errorText}` },
+          apptResponse.status,
+        );
+      }
     }
 
     const apptData = await apptResponse.json();
@@ -144,14 +170,8 @@ serve(async (req) => {
     );
 
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error creating GHL appointment:', errorMessage);
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error creating GHL appointment:", errorMessage);
+    return jsonResponse({ error: errorMessage }, 500);
   }
 });
