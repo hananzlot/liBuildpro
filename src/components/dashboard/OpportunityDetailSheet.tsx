@@ -252,7 +252,7 @@ export function OpportunityDetailSheet({
   const [appointmentNotes, setAppointmentNotes] = useState("");
   const [appointmentAddress, setAppointmentAddress] = useState("");
   const [appointmentCalendar, setAppointmentCalendar] = useState("");
-  const [appointmentSkipGHL, setAppointmentSkipGHL] = useState(false);
+  const [appointmentSkipGHL, setAppointmentSkipGHL] = useState(true);
   const [activeCalendars, setActiveCalendars] = useState<{ ghl_id: string; name: string | null }[]>([]);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
 
