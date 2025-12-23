@@ -930,7 +930,20 @@ export function OpportunityDetailSheet({
       });
       if (response.error) {
         console.error("Appointment creation error:", response.error);
-        toast.error("Failed to create appointment");
+        const apiError = (response.data as any)?.error as string | undefined;
+        const msg = apiError || "Failed to create appointment";
+
+        if (msg.toLowerCase().includes("slot") || msg.toLowerCase().includes("available")) {
+          toast.error(
+            "That time slot isn't available in GHL. Pick a different time (try on the hour / half-hour) or another day.",
+          );
+        } else if (msg.toLowerCase().includes("not part of calendar team")) {
+          toast.error(
+            "That sales rep isn't on this calendar's team in GHL. Choose a different rep or leave it unassigned.",
+          );
+        } else {
+          toast.error(msg);
+        }
         return;
       }
       toast.success("Appointment created and synced to GHL");
