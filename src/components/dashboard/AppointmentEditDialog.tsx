@@ -200,8 +200,13 @@ export function AppointmentEditDialog({
       const dateTimeChanged = date.trim() !== originalDate.trim() || time.trim() !== originalTime.trim();
       const normalizedStatus = (status || "").toLowerCase().trim();
 
-      // Avoid triggering GHL slot validation when cancelling an appointment
-      const shouldSendStartTime = shouldUpdateTime && dateTimeChanged && normalizedStatus !== "cancelled";
+      // Skip startTime if:
+      // 1. User didn't ask for time update (showRescheduleCheckbox && !updateTime), OR
+      // 2. Status is cancelled AND user didn't explicitly check reschedule (to avoid slot validation)
+      // But if user explicitly checked "Reschedule", send time even if cancelled
+      const isExplicitReschedule = showRescheduleCheckbox && updateTime;
+      const skipDueToCancelled = normalizedStatus === "cancelled" && !isExplicitReschedule;
+      const shouldSendStartTime = shouldUpdateTime && dateTimeChanged && !skipDueToCancelled;
 
       if (shouldSendStartTime) {
         const timeStr = time || "09:00";
