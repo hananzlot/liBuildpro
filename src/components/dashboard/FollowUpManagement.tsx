@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2, RefreshCw, ExternalLink, CheckSquare, TrendingUp, Snowflake, Briefcase, Save, PartyPopper } from "lucide-react";
+import { AlertTriangle, ClipboardList, ChevronDown, ChevronUp, ArrowUpDown, Calendar, User, Clock, Plus, FileText, Loader2, RefreshCw, ExternalLink, CheckSquare, TrendingUp, Snowflake, Briefcase, Save, PartyPopper, Download, StickyNote, ListChecks } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -227,6 +227,103 @@ export function FollowUpManagement({
       return !latest || noteDate > latest ? noteDate : latest;
     }, null as Date | null);
     return latest;
+  };
+
+  // Get latest note for a contact (includes body)
+  const getLatestNote = (contactId: string): DBContactNote | null => {
+    const notes = contactNotes.filter(n => n.contact_id === contactId && n.ghl_date_added);
+    if (notes.length === 0) return null;
+    return notes.reduce((latest, note) => {
+      if (!note.ghl_date_added) return latest;
+      if (!latest) return note;
+      return new Date(note.ghl_date_added) > new Date(latest.ghl_date_added!) ? note : latest;
+    }, null as DBContactNote | null);
+  };
+
+  // Get latest task for a contact
+  const getLatestTask = (contactId: string): DBTask | null => {
+    const contactTasks = tasks.filter(t => t.contact_id === contactId);
+    if (contactTasks.length === 0) return null;
+    // Sort by due_date descending, then by id as fallback
+    return contactTasks.sort((a, b) => {
+      const dateA = a.due_date ? new Date(a.due_date).getTime() : 0;
+      const dateB = b.due_date ? new Date(b.due_date).getTime() : 0;
+      return dateB - dateA;
+    })[0];
+  };
+
+  // Get latest appointment for a contact
+  const getLatestAppointment = (contactId: string): DBAppointment | null => {
+    const contactAppts = appointments.filter(a => 
+      a.contact_id === contactId && 
+      a.start_time &&
+      a.appointment_status?.toLowerCase() !== "cancelled"
+    );
+    if (contactAppts.length === 0) return null;
+    return contactAppts.sort((a, b) => 
+      new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime()
+    )[0];
+  };
+
+  // Export Close to Sale data as CSV
+  const exportCloseToSaleCSV = () => {
+    const headers = [
+      "Opportunity",
+      "Address",
+      "Scope",
+      "Pipeline Stage",
+      "Assigned Rep",
+      "Value",
+      "Latest Note Date",
+      "Latest Note Content",
+      "Latest Task Date",
+      "Latest Task Title",
+      "Latest Appointment Date"
+    ];
+
+    const rows = closeToSaleData.map(opp => {
+      const latestNote = opp.contact_id ? getLatestNote(opp.contact_id) : null;
+      const latestTask = opp.contact_id ? getLatestTask(opp.contact_id) : null;
+      const latestAppt = opp.contact_id ? getLatestAppointment(opp.contact_id) : null;
+      
+      // Strip HTML from note body
+      const noteContent = latestNote?.body 
+        ? latestNote.body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+        : "";
+
+      return [
+        opp.name || "Unnamed",
+        getAddress(opp.contact_id),
+        getScope(opp.contact_id) || "",
+        opp.stage_name || "",
+        getUserName(opp.assigned_to),
+        opp.monetary_value?.toString() || "0",
+        latestNote?.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString() : "",
+        noteContent,
+        latestTask?.due_date ? new Date(latestTask.due_date).toLocaleDateString() : "",
+        latestTask?.title || "",
+        latestAppt?.start_time ? new Date(latestAppt.start_time).toLocaleDateString() : ""
+      ];
+    });
+
+    const escapeCSV = (value: string) => {
+      if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
+    };
+
+    const csvContent = [
+      headers.map(escapeCSV).join(","),
+      ...rows.map(row => row.map(escapeCSV).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `close-to-sale-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   // Get unique reps for filter
@@ -1418,7 +1515,7 @@ export function FollowUpManagement({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <CardContent>
-                <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-center justify-between gap-4 mb-4">
                   <Select value={closeToSaleRepFilter} onValueChange={setCloseToSaleRepFilter}>
                     <SelectTrigger className="w-[200px]">
                       <User className="h-4 w-4 mr-2" />
@@ -1431,6 +1528,12 @@ export function FollowUpManagement({
                         </SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {closeToSaleData.length > 0 && (
+                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); exportCloseToSaleCSV(); }} className="gap-1.5">
+                      <Download className="h-4 w-4" />
+                      CSV
+                    </Button>
+                  )}
                 </div>
 
                 {closeToSaleData.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
@@ -1447,11 +1550,36 @@ export function FollowUpManagement({
                           <TableHead>Pipeline Stage</TableHead>
                           <TableHead>Assigned Rep</TableHead>
                           <TableHead>Value</TableHead>
+                          <TableHead>
+                            <div className="flex items-center gap-1">
+                              <StickyNote className="h-3.5 w-3.5" />
+                              Latest Note
+                            </div>
+                          </TableHead>
+                          <TableHead>
+                            <div className="flex items-center gap-1">
+                              <ListChecks className="h-3.5 w-3.5" />
+                              Latest Task
+                            </div>
+                          </TableHead>
+                          <TableHead>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3.5 w-3.5" />
+                              Last Appt
+                            </div>
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {closeToSaleData.map(opp => {
-                      return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
+                          const latestNote = opp.contact_id ? getLatestNote(opp.contact_id) : null;
+                          const latestTask = opp.contact_id ? getLatestTask(opp.contact_id) : null;
+                          const latestAppt = opp.contact_id ? getLatestAppointment(opp.contact_id) : null;
+                          const notePreview = latestNote?.body 
+                            ? latestNote.body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().slice(0, 40) + (latestNote.body.length > 40 ? '...' : '')
+                            : null;
+
+                          return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
                               <TableCell className="font-medium">{opp.name || "Unnamed"}</TableCell>
                               <TableCell className="max-w-[200px] truncate">{getAddress(opp.contact_id)}</TableCell>
                               <TableCell className="max-w-[150px] truncate">
@@ -1466,8 +1594,41 @@ export function FollowUpManagement({
                               <TableCell className="font-medium text-green-600">
                                 {formatCurrency(opp.monetary_value)}
                               </TableCell>
+                              <TableCell className="text-sm max-w-[150px]">
+                                {latestNote ? (
+                                  <div className="flex flex-col">
+                                    <span className="text-xs text-muted-foreground">
+                                      {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString() : "-"}
+                                    </span>
+                                    {notePreview && (
+                                      <span className="text-xs text-muted-foreground/70 truncate" title={latestNote.body?.replace(/<[^>]*>/g, '') || ''}>
+                                        {notePreview}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : "-"}
+                              </TableCell>
+                              <TableCell className="text-sm max-w-[120px]">
+                                {latestTask ? (
+                                  <div className="flex flex-col">
+                                    <span className="text-xs text-muted-foreground">
+                                      {latestTask.due_date ? new Date(latestTask.due_date).toLocaleDateString() : "-"}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground/70 truncate" title={latestTask.title}>
+                                      {latestTask.title.slice(0, 25)}{latestTask.title.length > 25 ? '...' : ''}
+                                    </span>
+                                  </div>
+                                ) : "-"}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {latestAppt?.start_time ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(latestAppt.start_time).toLocaleDateString()}
+                                  </span>
+                                ) : "-"}
+                              </TableCell>
                             </TableRow>;
-                    })}
+                        })}
                       </TableBody>
                     </Table>
                   </div>}
