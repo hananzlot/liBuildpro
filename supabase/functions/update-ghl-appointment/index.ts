@@ -65,6 +65,7 @@ serve(async (req) => {
       notes,
       calendarId,
       location_id,
+      skipGHLSync = false, // If true, only update local DB (no GHL API call)
     } = await req.json();
     
     // Support both 'status' and 'appointment_status' field names
@@ -73,6 +74,9 @@ serve(async (req) => {
     if (!ghl_id) {
       throw new Error('ghl_id is required');
     }
+
+    // Check if this is a local-only appointment (ghl_id starts with "local_")
+    const isLocalAppointment = ghl_id.startsWith('local_');
 
     // If location_id not provided, look it up from the database
     let effectiveLocationId = location_id;
@@ -86,11 +90,65 @@ serve(async (req) => {
       effectiveLocationId = apptData?.location_id || Deno.env.get('GHL_LOCATION_ID');
     }
 
-    const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
+    // Build Supabase update payload
+    const supabaseUpdate: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    
+    if (effectiveStatus !== undefined) {
+      supabaseUpdate.appointment_status = effectiveStatus;
+    }
+    if (title !== undefined) {
+      supabaseUpdate.title = title;
+    }
+    if (startTime !== undefined) {
+      supabaseUpdate.start_time = startTime;
+      if (endTime === undefined) {
+        const startDate = new Date(startTime);
+        supabaseUpdate.end_time = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
+      }
+    }
+    if (endTime !== undefined) {
+      supabaseUpdate.end_time = endTime;
+    }
+    if (assignedUserId !== undefined) {
+      supabaseUpdate.assigned_user_id = assignedUserId;
+    }
+    if (address !== undefined) {
+      supabaseUpdate.address = address;
+    }
+    if (notes !== undefined) {
+      supabaseUpdate.notes = notes;
+    }
+    if (calendarId !== undefined && calendarId !== null) {
+      supabaseUpdate.calendar_id = calendarId;
+    }
 
+    // If skipGHLSync is true OR this is a local appointment, only update the local DB
+    if (skipGHLSync || isLocalAppointment) {
+      console.log(`Updating local-only appointment ${ghl_id}`);
+      
+      const { error: dbError } = await supabase
+        .from('appointments')
+        .update(supabaseUpdate)
+        .eq('ghl_id', ghl_id);
+
+      if (dbError) {
+        console.error('Error updating local appointment:', dbError);
+        throw new Error(`Failed to update local appointment: ${dbError.message}`);
+      }
+
+      console.log('Local appointment updated successfully');
+      return new Response(
+        JSON.stringify({ success: true, local: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
     console.log(`Updating GHL appointment ${ghl_id} (location: ${effectiveLocationId})`);
 
-    // Build update payload - only include provided fields
+    // Build GHL update payload
     const updatePayload: Record<string, unknown> = {};
     
     if (effectiveStatus !== undefined) {
@@ -101,7 +159,6 @@ serve(async (req) => {
     }
     if (startTime !== undefined) {
       updatePayload.startTime = startTime;
-      // If startTime is provided but not endTime, calculate 1 hour later
       if (endTime === undefined) {
         const startDate = new Date(startTime);
         updatePayload.endTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
@@ -152,35 +209,8 @@ serve(async (req) => {
     const ghlData = await ghlResponse.json();
     console.log('GHL appointment updated successfully');
 
-    // Update local cache in Supabase
-    const supabaseUpdate: Record<string, unknown> = {
-      ghl_date_updated: new Date().toISOString(),
-    };
-    
-    if (effectiveStatus !== undefined) {
-      supabaseUpdate.appointment_status = effectiveStatus;
-    }
-    if (title !== undefined) {
-      supabaseUpdate.title = title;
-    }
-    if (startTime !== undefined) {
-      supabaseUpdate.start_time = startTime;
-    }
-    if (endTime !== undefined || (startTime !== undefined && endTime === undefined)) {
-      supabaseUpdate.end_time = updatePayload.endTime;
-    }
-    if (assignedUserId !== undefined) {
-      supabaseUpdate.assigned_user_id = assignedUserId;
-    }
-    if (address !== undefined) {
-      supabaseUpdate.address = address;
-    }
-    if (notes !== undefined) {
-      supabaseUpdate.notes = notes;
-    }
-    if (calendarId !== undefined && calendarId !== null) {
-      supabaseUpdate.calendar_id = calendarId;
-    }
+    // Update local cache in Supabase (reuse supabaseUpdate built earlier)
+    supabaseUpdate.ghl_date_updated = new Date().toISOString();
 
     const { error: dbError } = await supabase
       .from('appointments')
