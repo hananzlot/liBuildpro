@@ -57,72 +57,55 @@ serve(async (req) => {
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
 
-    console.log(`Cancelling GHL appointment (location: ${effectiveLocationId}): ${appointmentId}`);
+    console.log(`Deleting GHL appointment (location: ${effectiveLocationId}): ${appointmentId}`);
 
-    // GHL doesn't support DELETE for appointments, so we cancel it instead
-    // by updating the appointment status to "cancelled"
-    const ghlResponse = await fetch(`https://services.leadconnectorhq.com/calendars/events/appointments/${appointmentId}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${ghlApiKey}`,
-        'Version': '2021-04-15',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        appointmentStatus: 'cancelled',
-      }),
-    });
+    // Check if this is a local-only appointment (ghl_id starts with "local_")
+    const isLocalAppointment = appointmentId.startsWith('local_');
 
-    let ghlSuccess = true;
-    if (!ghlResponse.ok) {
-      const errorText = await ghlResponse.text();
-      console.error('GHL API Error:', ghlResponse.status, errorText);
-      
-      // If 404, the appointment doesn't exist in GHL (maybe test data or already deleted)
-      // We should still clean up Supabase
-      if (ghlResponse.status === 404) {
+    if (!isLocalAppointment) {
+      // Try to delete from GHL using DELETE method
+      const ghlResponse = await fetch(`https://services.leadconnectorhq.com/calendars/events/appointments/${appointmentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${ghlApiKey}`,
+          'Version': '2021-04-15',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!ghlResponse.ok) {
+        const errorText = await ghlResponse.text();
+        console.error('GHL API Error:', ghlResponse.status, errorText);
+        
+        // If 404, the appointment doesn't exist in GHL (maybe test data or already deleted)
+        // We should still clean up Supabase
+        if (ghlResponse.status !== 404) {
+          throw new Error(`GHL API Error: ${ghlResponse.status} - ${errorText}`);
+        }
         console.log('Appointment not found in GHL - will remove from Supabase only');
-        ghlSuccess = false;
       } else {
-        throw new Error(`GHL API Error: ${ghlResponse.status} - ${errorText}`);
+        console.log('GHL appointment deleted successfully');
       }
     } else {
-      console.log('GHL appointment cancelled successfully');
+      console.log('Local appointment - skipping GHL deletion');
     }
 
-    // Update/delete in Supabase
-    if (ghlSuccess) {
-      // If GHL cancellation worked, update status
-      const { error: updateError } = await supabase
-        .from('appointments')
-        .update({ 
-          appointment_status: 'cancelled',
-          ghl_date_updated: new Date().toISOString(),
-        })
-        .eq('ghl_id', appointmentId);
+    // Delete from Supabase
+    const { error: deleteError } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('ghl_id', appointmentId);
 
-      if (updateError) {
-        console.error('Supabase update error:', updateError);
-      } else {
-        console.log('Appointment marked as cancelled in Supabase');
-      }
-    } else {
-      // If appointment doesn't exist in GHL, delete from Supabase entirely
-      const { error: deleteError } = await supabase
-        .from('appointments')
-        .delete()
-        .eq('ghl_id', appointmentId);
-
-      if (deleteError) {
-        console.error('Supabase delete error:', deleteError);
-      } else {
-        console.log('Appointment deleted from Supabase (was not in GHL)');
-      }
+    if (deleteError) {
+      console.error('Supabase delete error:', deleteError);
+      throw new Error(`Failed to delete from Supabase: ${deleteError.message}`);
     }
+    
+    console.log('Appointment fully deleted from Supabase');
 
     return new Response(JSON.stringify({ 
       success: true,
-      message: ghlSuccess ? 'Appointment cancelled' : 'Appointment removed (was not in GHL)'
+      message: 'Appointment deleted'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
