@@ -192,6 +192,7 @@ export function AppointmentEditDialog({
         address: address.trim() || null,
         notes: notes.trim() || null,
         status: status || null,
+        calendarId: calendar || null,
       };
 
       // Determine if we should update time
