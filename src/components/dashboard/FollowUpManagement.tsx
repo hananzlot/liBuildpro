@@ -1545,8 +1545,7 @@ export function FollowUpManagement({
                       <TableHeader>
                         <TableRow>
                           <TableHead>Opportunity</TableHead>
-                          <TableHead>Address</TableHead>
-                          <TableHead>Scope</TableHead>
+                          <TableHead>Address / Scope</TableHead>
                           <TableHead>Assigned Rep</TableHead>
                           <TableHead>Value</TableHead>
                           <TableHead>
@@ -1580,9 +1579,11 @@ export function FollowUpManagement({
 
                           return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
                               <TableCell className="font-medium">{opp.name || "Unnamed"}</TableCell>
-                              <TableCell className="max-w-[200px] truncate">{getAddress(opp.contact_id)}</TableCell>
-                              <TableCell className="max-w-[150px] truncate">
-                                {getScope(opp.contact_id) || "-"}
+                              <TableCell className="max-w-[250px]">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="truncate">{getAddress(opp.contact_id)}</span>
+                                  <span className="text-xs text-muted-foreground truncate">{getScope(opp.contact_id) || "-"}</span>
+                                </div>
                               </TableCell>
                               <TableCell>{getUserName(opp.assigned_to)}</TableCell>
                               <TableCell className="font-medium text-green-600">
