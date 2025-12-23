@@ -57,37 +57,41 @@ serve(async (req) => {
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
 
-    console.log(`Deleting GHL appointment (location: ${effectiveLocationId}): ${appointmentId}`);
+    console.log(`Deleting appointment (location: ${effectiveLocationId}): ${appointmentId}`);
 
     // Check if this is a local-only appointment (ghl_id starts with "local_")
     const isLocalAppointment = appointmentId.startsWith('local_');
 
     if (!isLocalAppointment) {
-      // Try to delete from GHL using DELETE method
+      // GHL doesn't support DELETE for appointments, so we cancel it first via PUT
       const ghlResponse = await fetch(`https://services.leadconnectorhq.com/calendars/events/appointments/${appointmentId}`, {
-        method: 'DELETE',
+        method: 'PUT',
         headers: {
           'Authorization': `Bearer ${ghlApiKey}`,
           'Version': '2021-04-15',
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          appointmentStatus: 'cancelled',
+        }),
       });
 
       if (!ghlResponse.ok) {
         const errorText = await ghlResponse.text();
         console.error('GHL API Error:', ghlResponse.status, errorText);
         
-        // If 404, the appointment doesn't exist in GHL (maybe test data or already deleted)
-        // We should still clean up Supabase
+        // If 404, the appointment doesn't exist in GHL - still proceed to delete from Supabase
         if (ghlResponse.status !== 404) {
-          throw new Error(`GHL API Error: ${ghlResponse.status} - ${errorText}`);
+          // Log but don't throw - we still want to delete from Supabase
+          console.warn('GHL cancellation failed, will still delete from Supabase');
+        } else {
+          console.log('Appointment not found in GHL - will remove from Supabase only');
         }
-        console.log('Appointment not found in GHL - will remove from Supabase only');
       } else {
-        console.log('GHL appointment deleted successfully');
+        console.log('GHL appointment cancelled successfully');
       }
     } else {
-      console.log('Local appointment - skipping GHL deletion');
+      console.log('Local appointment - skipping GHL');
     }
 
     // Delete from Supabase
