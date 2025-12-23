@@ -152,7 +152,9 @@ serve(async (req) => {
     const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
     console.log(`Updating GHL appointment ${ghl_id} (location: ${effectiveLocationId})`);
 
-    // Build GHL update payload
+    // Build GHL update payload - but skip startTime/endTime to avoid slot validation issues
+    // GHL validates slot availability which fails for already-booked times
+    // We'll update time locally only, and send other fields to GHL
     const updatePayload: Record<string, unknown> = {};
     
     if (effectiveStatus !== undefined) {
@@ -161,16 +163,8 @@ serve(async (req) => {
     if (title !== undefined) {
       updatePayload.title = title;
     }
-    if (startTime !== undefined) {
-      updatePayload.startTime = startTime;
-      if (endTime === undefined) {
-        const startDate = new Date(startTime);
-        updatePayload.endTime = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
-      }
-    }
-    if (endTime !== undefined) {
-      updatePayload.endTime = endTime;
-    }
+    // NOTE: Skipping startTime/endTime in GHL payload to avoid "slot not available" errors
+    // Time changes are stored locally in Supabase only
     if (assignedUserId !== undefined) {
       updatePayload.assignedUserId = assignedUserId;
     }
@@ -184,13 +178,29 @@ serve(async (req) => {
       updatePayload.calendarId = calendarId;
     }
 
-    if (Object.keys(updatePayload).length === 0) {
-      return jsonResponse({ error: 'No update fields provided' }, 400);
+    // If only time fields were provided, skip GHL API call entirely
+    const hasNonTimeFields = Object.keys(updatePayload).length > 0;
+    
+    if (!hasNonTimeFields) {
+      console.log('Only time fields provided, updating Supabase only (skipping GHL to avoid slot validation)');
+      
+      const { error: dbError } = await supabase
+        .from('appointments')
+        .update(supabaseUpdate)
+        .eq('ghl_id', ghl_id);
+
+      if (dbError) {
+        console.error('Error updating appointment:', dbError);
+        return jsonResponse({ error: `Failed to update appointment: ${dbError.message}` }, 500);
+      }
+
+      console.log('Appointment time updated locally (GHL skipped)');
+      return jsonResponse({ success: true, localOnly: true, reason: 'time_change_only' });
     }
 
-    console.log('Updating with payload:', JSON.stringify(updatePayload));
+    console.log('Updating GHL with payload:', JSON.stringify(updatePayload));
 
-    // Update appointment in GHL
+    // Update appointment in GHL (without time fields)
     const ghlResponse = await fetch(
       `https://services.leadconnectorhq.com/calendars/events/appointments/${ghl_id}`,
       {
