@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AppointmentEditDialog } from "./AppointmentEditDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -197,18 +198,8 @@ export function AppointmentDetailSheet({
   const [taskDueTime, setTaskDueTime] = useState("09:00");
   const [isCreatingTask, setIsCreatingTask] = useState(false);
 
-  // Appointment editing state
+  // Appointment editing state - now using shared dialog
   const [appointmentEditDialogOpen, setAppointmentEditDialogOpen] = useState(false);
-  const [editApptTitle, setEditApptTitle] = useState("");
-  const [editApptDate, setEditApptDate] = useState("");
-  const [editApptTime, setEditApptTime] = useState("");
-  const [editApptAssignee, setEditApptAssignee] = useState("");
-  const [editApptAddress, setEditApptAddress] = useState("");
-  const [editApptNotes, setEditApptNotes] = useState("");
-  const [editApptStatus, setEditApptStatus] = useState<string>(""); // NEW: editable status
-  const [originalApptDate, setOriginalApptDate] = useState("");
-  const [originalApptTime, setOriginalApptTime] = useState("");
-  const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false);
 
   // Delete state
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
@@ -539,134 +530,9 @@ export function AppointmentDetailSheet({
     }
   };
 
-  // Open appointment edit dialog
+  // Open appointment edit dialog - now just sets state, dialog handles everything
   const openAppointmentEditDialog = () => {
-    if (!appointment) return;
-    setEditApptTitle(appointment.title || "");
-    setEditApptNotes(appointment.notes || "");
-    setEditApptAddress(appointment.address || "");
-    setEditApptAssignee(appointment.assigned_user_id || "__unassigned__");
-    setEditApptStatus(appointment.appointment_status || "confirmed"); // NEW: seed status
-
-    if (appointment.start_time) {
-      const utcDate = new Date(appointment.start_time);
-      const pstOffset = getPSTOffset(utcDate);
-      const pstDate = new Date(utcDate.getTime() - pstOffset * 60 * 60 * 1000);
-      const dateStr = pstDate.toISOString().split("T")[0];
-      const timeStr = pstDate.toISOString().split("T")[1].substring(0, 5);
-      setEditApptDate(dateStr);
-      setEditApptTime(timeStr);
-      setOriginalApptDate(dateStr);
-      setOriginalApptTime(timeStr);
-    } else {
-      setEditApptDate("");
-      setEditApptTime("09:00");
-      setOriginalApptDate("");
-      setOriginalApptTime("");
-    }
     setAppointmentEditDialogOpen(true);
-  };
-
-  // Update appointment
-  const handleUpdateAppointment = async () => {
-    if (!appointment || !editApptDate || !editApptTitle.trim()) {
-      toast.error("Please enter appointment title and date");
-      return;
-    }
-
-    setIsUpdatingAppointment(true);
-    try {
-      const assignedToValue = editApptAssignee && editApptAssignee !== "__unassigned__" ? editApptAssignee : null;
-
-      const updateBody: Record<string, unknown> = {
-        ghl_id: appointment.ghl_id,
-        title: editApptTitle.trim(),
-        assignedUserId: assignedToValue,
-        address: editApptAddress.trim() || null,
-        notes: editApptNotes.trim() || null,
-        status: editApptStatus || null, // NEW: send status to edge function
-      };
-
-      // Only send startTime if date/time changed
-      const normalizedDate = editApptDate.trim();
-      const normalizedOriginalDate = originalApptDate.trim();
-      const normalizedTime = editApptTime.trim();
-      const normalizedOriginalTime = originalApptTime.trim();
-
-      const dateTimeChanged = normalizedDate !== normalizedOriginalDate || normalizedTime !== normalizedOriginalTime;
-      console.log("DateTime comparison:", {
-        editApptDate: normalizedDate,
-        originalApptDate: normalizedOriginalDate,
-        editApptTime: normalizedTime,
-        originalApptTime: normalizedOriginalTime,
-        dateTimeChanged,
-      });
-
-      if (dateTimeChanged) {
-        const timeStr = editApptTime || "09:00";
-        const pstOffset = getPSTOffset(new Date(`${editApptDate}T12:00:00Z`));
-        const tempUtcDate = new Date(`${editApptDate}T${timeStr}:00.000Z`);
-        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
-
-        if (utcDate < new Date()) {
-          toast.error("Cannot reschedule to a past date/time");
-          setIsUpdatingAppointment(false);
-          return;
-        }
-        updateBody.startTime = utcDate.toISOString();
-      }
-
-      const response = await supabase.functions.invoke("update-ghl-appointment", {
-        body: updateBody,
-      });
-
-      if (response.error) {
-        console.error("Appointment update error:", response.error);
-        console.log("Response data:", response.data);
-        const errorData = response.data as { error?: string } | null;
-        const errorMsg = errorData?.error || "";
-        if (errorMsg.includes("slot") || errorMsg.includes("available")) {
-          toast.error(
-            "This time slot is not available in GHL. Try a time on the hour/half-hour, or only update title/notes.",
-          );
-        } else if (errorMsg) {
-          toast.error(errorMsg);
-        } else {
-          toast.error("Failed to update appointment");
-        }
-        return;
-      }
-
-      // If notes were updated, also create a Contact Note in GHL for sync
-      const notesChanged = editApptNotes.trim() !== (appointment.notes || "").trim();
-      if (notesChanged && editApptNotes.trim() && appointment.contact_id) {
-        try {
-          const apptTitle = editApptTitle.trim() || appointment.title || "Appointment";
-          const noteBody = `[Appointment: ${apptTitle}]\n${editApptNotes.trim()}`;
-          await supabase.functions.invoke("create-contact-note", {
-            body: { 
-              contactId: appointment.contact_id, 
-              body: noteBody, 
-              enteredBy: user?.id || null 
-            },
-          });
-          // Refresh contact notes
-          fetchContactNotes();
-        } catch (noteError) {
-          console.error("Error creating contact note for appointment:", noteError);
-          // Don't fail the whole update if note creation fails
-        }
-      }
-
-      toast.success("Appointment updated");
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
-      setAppointmentEditDialogOpen(false);
-    } catch (err) {
-      console.error("Error updating appointment:", err);
-      toast.error("Failed to update appointment");
-    } finally {
-      setIsUpdatingAppointment(false);
-    }
   };
 
   // Fetch data when sheet opens
@@ -1367,151 +1233,22 @@ export function AppointmentDetailSheet({
         </DialogContent>
       </Dialog>
 
-      {/* Appointment Edit Dialog */}
-      <Dialog
+      {/* Appointment Edit Dialog - using shared component */}
+      <AppointmentEditDialog
+        appointment={appointment}
         open={appointmentEditDialogOpen}
-        onOpenChange={(open) => {
-          setAppointmentEditDialogOpen(open);
-          if (!open) {
-            setEditApptTitle("");
-            setEditApptDate("");
-            setEditApptTime("");
-            setEditApptAssignee("");
-            setEditApptAddress("");
-            setEditApptNotes("");
-            setEditApptStatus("");
-          }
+        onOpenChange={setAppointmentEditDialogOpen}
+        users={users}
+        contactId={appointment?.contact_id}
+        locationId={appointment?.location_id}
+        onSuccess={() => {
+          fetchContactNotes();
+          onRefresh?.();
         }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Edit Appointment
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="editApptTitle">Appointment Title</Label>
-              <Input
-                id="editApptTitle"
-                value={editApptTitle}
-                onChange={(e) => setEditApptTitle(e.target.value)}
-                placeholder="Enter appointment title..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="editApptAddress">Address</Label>
-              <Input
-                id="editApptAddress"
-                value={editApptAddress}
-                onChange={(e) => setEditApptAddress(e.target.value)}
-                placeholder="Enter appointment address..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Date & Time (PST)</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  value={editApptDate}
-                  onChange={(e) => setEditApptDate(e.target.value)}
-                  className="flex-1"
-                />
-                <Input
-                  type="time"
-                  value={editApptTime}
-                  onChange={(e) => setEditApptTime(e.target.value)}
-                  className="w-28"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">Note: Past appointments cannot be rescheduled</p>
-            </div>
-
-            {/* NEW: Status selector */}
-            <div className="space-y-2">
-              <Label htmlFor="editApptStatus">Status</Label>
-              <Select value={editApptStatus} onValueChange={setEditApptStatus}>
-                <SelectTrigger id="editApptStatus">
-                  <SelectValue placeholder="Select status..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {APPOINTMENT_STATUSES.map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {status.replace("_", " ")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">This will update the appointment status in GoHighLevel.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="editApptAssignee">Assign To</Label>
-              <Select value={editApptAssignee} onValueChange={setEditApptAssignee}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select team member..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {[...users]
-                    .sort((a, b) => {
-                      const nameA = (
-                        a.name ||
-                        `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
-                        a.email ||
-                        "Unknown"
-                      ).toLowerCase();
-                      const nameB = (
-                        b.name ||
-                        `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
-                        b.email ||
-                        "Unknown"
-                      ).toLowerCase();
-                      return nameA.localeCompare(nameB);
-                    })
-                    .map((user) => (
-                      <SelectItem key={user.ghl_id} value={user.ghl_id}>
-                        {user.name ||
-                          `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-                          user.email ||
-                          "Unknown"}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="editApptNotes">Notes (optional)</Label>
-              <Textarea
-                id="editApptNotes"
-                value={editApptNotes}
-                onChange={(e) => setEditApptNotes(e.target.value)}
-                placeholder="Add notes for this appointment..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAppointmentEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateAppointment} disabled={isUpdatingAppointment || !editApptDate}>
-              {isUpdatingAppointment ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onDelete={() => {
+          onOpenChange(false);
+        }}
+      />
     </Sheet>
   );
 }

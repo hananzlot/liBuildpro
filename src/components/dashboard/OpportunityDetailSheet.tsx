@@ -54,6 +54,7 @@ import { stripHtml } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { OpportunitySalesDialog } from "./OpportunitySalesDialog";
+import { AppointmentEditDialog } from "./AppointmentEditDialog";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -259,6 +260,7 @@ export function OpportunityDetailSheet({
   const [isEditingCost, setIsEditingCost] = useState(false);
   const [isSavingCost, setIsSavingCost] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [appointmentEditDialogOpen, setAppointmentEditDialogOpen] = useState(false);
   const [originalAppointmentDate, setOriginalAppointmentDate] = useState("");
   const [originalAppointmentTime, setOriginalAppointmentTime] = useState("");
   const [updateAppointmentTime, setUpdateAppointmentTime] = useState(false);
@@ -954,36 +956,15 @@ export function OpportunityDetailSheet({
     }
   };
   const openEditAppointmentDialog = (appt: Appointment) => {
-    setEditingAppointment(appt);
-    setAppointmentTitle(appt.title || "");
-    setAppointmentNotes(appt.notes || "");
-    setAppointmentAddress(appt.address || "");
-    setUpdateAppointmentTime(false); // Default to NOT updating time
-
-    // Find assigned user from appointments
+    // Extend the appointment with assigned_user_id if available from the appointments list
     const relatedAppts = appointments.filter((a) => a.ghl_id === appt.ghl_id);
     const apptWithUser = relatedAppts[0];
-    // Get assignedUserId from the appointment if available
-    setAppointmentAssignee((apptWithUser as any)?.assigned_user_id || "__unassigned__");
-    if (appt.start_time) {
-      // Convert UTC to PST for display
-      const utcDate = new Date(appt.start_time);
-      const pstOffset = getPSTOffset(utcDate);
-      const pstDate = new Date(utcDate.getTime() - pstOffset * 60 * 60 * 1000);
-      const dateStr = pstDate.toISOString().split("T")[0];
-      const timeStr = pstDate.toISOString().split("T")[1].substring(0, 5);
-      setAppointmentDate(dateStr);
-      setAppointmentTime(timeStr);
-      // Store original values to compare later
-      setOriginalAppointmentDate(dateStr);
-      setOriginalAppointmentTime(timeStr);
-    } else {
-      setAppointmentDate("");
-      setAppointmentTime("09:00");
-      setOriginalAppointmentDate("");
-      setOriginalAppointmentTime("");
-    }
-    setAppointmentDialogOpen(true);
+    const extendedAppt = {
+      ...appt,
+      assigned_user_id: (apptWithUser as any)?.assigned_user_id || null,
+    };
+    setEditingAppointment(extendedAppt);
+    setAppointmentEditDialogOpen(true);
   };
   const handleUpdateAppointment = async () => {
     if (!editingAppointment || !appointmentDate || !appointmentTitle.trim()) {
@@ -2851,13 +2832,12 @@ export function OpportunityDetailSheet({
         </DialogContent>
       </Dialog>
 
-      {/* Create Appointment Dialog */}
+      {/* Create Appointment Dialog - now only for creating new appointments */}
       <Dialog
         open={appointmentDialogOpen}
         onOpenChange={(open) => {
           setAppointmentDialogOpen(open);
           if (!open) {
-            setEditingAppointment(null);
             setAppointmentTitle("");
             setAppointmentDate("");
             setAppointmentTime("09:00");
@@ -2872,7 +2852,7 @@ export function OpportunityDetailSheet({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              {editingAppointment ? "Edit Appointment" : "Add Appointment"}
+              Add Appointment
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -2897,38 +2877,22 @@ export function OpportunityDetailSheet({
             </div>
             <div className="space-y-2">
               <Label>Date & Time (PST)</Label>
-              {editingAppointment && (
-                <div className="flex items-center space-x-2 mb-2">
-                  <Checkbox
-                    id="updateTime"
-                    checked={updateAppointmentTime}
-                    onCheckedChange={(checked) => setUpdateAppointmentTime(checked === true)}
-                  />
-                  <label htmlFor="updateTime" className="text-sm text-muted-foreground cursor-pointer">
-                    Reschedule appointment (requires available GHL slot)
-                  </label>
-                </div>
-              )}
               <div className="flex gap-2">
                 <Input
                   type="date"
                   value={appointmentDate}
                   onChange={(e) => setAppointmentDate(e.target.value)}
                   className="flex-1"
-                  disabled={editingAppointment && !updateAppointmentTime}
                 />
                 <Input
                   type="time"
                   value={appointmentTime}
                   onChange={(e) => setAppointmentTime(e.target.value)}
                   className="w-28"
-                  disabled={editingAppointment && !updateAppointmentTime}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                {editingAppointment && !updateAppointmentTime
-                  ? "Check box above to change the appointment time"
-                  : "Times are in Pacific Standard Time (PST/PDT)"}
+                Times are in Pacific Standard Time (PST/PDT)
               </p>
             </div>
             <div className="space-y-2">
@@ -2981,60 +2945,43 @@ export function OpportunityDetailSheet({
               />
             </div>
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            {editingAppointment && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/50"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to delete this appointment? This will also remove it from GoHighLevel. This
-                      action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDeleteAppointmentFromDialog}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      disabled={isDeletingAppointment}
-                    >
-                      {isDeletingAppointment ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-            <div className="flex gap-2 ml-auto">
-              <Button variant="outline" onClick={() => setAppointmentDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={editingAppointment ? handleUpdateAppointment : handleCreateAppointment}
-                disabled={isCreatingAppointment || !appointmentDate}
-              >
-                {isCreatingAppointment
-                  ? editingAppointment
-                    ? "Saving..."
-                    : "Creating..."
-                  : editingAppointment
-                    ? "Save Changes"
-                    : "Create Appointment"}
-              </Button>
-            </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAppointmentDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateAppointment}
+              disabled={isCreatingAppointment || !appointmentDate}
+            >
+              {isCreatingAppointment ? "Creating..." : "Create Appointment"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Appointment Edit Dialog - using shared component */}
+      <AppointmentEditDialog
+        appointment={editingAppointment}
+        open={appointmentEditDialogOpen}
+        onOpenChange={(open) => {
+          setAppointmentEditDialogOpen(open);
+          if (!open) {
+            setEditingAppointment(null);
+          }
+        }}
+        users={users}
+        calendars={activeCalendars.map(c => ({ ...c, is_active: true }))}
+        contactId={opportunity?.contact_id}
+        locationId={opportunity?.location_id || "pVeFrqvtYWNIPRIi0Fmr"}
+        showCalendarSelect
+        showRescheduleCheckbox
+        onSuccess={() => {
+          setEditingAppointment(null);
+        }}
+        onDelete={() => {
+          setEditingAppointment(null);
+        }}
+      />
 
       {/* Sales Dialog */}
       {opportunity && (
