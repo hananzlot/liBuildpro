@@ -198,8 +198,12 @@ export function AppointmentEditDialog({
       // Determine if we should update time
       const shouldUpdateTime = showRescheduleCheckbox ? updateTime : true;
       const dateTimeChanged = date.trim() !== originalDate.trim() || time.trim() !== originalTime.trim();
+      const normalizedStatus = (status || "").toLowerCase().trim();
 
-      if (shouldUpdateTime && dateTimeChanged) {
+      // Avoid triggering GHL slot validation when cancelling an appointment
+      const shouldSendStartTime = shouldUpdateTime && dateTimeChanged && normalizedStatus !== "cancelled";
+
+      if (shouldSendStartTime) {
         const timeStr = time || "09:00";
         const pstOffset = getPSTOffset(new Date(`${date}T12:00:00Z`));
         const tempUtcDate = new Date(`${date}T${timeStr}:00.000Z`);

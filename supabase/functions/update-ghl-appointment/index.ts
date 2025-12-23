@@ -7,6 +7,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const jsonResponse = (body: unknown, status = 200) => {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+};
+
 // Helper to get the correct GHL API key based on location_id
 function getGHLApiKey(locationId: string): string {
   const location1Id = Deno.env.get('GHL_LOCATION_ID');
@@ -72,7 +79,7 @@ serve(async (req) => {
     const effectiveStatus = appointment_status || status;
 
     if (!ghl_id) {
-      throw new Error('ghl_id is required');
+      return jsonResponse({ error: 'ghl_id is required' }, 400);
     }
 
     // Check if this is a local-only appointment (ghl_id starts with "local_")
@@ -135,14 +142,11 @@ serve(async (req) => {
 
       if (dbError) {
         console.error('Error updating local appointment:', dbError);
-        throw new Error(`Failed to update local appointment: ${dbError.message}`);
+        return jsonResponse({ error: `Failed to update local appointment: ${dbError.message}` }, 500);
       }
 
       console.log('Local appointment updated successfully');
-      return new Response(
-        JSON.stringify({ success: true, local: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ success: true, local: true });
     }
 
     const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
@@ -181,7 +185,7 @@ serve(async (req) => {
     }
 
     if (Object.keys(updatePayload).length === 0) {
-      throw new Error('No update fields provided');
+      return jsonResponse({ error: 'No update fields provided' }, 400);
     }
 
     console.log('Updating with payload:', JSON.stringify(updatePayload));
@@ -203,7 +207,10 @@ serve(async (req) => {
     if (!ghlResponse.ok) {
       const errorText = await ghlResponse.text();
       console.error('GHL API error:', ghlResponse.status, errorText);
-      throw new Error(`GHL API error: ${ghlResponse.status} - ${errorText}`);
+      return jsonResponse(
+        { error: `GHL API error: ${ghlResponse.status} - ${errorText}` },
+        ghlResponse.status
+      );
     }
 
     const ghlData = await ghlResponse.json();
@@ -223,20 +230,11 @@ serve(async (req) => {
       console.log('Supabase cache updated');
     }
 
-    return new Response(
-      JSON.stringify({ success: true, data: ghlData }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse({ success: true, data: ghlData });
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error updating GHL appointment:', errorMessage);
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return jsonResponse({ error: errorMessage }, 500);
   }
 });
