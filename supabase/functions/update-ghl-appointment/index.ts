@@ -56,14 +56,19 @@ serve(async (req) => {
     const { 
       ghl_id, 
       appointment_status,
+      status, // alias for appointment_status (from frontend)
       title,
       startTime,  // ISO string in UTC
       endTime,    // ISO string in UTC (optional)
       assignedUserId,
       address,
       notes,
+      calendarId,
       location_id,
     } = await req.json();
+    
+    // Support both 'status' and 'appointment_status' field names
+    const effectiveStatus = appointment_status || status;
 
     if (!ghl_id) {
       throw new Error('ghl_id is required');
@@ -88,8 +93,8 @@ serve(async (req) => {
     // Build update payload - only include provided fields
     const updatePayload: Record<string, unknown> = {};
     
-    if (appointment_status !== undefined) {
-      updatePayload.appointmentStatus = mapStatusToGHL(appointment_status);
+    if (effectiveStatus !== undefined) {
+      updatePayload.appointmentStatus = mapStatusToGHL(effectiveStatus);
     }
     if (title !== undefined) {
       updatePayload.title = title;
@@ -113,6 +118,9 @@ serve(async (req) => {
     }
     if (notes !== undefined) {
       updatePayload.notes = notes;
+    }
+    if (calendarId !== undefined && calendarId !== null) {
+      updatePayload.calendarId = calendarId;
     }
 
     if (Object.keys(updatePayload).length === 0) {
@@ -149,8 +157,8 @@ serve(async (req) => {
       ghl_date_updated: new Date().toISOString(),
     };
     
-    if (appointment_status !== undefined) {
-      supabaseUpdate.appointment_status = appointment_status;
+    if (effectiveStatus !== undefined) {
+      supabaseUpdate.appointment_status = effectiveStatus;
     }
     if (title !== undefined) {
       supabaseUpdate.title = title;
@@ -169,6 +177,9 @@ serve(async (req) => {
     }
     if (notes !== undefined) {
       supabaseUpdate.notes = notes;
+    }
+    if (calendarId !== undefined && calendarId !== null) {
+      supabaseUpdate.calendar_id = calendarId;
     }
 
     const { error: dbError } = await supabase
