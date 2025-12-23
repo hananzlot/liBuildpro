@@ -279,12 +279,14 @@ export function SourceDetailSheet({
     return new Set(allSourceContacts.map(c => c.ghl_id));
   }, [allSourceContacts]);
 
-  // Get appointments for this source (use filtered appointments, filtered by contacts in date range)
+  // Get appointments for this source - match appointments by contact AND by start_time within date range
+  // Use ALL appointments (not just filteredAppointments) and filter by contact in source
   const sourceAppointments = useMemo(() => {
-    return filteredAppointments
+    // Include appointments where the contact is from this source
+    return appointments
       .filter(a => a.contact_id && sourceContactIdsInDateRange.has(a.contact_id))
       .filter(a => a.appointment_status?.toLowerCase() !== 'cancelled');
-  }, [filteredAppointments, sourceContactIdsInDateRange]);
+  }, [appointments, sourceContactIdsInDateRange]);
 
   // Get contact IDs that have appointments (for "Appointments" view - use filtered)
   const contactIdsWithFilteredAppointments = useMemo(() => {
