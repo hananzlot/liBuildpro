@@ -1547,7 +1547,6 @@ export function FollowUpManagement({
                           <TableHead>Opportunity</TableHead>
                           <TableHead>Address</TableHead>
                           <TableHead>Scope</TableHead>
-                          <TableHead>Pipeline Stage</TableHead>
                           <TableHead>Assigned Rep</TableHead>
                           <TableHead>Value</TableHead>
                           <TableHead>
@@ -1584,11 +1583,6 @@ export function FollowUpManagement({
                               <TableCell className="max-w-[200px] truncate">{getAddress(opp.contact_id)}</TableCell>
                               <TableCell className="max-w-[150px] truncate">
                                 {getScope(opp.contact_id) || "-"}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/30">
-                                  {opp.stage_name || "Unknown"}
-                                </Badge>
                               </TableCell>
                               <TableCell>{getUserName(opp.assigned_to)}</TableCell>
                               <TableCell className="font-medium text-green-600">
