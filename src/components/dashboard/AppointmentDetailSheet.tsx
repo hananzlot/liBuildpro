@@ -167,6 +167,13 @@ interface AppointmentDetailSheetProps {
 const CUSTOM_FIELD_IDS = SHARED_CUSTOM_FIELD_IDS;
 const extractCustomField = sharedExtractCustomField;
 
+interface GHLCalendar {
+  ghl_id: string;
+  name: string | null;
+  is_active: boolean | null;
+  location_id?: string;
+}
+
 export function AppointmentDetailSheet({
   appointment,
   opportunities,
@@ -200,6 +207,9 @@ export function AppointmentDetailSheet({
 
   // Appointment editing state - now using shared dialog
   const [appointmentEditDialogOpen, setAppointmentEditDialogOpen] = useState(false);
+  
+  // Calendars state for appointment editing
+  const [calendars, setCalendars] = useState<GHLCalendar[]>([]);
 
   // Delete state
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
@@ -535,14 +545,31 @@ export function AppointmentDetailSheet({
     setAppointmentEditDialogOpen(true);
   };
 
+  // Fetch calendars for the location
+  const fetchCalendars = async () => {
+    if (!appointment?.location_id) return;
+    try {
+      const { data, error } = await supabase
+        .from("ghl_calendars")
+        .select("ghl_id, name, is_active, location_id")
+        .eq("location_id", appointment.location_id)
+        .eq("is_active", true);
+      if (error) throw error;
+      setCalendars(data || []);
+    } catch (error) {
+      console.error("Error fetching calendars:", error);
+    }
+  };
+
   // Fetch data when sheet opens
   useEffect(() => {
     if (open && appointment?.contact_id) {
       fetchConversations();
       fetchContactNotes();
       fetchTasks();
+      fetchCalendars();
     }
-  }, [open, appointment?.contact_id]);
+  }, [open, appointment?.contact_id, appointment?.location_id]);
 
   if (!appointment) return null;
 
@@ -1239,8 +1266,11 @@ export function AppointmentDetailSheet({
         open={appointmentEditDialogOpen}
         onOpenChange={setAppointmentEditDialogOpen}
         users={users}
+        calendars={calendars}
         contactId={appointment?.contact_id}
         locationId={appointment?.location_id}
+        showCalendarSelect
+        showRescheduleCheckbox
         onSuccess={() => {
           fetchContactNotes();
           onRefresh?.();
