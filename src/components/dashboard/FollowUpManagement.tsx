@@ -131,6 +131,7 @@ export function FollowUpManagement({
   const [tasksHelperOpen, setTasksHelperOpen] = useState(false);
   const [closeToSaleOpen, setCloseToSaleOpen] = useState(false);
   const [closeToSaleRepFilter, setCloseToSaleRepFilter] = useState<string>("all");
+  const [closeToSaleSort, setCloseToSaleSort] = useState<{ field: "opportunity" | "address" | "rep" | "value" | "note_date" | "task_date" | "appt_date"; direction: SortDirection }>({ field: "value", direction: "desc" });
   const [needsAttentionOpen, setNeedsAttentionOpen] = useState(false);
   const [needsAttentionRepFilter, setNeedsAttentionRepFilter] = useState<string>("all");
   const [needsAttentionPage, setNeedsAttentionPage] = useState(1);
@@ -828,9 +829,68 @@ export function FollowUpManagement({
       unique = unique.filter(o => o.assigned_to === closeToSaleRepFilter);
     }
 
-    // Sort by monetary value descending
-    return unique.sort((a, b) => (b.monetary_value || 0) - (a.monetary_value || 0));
-  }, [opportunities, closeToSaleRepFilter]);
+    // Helper to get latest note date for an opportunity
+    const getLatestNoteDate = (contactId: string | null): Date | null => {
+      if (!contactId) return null;
+      const note = getLatestNote(contactId);
+      return note?.ghl_date_added ? new Date(note.ghl_date_added) : null;
+    };
+
+    // Helper to get latest task date for an opportunity
+    const getLatestTaskDate = (contactId: string | null): Date | null => {
+      if (!contactId) return null;
+      const task = getLatestTask(contactId);
+      return task?.due_date ? new Date(task.due_date) : null;
+    };
+
+    // Helper to get latest appointment date for an opportunity
+    const getLatestApptDate = (contactId: string | null): Date | null => {
+      if (!contactId) return null;
+      const appt = getLatestAppointment(contactId);
+      return appt?.start_time ? new Date(appt.start_time) : null;
+    };
+
+    // Sort based on current sort state
+    return unique.sort((a, b) => {
+      const dir = closeToSaleSort.direction === "asc" ? 1 : -1;
+      switch (closeToSaleSort.field) {
+        case "opportunity":
+          return dir * (a.name || "").localeCompare(b.name || "");
+        case "address":
+          return dir * (getAddress(a.contact_id) || "").localeCompare(getAddress(b.contact_id) || "");
+        case "rep":
+          return dir * (getUserName(a.assigned_to) || "").localeCompare(getUserName(b.assigned_to) || "");
+        case "value":
+          return dir * ((a.monetary_value || 0) - (b.monetary_value || 0));
+        case "note_date": {
+          const dateA = getLatestNoteDate(a.contact_id);
+          const dateB = getLatestNoteDate(b.contact_id);
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return dir;
+          if (!dateB) return -dir;
+          return dir * (dateA.getTime() - dateB.getTime());
+        }
+        case "task_date": {
+          const dateA = getLatestTaskDate(a.contact_id);
+          const dateB = getLatestTaskDate(b.contact_id);
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return dir;
+          if (!dateB) return -dir;
+          return dir * (dateA.getTime() - dateB.getTime());
+        }
+        case "appt_date": {
+          const dateA = getLatestApptDate(a.contact_id);
+          const dateB = getLatestApptDate(b.contact_id);
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return dir;
+          if (!dateB) return -dir;
+          return dir * (dateA.getTime() - dateB.getTime());
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [opportunities, closeToSaleRepFilter, closeToSaleSort, getLatestNote, getLatestTask, getLatestAppointment, getAddress, getUserName]);
 
   // Missing Scope Data - Won opportunities or close-to-sale stages without scope of work
   const missingScopeData = useMemo(() => {
@@ -1544,26 +1604,70 @@ export function FollowUpManagement({
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Opportunity</TableHead>
-                          <TableHead>Address / Scope</TableHead>
-                          <TableHead>Assigned Rep</TableHead>
-                          <TableHead>Value</TableHead>
-                          <TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setCloseToSaleSort(prev => ({ field: "opportunity", direction: prev.field === "opportunity" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Opportunity
+                              {closeToSaleSort.field === "opportunity" && <ArrowUpDown className="h-3 w-3" />}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setCloseToSaleSort(prev => ({ field: "address", direction: prev.field === "address" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Address / Scope
+                              {closeToSaleSort.field === "address" && <ArrowUpDown className="h-3 w-3" />}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setCloseToSaleSort(prev => ({ field: "rep", direction: prev.field === "rep" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Assigned Rep
+                              {closeToSaleSort.field === "rep" && <ArrowUpDown className="h-3 w-3" />}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setCloseToSaleSort(prev => ({ field: "value", direction: prev.field === "value" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
+                            <div className="flex items-center gap-1">
+                              Value
+                              {closeToSaleSort.field === "value" && <ArrowUpDown className="h-3 w-3" />}
+                            </div>
+                          </TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setCloseToSaleSort(prev => ({ field: "note_date", direction: prev.field === "note_date" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
                             <div className="flex items-center gap-1">
                               <StickyNote className="h-3.5 w-3.5" />
                               Latest Note
+                              {closeToSaleSort.field === "note_date" && <ArrowUpDown className="h-3 w-3" />}
                             </div>
                           </TableHead>
-                          <TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setCloseToSaleSort(prev => ({ field: "task_date", direction: prev.field === "task_date" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
                             <div className="flex items-center gap-1">
                               <ListChecks className="h-3.5 w-3.5" />
                               Latest Task
+                              {closeToSaleSort.field === "task_date" && <ArrowUpDown className="h-3 w-3" />}
                             </div>
                           </TableHead>
-                          <TableHead>
+                          <TableHead 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setCloseToSaleSort(prev => ({ field: "appt_date", direction: prev.field === "appt_date" && prev.direction === "asc" ? "desc" : "asc" }))}
+                          >
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3.5 w-3.5" />
                               Last Appt
+                              {closeToSaleSort.field === "appt_date" && <ArrowUpDown className="h-3 w-3" />}
                             </div>
                           </TableHead>
                         </TableRow>
