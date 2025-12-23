@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen, Receipt } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { MetricCard } from "@/components/dashboard/MetricCard";
@@ -85,6 +87,25 @@ const Index = () => {
     error,
     refetch
   } = useGHLMetrics(dateRange);
+
+  // Fetch magazine sales for dashboard KPI (only if user has access)
+  const { data: magazineSales = [] } = useQuery({
+    queryKey: ["magazine-sales-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("magazine_sales")
+        .select("price, page_size, sections_sold");
+      if (error) throw error;
+      return data;
+    },
+    enabled: isAdmin || isMagazineEditor,
+  });
+
+  // Calculate magazine sales total
+  const magazineSalesTotal = useMemo(() => {
+    return magazineSales.reduce((sum, sale) => sum + Number(sale.price || 0), 0);
+  }, [magazineSales]);
+
   const syncMutation = useSyncContacts();
   const syncGHL2Mutation = useSyncGHL2();
   const handleOpenOpportunity = (opportunity: any, taskGhlId?: string | null) => {
@@ -312,6 +333,15 @@ const Index = () => {
                   <ClickableMetricCard title="Appointments (Today's & Future)" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
                   <ClickableMetricCard title="Opp Sales" value={metrics?.opportunitySalesCount || 0} secondaryValue={formatCurrency(metrics?.totalOpportunitySalesAmount || 0)} subtitle="In date range" icon={Receipt} onClick={() => setOpportunitySalesSheetOpen(true)} />
+                  {(isAdmin || isMagazineEditor) && (
+                    <ClickableMetricCard 
+                      title="Magazine Sales" 
+                      value={formatCurrency(magazineSalesTotal)} 
+                      subtitle={`${magazineSales.length} entries`}
+                      icon={BookOpen} 
+                      onClick={() => setActiveTab("magazine-sales")} 
+                    />
+                  )}
                   <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
