@@ -1575,8 +1575,8 @@ export function FollowUpManagement({
                           const latestNote = opp.contact_id ? getLatestNote(opp.contact_id) : null;
                           const latestTask = opp.contact_id ? getLatestTask(opp.contact_id) : null;
                           const latestAppt = opp.contact_id ? getLatestAppointment(opp.contact_id) : null;
-                          const notePreview = latestNote?.body 
-                            ? latestNote.body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().slice(0, 40) + (latestNote.body.length > 40 ? '...' : '')
+                          const noteText = latestNote?.body 
+                            ? latestNote.body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
                             : null;
 
                           return <TableRow key={opp.id} className="cursor-pointer hover:bg-muted/50" onClick={() => onOpenOpportunity(opp)}>
@@ -1594,28 +1594,28 @@ export function FollowUpManagement({
                               <TableCell className="font-medium text-green-600">
                                 {formatCurrency(opp.monetary_value)}
                               </TableCell>
-                              <TableCell className="text-sm max-w-[150px]">
+                              <TableCell className="text-sm min-w-[200px]">
                                 {latestNote ? (
-                                  <div className="flex flex-col">
+                                  <div className="flex flex-col gap-0.5">
                                     <span className="text-xs text-muted-foreground">
                                       {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString() : "-"}
                                     </span>
-                                    {notePreview && (
-                                      <span className="text-xs text-muted-foreground/70 truncate" title={latestNote.body?.replace(/<[^>]*>/g, '') || ''}>
-                                        {notePreview}
+                                    {noteText && (
+                                      <span className="text-xs text-muted-foreground/70 whitespace-pre-wrap break-words">
+                                        {noteText}
                                       </span>
                                     )}
                                   </div>
                                 ) : "-"}
                               </TableCell>
-                              <TableCell className="text-sm max-w-[120px]">
+                              <TableCell className="text-sm min-w-[180px]">
                                 {latestTask ? (
-                                  <div className="flex flex-col">
+                                  <div className="flex flex-col gap-0.5">
                                     <span className="text-xs text-muted-foreground">
                                       {latestTask.due_date ? new Date(latestTask.due_date).toLocaleDateString() : "-"}
                                     </span>
-                                    <span className="text-xs text-muted-foreground/70 truncate" title={latestTask.title}>
-                                      {latestTask.title.slice(0, 25)}{latestTask.title.length > 25 ? '...' : ''}
+                                    <span className="text-xs text-muted-foreground/70 whitespace-pre-wrap break-words">
+                                      {latestTask.title}
                                     </span>
                                   </div>
                                 ) : "-"}
