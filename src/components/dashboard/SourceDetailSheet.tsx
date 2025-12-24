@@ -612,7 +612,15 @@ export function SourceDetailSheet({
                           {opp.ghl_date_added && (
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
-                              {format(new Date(opp.ghl_date_added), "MMM d, yyyy")}
+                              {new Date(opp.ghl_date_added).toLocaleString("en-US", {
+                                timeZone: "America/Los_Angeles",
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                                hour12: true,
+                              })} PST
                             </div>
                           )}
                         </div>
