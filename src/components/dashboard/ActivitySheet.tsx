@@ -30,7 +30,9 @@ interface DBAppointment {
   appointment_status: string | null;
   assigned_user_id: string | null;
   start_time: string | null;
+  ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
+  created_at?: string;
   updated_at?: string;
   entered_by?: string | null;
 }
@@ -473,7 +475,7 @@ export function ActivitySheet({
           activity: {
             id: `appt-create-${appt.id}`,
             type: "creation",
-            date: appt.ghl_date_updated || appt.updated_at || "",
+            date: appt.ghl_date_added || appt.created_at || "",
             editedBy: appt.entered_by,
           }
         });
