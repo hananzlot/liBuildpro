@@ -348,7 +348,7 @@ const Index = () => {
                         <p className="text-sm font-medium text-muted-foreground">Activity</p>
                         <div className="flex items-baseline gap-2 cursor-pointer hover:opacity-80" onClick={() => { setActivityDefaultTab("edits"); setActivitySheetOpen(true); }}>
                           <p className="text-3xl font-bold tracking-tight text-foreground">
-                            {(metrics?.filteredOpportunityEdits?.length || 0) + (metrics?.inAppAppointmentActivityCount || 0) + (metrics?.inAppTaskActivityCount || 0) + (metrics?.inAppNoteActivityCount || 0)}
+                            {(metrics?.opportunityEdits || 0) + (metrics?.inAppAppointmentActivityCount || 0) + (metrics?.inAppTaskActivityCount || 0) + (metrics?.inAppNoteActivityCount || 0)}
                           </p>
                           <span className="text-sm text-muted-foreground">total</span>
                         </div>
@@ -357,7 +357,7 @@ const Index = () => {
                             className="cursor-pointer hover:opacity-80 transition-opacity"
                             onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("edits"); setActivitySheetOpen(true); }}
                           >
-                            <span className="font-medium text-blue-500">{metrics?.filteredOpportunityEdits?.length || 0}</span>
+                            <span className="font-medium text-blue-500">{metrics?.opportunityEdits || 0}</span>
                             <span className="text-blue-500/70"> edits</span>
                           </span>
                           <span 
