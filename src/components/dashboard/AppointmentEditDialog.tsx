@@ -445,6 +445,15 @@ export function AppointmentEditDialog({
               rows={3}
             />
           </div>
+
+          {/* Local only indicator */}
+          {appointment.ghl_id.startsWith("local_") && (
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                This is a local-only appointment (not synced to GHL)
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <AlertDialog>
