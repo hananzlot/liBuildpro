@@ -83,6 +83,20 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
+// Helper to format date/time in PST
+function formatDateTimePST(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString("en-US", {
+    timeZone: "America/Los_Angeles",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
 export function OpportunitiesSheet({
   open,
   onOpenChange,
@@ -240,7 +254,7 @@ export function OpportunitiesSheet({
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                             <span className="text-muted-foreground">
-                              Created: {format(new Date(opp.ghl_date_added), "MMM d, yyyy")}
+                              Created: {formatDateTimePST(opp.ghl_date_added)} PST
                             </span>
                           </div>
                         )}

@@ -1545,11 +1545,15 @@ export function OpportunityDetailSheet({
   };
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
-    return new Date(dateString).toLocaleDateString("en-US", {
+    return new Date(dateString).toLocaleString("en-US", {
+      timeZone: "America/Los_Angeles",
       month: "short",
       day: "numeric",
-      year: "numeric"
-    });
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    }) + " PST";
   };
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {

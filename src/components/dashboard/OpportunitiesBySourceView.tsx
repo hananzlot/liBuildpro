@@ -179,6 +179,20 @@ export function OpportunitiesBySourceView({
     }).format(value);
   };
 
+  // Helper to format date/time in PST
+  const formatDateTimePST = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", {
+      timeZone: "America/Los_Angeles",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
   // Filter and sort opportunities
   const filteredOpportunities = useMemo(() => {
     let filtered = opportunities.filter(opp => opp.stage_name?.toLowerCase() !== 'quickbase');
