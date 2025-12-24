@@ -298,7 +298,7 @@ export function AppointmentEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -447,13 +447,13 @@ export function AppointmentEditDialog({
           </div>
 
           {/* Local only indicator */}
-          {appointment.ghl_id.startsWith("local_") && (
-            <div className="pt-2 border-t border-border/50">
-              <p className="text-xs text-muted-foreground">
-                This is a local-only appointment (not synced to GHL)
-              </p>
-            </div>
-          )}
+          <div className="pt-2 border-t border-border/50">
+            <p className="text-xs text-muted-foreground">
+              {appointment.ghl_id.startsWith("local_") 
+                ? "✓ Local-only appointment (not synced to GHL)"
+                : "Synced to GHL"}
+            </p>
+          </div>
         </div>
         <DialogFooter className="flex-col sm:flex-row gap-2">
           <AlertDialog>
