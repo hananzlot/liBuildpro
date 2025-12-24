@@ -559,7 +559,7 @@ const Index = () => {
         defaultTab={activityDefaultTab} 
         editedOpportunities={metrics?.editedOpportunities || []} 
         allOpportunities={metrics?.allOpportunities || []} 
-        filteredAppointments={metrics?.filteredAppointments || []} 
+        filteredAppointments={metrics?.appointmentsCreatedInRangeList || []} 
         filteredTasks={metrics?.filteredTasks || []} 
         filteredNotes={metrics?.filteredNotes || []} 
         filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} 
