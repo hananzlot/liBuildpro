@@ -848,20 +848,23 @@ async function cleanupStaleRecords(
   }
 
   // Cleanup appointments (only if we fetched enough)
+  // IMPORTANT: Exclude local-only appointments (ghl_id starts with 'local_') from cleanup
   if (counts.appointments >= minRecordsForCleanup.appointments) {
     const { data: staleAppts, error: staleApptsErr } = await supabase
       .from('appointments')
       .select('ghl_id')
       .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold);
+      .lt('last_synced_at', staleThreshold)
+      .not('ghl_id', 'like', 'local_%');
     
     if (!staleApptsErr && staleAppts && staleAppts.length > 0) {
-      console.log(`Found ${staleAppts.length} stale appointments`);
+      console.log(`Found ${staleAppts.length} stale appointments (excluding local-only)`);
       const { error: delErr } = await supabase
         .from('appointments')
         .delete()
         .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold);
+        .lt('last_synced_at', staleThreshold)
+        .not('ghl_id', 'like', 'local_%');
       if (!delErr) totalDeleted += staleAppts.length;
       else console.error('Error deleting stale appointments:', delErr);
     }
