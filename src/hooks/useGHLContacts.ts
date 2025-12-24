@@ -1255,6 +1255,9 @@ export function useGHLMetrics(dateRange?: DateRange) {
 
   const totalOpportunitySalesAmount = filteredOpportunitySales.reduce((sum, s) => sum + (s.sold_amount || 0), 0);
 
+  // Calculate unique opportunities edited (by opportunity_ghl_id)
+  const uniqueOpportunitiesEdited = new Set(filteredOpportunityEdits.map(e => e.opportunity_ghl_id)).size;
+
   const metricsData = contactsQuery.data && opportunitiesQuery.data && appointmentsQuery.data && usersQuery.data
     ? processMetrics(
         contactsQuery.data,
@@ -1277,7 +1280,7 @@ export function useGHLMetrics(dateRange?: DateRange) {
         outboundCalls: filteredCallLogs.filter((c) => c.direction === "outbound").length,
         inboundCalls: filteredCallLogs.filter((c) => c.direction === "inbound").length,
         uniqueContactsCalled,
-        opportunityEdits: editedOpportunities.length,
+        opportunityEdits: uniqueOpportunitiesEdited,
         editedOpportunities,
         filteredAppointments,
         appointmentsEditedCount: filteredAppointments.length,
