@@ -2958,19 +2958,6 @@ export function OpportunityDetailSheet({
                 <p className="text-xs text-yellow-600">No active calendars. Run a sync to load calendars.</p>
               )}
             </div>
-            <div className="flex items-center space-x-2 py-2">
-              <Checkbox
-                id="skipGHL"
-                checked={appointmentSkipGHL}
-                onCheckedChange={(checked) => setAppointmentSkipGHL(checked === true)}
-              />
-              <label htmlFor="skipGHL" className="text-sm cursor-pointer">
-                <span className="font-medium">Local only</span>
-                <span className="text-muted-foreground ml-1">
-                  – Save to dashboard without syncing to GHL (bypasses slot availability)
-                </span>
-              </label>
-            </div>
             <div className="space-y-2">
               <Label htmlFor="oppApptNotes">Notes (optional)</Label>
               <Textarea
@@ -2980,6 +2967,18 @@ export function OpportunityDetailSheet({
                 placeholder="Add notes for this appointment..."
                 rows={3}
               />
+            </div>
+            <div className="flex items-center space-x-2 pt-3 border-t border-border/50">
+              <Checkbox
+                id="skipGHL"
+                checked={appointmentSkipGHL}
+                onCheckedChange={(checked) => setAppointmentSkipGHL(checked === true)}
+                className="h-3 w-3"
+              />
+              <label htmlFor="skipGHL" className="text-xs text-muted-foreground cursor-pointer">
+                <span>Local only</span>
+                <span className="ml-1">– Save without syncing to GHL</span>
+              </label>
             </div>
           </div>
           <DialogFooter>
