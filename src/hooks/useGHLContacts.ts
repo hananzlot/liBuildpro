@@ -1255,50 +1255,53 @@ export function useGHLMetrics(dateRange?: DateRange) {
 
   const totalOpportunitySalesAmount = filteredOpportunitySales.reduce((sum, s) => sum + (s.sold_amount || 0), 0);
 
-  const data =
-    contactsQuery.data && opportunitiesQuery.data && appointmentsQuery.data && usersQuery.data
-      ? {
-          ...processMetrics(
-            contactsQuery.data,
-            opportunitiesQuery.data,
-            appointmentsQuery.data,
-            usersQuery.data,
-            dateRange,
-          ),
-          conversations: conversationsQuery.data || [],
-          tasks: tasksQuery.data || [],
-          contactNotes: contactNotesQuery.data || [],
-          profiles: profilesQuery.data || [],
-          callLogs: filteredCallLogs,
-          totalCalls: filteredCallLogs.length,
-          outboundCalls: filteredCallLogs.filter((c) => c.direction === "outbound").length,
-          inboundCalls: filteredCallLogs.filter((c) => c.direction === "inbound").length,
-          uniqueContactsCalled,
-          opportunityEdits: editedOpportunities.length,
-          editedOpportunities,
-          filteredAppointments,
-          appointmentsEditedCount: filteredAppointments.length,
-          filteredTasks,
-          filteredNotes,
-          tasksCreatedCount: filteredTasks.length,
-          notesCreatedCount: filteredNotes.length,
-          filteredOpportunityEdits,
-          filteredTaskEdits,
-          filteredNoteEdits,
-          filteredAppointmentEdits,
-          // In-app activity counts (for Activity KPI)
-          inAppTaskActivityCount: filteredTasks.filter(t => t.entered_by).length + filteredTaskEdits.length,
-          inAppNoteActivityCount: filteredNotes.filter(n => n.entered_by).length + filteredNoteEdits.length,
-          inAppAppointmentActivityCount: filteredAppointments.filter(a => a.entered_by).length + filteredAppointmentEdits.length,
-          taskEdits: taskEditsQuery.data || [],
-          noteEdits: noteEditsQuery.data || [],
-          appointmentEdits: appointmentEditsQuery.data || [],
-          opportunitySales: opportunitySalesQuery.data || [],
-          filteredOpportunitySales,
-          opportunitySalesCount: filteredOpportunitySales.length,
-          totalOpportunitySalesAmount,
-        }
-      : undefined;
+  const metricsData = contactsQuery.data && opportunitiesQuery.data && appointmentsQuery.data && usersQuery.data
+    ? processMetrics(
+        contactsQuery.data,
+        opportunitiesQuery.data,
+        appointmentsQuery.data,
+        usersQuery.data,
+        dateRange,
+      )
+    : null;
+
+  const data = metricsData
+    ? {
+        ...metricsData,
+        conversations: conversationsQuery.data || [],
+        tasks: tasksQuery.data || [],
+        contactNotes: contactNotesQuery.data || [],
+        profiles: profilesQuery.data || [],
+        callLogs: filteredCallLogs,
+        totalCalls: filteredCallLogs.length,
+        outboundCalls: filteredCallLogs.filter((c) => c.direction === "outbound").length,
+        inboundCalls: filteredCallLogs.filter((c) => c.direction === "inbound").length,
+        uniqueContactsCalled,
+        opportunityEdits: editedOpportunities.length,
+        editedOpportunities,
+        filteredAppointments,
+        appointmentsEditedCount: filteredAppointments.length,
+        filteredTasks,
+        filteredNotes,
+        tasksCreatedCount: filteredTasks.length,
+        notesCreatedCount: filteredNotes.length,
+        filteredOpportunityEdits,
+        filteredTaskEdits,
+        filteredNoteEdits,
+        filteredAppointmentEdits,
+        // In-app activity counts (for Activity KPI) - use creation date for appointments
+        inAppTaskActivityCount: filteredTasks.filter(t => t.entered_by).length + filteredTaskEdits.length,
+        inAppNoteActivityCount: filteredNotes.filter(n => n.entered_by).length + filteredNoteEdits.length,
+        inAppAppointmentActivityCount: metricsData.appointmentsCreatedInRangeList.filter(a => a.entered_by).length + filteredAppointmentEdits.length,
+        taskEdits: taskEditsQuery.data || [],
+        noteEdits: noteEditsQuery.data || [],
+        appointmentEdits: appointmentEditsQuery.data || [],
+        opportunitySales: opportunitySalesQuery.data || [],
+        filteredOpportunitySales,
+        opportunitySalesCount: filteredOpportunitySales.length,
+        totalOpportunitySalesAmount,
+      }
+    : undefined;
 
   return {
     isLoading,
