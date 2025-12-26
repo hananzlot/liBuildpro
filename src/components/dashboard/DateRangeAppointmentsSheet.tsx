@@ -30,6 +30,7 @@ import {
   FileText,
   LayoutGrid,
   List,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -70,12 +71,34 @@ interface DBUser {
   email: string | null;
 }
 
+interface DBOpportunity {
+  ghl_id: string;
+  contact_id: string | null;
+  status: string | null;
+  stage_name: string | null;
+  pipeline_name: string | null;
+}
+
+interface DBNote {
+  contact_id: string;
+  body: string | null;
+  ghl_date_added: string | null;
+}
+
+interface DBTask {
+  contact_id: string;
+  title: string;
+  body: string | null;
+  created_at: string;
+}
+
 interface DateRangeAppointmentsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   appointments: DBAppointment[];
   contacts: DBContact[];
   users: DBUser[];
+  opportunities?: DBOpportunity[];
   onAppointmentClick?: (appointment: DBAppointment) => void;
   defaultStatusFilter?: string; // e.g., "showed" to filter only showed appointments
 }
@@ -94,6 +117,7 @@ export function DateRangeAppointmentsSheet({
   appointments,
   contacts,
   users,
+  opportunities = [],
   onAppointmentClick,
   defaultStatusFilter,
 }: DateRangeAppointmentsSheetProps) {
@@ -104,6 +128,11 @@ export function DateRangeAppointmentsSheet({
   const [editAddressValue, setEditAddressValue] = useState("");
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [localAddressState, setLocalAddressState] = useState<Record<string, string>>({});
+  
+  // Notes and tasks data
+  const [notesMap, setNotesMap] = useState<Map<string, DBNote>>(new Map());
+  const [tasksMap, setTasksMap] = useState<Map<string, DBTask>>(new Map());
+  const [isLoadingExtra, setIsLoadingExtra] = useState(false);
 
   // Reset status filter when defaultStatusFilter changes or sheet opens
   useEffect(() => {
@@ -122,6 +151,146 @@ export function DateRangeAppointmentsSheet({
 
   const contactMap = new Map<string, DBContact>();
   contacts.forEach((c) => contactMap.set(c.ghl_id, c));
+
+  // Create opportunity map (contact_id -> first opportunity for that contact)
+  const opportunityMap = useMemo(() => {
+    const map = new Map<string, DBOpportunity>();
+    opportunities.forEach((opp) => {
+      if (opp.contact_id && !map.has(opp.contact_id)) {
+        map.set(opp.contact_id, opp);
+      }
+    });
+    return map;
+  }, [opportunities]);
+
+  // Fetch notes and tasks when sheet opens with showed filter
+  useEffect(() => {
+    if (!open || defaultStatusFilter !== "showed") return;
+    
+    const contactIds = appointments
+      .filter(apt => apt.appointment_status?.toLowerCase() === "showed" && apt.contact_id)
+      .map(apt => apt.contact_id!)
+      .filter((id, idx, arr) => arr.indexOf(id) === idx); // unique
+
+    if (contactIds.length === 0) return;
+
+    const fetchNotesAndTasks = async () => {
+      setIsLoadingExtra(true);
+      try {
+        // Fetch latest note for each contact
+        const { data: notesData } = await supabase
+          .from("contact_notes")
+          .select("contact_id, body, ghl_date_added")
+          .in("contact_id", contactIds)
+          .order("ghl_date_added", { ascending: false });
+
+        // Fetch latest task for each contact
+        const { data: tasksData } = await supabase
+          .from("ghl_tasks")
+          .select("contact_id, title, body, created_at")
+          .in("contact_id", contactIds)
+          .order("created_at", { ascending: false });
+
+        // Build maps with only the latest entry per contact
+        const newNotesMap = new Map<string, DBNote>();
+        notesData?.forEach(note => {
+          if (!newNotesMap.has(note.contact_id)) {
+            newNotesMap.set(note.contact_id, note);
+          }
+        });
+
+        const newTasksMap = new Map<string, DBTask>();
+        tasksData?.forEach(task => {
+          if (!newTasksMap.has(task.contact_id)) {
+            newTasksMap.set(task.contact_id, task);
+          }
+        });
+
+        setNotesMap(newNotesMap);
+        setTasksMap(newTasksMap);
+      } catch (error) {
+        console.error("Error fetching notes/tasks:", error);
+      } finally {
+        setIsLoadingExtra(false);
+      }
+    };
+
+    fetchNotesAndTasks();
+  }, [open, defaultStatusFilter, appointments]);
+
+  // Download table as CSV
+  const handleDownloadCSV = () => {
+    const headers = [
+      "Contact Name",
+      "Phone",
+      "Title/Scope",
+      "Appt Status",
+      "Created Date",
+      "Scheduled Date",
+      "Source",
+      "Assigned Rep",
+      "Opp Status",
+      "Pipeline Stage",
+      "Last Note Date",
+      "Last Note Content",
+      "Last Task Date",
+      "Last Task Title"
+    ];
+
+    const rows = sortedAppointments.map(apt => {
+      const contact = apt.contact_id ? contactMap.get(apt.contact_id) : null;
+      const salesPerson = apt.assigned_user_id ? userMap.get(apt.assigned_user_id) : null;
+      const contactName = contact
+        ? capitalizeWords(
+            contact.contact_name ||
+            `${contact.first_name || ""} ${contact.last_name || ""}`.trim() ||
+            "Unknown"
+          )
+        : "Unknown Contact";
+      
+      const opp = apt.contact_id ? opportunityMap.get(apt.contact_id) : null;
+      const note = apt.contact_id ? notesMap.get(apt.contact_id) : null;
+      const task = apt.contact_id ? tasksMap.get(apt.contact_id) : null;
+
+      // Get scope of work
+      const scopeOfWork = contact?.custom_fields && (() => {
+        const fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
+        if (!Array.isArray(fieldsArray)) return null;
+        const scopeField = fieldsArray.find(f => f.id === 'KwQRtJT0aMSHnq3mwR68');
+        return scopeField?.value || null;
+      })();
+
+      return [
+        contactName,
+        contact?.phone || "",
+        apt.title || scopeOfWork || "",
+        apt.appointment_status || "",
+        apt.ghl_date_added ? format(new Date(apt.ghl_date_added), "MMM d, yyyy") : "",
+        apt.start_time ? format(new Date(apt.start_time), "MMM d, yyyy h:mma") : "",
+        contact?.source || "",
+        salesPerson || "",
+        opp?.status || "",
+        opp?.stage_name || "",
+        note?.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d, yyyy") : "",
+        (note?.body || "").replace(/\n/g, " ").substring(0, 100),
+        task?.created_at ? format(new Date(task.created_at), "MMM d, yyyy") : "",
+        task?.title || ""
+      ];
+    });
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `appointments-showed-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast.success("CSV downloaded");
+  };
 
   // Filter by status and apply search
   const filteredAppointments = useMemo(() => {
@@ -261,6 +430,18 @@ export function DateRangeAppointmentsSheet({
                 className="pl-8 h-9 text-sm"
               />
             </div>
+            {defaultStatusFilter === "showed" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5"
+                onClick={handleDownloadCSV}
+                disabled={sortedAppointments.length === 0}
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            )}
           </div>
         </div>
 
@@ -272,16 +453,28 @@ export function DateRangeAppointmentsSheet({
           ) : viewMode === "table" ? (
             // Table View
             <div className="p-4 overflow-x-auto">
-              <Table className="min-w-[800px]">
+              {isLoadingExtra && defaultStatusFilter === "showed" && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading notes & tasks...
+                </div>
+              )}
+              <Table className="min-w-[1400px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[150px]">Contact</TableHead>
-                    <TableHead className="min-w-[150px]">Title / Scope</TableHead>
-                    <TableHead className="min-w-[80px]">Status</TableHead>
-                    <TableHead className="min-w-[90px]">Created</TableHead>
-                    <TableHead className="min-w-[100px]">Scheduled</TableHead>
-                    <TableHead className="min-w-[80px]">Source</TableHead>
-                    <TableHead className="min-w-[100px]">Assigned</TableHead>
+                    <TableHead className="min-w-[140px]">Contact</TableHead>
+                    <TableHead className="min-w-[120px]">Title / Scope</TableHead>
+                    <TableHead className="min-w-[70px]">Appt Status</TableHead>
+                    <TableHead className="min-w-[80px]">Scheduled</TableHead>
+                    <TableHead className="min-w-[80px]">Assigned</TableHead>
+                    {defaultStatusFilter === "showed" && (
+                      <>
+                        <TableHead className="min-w-[70px]">Opp Status</TableHead>
+                        <TableHead className="min-w-[100px]">Pipeline Stage</TableHead>
+                        <TableHead className="min-w-[150px]">Last Note</TableHead>
+                        <TableHead className="min-w-[150px]">Last Task</TableHead>
+                      </>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -311,13 +504,25 @@ export function DateRangeAppointmentsSheet({
                       return scopeField?.value || null;
                     })();
 
+                    // Get opportunity, note, task for this contact
+                    const opp = apt.contact_id ? opportunityMap.get(apt.contact_id) : null;
+                    const note = apt.contact_id ? notesMap.get(apt.contact_id) : null;
+                    const task = apt.contact_id ? tasksMap.get(apt.contact_id) : null;
+
+                    const oppStatusColor = {
+                      open: "bg-blue-500/10 text-blue-500",
+                      won: "bg-green-500/10 text-green-500",
+                      lost: "bg-red-500/10 text-red-500",
+                      abandoned: "bg-gray-500/10 text-gray-500",
+                    }[opp?.status?.toLowerCase() || ""] || "bg-muted text-muted-foreground";
+
                     return (
                       <TableRow 
                         key={apt.id}
                         className={onAppointmentClick ? "cursor-pointer hover:bg-muted/50" : ""}
                         onClick={() => onAppointmentClick?.(apt)}
                       >
-                        <TableCell className="max-w-[150px]">
+                        <TableCell className="max-w-[140px]">
                           <div className="flex flex-col">
                             <span className="font-medium truncate">{contactName}</span>
                             {contact?.phone && (
@@ -351,9 +556,9 @@ export function DateRangeAppointmentsSheet({
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[150px]">
+                        <TableCell className="max-w-[120px]">
                           <div className="flex flex-col">
-                            <span className="truncate">{apt.title || "No title"}</span>
+                            <span className="truncate text-xs">{apt.title || "No title"}</span>
                             {scopeOfWork && (
                               <span className="text-xs text-muted-foreground truncate">{scopeOfWork}</span>
                             )}
@@ -365,17 +570,55 @@ export function DateRangeAppointmentsSheet({
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {apt.ghl_date_added ? format(new Date(apt.ghl_date_added), "MMM d") : "-"}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {apt.start_time ? format(new Date(apt.start_time), "MMM d, h:mma") : "-"}
                         </TableCell>
-                        <TableCell className="text-xs capitalize truncate max-w-[80px]">
-                          {contact?.source || "-"}
-                        </TableCell>
-                        <TableCell className="text-xs truncate max-w-[100px]">
+                        <TableCell className="text-xs truncate max-w-[80px]">
                           {salesPerson || "-"}
                         </TableCell>
+                        {defaultStatusFilter === "showed" && (
+                          <>
+                            <TableCell>
+                              {opp?.status ? (
+                                <Badge className={`${oppStatusColor} text-xs capitalize`}>
+                                  {opp.status}
+                                </Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs truncate max-w-[100px]">
+                              {opp?.stage_name || "-"}
+                            </TableCell>
+                            <TableCell className="max-w-[150px]">
+                              {note ? (
+                                <div className="flex flex-col">
+                                  <span className="text-xs text-muted-foreground">
+                                    {note.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d") : ""}
+                                  </span>
+                                  <span className="text-xs truncate" title={note.body || ""}>
+                                    {note.body?.substring(0, 50) || "-"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="max-w-[150px]">
+                              {task ? (
+                                <div className="flex flex-col">
+                                  <span className="text-xs text-muted-foreground">
+                                    {task.created_at ? format(new Date(task.created_at), "MMM d") : ""}
+                                  </span>
+                                  <span className="text-xs truncate" title={task.title}>
+                                    {task.title?.substring(0, 50) || "-"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                          </>
+                        )}
                       </TableRow>
                     );
                   })}
