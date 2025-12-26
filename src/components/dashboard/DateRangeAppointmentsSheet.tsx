@@ -543,21 +543,21 @@ export function DateRangeAppointmentsSheet({
           </div>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-auto">
           {sortedAppointments.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
               {searchFilter ? "No appointments match the search" : "No appointments found"}
             </p>
           ) : viewMode === "table" ? (
             // Table View
-            <div className="p-4 overflow-x-auto">
+            <div className="p-4">
               {isLoadingExtra && defaultStatusFilter === "showed" && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                   <Loader2 className="h-3 w-3 animate-spin" />
                   Loading notes & tasks...
                 </div>
               )}
-              <Table className="min-w-[1600px]">
+              <Table className="min-w-[1800px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead 
@@ -1036,7 +1036,7 @@ export function DateRangeAppointmentsSheet({
               })}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </SheetContent>
     </Sheet>
   );
