@@ -31,6 +31,8 @@ import {
   LayoutGrid,
   List,
   Download,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -77,6 +79,7 @@ interface DBOpportunity {
   status: string | null;
   stage_name: string | null;
   pipeline_name: string | null;
+  monetary_value: number | null;
 }
 
 interface DBNote {
@@ -128,6 +131,11 @@ export function DateRangeAppointmentsSheet({
   const [editAddressValue, setEditAddressValue] = useState("");
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [localAddressState, setLocalAddressState] = useState<Record<string, string>>({});
+  
+  // Sorting state
+  type SortColumn = "contact" | "title" | "status" | "scheduled" | "assigned" | "oppStatus" | "stage" | "value" | "noteDate" | "taskDate";
+  const [sortColumn, setSortColumn] = useState<SortColumn>("scheduled");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   
   // Notes and tasks data
   const [notesMap, setNotesMap] = useState<Map<string, DBNote>>(new Map());
@@ -218,6 +226,27 @@ export function DateRangeAppointmentsSheet({
     fetchNotesAndTasks();
   }, [open, defaultStatusFilter, appointments]);
 
+  // Format currency helper
+  const formatCurrency = (value: number | null | undefined) => {
+    if (!value) return "-";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  // Handle column sorting
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
+
   // Download table as CSV
   const handleDownloadCSV = () => {
     const headers = [
@@ -231,6 +260,7 @@ export function DateRangeAppointmentsSheet({
       "Assigned Rep",
       "Opp Status",
       "Pipeline Stage",
+      "Value",
       "Last Note Date",
       "Last Note Content",
       "Last Task Date",
@@ -271,8 +301,9 @@ export function DateRangeAppointmentsSheet({
         salesPerson || "",
         opp?.status || "",
         opp?.stage_name || "",
+        opp?.monetary_value ? opp.monetary_value.toString() : "",
         note?.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d, yyyy") : "",
-        (note?.body || "").replace(/\n/g, " ").substring(0, 100),
+        (note?.body || "").replace(/\n/g, " "),
         task?.created_at ? format(new Date(task.created_at), "MMM d, yyyy") : "",
         task?.title || ""
       ];
@@ -323,19 +354,86 @@ export function DateRangeAppointmentsSheet({
     });
   }, [appointments, searchFilter, statusFilter, contactMap, userMap]);
 
-  // Sort by ghl_date_added (desc)
+  // Sort appointments based on selected column
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
-      const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
-      const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
-      if (dateA !== dateB) return dateB - dateA;
+      const contactA = a.contact_id ? contactMap.get(a.contact_id) : null;
+      const contactB = b.contact_id ? contactMap.get(b.contact_id) : null;
+      const oppA = a.contact_id ? opportunityMap.get(a.contact_id) : null;
+      const oppB = b.contact_id ? opportunityMap.get(b.contact_id) : null;
+      const noteA = a.contact_id ? notesMap.get(a.contact_id) : null;
+      const noteB = b.contact_id ? notesMap.get(b.contact_id) : null;
+      const taskA = a.contact_id ? tasksMap.get(a.contact_id) : null;
+      const taskB = b.contact_id ? tasksMap.get(b.contact_id) : null;
 
-      // Fallback to start_time (asc) when created date is missing/equal
-      if (!a.start_time) return 1;
-      if (!b.start_time) return -1;
-      return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case "contact": {
+          const nameA = contactA?.contact_name || `${contactA?.first_name || ""} ${contactA?.last_name || ""}`.trim() || "";
+          const nameB = contactB?.contact_name || `${contactB?.first_name || ""} ${contactB?.last_name || ""}`.trim() || "";
+          comparison = nameA.localeCompare(nameB);
+          break;
+        }
+        case "title": {
+          const titleA = a.title || "";
+          const titleB = b.title || "";
+          comparison = titleA.localeCompare(titleB);
+          break;
+        }
+        case "status": {
+          const statusA = a.appointment_status || "";
+          const statusB = b.appointment_status || "";
+          comparison = statusA.localeCompare(statusB);
+          break;
+        }
+        case "scheduled": {
+          const dateA = a.start_time ? new Date(a.start_time).getTime() : 0;
+          const dateB = b.start_time ? new Date(b.start_time).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+        }
+        case "assigned": {
+          const repA = a.assigned_user_id ? userMap.get(a.assigned_user_id) || "" : "";
+          const repB = b.assigned_user_id ? userMap.get(b.assigned_user_id) || "" : "";
+          comparison = repA.localeCompare(repB);
+          break;
+        }
+        case "oppStatus": {
+          const statusA = oppA?.status || "";
+          const statusB = oppB?.status || "";
+          comparison = statusA.localeCompare(statusB);
+          break;
+        }
+        case "stage": {
+          const stageA = oppA?.stage_name || "";
+          const stageB = oppB?.stage_name || "";
+          comparison = stageA.localeCompare(stageB);
+          break;
+        }
+        case "value": {
+          const valueA = oppA?.monetary_value || 0;
+          const valueB = oppB?.monetary_value || 0;
+          comparison = valueA - valueB;
+          break;
+        }
+        case "noteDate": {
+          const dateA = noteA?.ghl_date_added ? new Date(noteA.ghl_date_added).getTime() : 0;
+          const dateB = noteB?.ghl_date_added ? new Date(noteB.ghl_date_added).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+        }
+        case "taskDate": {
+          const dateA = taskA?.created_at ? new Date(taskA.created_at).getTime() : 0;
+          const dateB = taskB?.created_at ? new Date(taskB.created_at).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+        }
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [filteredAppointments]);
+  }, [filteredAppointments, sortColumn, sortDirection, contactMap, opportunityMap, notesMap, tasksMap, userMap]);
 
   const startEditingAddress = (apt: DBAppointment, currentAddress: string | null, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -459,20 +557,101 @@ export function DateRangeAppointmentsSheet({
                   Loading notes & tasks...
                 </div>
               )}
-              <Table className="min-w-[1400px]">
+              <Table className="min-w-[1600px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[140px]">Contact</TableHead>
-                    <TableHead className="min-w-[120px]">Title / Scope</TableHead>
-                    <TableHead className="min-w-[70px]">Appt Status</TableHead>
-                    <TableHead className="min-w-[80px]">Scheduled</TableHead>
-                    <TableHead className="min-w-[80px]">Assigned</TableHead>
+                    <TableHead 
+                      className="min-w-[140px] cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort("contact")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Contact
+                        {sortColumn === "contact" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="min-w-[120px] cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort("title")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Title / Scope
+                        {sortColumn === "title" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="min-w-[70px] cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort("status")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Appt Status
+                        {sortColumn === "status" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="min-w-[80px] cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort("scheduled")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Scheduled
+                        {sortColumn === "scheduled" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="min-w-[80px] cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort("assigned")}
+                    >
+                      <div className="flex items-center gap-1">
+                        Assigned
+                        {sortColumn === "assigned" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                      </div>
+                    </TableHead>
                     {defaultStatusFilter === "showed" && (
                       <>
-                        <TableHead className="min-w-[70px]">Opp Status</TableHead>
-                        <TableHead className="min-w-[100px]">Pipeline Stage</TableHead>
-                        <TableHead className="min-w-[150px]">Last Note</TableHead>
-                        <TableHead className="min-w-[150px]">Last Task</TableHead>
+                        <TableHead 
+                          className="min-w-[70px] cursor-pointer hover:bg-muted/50 select-none"
+                          onClick={() => handleSort("oppStatus")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Opp Status
+                            {sortColumn === "oppStatus" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="min-w-[100px] cursor-pointer hover:bg-muted/50 select-none"
+                          onClick={() => handleSort("stage")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Pipeline Stage
+                            {sortColumn === "stage" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="min-w-[90px] cursor-pointer hover:bg-muted/50 select-none"
+                          onClick={() => handleSort("value")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Value
+                            {sortColumn === "value" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="min-w-[180px] cursor-pointer hover:bg-muted/50 select-none"
+                          onClick={() => handleSort("noteDate")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Last Note
+                            {sortColumn === "noteDate" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="min-w-[180px] cursor-pointer hover:bg-muted/50 select-none"
+                          onClick={() => handleSort("taskDate")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Last Task
+                            {sortColumn === "taskDate" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                          </div>
+                        </TableHead>
                       </>
                     )}
                   </TableRow>
@@ -589,28 +768,31 @@ export function DateRangeAppointmentsSheet({
                             <TableCell className="text-xs truncate max-w-[100px]">
                               {opp?.stage_name || "-"}
                             </TableCell>
-                            <TableCell className="max-w-[150px]">
+                            <TableCell className="text-xs font-medium">
+                              {formatCurrency(opp?.monetary_value)}
+                            </TableCell>
+                            <TableCell className="max-w-[180px]">
                               {note ? (
-                                <div className="flex flex-col">
-                                  <span className="text-xs text-muted-foreground">
-                                    {note.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d") : ""}
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-xs text-muted-foreground font-medium">
+                                    {note.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d, yyyy") : ""}
                                   </span>
-                                  <span className="text-xs truncate" title={note.body || ""}>
-                                    {note.body?.substring(0, 50) || "-"}
+                                  <span className="text-xs whitespace-pre-wrap break-words">
+                                    {note.body || "-"}
                                   </span>
                                 </div>
                               ) : (
                                 <span className="text-xs text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="max-w-[150px]">
+                            <TableCell className="max-w-[180px]">
                               {task ? (
-                                <div className="flex flex-col">
-                                  <span className="text-xs text-muted-foreground">
-                                    {task.created_at ? format(new Date(task.created_at), "MMM d") : ""}
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-xs text-muted-foreground font-medium">
+                                    {task.created_at ? format(new Date(task.created_at), "MMM d, yyyy") : ""}
                                   </span>
-                                  <span className="text-xs truncate" title={task.title}>
-                                    {task.title?.substring(0, 50) || "-"}
+                                  <span className="text-xs whitespace-pre-wrap break-words">
+                                    {task.title || "-"}
                                   </span>
                                 </div>
                               ) : (
