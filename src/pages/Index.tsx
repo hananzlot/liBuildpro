@@ -332,7 +332,7 @@ const Index = () => {
                   </div>
                   <ClickableMetricCard title="Appointments (Today's & Future)" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
-                  <ClickableMetricCard title="Opp Sales" value={metrics?.opportunitySalesCount || 0} secondaryValue={formatCurrency(metrics?.totalOpportunitySalesAmount || 0)} subtitle="In date range" icon={Receipt} onClick={() => setOpportunitySalesSheetOpen(true)} />
+                  <ClickableMetricCard title="Leads Resell" value={metrics?.opportunitySalesCount || 0} secondaryValue={formatCurrency(metrics?.totalOpportunitySalesAmount || 0)} subtitle="In date range" icon={Receipt} onClick={() => setOpportunitySalesSheetOpen(true)} />
                   {(isAdmin || isMagazineEditor) && (
                     <ClickableMetricCard 
                       title="Magazine Sales" 
