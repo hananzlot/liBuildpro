@@ -33,7 +33,7 @@ import {
   Download,
   ChevronUp,
   ChevronDown,
-  Repeat2,
+  
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -94,6 +94,16 @@ interface DBTask {
   title: string;
   body: string | null;
   created_at: string;
+}
+
+interface GroupedContactAppointments {
+  contact_id: string;
+  appointments: DBAppointment[];
+  contact: DBContact | null;
+  opportunity: DBOpportunity | null;
+  note: DBNote | null;
+  task: DBTask | null;
+  latestAppointment: DBAppointment;
 }
 
 interface DateRangeAppointmentsSheetProps {
@@ -255,8 +265,7 @@ export function DateRangeAppointmentsSheet({
       "Phone",
       "Title/Scope",
       "Appt Status",
-      "Created Date",
-      "Scheduled Date",
+      "Scheduled Dates",
       "Source",
       "Assigned Rep",
       "Opp Status",
@@ -268,9 +277,11 @@ export function DateRangeAppointmentsSheet({
       "Last Task Title"
     ];
 
-    const rows = sortedAppointments.map(apt => {
-      const contact = apt.contact_id ? contactMap.get(apt.contact_id) : null;
-      const salesPerson = apt.assigned_user_id ? userMap.get(apt.assigned_user_id) : null;
+    const rows = sortedGroupedContacts.map(group => {
+      const contact = group.contact;
+      const salesPerson = group.latestAppointment.assigned_user_id 
+        ? userMap.get(group.latestAppointment.assigned_user_id) 
+        : null;
       const contactName = contact
         ? capitalizeWords(
             contact.contact_name ||
@@ -279,10 +290,6 @@ export function DateRangeAppointmentsSheet({
           )
         : "Unknown Contact";
       
-      const opp = apt.contact_id ? opportunityMap.get(apt.contact_id) : null;
-      const note = apt.contact_id ? notesMap.get(apt.contact_id) : null;
-      const task = apt.contact_id ? tasksMap.get(apt.contact_id) : null;
-
       // Get scope of work
       const scopeOfWork = contact?.custom_fields && (() => {
         const fieldsArray = contact.custom_fields as Array<{ id: string; value: string }>;
@@ -291,22 +298,28 @@ export function DateRangeAppointmentsSheet({
         return scopeField?.value || null;
       })();
 
+      // Combine all scheduled dates
+      const scheduledDates = group.appointments
+        .filter(apt => apt.start_time)
+        .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime())
+        .map(apt => format(new Date(apt.start_time!), "MMM d, yyyy h:mma"))
+        .join("; ");
+
       return [
         contactName,
         contact?.phone || "",
-        apt.title || scopeOfWork || "",
-        apt.appointment_status || "",
-        apt.ghl_date_added ? format(new Date(apt.ghl_date_added), "MMM d, yyyy") : "",
-        apt.start_time ? format(new Date(apt.start_time), "MMM d, yyyy h:mma") : "",
+        group.latestAppointment.title || scopeOfWork || "",
+        group.latestAppointment.appointment_status || "",
+        scheduledDates,
         contact?.source || "",
         salesPerson || "",
-        opp?.status || "",
-        opp?.stage_name || "",
-        opp?.monetary_value ? opp.monetary_value.toString() : "",
-        note?.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d, yyyy") : "",
-        (note?.body || "").replace(/\n/g, " "),
-        task?.created_at ? format(new Date(task.created_at), "MMM d, yyyy") : "",
-        task?.title || ""
+        group.opportunity?.status || "",
+        group.opportunity?.stage_name || "",
+        group.opportunity?.monetary_value ? group.opportunity.monetary_value.toString() : "",
+        group.note?.ghl_date_added ? format(new Date(group.note.ghl_date_added), "MMM d, yyyy") : "",
+        (group.note?.body || "").replace(/\n/g, " "),
+        group.task?.created_at ? format(new Date(group.task.created_at), "MMM d, yyyy") : "",
+        group.task?.title || ""
       ];
     });
 
@@ -355,78 +368,115 @@ export function DateRangeAppointmentsSheet({
     });
   }, [appointments, searchFilter, statusFilter, contactMap, userMap]);
 
-  // Sort appointments based on selected column
-  const sortedAppointments = useMemo(() => {
-    return [...filteredAppointments].sort((a, b) => {
-      const contactA = a.contact_id ? contactMap.get(a.contact_id) : null;
-      const contactB = b.contact_id ? contactMap.get(b.contact_id) : null;
-      const oppA = a.contact_id ? opportunityMap.get(a.contact_id) : null;
-      const oppB = b.contact_id ? opportunityMap.get(b.contact_id) : null;
-      const noteA = a.contact_id ? notesMap.get(a.contact_id) : null;
-      const noteB = b.contact_id ? notesMap.get(b.contact_id) : null;
-      const taskA = a.contact_id ? tasksMap.get(a.contact_id) : null;
-      const taskB = b.contact_id ? tasksMap.get(b.contact_id) : null;
+  // Group appointments by contact
+  const groupedContacts = useMemo(() => {
+    const groups = new Map<string, GroupedContactAppointments>();
+    const noContactAppointments: GroupedContactAppointments[] = [];
 
+    filteredAppointments.forEach((apt) => {
+      if (!apt.contact_id) {
+        // Appointments without contact go as individual rows
+        noContactAppointments.push({
+          contact_id: apt.id, // Use apt.id as unique key
+          appointments: [apt],
+          contact: null,
+          opportunity: null,
+          note: null,
+          task: null,
+          latestAppointment: apt,
+        });
+        return;
+      }
+
+      if (groups.has(apt.contact_id)) {
+        const existing = groups.get(apt.contact_id)!;
+        existing.appointments.push(apt);
+        // Update latestAppointment if this one is more recent
+        if (apt.start_time && existing.latestAppointment.start_time) {
+          if (new Date(apt.start_time) > new Date(existing.latestAppointment.start_time)) {
+            existing.latestAppointment = apt;
+          }
+        }
+      } else {
+        groups.set(apt.contact_id, {
+          contact_id: apt.contact_id,
+          appointments: [apt],
+          contact: contactMap.get(apt.contact_id) || null,
+          opportunity: opportunityMap.get(apt.contact_id) || null,
+          note: notesMap.get(apt.contact_id) || null,
+          task: tasksMap.get(apt.contact_id) || null,
+          latestAppointment: apt,
+        });
+      }
+    });
+
+    return [...groups.values(), ...noContactAppointments];
+  }, [filteredAppointments, contactMap, opportunityMap, notesMap, tasksMap]);
+
+  // Sort grouped contacts based on selected column
+  const sortedGroupedContacts = useMemo(() => {
+    return [...groupedContacts].sort((a, b) => {
       let comparison = 0;
 
       switch (sortColumn) {
         case "contact": {
-          const nameA = contactA?.contact_name || `${contactA?.first_name || ""} ${contactA?.last_name || ""}`.trim() || "";
-          const nameB = contactB?.contact_name || `${contactB?.first_name || ""} ${contactB?.last_name || ""}`.trim() || "";
+          const nameA = a.contact?.contact_name || `${a.contact?.first_name || ""} ${a.contact?.last_name || ""}`.trim() || "";
+          const nameB = b.contact?.contact_name || `${b.contact?.first_name || ""} ${b.contact?.last_name || ""}`.trim() || "";
           comparison = nameA.localeCompare(nameB);
           break;
         }
         case "title": {
-          const titleA = a.title || "";
-          const titleB = b.title || "";
+          const titleA = a.latestAppointment.title || "";
+          const titleB = b.latestAppointment.title || "";
           comparison = titleA.localeCompare(titleB);
           break;
         }
         case "status": {
-          const statusA = a.appointment_status || "";
-          const statusB = b.appointment_status || "";
+          const statusA = a.latestAppointment.appointment_status || "";
+          const statusB = b.latestAppointment.appointment_status || "";
           comparison = statusA.localeCompare(statusB);
           break;
         }
         case "scheduled": {
-          const dateA = a.start_time ? new Date(a.start_time).getTime() : 0;
-          const dateB = b.start_time ? new Date(b.start_time).getTime() : 0;
+          // Use the most recent appointment date for sorting
+          const dateA = a.latestAppointment.start_time ? new Date(a.latestAppointment.start_time).getTime() : 0;
+          const dateB = b.latestAppointment.start_time ? new Date(b.latestAppointment.start_time).getTime() : 0;
           comparison = dateA - dateB;
           break;
         }
         case "assigned": {
-          const repA = a.assigned_user_id ? userMap.get(a.assigned_user_id) || "" : "";
-          const repB = b.assigned_user_id ? userMap.get(b.assigned_user_id) || "" : "";
+          const repA = a.latestAppointment.assigned_user_id ? userMap.get(a.latestAppointment.assigned_user_id) || "" : "";
+          const repB = b.latestAppointment.assigned_user_id ? userMap.get(b.latestAppointment.assigned_user_id) || "" : "";
           comparison = repA.localeCompare(repB);
           break;
         }
         case "oppStatus": {
-          const statusA = oppA?.status || "";
-          const statusB = oppB?.status || "";
+          const statusA = a.opportunity?.status || "";
+          const statusB = b.opportunity?.status || "";
           comparison = statusA.localeCompare(statusB);
           break;
         }
         case "stage": {
-          const stageA = oppA?.stage_name || "";
-          const stageB = oppB?.stage_name || "";
+          const stageA = a.opportunity?.stage_name || "";
+          const stageB = b.opportunity?.stage_name || "";
           comparison = stageA.localeCompare(stageB);
           break;
         }
         case "value": {
-          const valueA = oppA?.monetary_value || 0;
-          const valueB = oppB?.monetary_value || 0;
+          const valueA = a.opportunity?.monetary_value || 0;
+          const valueB = b.opportunity?.monetary_value || 0;
           comparison = valueA - valueB;
           break;
         }
         case "noteDate": {
-          const dateA = noteA?.ghl_date_added ? new Date(noteA.ghl_date_added).getTime() : 0;
-          const dateB = noteB?.ghl_date_added ? new Date(noteB.ghl_date_added).getTime() : 0;
+          const dateA = a.note?.ghl_date_added ? new Date(a.note.ghl_date_added).getTime() : 0;
+          const dateB = b.note?.ghl_date_added ? new Date(b.note.ghl_date_added).getTime() : 0;
           comparison = dateA - dateB;
           break;
         }
         case "taskDate": {
-          const dateA = taskA?.created_at ? new Date(taskA.created_at).getTime() : 0;
-          const dateB = taskB?.created_at ? new Date(taskB.created_at).getTime() : 0;
+          const dateA = a.task?.created_at ? new Date(a.task.created_at).getTime() : 0;
+          const dateB = b.task?.created_at ? new Date(b.task.created_at).getTime() : 0;
           comparison = dateA - dateB;
           break;
         }
@@ -434,18 +484,7 @@ export function DateRangeAppointmentsSheet({
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [filteredAppointments, sortColumn, sortDirection, contactMap, opportunityMap, notesMap, tasksMap, userMap]);
-
-  // Count appointments per contact to show multi-appointment indicator
-  const contactAppointmentCount = useMemo(() => {
-    const counts = new Map<string, number>();
-    filteredAppointments.forEach((apt) => {
-      if (apt.contact_id) {
-        counts.set(apt.contact_id, (counts.get(apt.contact_id) || 0) + 1);
-      }
-    });
-    return counts;
-  }, [filteredAppointments]);
+  }, [groupedContacts, sortColumn, sortDirection, userMap]);
 
   const startEditingAddress = (apt: DBAppointment, currentAddress: string | null, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -505,7 +544,7 @@ export function DateRangeAppointmentsSheet({
                 : "Appointments Created in Date Range"}
             </SheetTitle>
             <SheetDescription>
-              {sortedAppointments.length} appointments 
+              {sortedGroupedContacts.length} contacts ({filteredAppointments.length} appointments)
               {defaultStatusFilter === "showed" ? " (showed status, by scheduled date)" : " created (excluding cancelled)"}
             </SheetDescription>
           </SheetHeader>
@@ -546,7 +585,7 @@ export function DateRangeAppointmentsSheet({
                 size="sm"
                 className="h-9 gap-1.5"
                 onClick={handleDownloadCSV}
-                disabled={sortedAppointments.length === 0}
+                disabled={sortedGroupedContacts.length === 0}
               >
                 <Download className="h-4 w-4" />
                 Export
@@ -556,9 +595,9 @@ export function DateRangeAppointmentsSheet({
         </div>
 
         <div className="flex-1 min-h-0 overflow-auto">
-          {sortedAppointments.length === 0 ? (
+          {sortedGroupedContacts.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
-              {searchFilter ? "No appointments match the search" : "No appointments found"}
+              {searchFilter ? "No contacts match the search" : "No appointments found"}
             </p>
           ) : viewMode === "table" ? (
             // Table View
@@ -669,8 +708,9 @@ export function DateRangeAppointmentsSheet({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAppointments.map((apt) => {
-                    const contact = apt.contact_id ? contactMap.get(apt.contact_id) : null;
+                  {sortedGroupedContacts.map((group) => {
+                    const contact = group.contact;
+                    const apt = group.latestAppointment;
                     const salesPerson = apt.assigned_user_id ? userMap.get(apt.assigned_user_id) : null;
                     const contactName = contact
                       ? capitalizeWords(
@@ -695,10 +735,9 @@ export function DateRangeAppointmentsSheet({
                       return scopeField?.value || null;
                     })();
 
-                    // Get opportunity, note, task for this contact
-                    const opp = apt.contact_id ? opportunityMap.get(apt.contact_id) : null;
-                    const note = apt.contact_id ? notesMap.get(apt.contact_id) : null;
-                    const task = apt.contact_id ? tasksMap.get(apt.contact_id) : null;
+                    const opp = group.opportunity;
+                    const note = group.note;
+                    const task = group.task;
 
                     const oppStatusColor = {
                       open: "bg-blue-500/10 text-blue-500",
@@ -707,26 +746,20 @@ export function DateRangeAppointmentsSheet({
                       abandoned: "bg-gray-500/10 text-gray-500",
                     }[opp?.status?.toLowerCase() || ""] || "bg-muted text-muted-foreground";
 
+                    // Sort appointments by date descending for display
+                    const sortedDates = [...group.appointments]
+                      .filter(a => a.start_time)
+                      .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime());
+
                     return (
                       <TableRow 
-                        key={apt.id}
+                        key={group.contact_id}
                         className={onAppointmentClick ? "cursor-pointer hover:bg-muted/50" : ""}
                         onClick={() => onAppointmentClick?.(apt)}
                       >
                         <TableCell className="max-w-[160px]">
                           <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium truncate">{contactName}</span>
-                              {apt.contact_id && (contactAppointmentCount.get(apt.contact_id) || 0) > 1 && (
-                                <span 
-                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-medium shrink-0"
-                                  title={`${contactAppointmentCount.get(apt.contact_id)} appointments in this period`}
-                                >
-                                  <Repeat2 className="h-2.5 w-2.5" />
-                                  {contactAppointmentCount.get(apt.contact_id)}
-                                </span>
-                              )}
-                            </div>
+                            <span className="font-medium truncate">{contactName}</span>
                             {contact?.phone && (
                               <div className="flex items-center gap-1">
                                 <a
@@ -771,8 +804,15 @@ export function DateRangeAppointmentsSheet({
                             {apt.appointment_status || "Unknown"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {apt.start_time ? format(new Date(apt.start_time), "MMM d, h:mma") : "-"}
+                        <TableCell className="text-xs text-muted-foreground">
+                          <div className="flex flex-col gap-0.5">
+                            {sortedDates.map((a, idx) => (
+                              <span key={a.id} className={`whitespace-nowrap ${idx === 0 ? "font-medium text-foreground" : ""}`}>
+                                {format(new Date(a.start_time!), "MMM d, h:mma")}
+                              </span>
+                            ))}
+                            {sortedDates.length === 0 && "-"}
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs truncate max-w-[80px]">
                           {salesPerson || "-"}
@@ -833,8 +873,9 @@ export function DateRangeAppointmentsSheet({
           ) : (
             // Card View
             <div className="p-4 space-y-3">
-              {sortedAppointments.map((apt) => {
-                const contact = apt.contact_id ? contactMap.get(apt.contact_id) : null;
+              {sortedGroupedContacts.map((group) => {
+                const contact = group.contact;
+                const apt = group.latestAppointment;
                 const salesPerson = apt.assigned_user_id ? userMap.get(apt.assigned_user_id) : null;
                 const contactName = contact
                   ? capitalizeWords(
@@ -856,9 +897,14 @@ export function DateRangeAppointmentsSheet({
                   noshow: "bg-red-500/10 text-red-500 border-red-500/20",
                 }[apt.appointment_status?.toLowerCase() || ""] || "bg-muted text-muted-foreground";
 
+                // Sort appointments by date descending for display
+                const sortedDates = [...group.appointments]
+                  .filter(a => a.start_time)
+                  .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime());
+
                 return (
                   <Card 
-                    key={apt.id} 
+                    key={group.contact_id} 
                     className={`border-border/50 ${onAppointmentClick && !isEditingThis ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
                     onClick={() => !isEditingThis && onAppointmentClick?.(apt)}
                   >
@@ -893,21 +939,17 @@ export function DateRangeAppointmentsSheet({
                       </div>
 
                       <div className="grid gap-1.5 text-sm">
-                        {apt.ghl_date_added && (
-                          <div className="flex items-center gap-2">
-                            <CalendarCheck className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="text-foreground">
-                              Created {format(new Date(apt.ghl_date_added), "MMM d, yyyy 'at' h:mm a")}
-                            </span>
-                          </div>
-                        )}
-
-                        {apt.start_time && (
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="text-foreground">
-                              Scheduled {format(new Date(apt.start_time), "MMM d, yyyy 'at' h:mm a")}
-                            </span>
+                        {/* Show all scheduled dates */}
+                        {sortedDates.length > 0 && (
+                          <div className="flex items-start gap-2">
+                            <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                            <div className="flex flex-col gap-0.5">
+                              {sortedDates.map((a, idx) => (
+                                <span key={a.id} className={idx === 0 ? "text-foreground" : "text-muted-foreground"}>
+                                  {format(new Date(a.start_time!), "MMM d, yyyy 'at' h:mm a")}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         )}
 
