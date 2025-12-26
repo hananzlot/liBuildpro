@@ -206,9 +206,15 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
         .not("source", "is", null);
 
       if (data) {
-        // Get unique sources and sort alphabetically
-        const uniqueSources = [...new Set(data.map((c) => c.source).filter(Boolean))] as string[];
-        uniqueSources.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        // Normalize to title case and get unique sources
+        const normalizeSource = (s: string): string => {
+          return s.trim().toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+        };
+        const normalizedSources = new Set(
+          data.map((c) => c.source).filter(Boolean).map((s) => normalizeSource(s as string))
+        );
+        const uniqueSources = [...normalizedSources] as string[];
+        uniqueSources.sort((a, b) => a.localeCompare(b));
         setAvailableSources(uniqueSources);
       }
     };
