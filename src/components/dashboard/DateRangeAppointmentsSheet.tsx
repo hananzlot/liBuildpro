@@ -33,6 +33,7 @@ import {
   Download,
   ChevronUp,
   ChevronDown,
+  Repeat2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -435,6 +436,17 @@ export function DateRangeAppointmentsSheet({
     });
   }, [filteredAppointments, sortColumn, sortDirection, contactMap, opportunityMap, notesMap, tasksMap, userMap]);
 
+  // Count appointments per contact to show multi-appointment indicator
+  const contactAppointmentCount = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredAppointments.forEach((apt) => {
+      if (apt.contact_id) {
+        counts.set(apt.contact_id, (counts.get(apt.contact_id) || 0) + 1);
+      }
+    });
+    return counts;
+  }, [filteredAppointments]);
+
   const startEditingAddress = (apt: DBAppointment, currentAddress: string | null, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingAddressId(apt.ghl_id);
@@ -701,9 +713,20 @@ export function DateRangeAppointmentsSheet({
                         className={onAppointmentClick ? "cursor-pointer hover:bg-muted/50" : ""}
                         onClick={() => onAppointmentClick?.(apt)}
                       >
-                        <TableCell className="max-w-[140px]">
+                        <TableCell className="max-w-[160px]">
                           <div className="flex flex-col">
-                            <span className="font-medium truncate">{contactName}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium truncate">{contactName}</span>
+                              {apt.contact_id && (contactAppointmentCount.get(apt.contact_id) || 0) > 1 && (
+                                <span 
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 text-[10px] font-medium shrink-0"
+                                  title={`${contactAppointmentCount.get(apt.contact_id)} appointments in this period`}
+                                >
+                                  <Repeat2 className="h-2.5 w-2.5" />
+                                  {contactAppointmentCount.get(apt.contact_id)}
+                                </span>
+                              )}
+                            </div>
                             {contact?.phone && (
                               <div className="flex items-center gap-1">
                                 <a
