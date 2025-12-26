@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -2440,6 +2441,24 @@ export function OpportunityDetailSheet({
                       </SelectItem>)}
                 </SelectContent>
               </Select>
+              {/* Warning when assignee differs from opportunity owner */}
+              {appointmentAssignee && 
+               appointmentAssignee !== "__unassigned__" && 
+               opportunity?.assigned_to && 
+               appointmentAssignee !== opportunity.assigned_to && (() => {
+                 const selectedUser = filteredUsers.find(u => u.ghl_id === appointmentAssignee);
+                 const ownerUser = filteredUsers.find(u => u.ghl_id === opportunity.assigned_to);
+                 const selectedName = selectedUser?.name || `${selectedUser?.first_name || ""} ${selectedUser?.last_name || ""}`.trim() || "Selected user";
+                 const ownerName = ownerUser?.name || `${ownerUser?.first_name || ""} ${ownerUser?.last_name || ""}`.trim() || "Opportunity owner";
+                 return (
+                   <Alert className="mt-2 bg-amber-500/10 border-amber-500/30 py-2 px-3">
+                     <AlertTriangle className="h-4 w-4 text-amber-500" />
+                     <AlertDescription className="text-amber-600 dark:text-amber-400 text-xs">
+                       Assigning to <strong>{selectedName}</strong>, but opportunity owner is <strong>{ownerName}</strong>.
+                     </AlertDescription>
+                   </Alert>
+                 );
+               })()}
             </div>
             <div className="space-y-2">
               <Label htmlFor="oppApptCalendar">Calendar {!appointmentSkipGHL && "*"}</Label>
