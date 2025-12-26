@@ -172,6 +172,7 @@ interface GHLCalendar {
   name: string | null;
   is_active: boolean | null;
   location_id?: string;
+  team_members?: { userId: string }[] | null;
 }
 
 export function AppointmentDetailSheet({
@@ -551,11 +552,18 @@ export function AppointmentDetailSheet({
     try {
       const { data, error } = await supabase
         .from("ghl_calendars")
-        .select("ghl_id, name, is_active, location_id")
+        .select("ghl_id, name, is_active, location_id, team_members")
         .eq("location_id", appointment.location_id)
         .eq("is_active", true);
       if (error) throw error;
-      setCalendars(data || []);
+      // Parse team_members from JSON if needed
+      const calendarsWithTeam = (data || []).map(cal => ({
+        ...cal,
+        team_members: Array.isArray(cal.team_members) 
+          ? (cal.team_members as unknown as { userId: string }[])
+          : null
+      }));
+      setCalendars(calendarsWithTeam);
     } catch (error) {
       console.error("Error fetching calendars:", error);
     }
