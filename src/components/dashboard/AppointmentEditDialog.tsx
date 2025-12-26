@@ -62,6 +62,7 @@ interface GHLCalendar {
   name: string | null;
   is_active: boolean | null;
   location_id?: string;
+  team_members?: { userId: string }[] | null;
 }
 
 interface AppointmentEditDialogProps {
@@ -156,6 +157,20 @@ export function AppointmentEditDialog({
       }
     }
   }, [appointment, open, activeCalendars.length]);
+
+  // Auto-select calendar when assignee changes
+  useEffect(() => {
+    if (!assignee || assignee === "__unassigned__") return;
+    
+    // Find a calendar that has this user as a team member
+    const userCalendar = activeCalendars.find(cal => 
+      cal.team_members?.some(member => member.userId === assignee)
+    );
+    
+    if (userCalendar) {
+      setCalendar(userCalendar.ghl_id);
+    }
+  }, [assignee, activeCalendars]);
 
   // Reset form on close
   const handleOpenChange = (newOpen: boolean) => {

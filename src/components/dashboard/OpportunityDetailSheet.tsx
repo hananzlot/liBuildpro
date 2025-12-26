@@ -223,6 +223,7 @@ export function OpportunityDetailSheet({
   const [activeCalendars, setActiveCalendars] = useState<{
     ghl_id: string;
     name: string | null;
+    team_members?: { userId: string }[] | null;
   }[]>([]);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
 
@@ -311,17 +312,38 @@ export function OpportunityDetailSheet({
     const fetchCalendars = async () => {
       const {
         data
-      } = await supabase.from("ghl_calendars").select("ghl_id, name").eq("is_active", true).eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
+      } = await supabase.from("ghl_calendars").select("ghl_id, name, team_members").eq("is_active", true).eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
       if (data) {
-        setActiveCalendars(data);
+        // Parse team_members from JSON if needed
+        const calendarsWithTeam = data.map(cal => ({
+          ...cal,
+          team_members: Array.isArray(cal.team_members) 
+            ? (cal.team_members as unknown as { userId: string }[])
+            : null
+        }));
+        setActiveCalendars(calendarsWithTeam);
         // Auto-select first calendar if only one
-        if (data.length === 1) {
-          setAppointmentCalendar(data[0].ghl_id);
+        if (calendarsWithTeam.length === 1) {
+          setAppointmentCalendar(calendarsWithTeam[0].ghl_id);
         }
       }
     };
     fetchCalendars();
   }, []);
+
+  // Auto-select calendar when appointmentAssignee changes
+  useEffect(() => {
+    if (!appointmentAssignee || appointmentAssignee === "__unassigned__") return;
+    
+    // Find a calendar that has this user as a team member
+    const userCalendar = activeCalendars.find(cal => 
+      cal.team_members?.some(member => member.userId === appointmentAssignee)
+    );
+    
+    if (userCalendar) {
+      setAppointmentCalendar(userCalendar.ghl_id);
+    }
+  }, [appointmentAssignee, activeCalendars]);
 
   // Fetch pipelines when sheet opens
   useEffect(() => {
