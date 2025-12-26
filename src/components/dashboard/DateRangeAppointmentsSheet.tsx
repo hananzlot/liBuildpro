@@ -278,10 +278,8 @@ export function DateRangeAppointmentsSheet({
       "Opp Status",
       "Pipeline Stage",
       "Value",
-      "Last Note Date",
-      "Last Note Content",
-      "Last Task Date",
-      "Last Task Title"
+      "Last Note",
+      "Last Task"
     ];
 
     const rows = sortedGroupedContacts.map(group => {
@@ -323,10 +321,14 @@ export function DateRangeAppointmentsSheet({
         group.opportunity?.status || "",
         group.opportunity?.stage_name || "",
         group.opportunity?.monetary_value ? group.opportunity.monetary_value.toString() : "",
-        group.note?.ghl_date_added ? format(new Date(group.note.ghl_date_added), "MMM d, yyyy") : "",
-        stripHtmlTags(group.note?.body || "").replace(/\n/g, " "),
-        group.task?.created_at ? format(new Date(group.task.created_at), "MMM d, yyyy") : "",
-        group.task?.title || ""
+        // Merged note: date + content
+        group.note 
+          ? `${group.note.ghl_date_added ? format(new Date(group.note.ghl_date_added), "MMM d, yyyy") + ": " : ""}${stripHtmlTags(group.note.body || "").replace(/\n/g, " ")}`
+          : "",
+        // Merged task: date + title
+        group.task
+          ? `${group.task.created_at ? format(new Date(group.task.created_at), "MMM d, yyyy") + ": " : ""}${group.task.title || ""}`
+          : ""
       ];
     });
 
