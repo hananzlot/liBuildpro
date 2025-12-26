@@ -541,6 +541,7 @@ const Index = () => {
           : (metrics?.appointmentsCreatedInRangeList || [])} 
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []} 
+        opportunities={metrics?.allOpportunities || []}
         onAppointmentClick={appt => {
           setSelectedAppointment(appt);
           setDateRangeAppointmentsSheetOpen(false);
