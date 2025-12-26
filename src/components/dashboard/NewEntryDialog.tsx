@@ -64,18 +64,6 @@ interface GHLCalendar {
   team_members: string[];
 }
 
-const SOURCES = [
-  "Angi",
-  "Facebook",
-  "Google",
-  "Home Advisor",
-  "Instagram",
-  "Other",
-  "Referral",
-  "Thumbtack",
-  "Website",
-  "Yelp",
-];
 
 export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps) {
   const [open, setOpen] = useState(false);
@@ -106,6 +94,9 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   // Calendar state
   const [calendars, setCalendars] = useState<GHLCalendar[]>([]);
   const [selectedCalendar, setSelectedCalendar] = useState("");
+
+  // Available sources state
+  const [availableSources, setAvailableSources] = useState<string[]>([]);
 
   // CSV upload state
   const [csvEntries, setCsvEntries] = useState<CSVEntry[]>([]);
@@ -204,6 +195,24 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       }
     };
     fetchCalendars();
+  }, []);
+
+  // Fetch available sources from contacts table
+  useEffect(() => {
+    const fetchSources = async () => {
+      const { data } = await supabase
+        .from("contacts")
+        .select("source")
+        .not("source", "is", null);
+
+      if (data) {
+        // Get unique sources and sort alphabetically
+        const uniqueSources = [...new Set(data.map((c) => c.source).filter(Boolean))] as string[];
+        uniqueSources.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        setAvailableSources(uniqueSources);
+      }
+    };
+    fetchSources();
   }, []);
 
   // Auto-select first calendar when rep is selected (or clear if no calendars)
@@ -751,7 +760,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                       <SelectValue placeholder="Select source" />
                     </SelectTrigger>
                     <SelectContent>
-                      {SOURCES.map((s) => (
+                      {availableSources.map((s) => (
                         <SelectItem key={s} value={s}>
                           {s}
                         </SelectItem>
