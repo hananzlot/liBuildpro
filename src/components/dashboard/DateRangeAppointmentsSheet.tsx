@@ -270,6 +270,7 @@ export function DateRangeAppointmentsSheet({
     const headers = [
       "Contact Name",
       "Phone",
+      "Address",
       "Title/Scope",
       "Appt Status",
       "Scheduled Dates",
@@ -310,9 +311,15 @@ export function DateRangeAppointmentsSheet({
         .map(apt => format(new Date(apt.start_time!), "MMM d, yyyy h:mma"))
         .join("; ");
 
+      // Get address from latest appointment or fallback from contact
+      const address = group.latestAppointment.address 
+        || getAddressFromContact(contact, appointments, group.latestAppointment.contact_id) 
+        || "";
+
       return [
         contactName,
         contact?.phone || "",
+        address,
         group.latestAppointment.title || scopeOfWork || "",
         group.latestAppointment.appointment_status || "",
         scheduledDates,
