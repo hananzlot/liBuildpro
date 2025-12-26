@@ -125,6 +125,13 @@ function capitalizeWords(str: string): string {
     .join(" ");
 }
 
+function stripHtmlTags(html: string): string {
+  // Create a temporary element to parse HTML and extract text
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+}
+
 export function DateRangeAppointmentsSheet({
   open,
   onOpenChange,
@@ -317,7 +324,7 @@ export function DateRangeAppointmentsSheet({
         group.opportunity?.stage_name || "",
         group.opportunity?.monetary_value ? group.opportunity.monetary_value.toString() : "",
         group.note?.ghl_date_added ? format(new Date(group.note.ghl_date_added), "MMM d, yyyy") : "",
-        (group.note?.body || "").replace(/\n/g, " "),
+        stripHtmlTags(group.note?.body || "").replace(/\n/g, " "),
         group.task?.created_at ? format(new Date(group.task.created_at), "MMM d, yyyy") : "",
         group.task?.title || ""
       ];
