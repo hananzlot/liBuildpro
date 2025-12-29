@@ -50,6 +50,7 @@ serve(async (req) => {
       pipelineStageId,
       calendarId, // Calendar ID for appointments
       locationId, // Optional: which GHL location to use
+      skipGHLAppointmentSync, // If true, create local-only appointment
     } = await req.json();
 
     if (!firstName || !lastName) {
@@ -211,85 +212,115 @@ serve(async (req) => {
     // Step 3: Create Appointment if date/time provided
     let appointmentId = null;
     if (appointmentDateTime) {
-      console.log('Creating appointment in GHL...');
-      
-      // Use provided calendarId or look up from existing appointments
-      let appointmentCalendarId = calendarId;
-      if (!appointmentCalendarId && assignedTo) {
-        const { data: calendarData } = await supabase
-          .from('appointments')
-          .select('calendar_id')
-          .eq('assigned_user_id', assignedTo)
-          .eq('location_id', GHL_LOCATION_ID)
-          .not('calendar_id', 'is', null)
-          .limit(1)
-          .maybeSingle();
+      // Calculate start and end time
+      const startDate = new Date(appointmentDateTime);
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+      const appointmentTitle = `Appointment - ${firstName} ${lastName}`;
+
+      // If skipGHLAppointmentSync is true, create local-only appointment
+      if (skipGHLAppointmentSync) {
+        console.log('Creating local-only appointment (skipping GHL sync)...');
         
-        if (calendarData?.calendar_id) {
-          appointmentCalendarId = calendarData.calendar_id;
-          console.log(`Found calendar ${appointmentCalendarId} for sales rep ${assignedTo}`);
-        }
-      }
+        // Generate a local ID for the appointment
+        const localApptId = `local_${crypto.randomUUID()}`;
+        
+        const { error: insertError } = await supabase.from('appointments').insert({
+          ghl_id: localApptId,
+          location_id: GHL_LOCATION_ID,
+          contact_id: contactId,
+          calendar_id: calendarId || null,
+          title: appointmentTitle,
+          start_time: startDate.toISOString(),
+          end_time: endDate.toISOString(),
+          appointment_status: 'confirmed',
+          assigned_user_id: assignedTo || null,
+          address: address || null,
+          entered_by: enteredBy || null,
+        });
 
-      if (!appointmentCalendarId) {
-        console.warn('No calendar provided or found for sales rep, appointment cannot be created');
-        console.warn('Appointment creation skipped - contact/opportunity were created');
-      } else {
-        // Calculate end time (1 hour after start)
-        const startDate = new Date(appointmentDateTime);
-        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-
-        const apptPayload: Record<string, unknown> = {
-          contactId: contactId,
-          locationId: GHL_LOCATION_ID,
-          title: `Appointment - ${firstName} ${lastName}`,
-          startTime: startDate.toISOString(),
-          endTime: endDate.toISOString(),
-          appointmentStatus: 'confirmed',
-          calendarId: appointmentCalendarId,
-          ignoreFreeSlotValidation: true, // Bypass slot availability check
-        };
-
-        apptPayload.assignedUserId = assignedTo;
-        if (address) apptPayload.address = address;
-
-        const apptResponse = await fetch(
-          'https://services.leadconnectorhq.com/calendars/events/appointments',
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${GHL_API_KEY}`,
-              'Content-Type': 'application/json',
-              'Version': '2021-04-15',
-            },
-            body: JSON.stringify(apptPayload),
-          }
-        );
-
-        if (!apptResponse.ok) {
-          const errorText = await apptResponse.text();
-          console.error('GHL Appointment API error:', apptResponse.status, errorText);
-          console.warn('Appointment creation failed but contact/opportunity were created');
+        if (insertError) {
+          console.error('Error creating local appointment:', insertError);
         } else {
-          const apptData = await apptResponse.json();
-          appointmentId = apptData.id || apptData.appointment?.id;
-          console.log('Appointment created:', appointmentId);
+          appointmentId = localApptId;
+          console.log('Local appointment created:', appointmentId);
+        }
+      } else {
+        console.log('Creating appointment in GHL...');
+        
+        // Use provided calendarId or look up from existing appointments
+        let appointmentCalendarId = calendarId;
+        if (!appointmentCalendarId && assignedTo) {
+          const { data: calendarData } = await supabase
+            .from('appointments')
+            .select('calendar_id')
+            .eq('assigned_user_id', assignedTo)
+            .eq('location_id', GHL_LOCATION_ID)
+            .not('calendar_id', 'is', null)
+            .limit(1)
+            .maybeSingle();
+          
+          if (calendarData?.calendar_id) {
+            appointmentCalendarId = calendarData.calendar_id;
+            console.log(`Found calendar ${appointmentCalendarId} for sales rep ${assignedTo}`);
+          }
+        }
 
-          // Cache appointment in Supabase
-          if (appointmentId) {
-            await supabase.from('appointments').upsert({
-              ghl_id: appointmentId,
-              location_id: GHL_LOCATION_ID,
-              contact_id: contactId,
-              calendar_id: appointmentCalendarId,
-              title: `Appointment - ${firstName} ${lastName}`,
-              start_time: startDate.toISOString(),
-              end_time: endDate.toISOString(),
-              appointment_status: 'confirmed',
-              assigned_user_id: assignedTo || null,
-              ghl_date_added: new Date().toISOString(),
-              entered_by: enteredBy || null,
-            }, { onConflict: 'ghl_id' });
+        if (!appointmentCalendarId) {
+          console.warn('No calendar provided or found for sales rep, appointment cannot be created');
+          console.warn('Appointment creation skipped - contact/opportunity were created');
+        } else {
+          const apptPayload: Record<string, unknown> = {
+            contactId: contactId,
+            locationId: GHL_LOCATION_ID,
+            title: appointmentTitle,
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
+            appointmentStatus: 'confirmed',
+            calendarId: appointmentCalendarId,
+            ignoreFreeSlotValidation: true, // Bypass slot availability check
+          };
+
+          apptPayload.assignedUserId = assignedTo;
+          if (address) apptPayload.address = address;
+
+          const apptResponse = await fetch(
+            'https://services.leadconnectorhq.com/calendars/events/appointments',
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${GHL_API_KEY}`,
+                'Content-Type': 'application/json',
+                'Version': '2021-04-15',
+              },
+              body: JSON.stringify(apptPayload),
+            }
+          );
+
+          if (!apptResponse.ok) {
+            const errorText = await apptResponse.text();
+            console.error('GHL Appointment API error:', apptResponse.status, errorText);
+            console.warn('Appointment creation failed but contact/opportunity were created');
+          } else {
+            const apptData = await apptResponse.json();
+            appointmentId = apptData.id || apptData.appointment?.id;
+            console.log('Appointment created:', appointmentId);
+
+            // Cache appointment in Supabase
+            if (appointmentId) {
+              await supabase.from('appointments').upsert({
+                ghl_id: appointmentId,
+                location_id: GHL_LOCATION_ID,
+                contact_id: contactId,
+                calendar_id: appointmentCalendarId,
+                title: appointmentTitle,
+                start_time: startDate.toISOString(),
+                end_time: endDate.toISOString(),
+                appointment_status: 'confirmed',
+                assigned_user_id: assignedTo || null,
+                ghl_date_added: new Date().toISOString(),
+                entered_by: enteredBy || null,
+              }, { onConflict: 'ghl_id' });
+            }
           }
         }
       }

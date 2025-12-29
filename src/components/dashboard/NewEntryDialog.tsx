@@ -361,6 +361,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
           pipelineId: selectedPipeline || null,
           pipelineStageId: selectedStage || null,
           calendarId: selectedCalendar || null,
+          skipGHLAppointmentSync: true, // Default to local-only appointments
         },
       });
 
