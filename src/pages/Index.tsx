@@ -75,7 +75,7 @@ const Index = () => {
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
-  
+
   // Change password state
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -89,23 +89,25 @@ const Index = () => {
   } = useGHLMetrics(dateRange);
 
   // Fetch magazine sales for dashboard KPI (only if user has access)
-  const { data: magazineSales = [] } = useQuery({
+  const {
+    data: magazineSales = []
+  } = useQuery({
     queryKey: ["magazine-sales-dashboard"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("magazine_sales")
-        .select("price, page_size, sections_sold");
+      const {
+        data,
+        error
+      } = await supabase.from("magazine_sales").select("price, page_size, sections_sold");
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin || isMagazineEditor,
+    enabled: isAdmin || isMagazineEditor
   });
 
   // Calculate magazine sales total
   const magazineSalesTotal = useMemo(() => {
     return magazineSales.reduce((sum, sale) => sum + Number(sale.price || 0), 0);
   }, [magazineSales]);
-
   const syncMutation = useSyncContacts();
   const syncGHL2Mutation = useSyncGHL2();
   const handleOpenOpportunity = (opportunity: any, taskGhlId?: string | null) => {
@@ -117,7 +119,6 @@ const Index = () => {
     await signOut();
     toast.success("Signed out successfully");
   };
-  
   const handleChangePassword = async () => {
     if (newPassword.length < 6) {
       toast.error("Password must be at least 6 characters");
@@ -129,7 +130,9 @@ const Index = () => {
     }
     setIsChangingPassword(true);
     try {
-      const { error } = await updatePassword(newPassword);
+      const {
+        error
+      } = await updatePassword(newPassword);
       if (error) {
         toast.error(error.message);
       } else {
@@ -191,14 +194,13 @@ const Index = () => {
         <div className="px-8 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">CA Pro Builders (GHL)</h1>
-            <p className="text-sm text-muted-foreground">Executive Dashboard</p>
+            <p className="text-sm text-muted-foreground">Executive Dashboard v2.5</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             {!isLoading && <OpportunitySearch opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} conversations={metrics?.conversations || []} />}
             <div className="flex items-center gap-2 pl-2 border-l border-border">
               <NotificationBell />
-              {isAdmin && (
-                <DropdownMenu>
+              {isAdmin && <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" title="Admin tools">
                       <Wrench className="h-4 w-4" />
@@ -218,8 +220,7 @@ const Index = () => {
                       User Management
                     </DropdownMenuItem>
                   </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+                </DropdownMenu>}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-2">
@@ -254,25 +255,14 @@ const Index = () => {
                 <ListChecks className="h-4 w-4" />
                 Follow-up
               </TabsTrigger>
-              {(isAdmin || isMagazineEditor) && (
-                <TabsTrigger value="magazine-sales" className="gap-2">
+              {(isAdmin || isMagazineEditor) && <TabsTrigger value="magazine-sales" className="gap-2">
                   <BookOpen className="h-4 w-4" />
                   Magazine Sales
-                </TabsTrigger>
-              )}
+                </TabsTrigger>}
             </TabsList>
             <div className="flex items-center gap-2">
-              {!isLoading && activeTab !== "magazine-sales" && (
-                <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />
-              )}
-              {activeTab !== "magazine-sales" && (
-                <SyncDropdown 
-                  onSyncGHL={handleSync} 
-                  onSyncGHL2={handleSyncGHL2}
-                  isSyncingGHL={syncMutation.isPending}
-                  isSyncingGHL2={syncGHL2Mutation.isPending}
-                />
-              )}
+              {!isLoading && activeTab !== "magazine-sales" && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
+              {activeTab !== "magazine-sales" && <SyncDropdown onSyncGHL={handleSync} onSyncGHL2={handleSyncGHL2} isSyncingGHL={syncMutation.isPending} isSyncingGHL2={syncGHL2Mutation.isPending} />}
             </div>
           </div>
 
@@ -291,26 +281,24 @@ const Index = () => {
                   {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
                 </> : <>
                   <ClickableMetricCard title="Opportunities" value={metrics?.totalOpportunities || 0} subtitle={dateRange?.from ? "In selected range" : "All time"} icon={DollarSign} onClick={() => setOpportunitiesSheetOpen(true)} />
-                  <div 
-                    className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5"
-                  >
+                  <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">Appointments (in date range)</p>
                         <div className="flex flex-wrap gap-3 text-sm">
-                          <div 
-                            className="flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-blue-500/20 transition-colors"
-                            onClick={() => { setDateRangeAppointmentsFilter("all"); setDateRangeAppointmentsSheetOpen(true); }}
-                          >
+                          <div className="flex items-center gap-2 bg-blue-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-blue-500/20 transition-colors" onClick={() => {
+                        setDateRangeAppointmentsFilter("all");
+                        setDateRangeAppointmentsSheetOpen(true);
+                      }}>
                             <span className="text-xl font-bold text-blue-500">
                               {(metrics?.totalAppointments || 0) - (metrics?.cancelledAppointments || 0)}
                             </span>
                             <span className="text-blue-500/70 text-xs">created</span>
                           </div>
-                          <div 
-                            className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-emerald-500/20 transition-colors"
-                            onClick={() => { setDateRangeAppointmentsFilter("showed"); setDateRangeAppointmentsSheetOpen(true); }}
-                          >
+                          <div className="flex items-center gap-2 bg-emerald-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-emerald-500/20 transition-colors" onClick={() => {
+                        setDateRangeAppointmentsFilter("showed");
+                        setDateRangeAppointmentsSheetOpen(true);
+                      }}>
                             <span className="text-xl font-bold text-emerald-500">
                               {metrics?.appointmentsShowedInDateRange || 0}
                             </span>
@@ -333,57 +321,59 @@ const Index = () => {
                   <ClickableMetricCard title="Appointments (Today's & Future)" value={metrics?.appointmentsToday || 0} secondaryValue={`+ ${metrics?.upcomingAppointments || 0} upcoming`} subtitle="Today & upcoming" icon={Calendar} onClick={() => setUpcomingAppointmentsSheetOpen(true)} warningText={(metrics?.unconfirmedTodayAppointments || 0) > 0 ? `${metrics?.unconfirmedTodayAppointments} not confirmed by rep` : undefined} />
                   <ClickableMetricCard title="Won Opportunities" value={metrics?.wonOpportunitiesCount || 0} secondaryValue={formatCurrency(metrics?.wonOpportunitiesValue || 0)} subtitle="Closed deals" icon={Trophy} onClick={() => setWonOpportunitiesSheetOpen(true)} />
                   <ClickableMetricCard title="Leads Resell" value={metrics?.opportunitySalesCount || 0} secondaryValue={formatCurrency(metrics?.totalOpportunitySalesAmount || 0)} subtitle="In date range" icon={Receipt} onClick={() => setOpportunitySalesSheetOpen(true)} />
-                  {(isAdmin || isMagazineEditor) && (
-                    <ClickableMetricCard 
-                      title="Magazine Sales" 
-                      value={formatCurrency(magazineSalesTotal)} 
-                      subtitle={`${magazineSales.length} entries`}
-                      icon={BookOpen} 
-                      onClick={() => setActiveTab("magazine-sales")} 
-                    />
-                  )}
+                  {(isAdmin || isMagazineEditor) && <ClickableMetricCard title="Magazine Sales" value={formatCurrency(magazineSalesTotal)} subtitle={`${magazineSales.length} entries`} icon={BookOpen} onClick={() => setActiveTab("magazine-sales")} />}
                   <div className="relative overflow-hidden rounded-2xl bg-card p-6 border border-border/50 transition-all duration-300 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
                     <div className="flex items-start justify-between">
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">Activity</p>
-                        <div className="flex items-baseline gap-2 cursor-pointer hover:opacity-80" onClick={() => { setActivityDefaultTab("edits"); setActivitySheetOpen(true); }}>
+                        <div className="flex items-baseline gap-2 cursor-pointer hover:opacity-80" onClick={() => {
+                      setActivityDefaultTab("edits");
+                      setActivitySheetOpen(true);
+                    }}>
                           <p className="text-3xl font-bold tracking-tight text-foreground">
                             {(metrics?.opportunityEdits || 0) + (metrics?.inAppAppointmentActivityCount || 0) + (metrics?.inAppTaskActivityCount || 0) + (metrics?.inAppNoteActivityCount || 0)}
                           </p>
                           <span className="text-sm text-muted-foreground">total</span>
                         </div>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                          <span 
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("edits"); setActivitySheetOpen(true); }}
-                          >
+                          <span className="cursor-pointer hover:opacity-80 transition-opacity" onClick={e => {
+                        e.stopPropagation();
+                        setActivityDefaultTab("edits");
+                        setActivitySheetOpen(true);
+                      }}>
                             <span className="font-medium text-blue-500">{metrics?.opportunityEdits || 0}</span>
                             <span className="text-blue-500/70"> edits</span>
                           </span>
-                          <span 
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("appointments"); setActivitySheetOpen(true); }}
-                          >
+                          <span className="cursor-pointer hover:opacity-80 transition-opacity" onClick={e => {
+                        e.stopPropagation();
+                        setActivityDefaultTab("appointments");
+                        setActivitySheetOpen(true);
+                      }}>
                             <span className="font-medium text-amber-500">{metrics?.inAppAppointmentActivityCount || 0}</span>
                             <span className="text-amber-500/70"> appts</span>
                           </span>
-                          <span 
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("tasks"); setActivitySheetOpen(true); }}
-                          >
+                          <span className="cursor-pointer hover:opacity-80 transition-opacity" onClick={e => {
+                        e.stopPropagation();
+                        setActivityDefaultTab("tasks");
+                        setActivitySheetOpen(true);
+                      }}>
                             <span className="font-medium text-emerald-500">{metrics?.inAppTaskActivityCount || 0}</span>
                             <span className="text-emerald-500/70"> tasks</span>
                           </span>
-                          <span 
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={(e) => { e.stopPropagation(); setActivityDefaultTab("notes"); setActivitySheetOpen(true); }}
-                          >
+                          <span className="cursor-pointer hover:opacity-80 transition-opacity" onClick={e => {
+                        e.stopPropagation();
+                        setActivityDefaultTab("notes");
+                        setActivitySheetOpen(true);
+                      }}>
                             <span className="font-medium text-purple-500">{metrics?.inAppNoteActivityCount || 0}</span>
                             <span className="text-purple-500/70"> notes</span>
                           </span>
                         </div>
                       </div>
-                      <div className="rounded-xl bg-primary/10 p-3 cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => { setActivityDefaultTab("edits"); setActivitySheetOpen(true); }}>
+                      <div className="rounded-xl bg-primary/10 p-3 cursor-pointer hover:bg-primary/20 transition-colors" onClick={() => {
+                    setActivityDefaultTab("edits");
+                    setActivitySheetOpen(true);
+                  }}>
                         <Pencil className="h-5 w-5 text-primary" />
                       </div>
                     </div>
@@ -432,21 +422,18 @@ const Index = () => {
             {isLoading ? <Skeleton className="h-[400px] rounded-2xl" /> : <FollowUpManagement opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} contactNotes={metrics?.contactNotes || []} tasks={metrics?.tasks || []} onOpenOpportunity={handleOpenOpportunity} onDataRefresh={refetch} />}
           </TabsContent>
 
-          {(isAdmin || isMagazineEditor) && (
-            <TabsContent value="magazine-sales" className="space-y-6">
+          {(isAdmin || isMagazineEditor) && <TabsContent value="magazine-sales" className="space-y-6">
               <div>
                 <h2 className="text-xl font-semibold text-foreground mb-1">Magazine Sales</h2>
                 <p className="text-sm text-muted-foreground">Track magazine ad sales and revenue</p>
               </div>
               <MagazineSalesTab />
-            </TabsContent>
-          )}
+            </TabsContent>}
 
         </Tabs>
 
         {/* Admin Cleanup Dialog */}
-        {adminCleanupOpen && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 overflow-y-auto">
+        {adminCleanupOpen && <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 overflow-y-auto">
             <div className="min-h-screen px-4 py-8">
               <div className="max-w-6xl mx-auto bg-card rounded-2xl border border-border shadow-lg p-6 space-y-6">
                 <div className="flex items-center justify-between">
@@ -458,22 +445,10 @@ const Index = () => {
                     Close
                   </Button>
                 </div>
-                {isLoading ? (
-                  <Skeleton className="h-[400px] rounded-2xl" />
-                ) : (
-                  <AdminCleanup 
-                    opportunities={metrics?.allOpportunities || []} 
-                    contacts={metrics?.allContacts || []} 
-                    appointments={metrics?.allAppointments || []} 
-                    users={metrics?.users || []} 
-                    onDataUpdated={() => refetch()} 
-                    onOpenOpportunity={handleOpenOpportunity} 
-                  />
-                )}
+                {isLoading ? <Skeleton className="h-[400px] rounded-2xl" /> : <AdminCleanup opportunities={metrics?.allOpportunities || []} contacts={metrics?.allContacts || []} appointments={metrics?.allAppointments || []} users={metrics?.users || []} onDataUpdated={() => refetch()} onOpenOpportunity={handleOpenOpportunity} />}
               </div>
             </div>
-          </div>
-        )}
+          </div>}
 
         {/* Source Management Dialog */}
         <SourceManagement contacts={metrics?.allContacts || []} open={sourceManagementOpen} onOpenChange={setSourceManagementOpen} />
@@ -506,145 +481,103 @@ const Index = () => {
       <UpcomingAppointmentsSheet open={upcomingAppointmentsSheetOpen} onOpenChange={setUpcomingAppointmentsSheetOpen} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} opportunities={metrics?.allOpportunities || []} users={metrics?.users || []} />
 
       {/* Opportunities Sheet (for KPI card click) */}
-      <OpportunitiesSheet 
-        open={opportunitiesSheetOpen} 
-        onOpenChange={setOpportunitiesSheetOpen} 
-        opportunities={metrics?.filteredOpportunitiesList || []} 
-        contacts={metrics?.allContacts || []} 
-        users={metrics?.users || []} 
-        onOpportunityClick={opp => {
-          setSelectedOpportunity({
-            ghl_id: opp.ghl_id,
-            name: opp.name,
-            status: opp.status,
-            monetary_value: opp.monetary_value,
-            pipeline_id: opp.pipeline_id,
-            pipeline_name: opp.pipeline_name,
-            pipeline_stage_id: opp.pipeline_stage_id,
-            stage_name: opp.stage_name,
-            contact_id: opp.contact_id,
-            assigned_to: opp.assigned_to,
-            ghl_date_added: opp.ghl_date_added,
-            ghl_date_updated: opp.ghl_date_updated
-          });
-          setOpportunitiesSheetOpen(false);
-          setOppDetailSheetOpen(true);
-        }}
-      />
+      <OpportunitiesSheet open={opportunitiesSheetOpen} onOpenChange={setOpportunitiesSheetOpen} opportunities={metrics?.filteredOpportunitiesList || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} onOpportunityClick={opp => {
+      setSelectedOpportunity({
+        ghl_id: opp.ghl_id,
+        name: opp.name,
+        status: opp.status,
+        monetary_value: opp.monetary_value,
+        pipeline_id: opp.pipeline_id,
+        pipeline_name: opp.pipeline_name,
+        pipeline_stage_id: opp.pipeline_stage_id,
+        stage_name: opp.stage_name,
+        contact_id: opp.contact_id,
+        assigned_to: opp.assigned_to,
+        ghl_date_added: opp.ghl_date_added,
+        ghl_date_updated: opp.ghl_date_updated
+      });
+      setOpportunitiesSheetOpen(false);
+      setOppDetailSheetOpen(true);
+    }} />
 
       {/* Date Range Appointments Sheet (for KPI card click) */}
-      <DateRangeAppointmentsSheet 
-        open={dateRangeAppointmentsSheetOpen} 
-        onOpenChange={setDateRangeAppointmentsSheetOpen} 
-        appointments={dateRangeAppointmentsFilter === "showed" 
-          ? (metrics?.appointmentsShowedInDateRangeList || []) 
-          : (metrics?.appointmentsCreatedInRangeList || [])} 
-        contacts={metrics?.allContacts || []} 
-        users={metrics?.users || []} 
-        opportunities={metrics?.allOpportunities || []}
-        onAppointmentClick={appt => {
-          setSelectedAppointment(appt);
-          setDateRangeAppointmentsSheetOpen(false);
-          setAppointmentDetailSheetOpen(true);
-        }}
-        defaultStatusFilter={dateRangeAppointmentsFilter === "showed" ? "showed" : "all"}
-      />
+      <DateRangeAppointmentsSheet open={dateRangeAppointmentsSheetOpen} onOpenChange={setDateRangeAppointmentsSheetOpen} appointments={dateRangeAppointmentsFilter === "showed" ? metrics?.appointmentsShowedInDateRangeList || [] : metrics?.appointmentsCreatedInRangeList || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} onAppointmentClick={appt => {
+      setSelectedAppointment(appt);
+      setDateRangeAppointmentsSheetOpen(false);
+      setAppointmentDetailSheetOpen(true);
+    }} defaultStatusFilter={dateRangeAppointmentsFilter === "showed" ? "showed" : "all"} />
 
       {/* Call Logs Sheet */}
       <CallLogsSheet open={callLogsSheetOpen} onOpenChange={setCallLogsSheetOpen} callLogs={metrics?.callLogs || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} appointments={metrics?.allAppointments || []} />
 
       {/* Activity Sheet */}
-      <ActivitySheet 
-        open={activitySheetOpen} 
-        onOpenChange={setActivitySheetOpen} 
-        defaultTab={activityDefaultTab} 
-        editedOpportunities={metrics?.editedOpportunities || []} 
-        allOpportunities={metrics?.allOpportunities || []} 
-        filteredAppointments={metrics?.appointmentsCreatedInRangeList || []} 
-        filteredTasks={metrics?.filteredTasks || []} 
-        filteredNotes={metrics?.filteredNotes || []} 
-        filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} 
-        filteredTaskEdits={metrics?.filteredTaskEdits || []}
-        filteredNoteEdits={metrics?.filteredNoteEdits || []}
-        filteredAppointmentEdits={metrics?.filteredAppointmentEdits || []}
-        contacts={metrics?.allContacts || []} 
-        users={metrics?.users || []} 
-        profiles={metrics?.profiles || []} 
-        onOpportunityClick={opp => {
-          setSelectedOpportunity({
-            ghl_id: opp.ghl_id,
-            name: opp.name,
-            status: opp.status,
-            monetary_value: opp.monetary_value,
-            pipeline_id: null,
-            pipeline_name: null,
-            pipeline_stage_id: null,
-            stage_name: opp.stage_name,
-            contact_id: opp.contact_id,
-            assigned_to: opp.assigned_to,
-            ghl_date_added: null,
-            ghl_date_updated: opp.ghl_date_updated
-          });
-          setInitialTaskGhlId(null);
-          setActivitySheetOpen(false);
-          setOppDetailSheetOpen(true);
-        }} 
-        onTaskClick={(opp, task) => {
-          setSelectedOpportunity({
-            ghl_id: opp.ghl_id,
-            name: opp.name,
-            status: opp.status,
-            monetary_value: opp.monetary_value,
-            pipeline_id: null,
-            pipeline_name: null,
-            pipeline_stage_id: null,
-            stage_name: opp.stage_name,
-            contact_id: opp.contact_id,
-            assigned_to: opp.assigned_to,
-            ghl_date_added: null,
-            ghl_date_updated: opp.ghl_date_updated
-          });
-          setInitialTaskGhlId(task.ghl_id);
-          setActivitySheetOpen(false);
-          setOppDetailSheetOpen(true);
-        }} 
-        onAppointmentClick={appt => {
-          setSelectedAppointment(appt);
-          setActivitySheetOpen(false);
-          setAppointmentDetailSheetOpen(true);
-        }} 
-      />
+      <ActivitySheet open={activitySheetOpen} onOpenChange={setActivitySheetOpen} defaultTab={activityDefaultTab} editedOpportunities={metrics?.editedOpportunities || []} allOpportunities={metrics?.allOpportunities || []} filteredAppointments={metrics?.appointmentsCreatedInRangeList || []} filteredTasks={metrics?.filteredTasks || []} filteredNotes={metrics?.filteredNotes || []} filteredOpportunityEdits={metrics?.filteredOpportunityEdits || []} filteredTaskEdits={metrics?.filteredTaskEdits || []} filteredNoteEdits={metrics?.filteredNoteEdits || []} filteredAppointmentEdits={metrics?.filteredAppointmentEdits || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} profiles={metrics?.profiles || []} onOpportunityClick={opp => {
+      setSelectedOpportunity({
+        ghl_id: opp.ghl_id,
+        name: opp.name,
+        status: opp.status,
+        monetary_value: opp.monetary_value,
+        pipeline_id: null,
+        pipeline_name: null,
+        pipeline_stage_id: null,
+        stage_name: opp.stage_name,
+        contact_id: opp.contact_id,
+        assigned_to: opp.assigned_to,
+        ghl_date_added: null,
+        ghl_date_updated: opp.ghl_date_updated
+      });
+      setInitialTaskGhlId(null);
+      setActivitySheetOpen(false);
+      setOppDetailSheetOpen(true);
+    }} onTaskClick={(opp, task) => {
+      setSelectedOpportunity({
+        ghl_id: opp.ghl_id,
+        name: opp.name,
+        status: opp.status,
+        monetary_value: opp.monetary_value,
+        pipeline_id: null,
+        pipeline_name: null,
+        pipeline_stage_id: null,
+        stage_name: opp.stage_name,
+        contact_id: opp.contact_id,
+        assigned_to: opp.assigned_to,
+        ghl_date_added: null,
+        ghl_date_updated: opp.ghl_date_updated
+      });
+      setInitialTaskGhlId(task.ghl_id);
+      setActivitySheetOpen(false);
+      setOppDetailSheetOpen(true);
+    }} onAppointmentClick={appt => {
+      setSelectedAppointment(appt);
+      setActivitySheetOpen(false);
+      setAppointmentDetailSheetOpen(true);
+    }} />
 
       {/* Opportunity Detail Sheet (for GHL Tasks tab) */}
-      <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={(open) => { setOppDetailSheetOpen(open); if (!open) setInitialTaskGhlId(null); }} allOpportunities={metrics?.allOpportunities || []} initialTaskGhlId={initialTaskGhlId} />
+      <OpportunityDetailSheet opportunity={selectedOpportunity} appointments={metrics?.allAppointments || []} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={oppDetailSheetOpen} onOpenChange={open => {
+      setOppDetailSheetOpen(open);
+      if (!open) setInitialTaskGhlId(null);
+    }} allOpportunities={metrics?.allOpportunities || []} initialTaskGhlId={initialTaskGhlId} />
 
       {/* Opportunity Sales Sheet */}
-      <OpportunitySalesSheet 
-        open={opportunitySalesSheetOpen} 
-        onOpenChange={setOpportunitySalesSheetOpen} 
-        sales={metrics?.filteredOpportunitySales || []} 
-        users={metrics?.users || []} 
-        opportunities={metrics?.allOpportunities || []} 
-        contacts={metrics?.allContacts || []}
-        onOpportunityClick={opp => {
-          setSelectedOpportunity({
-            ghl_id: opp.ghl_id,
-            name: opp.name,
-            status: opp.status || null,
-            monetary_value: opp.monetary_value || null,
-            pipeline_id: opp.pipeline_id || null,
-            pipeline_name: opp.pipeline_name || null,
-            pipeline_stage_id: opp.pipeline_stage_id || null,
-            stage_name: opp.stage_name || null,
-            contact_id: opp.contact_id || null,
-            assigned_to: opp.assigned_to || null,
-            ghl_date_added: opp.ghl_date_added || null,
-            ghl_date_updated: opp.ghl_date_updated || null
-          });
-          setOpportunitySalesSheetOpen(false);
-          setOppDetailSheetOpen(true);
-        }}
-      />
+      <OpportunitySalesSheet open={opportunitySalesSheetOpen} onOpenChange={setOpportunitySalesSheetOpen} sales={metrics?.filteredOpportunitySales || []} users={metrics?.users || []} opportunities={metrics?.allOpportunities || []} contacts={metrics?.allContacts || []} onOpportunityClick={opp => {
+      setSelectedOpportunity({
+        ghl_id: opp.ghl_id,
+        name: opp.name,
+        status: opp.status || null,
+        monetary_value: opp.monetary_value || null,
+        pipeline_id: opp.pipeline_id || null,
+        pipeline_name: opp.pipeline_name || null,
+        pipeline_stage_id: opp.pipeline_stage_id || null,
+        stage_name: opp.stage_name || null,
+        contact_id: opp.contact_id || null,
+        assigned_to: opp.assigned_to || null,
+        ghl_date_added: opp.ghl_date_added || null,
+        ghl_date_updated: opp.ghl_date_updated || null
+      });
+      setOpportunitySalesSheetOpen(false);
+      setOppDetailSheetOpen(true);
+    }} />
 
       {/* Appointment Detail Sheet (for Activity tab) */}
       <AppointmentDetailSheet appointment={selectedAppointment} contacts={metrics?.allContacts || []} users={metrics?.users || []} open={appointmentDetailSheetOpen} onOpenChange={setAppointmentDetailSheetOpen} opportunities={metrics?.allOpportunities || []} />
@@ -661,23 +594,11 @@ const Index = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="new-password">New Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                placeholder="••••••••"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
+              <Input id="new-password" type="password" placeholder="••••••••" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
+              <Input id="confirm-password" type="password" placeholder="••••••••" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
