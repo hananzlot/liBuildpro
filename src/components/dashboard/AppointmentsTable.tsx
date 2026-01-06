@@ -316,27 +316,33 @@ export function AppointmentsTable({
     const bySource: Record<string, { count: number; value: number }> = {};
     const byStatus: Record<string, number> = {};
     let totalValue = 0;
+    const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
     
     filteredAppointments.forEach(a => {
-      // Count by source and accumulate value
-      const source = getContactSource(a.contact_id);
-      const oppValue = getOpportunityValue(a.contact_id) || 0;
-      
-      if (!bySource[source]) {
-        bySource[source] = { count: 0, value: 0 };
-      }
-      bySource[source].count += 1;
-      bySource[source].value += oppValue;
-      
-      totalValue += oppValue;
-      
-      // Count by appointment status
+      // Count by appointment status (all appointments)
       const status = a.appointment_status || 'Unknown';
       byStatus[status] = (byStatus[status] || 0) + 1;
+      
+      // Only count opportunity value once per contact
+      if (a.contact_id && !countedContactIds.has(a.contact_id)) {
+        countedContactIds.add(a.contact_id);
+        
+        const source = getContactSource(a.contact_id);
+        const oppValue = getOpportunityValue(a.contact_id) || 0;
+        
+        if (!bySource[source]) {
+          bySource[source] = { count: 0, value: 0 };
+        }
+        bySource[source].count += 1;
+        bySource[source].value += oppValue;
+        
+        totalValue += oppValue;
+      }
     });
 
     return {
       total: filteredAppointments.length,
+      uniqueContacts: countedContactIds.size,
       totalValue,
       bySource: Object.entries(bySource).sort((a, b) => b[1].count - a[1].count),
       byStatus: Object.entries(byStatus).sort((a, b) => b[1] - a[1]),
