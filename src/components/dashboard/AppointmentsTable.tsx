@@ -317,6 +317,7 @@ export function AppointmentsTable({
   const summaryStats = useMemo(() => {
     const bySource: Record<string, { count: number; value: number }> = {};
     const byStatus: Record<string, { total: number; uniqueContacts: Set<string> }> = {};
+    const byOppStatus: Record<string, { count: number; value: number }> = {};
     let totalValue = 0;
     const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
     
@@ -337,12 +338,19 @@ export function AppointmentsTable({
         
         const source = getContactSource(a.contact_id);
         const oppValue = getOpportunityValue(a.contact_id) || 0;
+        const oppStatus = getOpportunityStatus(a.contact_id);
         
         if (!bySource[source]) {
           bySource[source] = { count: 0, value: 0 };
         }
         bySource[source].count += 1;
         bySource[source].value += oppValue;
+        
+        if (!byOppStatus[oppStatus]) {
+          byOppStatus[oppStatus] = { count: 0, value: 0 };
+        }
+        byOppStatus[oppStatus].count += 1;
+        byOppStatus[oppStatus].value += oppValue;
         
         totalValue += oppValue;
       }
@@ -356,6 +364,7 @@ export function AppointmentsTable({
       byStatus: Object.entries(byStatus)
         .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
         .sort((a, b) => b[1].total - a[1].total),
+      byOppStatus: Object.entries(byOppStatus).sort((a, b) => b[1].value - a[1].value),
     };
   }, [filteredAppointments, contacts, opportunities]);
 
@@ -553,6 +562,26 @@ export function AppointmentsTable({
                     }}
                   >
                     {status}: {data.total}/{data.unique}
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">By Opp. Status:</span>
+                {summaryStats.byOppStatus.map(([status, data]) => (
+                  <Badge 
+                    key={status} 
+                    variant="outline" 
+                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getOpportunityStatusColor(status)} ${oppStatusFilter.length === 1 && oppStatusFilter[0] === status ? 'ring-2 ring-primary' : ''}`}
+                    onClick={() => {
+                      if (oppStatusFilter.length === 1 && oppStatusFilter[0] === status) {
+                        setOppStatusFilter([]);
+                      } else {
+                        setOppStatusFilter([status]);
+                      }
+                      setCurrentPage(1);
+                    }}
+                  >
+                    {status}: {data.count} ({formatCurrency(data.value)})
                   </Badge>
                 ))}
               </div>
