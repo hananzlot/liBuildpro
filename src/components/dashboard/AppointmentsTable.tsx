@@ -67,7 +67,7 @@ interface GHLUser {
   email: string | null;
 }
 
-type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address' | 'source' | 'oppStatus';
+type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address' | 'source' | 'oppStatus' | 'oppValue';
 type SortDirection = 'asc' | 'desc';
 
 interface AppointmentsTableProps {
@@ -167,6 +167,21 @@ export function AppointmentsTable({
     if (!contactId) return '-';
     const opp = opportunities.find(o => o.contact_id === contactId);
     return opp?.status || '-';
+  };
+
+  const getOpportunityValue = (contactId: string | null): number | null => {
+    if (!contactId) return null;
+    const opp = opportunities.find(o => o.contact_id === contactId);
+    return opp?.monetary_value || null;
+  };
+
+  const formatCurrency = (value: number | null) => {
+    if (!value) return '-';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+    }).format(value);
   };
 
   const getOpportunityStatusColor = (status: string | null) => {
@@ -296,6 +311,28 @@ export function AppointmentsTable({
     return filtered;
   }, [appointments, statusFilter, repFilter, sourceFilter, oppStatusFilter, dateRange, contacts, opportunities]);
 
+  // Summary stats based on filtered appointments
+  const summaryStats = useMemo(() => {
+    const bySource: Record<string, number> = {};
+    const byStatus: Record<string, number> = {};
+    
+    filteredAppointments.forEach(a => {
+      // Count by source
+      const source = getContactSource(a.contact_id);
+      bySource[source] = (bySource[source] || 0) + 1;
+      
+      // Count by appointment status
+      const status = a.appointment_status || 'Unknown';
+      byStatus[status] = (byStatus[status] || 0) + 1;
+    });
+
+    return {
+      total: filteredAppointments.length,
+      bySource: Object.entries(bySource).sort((a, b) => b[1] - a[1]),
+      byStatus: Object.entries(byStatus).sort((a, b) => b[1] - a[1]),
+    };
+  }, [filteredAppointments, contacts]);
+
   // Sort appointments based on selected column and direction
   const sortedAppointments = useMemo(() => {
     return [...filteredAppointments].sort((a, b) => {
@@ -324,6 +361,11 @@ export function AppointmentsTable({
           break;
         case 'oppStatus':
           comparison = getOpportunityStatus(a.contact_id).localeCompare(getOpportunityStatus(b.contact_id));
+          break;
+        case 'oppValue':
+          const valA = getOpportunityValue(a.contact_id) || 0;
+          const valB = getOpportunityValue(b.contact_id) || 0;
+          comparison = valA - valB;
           break;
         default:
           comparison = 0;
@@ -458,6 +500,31 @@ export function AppointmentsTable({
               </Button>
             )}
           </div>
+
+          {/* Summary Stats */}
+          {filteredAppointments.length > 0 && (
+            <div className="flex flex-wrap gap-4 pt-2 pb-2 border-t border-border/30 mt-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">By Status:</span>
+                {summaryStats.byStatus.map(([status, count]) => (
+                  <Badge key={status} variant="outline" className={`text-xs ${getStatusColor(status)}`}>
+                    {status}: {count}
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">By Source:</span>
+                {summaryStats.bySource.slice(0, 5).map(([source, count]) => (
+                  <Badge key={source} variant="secondary" className="text-xs">
+                    {source}: {count}
+                  </Badge>
+                ))}
+                {summaryStats.bySource.length > 5 && (
+                  <span className="text-xs text-muted-foreground">+{summaryStats.bySource.length - 5} more</span>
+                )}
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
@@ -526,12 +593,21 @@ export function AppointmentsTable({
                     <SortIcon column="oppStatus" />
                   </div>
                 </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort('oppValue')}
+                >
+                  <div className="flex items-center">
+                    Opp. Value
+                    <SortIcon column="oppValue" />
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -594,6 +670,9 @@ export function AppointmentsTable({
                       ) : (
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatCurrency(getOpportunityValue(appt.contact_id))}
                     </TableCell>
                   </TableRow>
                 ))
