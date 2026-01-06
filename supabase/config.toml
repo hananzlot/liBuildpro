@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.auto-create-never-answers-tasks]
 verify_jwt = false
+
+[functions.auto-abandon-pns-opportunities]
+verify_jwt = false
