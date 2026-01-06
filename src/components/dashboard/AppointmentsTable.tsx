@@ -69,7 +69,7 @@ interface GHLUser {
   email: string | null;
 }
 
-type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address' | 'source' | 'oppStatus' | 'oppValue';
+type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address' | 'source' | 'oppStatus' | 'oppValue' | 'stage';
 type SortDirection = 'asc' | 'desc';
 
 interface AppointmentsTableProps {
@@ -175,6 +175,12 @@ export function AppointmentsTable({
     if (!contactId) return null;
     const opp = opportunities.find(o => o.contact_id === contactId);
     return opp?.monetary_value || null;
+  };
+
+  const getOpportunityStage = (contactId: string | null): string => {
+    if (!contactId) return '-';
+    const opp = opportunities.find(o => o.contact_id === contactId);
+    return opp?.stage_name || '-';
   };
 
   const formatCurrency = (value: number | null) => {
@@ -414,6 +420,9 @@ export function AppointmentsTable({
           break;
         case 'oppStatus':
           comparison = getOpportunityStatus(a.contact_id).localeCompare(getOpportunityStatus(b.contact_id));
+          break;
+        case 'stage':
+          comparison = getOpportunityStage(a.contact_id).localeCompare(getOpportunityStage(b.contact_id));
           break;
         case 'oppValue':
           const valA = getOpportunityValue(a.contact_id) || 0;
@@ -680,20 +689,20 @@ export function AppointmentsTable({
           )}
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow className="border-border/50 hover:bg-transparent">
                 <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[180px]"
                   onClick={() => handleSort('contact')}
                 >
                   <div className="flex items-center">
-                    Contact / Appointment
+                    Contact
                     <SortIcon column="contact" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[140px]"
                   onClick={() => handleSort('address')}
                 >
                   <div className="flex items-center">
@@ -702,7 +711,7 @@ export function AppointmentsTable({
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[100px]"
                   onClick={() => handleSort('start')}
                 >
                   <div className="flex items-center">
@@ -711,7 +720,7 @@ export function AppointmentsTable({
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[100px]"
                   onClick={() => handleSort('status')}
                 >
                   <div className="flex items-center">
@@ -720,7 +729,7 @@ export function AppointmentsTable({
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[80px]"
                   onClick={() => handleSort('rep')}
                 >
                   <div className="flex items-center">
@@ -729,7 +738,7 @@ export function AppointmentsTable({
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[100px]"
                   onClick={() => handleSort('source')}
                 >
                   <div className="flex items-center">
@@ -738,20 +747,29 @@ export function AppointmentsTable({
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[70px]"
                   onClick={() => handleSort('oppStatus')}
                 >
                   <div className="flex items-center">
-                    Opp. Status
+                    Opp
                     <SortIcon column="oppStatus" />
                   </div>
                 </TableHead>
                 <TableHead 
-                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[110px]"
+                  onClick={() => handleSort('stage')}
+                >
+                  <div className="flex items-center">
+                    Stage
+                    <SortIcon column="stage" />
+                  </div>
+                </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors w-[80px]"
                   onClick={() => handleSort('oppValue')}
                 >
                   <div className="flex items-center">
-                    Opp. Value
+                    Value
                     <SortIcon column="oppValue" />
                   </div>
                 </TableHead>
@@ -760,7 +778,7 @@ export function AppointmentsTable({
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -771,60 +789,60 @@ export function AppointmentsTable({
                     className="border-border/30 hover:bg-muted/30 cursor-pointer"
                     onClick={() => handleRowClick(appt)}
                   >
-                    <TableCell>
+                    <TableCell className="py-2">
                       <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium text-foreground text-sm truncate">
                             {getContactName(appt.contact_id)}
                           </span>
                           {isUpcoming(appt.start_time) && (
-                            <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-xs">
-                              Upcoming
+                            <Badge variant="outline" className="bg-primary/20 text-primary border-primary/30 text-[10px] px-1 py-0">
+                              Soon
                             </Badge>
                           )}
                         </div>
-                        <span className="text-xs text-muted-foreground truncate max-w-[250px]">
-                          {appt.title || 'Untitled'}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground truncate">
                           {getContactPhone(appt.contact_id)}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate">
+                    <TableCell className="text-muted-foreground text-xs truncate py-2">
                       {getAddress(appt)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-muted-foreground text-xs py-2">
                       {formatDateTime(appt.start_time)}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <Badge variant="outline" className={getStatusColor(appt.appointment_status)}>
+                    <TableCell className="py-2">
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getStatusColor(appt.appointment_status)}`}>
                           {appt.appointment_status || 'Unknown'}
                         </Badge>
                         {appt.salesperson_confirmed && (
                           <span title="Salesperson Confirmed" className="text-emerald-500">
-                            <PhoneCall className="h-3.5 w-3.5" />
+                            <PhoneCall className="h-3 w-3" />
                           </span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm truncate max-w-[100px]">
+                    <TableCell className="text-muted-foreground text-xs truncate py-2">
                       {getUserName(appt.assigned_user_id)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm truncate max-w-[120px]">
+                    <TableCell className="text-muted-foreground text-xs truncate py-2">
                       {getContactSource(appt.contact_id)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="py-2">
                       {getOpportunityStatus(appt.contact_id) !== '-' ? (
-                        <Badge variant="outline" className={getOpportunityStatusColor(getOpportunityStatus(appt.contact_id))}>
+                        <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getOpportunityStatusColor(getOpportunityStatus(appt.contact_id))}`}>
                           {getOpportunityStatus(appt.contact_id)}
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
+                        <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
+                    <TableCell className="text-muted-foreground text-xs truncate py-2">
+                      {getOpportunityStage(appt.contact_id)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs py-2">
                       {formatCurrency(getOpportunityValue(appt.contact_id))}
                     </TableCell>
                   </TableRow>
