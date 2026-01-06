@@ -1112,12 +1112,30 @@ export function OpportunityDetailSheet({
   }
   const availableStages = Array.from(stageMap.keys());
 
-  // Build unique sources list from all contacts (properly capitalized)
+  // Build unique sources list from all contacts (properly capitalized) + custom sources from localStorage
   const normalizeSourceName = (sourceName: string): string => {
     if (!sourceName) return "Direct";
     return sourceName.toLowerCase().split(/[\s-_]+/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
-  const availableSources = Array.from(new Set(contacts.map(c => c.source).filter(Boolean).map(s => normalizeSourceName(s!)))).sort();
+  const availableSources = useMemo(() => {
+    const sourceSet = new Set<string>();
+    // Add sources from contacts
+    contacts.forEach(c => {
+      if (c.source) {
+        sourceSet.add(normalizeSourceName(c.source));
+      }
+    });
+    // Add custom sources from localStorage
+    try {
+      const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
+      customSources.forEach((s: string) => {
+        sourceSet.add(normalizeSourceName(s));
+      });
+    } catch (e) {
+      console.error("Error parsing custom sources:", e);
+    }
+    return Array.from(sourceSet).sort();
+  }, [contacts]);
   const handleEditClick = () => {
     // Use savedValues if available (for re-editing without closing), otherwise use opportunity prop
     setEditedStatus(savedValues.status ?? opportunity?.status?.toLowerCase() ?? "open");
