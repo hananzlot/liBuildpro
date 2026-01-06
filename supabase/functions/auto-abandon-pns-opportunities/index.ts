@@ -33,11 +33,11 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${pnsOpportunities?.length || 0} PNS opportunities to update`);
 
-    // Find all opportunities with stage_name containing "Never Answered" and status not already "abandoned"
+    // Find all opportunities with stage_name containing "Never Answer" (matches "Never Answers" and "Never Answered")
     const { data: neverAnsweredOpportunities, error: naFetchError } = await supabase
       .from('opportunities')
       .select('id, ghl_id, name, stage_name, status, contact_id, location_id')
-      .ilike('stage_name', '%Never Answered%')
+      .ilike('stage_name', '%Never Answer%')
       .neq('status', 'abandoned');
 
     if (naFetchError) {
