@@ -8,7 +8,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart3, TrendingUp, Users, Megaphone } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface Appointment {
   ghl_id: string;
@@ -16,11 +17,15 @@ interface Appointment {
   appointment_status: string | null;
   assigned_user_id: string | null;
   salesperson_confirmed?: boolean;
+  start_time?: string | null;
+  title?: string | null;
 }
 
 interface Contact {
   ghl_id: string;
   source: string | null;
+  contact_name?: string | null;
+  phone?: string | null;
 }
 
 interface Opportunity {
@@ -28,6 +33,7 @@ interface Opportunity {
   contact_id: string | null;
   status: string | null;
   monetary_value: number | null;
+  name?: string | null;
 }
 
 interface User {
@@ -36,6 +42,13 @@ interface User {
   first_name: string | null;
   last_name: string | null;
 }
+
+type DetailView = 
+  | { type: "status"; value: string }
+  | { type: "oppStatus"; value: string }
+  | { type: "source"; value: string }
+  | { type: "rep"; value: string }
+  | null;
 
 interface AppointmentsAnalysisDialogProps {
   open: boolean;
@@ -54,6 +67,8 @@ export function AppointmentsAnalysisDialog({
   opportunities,
   users,
 }: AppointmentsAnalysisDialogProps) {
+  const [detailView, setDetailView] = useState<DetailView>(null);
+
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
     if (value >= 1000) return `$${(value / 1000).toFixed(0)}K`;
@@ -239,6 +254,33 @@ export function AppointmentsAnalysisDialog({
       .sort((a, b) => b.value - a.value);
   }, [nonCancelledAppointments, userMap, getOpportunityForContact]);
 
+  // Get filtered appointments for detail view
+  const detailAppointments = useMemo(() => {
+    if (!detailView) return [];
+    
+    return nonCancelledAppointments.filter(apt => {
+      switch (detailView.type) {
+        case "status":
+          return (apt.appointment_status?.toLowerCase() || "unknown") === detailView.value;
+        case "oppStatus": {
+          const opp = getOpportunityForContact(apt.contact_id);
+          return (opp?.status?.toLowerCase() || "no opportunity") === detailView.value;
+        }
+        case "source": {
+          const contact = contactMap.get(apt.contact_id || "");
+          return normalizeSourceName(contact?.source || "Direct") === detailView.value;
+        }
+        case "rep": {
+          const repId = apt.assigned_user_id || "__unassigned__";
+          const repName = repId === "__unassigned__" ? "Unassigned" : (userMap.get(repId) || "Unknown");
+          return repName === detailView.value;
+        }
+        default:
+          return false;
+      }
+    });
+  }, [detailView, nonCancelledAppointments, getOpportunityForContact, contactMap, userMap]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "showed": return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
@@ -264,8 +306,24 @@ export function AppointmentsAnalysisDialog({
   const displayedSources = showAllSources ? bySource : bySource.slice(0, 4);
   const remainingSources = bySource.length - 4;
 
+  // Reset detail view when dialog closes
+  const handleOpenChange = (open: boolean) => {
+    if (!open) setDetailView(null);
+    onOpenChange(open);
+  };
+
+  const getDetailTitle = () => {
+    if (!detailView) return "";
+    switch (detailView.type) {
+      case "status": return `Status: ${detailView.value}`;
+      case "oppStatus": return `Opp. Status: ${detailView.value}`;
+      case "source": return `Source: ${detailView.value}`;
+      case "rep": return `Rep: ${detailView.value}`;
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh]">
         <DialogHeader>
           <div className="flex items-center gap-3">
@@ -280,108 +338,175 @@ export function AppointmentsAnalysisDialog({
         </DialogHeader>
 
         <ScrollArea className="max-h-[65vh] pr-4">
-          <div className="space-y-6">
-            {/* Total Value */}
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">Total Value:</span>
-              <Badge variant="outline" className="text-lg font-bold bg-primary/10 text-primary border-primary/30 px-3 py-1">
-                {formatCurrency(totalValue)}
-              </Badge>
+          {detailView ? (
+            <div className="space-y-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setDetailView(null)}
+                className="gap-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Back to Summary
+              </Button>
+              
+              <h3 className="font-semibold text-lg">{getDetailTitle()}</h3>
+              <p className="text-sm text-muted-foreground">{detailAppointments.length} appointment(s)</p>
+              
+              <div className="space-y-2">
+                {detailAppointments.map(apt => {
+                  const contact = contactMap.get(apt.contact_id || "");
+                  const opp = getOpportunityForContact(apt.contact_id);
+                  const repName = apt.assigned_user_id 
+                    ? userMap.get(apt.assigned_user_id) || "Unknown"
+                    : "Unassigned";
+                  
+                  return (
+                    <div 
+                      key={apt.ghl_id} 
+                      className="p-3 rounded-lg border bg-card"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            {contact?.contact_name || apt.title || "Unknown Contact"}
+                          </p>
+                          {contact?.phone && (
+                            <p className="text-sm text-muted-foreground">{contact.phone}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <Badge variant="outline" className={`text-xs ${getStatusColor(apt.appointment_status?.toLowerCase() || "")}`}>
+                              {apt.appointment_status || "Unknown"}
+                            </Badge>
+                            {opp && (
+                              <Badge variant="outline" className={`text-xs ${getOppStatusColor(opp.status?.toLowerCase() || "")}`}>
+                                {opp.status} - {formatCurrency(opp.monetary_value || 0)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right text-sm">
+                          <p className="text-muted-foreground">{repName}</p>
+                          {apt.start_time && (
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(apt.start_time).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Total Value */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">Total Value:</span>
+                <Badge variant="outline" className="text-lg font-bold bg-primary/10 text-primary border-primary/30 px-3 py-1">
+                  {formatCurrency(totalValue)}
+                </Badge>
+              </div>
 
-            {/* By Status */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <TrendingUp className="h-4 w-4" />
-                By Status:
+              {/* By Status */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <TrendingUp className="h-4 w-4" />
+                  By Status:
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {byStatus.map(({ status, count, uniqueContacts }) => (
+                    <Badge 
+                      key={status} 
+                      variant="outline" 
+                      className={`${getStatusColor(status)} px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity`}
+                      onClick={() => setDetailView({ type: "status", value: status })}
+                    >
+                      {status}: {count}/{uniqueContacts}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {byStatus.map(({ status, count, uniqueContacts }) => (
-                  <Badge 
-                    key={status} 
-                    variant="outline" 
-                    className={`${getStatusColor(status)} px-3 py-1`}
-                  >
-                    {status}: {count}/{uniqueContacts}
-                  </Badge>
-                ))}
-              </div>
-            </div>
 
-            {/* By Opp. Status */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                By Opp. Status:
+              {/* By Opp. Status */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  By Opp. Status:
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {byOppStatus.map(({ status, count, value }) => (
+                    <Badge 
+                      key={status} 
+                      variant="outline" 
+                      className={`${getOppStatusColor(status)} px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity`}
+                      onClick={() => setDetailView({ type: "oppStatus", value: status })}
+                    >
+                      {status}: {count} ({formatCurrency(value)})
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {byOppStatus.map(({ status, count, value }) => (
-                  <Badge 
-                    key={status} 
-                    variant="outline" 
-                    className={`${getOppStatusColor(status)} px-3 py-1`}
-                  >
-                    {status}: {count} ({formatCurrency(value)})
-                  </Badge>
-                ))}
-              </div>
-            </div>
 
-            {/* By Source */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Megaphone className="h-4 w-4" />
-                By Source:
+              {/* By Source */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Megaphone className="h-4 w-4" />
+                  By Source:
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {displayedSources.map(({ source, count, value }) => (
+                    <Badge 
+                      key={source} 
+                      variant="outline" 
+                      className="bg-card border-border px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => setDetailView({ type: "source", value: source })}
+                    >
+                      {source}: {count} ({formatCurrency(value)})
+                    </Badge>
+                  ))}
+                  {remainingSources > 0 && !showAllSources && (
+                    <Badge 
+                      variant="outline" 
+                      className="bg-muted/50 border-border px-3 py-1 cursor-pointer hover:bg-muted"
+                      onClick={() => setShowAllSources(true)}
+                    >
+                      +{remainingSources} more ▼
+                    </Badge>
+                  )}
+                  {showAllSources && bySource.length > 4 && (
+                    <Badge 
+                      variant="outline" 
+                      className="bg-muted/50 border-border px-3 py-1 cursor-pointer hover:bg-muted"
+                      onClick={() => setShowAllSources(false)}
+                    >
+                      Show less ▲
+                    </Badge>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {displayedSources.map(({ source, count, value }) => (
-                  <Badge 
-                    key={source} 
-                    variant="outline" 
-                    className="bg-card border-border px-3 py-1"
-                  >
-                    {source}: {count} ({formatCurrency(value)})
-                  </Badge>
-                ))}
-                {remainingSources > 0 && !showAllSources && (
-                  <Badge 
-                    variant="outline" 
-                    className="bg-muted/50 border-border px-3 py-1 cursor-pointer hover:bg-muted"
-                    onClick={() => setShowAllSources(true)}
-                  >
-                    +{remainingSources} more ▼
-                  </Badge>
-                )}
-                {showAllSources && bySource.length > 4 && (
-                  <Badge 
-                    variant="outline" 
-                    className="bg-muted/50 border-border px-3 py-1 cursor-pointer hover:bg-muted"
-                    onClick={() => setShowAllSources(false)}
-                  >
-                    Show less ▲
-                  </Badge>
-                )}
-              </div>
-            </div>
 
-            {/* By Rep */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                <Users className="h-4 w-4" />
-                By Rep:
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {byRep.map(({ rep, count, value }) => (
-                  <Badge 
-                    key={rep} 
-                    variant="outline" 
-                    className="bg-card border-border px-3 py-1"
-                  >
-                    {rep}: {count} ({value > 0 ? formatCurrency(value) : "-"})
-                  </Badge>
-                ))}
+              {/* By Rep */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  By Rep:
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {byRep.map(({ rep, count, value }) => (
+                    <Badge 
+                      key={rep} 
+                      variant="outline" 
+                      className="bg-card border-border px-3 py-1 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => setDetailView({ type: "rep", value: rep })}
+                    >
+                      {rep}: {count} ({value > 0 ? formatCurrency(value) : "-"})
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </ScrollArea>
       </DialogContent>
     </Dialog>
