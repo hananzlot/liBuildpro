@@ -352,7 +352,7 @@ export function AppointmentsTable({
       total: filteredAppointments.length,
       uniqueContacts: countedContactIds.size,
       totalValue,
-      bySource: Object.entries(bySource).sort((a, b) => b[1].count - a[1].count),
+      bySource: Object.entries(bySource).sort((a, b) => b[1].value - a[1].value),
       byStatus: Object.entries(byStatus)
         .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
         .sort((a, b) => b[1].total - a[1].total),
