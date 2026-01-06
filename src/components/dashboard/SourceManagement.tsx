@@ -1,12 +1,12 @@
 import { useState, useMemo } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Edit, ArrowRight, Search } from "lucide-react";
+import { Loader2, Edit, ArrowRight, Search, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -39,6 +39,10 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
   const [newSourceName, setNewSourceName] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // New source state
+  const [showAddNew, setShowAddNew] = useState(false);
+  const [newSourceInput, setNewSourceInput] = useState("");
 
   // Calculate source counts
   const sourceCounts = useMemo(() => {
@@ -102,17 +106,91 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
     }
   };
 
+  const handleAddNewSource = () => {
+    if (!newSourceInput.trim()) {
+      toast.error("Please enter a source name");
+      return;
+    }
+
+    const normalizedName = normalizeSourceName(newSourceInput.trim());
+    
+    // Check if source already exists
+    const existingSource = sourceCounts.find(
+      (item) => item.source.toLowerCase() === normalizedName.toLowerCase()
+    );
+    
+    if (existingSource) {
+      toast.error(`Source "${normalizedName}" already exists`);
+      return;
+    }
+
+    // Store in localStorage for the NewEntryDialog to pick up
+    const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
+    if (!customSources.includes(normalizedName)) {
+      customSources.push(normalizedName);
+      localStorage.setItem("customSources", JSON.stringify(customSources));
+    }
+    
+    toast.success(`Source "${normalizedName}" added and is now available when creating new entries`);
+    setNewSourceInput("");
+    setShowAddNew(false);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Manage Sources</DialogTitle>
           <DialogDescription>
-            Rename sources across all opportunities at once. Changes will sync to GoHighLevel.
+            Add new sources or rename existing ones across all opportunities.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+          {/* Add New Source Section */}
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium">Add New Source</h4>
+              {!showAddNew && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddNew(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Source
+                </Button>
+              )}
+            </div>
+            
+            {showAddNew && (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newSourceInput}
+                  onChange={(e) => setNewSourceInput(e.target.value)}
+                  placeholder="Enter new source name..."
+                  className="h-9"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddNewSource();
+                  }}
+                />
+                <Button size="sm" onClick={handleAddNewSource}>
+                  Add
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowAddNew(false);
+                    setNewSourceInput("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </div>
+
           {/* Rename Section */}
           <div className="border rounded-lg p-4 bg-muted/30">
             <h4 className="text-sm font-medium mb-3">Bulk Rename Source</h4>

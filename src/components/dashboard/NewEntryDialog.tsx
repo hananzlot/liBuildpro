@@ -197,7 +197,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     fetchCalendars();
   }, []);
 
-  // Fetch available sources from contacts table
+  // Fetch available sources from contacts table + custom sources from localStorage
   useEffect(() => {
     const fetchSources = async () => {
       const { data } = await supabase
@@ -205,18 +205,31 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
         .select("source")
         .not("source", "is", null);
 
+      // Normalize to title case and get unique sources
+      const normalizeSource = (s: string): string => {
+        return s.trim().toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+      };
+      
+      const normalizedSources = new Set<string>();
+      
+      // Add sources from database
       if (data) {
-        // Normalize to title case and get unique sources
-        const normalizeSource = (s: string): string => {
-          return s.trim().toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
-        };
-        const normalizedSources = new Set(
-          data.map((c) => c.source).filter(Boolean).map((s) => normalizeSource(s as string))
-        );
-        const uniqueSources = [...normalizedSources] as string[];
-        uniqueSources.sort((a, b) => a.localeCompare(b));
-        setAvailableSources(uniqueSources);
+        data.forEach((c) => {
+          if (c.source) {
+            normalizedSources.add(normalizeSource(c.source));
+          }
+        });
       }
+      
+      // Add custom sources from localStorage
+      const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
+      customSources.forEach((s: string) => {
+        normalizedSources.add(normalizeSource(s));
+      });
+      
+      const uniqueSources = [...normalizedSources];
+      uniqueSources.sort((a, b) => a.localeCompare(b));
+      setAvailableSources(uniqueSources);
     };
     fetchSources();
   }, []);
