@@ -20,6 +20,11 @@ function getGHLApiKey(locationId: string): string {
   return apiKey1;
 }
 
+// Helper to add delay between API calls to avoid rate limiting
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Update opportunity status in GHL
 async function updateGHLOpportunityStatus(ghlId: string, locationId: string): Promise<boolean> {
   try {
@@ -109,6 +114,7 @@ Deno.serve(async (req) => {
     }
 
     // Update each opportunity in GHL first, then in Supabase
+    // Add 500ms delay between calls to avoid rate limiting
     let ghlUpdated = 0;
     let ghlFailed = 0;
     
@@ -120,6 +126,8 @@ Deno.serve(async (req) => {
         } else {
           ghlFailed++;
         }
+        // Wait 500ms between API calls to avoid rate limiting
+        await delay(500);
       }
     }
 
