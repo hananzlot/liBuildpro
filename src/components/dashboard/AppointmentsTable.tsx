@@ -10,11 +10,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, ChevronLeft, ChevronRight, User, Filter, ArrowUpDown, ArrowUp, ArrowDown, PhoneCall } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown, PhoneCall } from "lucide-react";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
+import { DateRangeFilter } from "./DateRangeFilter";
+import { DateRange } from "react-day-picker";
 import { getAddressFromContact } from "@/lib/utils";
 
 interface Appointment {
@@ -66,7 +67,6 @@ interface GHLUser {
   email: string | null;
 }
 
-type TimeFilter = 'all' | 'past' | 'upcoming' | 'today';
 type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address';
 type SortDirection = 'asc' | 'desc';
 
@@ -90,7 +90,12 @@ export function AppointmentsTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [repFilter, setRepFilter] = useState<string[]>([]);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    return { from: start, to: end };
+  });
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>('start');
@@ -198,26 +203,21 @@ export function AppointmentsTable({
       filtered = filtered.filter(a => a.assigned_user_id && repFilter.includes(a.assigned_user_id));
     }
 
-    // Time filter
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const todayEnd = new Date(todayStart);
-    todayEnd.setDate(todayEnd.getDate() + 1);
-
-    if (timeFilter === 'past') {
-      filtered = filtered.filter(a => a.start_time && new Date(a.start_time) < now);
-    } else if (timeFilter === 'upcoming') {
-      filtered = filtered.filter(a => a.start_time && new Date(a.start_time) >= now);
-    } else if (timeFilter === 'today') {
+    // Date range filter
+    if (dateRange?.from) {
       filtered = filtered.filter(a => {
         if (!a.start_time) return false;
         const apptDate = new Date(a.start_time);
-        return apptDate >= todayStart && apptDate < todayEnd;
+        const from = dateRange.from!;
+        const to = dateRange.to || dateRange.from!;
+        const fromStart = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+        const toEnd = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59);
+        return apptDate >= fromStart && apptDate <= toEnd;
       });
     }
 
     return filtered;
-  }, [appointments, statusFilter, repFilter, timeFilter]);
+  }, [appointments, statusFilter, repFilter, dateRange]);
 
   // Sort appointments based on selected column and direction
   const sortedAppointments = useMemo(() => {
@@ -267,8 +267,8 @@ export function AppointmentsTable({
     setCurrentPage(1);
   };
 
-  const handleTimeChange = (value: TimeFilter) => {
-    setTimeFilter(value);
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
     setCurrentPage(1);
   };
 
@@ -307,19 +307,11 @@ export function AppointmentsTable({
           </div>
           
           {/* Filters */}
-          <div className="flex flex-wrap gap-2">
-            <Select value={timeFilter} onValueChange={(v) => handleTimeChange(v as TimeFilter)}>
-              <SelectTrigger className="w-[130px] h-8 text-xs">
-                <Filter className="h-3 w-3 mr-1" />
-                <SelectValue placeholder="Time" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Time</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="upcoming">Upcoming</SelectItem>
-                <SelectItem value="past">Past</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap gap-2 items-center">
+            <DateRangeFilter
+              dateRange={dateRange}
+              onDateRangeChange={handleDateRangeChange}
+            />
 
             <MultiSelectFilter
               options={statusOptions}
@@ -338,7 +330,7 @@ export function AppointmentsTable({
               className="w-[150px]"
             />
 
-            {(statusFilter.length > 0 || repFilter.length > 0 || timeFilter !== 'all') && (
+            {(statusFilter.length > 0 || repFilter.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -346,11 +338,10 @@ export function AppointmentsTable({
                 onClick={() => {
                   setStatusFilter([]);
                   setRepFilter([]);
-                  setTimeFilter('all');
                   setCurrentPage(1);
                 }}
               >
-                Clear All
+                Clear Filters
               </Button>
             )}
           </div>
