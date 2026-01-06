@@ -10,13 +10,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown, PhoneCall, DollarSign, Megaphone } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown, PhoneCall, DollarSign, Megaphone, ChevronDown } from "lucide-react";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { DateRange } from "react-day-picker";
 import { getAddressFromContact } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Appointment {
   ghl_id: string;
@@ -542,24 +544,35 @@ export function AppointmentsTable({
                   </Badge>
                 ))}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">By Source:</span>
-                {summaryStats.bySource.slice(0, 5).map(([source, data]) => (
-                  <Badge key={source} variant="secondary" className="text-xs">
-                    {source}: {data.count} ({formatCurrency(data.value)})
-                  </Badge>
-                ))}
-                {summaryStats.bySource.length > 5 && (() => {
-                  const hiddenSources = summaryStats.bySource.slice(5);
-                  const hiddenValue = hiddenSources.reduce((sum, [, data]) => sum + data.value, 0);
-                  const hiddenCount = hiddenSources.reduce((sum, [, data]) => sum + data.count, 0);
-                  return (
-                    <Badge variant="outline" className="text-xs text-muted-foreground">
-                      +{hiddenSources.length} more: {hiddenCount} ({formatCurrency(hiddenValue)})
+              <Collapsible className="w-full">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">By Source:</span>
+                  {summaryStats.bySource.slice(0, 5).map(([source, data]) => (
+                    <Badge key={source} variant="secondary" className="text-xs">
+                      {source}: {data.count} ({formatCurrency(data.value)})
                     </Badge>
-                  );
-                })()}
-              </div>
+                  ))}
+                  {summaryStats.bySource.length > 5 && (
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1">
+                        <span>+{summaryStats.bySource.length - 5} more</span>
+                        <ChevronDown className="h-3 w-3 transition-transform duration-200 [[data-state=open]_&]:rotate-180" />
+                      </Button>
+                    </CollapsibleTrigger>
+                  )}
+                </div>
+                <CollapsibleContent>
+                  <ScrollArea className="max-h-32 mt-2">
+                    <div className="flex flex-wrap gap-2 pl-[70px]">
+                      {summaryStats.bySource.slice(5).map(([source, data]) => (
+                        <Badge key={source} variant="secondary" className="text-xs">
+                          {source}: {data.count} ({formatCurrency(data.value)})
+                        </Badge>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CollapsibleContent>
+              </Collapsible>
             </div>
           )}
         </CardHeader>
