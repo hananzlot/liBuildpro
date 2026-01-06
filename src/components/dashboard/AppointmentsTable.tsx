@@ -308,7 +308,7 @@ export function AppointmentsTable({
     if (oppStatusFilter.length > 0) {
       filtered = filtered.filter(a => {
         const opp = opportunities.find(o => o.contact_id === a.contact_id);
-        return opp?.status && oppStatusFilter.includes(opp.status);
+        return opp?.status && oppStatusFilter.includes(opp.status.toLowerCase());
       });
     }
 
@@ -623,12 +623,12 @@ export function AppointmentsTable({
                   <Badge 
                     key={status} 
                     variant="outline" 
-                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getOpportunityStatusColor(status)} ${oppStatusFilter.length === 1 && oppStatusFilter[0] === status ? 'ring-2 ring-primary' : ''}`}
+                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getOpportunityStatusColor(status)} ${oppStatusFilter.length === 1 && oppStatusFilter[0] === status.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => {
-                      if (oppStatusFilter.length === 1 && oppStatusFilter[0] === status) {
+                      if (oppStatusFilter.length === 1 && oppStatusFilter[0] === status.toLowerCase()) {
                         setOppStatusFilter([]);
                       } else {
-                        setOppStatusFilter([status]);
+                        setOppStatusFilter([status.toLowerCase()]);
                       }
                       setCurrentPage(1);
                     }}
