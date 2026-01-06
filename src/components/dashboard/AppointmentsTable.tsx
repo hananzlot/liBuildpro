@@ -318,7 +318,7 @@ export function AppointmentsTable({
     const bySource: Record<string, { count: number; value: number }> = {};
     const byStatus: Record<string, { total: number; uniqueContacts: Set<string> }> = {};
     const byOppStatus: Record<string, { count: number; value: number }> = {};
-    const byRep: Record<string, { count: number; value: number }> = {};
+    const byRep: Record<string, { count: number; value: number; countedContacts: Set<string> }> = {};
     let totalValue = 0;
     const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
     
@@ -333,14 +333,19 @@ export function AppointmentsTable({
         byStatus[status].uniqueContacts.add(a.contact_id);
       }
 
-      // Count by rep (all appointments)
+      // Count by rep (appointments count, but only unique contact values)
       const repName = getUserName(a.assigned_user_id);
-      const oppValueForRep = getOpportunityValue(a.contact_id) || 0;
       if (!byRep[repName]) {
-        byRep[repName] = { count: 0, value: 0 };
+        byRep[repName] = { count: 0, value: 0, countedContacts: new Set() };
       }
       byRep[repName].count += 1;
-      byRep[repName].value += oppValueForRep;
+      
+      // Only add value once per unique contact per rep
+      if (a.contact_id && !byRep[repName].countedContacts.has(a.contact_id)) {
+        byRep[repName].countedContacts.add(a.contact_id);
+        const oppValueForRep = getOpportunityValue(a.contact_id) || 0;
+        byRep[repName].value += oppValueForRep;
+      }
       
       // Only count opportunity value once per contact
       if (a.contact_id && !countedContactIds.has(a.contact_id)) {
@@ -375,7 +380,9 @@ export function AppointmentsTable({
         .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
         .sort((a, b) => b[1].total - a[1].total),
       byOppStatus: Object.entries(byOppStatus).sort((a, b) => b[1].value - a[1].value),
-      byRep: Object.entries(byRep).sort((a, b) => b[1].value - a[1].value),
+      byRep: Object.entries(byRep)
+        .map(([rep, data]) => [rep, { count: data.count, value: data.value }] as [string, { count: number; value: number }])
+        .sort((a, b) => b[1].value - a[1].value),
     };
   }, [filteredAppointments, contacts, opportunities, users]);
 
