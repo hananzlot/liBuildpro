@@ -333,7 +333,7 @@ export function AppointmentsTable({
     const bySource: Record<string, { count: number; value: number }> = {};
     const byStatus: Record<string, { total: number; uniqueContacts: Set<string> }> = {};
     const byOppStatus: Record<string, { count: number; value: number }> = {};
-    const byRep: Record<string, { count: number; value: number; countedContacts: Set<string> }> = {};
+    const byRep: Record<string, { id: string; name: string; count: number; value: number; countedContacts: Set<string> }> = {};
     let totalValue = 0;
     const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
     
@@ -349,17 +349,18 @@ export function AppointmentsTable({
       }
 
       // Count by rep (appointments count, but only unique contact values)
+      const repId = a.assigned_user_id || 'unassigned';
       const repName = getUserName(a.assigned_user_id);
-      if (!byRep[repName]) {
-        byRep[repName] = { count: 0, value: 0, countedContacts: new Set() };
+      if (!byRep[repId]) {
+        byRep[repId] = { id: repId, name: repName, count: 0, value: 0, countedContacts: new Set() };
       }
-      byRep[repName].count += 1;
+      byRep[repId].count += 1;
       
       // Only add value once per unique contact per rep
-      if (a.contact_id && !byRep[repName].countedContacts.has(a.contact_id)) {
-        byRep[repName].countedContacts.add(a.contact_id);
+      if (a.contact_id && !byRep[repId].countedContacts.has(a.contact_id)) {
+        byRep[repId].countedContacts.add(a.contact_id);
         const oppValueForRep = getOpportunityValue(a.contact_id) || 0;
-        byRep[repName].value += oppValueForRep;
+        byRep[repId].value += oppValueForRep;
       }
       
       // Only count opportunity value once per contact
@@ -395,9 +396,9 @@ export function AppointmentsTable({
         .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
         .sort((a, b) => b[1].total - a[1].total),
       byOppStatus: Object.entries(byOppStatus).sort((a, b) => b[1].value - a[1].value),
-      byRep: Object.entries(byRep)
-        .map(([rep, data]) => [rep, { count: data.count, value: data.value }] as [string, { count: number; value: number }])
-        .sort((a, b) => b[1].value - a[1].value),
+      byRep: Object.values(byRep)
+        .map(data => ({ id: data.id, name: data.name, count: data.count, value: data.value }))
+        .sort((a, b) => b.value - a.value),
     };
   }, [filteredAppointments, contacts, opportunities, users]);
 
@@ -691,21 +692,21 @@ export function AppointmentsTable({
               </Collapsible>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">By Rep:</span>
-                {summaryStats.byRep.map(([rep, data]) => (
+                {summaryStats.byRep.map((rep) => (
                   <Badge 
-                    key={rep} 
+                    key={rep.id} 
                     variant="outline" 
-                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${repFilter.length === 1 && repFilter[0] === rep ? 'ring-2 ring-primary' : ''}`}
+                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${repFilter.length === 1 && repFilter[0] === rep.id ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => {
-                      if (repFilter.length === 1 && repFilter[0] === rep) {
+                      if (repFilter.length === 1 && repFilter[0] === rep.id) {
                         setRepFilter([]);
                       } else {
-                        setRepFilter([rep]);
+                        setRepFilter([rep.id]);
                       }
                       setCurrentPage(1);
                     }}
                   >
-                    {rep}: {data.count} ({formatCurrency(data.value)})
+                    {rep.name}: {rep.count} ({formatCurrency(rep.value)})
                   </Badge>
                 ))}
               </div>
