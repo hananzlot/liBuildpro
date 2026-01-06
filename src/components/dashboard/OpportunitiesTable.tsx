@@ -141,7 +141,7 @@ export function OpportunitiesTable({
   const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [currentPage, setCurrentPage] = useState(1);
-  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
+  const [tableDateField, setTableDateField] = useState<"appointmentDate" | "updatedDate" | "createdDate">("appointmentDate");
   const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -313,7 +313,16 @@ export function OpportunitiesTable({
     if (tableDateRange?.from) {
       filtered = filtered.filter((opp) => {
         let dateStr: string | null | undefined;
-        if (tableDateField === "updatedDate") {
+        if (tableDateField === "appointmentDate") {
+          // Get the earliest appointment date for this contact
+          const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
+          if (oppAppointments.length === 0) return false;
+          // Find earliest appointment by start_time
+          const sortedAppointments = [...oppAppointments].sort((a, b) => 
+            new Date(a.start_time || 0).getTime() - new Date(b.start_time || 0).getTime()
+          );
+          dateStr = sortedAppointments[0]?.start_time;
+        } else if (tableDateField === "updatedDate") {
           dateStr = opp.ghl_date_updated || opp.ghl_date_added;
         } else {
           const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
@@ -626,11 +635,12 @@ export function OpportunitiesTable({
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date Range Filter for Table */}
             <div className="flex items-center gap-2">
-              <Select value={tableDateField} onValueChange={(v) => { setTableDateField(v as "updatedDate" | "createdDate"); setCurrentPage(1); }}>
-                <SelectTrigger className="w-[130px] h-9 text-xs bg-background border-border">
+              <Select value={tableDateField} onValueChange={(v) => { setTableDateField(v as "appointmentDate" | "updatedDate" | "createdDate"); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[150px] h-9 text-xs bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
+                  <SelectItem value="appointmentDate">Appointment Date</SelectItem>
                   <SelectItem value="updatedDate">Last Edited</SelectItem>
                   <SelectItem value="createdDate">Contact Created</SelectItem>
                 </SelectContent>
