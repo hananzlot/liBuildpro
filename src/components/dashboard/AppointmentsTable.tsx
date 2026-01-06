@@ -314,14 +314,20 @@ export function AppointmentsTable({
   // Summary stats based on filtered appointments
   const summaryStats = useMemo(() => {
     const bySource: Record<string, { count: number; value: number }> = {};
-    const byStatus: Record<string, number> = {};
+    const byStatus: Record<string, { total: number; uniqueContacts: Set<string> }> = {};
     let totalValue = 0;
     const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
     
     filteredAppointments.forEach(a => {
-      // Count by appointment status (all appointments)
+      // Count by appointment status (all appointments + unique contacts)
       const status = a.appointment_status || 'Unknown';
-      byStatus[status] = (byStatus[status] || 0) + 1;
+      if (!byStatus[status]) {
+        byStatus[status] = { total: 0, uniqueContacts: new Set() };
+      }
+      byStatus[status].total += 1;
+      if (a.contact_id) {
+        byStatus[status].uniqueContacts.add(a.contact_id);
+      }
       
       // Only count opportunity value once per contact
       if (a.contact_id && !countedContactIds.has(a.contact_id)) {
@@ -345,7 +351,9 @@ export function AppointmentsTable({
       uniqueContacts: countedContactIds.size,
       totalValue,
       bySource: Object.entries(bySource).sort((a, b) => b[1].count - a[1].count),
-      byStatus: Object.entries(byStatus).sort((a, b) => b[1] - a[1]),
+      byStatus: Object.entries(byStatus)
+        .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
+        .sort((a, b) => b[1].total - a[1].total),
     };
   }, [filteredAppointments, contacts, opportunities]);
 
@@ -528,9 +536,9 @@ export function AppointmentsTable({
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">By Status:</span>
-                {summaryStats.byStatus.map(([status, count]) => (
+                {summaryStats.byStatus.map(([status, data]) => (
                   <Badge key={status} variant="outline" className={`text-xs ${getStatusColor(status)}`}>
-                    {status}: {count}
+                    {status}: {data.total}/{data.unique}
                   </Badge>
                 ))}
               </div>
