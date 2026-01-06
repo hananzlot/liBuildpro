@@ -264,12 +264,12 @@ export function AppointmentsTable({
     return uniqueSources.map(source => ({ value: source, label: source }));
   }, [uniqueSources]);
 
-  // Get unique opportunity statuses for filter
+  // Get unique opportunity statuses for filter (normalized to lowercase)
   const uniqueOppStatuses = useMemo(() => {
     const statuses = new Set<string>();
     appointments.forEach(a => {
       const opp = opportunities.find(o => o.contact_id === a.contact_id);
-      if (opp?.status) statuses.add(opp.status);
+      if (opp?.status) statuses.add(opp.status.toLowerCase());
     });
     return Array.from(statuses).sort();
   }, [appointments, opportunities]);
