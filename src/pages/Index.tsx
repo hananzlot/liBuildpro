@@ -30,6 +30,7 @@ import { NewEntryDialog } from "@/components/dashboard/NewEntryDialog";
 import { SyncDropdown } from "@/components/dashboard/SyncDropdown";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { OpportunitySalesSheet } from "@/components/dashboard/OpportunitySalesSheet";
+import { AppointmentsAnalysisDialog } from "@/components/dashboard/AppointmentsAnalysisDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -66,6 +67,7 @@ const Index = () => {
   const [activitySheetOpen, setActivitySheetOpen] = useState(false);
   const [activityDefaultTab, setActivityDefaultTab] = useState<"edits" | "appointments" | "tasks" | "notes">("edits");
   const [opportunitySalesSheetOpen, setOpportunitySalesSheetOpen] = useState(false);
+  const [appointmentsAnalysisOpen, setAppointmentsAnalysisOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   const [initialTaskGhlId, setInitialTaskGhlId] = useState<string | null>(null);
@@ -314,6 +316,12 @@ const Index = () => {
                               {metrics?.appointmentsShowedInDateRange || 0}
                             </span>
                             <span className="text-emerald-500/70 text-xs">showed</span>
+                          </div>
+                          <div 
+                            className="flex items-center gap-2 bg-purple-500/10 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-purple-500/20 transition-colors"
+                            onClick={() => setAppointmentsAnalysisOpen(true)}
+                          >
+                            <span className="text-purple-500 text-xs font-medium">Analysis</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-3 text-xs">
@@ -622,6 +630,16 @@ const Index = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Appointments Analysis Dialog */}
+      <AppointmentsAnalysisDialog
+        open={appointmentsAnalysisOpen}
+        onOpenChange={setAppointmentsAnalysisOpen}
+        appointments={metrics?.filteredAppointmentsList || []}
+        contacts={metrics?.allContacts || []}
+        opportunities={metrics?.allOpportunities || []}
+        users={metrics?.users || []}
+      />
     </div>;
 };
 export default Index;
