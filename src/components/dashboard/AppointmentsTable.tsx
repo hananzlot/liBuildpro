@@ -67,7 +67,7 @@ interface GHLUser {
   email: string | null;
 }
 
-type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address';
+type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address' | 'source';
 type SortDirection = 'asc' | 'desc';
 
 interface AppointmentsTableProps {
@@ -153,6 +153,12 @@ export function AppointmentsTable({
     if (!contactId) return '-';
     const contact = contacts.find(c => c.ghl_id === contactId);
     return contact?.phone || '-';
+  };
+
+  const getContactSource = (contactId: string | null): string => {
+    if (!contactId) return '-';
+    const contact = contacts.find(c => c.ghl_id === contactId);
+    return contact?.source || '-';
   };
 
   const getAddress = (appointment: Appointment): string => {
@@ -241,6 +247,9 @@ export function AppointmentsTable({
           break;
         case 'address':
           comparison = getAddress(a).localeCompare(getAddress(b));
+          break;
+        case 'source':
+          comparison = getContactSource(a.contact_id).localeCompare(getContactSource(b.contact_id));
           break;
         default:
           comparison = 0;
@@ -395,12 +404,21 @@ export function AppointmentsTable({
                     <SortIcon column="rep" />
                   </div>
                 </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort('source')}
+                >
+                  <div className="flex items-center">
+                    Source
+                    <SortIcon column="source" />
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -451,6 +469,9 @@ export function AppointmentsTable({
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm truncate max-w-[100px]">
                       {getUserName(appt.assigned_user_id)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm truncate max-w-[120px]">
+                      {getContactSource(appt.contact_id)}
                     </TableCell>
                   </TableRow>
                 ))
