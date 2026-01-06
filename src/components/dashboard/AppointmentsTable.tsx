@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown, PhoneCall } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown, PhoneCall, DollarSign, Megaphone } from "lucide-react";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
@@ -67,7 +67,7 @@ interface GHLUser {
   email: string | null;
 }
 
-type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address' | 'source';
+type SortColumn = 'contact' | 'start' | 'status' | 'rep' | 'address' | 'source' | 'oppStatus';
 type SortDirection = 'asc' | 'desc';
 
 interface AppointmentsTableProps {
@@ -90,6 +90,8 @@ export function AppointmentsTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [repFilter, setRepFilter] = useState<string[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string[]>([]);
+  const [oppStatusFilter, setOppStatusFilter] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -161,6 +163,26 @@ export function AppointmentsTable({
     return contact?.source || '-';
   };
 
+  const getOpportunityStatus = (contactId: string | null): string => {
+    if (!contactId) return '-';
+    const opp = opportunities.find(o => o.contact_id === contactId);
+    return opp?.status || '-';
+  };
+
+  const getOpportunityStatusColor = (status: string | null) => {
+    switch (status?.toLowerCase()) {
+      case 'won':
+        return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+      case 'lost':
+      case 'abandoned':
+        return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'open':
+        return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      default:
+        return 'bg-muted text-muted-foreground border-border';
+    }
+  };
+
   const getAddress = (appointment: Appointment): string => {
     const contact = appointment.contact_id 
       ? contacts.find(c => c.ghl_id === appointment.contact_id) 
@@ -195,6 +217,39 @@ export function AppointmentsTable({
     return uniqueReps.map(rep => ({ value: rep.id, label: rep.name }));
   }, [uniqueReps]);
 
+  // Get unique sources for filter
+  const uniqueSources = useMemo(() => {
+    const sources = new Set<string>();
+    appointments.forEach(a => {
+      const contact = contacts.find(c => c.ghl_id === a.contact_id);
+      if (contact?.source) sources.add(contact.source);
+    });
+    return Array.from(sources).sort();
+  }, [appointments, contacts]);
+
+  // Format sources for multi-select
+  const sourceOptions = useMemo(() => {
+    return uniqueSources.map(source => ({ value: source, label: source }));
+  }, [uniqueSources]);
+
+  // Get unique opportunity statuses for filter
+  const uniqueOppStatuses = useMemo(() => {
+    const statuses = new Set<string>();
+    appointments.forEach(a => {
+      const opp = opportunities.find(o => o.contact_id === a.contact_id);
+      if (opp?.status) statuses.add(opp.status);
+    });
+    return Array.from(statuses).sort();
+  }, [appointments, opportunities]);
+
+  // Format opportunity statuses for multi-select
+  const oppStatusOptions = useMemo(() => {
+    return uniqueOppStatuses.map(status => ({ 
+      value: status, 
+      label: status.charAt(0).toUpperCase() + status.slice(1) 
+    }));
+  }, [uniqueOppStatuses]);
+
   // Filter and paginate appointments
   const filteredAppointments = useMemo(() => {
     let filtered = [...appointments];
@@ -207,6 +262,22 @@ export function AppointmentsTable({
     // Rep filter (multi-select)
     if (repFilter.length > 0) {
       filtered = filtered.filter(a => a.assigned_user_id && repFilter.includes(a.assigned_user_id));
+    }
+
+    // Source filter (multi-select)
+    if (sourceFilter.length > 0) {
+      filtered = filtered.filter(a => {
+        const contact = contacts.find(c => c.ghl_id === a.contact_id);
+        return contact?.source && sourceFilter.includes(contact.source);
+      });
+    }
+
+    // Opportunity status filter (multi-select)
+    if (oppStatusFilter.length > 0) {
+      filtered = filtered.filter(a => {
+        const opp = opportunities.find(o => o.contact_id === a.contact_id);
+        return opp?.status && oppStatusFilter.includes(opp.status);
+      });
     }
 
     // Date range filter
@@ -223,7 +294,7 @@ export function AppointmentsTable({
     }
 
     return filtered;
-  }, [appointments, statusFilter, repFilter, dateRange]);
+  }, [appointments, statusFilter, repFilter, sourceFilter, oppStatusFilter, dateRange, contacts, opportunities]);
 
   // Sort appointments based on selected column and direction
   const sortedAppointments = useMemo(() => {
@@ -251,13 +322,16 @@ export function AppointmentsTable({
         case 'source':
           comparison = getContactSource(a.contact_id).localeCompare(getContactSource(b.contact_id));
           break;
+        case 'oppStatus':
+          comparison = getOpportunityStatus(a.contact_id).localeCompare(getOpportunityStatus(b.contact_id));
+          break;
         default:
           comparison = 0;
       }
 
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [filteredAppointments, sortColumn, sortDirection, contacts, users]);
+  }, [filteredAppointments, sortColumn, sortDirection, contacts, users, opportunities]);
 
   const totalPages = Math.ceil(sortedAppointments.length / ITEMS_PER_PAGE);
   const paginatedAppointments = sortedAppointments.slice(
@@ -273,6 +347,16 @@ export function AppointmentsTable({
 
   const handleRepChange = (selected: string[]) => {
     setRepFilter(selected);
+    setCurrentPage(1);
+  };
+
+  const handleSourceChange = (selected: string[]) => {
+    setSourceFilter(selected);
+    setCurrentPage(1);
+  };
+
+  const handleOppStatusChange = (selected: string[]) => {
+    setOppStatusFilter(selected);
     setCurrentPage(1);
   };
 
@@ -339,7 +423,25 @@ export function AppointmentsTable({
               className="w-[150px]"
             />
 
-            {(statusFilter.length > 0 || repFilter.length > 0) && (
+            <MultiSelectFilter
+              options={sourceOptions}
+              selected={sourceFilter}
+              onChange={handleSourceChange}
+              placeholder="All Sources"
+              icon={<Megaphone className="h-3 w-3" />}
+              className="w-[150px]"
+            />
+
+            <MultiSelectFilter
+              options={oppStatusOptions}
+              selected={oppStatusFilter}
+              onChange={handleOppStatusChange}
+              placeholder="All Opp. Status"
+              icon={<DollarSign className="h-3 w-3" />}
+              className="w-[150px]"
+            />
+
+            {(statusFilter.length > 0 || repFilter.length > 0 || sourceFilter.length > 0 || oppStatusFilter.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -347,6 +449,8 @@ export function AppointmentsTable({
                 onClick={() => {
                   setStatusFilter([]);
                   setRepFilter([]);
+                  setSourceFilter([]);
+                  setOppStatusFilter([]);
                   setCurrentPage(1);
                 }}
               >
@@ -413,12 +517,21 @@ export function AppointmentsTable({
                     <SortIcon column="source" />
                   </div>
                 </TableHead>
+                <TableHead 
+                  className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
+                  onClick={() => handleSort('oppStatus')}
+                >
+                  <div className="flex items-center">
+                    Opp. Status
+                    <SortIcon column="oppStatus" />
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedAppointments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No appointments found
                   </TableCell>
                 </TableRow>
@@ -472,6 +585,15 @@ export function AppointmentsTable({
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm truncate max-w-[120px]">
                       {getContactSource(appt.contact_id)}
+                    </TableCell>
+                    <TableCell>
+                      {getOpportunityStatus(appt.contact_id) !== '-' ? (
+                        <Badge variant="outline" className={getOpportunityStatusColor(getOpportunityStatus(appt.contact_id))}>
+                          {getOpportunityStatus(appt.contact_id)}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
