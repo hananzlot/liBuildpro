@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen, Receipt } from "lucide-react";
+import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen, Receipt, ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
@@ -251,6 +251,17 @@ const Index = () => {
           <div className="flex items-center justify-between flex-wrap gap-2">
             <TabsList>
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger 
+                value="palisades" 
+                className="gap-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.open("https://palisades.ca-probuilders.com", "_blank");
+                }}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Palisades
+              </TabsTrigger>
               <TabsTrigger value="follow-up" className="gap-2">
                 <ListChecks className="h-4 w-4" />
                 Follow-up
