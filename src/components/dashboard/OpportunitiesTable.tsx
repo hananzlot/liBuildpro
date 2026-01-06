@@ -137,6 +137,7 @@ export function OpportunitiesTable({
   const [stageFilter, setStageFilter] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<string[]>([]);
   const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
+  const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<string[]>([]);
   const [salesRepFilter, setSalesRepFilter] = useState<string[]>([]);
   const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -190,6 +191,20 @@ export function OpportunitiesTable({
   const sourceOptions = useMemo(() => {
     return uniqueSources.map((source) => ({ value: source, label: source }));
   }, [uniqueSources]);
+
+  // Get unique appointment statuses
+  const uniqueAppointmentStatuses = useMemo(() => {
+    const statuses = new Set<string>();
+    appointments.forEach((a) => {
+      if (a.appointment_status) statuses.add(a.appointment_status);
+    });
+    return Array.from(statuses).sort();
+  }, [appointments]);
+
+  // Format appointment statuses for multi-select
+  const appointmentStatusOptions = useMemo(() => {
+    return uniqueAppointmentStatuses.map((status) => ({ value: status, label: status }));
+  }, [uniqueAppointmentStatuses]);
 
   // Track which contacts have appointments (excluding cancelled)
   const contactsWithAppointments = useMemo(() => {
@@ -293,6 +308,15 @@ export function OpportunitiesTable({
       filtered = filtered.filter((opp) => opp.contact_id && contactsWithAppointments.has(opp.contact_id));
     } else if (appointmentFilter === "without") {
       filtered = filtered.filter((opp) => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
+    }
+
+    // Apply appointment status filter (multi-select)
+    if (appointmentStatusFilter.length > 0) {
+      filtered = filtered.filter((opp) => {
+        const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
+        // Include if any appointment matches any selected status
+        return oppAppointments.some((a) => a.appointment_status && appointmentStatusFilter.includes(a.appointment_status));
+      });
     }
 
     // Apply sales rep filter (multi-select)
@@ -436,6 +460,7 @@ export function OpportunitiesTable({
     stageFilter,
     sourceFilter,
     appointmentFilter,
+    appointmentStatusFilter,
     salesRepFilter,
     sortColumn,
     sortDirection,
@@ -460,6 +485,11 @@ export function OpportunitiesTable({
   const handleSalesRepFilterChange = (selected: string[]) => {
     setCurrentPage(1);
     setSalesRepFilter(selected);
+  };
+
+  const handleAppointmentStatusFilterChange = (selected: string[]) => {
+    setCurrentPage(1);
+    setAppointmentStatusFilter(selected);
   };
 
   const handleAppointmentFilterChange = (value: string) => {
@@ -679,7 +709,14 @@ export function OpportunitiesTable({
               placeholder="All Sales Reps"
               icon={<User className="h-3 w-3" />}
             />
-            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
+            <MultiSelectFilter
+              options={appointmentStatusOptions}
+              selected={appointmentStatusFilter}
+              onChange={handleAppointmentStatusFilterChange}
+              placeholder="All Appt. Status"
+              icon={<CalendarCheck className="h-3 w-3" />}
+            />
+            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0 || appointmentStatusFilter.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -689,6 +726,7 @@ export function OpportunitiesTable({
                   setSourceFilter([]);
                   setAppointmentFilter("all");
                   setSalesRepFilter([]);
+                  setAppointmentStatusFilter([]);
                   setCurrentPage(1);
                 }}
               >
