@@ -539,7 +539,19 @@ export function AppointmentsTable({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">By Status:</span>
                 {summaryStats.byStatus.map(([status, data]) => (
-                  <Badge key={status} variant="outline" className={`text-xs ${getStatusColor(status)}`}>
+                  <Badge 
+                    key={status} 
+                    variant="outline" 
+                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getStatusColor(status)} ${statusFilter.length === 1 && statusFilter[0] === status.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
+                    onClick={() => {
+                      if (statusFilter.length === 1 && statusFilter[0] === status.toLowerCase()) {
+                        setStatusFilter([]);
+                      } else {
+                        setStatusFilter([status.toLowerCase()]);
+                      }
+                      setCurrentPage(1);
+                    }}
+                  >
                     {status}: {data.total}/{data.unique}
                   </Badge>
                 ))}
@@ -548,7 +560,19 @@ export function AppointmentsTable({
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-medium text-muted-foreground">By Source:</span>
                   {summaryStats.bySource.slice(0, 5).map(([source, data]) => (
-                    <Badge key={source} variant="secondary" className="text-xs">
+                    <Badge 
+                      key={source} 
+                      variant="secondary" 
+                      className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${sourceFilter.length === 1 && sourceFilter[0] === source ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => {
+                        if (sourceFilter.length === 1 && sourceFilter[0] === source) {
+                          setSourceFilter([]);
+                        } else {
+                          setSourceFilter([source]);
+                        }
+                        setCurrentPage(1);
+                      }}
+                    >
                       {source}: {data.count} ({formatCurrency(data.value)})
                     </Badge>
                   ))}
@@ -565,7 +589,19 @@ export function AppointmentsTable({
                   <ScrollArea className="max-h-32 mt-2">
                     <div className="flex flex-wrap gap-2 pl-[70px]">
                       {summaryStats.bySource.slice(5).map(([source, data]) => (
-                        <Badge key={source} variant="secondary" className="text-xs">
+                        <Badge 
+                          key={source} 
+                          variant="secondary" 
+                          className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${sourceFilter.length === 1 && sourceFilter[0] === source ? 'ring-2 ring-primary' : ''}`}
+                          onClick={() => {
+                            if (sourceFilter.length === 1 && sourceFilter[0] === source) {
+                              setSourceFilter([]);
+                            } else {
+                              setSourceFilter([source]);
+                            }
+                            setCurrentPage(1);
+                          }}
+                        >
                           {source}: {data.count} ({formatCurrency(data.value)})
                         </Badge>
                       ))}
