@@ -62,6 +62,7 @@ type OpportunitiesViewTab = "opportunities" | "appointments" | "noAppointments";
 
 interface SourceChartProps {
   title: string;
+  subtitle?: string;
   data: SourceData[];
   mode: ChartMode;
   dataKey?: "count" | "value";
@@ -78,7 +79,8 @@ interface SourceChartProps {
 }
 
 export function SourceChart({ 
-  title, 
+  title,
+  subtitle,
   data, 
   mode, 
   dataKey = "count",
@@ -173,7 +175,10 @@ export function SourceChart({
     <>
       <div className="rounded-2xl bg-card p-4 border border-border/50 h-[280px] flex flex-col">
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <h3 className="text-base font-semibold text-foreground">{getChartTitle()}</h3>
+          <div>
+            <h3 className="text-base font-semibold text-foreground">{getChartTitle()}</h3>
+            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
           {isOpportunitiesMode && (
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as OpportunitiesViewTab)}>
               <TabsList className="h-7">
