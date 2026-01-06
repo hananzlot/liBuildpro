@@ -313,13 +313,22 @@ export function AppointmentsTable({
 
   // Summary stats based on filtered appointments
   const summaryStats = useMemo(() => {
-    const bySource: Record<string, number> = {};
+    const bySource: Record<string, { count: number; value: number }> = {};
     const byStatus: Record<string, number> = {};
+    let totalValue = 0;
     
     filteredAppointments.forEach(a => {
-      // Count by source
+      // Count by source and accumulate value
       const source = getContactSource(a.contact_id);
-      bySource[source] = (bySource[source] || 0) + 1;
+      const oppValue = getOpportunityValue(a.contact_id) || 0;
+      
+      if (!bySource[source]) {
+        bySource[source] = { count: 0, value: 0 };
+      }
+      bySource[source].count += 1;
+      bySource[source].value += oppValue;
+      
+      totalValue += oppValue;
       
       // Count by appointment status
       const status = a.appointment_status || 'Unknown';
@@ -328,10 +337,11 @@ export function AppointmentsTable({
 
     return {
       total: filteredAppointments.length,
-      bySource: Object.entries(bySource).sort((a, b) => b[1] - a[1]),
+      totalValue,
+      bySource: Object.entries(bySource).sort((a, b) => b[1].count - a[1].count),
       byStatus: Object.entries(byStatus).sort((a, b) => b[1] - a[1]),
     };
-  }, [filteredAppointments, contacts]);
+  }, [filteredAppointments, contacts, opportunities]);
 
   // Sort appointments based on selected column and direction
   const sortedAppointments = useMemo(() => {
@@ -504,6 +514,12 @@ export function AppointmentsTable({
           {/* Summary Stats */}
           {filteredAppointments.length > 0 && (
             <div className="flex flex-wrap gap-4 pt-2 pb-2 border-t border-border/30 mt-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Total Value:</span>
+                <Badge variant="default" className="text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                  {formatCurrency(summaryStats.totalValue)}
+                </Badge>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">By Status:</span>
                 {summaryStats.byStatus.map(([status, count]) => (
@@ -514,9 +530,9 @@ export function AppointmentsTable({
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">By Source:</span>
-                {summaryStats.bySource.slice(0, 5).map(([source, count]) => (
+                {summaryStats.bySource.slice(0, 5).map(([source, data]) => (
                   <Badge key={source} variant="secondary" className="text-xs">
-                    {source}: {count}
+                    {source}: {data.count} ({formatCurrency(data.value)})
                   </Badge>
                 ))}
                 {summaryStats.bySource.length > 5 && (
