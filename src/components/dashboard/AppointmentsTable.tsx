@@ -625,11 +625,8 @@ export function AppointmentsTable({
                     variant="outline" 
                     className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${getOpportunityStatusColor(status)} ${oppStatusFilter.length === 1 && oppStatusFilter[0] === status.toLowerCase() ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => {
-                      if (oppStatusFilter.length === 1 && oppStatusFilter[0] === status.toLowerCase()) {
-                        setOppStatusFilter([]);
-                      } else {
-                        setOppStatusFilter([status.toLowerCase()]);
-                      }
+                      // If it's already selected via the dropdown, keep it selected (don't toggle off)
+                      setOppStatusFilter([status.toLowerCase()]);
                       setCurrentPage(1);
                     }}
                   >
