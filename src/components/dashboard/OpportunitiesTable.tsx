@@ -137,18 +137,12 @@ export function OpportunitiesTable({
   const [stageFilter, setStageFilter] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<string[]>([]);
   const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
-  const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<string[]>([]);
   const [salesRepFilter, setSalesRepFilter] = useState<string[]>([]);
   const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [currentPage, setCurrentPage] = useState(1);
-  const [tableDateField, setTableDateField] = useState<"appointmentDate" | "updatedDate" | "createdDate">("appointmentDate");
-  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(() => {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    return { from: start, to: end };
-  });
+  const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
+  const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
 
   const uniqueStages = useMemo(() => {
     const stages = new Set<string>();
@@ -192,19 +186,6 @@ export function OpportunitiesTable({
     return uniqueSources.map((source) => ({ value: source, label: source }));
   }, [uniqueSources]);
 
-  // Get unique appointment statuses
-  const uniqueAppointmentStatuses = useMemo(() => {
-    const statuses = new Set<string>();
-    appointments.forEach((a) => {
-      if (a.appointment_status) statuses.add(a.appointment_status);
-    });
-    return Array.from(statuses).sort();
-  }, [appointments]);
-
-  // Format appointment statuses for multi-select
-  const appointmentStatusOptions = useMemo(() => {
-    return uniqueAppointmentStatuses.map((status) => ({ value: status, label: status }));
-  }, [uniqueAppointmentStatuses]);
 
   // Track which contacts have appointments (excluding cancelled)
   const contactsWithAppointments = useMemo(() => {
@@ -310,15 +291,6 @@ export function OpportunitiesTable({
       filtered = filtered.filter((opp) => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
     }
 
-    // Apply appointment status filter (multi-select)
-    if (appointmentStatusFilter.length > 0) {
-      filtered = filtered.filter((opp) => {
-        const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
-        // Include if any appointment matches any selected status
-        return oppAppointments.some((a) => a.appointment_status && appointmentStatusFilter.includes(a.appointment_status));
-      });
-    }
-
     // Apply sales rep filter (multi-select)
     if (salesRepFilter.length > 0) {
       filtered = filtered.filter((opp) => {
@@ -337,16 +309,7 @@ export function OpportunitiesTable({
     if (tableDateRange?.from) {
       filtered = filtered.filter((opp) => {
         let dateStr: string | null | undefined;
-        if (tableDateField === "appointmentDate") {
-          // Get the earliest appointment date for this contact
-          const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
-          if (oppAppointments.length === 0) return false;
-          // Find earliest appointment by start_time
-          const sortedAppointments = [...oppAppointments].sort((a, b) => 
-            new Date(a.start_time || 0).getTime() - new Date(b.start_time || 0).getTime()
-          );
-          dateStr = sortedAppointments[0]?.start_time;
-        } else if (tableDateField === "updatedDate") {
+        if (tableDateField === "updatedDate") {
           dateStr = opp.ghl_date_updated || opp.ghl_date_added;
         } else {
           const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
@@ -460,7 +423,6 @@ export function OpportunitiesTable({
     stageFilter,
     sourceFilter,
     appointmentFilter,
-    appointmentStatusFilter,
     salesRepFilter,
     sortColumn,
     sortDirection,
@@ -485,11 +447,6 @@ export function OpportunitiesTable({
   const handleSalesRepFilterChange = (selected: string[]) => {
     setCurrentPage(1);
     setSalesRepFilter(selected);
-  };
-
-  const handleAppointmentStatusFilterChange = (selected: string[]) => {
-    setCurrentPage(1);
-    setAppointmentStatusFilter(selected);
   };
 
   const handleAppointmentFilterChange = (value: string) => {
@@ -665,12 +622,11 @@ export function OpportunitiesTable({
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date Range Filter for Table */}
             <div className="flex items-center gap-2">
-              <Select value={tableDateField} onValueChange={(v) => { setTableDateField(v as "appointmentDate" | "updatedDate" | "createdDate"); setCurrentPage(1); }}>
+              <Select value={tableDateField} onValueChange={(v) => { setTableDateField(v as "updatedDate" | "createdDate"); setCurrentPage(1); }}>
                 <SelectTrigger className="w-[150px] h-9 text-xs bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
-                  <SelectItem value="appointmentDate">Appointment Date</SelectItem>
                   <SelectItem value="updatedDate">Last Edited</SelectItem>
                   <SelectItem value="createdDate">Contact Created</SelectItem>
                 </SelectContent>
@@ -709,14 +665,7 @@ export function OpportunitiesTable({
               placeholder="All Sales Reps"
               icon={<User className="h-3 w-3" />}
             />
-            <MultiSelectFilter
-              options={appointmentStatusOptions}
-              selected={appointmentStatusFilter}
-              onChange={handleAppointmentStatusFilterChange}
-              placeholder="All Appt. Status"
-              icon={<CalendarCheck className="h-3 w-3" />}
-            />
-            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0 || appointmentStatusFilter.length > 0) && (
+            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -726,7 +675,6 @@ export function OpportunitiesTable({
                   setSourceFilter([]);
                   setAppointmentFilter("all");
                   setSalesRepFilter([]);
-                  setAppointmentStatusFilter([]);
                   setCurrentPage(1);
                 }}
               >
