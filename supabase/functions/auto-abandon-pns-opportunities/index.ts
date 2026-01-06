@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     // Find all opportunities with stage_name containing "PNS" and status not already "abandoned"
     const { data: pnsOpportunities, error: pnsFetchError } = await supabase
       .from('opportunities')
-      .select('id, ghl_id, name, stage_name, status')
+      .select('id, ghl_id, name, stage_name, status, contact_id, location_id')
       .ilike('stage_name', '%PNS%')
       .neq('status', 'abandoned');
 
@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     // Find all opportunities with stage_name containing "Never Answered" and status not already "abandoned"
     const { data: neverAnsweredOpportunities, error: naFetchError } = await supabase
       .from('opportunities')
-      .select('id, ghl_id, name, stage_name, status')
+      .select('id, ghl_id, name, stage_name, status, contact_id, location_id')
       .ilike('stage_name', '%Never Answered%')
       .neq('status', 'abandoned');
 
@@ -78,6 +78,33 @@ Deno.serve(async (req) => {
     }
 
     console.log(`Successfully updated ${uniqueOpportunities.length} opportunities to Abandoned status`);
+
+    // Create notes for each opportunity that was moved to abandoned
+    const notesToInsert = uniqueOpportunities
+      .filter(opp => opp.contact_id && opp.location_id)
+      .map(opp => {
+        const reason = opp.stage_name?.toLowerCase().includes('pns') ? 'PNS' : 'Never Answered';
+        return {
+          ghl_id: `auto-abandon-${opp.ghl_id}-${Date.now()}`,
+          contact_id: opp.contact_id,
+          location_id: opp.location_id,
+          body: `[SYSTEM] This opportunity "${opp.name}" was automatically moved to Abandoned status because it is marked as ${reason}.`,
+          ghl_date_added: new Date().toISOString(),
+        };
+      });
+
+    if (notesToInsert.length > 0) {
+      const { error: notesError } = await supabase
+        .from('contact_notes')
+        .insert(notesToInsert);
+
+      if (notesError) {
+        console.error('Error inserting notes:', notesError);
+        // Don't throw - the main update succeeded, just log the note error
+      } else {
+        console.log(`Successfully created ${notesToInsert.length} notes for abandoned opportunities`);
+      }
+    }
     
     // Log the updated opportunities for debugging
     uniqueOpportunities.forEach(opp => {
@@ -89,6 +116,7 @@ Deno.serve(async (req) => {
         success: true, 
         message: `Updated ${uniqueOpportunities.length} PNS/Never Answered opportunities to Abandoned`,
         updated: uniqueOpportunities.length,
+        notesCreated: notesToInsert.length,
         opportunities: uniqueOpportunities.map(o => ({ id: o.ghl_id, name: o.name, stage: o.stage_name }))
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
