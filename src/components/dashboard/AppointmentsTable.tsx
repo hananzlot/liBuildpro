@@ -318,6 +318,7 @@ export function AppointmentsTable({
     const bySource: Record<string, { count: number; value: number }> = {};
     const byStatus: Record<string, { total: number; uniqueContacts: Set<string> }> = {};
     const byOppStatus: Record<string, { count: number; value: number }> = {};
+    const byRep: Record<string, { count: number; value: number }> = {};
     let totalValue = 0;
     const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
     
@@ -331,6 +332,15 @@ export function AppointmentsTable({
       if (a.contact_id) {
         byStatus[status].uniqueContacts.add(a.contact_id);
       }
+
+      // Count by rep (all appointments)
+      const repName = getUserName(a.assigned_user_id);
+      const oppValueForRep = getOpportunityValue(a.contact_id) || 0;
+      if (!byRep[repName]) {
+        byRep[repName] = { count: 0, value: 0 };
+      }
+      byRep[repName].count += 1;
+      byRep[repName].value += oppValueForRep;
       
       // Only count opportunity value once per contact
       if (a.contact_id && !countedContactIds.has(a.contact_id)) {
@@ -365,8 +375,9 @@ export function AppointmentsTable({
         .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
         .sort((a, b) => b[1].total - a[1].total),
       byOppStatus: Object.entries(byOppStatus).sort((a, b) => b[1].value - a[1].value),
+      byRep: Object.entries(byRep).sort((a, b) => b[1].value - a[1].value),
     };
-  }, [filteredAppointments, contacts, opportunities]);
+  }, [filteredAppointments, contacts, opportunities, users]);
 
   // Sort appointments based on selected column and direction
   const sortedAppointments = useMemo(() => {
@@ -638,6 +649,26 @@ export function AppointmentsTable({
                   </ScrollArea>
                 </CollapsibleContent>
               </Collapsible>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">By Rep:</span>
+                {summaryStats.byRep.map(([rep, data]) => (
+                  <Badge 
+                    key={rep} 
+                    variant="outline" 
+                    className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${repFilter.length === 1 && repFilter[0] === rep ? 'ring-2 ring-primary' : ''}`}
+                    onClick={() => {
+                      if (repFilter.length === 1 && repFilter[0] === rep) {
+                        setRepFilter([]);
+                      } else {
+                        setRepFilter([rep]);
+                      }
+                      setCurrentPage(1);
+                    }}
+                  >
+                    {rep}: {data.count} ({formatCurrency(data.value)})
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
         </CardHeader>
