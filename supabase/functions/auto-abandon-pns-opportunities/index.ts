@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('Starting auto-abandon PNS opportunities job...');
+    console.log('Starting auto-abandon PNS/Never Answered opportunities job...');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -20,32 +20,52 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Find all opportunities with stage_name containing "PNS" and status not already "abandoned"
-    const { data: pnsOpportunities, error: fetchError } = await supabase
+    const { data: pnsOpportunities, error: pnsFetchError } = await supabase
       .from('opportunities')
       .select('id, ghl_id, name, stage_name, status')
       .ilike('stage_name', '%PNS%')
       .neq('status', 'abandoned');
 
-    if (fetchError) {
-      console.error('Error fetching PNS opportunities:', fetchError);
-      throw fetchError;
+    if (pnsFetchError) {
+      console.error('Error fetching PNS opportunities:', pnsFetchError);
+      throw pnsFetchError;
     }
 
     console.log(`Found ${pnsOpportunities?.length || 0} PNS opportunities to update`);
 
-    if (!pnsOpportunities || pnsOpportunities.length === 0) {
+    // Find all opportunities with stage_name containing "Never Answered" and status not already "abandoned"
+    const { data: neverAnsweredOpportunities, error: naFetchError } = await supabase
+      .from('opportunities')
+      .select('id, ghl_id, name, stage_name, status')
+      .ilike('stage_name', '%Never Answered%')
+      .neq('status', 'abandoned');
+
+    if (naFetchError) {
+      console.error('Error fetching Never Answered opportunities:', naFetchError);
+      throw naFetchError;
+    }
+
+    console.log(`Found ${neverAnsweredOpportunities?.length || 0} Never Answered opportunities to update`);
+
+    // Combine both sets of opportunities (using a Set to avoid duplicates)
+    const allOpportunities = [...(pnsOpportunities || []), ...(neverAnsweredOpportunities || [])];
+    const uniqueOpportunities = Array.from(
+      new Map(allOpportunities.map(o => [o.id, o])).values()
+    );
+
+    if (uniqueOpportunities.length === 0) {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'No PNS opportunities to update',
+          message: 'No PNS or Never Answered opportunities to update',
           updated: 0 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Update all PNS opportunities to Abandoned status
-    const opportunityIds = pnsOpportunities.map(o => o.id);
+    // Update all matching opportunities to Abandoned status
+    const opportunityIds = uniqueOpportunities.map(o => o.id);
     
     const { error: updateError } = await supabase
       .from('opportunities')
@@ -57,19 +77,19 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
-    console.log(`Successfully updated ${pnsOpportunities.length} opportunities to Abandoned status`);
+    console.log(`Successfully updated ${uniqueOpportunities.length} opportunities to Abandoned status`);
     
     // Log the updated opportunities for debugging
-    pnsOpportunities.forEach(opp => {
+    uniqueOpportunities.forEach(opp => {
       console.log(`Updated: ${opp.name} (${opp.ghl_id}) - Stage: ${opp.stage_name}`);
     });
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Updated ${pnsOpportunities.length} PNS opportunities to Abandoned`,
-        updated: pnsOpportunities.length,
-        opportunities: pnsOpportunities.map(o => ({ id: o.ghl_id, name: o.name, stage: o.stage_name }))
+        message: `Updated ${uniqueOpportunities.length} PNS/Never Answered opportunities to Abandoned`,
+        updated: uniqueOpportunities.length,
+        opportunities: uniqueOpportunities.map(o => ({ id: o.ghl_id, name: o.name, stage: o.stage_name }))
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
