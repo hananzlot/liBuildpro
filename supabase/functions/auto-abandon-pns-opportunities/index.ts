@@ -5,6 +5,50 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to get the correct GHL API key based on location_id
+function getGHLApiKey(locationId: string): string {
+  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
+  
+  if (locationId === location2Id) {
+    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
+    if (apiKey2) return apiKey2;
+  }
+  
+  // Default to primary API key
+  const apiKey1 = Deno.env.get('GHL_API_KEY');
+  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  return apiKey1;
+}
+
+// Update opportunity status in GHL
+async function updateGHLOpportunityStatus(ghlId: string, locationId: string): Promise<boolean> {
+  try {
+    const ghlApiKey = getGHLApiKey(locationId);
+    
+    const response = await fetch(`https://services.leadconnectorhq.com/opportunities/${ghlId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${ghlApiKey}`,
+        'Version': '2021-07-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'abandoned' }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`GHL API Error for ${ghlId}:`, errorText);
+      return false;
+    }
+
+    console.log(`Successfully updated ${ghlId} to abandoned in GHL`);
+    return true;
+  } catch (error) {
+    console.error(`Error updating ${ghlId} in GHL:`, error);
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -64,7 +108,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update all matching opportunities to Abandoned status
+    // Update each opportunity in GHL first, then in Supabase
+    let ghlUpdated = 0;
+    let ghlFailed = 0;
+    
+    for (const opp of uniqueOpportunities) {
+      if (opp.ghl_id && opp.location_id) {
+        const success = await updateGHLOpportunityStatus(opp.ghl_id, opp.location_id);
+        if (success) {
+          ghlUpdated++;
+        } else {
+          ghlFailed++;
+        }
+      }
+    }
+
+    console.log(`GHL updates: ${ghlUpdated} successful, ${ghlFailed} failed`);
+
+    // Update all matching opportunities to Abandoned status in Supabase
     const opportunityIds = uniqueOpportunities.map(o => o.id);
     
     const { error: updateError } = await supabase
@@ -77,7 +138,7 @@ Deno.serve(async (req) => {
       throw updateError;
     }
 
-    console.log(`Successfully updated ${uniqueOpportunities.length} opportunities to Abandoned status`);
+    console.log(`Successfully updated ${uniqueOpportunities.length} opportunities to Abandoned status in Supabase`);
 
     // Create notes for each opportunity that was moved to abandoned
     const notesToInsert = uniqueOpportunities
@@ -116,6 +177,8 @@ Deno.serve(async (req) => {
         success: true, 
         message: `Updated ${uniqueOpportunities.length} PNS/Never Answered opportunities to Abandoned`,
         updated: uniqueOpportunities.length,
+        ghlUpdated,
+        ghlFailed,
         notesCreated: notesToInsert.length,
         opportunities: uniqueOpportunities.map(o => ({ id: o.ghl_id, name: o.name, stage: o.stage_name }))
       }),
