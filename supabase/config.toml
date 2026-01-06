@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.auto-abandon-pns-opportunities]
 verify_jwt = false
+
+[functions.ai-check-never-answers]
+verify_jwt = false
