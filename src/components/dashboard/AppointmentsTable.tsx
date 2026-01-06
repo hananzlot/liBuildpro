@@ -513,46 +513,61 @@ export function AppointmentsTable({
           </div>
           
           {/* Filters */}
-          <div className="flex flex-wrap gap-2 items-center">
-            <DateRangeFilter
-              dateRange={dateRange}
-              onDateRangeChange={handleDateRangeChange}
-            />
+          <div className="flex flex-wrap gap-3 items-end">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Date Range</span>
+              <DateRangeFilter
+                dateRange={dateRange}
+                onDateRangeChange={handleDateRangeChange}
+              />
+            </div>
 
-            <MultiSelectFilter
-              options={statusOptions}
-              selected={statusFilter}
-              onChange={handleStatusChange}
-              placeholder="All Status"
-              className="w-[130px]"
-            />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Status</span>
+              <MultiSelectFilter
+                options={statusOptions}
+                selected={statusFilter}
+                onChange={handleStatusChange}
+                placeholder="All Status"
+                className="w-[130px]"
+              />
+            </div>
 
-            <MultiSelectFilter
-              options={repOptions}
-              selected={repFilter}
-              onChange={handleRepChange}
-              placeholder="All Reps"
-              icon={<User className="h-3 w-3" />}
-              className="w-[150px]"
-            />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Rep</span>
+              <MultiSelectFilter
+                options={repOptions}
+                selected={repFilter}
+                onChange={handleRepChange}
+                placeholder="All Reps"
+                icon={<User className="h-3 w-3" />}
+                className="w-[150px]"
+              />
+            </div>
 
-            <MultiSelectFilter
-              options={sourceOptions}
-              selected={sourceFilter}
-              onChange={handleSourceChange}
-              placeholder="All Sources"
-              icon={<Megaphone className="h-3 w-3" />}
-              className="w-[150px]"
-            />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Source</span>
+              <MultiSelectFilter
+                options={sourceOptions}
+                selected={sourceFilter}
+                onChange={handleSourceChange}
+                placeholder="All Sources"
+                icon={<Megaphone className="h-3 w-3" />}
+                className="w-[150px]"
+              />
+            </div>
 
-            <MultiSelectFilter
-              options={oppStatusOptions}
-              selected={oppStatusFilter}
-              onChange={handleOppStatusChange}
-              placeholder="All Opp. Status"
-              icon={<DollarSign className="h-3 w-3" />}
-              className="w-[150px]"
-            />
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Opp. Status</span>
+              <MultiSelectFilter
+                options={oppStatusOptions}
+                selected={oppStatusFilter}
+                onChange={handleOppStatusChange}
+                placeholder="All Opp. Status"
+                icon={<DollarSign className="h-3 w-3" />}
+                className="w-[150px]"
+              />
+            </div>
 
             {(statusFilter.length > 0 || repFilter.length > 0 || sourceFilter.length > 0 || oppStatusFilter.length > 0) && (
               <Button
