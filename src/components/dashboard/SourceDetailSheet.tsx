@@ -267,8 +267,26 @@ export function SourceDetailSheet({
   }, [filteredContacts, source]);
 
   const sourceContactIdsInDateRange = useMemo(() => {
+    // For "won" mode, get contact IDs from won opportunities that match this source
+    // This ensures we show won opportunities even if the contact was added before the date range
+    if (mode === "won") {
+      const contactIdsFromWonOpps = new Set(
+        filteredOpportunities
+          .filter(o => o.status?.toLowerCase() === "won")
+          .map(o => o.contact_id)
+          .filter(Boolean) as string[]
+      );
+      const matchingContactIds = new Set<string>();
+      contacts.forEach(c => {
+        if (contactIdsFromWonOpps.has(c.ghl_id) && normalizeSourceName(c.source || "Direct") === source) {
+          matchingContactIds.add(c.ghl_id);
+        }
+      });
+      return matchingContactIds;
+    }
+    // For opportunities mode, use contacts filtered by date range
     return new Set(sourceContactsInDateRange.map(c => c.ghl_id));
-  }, [sourceContactsInDateRange]);
+  }, [mode, filteredOpportunities, contacts, source, sourceContactsInDateRange]);
 
   // Keep all contacts for "No Appointments" check (need to know if contact EVER had appointments)
   const allSourceContacts = useMemo(() => {
