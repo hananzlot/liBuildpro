@@ -147,10 +147,19 @@ export function AppointmentsTable({
     return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown';
   };
 
+  const formatName = (name: string): string => {
+    return name
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const getContactName = (contactId: string | null): string => {
     if (!contactId) return 'Unknown';
     const contact = contacts.find(c => c.ghl_id === contactId);
-    return contact?.contact_name || `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim() || 'Unknown';
+    const name = contact?.contact_name || `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim() || 'Unknown';
+    return formatName(name);
   };
 
   const getContactPhone = (contactId: string | null): string => {
@@ -803,6 +812,9 @@ export function AppointmentsTable({
                         </div>
                         <span className="text-xs text-muted-foreground truncate">
                           {getContactPhone(appt.contact_id)}
+                        </span>
+                        <span className="text-xs text-muted-foreground/70 truncate italic">
+                          {appt.title || 'Untitled'}
                         </span>
                       </div>
                     </TableCell>
