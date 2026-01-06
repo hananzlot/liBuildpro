@@ -549,9 +549,16 @@ export function AppointmentsTable({
                     {source}: {data.count} ({formatCurrency(data.value)})
                   </Badge>
                 ))}
-                {summaryStats.bySource.length > 5 && (
-                  <span className="text-xs text-muted-foreground">+{summaryStats.bySource.length - 5} more</span>
-                )}
+                {summaryStats.bySource.length > 5 && (() => {
+                  const hiddenSources = summaryStats.bySource.slice(5);
+                  const hiddenValue = hiddenSources.reduce((sum, [, data]) => sum + data.value, 0);
+                  const hiddenCount = hiddenSources.reduce((sum, [, data]) => sum + data.count, 0);
+                  return (
+                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                      +{hiddenSources.length} more: {hiddenCount} ({formatCurrency(hiddenValue)})
+                    </Badge>
+                  );
+                })()}
               </div>
             </div>
           )}
