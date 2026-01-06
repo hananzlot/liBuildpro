@@ -23,6 +23,7 @@ import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 import { DateRange } from "react-day-picker";
+import { DateRangeFilter } from "./DateRangeFilter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -624,9 +625,9 @@ export function OpportunitiesTable({
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Date Range Filter for Table */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
               <Select value={tableDateField} onValueChange={(v) => { setTableDateField(v as "updatedDate" | "createdDate"); setCurrentPage(1); }}>
-                <SelectTrigger className="w-[130px] h-8 text-xs bg-background border-border">
+                <SelectTrigger className="w-[130px] h-9 text-xs bg-background border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
@@ -634,43 +635,10 @@ export function OpportunitiesTable({
                   <SelectItem value="createdDate">Contact Created</SelectItem>
                 </SelectContent>
               </Select>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
-                    <CalendarIcon className="h-3 w-3" />
-                    {tableDateRange?.from ? (
-                      tableDateRange.to && tableDateRange.from.toDateString() !== tableDateRange.to.toDateString() ? (
-                        <span>{format(tableDateRange.from, "MMM d")} - {format(tableDateRange.to, "MMM d")}</span>
-                      ) : (
-                        <span>{format(tableDateRange.from, "MMM d, yyyy")}</span>
-                      )
-                    ) : (
-                      <span>Pick date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={tableDateRange?.from}
-                    selected={tableDateRange}
-                    onSelect={(range) => { setTableDateRange(range); setCurrentPage(1); }}
-                    numberOfMonths={2}
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              {tableDateRange && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 text-xs text-muted-foreground hover:text-foreground px-2"
-                  onClick={() => { setTableDateRange(undefined); setCurrentPage(1); }}
-                >
-                  ×
-                </Button>
-              )}
+              <DateRangeFilter 
+                dateRange={tableDateRange} 
+                onDateRangeChange={(range) => { setTableDateRange(range); setCurrentPage(1); }} 
+              />
             </div>
             <Select value={appointmentFilter} onValueChange={handleAppointmentFilterChange}>
               <SelectTrigger className="w-[160px] h-8 text-xs bg-background border-border">
@@ -701,7 +669,7 @@ export function OpportunitiesTable({
               placeholder="All Sales Reps"
               icon={<User className="h-3 w-3" />}
             />
-            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0 || tableDateRange) && (
+            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -711,11 +679,10 @@ export function OpportunitiesTable({
                   setSourceFilter([]);
                   setAppointmentFilter("all");
                   setSalesRepFilter([]);
-                  setTableDateRange(undefined);
                   setCurrentPage(1);
                 }}
               >
-                Clear All
+                Clear Filters
               </Button>
             )}
           </div>
