@@ -136,6 +136,7 @@ export function OpportunitiesTable({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<string[]>([]);
   const [sourceFilter, setSourceFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [appointmentFilter, setAppointmentFilter] = useState<string>("all");
   const [salesRepFilter, setSalesRepFilter] = useState<string[]>([]);
   const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
@@ -185,6 +186,16 @@ export function OpportunitiesTable({
   const sourceOptions = useMemo(() => {
     return uniqueSources.map((source) => ({ value: source, label: source }));
   }, [uniqueSources]);
+
+  // Status options for filter
+  const statusOptions = useMemo(() => {
+    return [
+      { value: "open", label: "Open" },
+      { value: "won", label: "Won" },
+      { value: "lost", label: "Lost" },
+      { value: "abandoned", label: "Abandoned" },
+    ];
+  }, []);
 
 
   // Track which contacts have appointments (excluding cancelled)
@@ -281,6 +292,14 @@ export function OpportunitiesTable({
       filtered = filtered.filter((opp) => {
         const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
         return contact?.source && sourceFilter.includes(contact.source);
+      });
+    }
+
+    // Apply status filter (multi-select)
+    if (statusFilter.length > 0) {
+      filtered = filtered.filter((opp) => {
+        const status = opp.status?.toLowerCase() || "";
+        return statusFilter.includes(status);
       });
     }
 
@@ -422,6 +441,7 @@ export function OpportunitiesTable({
     opportunities,
     stageFilter,
     sourceFilter,
+    statusFilter,
     appointmentFilter,
     salesRepFilter,
     sortColumn,
@@ -442,6 +462,11 @@ export function OpportunitiesTable({
   const handleSourceFilterChange = (selected: string[]) => {
     setCurrentPage(1);
     setSourceFilter(selected);
+  };
+
+  const handleStatusFilterChange = (selected: string[]) => {
+    setCurrentPage(1);
+    setStatusFilter(selected);
   };
 
   const handleSalesRepFilterChange = (selected: string[]) => {
@@ -665,7 +690,13 @@ export function OpportunitiesTable({
               placeholder="All Sales Reps"
               icon={<User className="h-3 w-3" />}
             />
-            {(stageFilter.length > 0 || sourceFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
+            <MultiSelectFilter
+              options={statusOptions}
+              selected={statusFilter}
+              onChange={handleStatusFilterChange}
+              placeholder="All Statuses"
+            />
+            {(stageFilter.length > 0 || sourceFilter.length > 0 || statusFilter.length > 0 || appointmentFilter !== "all" || salesRepFilter.length > 0) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -673,6 +704,7 @@ export function OpportunitiesTable({
                 onClick={() => {
                   setStageFilter([]);
                   setSourceFilter([]);
+                  setStatusFilter([]);
                   setAppointmentFilter("all");
                   setSalesRepFilter([]);
                   setCurrentPage(1);
