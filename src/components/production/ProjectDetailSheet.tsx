@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -83,12 +84,18 @@ const statusColors: Record<string, string> = {
 };
 
 export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: ProjectDetailSheetProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [editingChecklistText, setEditingChecklistText] = useState("");
+
+  const handleNavigateToSubcontractors = useCallback(() => {
+    onOpenChange(false); // Close the sheet first
+    navigate("/production?view=subcontractors");
+  }, [navigate, onOpenChange]);
 
   // Fetch full project details
   const { data: fullProject, isLoading } = useQuery({
@@ -1029,6 +1036,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                   { name: fullProject.quaternary_salesperson, commissionPct: fullProject.quaternary_commission_pct || 0 },
                 ].filter(s => s.name)}
                 onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
+                onNavigateToSubcontractors={handleNavigateToSubcontractors}
               />
             )}
           </TabsContent>

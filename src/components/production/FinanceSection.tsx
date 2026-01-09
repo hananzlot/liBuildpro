@@ -78,6 +78,7 @@ interface FinanceSectionProps {
   commissionSplitPct: number;
   salespeople: SalespersonData[];
   onUpdateProject: (updates: Record<string, unknown>) => void;
+  onNavigateToSubcontractors?: () => void;
 }
 
 interface Invoice {
@@ -165,7 +166,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
   
@@ -1347,6 +1348,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
         isPending={saveBillMutation.isPending}
         projectId={projectId}
         agreements={agreements}
+        onAddSubcontractor={onNavigateToSubcontractors}
       />
 
       {/* Agreement Dialog */}
@@ -1886,6 +1888,7 @@ function BillDialog({
   isPending,
   projectId,
   agreements,
+  onAddSubcontractor,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -1894,6 +1897,7 @@ function BillDialog({
   isPending: boolean;
   projectId: string;
   agreements: Agreement[];
+  onAddSubcontractor?: () => void;
 }) {
   const [formData, setFormData] = useState({
     installer_company: "",
@@ -2051,12 +2055,25 @@ function BillDialog({
               <Label>Subcontractor/Installer</Label>
               <Select 
                 value={formData.installer_company} 
-                onValueChange={(value) => setFormData(p => ({ ...p, installer_company: value }))}
+                onValueChange={(value) => {
+                  if (value === "__add_new__") {
+                    onOpenChange(false);
+                    onAddSubcontractor?.();
+                  } else {
+                    setFormData(p => ({ ...p, installer_company: value }));
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select subcontractor..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="__add_new__" className="text-primary font-medium">
+                    <span className="flex items-center gap-2">
+                      <Plus className="h-3 w-3" />
+                      Add New Subcontractor
+                    </span>
+                  </SelectItem>
                   {activeSubcontractors.length === 0 ? (
                     <SelectItem value="__no_subs__" disabled>
                       No active subcontractors
@@ -2070,11 +2087,6 @@ function BillDialog({
                   )}
                 </SelectContent>
               </Select>
-              {activeSubcontractors.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Add subcontractors in Production → Subcontractors
-                </p>
-              )}
             </div>
             <div>
               <Label>Category</Label>
