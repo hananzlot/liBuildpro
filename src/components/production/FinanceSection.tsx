@@ -933,6 +933,11 @@ function BillDialog({
   });
   const [installerSearch, setInstallerSearch] = useState("");
   const [installerOpen, setInstallerOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryOpen, setCategoryOpen] = useState(false);
+
+  // Predefined categories
+  const predefinedCategories = ["Materials", "Labor", "Permits", "Equipment", "Subcontractor"];
 
   // Fetch unique installer companies
   const { data: existingInstallers = [] } = useQuery({
@@ -949,6 +954,25 @@ function BillDialog({
       });
       
       return Array.from(names).sort();
+    },
+    enabled: open,
+  });
+
+  // Fetch unique categories (combining predefined + existing)
+  const { data: existingCategories = [] } = useQuery({
+    queryKey: ["bill-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_bills")
+        .select("category");
+      if (error) throw error;
+      
+      const categories = new Set<string>(predefinedCategories);
+      data.forEach((b) => {
+        if (b.category) categories.add(b.category);
+      });
+      
+      return Array.from(categories).sort();
     },
     enabled: open,
   });
@@ -1057,7 +1081,66 @@ function BillDialog({
             </div>
             <div>
               <Label>Category</Label>
-              <Input value={formData.category} onChange={(e) => setFormData(p => ({ ...p, category: e.target.value }))} placeholder="e.g., Materials, Labor" />
+              <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={categoryOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {formData.category || "Select or add..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Search or add new..." 
+                      value={categorySearch}
+                      onValueChange={setCategorySearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>No results found.</CommandEmpty>
+                      <CommandGroup>
+                        {categorySearch && !existingCategories.some(c => c.toLowerCase() === categorySearch.toLowerCase()) && (
+                          <CommandItem
+                            value={categorySearch}
+                            onSelect={() => {
+                              setFormData(p => ({ ...p, category: categorySearch }));
+                              setCategorySearch("");
+                              setCategoryOpen(false);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add "{categorySearch}"
+                          </CommandItem>
+                        )}
+                        {existingCategories.map((cat) => (
+                          <CommandItem
+                            key={cat}
+                            value={cat}
+                            onSelect={() => {
+                              setFormData(p => ({ ...p, category: cat }));
+                              setCategorySearch("");
+                              setCategoryOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.category === cat ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {cat}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
