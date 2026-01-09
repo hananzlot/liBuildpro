@@ -55,6 +55,7 @@ import { NewProjectDialog } from "@/components/production/NewProjectDialog";
 import { AnalyticsSection } from "@/components/production/AnalyticsSection";
 import { MissingProjectsSection } from "@/components/production/MissingProjectsSection";
 import { SubcontractorsManagement } from "@/components/production/SubcontractorsManagement";
+import { SubcontractorWarningsCard } from "@/components/production/SubcontractorWarningsCard";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -691,6 +692,9 @@ export default function Production() {
 
               {/* Missing Projects from Won Opportunities - Admin Only */}
               {isAdmin && <MissingProjectsSection />}
+
+              {/* Subcontractor Expiration Warnings */}
+              <SubcontractorWarningsCard />
 
               {/* Filters & Search */}
           <section className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
