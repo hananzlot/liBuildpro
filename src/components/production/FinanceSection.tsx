@@ -165,6 +165,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
   const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [quickPayDialogOpen, setQuickPayDialogOpen] = useState(false);
   
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
@@ -172,6 +173,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
   const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
   const [editingPhase, setEditingPhase] = useState<PaymentPhase | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
+  const [payingBill, setPayingBill] = useState<Bill | null>(null);
 
   // Fetch data
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
@@ -397,7 +399,50 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
-  // Agreement mutations
+  // Quick pay mutation for adding a single payment to a bill
+  const quickPayMutation = useMutation({
+    mutationFn: async ({ billId, payment }: { billId: string; payment: Omit<BillPayment, 'id' | 'bill_id'> }) => {
+      // Insert the payment
+      const { error: paymentError } = await supabase
+        .from("bill_payments")
+        .insert({ ...payment, bill_id: billId });
+      if (paymentError) throw paymentError;
+
+      // Get all payments for this bill and update the bill's amount_paid and balance
+      const { data: allPayments, error: fetchError } = await supabase
+        .from("bill_payments")
+        .select("payment_amount")
+        .eq("bill_id", billId);
+      if (fetchError) throw fetchError;
+
+      const totalPaid = (allPayments || []).reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+      
+      // Get the bill amount to calculate balance
+      const { data: bill, error: billFetchError } = await supabase
+        .from("project_bills")
+        .select("bill_amount")
+        .eq("id", billId)
+        .single();
+      if (billFetchError) throw billFetchError;
+
+      const balance = (bill.bill_amount || 0) - totalPaid;
+
+      const { error: updateError } = await supabase
+        .from("project_bills")
+        .update({ amount_paid: totalPaid, balance })
+        .eq("id", billId);
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      toast.success("Payment recorded");
+      queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      setQuickPayDialogOpen(false);
+      setPayingBill(null);
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
   const saveAgreementMutation = useMutation({
     mutationFn: async (agreement: Partial<Agreement>) => {
       if (editingAgreement?.id) {
@@ -884,6 +929,17 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            {(bill.balance || 0) > 0 && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7 text-xs px-2"
+                                onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}
+                              >
+                                <CreditCard className="h-3 w-3 mr-1" />
+                                Pay
+                              </Button>
+                            )}
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingBill(bill); setBillDialogOpen(true); }}>
                               <Pencil className="h-3 w-3" />
                             </Button>
@@ -1126,6 +1182,15 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Quick Pay Dialog */}
+      <QuickPayDialog
+        open={quickPayDialogOpen}
+        onOpenChange={setQuickPayDialogOpen}
+        bill={payingBill}
+        onSave={(payment) => payingBill && quickPayMutation.mutate({ billId: payingBill.id, payment })}
+        isPending={quickPayMutation.isPending}
+      />
     </div>
   );
 }
@@ -2296,5 +2361,133 @@ function EstCostCard({
         </div>
       )}
     </Card>
+  );
+}
+
+// Quick Pay Dialog Component
+function QuickPayDialog({ 
+  open, 
+  onOpenChange, 
+  bill,
+  onSave, 
+  isPending,
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  bill: Bill | null;
+  onSave: (payment: Omit<BillPayment, 'id' | 'bill_id'>) => void;
+  isPending: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    payment_date: new Date().toISOString().split('T')[0],
+    payment_amount: "",
+    payment_method: "",
+    payment_reference: "",
+  });
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open && bill) {
+      setFormData({
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_amount: (bill.balance || 0).toString(),
+        payment_method: "",
+        payment_reference: "",
+      });
+    }
+  }, [open, bill]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      payment_date: formData.payment_date || null,
+      payment_amount: parseFloat(formData.payment_amount) || 0,
+      payment_method: formData.payment_method || null,
+      payment_reference: formData.payment_reference || null,
+    });
+  };
+
+  const paymentAmount = parseFloat(formData.payment_amount) || 0;
+  const balance = bill?.balance || 0;
+  const isOverpaying = paymentAmount > balance;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Record Payment</DialogTitle>
+          <DialogDescription>
+            {bill?.installer_company && <span className="font-medium">{bill.installer_company}</span>}
+            {bill?.installer_company && " • "}
+            Balance: <span className="font-semibold text-amber-600">{formatCurrency(balance)}</span>
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Payment Date</Label>
+              <Input 
+                type="date" 
+                value={formData.payment_date} 
+                onChange={(e) => setFormData(p => ({ ...p, payment_date: e.target.value }))} 
+              />
+            </div>
+            <div>
+              <Label>Amount ($)</Label>
+              <Input 
+                type="number" 
+                value={formData.payment_amount} 
+                onChange={(e) => setFormData(p => ({ ...p, payment_amount: e.target.value }))} 
+                className={isOverpaying ? "border-destructive" : ""}
+              />
+              {isOverpaying && (
+                <p className="text-xs text-destructive mt-1">Amount exceeds balance</p>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Payment Method</Label>
+              <Select value={formData.payment_method} onValueChange={(v) => setFormData(p => ({ ...p, payment_method: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Check">Check</SelectItem>
+                  <SelectItem value="Wire">Wire</SelectItem>
+                  <SelectItem value="ACH">ACH</SelectItem>
+                  <SelectItem value="Credit Card">Credit Card</SelectItem>
+                  <SelectItem value="Zelle">Zelle</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Reference / Check #</Label>
+              <Input 
+                value={formData.payment_reference} 
+                onChange={(e) => setFormData(p => ({ ...p, payment_reference: e.target.value }))} 
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm"
+              onClick={() => setFormData(p => ({ ...p, payment_amount: balance.toString() }))}
+            >
+              Pay Full Balance
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isPending || paymentAmount <= 0}>
+              {isPending ? "Saving..." : "Record Payment"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
