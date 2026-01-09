@@ -2012,6 +2012,71 @@ export type Database = {
           },
         ]
       }
+      subcontractors: {
+        Row: {
+          address: string | null
+          company_name: string
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          insurance_document_url: string
+          insurance_expiration_date: string
+          is_active: boolean
+          license_document_url: string
+          license_expiration_date: string
+          license_number: string | null
+          notes: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          company_name: string
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          insurance_document_url: string
+          insurance_expiration_date: string
+          is_active?: boolean
+          license_document_url: string
+          license_expiration_date: string
+          license_number?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          company_name?: string
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          insurance_document_url?: string
+          insurance_expiration_date?: string
+          is_active?: boolean
+          license_document_url?: string
+          license_expiration_date?: string
+          license_number?: string | null
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcontractors_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_edits: {
         Row: {
           contact_ghl_id: string | null

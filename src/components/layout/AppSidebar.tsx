@@ -16,7 +16,8 @@ import {
   FileText,
   ChevronRight,
   BarChart3,
-  FolderKanban
+  FolderKanban,
+  HardHat
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -102,6 +103,7 @@ const mainNavItems: NavItem[] = [
     subItems: [
       { title: "Projects", url: "/production?view=projects", icon: FolderKanban },
       { title: "Analytics", url: "/production?view=analytics", icon: BarChart3 },
+      { title: "Subcontractors", url: "/production?view=subcontractors", icon: HardHat },
     ]
   },
   { 
