@@ -41,7 +41,10 @@ import {
   FolderOpen,
   Check,
   ChevronsUpDown,
-  Plus
+  Plus,
+  Trash2,
+  Pencil,
+  X
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
 import { DocumentsSection } from "./DocumentsSection";
@@ -80,8 +83,11 @@ const statusColors: Record<string, string> = {
 
 export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: ProjectDetailSheetProps) {
   const queryClient = useQueryClient();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
+  const [newChecklistItem, setNewChecklistItem] = useState("");
+  const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
+  const [editingChecklistText, setEditingChecklistText] = useState("");
 
   // Fetch full project details
   const { data: fullProject, isLoading } = useQuery({
@@ -228,11 +234,20 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
   // Toggle checklist item
   const toggleChecklistMutation = useMutation({
     mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
+      await logAudit({
+        tableName: 'project_checklists',
+        recordId: id,
+        action: 'UPDATE',
+        oldValues: { completed: !completed },
+        newValues: { completed },
+        description: `${completed ? 'Completed' : 'Uncompleted'} checklist item`,
+      });
       const { error } = await supabase
         .from("project_checklists")
         .update({ 
           completed, 
-          completed_at: completed ? new Date().toISOString() : null 
+          completed_at: completed ? new Date().toISOString() : null,
+          completed_by: completed ? user?.id : null,
         })
         .eq("id", id);
       if (error) throw error;
@@ -240,6 +255,80 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
     },
+  });
+
+  // Add checklist item
+  const addChecklistMutation = useMutation({
+    mutationFn: async (item: string) => {
+      if (!project?.id) throw new Error("No project");
+      const { data, error } = await supabase
+        .from("project_checklists")
+        .insert({ project_id: project.id, item })
+        .select()
+        .single();
+      if (error) throw error;
+      await logAudit({
+        tableName: 'project_checklists',
+        recordId: data.id,
+        action: 'INSERT',
+        newValues: { item },
+        description: `Added checklist item: ${item}`,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Checklist item added");
+      setNewChecklistItem("");
+      queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
+  // Update checklist item text
+  const updateChecklistMutation = useMutation({
+    mutationFn: async ({ id, item }: { id: string; item: string }) => {
+      await logAudit({
+        tableName: 'project_checklists',
+        recordId: id,
+        action: 'UPDATE',
+        newValues: { item },
+        description: `Updated checklist item to: ${item}`,
+      });
+      const { error } = await supabase
+        .from("project_checklists")
+        .update({ item })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Item updated");
+      setEditingChecklistId(null);
+      setEditingChecklistText("");
+      queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
+  // Delete checklist item
+  const deleteChecklistMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await logAudit({
+        tableName: 'project_checklists',
+        recordId: id,
+        action: 'DELETE',
+        description: `Deleted checklist item`,
+      });
+      const { error } = await supabase
+        .from("project_checklists")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Item deleted");
+      queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
   if (!project) return null;
@@ -966,24 +1055,118 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                   {checklists.filter(c => c.completed).length} of {checklists.length} completed
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Add new item */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add new checklist item..."
+                    value={newChecklistItem}
+                    onChange={(e) => setNewChecklistItem(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newChecklistItem.trim()) {
+                        addChecklistMutation.mutate(newChecklistItem.trim());
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (newChecklistItem.trim()) {
+                        addChecklistMutation.mutate(newChecklistItem.trim());
+                      }
+                    }}
+                    disabled={!newChecklistItem.trim() || addChecklistMutation.isPending}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
                 {checklists.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    No checklist items yet
+                    No checklist items yet. Add one above!
                   </p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {checklists.map((item) => (
-                      <div key={item.id} className="flex items-center gap-3 p-2 rounded hover:bg-muted/50">
+                      <div 
+                        key={item.id} 
+                        className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 group"
+                      >
                         <Checkbox 
                           checked={item.completed}
                           onCheckedChange={(checked) => 
                             toggleChecklistMutation.mutate({ id: item.id, completed: !!checked })
                           }
                         />
-                        <span className={item.completed ? "line-through text-muted-foreground" : ""}>
-                          {item.item}
-                        </span>
+                        {editingChecklistId === item.id ? (
+                          <div className="flex-1 flex gap-2">
+                            <Input
+                              value={editingChecklistText}
+                              onChange={(e) => setEditingChecklistText(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && editingChecklistText.trim()) {
+                                  updateChecklistMutation.mutate({ id: item.id, item: editingChecklistText.trim() });
+                                }
+                                if (e.key === "Escape") {
+                                  setEditingChecklistId(null);
+                                  setEditingChecklistText("");
+                                }
+                              }}
+                              autoFocus
+                              className="h-7"
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={() => {
+                                if (editingChecklistText.trim()) {
+                                  updateChecklistMutation.mutate({ id: item.id, item: editingChecklistText.trim() });
+                                }
+                              }}
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              onClick={() => {
+                                setEditingChecklistId(null);
+                                setEditingChecklistText("");
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className={cn("flex-1", item.completed && "line-through text-muted-foreground")}>
+                              {item.item}
+                            </span>
+                            <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0"
+                                onClick={() => {
+                                  setEditingChecklistId(item.id);
+                                  setEditingChecklistText(item.item);
+                                }}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteChecklistMutation.mutate(item.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>
