@@ -1451,6 +1451,7 @@ export type Database = {
           invoice_date: string | null
           invoice_number: string | null
           open_balance: number | null
+          payment_phase_id: string | null
           payments_received: number | null
           project_id: string | null
           total_expected: number | null
@@ -1464,6 +1465,7 @@ export type Database = {
           invoice_date?: string | null
           invoice_number?: string | null
           open_balance?: number | null
+          payment_phase_id?: string | null
           payments_received?: number | null
           project_id?: string | null
           total_expected?: number | null
@@ -1477,6 +1479,7 @@ export type Database = {
           invoice_date?: string | null
           invoice_number?: string | null
           open_balance?: number | null
+          payment_phase_id?: string | null
           payments_received?: number | null
           project_id?: string | null
           total_expected?: number | null
@@ -1488,6 +1491,13 @@ export type Database = {
             columns: ["agreement_id"]
             isOneToOne: false
             referencedRelation: "project_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_invoices_payment_phase_id_fkey"
+            columns: ["payment_phase_id"]
+            isOneToOne: false
+            referencedRelation: "project_payment_phases"
             referencedColumns: ["id"]
           },
           {
@@ -1547,6 +1557,57 @@ export type Database = {
           },
         ]
       }
+      project_payment_phases: {
+        Row: {
+          agreement_id: string | null
+          amount: number | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          phase_name: string
+          project_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agreement_id?: string | null
+          amount?: number | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          phase_name: string
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agreement_id?: string | null
+          amount?: number | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          phase_name?: string
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_payment_phases_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "project_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_payment_phases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_payments: {
         Row: {
           bank_name: string | null
@@ -1558,6 +1619,7 @@ export type Database = {
           invoice_id: string | null
           payment_amount: number | null
           payment_fee: number | null
+          payment_phase_id: string | null
           payment_schedule: string | null
           payment_status: string | null
           project_id: string | null
@@ -1574,6 +1636,7 @@ export type Database = {
           invoice_id?: string | null
           payment_amount?: number | null
           payment_fee?: number | null
+          payment_phase_id?: string | null
           payment_schedule?: string | null
           payment_status?: string | null
           project_id?: string | null
@@ -1590,6 +1653,7 @@ export type Database = {
           invoice_id?: string | null
           payment_amount?: number | null
           payment_fee?: number | null
+          payment_phase_id?: string | null
           payment_schedule?: string | null
           payment_status?: string | null
           project_id?: string | null
@@ -1602,6 +1666,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "project_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_payments_payment_phase_id_fkey"
+            columns: ["payment_phase_id"]
+            isOneToOne: false
+            referencedRelation: "project_payment_phases"
             referencedColumns: ["id"]
           },
           {
