@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,6 +66,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { toast } from "sonner";
 import { ProjectDetailSheet } from "@/components/production/ProjectDetailSheet";
 import { NewProjectDialog } from "@/components/production/NewProjectDialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Project {
   id: string;
@@ -135,6 +137,8 @@ export default function Production() {
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>('project_number');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [warningSheetOpen, setWarningSheetOpen] = useState(false);
+  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | null>(null);
 
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
@@ -561,6 +565,53 @@ export default function Production() {
   const completedProjects = projects.filter(p => p.project_status === "Completed").length;
   const totalEstimatedCost = projects.reduce((sum, p) => sum + (p.estimated_cost || 0), 0);
 
+  // Calculate warning counts
+  const warningCounts = useMemo(() => {
+    const counts = {
+      missingContract: 0,
+      missingPhases: 0,
+      phaseMismatch: 0,
+      contractMismatch: 0,
+    };
+    
+    Object.values(projectFinancials).forEach((f) => {
+      if (f.hasMissingContract) counts.missingContract++;
+      if (f.hasMissingPhases) counts.missingPhases++;
+      if (f.hasPhaseMismatch) counts.phaseMismatch++;
+      if (f.hasContractMismatch) counts.contractMismatch++;
+    });
+    
+    return counts;
+  }, [projectFinancials]);
+
+  const totalWarnings = warningCounts.missingContract + warningCounts.missingPhases + warningCounts.phaseMismatch + warningCounts.contractMismatch;
+
+  // Get projects with specific warning type
+  const getWarningProjects = useCallback((type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch') => {
+    return projects.filter(p => {
+      const f = projectFinancials[p.id];
+      if (!f) return false;
+      switch (type) {
+        case 'missingContract': return f.hasMissingContract;
+        case 'missingPhases': return f.hasMissingPhases;
+        case 'phaseMismatch': return f.hasPhaseMismatch;
+        case 'contractMismatch': return f.hasContractMismatch;
+      }
+    });
+  }, [projects, projectFinancials]);
+
+  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch') => {
+    setWarningSheetType(type);
+    setWarningSheetOpen(true);
+  };
+
+  const warningSheetTitle = {
+    missingContract: 'Missing Contract',
+    missingPhases: 'Missing Payment Phases',
+    phaseMismatch: 'Phase Amount Mismatch',
+    contractMismatch: 'Contract vs Estimate Mismatch',
+  };
+
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background">
@@ -653,6 +704,73 @@ export default function Production() {
               </CardContent>
             </Card>
           </section>
+
+          {/* Financial Warnings Summary */}
+          {totalWarnings > 0 && (
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  <CardTitle className="text-lg">Financial Warnings</CardTitle>
+                </div>
+                <CardDescription>Projects requiring attention</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  {warningCounts.missingContract > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20"
+                      onClick={() => handleOpenWarningSheet('missingContract')}
+                    >
+                      <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground border-0">
+                        C
+                      </Badge>
+                      No Contract: {warningCounts.missingContract}
+                    </Button>
+                  )}
+                  {warningCounts.missingPhases > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-orange-500/10 border-orange-500/30 text-orange-600 hover:bg-orange-500/20"
+                      onClick={() => handleOpenWarningSheet('missingPhases')}
+                    >
+                      <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-orange-500 text-white border-0">
+                        P
+                      </Badge>
+                      No Phases: {warningCounts.missingPhases}
+                    </Button>
+                  )}
+                  {warningCounts.phaseMismatch > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
+                      onClick={() => handleOpenWarningSheet('phaseMismatch')}
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5 mr-2" />
+                      Phase Mismatch: {warningCounts.phaseMismatch}
+                    </Button>
+                  )}
+                  {warningCounts.contractMismatch > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
+                      onClick={() => handleOpenWarningSheet('contractMismatch')}
+                    >
+                      <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-red-500 text-white border-0">
+                        $
+                      </Badge>
+                      Estimate Mismatch: {warningCounts.contractMismatch}
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Filters & Search */}
           <section className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
@@ -1015,6 +1133,75 @@ export default function Production() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Warning Projects Sheet */}
+        <Sheet open={warningSheetOpen} onOpenChange={setWarningSheetOpen}>
+          <SheetContent className="w-full sm:max-w-xl">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+                {warningSheetType && warningSheetTitle[warningSheetType]}
+              </SheetTitle>
+              <SheetDescription>
+                {warningSheetType && `${getWarningProjects(warningSheetType).length} project(s) with this issue`}
+              </SheetDescription>
+            </SheetHeader>
+            <ScrollArea className="h-[calc(100vh-140px)] mt-4">
+              <div className="space-y-2 pr-4">
+                {warningSheetType && getWarningProjects(warningSheetType).map((project) => {
+                  const financials = projectFinancials[project.id];
+                  return (
+                    <div
+                      key={project.id}
+                      className="p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setWarningSheetOpen(false);
+                        handleOpenProject(project);
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">#{project.project_number} - {project.project_address || project.project_name}</p>
+                          <p className="text-sm text-muted-foreground">{project.primary_salesperson || 'No salesperson'}</p>
+                        </div>
+                        <div className="text-right">
+                          {financials && (
+                            <>
+                              <p className="text-sm font-medium">Contract: {formatCurrency(financials.contractsTotal)}</p>
+                              <p className="text-xs text-muted-foreground">Est: {formatCurrency(financials.estimatedCost)}</p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-1 mt-2">
+                        {financials?.hasMissingContract && (
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                            No Contract
+                          </Badge>
+                        )}
+                        {financials?.hasMissingPhases && (
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-orange-500/10 text-orange-500 border-orange-500/20">
+                            No Phases
+                          </Badge>
+                        )}
+                        {financials?.hasPhaseMismatch && (
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/20">
+                            Phase ≠ Contract
+                          </Badge>
+                        )}
+                        {financials?.hasContractMismatch && (
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-red-500/10 text-red-500 border-red-500/20">
+                            Contract ≠ Est
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </SheetContent>
+        </Sheet>
       </div>
     </TooltipProvider>
   );
