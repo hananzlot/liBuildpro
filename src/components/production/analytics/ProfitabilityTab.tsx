@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetricCard } from "./MetricCard";
+import { KPIProjectsSheet, KPIType } from "./KPIProjectsSheet";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
 import { DollarSign, TrendingUp, TrendingDown, Percent, Receipt, Wallet } from "lucide-react";
 import {
@@ -43,6 +44,13 @@ interface ProfitabilityTabProps {
 
 
 export function ProfitabilityTab({ projects, totals, onProjectClick }: ProfitabilityTabProps) {
+  const [selectedKPI, setSelectedKPI] = useState<KPIType | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const handleKPIClick = (kpi: KPIType) => {
+    setSelectedKPI(kpi);
+    setSheetOpen(true);
+  };
   // Profitability by Project chart data
   const projectChartData = useMemo(() => {
     return projects
@@ -114,6 +122,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
           value={formatCurrency(totals.totalRevenue)}
           subValue={`${totals.projectCount} projects`}
           icon={DollarSign}
+          onClick={() => handleKPIClick('totalSold')}
         />
         <MetricCard
           title="Total Costs"
@@ -121,12 +130,14 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
           subValue="Bills received"
           icon={Receipt}
           variant="warning"
+          onClick={() => handleKPIClick('totalCosts')}
         />
         <MetricCard
           title="Lead % Fee"
           value={formatCurrency(totals.totalLeadCost)}
           subValue="Company fee from sales"
           icon={TrendingDown}
+          onClick={() => handleKPIClick('leadFee')}
         />
         <MetricCard
           title="Gross Profit"
@@ -134,12 +145,14 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
           subValue="Sold - Max(Bills, Est)"
           icon={TrendingUp}
           variant={totals.totalGrossProfit > 0 ? 'success' : 'danger'}
+          onClick={() => handleKPIClick('grossProfit')}
         />
         <MetricCard
           title="Commissions"
           value={formatCurrency(totals.totalCommission)}
           subValue="% of Gross to sales"
           icon={Wallet}
+          onClick={() => handleKPIClick('commissions')}
         />
         <MetricCard
           title="Net Profit"
@@ -147,6 +160,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
           subValue="Gross - Commissions"
           icon={Percent}
           variant={totals.totalNetProfit > 0 ? 'success' : 'danger'}
+          onClick={() => handleKPIClick('netProfit')}
         />
       </div>
 
@@ -292,6 +306,14 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
           </div>
         </CardContent>
       </Card>
+      {/* KPI Projects Sheet */}
+      <KPIProjectsSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        kpiType={selectedKPI}
+        projects={projects}
+        onProjectClick={(id) => onProjectClick?.(id)}
+      />
     </div>
   );
 }
