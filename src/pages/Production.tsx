@@ -284,13 +284,6 @@ export default function Production() {
     const projectBalanceDue = contractsTotal - invoicesCollected;
     const profitToDate = invoicesCollected - totalBillsPaid;
     
-    // Calculate commission based on formula: (Total Contracts - Lead Cost - Bills) * Split%
-    const leadCostPercent = project.lead_cost_percent ?? 18;
-    const commissionSplitPct = project.commission_split_pct ?? 50;
-    const leadCostAmount = contractsTotal * (leadCostPercent / 100);
-    const profit = contractsTotal - leadCostAmount - totalBillsReceived;
-    const totalCommission = profit > 0 ? profit * (commissionSplitPct / 100) : 0;
-    
     // Get estimated project cost - if null, default to 50% of estimated_cost (from dispatch)
     const estimatedProjectCostRaw = project.estimated_project_cost;
     const effectiveEstimatedCost = estimatedProjectCostRaw !== null 
@@ -299,10 +292,18 @@ export default function Production() {
     
     // Check if actual costs (bills) exceed estimated project costs
     const exceededExpectedCosts = effectiveEstimatedCost > 0 && totalBillsReceived > effectiveEstimatedCost;
-    
-    // Expected Final Profit = Total Contracts - max(Bills, Est Project Costs) - Commission
+
     // Use max of actual bills or estimated project costs for profit calculation
     const costForProfit = Math.max(totalBillsReceived, effectiveEstimatedCost);
+
+    // Commission per project: (Total Sold - Lead Fee - Max(Bills, Est)) * Commission Split%
+    const leadCostPercent = project.lead_cost_percent ?? 18;
+    const commissionSplitPct = project.commission_split_pct ?? 50;
+    const leadCostAmount = contractsTotal * (leadCostPercent / 100);
+    const commissionBase = contractsTotal - leadCostAmount - costForProfit;
+    const totalCommission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
+    
+    // Company expected profit: Total Sold - Max(Bills, Est) - Commission
     const expectedFinalProfit = contractsTotal - costForProfit - totalCommission;
     
     // Total Cash = Payments received - Bill payments made
