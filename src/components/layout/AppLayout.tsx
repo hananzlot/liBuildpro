@@ -55,16 +55,16 @@ export function AppLayout({
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full overflow-x-hidden">
         <AppSidebar 
           onAdminAction={onAdminAction} 
           onChangePassword={() => setChangePasswordOpen(true)}
         />
         
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col">
           {/* Header */}
           <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <SidebarTrigger />
               {headerContent}
             </div>
@@ -74,8 +74,8 @@ export function AppLayout({
           </header>
 
           {/* Main content */}
-          <main className="flex-1 overflow-hidden">
-            <div className="h-full overflow-auto">
+          <main className="flex-1 min-w-0 overflow-hidden">
+            <div className="h-full min-w-0 overflow-y-auto overflow-x-hidden">
               {children}
             </div>
           </main>
