@@ -1761,6 +1761,7 @@ export type Database = {
           install_start_date: string | null
           install_status: string | null
           installers_on_site: string[] | null
+          lead_cost_percent: number | null
           lead_number: string | null
           lead_source: string | null
           location_id: string
@@ -1768,6 +1769,7 @@ export type Database = {
           opportunity_id: string | null
           permit_numbers: string | null
           primary_commission_pct: number | null
+          primary_profit_split_pct: number | null
           primary_salesperson: string | null
           project_address: string | null
           project_manager: string | null
@@ -1777,11 +1779,14 @@ export type Database = {
           project_subcategory: string | null
           project_type: string | null
           quaternary_commission_pct: number | null
+          quaternary_profit_split_pct: number | null
           quaternary_salesperson: string | null
           secondary_commission_pct: number | null
+          secondary_profit_split_pct: number | null
           secondary_salesperson: string | null
           sold_under: string | null
           tertiary_commission_pct: number | null
+          tertiary_profit_split_pct: number | null
           tertiary_salesperson: string | null
           total_pl: number | null
           updated_at: string | null
@@ -1812,6 +1817,7 @@ export type Database = {
           install_start_date?: string | null
           install_status?: string | null
           installers_on_site?: string[] | null
+          lead_cost_percent?: number | null
           lead_number?: string | null
           lead_source?: string | null
           location_id: string
@@ -1819,6 +1825,7 @@ export type Database = {
           opportunity_id?: string | null
           permit_numbers?: string | null
           primary_commission_pct?: number | null
+          primary_profit_split_pct?: number | null
           primary_salesperson?: string | null
           project_address?: string | null
           project_manager?: string | null
@@ -1828,11 +1835,14 @@ export type Database = {
           project_subcategory?: string | null
           project_type?: string | null
           quaternary_commission_pct?: number | null
+          quaternary_profit_split_pct?: number | null
           quaternary_salesperson?: string | null
           secondary_commission_pct?: number | null
+          secondary_profit_split_pct?: number | null
           secondary_salesperson?: string | null
           sold_under?: string | null
           tertiary_commission_pct?: number | null
+          tertiary_profit_split_pct?: number | null
           tertiary_salesperson?: string | null
           total_pl?: number | null
           updated_at?: string | null
@@ -1863,6 +1873,7 @@ export type Database = {
           install_start_date?: string | null
           install_status?: string | null
           installers_on_site?: string[] | null
+          lead_cost_percent?: number | null
           lead_number?: string | null
           lead_source?: string | null
           location_id?: string
@@ -1870,6 +1881,7 @@ export type Database = {
           opportunity_id?: string | null
           permit_numbers?: string | null
           primary_commission_pct?: number | null
+          primary_profit_split_pct?: number | null
           primary_salesperson?: string | null
           project_address?: string | null
           project_manager?: string | null
@@ -1879,11 +1891,14 @@ export type Database = {
           project_subcategory?: string | null
           project_type?: string | null
           quaternary_commission_pct?: number | null
+          quaternary_profit_split_pct?: number | null
           quaternary_salesperson?: string | null
           secondary_commission_pct?: number | null
+          secondary_profit_split_pct?: number | null
           secondary_salesperson?: string | null
           sold_under?: string | null
           tertiary_commission_pct?: number | null
+          tertiary_profit_split_pct?: number | null
           tertiary_salesperson?: string | null
           total_pl?: number | null
           updated_at?: string | null

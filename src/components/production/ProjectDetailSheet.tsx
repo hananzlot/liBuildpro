@@ -501,6 +501,21 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <CardTitle className="text-sm">Sales Team</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Lead Cost % */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Lead Cost %</Label>
+                        <Input 
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={fullProject?.lead_cost_percent ?? 18} 
+                          onChange={(e) => updateProjectMutation.mutate({ lead_cost_percent: parseFloat(e.target.value) || 18 })}
+                          placeholder="18"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Default: 18%</p>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Primary Salesperson</Label>
@@ -583,6 +598,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                             (fullProject?.quaternary_commission_pct || 0)
                           )}
                           placeholder="100"
+                        />
+                      </div>
+                      <div>
+                        <Label>Profit Split %</Label>
+                        <Input 
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={fullProject?.primary_profit_split_pct || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ primary_profit_split_pct: parseFloat(e.target.value) || 0 })}
+                          placeholder="0"
                         />
                       </div>
                     </div>
@@ -674,8 +700,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="0"
                         />
                       </div>
+                      <div>
+                        <Label>Profit Split %</Label>
+                        <Input 
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={fullProject?.secondary_profit_split_pct || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ secondary_profit_split_pct: parseFloat(e.target.value) || 0 })}
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <Label>Tertiary Salesperson</Label>
                         <Popover>
@@ -753,8 +790,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="0"
                         />
                       </div>
+                      <div>
+                        <Label>Profit Split %</Label>
+                        <Input 
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={fullProject?.tertiary_profit_split_pct || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ tertiary_profit_split_pct: parseFloat(e.target.value) || 0 })}
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <Label>Quaternary Salesperson</Label>
                         <Popover>
@@ -832,6 +880,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="0"
                         />
                       </div>
+                      <div>
+                        <Label>Profit Split %</Label>
+                        <Input 
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={fullProject?.quaternary_profit_split_pct || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ quaternary_profit_split_pct: parseFloat(e.target.value) || 0 })}
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -889,6 +948,13 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                 projectId={project.id}
                 estimatedCost={fullProject.estimated_cost}
                 totalPl={fullProject.total_pl}
+                leadCostPercent={fullProject.lead_cost_percent ?? 18}
+                salespeople={[
+                  { name: fullProject.primary_salesperson, commissionPct: fullProject.primary_commission_pct || 0, profitSplitPct: fullProject.primary_profit_split_pct || 0 },
+                  { name: fullProject.secondary_salesperson, commissionPct: fullProject.secondary_commission_pct || 0, profitSplitPct: fullProject.secondary_profit_split_pct || 0 },
+                  { name: fullProject.tertiary_salesperson, commissionPct: fullProject.tertiary_commission_pct || 0, profitSplitPct: fullProject.tertiary_profit_split_pct || 0 },
+                  { name: fullProject.quaternary_salesperson, commissionPct: fullProject.quaternary_commission_pct || 0, profitSplitPct: fullProject.quaternary_profit_split_pct || 0 },
+                ].filter(s => s.name)}
                 onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
               />
             )}
