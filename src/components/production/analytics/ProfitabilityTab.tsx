@@ -338,11 +338,15 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {formatCurrency(costForDisplay)}
-                          {isUsingEstimate && (
+                          {isCompleted ? (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-green-500/10 text-green-600 border-green-500/20">
+                              ✓
+                            </Badge>
+                          ) : isUsingEstimate ? (
                             <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/20">
                               est
                             </Badge>
-                          )}
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell className={`text-right font-medium ${project.expectedNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
