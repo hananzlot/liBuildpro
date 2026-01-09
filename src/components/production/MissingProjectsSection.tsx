@@ -36,6 +36,7 @@ interface WonOpportunity {
   monetary_value: number | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
+  won_at: string | null;
   stage_name: string | null;
   location_id: string;
   contact?: {
@@ -82,6 +83,7 @@ export function MissingProjectsSection() {
           monetary_value,
           assigned_to,
           ghl_date_added,
+          won_at,
           stage_name,
           location_id
         `)
@@ -345,7 +347,7 @@ export function MissingProjectsSection() {
                     <TableCell className="text-right font-medium">
                       {formatCurrency(opp.monetary_value)}
                     </TableCell>
-                    <TableCell>{formatDate(opp.ghl_date_added)}</TableCell>
+                    <TableCell>{formatDate(opp.won_at || opp.ghl_date_added)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                         {opp.stage_name || 'Won'}

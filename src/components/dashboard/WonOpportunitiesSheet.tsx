@@ -61,6 +61,7 @@ interface DBOpportunity {
   pipeline_name: string | null;
   pipeline_id: string | null;
   pipeline_stage_id: string | null;
+  won_at: string | null;
 }
 
 interface DBContact {
@@ -145,8 +146,10 @@ export function WonOpportunitiesSheet({
       to.setHours(23, 59, 59, 999);
 
       result = result.filter((opp) => {
-        if (!opp.ghl_date_updated) return false;
-        const updated = new Date(opp.ghl_date_updated);
+        // Use won_at (accurate), fallback to ghl_date_updated
+        const dateStr = opp.won_at || opp.ghl_date_updated;
+        if (!dateStr) return false;
+        const updated = new Date(dateStr);
         return updated >= from && updated <= to;
       });
     }
@@ -191,7 +194,8 @@ export function WonOpportunitiesSheet({
       const contactName = formatName(rawContactName);
 
       const startDate = parseGhlDate(opp.ghl_date_added || contact?.ghl_date_added || null);
-      const endDate = parseGhlDate(opp.ghl_date_updated);
+      // Use won_at for end date (accurate), fallback to ghl_date_updated
+      const endDate = parseGhlDate(opp.won_at || opp.ghl_date_updated);
       let daysWorked: number | null = null;
       if (startDate && endDate) {
         const diff = differenceInCalendarDays(endDate, startDate);
@@ -233,7 +237,8 @@ export function WonOpportunitiesSheet({
           break;
         case "date":
         default:
-          comparison = new Date(a.ghl_date_updated || 0).getTime() - new Date(b.ghl_date_updated || 0).getTime();
+          // Sort by won_at (accurate) with fallback to ghl_date_updated
+          comparison = new Date(a.won_at || a.ghl_date_updated || 0).getTime() - new Date(b.won_at || b.ghl_date_updated || 0).getTime();
           break;
       }
       return sortDirection === "desc" ? -comparison : comparison;
@@ -286,7 +291,8 @@ export function WonOpportunitiesSheet({
       opp.stage_name || "",
       opp.scopeOfWork || "",
       opp.daysWorked !== null ? opp.daysWorked : "",
-      opp.ghl_date_updated ? format(new Date(opp.ghl_date_updated), "yyyy-MM-dd") : "",
+      // Use won_at (accurate) for export, fallback to ghl_date_updated
+      (opp.won_at || opp.ghl_date_updated) ? format(new Date(opp.won_at || opp.ghl_date_updated!), "yyyy-MM-dd") : "",
     ]);
 
     const csvContent = [
@@ -423,8 +429,9 @@ export function WonOpportunitiesSheet({
                       {formatCurrency(opp.monetary_value || 0)}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {opp.ghl_date_updated
-                        ? format(new Date(opp.ghl_date_updated), "MMM d, yyyy")
+                      {/* Use won_at (accurate) for display, fallback to ghl_date_updated */}
+                      {(opp.won_at || opp.ghl_date_updated)
+                        ? format(new Date(opp.won_at || opp.ghl_date_updated!), "MMM d, yyyy")
                         : "-"}
                     </TableCell>
                   </TableRow>

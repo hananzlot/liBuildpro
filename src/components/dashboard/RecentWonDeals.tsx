@@ -15,6 +15,7 @@ interface Opportunity {
   contact_id: string | null;
   ghl_date_updated: string | null;
   ghl_date_added: string | null;
+  won_at: string | null;
 }
 
 interface Contact {
@@ -76,7 +77,7 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
     if (c.ghl_id) contactMap.set(c.ghl_id, c);
   });
 
-  // 🔹 Filter by selected date range using ghl_date_updated
+  // 🔹 Filter by selected date range using won_at (accurate) with fallback to ghl_date_updated
   const filteredWon = useMemo(() => {
     let result = [...wonOpportunities];
 
@@ -87,14 +88,17 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
       to.setHours(23, 59, 59, 999);
 
       result = result.filter((opp) => {
-        if (!opp.ghl_date_updated) return false;
-        const updated = new Date(opp.ghl_date_updated);
+        // Use won_at (accurate), fallback to ghl_date_updated
+        const dateStr = opp.won_at || opp.ghl_date_updated;
+        if (!dateStr) return false;
+        const updated = new Date(dateStr);
         return updated >= from && updated <= to;
       });
     }
 
+    // Sort by won_at (accurate), fallback to ghl_date_updated
     return result.sort(
-      (a, b) => new Date(b.ghl_date_updated || 0).getTime() - new Date(a.ghl_date_updated || 0).getTime(),
+      (a, b) => new Date(b.won_at || b.ghl_date_updated || 0).getTime() - new Date(a.won_at || a.ghl_date_updated || 0).getTime(),
     );
   }, [wonOpportunities, dateRange]);
 
@@ -197,9 +201,10 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
                       {(() => {
                         const contactName = getContactName(opp.contact_id);
 
-                        // 🔹 Days worked = ghl_date_updated - ghl_date_added (calendar days)
+                        // 🔹 Days worked = won_at - ghl_date_added (calendar days)
                         const startDate = parseGhlDate(opp.ghl_date_added);
-                        const endDate = parseGhlDate(opp.ghl_date_updated);
+                        // Use won_at (accurate), fallback to ghl_date_updated
+                        const endDate = parseGhlDate(opp.won_at || opp.ghl_date_updated);
 
                         let daysWorked: number | null = null;
                         if (startDate && endDate) {

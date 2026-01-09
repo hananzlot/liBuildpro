@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle, FolderOpen } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle, FolderOpen, Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +49,7 @@ interface Opportunity {
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
   location_id?: string;
+  won_at?: string | null;
 }
 interface Appointment {
   ghl_id: string;
@@ -276,6 +277,13 @@ export function OpportunityDetailSheet({
   const [isInlineEditingStatus, setIsInlineEditingStatus] = useState(false);
   const [isSavingInline, setIsSavingInline] = useState(false);
 
+  // Won date editing (admin only)
+  const [isEditingWonAt, setIsEditingWonAt] = useState(false);
+  const [editedWonAtDate, setEditedWonAtDate] = useState("");
+  const [editedWonAtTime, setEditedWonAtTime] = useState("");
+  const [isSavingWonAt, setIsSavingWonAt] = useState(false);
+  const [savedWonAt, setSavedWonAt] = useState<string | null>(null);
+
   // Associated project for production link
   const [associatedProjectId, setAssociatedProjectId] = useState<string | null>(null);
 
@@ -285,6 +293,8 @@ export function OpportunityDetailSheet({
       setSavedValues({});
       setSavedContactName(null);
       setAssociatedProjectId(null);
+      setSavedWonAt(null);
+      setIsEditingWonAt(false);
     }
     setWasOpen(open);
   }, [open]);
@@ -1616,6 +1626,46 @@ export function OpportunityDetailSheet({
       setIsSavingName(false);
     }
   };
+  
+  // Admin-only: Save won_at date
+  const handleSaveWonAt = async () => {
+    if (!opportunity || !isAdmin) return;
+    setIsSavingWonAt(true);
+    try {
+      // Build the won_at timestamp from date and time inputs
+      let wonAtValue: string | null = null;
+      if (editedWonAtDate) {
+        const timeStr = editedWonAtTime || "12:00";
+        // Treat input as PST: parse as UTC then add PST offset to get actual UTC
+        const pstOffset = getPSTOffset(new Date(`${editedWonAtDate}T12:00:00Z`));
+        const tempUtcDate = new Date(`${editedWonAtDate}T${timeStr}:00.000Z`);
+        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+        wonAtValue = utcDate.toISOString();
+      }
+
+      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+        body: {
+          ghl_id: opportunity.ghl_id,
+          won_at: wonAtValue,
+          edited_by: user?.id || null
+        }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setSavedWonAt(wonAtValue);
+      toast.success("Won date updated");
+      setIsEditingWonAt(false);
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+    } catch (error) {
+      console.error("Error saving won date:", error);
+      toast.error("Failed to save won date");
+    } finally {
+      setIsSavingWonAt(false);
+    }
+  };
+
   const handleDeleteOpportunity = async () => {
     if (!opportunity) return;
     setIsDeletingOpportunity(true);
@@ -2051,6 +2101,66 @@ export function OpportunityDetailSheet({
                   </Badge>
                 </button>}
             </div>
+
+            {/* Won Date - Only show when status is 'won' */}
+            {(savedValues.status ?? opportunity.status)?.toLowerCase() === "won" && (
+              <div className="bg-emerald-500/10 rounded-md px-2.5 py-[3px] min-w-[110px] border border-emerald-500/20">
+                <div className="text-emerald-500/80 text-xs mb-[1px] flex items-center gap-1">
+                  <Trophy className="h-3 w-3" />
+                  Won Date
+                </div>
+                {isEditingWonAt && isAdmin ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="date"
+                      value={editedWonAtDate}
+                      onChange={(e) => setEditedWonAtDate(e.target.value)}
+                      className="h-6 text-xs w-28 px-1"
+                    />
+                    <Input
+                      type="time"
+                      value={editedWonAtTime}
+                      onChange={(e) => setEditedWonAtTime(e.target.value)}
+                      className="h-6 text-xs w-20 px-1"
+                    />
+                    <Button variant="ghost" size="sm" className="h-6 px-1" onClick={handleSaveWonAt} disabled={isSavingWonAt}>
+                      {isSavingWonAt ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => setIsEditingWonAt(false)}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    className={`font-medium truncate text-emerald-500 ${isAdmin ? "hover:underline cursor-pointer" : ""}`}
+                    onClick={() => {
+                      if (!isAdmin) return;
+                      const currentWonAt = savedWonAt ?? opportunity.won_at;
+                      if (currentWonAt) {
+                        const d = new Date(currentWonAt);
+                        // Convert to PST for editing
+                        const pstOffset = getPSTOffset(d);
+                        const pstDate = new Date(d.getTime() - pstOffset * 60 * 60 * 1000);
+                        setEditedWonAtDate(pstDate.toISOString().split("T")[0]);
+                        setEditedWonAtTime(pstDate.toISOString().split("T")[1].slice(0, 5));
+                      } else {
+                        // Default to now
+                        const now = new Date();
+                        const pstOffset = getPSTOffset(now);
+                        const pstNow = new Date(now.getTime() - pstOffset * 60 * 60 * 1000);
+                        setEditedWonAtDate(pstNow.toISOString().split("T")[0]);
+                        setEditedWonAtTime(pstNow.toISOString().split("T")[1].slice(0, 5));
+                      }
+                      setIsEditingWonAt(true);
+                    }}
+                    disabled={!isAdmin}
+                  >
+                    {formatDate(savedWonAt ?? opportunity.won_at)}
+                    {isAdmin && <Pencil className="h-2.5 w-2.5 inline ml-1 opacity-50" />}
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Created */}
             <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[90px]">

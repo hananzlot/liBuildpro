@@ -956,6 +956,7 @@ export type Database = {
           stage_name: string | null
           status: string | null
           updated_at: string
+          won_at: string | null
         }
         Insert: {
           assigned_to?: string | null
@@ -977,6 +978,7 @@ export type Database = {
           stage_name?: string | null
           status?: string | null
           updated_at?: string
+          won_at?: string | null
         }
         Update: {
           assigned_to?: string | null
@@ -998,6 +1000,7 @@ export type Database = {
           stage_name?: string | null
           status?: string | null
           updated_at?: string
+          won_at?: string | null
         }
         Relationships: [
           {
