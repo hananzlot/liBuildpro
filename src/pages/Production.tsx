@@ -88,6 +88,7 @@ interface ProjectFinancials {
   projectId: string;
   totalBillsReceived: number;
   totalBillsPaid: number;
+  totalBillPayments: number;
   totalInvoiced: number;
   invoicesCollected: number;
   invoiceBalanceDue: number;
@@ -98,9 +99,12 @@ interface ProjectFinancials {
   estimatedCost: number | null;
   projectBalanceDue: number;
   profitToDate: number;
+  totalCommission: number;
+  expectedFinalProfit: number;
+  totalCash: number;
 }
 
-type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'profit';
+type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'profit' | 'commission' | 'expected_profit' | 'total_cash';
 type SortDirection = 'asc' | 'desc';
 
 const statusColors: Record<string, string> = {
@@ -133,11 +137,18 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*")
+        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct")
         .order("project_number", { ascending: false });
       
       if (error) throw error;
-      return data as Project[];
+      return data as (Project & { 
+        lead_cost_percent: number | null; 
+        commission_split_pct: number | null;
+        primary_commission_pct: number | null;
+        secondary_commission_pct: number | null;
+        tertiary_commission_pct: number | null;
+        quaternary_commission_pct: number | null;
+      })[];
     },
   });
 
@@ -197,6 +208,17 @@ export default function Production() {
     },
   });
 
+  const { data: allBillPayments = [] } = useQuery({
+    queryKey: ["all-bill-payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bill_payments")
+        .select("id, bill_id, payment_amount");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Calculate financials for each project
   const projectFinancials: Record<string, ProjectFinancials> = {};
   
@@ -209,6 +231,13 @@ export default function Production() {
 
     const totalBillsReceived = projectBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
     const totalBillsPaid = projectBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
+    
+    // Calculate actual bill payments from bill_payments table
+    const projectBillIds = projectBills.map(b => b.id);
+    const totalBillPayments = allBillPayments
+      .filter(bp => projectBillIds.includes(bp.bill_id))
+      .reduce((sum, bp) => sum + (bp.payment_amount || 0), 0);
+    
     const totalInvoiced = projectInvoices.reduce((sum, i) => sum + (i.amount || 0), 0);
     const invoicesCollected = projectPayments
       .filter(p => p.payment_status === "Received")
@@ -234,11 +263,25 @@ export default function Production() {
     const phasesTotal = projectPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
     const projectBalanceDue = contractsTotal - invoicesCollected;
     const profitToDate = invoicesCollected - totalBillsPaid;
+    
+    // Calculate commission based on formula: (Total Contracts - Lead Cost - Bills) * Split%
+    const leadCostPercent = project.lead_cost_percent ?? 18;
+    const commissionSplitPct = project.commission_split_pct ?? 50;
+    const leadCostAmount = contractsTotal * (leadCostPercent / 100);
+    const profit = contractsTotal - leadCostAmount - totalBillsReceived;
+    const totalCommission = profit > 0 ? profit * (commissionSplitPct / 100) : 0;
+    
+    // Expected Final Profit = Total Contracts - Lead Cost - Bills - Commission
+    const expectedFinalProfit = contractsTotal - leadCostAmount - totalBillsReceived - totalCommission;
+    
+    // Total Cash = Payments received - Bill payments made
+    const totalCash = invoicesCollected - totalBillPayments;
 
     projectFinancials[project.id] = {
       projectId: project.id,
       totalBillsReceived,
       totalBillsPaid,
+      totalBillPayments,
       totalInvoiced,
       invoicesCollected,
       invoiceBalanceDue,
@@ -249,6 +292,9 @@ export default function Production() {
       estimatedCost: project.estimated_cost,
       projectBalanceDue,
       profitToDate,
+      totalCommission,
+      expectedFinalProfit,
+      totalCash,
     };
   });
 
@@ -325,6 +371,15 @@ export default function Production() {
           break;
         case 'profit':
           comparison = (financialsA?.profitToDate || 0) - (financialsB?.profitToDate || 0);
+          break;
+        case 'commission':
+          comparison = (financialsA?.totalCommission || 0) - (financialsB?.totalCommission || 0);
+          break;
+        case 'expected_profit':
+          comparison = (financialsA?.expectedFinalProfit || 0) - (financialsB?.expectedFinalProfit || 0);
+          break;
+        case 'total_cash':
+          comparison = (financialsA?.totalCash || 0) - (financialsB?.totalCash || 0);
           break;
       }
 
@@ -515,10 +570,10 @@ export default function Production() {
             </Card>
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>Total Est. Cost</CardDescription>
+                <CardDescription>Total Sold</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{formatCurrency(totalEstimatedCost)}</p>
+                <p className="text-3xl font-bold">{formatCurrency(Object.values(projectFinancials).reduce((sum, f) => sum + f.contractsTotal, 0))}</p>
               </CardContent>
             </Card>
           </section>
@@ -634,6 +689,15 @@ export default function Production() {
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('profit')}>
                           <div className="flex items-center justify-end">Profit TD <SortIcon column="profit" /></div>
                         </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('commission')}>
+                          <div className="flex items-center justify-end">Commission <SortIcon column="commission" /></div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('expected_profit')}>
+                          <div className="flex items-center justify-end">Exp Profit <SortIcon column="expected_profit" /></div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50 bg-primary/10" onClick={() => handleSort('total_cash')}>
+                          <div className="flex items-center justify-end font-semibold">Cash <SortIcon column="total_cash" /></div>
+                        </TableHead>
                         {isAdmin && <TableHead className="w-12"></TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -706,6 +770,15 @@ export default function Production() {
                             </TableCell>
                             <TableCell className={`text-right text-xs font-medium ${(financials?.profitToDate || 0) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
                               {formatCurrency(financials?.profitToDate)}
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-muted-foreground">
+                              {formatCurrency(financials?.totalCommission)}
+                            </TableCell>
+                            <TableCell className={`text-right text-xs font-medium ${(financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                              {formatCurrency(financials?.expectedFinalProfit)}
+                            </TableCell>
+                            <TableCell className={`text-right text-xs font-bold bg-primary/5 ${(financials?.totalCash || 0) >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                              {formatCurrency(financials?.totalCash)}
                             </TableCell>
                             {isAdmin && (
                               <TableCell>
