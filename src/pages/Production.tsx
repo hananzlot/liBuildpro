@@ -559,11 +559,21 @@ export default function Production() {
     setDetailSheetOpen(true);
   };
 
-  // Calculate KPIs
-  const totalProjects = projects.length;
-  const inProgressProjects = projects.filter(p => p.project_status === "In-Progress").length;
-  const completedProjects = projects.filter(p => p.project_status === "Completed").length;
-  const totalEstimatedCost = projects.reduce((sum, p) => sum + (p.estimated_cost || 0), 0);
+  // Calculate KPIs based on status filter
+  const filteredByStatus = useMemo(() => {
+    if (statusFilter === "all") return projects;
+    return projects.filter(p => p.project_status === statusFilter);
+  }, [projects, statusFilter]);
+
+  const totalProjects = filteredByStatus.length;
+  const inProgressProjects = filteredByStatus.filter(p => p.project_status === "In-Progress").length;
+  const completedProjects = filteredByStatus.filter(p => p.project_status === "Completed").length;
+  const totalEstimatedCost = filteredByStatus.reduce((sum, p) => sum + (p.estimated_cost || 0), 0);
+
+  // Calculate filtered financials for KPIs
+  const filteredFinancialsTotal = useMemo(() => {
+    return filteredByStatus.reduce((sum, p) => sum + (projectFinancials[p.id]?.contractsTotal || 0), 0);
+  }, [filteredByStatus, projectFinancials]);
 
   // Calculate warning counts
   const warningCounts = useMemo(() => {
@@ -700,7 +710,7 @@ export default function Production() {
                 <CardDescription>Total Sold</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{formatCurrency(Object.values(projectFinancials).reduce((sum, f) => sum + f.contractsTotal, 0))}</p>
+                <p className="text-3xl font-bold">{formatCurrency(filteredFinancialsTotal)}</p>
               </CardContent>
             </Card>
           </section>
