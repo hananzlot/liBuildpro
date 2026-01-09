@@ -277,15 +277,17 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         isActive={isSubActive}
                         onClick={closeSidebar}
                       >
-                        <NavLink 
-                          to={subItem.url} 
-                          end
-                          className="flex items-center gap-2"
-                          activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                        <a 
+                          href={subItem.url}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            navigate(subItem.url);
+                          }}
+                          className={`flex items-center gap-2 ${isSubActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}`}
                         >
                           {subItem.icon && <subItem.icon className="h-3 w-3" />}
                           <span>{subItem.title}</span>
-                        </NavLink>
+                        </a>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   );
