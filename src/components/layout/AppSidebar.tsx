@@ -17,7 +17,9 @@ import {
   ChevronRight,
   BarChart3,
   FolderKanban,
-  HardHat
+  HardHat,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -49,7 +51,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 type UserRole = 'admin' | 'user' | 'magazine_editor' | 'production';
@@ -138,7 +144,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, isAdmin, isMagazineEditor, isProduction, signOut } = useAuth();
+  const { user, profile, isAdmin, isMagazineEditor, isProduction, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
   const collapsed = state === "collapsed";
 
   const closeSidebar = () => {
@@ -354,7 +360,14 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           {!collapsed && (
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-semibold truncate">CA Pro Builders</span>
-              <span className="text-xs text-muted-foreground">Dashboard v2.5</span>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">Dashboard v2.5</span>
+                {isSimulating && (
+                  <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    Simulating
+                  </Badge>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -372,15 +385,65 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         </SidebarGroup>
 
 
-        {/* Admin Tools */}
-        {isAdmin && onAdminAction && (
+        {/* Admin Tools - always show for actual admins (even when simulating) */}
+        {(isAdmin || isSimulating) && onAdminAction && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
               <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                {adminMenuItems.map((item) => (
+                  {/* Role Simulation Toggle */}
+                  <SidebarMenuItem>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <SidebarMenuButton tooltip="Simulate Role">
+                          {isSimulating ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {!collapsed && (
+                            <span className="flex items-center gap-2">
+                              Simulate Role
+                              {isSimulating && (
+                                <Badge variant="outline" className="h-4 px-1.5 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                                  {simulatedRole}
+                                </Badge>
+                              )}
+                            </span>
+                          )}
+                        </SidebarMenuButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="right" align="start" className="w-48">
+                        <DropdownMenuLabel>View as Role</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuRadioGroup 
+                          value={simulatedRole || ''} 
+                          onValueChange={(value) => {
+                            if (value === '') {
+                              setSimulatedRole(null);
+                              toast.info("Role simulation disabled");
+                            } else {
+                              setSimulatedRole(value as UserRole);
+                              toast.info(`Now viewing as: ${value}`);
+                            }
+                          }}
+                        >
+                          <DropdownMenuRadioItem value="">
+                            <span className="flex items-center gap-2">
+                              My Actual Role
+                              {!simulatedRole && <Badge variant="outline" className="h-4 px-1 text-[9px]">Active</Badge>}
+                            </span>
+                          </DropdownMenuRadioItem>
+                          <DropdownMenuSeparator />
+                          {availableRoles.map((role) => (
+                            <DropdownMenuRadioItem key={role} value={role}>
+                              {role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ')}
+                            </DropdownMenuRadioItem>
+                          ))}
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </SidebarMenuItem>
+
+                  {adminMenuItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton 
                         tooltip={item.title}

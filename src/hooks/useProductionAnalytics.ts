@@ -21,6 +21,9 @@ export interface ProjectWithFinancials {
   quaternary_salesperson: string | null;
   project_manager: string | null;
   estimated_cost: number | null;
+  estimated_project_cost: number | null;
+  effectiveEstimatedCost: number;
+  exceededExpectedCosts: boolean;
   lead_cost_percent: number | null;
   commission_split_pct: number | null;
   agreement_signed_date: string | null;
@@ -231,9 +234,21 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       const leadCostPercent = project.lead_cost_percent ?? 18;
       const commissionSplitPct = project.commission_split_pct ?? 50;
       const leadCostAmount = contractsTotal * (leadCostPercent / 100);
-      const grossProfit = contractsTotal - leadCostAmount - totalBillsReceived;
+      
+      // Get estimated project cost - if null, default to 50% of estimated_cost (from dispatch)
+      const estimatedProjectCostRaw = project.estimated_project_cost;
+      const effectiveEstimatedCost = estimatedProjectCostRaw !== null 
+        ? estimatedProjectCostRaw 
+        : (project.estimated_cost ? project.estimated_cost * 0.5 : 0);
+      
+      // Check if actual costs (bills) exceed estimated project costs
+      const exceededExpectedCosts = effectiveEstimatedCost > 0 && totalBillsReceived > effectiveEstimatedCost;
+      
+      // Use max of actual bills or estimated project costs for profit calculation
+      const costForProfit = Math.max(totalBillsReceived, effectiveEstimatedCost);
+      const grossProfit = contractsTotal - leadCostAmount - costForProfit;
       const totalCommission = grossProfit > 0 ? grossProfit * (commissionSplitPct / 100) : 0;
-      const expectedNetProfit = contractsTotal - leadCostAmount - totalBillsReceived - totalCommission;
+      const expectedNetProfit = contractsTotal - leadCostAmount - costForProfit - totalCommission;
       const cashPosition = invoicesCollected - totalBillPayments;
 
       // Determine cash status
@@ -263,6 +278,9 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         quaternary_salesperson: project.quaternary_salesperson,
         project_manager: project.project_manager,
         estimated_cost: project.estimated_cost,
+        estimated_project_cost: project.estimated_project_cost,
+        effectiveEstimatedCost,
+        exceededExpectedCosts,
         lead_cost_percent: project.lead_cost_percent,
         commission_split_pct: project.commission_split_pct,
         agreement_signed_date: project.agreement_signed_date,
