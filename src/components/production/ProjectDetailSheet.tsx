@@ -353,22 +353,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
-  if (!project) return null;
-
-  const formatPhoneNumber = (phone: string | null | undefined): string => {
-    if (!phone) return "";
-    // Remove all non-digit characters
-    const digits = phone.replace(/\D/g, "");
-    // Format as (XXX) XXX-XXXX if 10 digits, or +1 (XXX) XXX-XXXX if 11 digits starting with 1
-    if (digits.length === 10) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    } else if (digits.length === 11 && digits.startsWith("1")) {
-      return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-    }
-    return phone; // Return original if doesn't match expected format
-  };
-
-
   // Fetch project statuses from database
   const { data: projectStatuses = [] } = useQuery({
     queryKey: ["project-statuses"],
@@ -434,6 +418,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
+
+  if (!project) return null;
+
+  const formatPhoneNumber = (phone: string | null | undefined): string => {
+    if (!phone) return "";
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length === 10) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    } else if (digits.length === 11 && digits.startsWith("1")) {
+      return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+    }
+    return phone;
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
