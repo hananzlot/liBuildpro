@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, BookOpen } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, BookOpen, Briefcase } from "lucide-react";
 
 interface UserManagementProps {
   open: boolean;
@@ -23,7 +23,7 @@ interface Profile {
 
 interface UserRole {
   user_id: string;
-  role: "admin" | "user" | "magazine_editor";
+  role: "admin" | "user" | "magazine_editor" | "production";
 }
 
 export function UserManagement({ open, onOpenChange }: UserManagementProps) {
@@ -61,7 +61,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   });
 
   const toggleRoleMutation = useMutation({
-    mutationFn: async ({ userId, role, hasRole }: { userId: string; role: "admin" | "magazine_editor"; hasRole: boolean }) => {
+    mutationFn: async ({ userId, role, hasRole }: { userId: string; role: "admin" | "magazine_editor" | "production"; hasRole: boolean }) => {
       setUpdatingUserId(userId);
       setUpdatingRole(role);
       
@@ -86,7 +86,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
-      const roleName = data.role === "admin" ? "Admin" : "Magazine Editor";
+      const roleName = data.role === "admin" ? "Admin" : data.role === "production" ? "Production" : "Magazine Editor";
       toast.success(data.hasRole ? `${roleName} role removed` : `${roleName} role granted`);
     },
     onError: (error) => {
@@ -98,7 +98,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
   });
 
-  const hasRole = (userId: string, role: "admin" | "magazine_editor") => {
+  const hasRole = (userId: string, role: "admin" | "magazine_editor" | "production") => {
     return userRoles.some(r => r.user_id === userId && r.role === role);
   };
 
@@ -124,8 +124,10 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
               {profiles.map((profile) => {
                 const userIsAdmin = hasRole(profile.id, "admin");
                 const userIsMagazineEditor = hasRole(profile.id, "magazine_editor");
+                const userIsProduction = hasRole(profile.id, "production");
                 const isUpdatingAdmin = updatingUserId === profile.id && updatingRole === "admin";
                 const isUpdatingMagazine = updatingUserId === profile.id && updatingRole === "magazine_editor";
+                const isUpdatingProduction = updatingUserId === profile.id && updatingRole === "production";
 
                 return (
                   <div
@@ -160,6 +162,11 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                             Magazine
                           </Badge>
                         )}
+                        {userIsProduction && (
+                          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500">
+                            Production
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
@@ -191,6 +198,23 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                                   userId: profile.id,
                                   role: "magazine_editor",
                                   hasRole: userIsMagazineEditor,
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Production</span>
+                          {isUpdatingProduction ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Switch
+                              checked={userIsProduction}
+                              onCheckedChange={() => {
+                                toggleRoleMutation.mutate({
+                                  userId: profile.id,
+                                  role: "production",
+                                  hasRole: userIsProduction,
                                 });
                               }}
                             />
