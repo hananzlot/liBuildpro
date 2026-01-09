@@ -784,10 +784,7 @@ export default function Production() {
                           <div className="flex items-center">Status <SortIcon column="status" /></div>
                         </TableHead>
                         <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('salesperson')}>
-                          <div className="flex items-center">Salesperson <SortIcon column="salesperson" /></div>
-                        </TableHead>
-                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('project_manager')}>
-                          <div className="flex items-center">Proj Mgr <SortIcon column="project_manager" /></div>
+                          <div className="flex items-center">Sales/PM <SortIcon column="salesperson" /></div>
                         </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sold_amount')}>
                           <div className="flex items-center justify-end">Sold Amt <SortIcon column="sold_amount" /></div>
@@ -806,9 +803,6 @@ export default function Production() {
                         </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('proj_balance')}>
                           <div className="flex items-center justify-end">Proj Balance <SortIcon column="proj_balance" /></div>
-                        </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('commission')}>
-                          <div className="flex items-center justify-end">Commission <SortIcon column="commission" /></div>
                         </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('expected_profit')}>
                           <div className="flex items-center justify-end">Exp Profit <SortIcon column="expected_profit" /></div>
@@ -899,8 +893,9 @@ export default function Production() {
                                 {project.project_status || "New Job"}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-xs">{project.primary_salesperson || "-"}</TableCell>
-                            <TableCell className="text-xs">{project.project_manager || "-"}</TableCell>
+                            <TableCell className="text-xs">
+                              {project.primary_salesperson || "-"} / {project.project_manager || "-"}
+                            </TableCell>
                             <TableCell className="text-right text-xs font-medium">
                               {formatCurrency(financials?.contractsTotal)}
                             </TableCell>
@@ -918,9 +913,6 @@ export default function Production() {
                             </TableCell>
                             <TableCell className="text-right text-xs text-amber-600">
                               {formatCurrency(financials?.projectBalanceDue)}
-                            </TableCell>
-                            <TableCell className="text-right text-xs text-muted-foreground">
-                              {formatCurrency(financials?.totalCommission)}
                             </TableCell>
                             <TableCell className={`text-right text-xs font-medium ${(financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
                               {formatCurrency(financials?.expectedFinalProfit)}
