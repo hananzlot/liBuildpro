@@ -9,6 +9,7 @@ import { AccountsReceivableTab } from "./analytics/AccountsReceivableTab";
 import { BankActivitiesTab } from "./analytics/BankActivitiesTab";
 import { CommissionReportTab } from "./analytics/CommissionReportTab";
 import { useProductionAnalytics } from "@/hooks/useProductionAnalytics";
+import { useAuth } from "@/contexts/AuthContext";
 import { TrendingUp, Wallet, FileText, Building, Users } from "lucide-react";
 
 interface AnalyticsSectionProps {
@@ -16,11 +17,16 @@ interface AnalyticsSectionProps {
 }
 
 export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
-  // Filter states
+  const { isAdmin, isProduction } = useAuth();
+  
+  // Check if user can view profitability tab (admin only, not production-only users)
+  const canViewProfitability = isAdmin || !isProduction;
+  
+  // Filter states - default to cashflow if profitability is not accessible
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedSalespeople, setSelectedSalespeople] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState("profitability");
+  const [activeTab, setActiveTab] = useState(canViewProfitability ? "profitability" : "cashflow");
 
   // Fetch analytics data with filters
   const {
@@ -124,11 +130,13 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="profitability" className="flex items-center gap-1.5">
-            <TrendingUp className="h-4 w-4" />
-            <span className="hidden sm:inline">Profitability</span>
-          </TabsTrigger>
+        <TabsList className={`grid w-full ${canViewProfitability ? 'grid-cols-5' : 'grid-cols-4'}`}>
+          {canViewProfitability && (
+            <TabsTrigger value="profitability" className="flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Profitability</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="cashflow" className="flex items-center gap-1.5">
             <Wallet className="h-4 w-4" />
             <span className="hidden sm:inline">Cash Flow</span>
@@ -147,13 +155,15 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profitability" className="mt-6">
-          <ProfitabilityTab
-            projects={projects}
-            totals={totals}
-            onProjectClick={onProjectClick}
-          />
-        </TabsContent>
+        {canViewProfitability && (
+          <TabsContent value="profitability" className="mt-6">
+            <ProfitabilityTab
+              projects={projects}
+              totals={totals}
+              onProjectClick={onProjectClick}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="cashflow" className="mt-6">
           <CashFlowTab

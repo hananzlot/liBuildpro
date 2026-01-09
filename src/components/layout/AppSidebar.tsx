@@ -287,8 +287,23 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     });
   };
 
+  // Check if a specific URL (with query params) is currently active
+  const isUrlActive = (url: string | undefined): boolean => {
+    if (!url) return false;
+    
+    if (url.includes('?')) {
+      const [path, queryString] = url.split('?');
+      if (location.pathname !== path) return false;
+      const params = new URLSearchParams(queryString);
+      const searchParams = new URLSearchParams(location.search);
+      return Array.from(params.entries()).every(([key, value]) => searchParams.get(key) === value);
+    }
+    return location.pathname === url;
+  };
+
   const renderNavItem = (item: NavItem) => {
-    const isActive = !item.external && !item.subItems && location.pathname === item.url;
+    // Check if the current item's URL is active (handles query params)
+    const isActive = !item.external && !item.subItems && isUrlActive(item.url);
     const hasActiveSubItem = isSubItemActive(item);
     const isOpen = openMenus[item.title] || hasActiveSubItem;
 
