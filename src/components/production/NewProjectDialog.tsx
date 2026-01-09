@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { logAudit } from "@/hooks/useAuditLog";
 import {
   Dialog,
   DialogContent,
@@ -77,6 +78,16 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
         .single();
       
       if (error) throw error;
+      
+      // Log audit for project creation
+      await logAudit({
+        tableName: 'projects',
+        recordId: data.id,
+        action: 'INSERT',
+        newValues: data,
+        description: `Created project #${data.project_number} - ${data.project_name}`,
+      });
+      
       return data;
     },
     onSuccess: () => {

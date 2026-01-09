@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { logAudit } from "@/hooks/useAuditLog";
 import {
   Sheet,
   SheetContent,
@@ -197,6 +198,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
   const updateProjectMutation = useMutation({
     mutationFn: async (updates: Partial<typeof fullProject>) => {
       if (!project?.id) throw new Error("No project selected");
+      
+      // Log audit before update
+      await logAudit({
+        tableName: 'projects',
+        recordId: project.id,
+        action: 'UPDATE',
+        oldValues: fullProject,
+        newValues: updates,
+        description: `Updated project #${project.project_number}`,
+      });
+      
       const { error } = await supabase
         .from("projects")
         .update(updates)
