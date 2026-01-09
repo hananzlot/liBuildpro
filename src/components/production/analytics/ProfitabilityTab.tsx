@@ -110,7 +110,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <MetricCard
-          title="Total Revenue"
+          title="Total Sold"
           value={formatCurrency(totals.totalRevenue)}
           subValue={`${totals.projectCount} projects`}
           icon={DollarSign}
@@ -123,27 +123,28 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
           variant="warning"
         />
         <MetricCard
-          title="Lead Costs"
+          title="Lead % Fee"
           value={formatCurrency(totals.totalLeadCost)}
-          subValue="Marketing/leads"
+          subValue="Company fee from sales"
           icon={TrendingDown}
         />
         <MetricCard
           title="Gross Profit"
           value={formatCurrency(totals.totalGrossProfit)}
+          subValue="Sold - Lead Fee - Max(Bills, Est)"
           icon={TrendingUp}
           variant={totals.totalGrossProfit > 0 ? 'success' : 'danger'}
         />
         <MetricCard
           title="Commissions"
           value={formatCurrency(totals.totalCommission)}
-          subValue="Owed to sales"
+          subValue="% of Gross to sales"
           icon={Wallet}
         />
         <MetricCard
           title="Net Profit"
           value={formatCurrency(totals.totalNetProfit)}
-          subValue={`${totals.profitMargin.toFixed(1)}% margin`}
+          subValue="Gross - Commissions"
           icon={Percent}
           variant={totals.totalNetProfit > 0 ? 'success' : 'danger'}
         />
