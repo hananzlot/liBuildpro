@@ -59,6 +59,7 @@ import { SubcontractorsManagement } from "@/components/production/Subcontractors
 import { SubcontractorWarningsCard } from "@/components/production/SubcontractorWarningsCard";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useSidebar } from "@/components/ui/sidebar";
 
 
 interface Project {
@@ -119,6 +120,8 @@ const statusColors: Record<string, string> = {
 export default function Production() {
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
+  const { state: sidebarState } = useSidebar();
+  const sidebarExpanded = sidebarState === "expanded";
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = searchParams.get('view') || 'projects';
   const returnToProjectId = searchParams.get('returnToProject');
@@ -621,67 +624,66 @@ export default function Production() {
   return (
     <AppLayout showNotifications={false}>
       <TooltipProvider>
-        <div className="px-8 py-6 space-y-6">
+        <div className={`py-4 space-y-4 transition-all duration-200 ${sidebarExpanded ? 'px-4 lg:px-6' : 'px-6 lg:px-8'}`}>
           {activeView === 'projects' && (
-            <div className="space-y-6">
-              <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription>Total Projects</CardDescription>
+            <div className="space-y-4">
+              <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card className="p-0">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardDescription className="text-xs">Total Projects</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-3xl font-bold">{totalProjects}</p>
+                  <CardContent className="pb-3 px-4">
+                    <p className="text-2xl font-bold">{totalProjects}</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription>In Progress</CardDescription>
+                <Card className="p-0">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardDescription className="text-xs">In Progress</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-3xl font-bold text-amber-500">{inProgressProjects}</p>
+                  <CardContent className="pb-3 px-4">
+                    <p className="text-2xl font-bold text-amber-500">{inProgressProjects}</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription>Completed</CardDescription>
+                <Card className="p-0">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardDescription className="text-xs">Completed</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-3xl font-bold text-emerald-500">{completedProjects}</p>
+                  <CardContent className="pb-3 px-4">
+                    <p className="text-2xl font-bold text-emerald-500">{completedProjects}</p>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardDescription>Total Sold</CardDescription>
+                <Card className="p-0">
+                  <CardHeader className="pb-1 pt-3 px-4">
+                    <CardDescription className="text-xs">Total Sold</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <p className="text-3xl font-bold">{formatCurrency(filteredFinancialsTotal)}</p>
+                  <CardContent className="pb-3 px-4">
+                    <p className="text-2xl font-bold">{formatCurrency(filteredFinancialsTotal)}</p>
                   </CardContent>
                 </Card>
               </section>
 
           {/* Warnings Section - Two Columns */}
           {(totalWarnings > 0 || totalBookkeepingWarnings > 0) && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {/* Financial Warnings */}
               {totalWarnings > 0 && (
                 <Card className="border-amber-500/30 bg-amber-500/5">
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-1 pt-3 px-4">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-amber-500" />
-                      <CardTitle className="text-lg">Financial Warnings</CardTitle>
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      <CardTitle className="text-sm">Financial Warnings</CardTitle>
                     </div>
-                    <CardDescription>Projects requiring financial attention</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-3">
+                  <CardContent className="pb-3 px-4">
+                    <div className="flex flex-wrap gap-2">
                       {warningCounts.missingContract > 0 && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20"
+                          className="h-7 text-xs bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20"
                           onClick={() => handleOpenWarningSheet('missingContract')}
                         >
-                          <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground border-0">
+                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-destructive text-destructive-foreground border-0">
                             C
                           </Badge>
                           No Contract: {warningCounts.missingContract}
@@ -691,10 +693,10 @@ export default function Production() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-orange-500/10 border-orange-500/30 text-orange-600 hover:bg-orange-500/20"
+                          className="h-7 text-xs bg-orange-500/10 border-orange-500/30 text-orange-600 hover:bg-orange-500/20"
                           onClick={() => handleOpenWarningSheet('missingPhases')}
                         >
-                          <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-orange-500 text-white border-0">
+                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-orange-500 text-white border-0">
                             P
                           </Badge>
                           No Phases: {warningCounts.missingPhases}
@@ -704,10 +706,10 @@ export default function Production() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
+                          className="h-7 text-xs bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
                           onClick={() => handleOpenWarningSheet('phaseMismatch')}
                         >
-                          <AlertTriangle className="h-3.5 w-3.5 mr-2" />
+                          <AlertTriangle className="h-3 w-3 mr-1.5" />
                           Phase Mismatch: {warningCounts.phaseMismatch}
                         </Button>
                       )}
@@ -715,10 +717,10 @@ export default function Production() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
+                          className="h-7 text-xs bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
                           onClick={() => handleOpenWarningSheet('contractMismatch')}
                         >
-                          <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-red-500 text-white border-0">
+                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-red-500 text-white border-0">
                             $
                           </Badge>
                           Estimate Mismatch: {warningCounts.contractMismatch}
@@ -732,23 +734,22 @@ export default function Production() {
               {/* Bookkeeping Warnings */}
               {totalBookkeepingWarnings > 0 && (
                 <Card className="border-blue-500/30 bg-blue-500/5">
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-1 pt-3 px-4">
                     <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-blue-500" />
-                      <CardTitle className="text-lg">Bookkeeping Warnings</CardTitle>
+                      <AlertTriangle className="h-4 w-4 text-blue-500" />
+                      <CardTitle className="text-sm">Bookkeeping Warnings</CardTitle>
                     </div>
-                    <CardDescription>Projects missing required information</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-3">
+                  <CardContent className="pb-3 px-4">
+                    <div className="flex flex-wrap gap-2">
                       {bookkeepingWarningCounts.missingSalesperson > 0 && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="bg-blue-500/10 border-blue-500/30 text-blue-600 hover:bg-blue-500/20"
+                          className="h-7 text-xs bg-blue-500/10 border-blue-500/30 text-blue-600 hover:bg-blue-500/20"
                           onClick={() => handleOpenWarningSheet('missingSalesperson')}
                         >
-                          <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-blue-500 text-white border-0">
+                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-blue-500 text-white border-0">
                             S
                           </Badge>
                           No Salesperson: {bookkeepingWarningCounts.missingSalesperson}
