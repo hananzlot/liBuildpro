@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -12,7 +13,14 @@ import {
   Settings,
   Pencil,
   Users,
-  FileText
+  FileText,
+  ChevronRight,
+  BarChart3,
+  TrendingUp,
+  DollarSign,
+  PieChart,
+  Calendar,
+  Trophy
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -27,9 +35,17 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,16 +53,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+
+type UserRole = 'admin' | 'user' | 'magazine_editor' | 'production';
+
+interface NavSubItem {
+  title: string;
+  url: string;
+  icon?: React.ComponentType<{ className?: string }>;
+}
 
 interface NavItem {
   title: string;
-  url: string;
+  url?: string;
   icon: React.ComponentType<{ className?: string }>;
   external?: boolean;
-  roles?: ('admin' | 'user' | 'magazine_editor' | 'production')[];
+  roles?: UserRole[];
   excludeRoles?: ('production')[];
+  subItems?: NavSubItem[];
 }
 
 const mainNavItems: NavItem[] = [
@@ -54,7 +78,7 @@ const mainNavItems: NavItem[] = [
     title: "Dashboard", 
     url: "/", 
     icon: LayoutDashboard,
-    excludeRoles: ['production'] // Hide from production-only users
+    excludeRoles: ['production']
   },
   { 
     title: "Palisades", 
@@ -81,11 +105,28 @@ const mainNavItems: NavItem[] = [
     icon: Briefcase,
     roles: ['admin', 'production']
   },
-  { 
-    title: "Audit Log", 
-    url: "/audit-log", 
-    icon: FileText,
-    roles: ['admin', 'production']
+];
+
+const reportsNavItems: NavItem[] = [
+  {
+    title: "Reports",
+    icon: BarChart3,
+    excludeRoles: ['production'],
+    subItems: [
+      { title: "Sales Leaderboard", url: "/reports/leaderboard", icon: Trophy },
+      { title: "Won Deals", url: "/reports/won-deals", icon: DollarSign },
+      { title: "Appointments", url: "/reports/appointments", icon: Calendar },
+    ]
+  },
+  {
+    title: "Analytics",
+    icon: PieChart,
+    roles: ['admin', 'production'],
+    subItems: [
+      { title: "Profitability", url: "/analytics/profitability", icon: TrendingUp },
+      { title: "Cash Flow", url: "/analytics/cashflow", icon: DollarSign },
+      { title: "Commissions", url: "/analytics/commissions", icon: BarChart3 },
+    ]
   },
 ];
 
@@ -99,6 +140,7 @@ const adminMenuItems: AdminMenuItem[] = [
   { title: "Data Cleanup", icon: Settings, action: "cleanup" },
   { title: "Manage Sources", icon: Pencil, action: "sources" },
   { title: "User Management", icon: Users, action: "users" },
+  { title: "Audit Log", icon: FileText, action: "audit" },
 ];
 
 interface AppSidebarProps {
@@ -112,30 +154,37 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const navigate = useNavigate();
   const { user, profile, isAdmin, isMagazineEditor, isProduction, signOut } = useAuth();
   const collapsed = state === "collapsed";
+  
+  // Track which collapsible menus are open
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
   const handleLogout = async () => {
     await signOut();
     toast.success("Signed out successfully");
   };
 
+  const toggleMenu = (title: string) => {
+    setOpenMenus(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
+
   const canViewItem = (item: NavItem): boolean => {
-    // Check if user has a required role
     if (item.roles && item.roles.length > 0) {
       const hasRequiredRole = item.roles.some(role => {
         switch (role) {
           case 'admin': return isAdmin;
           case 'magazine_editor': return isMagazineEditor;
           case 'production': return isProduction;
-          case 'user': return true; // All authenticated users
+          case 'user': return true;
           default: return false;
         }
       });
       if (!hasRequiredRole) return false;
     }
 
-    // Check if user should be excluded (e.g., production-only users)
     if (item.excludeRoles && item.excludeRoles.length > 0) {
-      // Only exclude if user ONLY has the excluded role (not combined with admin)
       const shouldExclude = item.excludeRoles.some(role => {
         if (role === 'production') {
           return isProduction && !isAdmin;
@@ -148,25 +197,127 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     return true;
   };
 
-  const handleItemClick = (item: NavItem, e: React.MouseEvent) => {
-    if (item.external) {
-      e.preventDefault();
-      window.open(item.url, "_blank");
-    }
+  const isSubItemActive = (item: NavItem): boolean => {
+    if (!item.subItems) return false;
+    return item.subItems.some(sub => location.pathname === sub.url);
   };
 
   const visibleNavItems = mainNavItems.filter(canViewItem);
+  const visibleReportItems = reportsNavItems.filter(canViewItem);
+
+  const renderNavItem = (item: NavItem) => {
+    const isActive = !item.external && !item.subItems && location.pathname === item.url;
+    const hasActiveSubItem = isSubItemActive(item);
+    const isOpen = openMenus[item.title] || hasActiveSubItem;
+
+    // Item with sub-items (collapsible)
+    if (item.subItems && item.subItems.length > 0) {
+      return (
+        <Collapsible
+          key={item.title}
+          open={isOpen}
+          onOpenChange={() => toggleMenu(item.title)}
+          className="group/collapsible"
+        >
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton 
+                tooltip={item.title}
+                isActive={hasActiveSubItem}
+              >
+                <item.icon className="h-4 w-4" />
+                {!collapsed && (
+                  <>
+                    <span className="flex-1">{item.title}</span>
+                    <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+                  </>
+                )}
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                {item.subItems.map((subItem) => {
+                  const isSubActive = location.pathname === subItem.url;
+                  return (
+                    <SidebarMenuSubItem key={subItem.title}>
+                      <SidebarMenuSubButton 
+                        asChild 
+                        isActive={isSubActive}
+                      >
+                        <NavLink 
+                          to={subItem.url} 
+                          end
+                          className="flex items-center gap-2"
+                          activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
+                        >
+                          {subItem.icon && <subItem.icon className="h-3 w-3" />}
+                          <span>{subItem.title}</span>
+                        </NavLink>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  );
+                })}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuItem>
+        </Collapsible>
+      );
+    }
+
+    // External link
+    if (item.external && item.url) {
+      return (
+        <SidebarMenuItem key={item.title}>
+          <SidebarMenuButton 
+            asChild 
+            tooltip={item.title}
+          >
+            <a 
+              href={item.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2"
+            >
+              <item.icon className="h-4 w-4" />
+              {!collapsed && <span>{item.title}</span>}
+            </a>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
+    }
+
+    // Regular nav link
+    return (
+      <SidebarMenuItem key={item.title}>
+        <SidebarMenuButton 
+          asChild 
+          isActive={isActive}
+          tooltip={item.title}
+        >
+          <NavLink 
+            to={item.url || "/"} 
+            end 
+            className="flex items-center gap-2"
+            activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+          >
+            <item.icon className="h-4 w-4" />
+            {!collapsed && <span>{item.title}</span>}
+          </NavLink>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shrink-0">
             CA
           </div>
           {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold">CA Pro Builders</span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold truncate">CA Pro Builders</span>
               <span className="text-xs text-muted-foreground">Dashboard v2.5</span>
             </div>
           )}
@@ -174,49 +325,32 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleNavItems.map((item) => {
-                const isActive = !item.external && location.pathname === item.url;
-                
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={isActive}
-                      tooltip={item.title}
-                    >
-                      {item.external ? (
-                        <a 
-                          href={item.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2"
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {!collapsed && <span>{item.title}</span>}
-                        </a>
-                      ) : (
-                        <NavLink 
-                          to={item.url} 
-                          end 
-                          className="flex items-center gap-2"
-                          activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {!collapsed && <span>{item.title}</span>}
-                        </NavLink>
-                      )}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {visibleNavItems.map(renderNavItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Reports & Analytics with collapsible sub-menus */}
+        {visibleReportItems.length > 0 && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Reports & Analytics</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleReportItems.map(renderNavItem)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
+        {/* Admin Tools */}
         {isAdmin && onAdminAction && (
           <>
             <SidebarSeparator />
@@ -228,7 +362,13 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton 
                         tooltip={item.title}
-                        onClick={() => onAdminAction(item.action)}
+                        onClick={() => {
+                          if (item.action === 'audit') {
+                            navigate('/audit-log');
+                          } else {
+                            onAdminAction(item.action);
+                          }
+                        }}
                       >
                         <item.icon className="h-4 w-4" />
                         {!collapsed && <span>{item.title}</span>}
