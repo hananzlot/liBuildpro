@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, BookOpen, Briefcase } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff } from "lucide-react";
 
 interface UserManagementProps {
   open: boolean;
@@ -30,6 +32,11 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const queryClient = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newFullName, setNewFullName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Fetch all profiles
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
@@ -58,6 +65,35 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
       return data as UserRole[];
     },
     enabled: open,
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      
+      if (!token) throw new Error("Not authenticated");
+
+      const response = await supabase.functions.invoke("create-user", {
+        body: { email, password, fullName },
+      });
+
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
+      
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["all-profiles"] });
+      toast.success("User created successfully");
+      setNewEmail("");
+      setNewPassword("");
+      setNewFullName("");
+      setShowCreateForm(false);
+    },
+    onError: (error) => {
+      toast.error(`Failed to create user: ${error.message}`);
+    },
   });
 
   const toggleRoleMutation = useMutation({
@@ -102,6 +138,19 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     return userRoles.some(r => r.user_id === userId && r.role === role);
   };
 
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmail || !newPassword) {
+      toast.error("Email and password are required");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    createUserMutation.mutate({ email: newEmail, password: newPassword, fullName: newFullName });
+  };
+
   const isLoading = profilesLoading || rolesLoading;
 
   return (
@@ -114,12 +163,108 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
           </DialogTitle>
         </DialogHeader>
 
+        {/* Create User Form */}
+        {showCreateForm ? (
+          <form onSubmit={handleCreateUser} className="space-y-4 p-4 rounded-lg border border-border bg-muted/50">
+            <h3 className="font-medium flex items-center gap-2">
+              <UserPlus className="h-4 w-4" />
+              Create New User
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="newEmail">Email *</Label>
+                <Input
+                  id="newEmail"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newFullName">Full Name</Label>
+                <Input
+                  id="newFullName"
+                  type="text"
+                  placeholder="John Doe"
+                  value={newFullName}
+                  onChange={(e) => setNewFullName(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">Password *</Label>
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Minimum 6 characters"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setNewEmail("");
+                  setNewPassword("");
+                  setNewFullName("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createUserMutation.isPending}>
+                {createUserMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Create User
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={() => setShowCreateForm(true)}
+            className="w-full border-dashed"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Create New User
+          </Button>
+        )}
+
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <ScrollArea className="max-h-[60vh]">
+          <ScrollArea className="max-h-[50vh]">
             <div className="space-y-2">
               {profiles.map((profile) => {
                 const userIsAdmin = hasRole(profile.id, "admin");
