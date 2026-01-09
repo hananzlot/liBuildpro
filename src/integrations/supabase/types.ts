@@ -2202,6 +2202,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       log_audit: {
         Args: {
           p_action: string
@@ -2215,7 +2216,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user" | "magazine_editor" | "production"
+      app_role:
+        | "super_admin"
+        | "admin"
+        | "magazine"
+        | "production"
+        | "dispatch"
+        | "sales"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2343,7 +2350,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "magazine_editor", "production"],
+      app_role: [
+        "super_admin",
+        "admin",
+        "magazine",
+        "production",
+        "dispatch",
+        "sales",
+      ],
     },
   },
 } as const

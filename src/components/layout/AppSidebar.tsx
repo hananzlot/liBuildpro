@@ -144,7 +144,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, isAdmin, isMagazineEditor, isProduction, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
+  const { user, profile, isAdmin, isMagazine, isProduction, isDispatch, isSales, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
   const collapsed = state === "collapsed";
 
   const closeSidebar = () => {
@@ -191,10 +191,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     if (item.roles && item.roles.length > 0) {
       const hasRequiredRole = item.roles.some(role => {
         switch (role) {
+          case 'super_admin': return isAdmin;
           case 'admin': return isAdmin;
-          case 'magazine_editor': return isMagazineEditor;
+          case 'magazine': return isMagazine;
           case 'production': return isProduction;
-          case 'user': return true;
+          case 'dispatch': return isDispatch;
+          case 'sales': return isSales;
           default: return false;
         }
       });
