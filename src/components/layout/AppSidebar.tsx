@@ -16,11 +16,7 @@ import {
   FileText,
   ChevronRight,
   BarChart3,
-  TrendingUp,
-  DollarSign,
-  PieChart,
-  Calendar,
-  Trophy
+  FolderKanban
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -101,9 +97,12 @@ const mainNavItems: NavItem[] = [
   },
   { 
     title: "Production", 
-    url: "/production", 
     icon: Briefcase,
-    roles: ['admin', 'production']
+    roles: ['admin', 'production'],
+    subItems: [
+      { title: "Projects", url: "/production?view=projects", icon: FolderKanban },
+      { title: "Analytics", url: "/production?view=analytics", icon: BarChart3 },
+    ]
   },
   { 
     title: "Audit Log", 
@@ -184,7 +183,28 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
 
   const isSubItemActive = (item: NavItem): boolean => {
     if (!item.subItems) return false;
-    return item.subItems.some(sub => location.pathname === sub.url);
+    return item.subItems.some(sub => {
+      // Handle URLs with query params (e.g., /production?view=projects)
+      if (sub.url.includes('?')) {
+        const [path, queryString] = sub.url.split('?');
+        if (location.pathname !== path) return false;
+        const params = new URLSearchParams(queryString);
+        const searchParams = new URLSearchParams(location.search);
+        return Array.from(params.entries()).every(([key, value]) => searchParams.get(key) === value);
+      }
+      return location.pathname === sub.url;
+    });
+  };
+
+  const isSubItemUrlActive = (subUrl: string): boolean => {
+    if (subUrl.includes('?')) {
+      const [path, queryString] = subUrl.split('?');
+      if (location.pathname !== path) return false;
+      const params = new URLSearchParams(queryString);
+      const searchParams = new URLSearchParams(location.search);
+      return Array.from(params.entries()).every(([key, value]) => searchParams.get(key) === value);
+    }
+    return location.pathname === subUrl;
   };
 
   const visibleNavItems = mainNavItems.filter(canViewItem);
@@ -222,7 +242,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             <CollapsibleContent>
               <SidebarMenuSub>
                 {item.subItems.map((subItem) => {
-                  const isSubActive = location.pathname === subItem.url;
+                  const isSubActive = isSubItemUrlActive(subItem.url);
                   return (
                     <SidebarMenuSubItem key={subItem.title}>
                       <SidebarMenuSubButton 

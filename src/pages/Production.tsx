@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import { 
-  Building2, 
   Search, 
   Plus, 
   Filter,
@@ -15,8 +15,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  BarChart3,
-  FolderKanban
+  Building2
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -57,7 +56,7 @@ import { AnalyticsSection } from "@/components/production/AnalyticsSection";
 import { MissingProjectsSection } from "@/components/production/MissingProjectsSection";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 interface Project {
   id: string;
@@ -114,6 +113,9 @@ const statusColors: Record<string, string> = {
 export default function Production() {
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
+  const [searchParams] = useSearchParams();
+  const activeView = searchParams.get('view') || 'projects';
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -125,7 +127,6 @@ export default function Production() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [warningSheetOpen, setWarningSheetOpen] = useState(false);
   const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | null>(null);
-  const [activeMainTab, setActiveMainTab] = useState<string>("projects");
 
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
@@ -583,21 +584,8 @@ export default function Production() {
     <AppLayout showNotifications={false}>
       <TooltipProvider>
         <div className="px-8 py-6 space-y-6">
-          {/* Main Tabs */}
-          <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="projects" className="flex items-center gap-2">
-                <FolderKanban className="h-4 w-4" />
-                Projects
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Analytics
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="projects" className="mt-6 space-y-6">
-              {/* KPI Cards */}
+          {activeView === 'projects' && (
+            <div className="space-y-6">
               <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardHeader className="pb-2">
@@ -956,19 +944,19 @@ export default function Production() {
               )}
             </CardContent>
           </Card>
-            </TabsContent>
+            </div>
+          )}
 
-            <TabsContent value="analytics" className="mt-6">
-              <AnalyticsSection 
-                onProjectClick={(projectId) => {
-                  const project = projects.find(p => p.id === projectId);
-                  if (project) {
-                    handleOpenProject(project);
-                  }
-                }}
-              />
-            </TabsContent>
-          </Tabs>
+          {activeView === 'analytics' && (
+            <AnalyticsSection 
+              onProjectClick={(projectId) => {
+                const project = projects.find(p => p.id === projectId);
+                if (project) {
+                  handleOpenProject(project);
+                }
+              }}
+            />
+          )}
         </div>
 
         {/* Project Detail Sheet */}
