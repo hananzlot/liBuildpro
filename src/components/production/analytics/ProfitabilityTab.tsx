@@ -316,6 +316,10 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                     ? (project.expectedNetProfit / project.contractsTotal) * 100 
                     : 0;
                   
+                  // Show max of bills or estimated costs
+                  const costForDisplay = Math.max(project.totalBillsReceived, project.effectiveEstimatedCost);
+                  const isUsingEstimate = project.effectiveEstimatedCost > project.totalBillsReceived;
+                  
                   return (
                     <TableRow 
                       key={project.id} 
@@ -328,7 +332,16 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                       </TableCell>
                       <TableCell>{project.primary_salesperson || '-'}</TableCell>
                       <TableCell className="text-right">{formatCurrency(project.contractsTotal)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(project.totalBillsReceived)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {formatCurrency(costForDisplay)}
+                          {isUsingEstimate && (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+                              est
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className={`text-right font-medium ${project.expectedNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                         {formatCurrency(project.expectedNetProfit)}
                       </TableCell>
