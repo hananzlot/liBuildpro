@@ -134,7 +134,7 @@ export default function Production() {
   const [sortColumn, setSortColumn] = useState<SortColumn>('project_number');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [warningSheetOpen, setWarningSheetOpen] = useState(false);
-  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | null>(null);
+  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | null>(null);
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
 
   const { data: projects = [], isLoading, refetch } = useQuery({
@@ -573,32 +573,49 @@ export default function Production() {
     return counts;
   }, [projectFinancials]);
 
+  // Calculate bookkeeping warning counts
+  const bookkeepingWarningCounts = useMemo(() => {
+    const counts = {
+      missingSalesperson: 0,
+    };
+    
+    projects.forEach((p) => {
+      if (!p.primary_salesperson || p.primary_salesperson.trim() === '') {
+        counts.missingSalesperson++;
+      }
+    });
+    
+    return counts;
+  }, [projects]);
+
   const totalWarnings = warningCounts.missingContract + warningCounts.missingPhases + warningCounts.phaseMismatch + warningCounts.contractMismatch;
+  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson;
 
   // Get projects with specific warning type
-  const getWarningProjects = useCallback((type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch') => {
+  const getWarningProjects = useCallback((type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson') => {
     return projects.filter(p => {
       const f = projectFinancials[p.id];
-      if (!f) return false;
       switch (type) {
-        case 'missingContract': return f.hasMissingContract;
-        case 'missingPhases': return f.hasMissingPhases;
-        case 'phaseMismatch': return f.hasPhaseMismatch;
-        case 'contractMismatch': return f.hasContractMismatch;
+        case 'missingContract': return f?.hasMissingContract;
+        case 'missingPhases': return f?.hasMissingPhases;
+        case 'phaseMismatch': return f?.hasPhaseMismatch;
+        case 'contractMismatch': return f?.hasContractMismatch;
+        case 'missingSalesperson': return !p.primary_salesperson || p.primary_salesperson.trim() === '';
       }
     });
   }, [projects, projectFinancials]);
 
-  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch') => {
+  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson') => {
     setWarningSheetType(type);
     setWarningSheetOpen(true);
   };
 
-  const warningSheetTitle = {
+  const warningSheetTitle: Record<string, string> = {
     missingContract: 'Missing Contract',
     missingPhases: 'Missing Payment Phases',
     phaseMismatch: 'Phase Amount Mismatch',
     contractMismatch: 'Contract vs Estimate Mismatch',
+    missingSalesperson: 'Missing Salesperson',
   };
 
   return (
@@ -642,71 +659,106 @@ export default function Production() {
                 </Card>
               </section>
 
-          {/* Financial Warnings Summary */}
-          {totalWarnings > 0 && (
-            <Card className="border-amber-500/30 bg-amber-500/5">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-500" />
-                  <CardTitle className="text-lg">Financial Warnings</CardTitle>
-                </div>
-                <CardDescription>Projects requiring attention</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-3">
-                  {warningCounts.missingContract > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20"
-                      onClick={() => handleOpenWarningSheet('missingContract')}
-                    >
-                      <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground border-0">
-                        C
-                      </Badge>
-                      No Contract: {warningCounts.missingContract}
-                    </Button>
-                  )}
-                  {warningCounts.missingPhases > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-orange-500/10 border-orange-500/30 text-orange-600 hover:bg-orange-500/20"
-                      onClick={() => handleOpenWarningSheet('missingPhases')}
-                    >
-                      <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-orange-500 text-white border-0">
-                        P
-                      </Badge>
-                      No Phases: {warningCounts.missingPhases}
-                    </Button>
-                  )}
-                  {warningCounts.phaseMismatch > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
-                      onClick={() => handleOpenWarningSheet('phaseMismatch')}
-                    >
-                      <AlertTriangle className="h-3.5 w-3.5 mr-2" />
-                      Phase Mismatch: {warningCounts.phaseMismatch}
-                    </Button>
-                  )}
-                  {warningCounts.contractMismatch > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
-                      onClick={() => handleOpenWarningSheet('contractMismatch')}
-                    >
-                      <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-red-500 text-white border-0">
-                        $
-                      </Badge>
-                      Estimate Mismatch: {warningCounts.contractMismatch}
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Warnings Section - Two Columns */}
+          {(totalWarnings > 0 || totalBookkeepingWarnings > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Financial Warnings */}
+              {totalWarnings > 0 && (
+                <Card className="border-amber-500/30 bg-amber-500/5">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-500" />
+                      <CardTitle className="text-lg">Financial Warnings</CardTitle>
+                    </div>
+                    <CardDescription>Projects requiring financial attention</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-3">
+                      {warningCounts.missingContract > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-destructive/10 border-destructive/30 text-destructive hover:bg-destructive/20"
+                          onClick={() => handleOpenWarningSheet('missingContract')}
+                        >
+                          <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-destructive text-destructive-foreground border-0">
+                            C
+                          </Badge>
+                          No Contract: {warningCounts.missingContract}
+                        </Button>
+                      )}
+                      {warningCounts.missingPhases > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-orange-500/10 border-orange-500/30 text-orange-600 hover:bg-orange-500/20"
+                          onClick={() => handleOpenWarningSheet('missingPhases')}
+                        >
+                          <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-orange-500 text-white border-0">
+                            P
+                          </Badge>
+                          No Phases: {warningCounts.missingPhases}
+                        </Button>
+                      )}
+                      {warningCounts.phaseMismatch > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-amber-500/10 border-amber-500/30 text-amber-600 hover:bg-amber-500/20"
+                          onClick={() => handleOpenWarningSheet('phaseMismatch')}
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5 mr-2" />
+                          Phase Mismatch: {warningCounts.phaseMismatch}
+                        </Button>
+                      )}
+                      {warningCounts.contractMismatch > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
+                          onClick={() => handleOpenWarningSheet('contractMismatch')}
+                        >
+                          <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-red-500 text-white border-0">
+                            $
+                          </Badge>
+                          Estimate Mismatch: {warningCounts.contractMismatch}
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Bookkeeping Warnings */}
+              {totalBookkeepingWarnings > 0 && (
+                <Card className="border-blue-500/30 bg-blue-500/5">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-blue-500" />
+                      <CardTitle className="text-lg">Bookkeeping Warnings</CardTitle>
+                    </div>
+                    <CardDescription>Projects missing required information</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-3">
+                      {bookkeepingWarningCounts.missingSalesperson > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-blue-500/10 border-blue-500/30 text-blue-600 hover:bg-blue-500/20"
+                          onClick={() => handleOpenWarningSheet('missingSalesperson')}
+                        >
+                          <Badge variant="outline" className="mr-2 h-5 px-1.5 text-[10px] bg-blue-500 text-white border-0">
+                            S
+                          </Badge>
+                          No Salesperson: {bookkeepingWarningCounts.missingSalesperson}
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
 
               {/* Missing Projects from Won Opportunities - Admin Only */}
