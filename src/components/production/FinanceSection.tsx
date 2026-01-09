@@ -512,9 +512,15 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     const agreementPayments = payments.filter(p => p.invoice_id && invoiceIds.includes(p.invoice_id) && p.payment_status === "Received");
     const collectedForAgreement = agreementPayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
     
+    // Get bills for this agreement
+    const agreementBills = bills.filter(b => b.agreement_id === agreement.id);
+    const billsTotal = agreementBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
+    const billsPaid = agreementBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
+    
     const phasesTotal = agreementPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
     const uninvoiced = (agreement.total_price || 0) - totalInvoicedForAgreement;
     const uncollected = totalInvoicedForAgreement - collectedForAgreement;
+    const profit = collectedForAgreement - billsPaid;
 
     return {
       id: agreement.id,
@@ -527,8 +533,16 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
       collected: collectedForAgreement,
       uninvoiced,
       uncollected,
+      billsTotal,
+      billsPaid,
+      profit,
     };
   });
+
+  // Calculate unassigned bills (bills not linked to any agreement)
+  const unassignedBills = bills.filter(b => !b.agreement_id);
+  const unassignedBillsTotal = unassignedBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
+  const unassignedBillsPaid = unassignedBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
 
   return (
     <div className="space-y-4">
@@ -547,10 +561,10 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                 <TableRow>
                   <TableHead className="text-xs">Contract</TableHead>
                   <TableHead className="text-xs text-right">Sold</TableHead>
-                  <TableHead className="text-xs text-right">Invoiced</TableHead>
                   <TableHead className="text-xs text-right">Collected</TableHead>
-                  <TableHead className="text-xs text-right">Uninvoiced</TableHead>
-                  <TableHead className="text-xs text-right">Uncollected</TableHead>
+                  <TableHead className="text-xs text-right">Bills</TableHead>
+                  <TableHead className="text-xs text-right">Bills Paid</TableHead>
+                  <TableHead className="text-xs text-right">Profit</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -562,37 +576,54 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                     <TableCell className="text-xs text-right font-medium">
                       {formatCurrency(ap.totalPrice)}
                     </TableCell>
-                    <TableCell className="text-xs text-right">
-                      {formatCurrency(ap.invoiced)}
-                    </TableCell>
                     <TableCell className="text-xs text-right text-emerald-600">
                       {formatCurrency(ap.collected)}
                     </TableCell>
                     <TableCell className="text-xs text-right text-amber-600">
-                      {formatCurrency(ap.uninvoiced)}
+                      {formatCurrency(ap.billsTotal)}
                     </TableCell>
-                    <TableCell className="text-xs text-right text-amber-600">
-                      {formatCurrency(ap.uncollected)}
+                    <TableCell className="text-xs text-right">
+                      {formatCurrency(ap.billsPaid)}
+                    </TableCell>
+                    <TableCell className={`text-xs text-right font-semibold ${ap.profit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                      {formatCurrency(ap.profit)}
                     </TableCell>
                   </TableRow>
                 ))}
+                {/* Unassigned bills row */}
+                {unassignedBillsTotal > 0 && (
+                  <TableRow className="text-muted-foreground">
+                    <TableCell className="text-xs italic">Unassigned Bills</TableCell>
+                    <TableCell className="text-xs text-right">-</TableCell>
+                    <TableCell className="text-xs text-right">-</TableCell>
+                    <TableCell className="text-xs text-right text-amber-600">
+                      {formatCurrency(unassignedBillsTotal)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right">
+                      {formatCurrency(unassignedBillsPaid)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-destructive">
+                      {formatCurrency(-unassignedBillsPaid)}
+                    </TableCell>
+                  </TableRow>
+                )}
                 {/* Totals row */}
                 <TableRow className="font-semibold bg-muted/50">
                   <TableCell className="text-xs">Total</TableCell>
                   <TableCell className="text-xs text-right">
                     {formatCurrency(totalAgreementsValue)}
                   </TableCell>
-                  <TableCell className="text-xs text-right">
-                    {formatCurrency(totalInvoiced)}
-                  </TableCell>
                   <TableCell className="text-xs text-right text-emerald-600">
                     {formatCurrency(totalPaymentsReceived)}
                   </TableCell>
                   <TableCell className="text-xs text-right text-amber-600">
-                    {formatCurrency(totalAgreementsValue - totalInvoiced)}
+                    {formatCurrency(totalBills)}
                   </TableCell>
-                  <TableCell className="text-xs text-right text-amber-600">
-                    {formatCurrency(totalInvoiced - totalPaymentsReceived)}
+                  <TableCell className="text-xs text-right">
+                    {formatCurrency(totalBillsPaid)}
+                  </TableCell>
+                  <TableCell className={`text-xs text-right font-bold ${totalPaymentsReceived - totalBillsPaid >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                    {formatCurrency(totalPaymentsReceived - totalBillsPaid)}
                   </TableCell>
                 </TableRow>
               </TableBody>
