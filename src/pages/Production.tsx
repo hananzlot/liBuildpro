@@ -293,8 +293,10 @@ export default function Production() {
     // Check if actual costs (bills) exceed estimated project costs
     const exceededExpectedCosts = effectiveEstimatedCost > 0 && totalBillsReceived > effectiveEstimatedCost;
 
-    // Use max of actual bills or estimated project costs for profit calculation
-    const costForProfit = Math.max(totalBillsReceived, effectiveEstimatedCost);
+    // For completed projects, use only real bills - no estimates
+    // For other projects, use max of actual bills or estimated project costs
+    const isCompleted = project.project_status === 'Completed';
+    const costForProfit = isCompleted ? totalBillsReceived : Math.max(totalBillsReceived, effectiveEstimatedCost);
 
     // Commission per project: (Total Sold - Lead Fee - Max(Bills, Est)) * Commission Split%
     const leadCostPercent = project.lead_cost_percent ?? 18;

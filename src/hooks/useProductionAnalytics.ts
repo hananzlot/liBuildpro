@@ -244,8 +244,10 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       // Check if actual costs (bills) exceed estimated project costs
       const exceededExpectedCosts = effectiveEstimatedCost > 0 && totalBillsReceived > effectiveEstimatedCost;
       
-      // Use max of actual bills or estimated project costs for profit calculation
-      const costForProfit = Math.max(totalBillsReceived, effectiveEstimatedCost);
+      // For completed projects, use only real bills - no estimates
+      // For other projects, use max of actual bills or estimated project costs
+      const isCompleted = project.project_status === 'Completed';
+      const costForProfit = isCompleted ? totalBillsReceived : Math.max(totalBillsReceived, effectiveEstimatedCost);
       const grossProfit = contractsTotal - costForProfit;
 
       // Commission is calculated on: (Total Sold - Lead Fee - Max(Bills, Est)) * commission split
