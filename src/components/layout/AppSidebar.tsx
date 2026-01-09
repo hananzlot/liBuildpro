@@ -75,12 +75,12 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  // Sales section - Dashboard, Palisades  
+  // Dispatch section - Dashboard, Follow-up  
   { 
     title: "Dashboard", 
     url: "/", 
     icon: LayoutDashboard,
-    roles: ['super_admin', 'admin', 'dispatch', 'sales']
+    roles: ['super_admin', 'admin', 'dispatch']
   },
   { 
     title: "Palisades", 
