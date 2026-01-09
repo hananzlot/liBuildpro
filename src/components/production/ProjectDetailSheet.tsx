@@ -1029,6 +1029,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
               <FinanceSection
                 projectId={project.id}
                 estimatedCost={fullProject.estimated_cost}
+                estimatedProjectCost={fullProject.estimated_project_cost}
                 totalPl={fullProject.total_pl}
                 leadCostPercent={fullProject.lead_cost_percent ?? 18}
                 commissionSplitPct={fullProject.commission_split_pct ?? 50}
