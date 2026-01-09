@@ -306,6 +306,53 @@ export type Database = {
         }
         Relationships: []
       }
+      commission_payments: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          payment_amount: number
+          payment_date: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          project_id: string
+          salesperson_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_amount?: number
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          project_id: string
+          salesperson_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          payment_amount?: number
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          project_id?: string
+          salesperson_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_payments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_notes: {
         Row: {
           body: string | null

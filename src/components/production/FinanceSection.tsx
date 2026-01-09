@@ -1250,6 +1250,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
         {/* Commission Tab */}
         <TabsContent value="commission" className="mt-4">
           <CommissionTab
+            projectId={projectId}
             totalContracts={totalAgreementsValue}
             leadCostPercent={leadCostPercent}
             commissionSplitPct={commissionSplitPct}
@@ -2876,20 +2877,54 @@ function BillPaymentHistoryDialog({
   );
 }
 
+// Commission Payment interface
+interface CommissionPayment {
+  id: string;
+  project_id: string;
+  salesperson_name: string;
+  payment_date: string | null;
+  payment_amount: number;
+  payment_method: string | null;
+  payment_reference: string | null;
+  notes: string | null;
+}
+
 // Commission Tab Component
 function CommissionTab({
+  projectId,
   totalContracts,
   leadCostPercent,
   commissionSplitPct,
   totalBillsPaid,
   salespeople,
 }: {
+  projectId: string;
   totalContracts: number;
   leadCostPercent: number;
   commissionSplitPct: number;
   totalBillsPaid: number;
   salespeople: SalespersonData[];
 }) {
+  const queryClient = useQueryClient();
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<CommissionPayment | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
+
+  // Fetch commission payments
+  const { data: commissionPayments = [], isLoading: loadingPayments } = useQuery({
+    queryKey: ["commission-payments", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("commission_payments")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("payment_date", { ascending: false });
+      if (error) throw error;
+      return data as CommissionPayment[];
+    },
+  });
+
   // Calculations: (Total Contracts - Lead Cost - Bills) × Split%
   const leadCostAmount = totalContracts * (leadCostPercent / 100);
   const profit = totalContracts - leadCostAmount - totalBillsPaid;
@@ -2902,15 +2937,102 @@ function CommissionTab({
   const salespeopleWithCommission = salespeople.map(sp => {
     const shareOfPool = totalCommissionPct > 0 ? sp.commissionPct / totalCommissionPct : 0;
     const commissionAmount = commissionPool * shareOfPool;
+    // Calculate paid and balance for this salesperson
+    const paid = commissionPayments
+      .filter(p => p.salesperson_name === sp.name)
+      .reduce((sum, p) => sum + (p.payment_amount || 0), 0);
     return {
       ...sp,
       shareOfPool,
       commissionAmount,
+      paid,
+      balance: commissionAmount - paid,
     };
   });
 
-  const totalCommissionPaid = salespeopleWithCommission.reduce((sum, sp) => sum + sp.commissionAmount, 0);
-  const companyProfit = profit - totalCommissionPaid;
+  const totalCommissionOwed = salespeopleWithCommission.reduce((sum, sp) => sum + sp.commissionAmount, 0);
+  const totalCommissionPaid = commissionPayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+  const totalCommissionBalance = totalCommissionOwed - totalCommissionPaid;
+  const companyProfit = profit - totalCommissionOwed;
+
+  // Save payment mutation
+  const savePaymentMutation = useMutation({
+    mutationFn: async (payment: Partial<CommissionPayment>) => {
+      if (editingPayment?.id) {
+        await logAudit({
+          tableName: 'commission_payments',
+          recordId: editingPayment.id,
+          action: 'UPDATE',
+          oldValues: editingPayment,
+          newValues: payment,
+          description: `Updated commission payment ${formatCurrency(payment.payment_amount)} for ${payment.salesperson_name}`,
+        });
+        const { error } = await supabase
+          .from("commission_payments")
+          .update(payment)
+          .eq("id", editingPayment.id);
+        if (error) throw error;
+      } else {
+        const insertData = {
+          project_id: projectId,
+          salesperson_name: payment.salesperson_name!,
+          payment_date: payment.payment_date,
+          payment_amount: payment.payment_amount || 0,
+          payment_method: payment.payment_method,
+          payment_reference: payment.payment_reference,
+          notes: payment.notes,
+        };
+        const { data: newPayment, error } = await supabase
+          .from("commission_payments")
+          .insert(insertData)
+          .select()
+          .single();
+        if (error) throw error;
+        await logAudit({
+          tableName: 'commission_payments',
+          recordId: newPayment.id,
+          action: 'INSERT',
+          newValues: newPayment,
+          description: `Created commission payment ${formatCurrency(payment.payment_amount)} for ${payment.salesperson_name}`,
+        });
+      }
+    },
+    onSuccess: () => {
+      toast.success(editingPayment?.id ? "Payment updated" : "Payment recorded");
+      queryClient.invalidateQueries({ queryKey: ["commission-payments", projectId] });
+      setPaymentDialogOpen(false);
+      setEditingPayment(null);
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
+  // Delete payment mutation
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      const payment = commissionPayments.find(p => p.id === paymentId);
+      if (payment) {
+        await logAudit({
+          tableName: 'commission_payments',
+          recordId: paymentId,
+          action: 'DELETE',
+          oldValues: payment,
+          description: `Deleted commission payment ${formatCurrency(payment.payment_amount)} for ${payment.salesperson_name}`,
+        });
+      }
+      const { error } = await supabase
+        .from("commission_payments")
+        .delete()
+        .eq("id", paymentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Payment deleted");
+      queryClient.invalidateQueries({ queryKey: ["commission-payments", projectId] });
+      setDeleteDialogOpen(false);
+      setDeletingPaymentId(null);
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
 
   return (
     <div className="space-y-4">
@@ -2955,10 +3077,18 @@ function CommissionTab({
       {salespeople.length > 0 ? (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Commission Distribution</CardTitle>
-            <CardDescription className="text-xs">
-              Commission pool divided among salespeople based on their Commission %
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm">Commission Distribution</CardTitle>
+                <CardDescription className="text-xs">
+                  Commission pool divided among salespeople based on their Commission %
+                </CardDescription>
+              </div>
+              <Button size="sm" onClick={() => { setEditingPayment(null); setPaymentDialogOpen(true); }}>
+                <Plus className="h-3 w-3 mr-1" />
+                Record Payment
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -2966,26 +3096,35 @@ function CommissionTab({
                 <TableRow>
                   <TableHead className="text-xs">Salesperson</TableHead>
                   <TableHead className="text-xs text-right">Comm %</TableHead>
-                  <TableHead className="text-xs text-right">Share of Pool</TableHead>
                   <TableHead className="text-xs text-right">Commission</TableHead>
+                  <TableHead className="text-xs text-right">Paid</TableHead>
+                  <TableHead className="text-xs text-right">Balance</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {salespeopleWithCommission.map((sp, index) => (
                   <TableRow key={index}>
-                    <TableCell className="text-xs font-medium">{sp.name}</TableCell>
+                    <TableCell className="text-xs font-medium">{sp.name || "-"}</TableCell>
                     <TableCell className="text-xs text-right">{sp.commissionPct}%</TableCell>
-                    <TableCell className="text-xs text-right">{(sp.shareOfPool * 100).toFixed(1)}%</TableCell>
                     <TableCell className="text-xs text-right font-semibold text-emerald-600">
                       {formatCurrency(sp.commissionAmount)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right text-muted-foreground">
+                      {formatCurrency(sp.paid)}
+                    </TableCell>
+                    <TableCell className={cn("text-xs text-right font-medium", sp.balance > 0 ? "text-amber-600" : "text-emerald-600")}>
+                      {formatCurrency(sp.balance)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="font-semibold bg-muted/50">
                   <TableCell className="text-xs">Total</TableCell>
                   <TableCell className="text-xs text-right">{totalCommissionPct}%</TableCell>
-                  <TableCell className="text-xs text-right">100%</TableCell>
-                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalCommissionPaid)}</TableCell>
+                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalCommissionOwed)}</TableCell>
+                  <TableCell className="text-xs text-right text-muted-foreground">{formatCurrency(totalCommissionPaid)}</TableCell>
+                  <TableCell className={cn("text-xs text-right", totalCommissionBalance > 0 ? "text-amber-600" : "text-emerald-600")}>
+                    {formatCurrency(totalCommissionBalance)}
+                  </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -2998,6 +3137,73 @@ function CommissionTab({
         </Card>
       )}
 
+      {/* Commission Payments History */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">Commission Payments</CardTitle>
+          <CardDescription className="text-xs">
+            History of commission payments made to salespeople
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingPayments ? (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : commissionPayments.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              No commission payments recorded yet
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Salesperson</TableHead>
+                  <TableHead className="text-xs">Method</TableHead>
+                  <TableHead className="text-xs">Reference</TableHead>
+                  <TableHead className="text-xs text-right">Amount</TableHead>
+                  <TableHead className="text-xs w-[80px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {commissionPayments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
+                    <TableCell className="text-xs font-medium">{payment.salesperson_name}</TableCell>
+                    <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
+                    <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600">
+                      {formatCurrency(payment.payment_amount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => { setEditingPayment(payment); setPaymentDialogOpen(true); }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive"
+                          onClick={() => { setDeletingPaymentId(payment.id); setDeleteDialogOpen(true); }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Company Profit */}
       <Card className="p-3 border-primary/20">
         <div className="flex items-center justify-between">
@@ -3009,6 +3215,228 @@ function CommissionTab({
           </div>
         </div>
       </Card>
+
+      {/* Commission Payment Dialog */}
+      <CommissionPaymentDialog
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        editingPayment={editingPayment}
+        salespeople={salespeople}
+        salespeopleWithCommission={salespeopleWithCommission}
+        onSave={(payment) => savePaymentMutation.mutate(payment)}
+        isPending={savePaymentMutation.isPending}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Commission Payment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The payment record will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingPaymentId && deletePaymentMutation.mutate(deletingPaymentId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletePaymentMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+// Commission Payment Dialog Component
+function CommissionPaymentDialog({
+  open,
+  onOpenChange,
+  editingPayment,
+  salespeople,
+  salespeopleWithCommission,
+  onSave,
+  isPending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  editingPayment: CommissionPayment | null;
+  salespeople: SalespersonData[];
+  salespeopleWithCommission: { name: string | null; balance: number }[];
+  onSave: (payment: Partial<CommissionPayment>) => void;
+  isPending: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    salesperson_name: "",
+    payment_date: new Date().toISOString().split('T')[0],
+    payment_amount: "",
+    payment_method: "",
+    payment_reference: "",
+    notes: "",
+  });
+
+  // Reset form when dialog opens/closes or editing changes
+  useEffect(() => {
+    if (open) {
+      if (editingPayment) {
+        setFormData({
+          salesperson_name: editingPayment.salesperson_name,
+          payment_date: editingPayment.payment_date || new Date().toISOString().split('T')[0],
+          payment_amount: editingPayment.payment_amount.toString(),
+          payment_method: editingPayment.payment_method || "",
+          payment_reference: editingPayment.payment_reference || "",
+          notes: editingPayment.notes || "",
+        });
+      } else {
+        setFormData({
+          salesperson_name: "",
+          payment_date: new Date().toISOString().split('T')[0],
+          payment_amount: "",
+          payment_method: "",
+          payment_reference: "",
+          notes: "",
+        });
+      }
+    }
+  }, [open, editingPayment]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      salesperson_name: formData.salesperson_name,
+      payment_date: formData.payment_date || null,
+      payment_amount: parseFloat(formData.payment_amount) || 0,
+      payment_method: formData.payment_method || null,
+      payment_reference: formData.payment_reference || null,
+      notes: formData.notes || null,
+    });
+  };
+
+  const selectedSalespersonBalance = salespeopleWithCommission.find(
+    sp => sp.name === formData.salesperson_name
+  )?.balance || 0;
+
+  const paymentAmount = parseFloat(formData.payment_amount) || 0;
+  const isOverpaying = formData.salesperson_name && paymentAmount > selectedSalespersonBalance;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{editingPayment ? "Edit Commission Payment" : "Record Commission Payment"}</DialogTitle>
+          <DialogDescription>
+            Record a payment made to a salesperson for their commission
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Salesperson *</Label>
+            <Select
+              value={formData.salesperson_name}
+              onValueChange={(v) => setFormData(p => ({ ...p, salesperson_name: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select salesperson" />
+              </SelectTrigger>
+              <SelectContent>
+                {salespeople.filter(sp => sp.name).map((sp, index) => {
+                  const spWithBalance = salespeopleWithCommission.find(s => s.name === sp.name);
+                  return (
+                    <SelectItem key={index} value={sp.name || ""}>
+                      {sp.name} {spWithBalance ? `(Balance: ${formatCurrency(spWithBalance.balance)})` : ""}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Payment Date</Label>
+              <Input
+                type="date"
+                value={formData.payment_date}
+                onChange={(e) => setFormData(p => ({ ...p, payment_date: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Amount ($) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={formData.payment_amount}
+                onChange={(e) => setFormData(p => ({ ...p, payment_amount: e.target.value }))}
+                className={isOverpaying ? "border-amber-500" : ""}
+              />
+              {isOverpaying && (
+                <p className="text-xs text-amber-600 mt-1">Amount exceeds balance</p>
+              )}
+            </div>
+          </div>
+          {formData.salesperson_name && selectedSalespersonBalance > 0 && (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setFormData(p => ({ ...p, payment_amount: selectedSalespersonBalance.toString() }))}
+              >
+                Pay Full Balance ({formatCurrency(selectedSalespersonBalance)})
+              </Button>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Payment Method</Label>
+              <Select
+                value={formData.payment_method}
+                onValueChange={(v) => setFormData(p => ({ ...p, payment_method: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Check">Check</SelectItem>
+                  <SelectItem value="Wire">Wire</SelectItem>
+                  <SelectItem value="ACH">ACH</SelectItem>
+                  <SelectItem value="Direct Deposit">Direct Deposit</SelectItem>
+                  <SelectItem value="Zelle">Zelle</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Reference / Check #</Label>
+              <Input
+                value={formData.payment_reference}
+                onChange={(e) => setFormData(p => ({ ...p, payment_reference: e.target.value }))}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Notes</Label>
+            <Input
+              value={formData.notes}
+              onChange={(e) => setFormData(p => ({ ...p, notes: e.target.value }))}
+              placeholder="Optional notes"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button
+              type="submit"
+              disabled={isPending || !formData.salesperson_name || paymentAmount <= 0}
+            >
+              {isPending ? "Saving..." : editingPayment ? "Update Payment" : "Record Payment"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
