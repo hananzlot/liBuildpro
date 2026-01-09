@@ -899,6 +899,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         agreements={agreements}
         paymentPhases={paymentPhases}
         payments={payments}
+        existingInvoices={invoices}
       />
 
       {/* Payment Dialog */}
@@ -973,6 +974,7 @@ function InvoiceDialog({
   agreements,
   paymentPhases,
   payments,
+  existingInvoices,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -982,6 +984,7 @@ function InvoiceDialog({
   agreements: Agreement[];
   paymentPhases: PaymentPhase[];
   payments: Payment[];
+  existingInvoices: Invoice[];
 }) {
   const [formData, setFormData] = useState({
     invoice_number: "",
@@ -990,6 +993,7 @@ function InvoiceDialog({
     agreement_id: "",
     payment_phase_id: "",
   });
+  const [amountError, setAmountError] = useState("");
 
   // Reset form when dialog opens or invoice changes
   useEffect(() => {
@@ -1005,6 +1009,7 @@ function InvoiceDialog({
       } else {
         setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
       }
+      setAmountError("");
     }
   }, [open, invoice]);
 
@@ -1019,14 +1024,40 @@ function InvoiceDialog({
         .reduce((sum, p) => sum + (p.payment_amount || 0), 0)
     : 0;
 
+  // Calculate uninvoiced balance for selected phase
+  const selectedPhase = paymentPhases.find(p => p.id === formData.payment_phase_id);
+  const phaseAmount = selectedPhase?.amount || 0;
+  const alreadyInvoicedForPhase = existingInvoices
+    .filter(inv => inv.payment_phase_id === formData.payment_phase_id && inv.id !== invoice?.id)
+    .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+  const uninvoicedBalance = phaseAmount - alreadyInvoicedForPhase;
+
   // Clear payment phase when agreement changes
   const handleAgreementChange = (value: string) => {
     setFormData(p => ({ ...p, agreement_id: value, payment_phase_id: "" }));
+    setAmountError("");
+  };
+
+  const handlePhaseChange = (value: string) => {
+    setFormData(p => ({ ...p, payment_phase_id: value }));
+    setAmountError("");
+  };
+
+  const handleAmountChange = (value: string) => {
+    setFormData(p => ({ ...p, amount: value }));
+    setAmountError("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(formData.amount) || 0;
+    
+    // Validate amount doesn't exceed uninvoiced balance for the phase
+    if (formData.payment_phase_id && amount > uninvoicedBalance) {
+      setAmountError(`Amount cannot exceed uninvoiced balance of ${formatCurrency(uninvoicedBalance)}`);
+      return;
+    }
+    
     onSave({
       invoice_number: formData.invoice_number || null,
       invoice_date: formData.invoice_date || null,
@@ -1078,18 +1109,24 @@ function InvoiceDialog({
               <Label>Payment Phase</Label>
               <Select 
                 value={formData.payment_phase_id} 
-                onValueChange={(v) => setFormData(p => ({ ...p, payment_phase_id: v }))}
+                onValueChange={handlePhaseChange}
                 disabled={!formData.agreement_id}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={formData.agreement_id ? "Select phase" : "Select agreement first"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredPhases.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.phase_name} - {formatCurrency(p.amount)}
-                    </SelectItem>
-                  ))}
+                  {filteredPhases.map((p) => {
+                    const invoicedForThisPhase = existingInvoices
+                      .filter(inv => inv.payment_phase_id === p.id && inv.id !== invoice?.id)
+                      .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+                    const remaining = (p.amount || 0) - invoicedForThisPhase;
+                    return (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.phase_name} - {formatCurrency(p.amount)} (Avail: {formatCurrency(remaining)})
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -1097,7 +1134,17 @@ function InvoiceDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Amount ($)</Label>
-              <Input type="number" value={formData.amount} onChange={(e) => setFormData(p => ({ ...p, amount: e.target.value }))} />
+              <Input 
+                type="number" 
+                value={formData.amount} 
+                onChange={(e) => handleAmountChange(e.target.value)} 
+              />
+              {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
+              {formData.payment_phase_id && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Max: {formatCurrency(uninvoicedBalance)}
+                </p>
+              )}
             </div>
             {invoice && (
               <div>
