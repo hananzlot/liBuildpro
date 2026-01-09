@@ -51,10 +51,15 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
     setSelectedKPI(kpi);
     setSheetOpen(true);
   };
+
+  // Filter out projects with zero sold amounts for profitability report
+  const projectsWithSales = useMemo(() => {
+    return projects.filter(p => p.contractsTotal > 0);
+  }, [projects]);
+
   // Profitability by Project chart data
   const projectChartData = useMemo(() => {
-    return projects
-      .filter(p => p.contractsTotal > 0)
+    return projectsWithSales
       .sort((a, b) => b.expectedNetProfit - a.expectedNetProfit)
       .slice(0, 15)
       .map(p => ({
@@ -62,13 +67,13 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
         profit: p.expectedNetProfit,
         revenue: p.contractsTotal,
       }));
-  }, [projects]);
+  }, [projectsWithSales]);
 
-  // Profitability by Salesperson
+  // Profitability by Salesperson (only projects with sales)
   const salespersonProfitData = useMemo(() => {
     const profitBySalesperson: Record<string, { revenue: number; profit: number }> = {};
     
-    projects.forEach(p => {
+    projectsWithSales.forEach(p => {
       const sp = p.primary_salesperson || 'Unassigned';
       if (!profitBySalesperson[sp]) {
         profitBySalesperson[sp] = { revenue: 0, profit: 0 };
@@ -81,13 +86,13 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.profit - a.profit)
       .slice(0, 10);
-  }, [projects]);
+  }, [projectsWithSales]);
 
-  // Monthly trend data
+  // Monthly trend data (only projects with sales)
   const monthlyTrendData = useMemo(() => {
     const monthlyData: Record<string, { revenue: number; profit: number; count: number }> = {};
     
-    projects.forEach(p => {
+    projectsWithSales.forEach(p => {
       const date = new Date(p.agreement_signed_date || p.created_at);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       
@@ -106,12 +111,12 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
         month: new Date(month + '-01').toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
         ...data,
       }));
-  }, [projects]);
+  }, [projectsWithSales]);
 
-  // Sorted projects for table
+  // Sorted projects for table (only projects with sales)
   const sortedProjects = useMemo(() => {
-    return [...projects].sort((a, b) => b.contractsTotal - a.contractsTotal);
-  }, [projects]);
+    return [...projectsWithSales].sort((a, b) => b.contractsTotal - a.contractsTotal);
+  }, [projectsWithSales]);
 
   return (
     <div className="space-y-6">

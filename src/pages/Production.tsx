@@ -803,7 +803,7 @@ export default function Production() {
                           <div className="flex items-center justify-end">Sold Amt <SortIcon column="sold_amount" /></div>
                         </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('est_proj_cost')}>
-                          <div className="flex items-center justify-end">Est Costs <SortIcon column="est_proj_cost" /></div>
+                          <div className="flex items-center justify-end">Est Costs</div>
                         </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('bills_received')}>
                           <div className="flex items-center justify-end">Bills Rcvd <SortIcon column="bills_received" /></div>
@@ -916,21 +916,25 @@ export default function Production() {
                               {formatCurrency(financials?.contractsTotal)}
                             </TableCell>
                             <TableCell className="text-right text-xs">
-                              <div className="flex items-center justify-end gap-1">
-                                {formatCurrency(financials?.effectiveEstimatedCost)}
-                                {financials?.exceededExpectedCosts && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="h-5 px-1 text-[9px] bg-destructive/10 text-destructive border-destructive/20">
-                                        !
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Bills ({formatCurrency(financials.totalBillsReceived)}) exceed estimated costs ({formatCurrency(financials.effectiveEstimatedCost)})</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
-                              </div>
+                              {financials?.contractsTotal > 0 ? (
+                                <div className="flex items-center justify-end gap-1">
+                                  {formatCurrency(financials?.effectiveEstimatedCost)}
+                                  {financials?.exceededExpectedCosts && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge variant="outline" className="h-5 px-1 text-[9px] bg-destructive/10 text-destructive border-destructive/20">
+                                          !
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Bills ({formatCurrency(financials.totalBillsReceived)}) exceed estimated costs ({formatCurrency(financials.effectiveEstimatedCost)})</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right text-xs">
                               {formatCurrency(financials?.totalBillsReceived)}
@@ -947,8 +951,8 @@ export default function Production() {
                             <TableCell className="text-right text-xs text-amber-600">
                               {formatCurrency(financials?.projectBalanceDue)}
                             </TableCell>
-                            <TableCell className={`text-right text-xs font-medium ${(financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                              {formatCurrency(financials?.expectedFinalProfit)}
+                            <TableCell className={`text-right text-xs font-medium ${financials?.contractsTotal > 0 ? ((financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
+                              {financials?.contractsTotal > 0 ? formatCurrency(financials?.expectedFinalProfit) : <span className="text-muted-foreground">-</span>}
                             </TableCell>
                             <TableCell className={`text-right text-xs font-bold ${(() => {
                               const cash = financials?.totalCash || 0;
