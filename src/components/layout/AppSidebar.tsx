@@ -386,7 +386,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       );
     }
 
-    // Regular nav link
+    // Regular nav link - use custom active check for URLs with query params
+    const hasQueryParams = item.url?.includes('?');
+    
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton 
@@ -395,15 +397,29 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           tooltip={item.title}
           onClick={closeSidebar}
         >
-          <NavLink 
-            to={item.url || "/"} 
-            end 
-            className="flex items-center gap-2"
-            activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-          >
-            <item.icon className="h-4 w-4" />
-            {!collapsed && <span>{item.title}</span>}
-          </NavLink>
+          {hasQueryParams ? (
+            <a 
+              href={item.url}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(item.url || '/');
+              }}
+              className={`flex items-center gap-2 ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : ''}`}
+            >
+              <item.icon className="h-4 w-4" />
+              {!collapsed && <span>{item.title}</span>}
+            </a>
+          ) : (
+            <NavLink 
+              to={item.url || "/"} 
+              end 
+              className="flex items-center gap-2"
+              activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            >
+              <item.icon className="h-4 w-4" />
+              {!collapsed && <span>{item.title}</span>}
+            </NavLink>
+          )}
         </SidebarMenuButton>
       </SidebarMenuItem>
     );
