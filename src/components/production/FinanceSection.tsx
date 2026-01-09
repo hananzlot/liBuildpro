@@ -127,7 +127,7 @@ const formatDate = (date: string | null) => {
 
 export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProject }: FinanceSectionProps) {
   const queryClient = useQueryClient();
-  const [activeSubTab, setActiveSubTab] = useState("invoices");
+  const [activeSubTab, setActiveSubTab] = useState("agreements");
   
   // Dialog states
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -362,20 +362,20 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         </Card>
       </div>
 
-      {/* Sub-tabs for Invoices, Payments, Bills, Agreements */}
+      {/* Sub-tabs for Agreements, Invoices, Payments, Bills */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
         <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="agreements" className="text-xs">
+            Contracts ({agreements.length})
+          </TabsTrigger>
           <TabsTrigger value="invoices" className="text-xs">
             Invoices ({invoices.length})
           </TabsTrigger>
           <TabsTrigger value="payments" className="text-xs">
-            Payments ({payments.length})
+            Payments Recvd ({payments.length})
           </TabsTrigger>
           <TabsTrigger value="bills" className="text-xs">
             Bills ({bills.length})
-          </TabsTrigger>
-          <TabsTrigger value="agreements" className="text-xs">
-            Contracts ({agreements.length})
           </TabsTrigger>
         </TabsList>
 
