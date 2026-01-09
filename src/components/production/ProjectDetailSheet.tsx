@@ -388,9 +388,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                 onValueChange={setManagerSearch}
                               />
                               <CommandList>
-                                <CommandEmpty>
-                                  {managerSearch && (
+                                <CommandEmpty>No results found.</CommandEmpty>
+                                <CommandGroup>
+                                  {managerSearch && !existingSalespeople.some(n => n.toLowerCase() === managerSearch.toLowerCase()) && (
                                     <CommandItem
+                                      value={managerSearch}
                                       onSelect={() => {
                                         updateProjectMutation.mutate({ project_manager: managerSearch });
                                         setManagerSearch("");
@@ -401,8 +403,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                       Add "{managerSearch}"
                                     </CommandItem>
                                   )}
-                                </CommandEmpty>
-                                <CommandGroup>
                                   {existingSalespeople.map((name) => (
                                     <CommandItem
                                       key={name}
@@ -504,9 +504,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                 onValueChange={setPrimarySearch}
                               />
                               <CommandList>
-                                <CommandEmpty>
-                                  {primarySearch && (
+                                <CommandEmpty>No results found.</CommandEmpty>
+                                <CommandGroup>
+                                  {primarySearch && !existingSalespeople.some(n => n.toLowerCase() === primarySearch.toLowerCase()) && (
                                     <CommandItem
+                                      value={primarySearch}
                                       onSelect={() => {
                                         updateProjectMutation.mutate({ 
                                           primary_salesperson: primarySearch,
@@ -520,8 +522,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                       Add "{primarySearch}"
                                     </CommandItem>
                                   )}
-                                </CommandEmpty>
-                                <CommandGroup>
                                   {existingSalespeople.map((name) => (
                                     <CommandItem
                                       key={name}
@@ -581,9 +581,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                 onValueChange={setSecondarySearch}
                               />
                               <CommandList>
-                                <CommandEmpty>
-                                  {secondarySearch && (
+                                <CommandEmpty>No results found.</CommandEmpty>
+                                <CommandGroup>
+                                  {secondarySearch && !existingSalespeople.some(n => n.toLowerCase() === secondarySearch.toLowerCase()) && (
                                     <CommandItem
+                                      value={secondarySearch}
                                       onSelect={() => {
                                         updateProjectMutation.mutate({ secondary_salesperson: secondarySearch });
                                         setSecondarySearch("");
@@ -594,8 +596,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                       Add "{secondarySearch}"
                                     </CommandItem>
                                   )}
-                                </CommandEmpty>
-                                <CommandGroup>
                                   {existingSalespeople.map((name) => (
                                     <CommandItem
                                       key={name}
@@ -652,9 +652,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                 onValueChange={setTertiarySearch}
                               />
                               <CommandList>
-                                <CommandEmpty>
-                                  {tertiarySearch && (
+                                <CommandEmpty>No results found.</CommandEmpty>
+                                <CommandGroup>
+                                  {tertiarySearch && !existingSalespeople.some(n => n.toLowerCase() === tertiarySearch.toLowerCase()) && (
                                     <CommandItem
+                                      value={tertiarySearch}
                                       onSelect={() => {
                                         updateProjectMutation.mutate({ tertiary_salesperson: tertiarySearch });
                                         setTertiarySearch("");
@@ -665,8 +667,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                       Add "{tertiarySearch}"
                                     </CommandItem>
                                   )}
-                                </CommandEmpty>
-                                <CommandGroup>
                                   {existingSalespeople.map((name) => (
                                     <CommandItem
                                       key={name}
@@ -723,9 +723,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                 onValueChange={setQuaternarySearch}
                               />
                               <CommandList>
-                                <CommandEmpty>
-                                  {quaternarySearch && (
+                                <CommandEmpty>No results found.</CommandEmpty>
+                                <CommandGroup>
+                                  {quaternarySearch && !existingSalespeople.some(n => n.toLowerCase() === quaternarySearch.toLowerCase()) && (
                                     <CommandItem
+                                      value={quaternarySearch}
                                       onSelect={() => {
                                         updateProjectMutation.mutate({ quaternary_salesperson: quaternarySearch });
                                         setQuaternarySearch("");
@@ -736,8 +738,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                                       Add "{quaternarySearch}"
                                     </CommandItem>
                                   )}
-                                </CommandEmpty>
-                                <CommandGroup>
                                   {existingSalespeople.map((name) => (
                                     <CommandItem
                                       key={name}

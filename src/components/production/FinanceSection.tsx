@@ -1014,9 +1014,11 @@ function BillDialog({
                       onValueChange={setInstallerSearch}
                     />
                     <CommandList>
-                      <CommandEmpty>
-                        {installerSearch && (
+                      <CommandEmpty>No results found.</CommandEmpty>
+                      <CommandGroup>
+                        {installerSearch && !existingInstallers.some(n => n.toLowerCase() === installerSearch.toLowerCase()) && (
                           <CommandItem
+                            value={installerSearch}
                             onSelect={() => {
                               setFormData(p => ({ ...p, installer_company: installerSearch }));
                               setInstallerSearch("");
@@ -1028,8 +1030,6 @@ function BillDialog({
                             Add "{installerSearch}"
                           </CommandItem>
                         )}
-                      </CommandEmpty>
-                      <CommandGroup>
                         {existingInstallers.map((name) => (
                           <CommandItem
                             key={name}
