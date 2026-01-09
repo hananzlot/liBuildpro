@@ -135,19 +135,21 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps) {
-  const { state, setOpenMobile, isMobile } = useSidebar();
+  const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, isAdmin, isMagazineEditor, isProduction, signOut } = useAuth();
   const collapsed = state === "collapsed";
 
-  const closeSidebarOnMobile = () => {
-    if (isMobile) {
-      // Small delay to ensure navigation completes before closing
-      setTimeout(() => {
+  const closeSidebar = () => {
+    // Close sidebar on both mobile and desktop
+    setTimeout(() => {
+      if (isMobile) {
         setOpenMobile(false);
-      }, 100);
-    }
+      } else {
+        setOpen(false);
+      }
+    }, 100);
   };
   
   // Track which collapsible menus are open
@@ -265,7 +267,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                           end
                           className="flex items-center gap-2"
                           activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
-                          onClick={closeSidebarOnMobile}
+                          onClick={closeSidebar}
                         >
                           {subItem.icon && <subItem.icon className="h-3 w-3" />}
                           <span>{subItem.title}</span>
@@ -316,7 +318,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             end 
             className="flex items-center gap-2"
             activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-            onClick={closeSidebarOnMobile}
+            onClick={closeSidebar}
           >
             <item.icon className="h-4 w-4" />
             {!collapsed && <span>{item.title}</span>}
@@ -367,7 +369,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                       <SidebarMenuButton 
                         tooltip={item.title}
                         onClick={() => {
-                          closeSidebarOnMobile();
+                          closeSidebar();
                           if (item.action === 'audit') {
                             navigate('/audit-log');
                           } else {
