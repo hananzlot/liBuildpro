@@ -98,6 +98,8 @@ interface Bill {
   balance: number | null;
   memo: string | null;
   attachment_url: string | null;
+  payment_method: string | null;
+  payment_reference: string | null;
 }
 
 interface Agreement {
@@ -930,6 +932,8 @@ function BillDialog({
     amount_paid: "",
     memo: "",
     attachment_url: null as string | null,
+    payment_method: "",
+    payment_reference: "",
   });
   const [installerSearch, setInstallerSearch] = useState("");
   const [installerOpen, setInstallerOpen] = useState(false);
@@ -987,9 +991,11 @@ function BillDialog({
         amount_paid: bill.amount_paid?.toString() || "",
         memo: bill.memo || "",
         attachment_url: bill.attachment_url || null,
+        payment_method: bill.payment_method || "",
+        payment_reference: bill.payment_reference || "",
       });
     } else if (newOpen) {
-      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", amount_paid: "", memo: "", attachment_url: null });
+      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", amount_paid: "", memo: "", attachment_url: null, payment_method: "", payment_reference: "" });
     }
     onOpenChange(newOpen);
   };
@@ -1004,6 +1010,8 @@ function BillDialog({
       amount_paid: parseFloat(formData.amount_paid) || 0,
       memo: formData.memo || null,
       attachment_url: formData.attachment_url,
+      payment_method: formData.payment_method || null,
+      payment_reference: formData.payment_reference || null,
     });
   };
 
@@ -1156,6 +1164,27 @@ function BillDialog({
           <div>
             <Label>Bill Reference</Label>
             <Input value={formData.bill_ref} onChange={(e) => setFormData(p => ({ ...p, bill_ref: e.target.value }))} placeholder="Invoice/PO number" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Payment Method</Label>
+              <Select value={formData.payment_method} onValueChange={(v) => setFormData(p => ({ ...p, payment_method: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Check">Check</SelectItem>
+                  <SelectItem value="Wire">Wire</SelectItem>
+                  <SelectItem value="ACH">ACH</SelectItem>
+                  <SelectItem value="Credit Card">Credit Card</SelectItem>
+                  <SelectItem value="Zelle">Zelle</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Check # / Payment Ref</Label>
+              <Input value={formData.payment_reference} onChange={(e) => setFormData(p => ({ ...p, payment_reference: e.target.value }))} placeholder="Check number or reference" />
+            </div>
           </div>
           <div>
             <Label>Memo</Label>
