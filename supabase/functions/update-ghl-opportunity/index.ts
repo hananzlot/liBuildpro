@@ -21,6 +21,45 @@ function getGHLApiKey(locationId: string): string {
   return apiKey1;
 }
 
+// Helper function to delay execution
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Helper function to make GHL API request with retry logic
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    
+    if (response.ok) {
+      return response;
+    }
+    
+    // Handle rate limiting (429)
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After');
+      const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt + 1) * 1000;
+      console.log(`Rate limited (429). Waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
+      await delay(waitTime);
+      continue;
+    }
+    
+    // For other errors, don't retry
+    const errorText = await response.text();
+    lastError = new Error(`GHL API Error: ${response.status} - ${errorText}`);
+    console.error('GHL API Error:', errorText);
+    throw lastError;
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -82,22 +121,20 @@ serve(async (req) => {
       ghlPayload.assignedTo = assigned_to;
     }
 
-    // Update GHL first
-    const ghlResponse = await fetch(`https://services.leadconnectorhq.com/opportunities/${ghl_id}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${ghlApiKey}`,
-        'Version': '2021-07-28',
-        'Content-Type': 'application/json',
+    // Update GHL first with retry logic for rate limiting
+    const ghlResponse = await fetchWithRetry(
+      `https://services.leadconnectorhq.com/opportunities/${ghl_id}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${ghlApiKey}`,
+          'Version': '2021-07-28',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ghlPayload),
       },
-      body: JSON.stringify(ghlPayload),
-    });
-
-    if (!ghlResponse.ok) {
-      const errorText = await ghlResponse.text();
-      console.error('GHL API Error:', errorText);
-      throw new Error(`GHL API Error: ${ghlResponse.status} - ${errorText}`);
-    }
+      3 // max retries
+    );
 
     const ghlData = await ghlResponse.json();
     console.log('GHL update successful:', ghlData);
