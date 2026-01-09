@@ -223,6 +223,70 @@ serve(async (req) => {
       }
     }
 
+    // AUTO-CREATE PROJECT WHEN OPPORTUNITY IS MARKED AS WON
+    if (status === 'won' && currentOpp?.status !== 'won') {
+      console.log(`Opportunity ${ghl_id} marked as won - creating project...`);
+      
+      // Check if project already exists for this opportunity
+      const { data: existingProject } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('opportunity_id', ghl_id)
+        .single();
+      
+      if (!existingProject) {
+        // Fetch opportunity details
+        const { data: opportunity } = await supabase
+          .from('opportunities')
+          .select('*, contacts:contact_id(*)')
+          .eq('ghl_id', ghl_id)
+          .single();
+        
+        if (opportunity) {
+          // Fetch contact details if available
+          let contact = null;
+          if (opportunity.contact_id) {
+            const { data: contactData } = await supabase
+              .from('contacts')
+              .select('*')
+              .eq('ghl_id', opportunity.contact_id)
+              .single();
+            contact = contactData;
+          }
+          
+          // Create the project
+          const projectData = {
+            opportunity_id: ghl_id,
+            contact_id: opportunity.contact_id,
+            location_id: effectiveLocationId,
+            project_name: opportunity.name || `Project from ${contact?.contact_name || 'Unknown'}`,
+            project_status: 'New Job',
+            customer_first_name: contact?.first_name || null,
+            customer_last_name: contact?.last_name || null,
+            customer_email: contact?.email || null,
+            cell_phone: contact?.phone || null,
+            lead_source: contact?.source || null,
+            primary_salesperson: opportunity.assigned_to || null,
+            estimated_cost: opportunity.monetary_value || 0,
+          };
+          
+          const { data: newProject, error: projectError } = await supabase
+            .from('projects')
+            .insert(projectData)
+            .select()
+            .single();
+          
+          if (projectError) {
+            console.error('Error creating project:', projectError);
+          } else {
+            console.log(`Project created successfully: ${newProject.id} (Project #${newProject.project_number})`);
+          }
+        }
+      } else {
+        console.log(`Project already exists for opportunity ${ghl_id}`);
+      }
+    }
+
     console.log('Opportunity updated successfully in both GHL and Supabase');
 
     return new Response(JSON.stringify({ 
