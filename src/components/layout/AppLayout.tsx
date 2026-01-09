@@ -74,8 +74,10 @@ export function AppLayout({
           </header>
 
           {/* Main content */}
-          <main className="flex-1">
-            {children}
+          <main className="flex-1 overflow-hidden">
+            <div className="h-full overflow-auto">
+              {children}
+            </div>
           </main>
         </div>
       </div>
