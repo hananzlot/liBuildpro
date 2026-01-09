@@ -304,11 +304,41 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
           .insert({ ...payment, project_id: projectId });
         if (error) throw error;
       }
+
+      // Update invoice balance if payment is linked to an invoice
+      if (payment.invoice_id) {
+        // Get all payments for this invoice
+        const { data: invoicePayments } = await supabase
+          .from("project_payments")
+          .select("payment_amount, payment_status")
+          .eq("invoice_id", payment.invoice_id);
+        
+        const totalReceived = (invoicePayments || [])
+          .filter(p => p.payment_status === "Received")
+          .reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+
+        // Get invoice amount
+        const { data: invoice } = await supabase
+          .from("project_invoices")
+          .select("amount")
+          .eq("id", payment.invoice_id)
+          .single();
+
+        if (invoice) {
+          const openBalance = (invoice.amount || 0) - totalReceived;
+          await supabase
+            .from("project_invoices")
+            .update({ payments_received: totalReceived, open_balance: openBalance })
+            .eq("id", payment.invoice_id);
+        }
+      }
     },
     onSuccess: () => {
       toast.success(editingPayment?.id ? "Payment updated" : "Payment created");
       queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
       setPaymentDialogOpen(false);
       setEditingPayment(null);
     },
@@ -868,6 +898,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         isPending={saveInvoiceMutation.isPending}
         agreements={agreements}
         paymentPhases={paymentPhases}
+        payments={payments}
       />
 
       {/* Payment Dialog */}
@@ -942,6 +973,7 @@ function InvoiceDialog({
   isPending,
   agreements,
   paymentPhases,
+  payments,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -950,17 +982,26 @@ function InvoiceDialog({
   isPending: boolean;
   agreements: Agreement[];
   paymentPhases: PaymentPhase[];
+  payments: Payment[];
 }) {
   const [formData, setFormData] = useState({
     invoice_number: "",
     invoice_date: "",
     amount: "",
-    total_expected: "",
-    payments_received: "",
-    open_balance: "",
     agreement_id: "",
     payment_phase_id: "",
   });
+
+  // Filter phases by selected agreement
+  const filteredPhases = formData.agreement_id 
+    ? paymentPhases.filter(p => p.agreement_id === formData.agreement_id)
+    : [];
+
+  // Calculate payments received for this invoice from payment records
+  const paymentsReceivedForInvoice = invoice?.id 
+    ? payments.filter(p => p.invoice_id === invoice.id && p.payment_status === "Received")
+        .reduce((sum, p) => sum + (p.payment_amount || 0), 0)
+    : 0;
 
   // Reset form when dialog opens with different invoice
   const handleOpenChange = (newOpen: boolean) => {
@@ -969,33 +1010,37 @@ function InvoiceDialog({
         invoice_number: invoice.invoice_number || "",
         invoice_date: invoice.invoice_date || "",
         amount: invoice.amount?.toString() || "",
-        total_expected: invoice.total_expected?.toString() || "",
-        payments_received: invoice.payments_received?.toString() || "",
-        open_balance: invoice.open_balance?.toString() || "",
         agreement_id: invoice.agreement_id || "",
         payment_phase_id: invoice.payment_phase_id || "",
       });
     } else if (newOpen) {
-      setFormData({ invoice_number: "", invoice_date: "", amount: "", total_expected: "", payments_received: "", open_balance: "", agreement_id: "", payment_phase_id: "" });
+      setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
     }
     onOpenChange(newOpen);
+  };
+
+  // Clear payment phase when agreement changes
+  const handleAgreementChange = (value: string) => {
+    setFormData(p => ({ ...p, agreement_id: value, payment_phase_id: "" }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(formData.amount) || 0;
-    const paymentsReceived = parseFloat(formData.payments_received) || 0;
     onSave({
       invoice_number: formData.invoice_number || null,
       invoice_date: formData.invoice_date || null,
       amount,
-      total_expected: parseFloat(formData.total_expected) || amount,
-      payments_received: paymentsReceived,
-      open_balance: amount - paymentsReceived,
+      total_expected: amount,
+      payments_received: paymentsReceivedForInvoice,
+      open_balance: amount - paymentsReceivedForInvoice,
       agreement_id: formData.agreement_id || null,
       payment_phase_id: formData.payment_phase_id || null,
     });
   };
+
+  const invoiceAmount = parseFloat(formData.amount) || 0;
+  const openBalance = invoiceAmount - paymentsReceivedForInvoice;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -1018,7 +1063,7 @@ function InvoiceDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Agreement</Label>
-              <Select value={formData.agreement_id} onValueChange={(v) => setFormData(p => ({ ...p, agreement_id: v }))}>
+              <Select value={formData.agreement_id} onValueChange={handleAgreementChange}>
                 <SelectTrigger><SelectValue placeholder="Select agreement" /></SelectTrigger>
                 <SelectContent>
                   {agreements.map((a) => (
@@ -1031,10 +1076,16 @@ function InvoiceDialog({
             </div>
             <div>
               <Label>Payment Phase</Label>
-              <Select value={formData.payment_phase_id} onValueChange={(v) => setFormData(p => ({ ...p, payment_phase_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select phase" /></SelectTrigger>
+              <Select 
+                value={formData.payment_phase_id} 
+                onValueChange={(v) => setFormData(p => ({ ...p, payment_phase_id: v }))}
+                disabled={!formData.agreement_id}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={formData.agreement_id ? "Select phase" : "Select agreement first"} />
+                </SelectTrigger>
                 <SelectContent>
-                  {paymentPhases.map((p) => (
+                  {filteredPhases.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.phase_name} - {formatCurrency(p.amount)}
                     </SelectItem>
@@ -1048,10 +1099,13 @@ function InvoiceDialog({
               <Label>Amount ($)</Label>
               <Input type="number" value={formData.amount} onChange={(e) => setFormData(p => ({ ...p, amount: e.target.value }))} />
             </div>
-            <div>
-              <Label>Payments Received ($)</Label>
-              <Input type="number" value={formData.payments_received} onChange={(e) => setFormData(p => ({ ...p, payments_received: e.target.value }))} />
-            </div>
+            {invoice && (
+              <div>
+                <Label>Payments Received</Label>
+                <p className="text-sm font-medium mt-2">{formatCurrency(paymentsReceivedForInvoice)}</p>
+                <p className="text-xs text-muted-foreground">Balance: {formatCurrency(openBalance)}</p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
