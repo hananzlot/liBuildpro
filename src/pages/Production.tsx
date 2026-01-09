@@ -45,6 +45,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ProjectDetailSheet } from "@/components/production/ProjectDetailSheet";
+import { NewProjectDialog } from "@/components/production/NewProjectDialog";
 
 interface Project {
   id: string;
@@ -77,6 +78,7 @@ export default function Production() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -268,7 +270,7 @@ export default function Production() {
               </SelectContent>
             </Select>
           </div>
-          <Button disabled>
+          <Button onClick={() => setNewProjectOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Project
           </Button>
@@ -350,6 +352,12 @@ export default function Production() {
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
         onUpdate={refetch}
+      />
+
+      {/* New Project Dialog */}
+      <NewProjectDialog
+        open={newProjectOpen}
+        onOpenChange={setNewProjectOpen}
       />
 
       {/* Change Password Dialog */}
