@@ -74,53 +74,79 @@ interface NavItem {
   subItems?: NavSubItem[];
 }
 
-const mainNavItems: NavItem[] = [
-  // Dispatch section - Dashboard, Follow-up  
-  { 
-    title: "Dashboard", 
-    url: "/", 
-    icon: LayoutDashboard,
-    roles: ['super_admin', 'admin', 'dispatch']
+interface NavSection {
+  label: string;
+  roles: AppRole[];
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    label: "Dispatch",
+    roles: ['super_admin', 'admin', 'dispatch'],
+    items: [
+      { 
+        title: "Dashboard", 
+        url: "/", 
+        icon: LayoutDashboard,
+        roles: ['super_admin', 'admin', 'dispatch']
+      },
+      { 
+        title: "Follow-up", 
+        url: "/follow-up", 
+        icon: ListChecks,
+        roles: ['super_admin', 'admin', 'dispatch']
+      },
+    ],
   },
-  { 
-    title: "Palisades", 
-    url: "https://palisades.ca-probuilders.com", 
-    icon: ExternalLink,
-    external: true,
-    roles: ['super_admin', 'admin', 'sales']
+  {
+    label: "Production",
+    roles: ['super_admin', 'admin', 'production'],
+    items: [
+      { 
+        title: "Projects", 
+        url: "/production?view=projects", 
+        icon: FolderKanban,
+        roles: ['super_admin', 'admin', 'production']
+      },
+      { 
+        title: "Analytics", 
+        url: "/production?view=analytics", 
+        icon: BarChart3,
+        roles: ['super_admin', 'admin', 'production']
+      },
+      { 
+        title: "Subcontractors", 
+        url: "/production?view=subcontractors", 
+        icon: HardHat,
+        roles: ['super_admin', 'admin', 'production']
+      },
+    ],
   },
-  // Dispatch section - Follow-up
-  { 
-    title: "Follow-up", 
-    url: "/follow-up", 
-    icon: ListChecks,
-    roles: ['super_admin', 'admin', 'dispatch']
+  {
+    label: "Sales",
+    roles: ['super_admin', 'admin', 'sales'],
+    items: [
+      { 
+        title: "Palisades", 
+        url: "https://palisades.ca-probuilders.com", 
+        icon: ExternalLink,
+        external: true,
+        roles: ['super_admin', 'admin', 'sales']
+      },
+    ],
   },
-  // Magazine section
-  { 
-    title: "Magazine Sales", 
-    url: "/magazine-sales", 
-    icon: BookOpen,
-    roles: ['super_admin', 'admin', 'magazine']
-  },
-  // Production section - now flat menu items
-  { 
-    title: "Projects", 
-    url: "/production?view=projects", 
-    icon: FolderKanban,
-    roles: ['super_admin', 'admin', 'production']
-  },
-  { 
-    title: "Analytics", 
-    url: "/production?view=analytics", 
-    icon: BarChart3,
-    roles: ['super_admin', 'admin', 'production']
-  },
-  { 
-    title: "Subcontractors", 
-    url: "/production?view=subcontractors", 
-    icon: HardHat,
-    roles: ['super_admin', 'admin', 'production']
+  {
+    label: "Magazines",
+    roles: ['super_admin', 'admin', 'magazine'],
+    items: [
+      { 
+        title: "Magazine Sales", 
+        url: "/magazine-sales", 
+        icon: BookOpen,
+        roles: ['super_admin', 'admin', 'magazine']
+      },
+    ],
   },
 ];
 
@@ -246,8 +272,20 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     return location.pathname === subUrl;
   };
 
-  const visibleNavItems = mainNavItems.filter(canViewItem);
-  
+  // Check if a section is visible based on user roles
+  const canViewSection = (section: NavSection): boolean => {
+    return section.roles.some(role => {
+      switch (role) {
+        case 'super_admin': return isAdmin;
+        case 'admin': return isAdmin;
+        case 'magazine': return isMagazine;
+        case 'production': return isProduction;
+        case 'dispatch': return isDispatch;
+        case 'sales': return isSales;
+        default: return false;
+      }
+    });
+  };
 
   const renderNavItem = (item: NavItem) => {
     const isActive = !item.external && !item.subItems && location.pathname === item.url;
@@ -356,6 +394,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     );
   };
 
+  // Get visible sections
+  const visibleSections = navSections.filter(canViewSection);
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
@@ -380,15 +421,22 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       </SidebarHeader>
 
       <SidebarContent onClickCapture={handleSidebarContentClickCapture}>
-        {/* Main Navigation */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {visibleNavItems.map(renderNavItem)}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Navigation Sections */}
+        {visibleSections.map((section, idx) => {
+          const visibleItems = section.items.filter(canViewItem);
+          if (visibleItems.length === 0) return null;
+          
+          return (
+            <SidebarGroup key={section.label}>
+              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {visibleItems.map(renderNavItem)}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          );
+        })}
 
 
         {/* Admin Tools - always show for actual admins (even when simulating) */}
