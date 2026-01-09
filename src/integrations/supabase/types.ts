@@ -181,6 +181,47 @@ export type Database = {
           },
         ]
       }
+      bill_payments: {
+        Row: {
+          bill_id: string
+          created_at: string
+          id: string
+          payment_amount: number
+          payment_date: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          bill_id: string
+          created_at?: string
+          id?: string
+          payment_amount?: number
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bill_id?: string
+          created_at?: string
+          id?: string
+          payment_amount?: number
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bill_payments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "project_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_logs: {
         Row: {
           call_date: string | null
