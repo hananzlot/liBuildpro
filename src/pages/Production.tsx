@@ -94,6 +94,8 @@ interface ProjectFinancials {
   contractsTotal: number;
   phasesTotal: number;
   hasPhaseMismatch: boolean;
+  hasContractMismatch: boolean;
+  estimatedCost: number | null;
   projectBalanceDue: number;
   profitToDate: number;
 }
@@ -224,6 +226,11 @@ export default function Production() {
       }
     });
 
+    // Check if contracts total matches estimated cost
+    const hasContractMismatch = project.estimated_cost !== null && 
+      project.estimated_cost > 0 && 
+      contractsTotal !== project.estimated_cost;
+
     const phasesTotal = projectPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
     const projectBalanceDue = contractsTotal - invoicesCollected;
     const profitToDate = invoicesCollected - totalBillsPaid;
@@ -238,6 +245,8 @@ export default function Production() {
       contractsTotal,
       phasesTotal,
       hasPhaseMismatch,
+      hasContractMismatch,
+      estimatedCost: project.estimated_cost,
       projectBalanceDue,
       profitToDate,
     };
@@ -647,6 +656,18 @@ export default function Production() {
                                     </TooltipTrigger>
                                     <TooltipContent>
                                       <p>Payment phases don't match contract total</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {financials?.hasContractMismatch && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="h-5 px-1 text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                                        $
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Contracts total ({formatCurrency(financials.contractsTotal)}) doesn't match Est. Cost ({formatCurrency(financials.estimatedCost)})</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 )}
