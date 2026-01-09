@@ -1175,73 +1175,128 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
               </div>
             </CardHeader>
             <CardContent>
-              {loadingPhases ? (
+              {loadingPhases || loadingAgreements ? (
                 <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
-              ) : paymentPhases.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No payment phases yet</p>
+              ) : agreements.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No contracts yet. Add a contract first to create payment phases.</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Phase</TableHead>
-                      <TableHead className="text-xs">Contract</TableHead>
-                      <TableHead className="text-xs">Due Date</TableHead>
-                      <TableHead className="text-xs text-right">Amount</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs w-20"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paymentPhases.map((phase) => {
-                      const agreement = agreements.find(a => a.id === phase.agreement_id);
-                      const invoiceStatus = getPhaseInvoiceStatus(phase.id);
-                      const paymentStatus = getPhasePaymentStatus(phase.id);
-                      const phaseAmount = phase.amount || 0;
-                      const isFullyInvoiced = invoiceStatus.totalInvoiced >= phaseAmount;
-                      const isFullyPaid = paymentStatus.totalReceived >= phaseAmount;
-                      
-                      return (
-                        <TableRow key={phase.id}>
-                          <TableCell className="text-xs">
+                <div className="space-y-6">
+                  {agreements.map((agreement) => {
+                    const agreementPhases = paymentPhases.filter(p => p.agreement_id === agreement.id);
+                    const phasesTotal = agreementPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
+                    const contractTotal = agreement.total_price || 0;
+                    const balance = contractTotal - phasesTotal;
+                    const isBalanced = Math.abs(balance) < 0.01;
+
+                    return (
+                      <div key={agreement.id} className="border rounded-lg overflow-hidden">
+                        {/* Agreement Header */}
+                        <div className={`px-4 py-3 flex items-center justify-between ${isBalanced ? 'bg-emerald-500/10 border-b border-emerald-500/20' : 'bg-amber-500/10 border-b border-amber-500/20'}`}>
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
                             <div>
-                              <span className="font-medium">{phase.phase_name}</span>
-                              {phase.description && <p className="text-muted-foreground">{phase.description}</p>}
+                              <p className="font-medium text-sm">
+                                {agreement.agreement_number || 'Unnamed Contract'}
+                                {agreement.agreement_type && <span className="text-muted-foreground font-normal"> • {agreement.agreement_type}</span>}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Contract Total: {formatCurrency(contractTotal)}
+                              </p>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-xs">{agreement?.agreement_number || "-"}</TableCell>
-                          <TableCell className="text-xs">{formatDate(phase.due_date)}</TableCell>
-                          <TableCell className="text-xs text-right">{formatCurrency(phase.amount)}</TableCell>
-                          <TableCell className="text-xs">
-                            <div className="flex flex-col gap-1">
-                              <Badge 
-                                variant="outline" 
-                                className={isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground"}
-                              >
-                                {isFullyInvoiced ? "Invoiced" : invoiceStatus.totalInvoiced > 0 ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)}` : "Not Invoiced"}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Phases Total: {formatCurrency(phasesTotal)}</p>
+                            {isBalanced ? (
+                              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
+                                Balanced
                               </Badge>
-                              <Badge 
-                                variant="outline" 
-                                className={isFullyPaid ? "bg-emerald-500/10 text-emerald-500" : paymentStatus.totalReceived > 0 ? "bg-amber-500/10 text-amber-500" : "bg-muted text-muted-foreground"}
-                              >
-                                {isFullyPaid ? "Paid" : paymentStatus.totalReceived > 0 ? `Paid: ${formatCurrency(paymentStatus.totalReceived)}` : "Unpaid"}
+                            ) : (
+                              <Badge variant="outline" className={`text-xs ${balance > 0 ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-red-500/10 text-red-600 border-red-500/30'}`}>
+                                {balance > 0 ? `Missing: ${formatCurrency(balance)}` : `Over: ${formatCurrency(Math.abs(balance))}`}
                               </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("phase", phase.id)}>
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Phases Table */}
+                        {agreementPhases.length === 0 ? (
+                          <div className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">No phases for this contract</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-2"
+                              onClick={() => { setEditingPhase(null); setPhaseDialogOpen(true); }}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add Phase
+                            </Button>
+                          </div>
+                        ) : (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-xs">Phase</TableHead>
+                                <TableHead className="text-xs">Due Date</TableHead>
+                                <TableHead className="text-xs text-right">Amount</TableHead>
+                                <TableHead className="text-xs">Status</TableHead>
+                                <TableHead className="text-xs w-20"></TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {agreementPhases.map((phase) => {
+                                const invoiceStatus = getPhaseInvoiceStatus(phase.id);
+                                const paymentStatus = getPhasePaymentStatus(phase.id);
+                                const phaseAmount = phase.amount || 0;
+                                const isFullyInvoiced = invoiceStatus.totalInvoiced >= phaseAmount;
+                                const isFullyPaid = paymentStatus.totalReceived >= phaseAmount;
+                                
+                                return (
+                                  <TableRow key={phase.id}>
+                                    <TableCell className="text-xs">
+                                      <div>
+                                        <span className="font-medium">{phase.phase_name}</span>
+                                        {phase.description && <p className="text-muted-foreground">{phase.description}</p>}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-xs">{formatDate(phase.due_date)}</TableCell>
+                                    <TableCell className="text-xs text-right">{formatCurrency(phase.amount)}</TableCell>
+                                    <TableCell className="text-xs">
+                                      <div className="flex flex-col gap-1">
+                                        <Badge 
+                                          variant="outline" 
+                                          className={isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground"}
+                                        >
+                                          {isFullyInvoiced ? "Invoiced" : invoiceStatus.totalInvoiced > 0 ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)}` : "Not Invoiced"}
+                                        </Badge>
+                                        <Badge 
+                                          variant="outline" 
+                                          className={isFullyPaid ? "bg-emerald-500/10 text-emerald-500" : paymentStatus.totalReceived > 0 ? "bg-amber-500/10 text-amber-500" : "bg-muted text-muted-foreground"}
+                                        >
+                                          {isFullyPaid ? "Paid" : paymentStatus.totalReceived > 0 ? `Paid: ${formatCurrency(paymentStatus.totalReceived)}` : "Unpaid"}
+                                        </Badge>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex gap-1">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
+                                          <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("phase", phase.id)}>
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>
