@@ -995,6 +995,249 @@ export type Database = {
         }
         Relationships: []
       }
+      project_agreements: {
+        Row: {
+          agreement_number: string | null
+          agreement_signed_date: string | null
+          agreement_type: string | null
+          attachment_url: string | null
+          average_lead_cost: number | null
+          created_at: string | null
+          description_of_work: string | null
+          id: string
+          lead_cost_percent: number | null
+          project_id: string | null
+          total_price: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agreement_number?: string | null
+          agreement_signed_date?: string | null
+          agreement_type?: string | null
+          attachment_url?: string | null
+          average_lead_cost?: number | null
+          created_at?: string | null
+          description_of_work?: string | null
+          id?: string
+          lead_cost_percent?: number | null
+          project_id?: string | null
+          total_price?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agreement_number?: string | null
+          agreement_signed_date?: string | null
+          agreement_type?: string | null
+          attachment_url?: string | null
+          average_lead_cost?: number | null
+          created_at?: string | null
+          description_of_work?: string | null
+          id?: string
+          lead_cost_percent?: number | null
+          project_id?: string | null
+          total_price?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_agreements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_bills: {
+        Row: {
+          amount_paid: number | null
+          attachment_url: string | null
+          balance: number | null
+          bill_amount: number | null
+          bill_ref: string | null
+          category: string | null
+          created_at: string | null
+          id: string
+          installer_company: string | null
+          memo: string | null
+          not_affecting_payment: boolean | null
+          project_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount_paid?: number | null
+          attachment_url?: string | null
+          balance?: number | null
+          bill_amount?: number | null
+          bill_ref?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          installer_company?: string | null
+          memo?: string | null
+          not_affecting_payment?: boolean | null
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount_paid?: number | null
+          attachment_url?: string | null
+          balance?: number | null
+          bill_amount?: number | null
+          bill_ref?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          installer_company?: string | null
+          memo?: string | null
+          not_affecting_payment?: boolean | null
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_bills_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_cases: {
+        Row: {
+          case_number: string | null
+          closed_at: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_status: string | null
+          id: string
+          notes: string | null
+          project_id: string | null
+        }
+        Insert: {
+          case_number?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_status?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+        }
+        Update: {
+          case_number?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_status?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_cases_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_cases_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_checklists: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string | null
+          id: string
+          item: string
+          project_id: string | null
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          id?: string
+          item: string
+          project_id?: string | null
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string | null
+          id?: string
+          item?: string
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_checklists_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_checklists_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_commissions: {
+        Row: {
+          commission_balance: number | null
+          commission_paid: number | null
+          created_at: string | null
+          id: string
+          project_id: string | null
+          salesperson: string | null
+          total_commission: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          commission_balance?: number | null
+          commission_paid?: number | null
+          created_at?: string | null
+          id?: string
+          project_id?: string | null
+          salesperson?: string | null
+          total_commission?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          commission_balance?: number | null
+          commission_paid?: number | null
+          created_at?: string | null
+          id?: string
+          project_id?: string | null
+          salesperson?: string | null
+          total_commission?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_commissions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_costs: {
         Row: {
           created_at: string
@@ -1027,6 +1270,447 @@ export type Database = {
           {
             foreignKeyName: "project_costs_entered_by_fkey"
             columns: ["entered_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_feedback: {
+        Row: {
+          completion_call_notes: string | null
+          created_at: string | null
+          customer_feedback: string | null
+          id: string
+          online_review_given: boolean | null
+          progress_call_notes: string | null
+          project_id: string | null
+          review_location: string | null
+          satisfaction_rank: number | null
+          service_call_status: string | null
+          updated_at: string | null
+          use_as_reference: boolean | null
+          welcome_call_notes: string | null
+        }
+        Insert: {
+          completion_call_notes?: string | null
+          created_at?: string | null
+          customer_feedback?: string | null
+          id?: string
+          online_review_given?: boolean | null
+          progress_call_notes?: string | null
+          project_id?: string | null
+          review_location?: string | null
+          satisfaction_rank?: number | null
+          service_call_status?: string | null
+          updated_at?: string | null
+          use_as_reference?: boolean | null
+          welcome_call_notes?: string | null
+        }
+        Update: {
+          completion_call_notes?: string | null
+          created_at?: string | null
+          customer_feedback?: string | null
+          id?: string
+          online_review_given?: boolean | null
+          progress_call_notes?: string | null
+          project_id?: string | null
+          review_location?: string | null
+          satisfaction_rank?: number | null
+          service_call_status?: string | null
+          updated_at?: string | null
+          use_as_reference?: boolean | null
+          welcome_call_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_feedback_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_finance: {
+        Row: {
+          account_number: string | null
+          approved_amount: number | null
+          bank_name: string | null
+          created_at: string | null
+          finance_balance: number | null
+          finance_type: string | null
+          id: string
+          notes: string | null
+          project_id: string | null
+          updated_at: string | null
+          used_amount: number | null
+        }
+        Insert: {
+          account_number?: string | null
+          approved_amount?: number | null
+          bank_name?: string | null
+          created_at?: string | null
+          finance_balance?: number | null
+          finance_type?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+          used_amount?: number | null
+        }
+        Update: {
+          account_number?: string | null
+          approved_amount?: number | null
+          bank_name?: string | null
+          created_at?: string | null
+          finance_balance?: number | null
+          finance_type?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+          used_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_finance_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_invoices: {
+        Row: {
+          agreement_id: string | null
+          amount: number | null
+          created_at: string | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          open_balance: number | null
+          payments_received: number | null
+          project_id: string | null
+          total_expected: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agreement_id?: string | null
+          amount?: number | null
+          created_at?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          open_balance?: number | null
+          payments_received?: number | null
+          project_id?: string | null
+          total_expected?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agreement_id?: string | null
+          amount?: number | null
+          created_at?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          open_balance?: number | null
+          payments_received?: number | null
+          project_id?: string | null
+          total_expected?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_invoices_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "project_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_messages: {
+        Row: {
+          attachment_url: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_alert: boolean | null
+          message: string | null
+          project_id: string | null
+          subject: string | null
+        }
+        Insert: {
+          attachment_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_alert?: boolean | null
+          message?: string | null
+          project_id?: string | null
+          subject?: string | null
+        }
+        Update: {
+          attachment_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_alert?: boolean | null
+          message?: string | null
+          project_id?: string | null
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_messages_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_payments: {
+        Row: {
+          bank_name: string | null
+          check_number: string | null
+          created_at: string | null
+          deposit_verified: boolean | null
+          do_not_summarize: boolean | null
+          id: string
+          invoice_id: string | null
+          payment_amount: number | null
+          payment_fee: number | null
+          payment_schedule: string | null
+          payment_status: string | null
+          project_id: string | null
+          projected_received_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bank_name?: string | null
+          check_number?: string | null
+          created_at?: string | null
+          deposit_verified?: boolean | null
+          do_not_summarize?: boolean | null
+          id?: string
+          invoice_id?: string | null
+          payment_amount?: number | null
+          payment_fee?: number | null
+          payment_schedule?: string | null
+          payment_status?: string | null
+          project_id?: string | null
+          projected_received_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bank_name?: string | null
+          check_number?: string | null
+          created_at?: string | null
+          deposit_verified?: boolean | null
+          do_not_summarize?: boolean | null
+          id?: string
+          invoice_id?: string | null
+          payment_amount?: number | null
+          payment_fee?: number | null
+          payment_schedule?: string | null
+          payment_status?: string | null
+          project_id?: string | null
+          projected_received_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "project_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_payments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          agreement_signed_date: string | null
+          alt_phone: string | null
+          branch: string | null
+          cell_phone: string | null
+          contact_id: string | null
+          contact_preferences: string | null
+          contract_expiration_date: string | null
+          contract_number: string | null
+          created_at: string | null
+          created_by: string | null
+          customer_email: string | null
+          customer_first_name: string | null
+          customer_last_name: string | null
+          date_of_birth: string | null
+          dropbox_link: string | null
+          due_date: string | null
+          estimated_cost: number | null
+          has_hoa: boolean | null
+          home_phone: string | null
+          id: string
+          install_notes: string | null
+          install_start_date: string | null
+          install_status: string | null
+          installers_on_site: string[] | null
+          lead_number: string | null
+          lead_source: string | null
+          location_id: string
+          lock_box_code: string | null
+          opportunity_id: string | null
+          permit_numbers: string | null
+          primary_commission_pct: number | null
+          primary_salesperson: string | null
+          project_address: string | null
+          project_manager: string | null
+          project_name: string
+          project_number: number
+          project_status: string | null
+          project_subcategory: string | null
+          project_type: string | null
+          quaternary_commission_pct: number | null
+          quaternary_salesperson: string | null
+          secondary_commission_pct: number | null
+          secondary_salesperson: string | null
+          sold_under: string | null
+          tertiary_commission_pct: number | null
+          tertiary_salesperson: string | null
+          total_pl: number | null
+          updated_at: string | null
+          utility: string | null
+        }
+        Insert: {
+          agreement_signed_date?: string | null
+          alt_phone?: string | null
+          branch?: string | null
+          cell_phone?: string | null
+          contact_id?: string | null
+          contact_preferences?: string | null
+          contract_expiration_date?: string | null
+          contract_number?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_email?: string | null
+          customer_first_name?: string | null
+          customer_last_name?: string | null
+          date_of_birth?: string | null
+          dropbox_link?: string | null
+          due_date?: string | null
+          estimated_cost?: number | null
+          has_hoa?: boolean | null
+          home_phone?: string | null
+          id?: string
+          install_notes?: string | null
+          install_start_date?: string | null
+          install_status?: string | null
+          installers_on_site?: string[] | null
+          lead_number?: string | null
+          lead_source?: string | null
+          location_id: string
+          lock_box_code?: string | null
+          opportunity_id?: string | null
+          permit_numbers?: string | null
+          primary_commission_pct?: number | null
+          primary_salesperson?: string | null
+          project_address?: string | null
+          project_manager?: string | null
+          project_name: string
+          project_number?: number
+          project_status?: string | null
+          project_subcategory?: string | null
+          project_type?: string | null
+          quaternary_commission_pct?: number | null
+          quaternary_salesperson?: string | null
+          secondary_commission_pct?: number | null
+          secondary_salesperson?: string | null
+          sold_under?: string | null
+          tertiary_commission_pct?: number | null
+          tertiary_salesperson?: string | null
+          total_pl?: number | null
+          updated_at?: string | null
+          utility?: string | null
+        }
+        Update: {
+          agreement_signed_date?: string | null
+          alt_phone?: string | null
+          branch?: string | null
+          cell_phone?: string | null
+          contact_id?: string | null
+          contact_preferences?: string | null
+          contract_expiration_date?: string | null
+          contract_number?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_email?: string | null
+          customer_first_name?: string | null
+          customer_last_name?: string | null
+          date_of_birth?: string | null
+          dropbox_link?: string | null
+          due_date?: string | null
+          estimated_cost?: number | null
+          has_hoa?: boolean | null
+          home_phone?: string | null
+          id?: string
+          install_notes?: string | null
+          install_start_date?: string | null
+          install_status?: string | null
+          installers_on_site?: string[] | null
+          lead_number?: string | null
+          lead_source?: string | null
+          location_id?: string
+          lock_box_code?: string | null
+          opportunity_id?: string | null
+          permit_numbers?: string | null
+          primary_commission_pct?: number | null
+          primary_salesperson?: string | null
+          project_address?: string | null
+          project_manager?: string | null
+          project_name?: string
+          project_number?: number
+          project_status?: string | null
+          project_subcategory?: string | null
+          project_type?: string | null
+          quaternary_commission_pct?: number | null
+          quaternary_salesperson?: string | null
+          secondary_commission_pct?: number | null
+          secondary_salesperson?: string | null
+          sold_under?: string | null
+          tertiary_commission_pct?: number | null
+          tertiary_salesperson?: string | null
+          total_pl?: number | null
+          updated_at?: string | null
+          utility?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1157,7 +1841,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user" | "magazine_editor"
+      app_role: "admin" | "user" | "magazine_editor" | "production"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1285,7 +1969,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "magazine_editor"],
+      app_role: ["admin", "user", "magazine_editor", "production"],
     },
   },
 } as const

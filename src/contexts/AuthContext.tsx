@@ -15,6 +15,7 @@ interface AuthContextType {
   profile: Profile | null;
   isAdmin: boolean;
   isMagazineEditor: boolean;
+  isProduction: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMagazineEditor, setIsMagazineEditor] = useState(false);
+  const [isProduction, setIsProduction] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -50,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
           setIsAdmin(false);
           setIsMagazineEditor(false);
+          setIsProduction(false);
         }
       }
     );
@@ -91,9 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const roles = data.map(r => r.role);
       setIsAdmin(roles.includes("admin"));
       setIsMagazineEditor(roles.includes("magazine_editor"));
+      setIsProduction(roles.includes("production"));
     } else {
       setIsAdmin(false);
       setIsMagazineEditor(false);
+      setIsProduction(false);
     }
   };
 
@@ -125,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setIsAdmin(false);
     setIsMagazineEditor(false);
+    setIsProduction(false);
   };
 
   const resetPassword = async (email: string) => {
@@ -160,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile, 
       isAdmin, 
       isMagazineEditor,
+      isProduction,
       isLoading, 
       signIn, 
       signUp, 

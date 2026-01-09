@@ -6,13 +6,14 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Production from "./pages/Production";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: 'admin' | 'production' }) {
+  const { user, isLoading, isAdmin, isProduction } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -38,6 +39,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
+  // Check role-based access
+  if (requiredRole === 'production' && !isProduction && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -55,6 +61,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/production"
+              element={
+                <ProtectedRoute requiredRole="production">
+                  <Production />
                 </ProtectedRoute>
               }
             />
