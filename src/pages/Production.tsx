@@ -14,7 +14,8 @@ import {
   LogOut,
   FlaskConical,
   Trash2,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { ProjectDetailSheet } from "@/components/production/ProjectDetailSheet";
 import { NewProjectDialog } from "@/components/production/NewProjectDialog";
@@ -71,11 +73,26 @@ interface Project {
   cell_phone: string | null;
   project_address: string | null;
   primary_salesperson: string | null;
+  project_manager: string | null;
   estimated_cost: number | null;
   total_pl: number | null;
   created_at: string;
   opportunity_id: string | null;
   location_id: string;
+}
+
+interface ProjectFinancials {
+  projectId: string;
+  totalBillsReceived: number;
+  totalBillsPaid: number;
+  totalInvoiced: number;
+  invoicesCollected: number;
+  invoiceBalanceDue: number;
+  contractsTotal: number;
+  phasesTotal: number;
+  hasPhaseMismatch: boolean;
+  projectBalanceDue: number;
+  profitToDate: number;
 }
 
 const statusColors: Record<string, string> = {
@@ -112,6 +129,110 @@ export default function Production() {
       if (error) throw error;
       return data as Project[];
     },
+  });
+
+  // Fetch all financial data for projects
+  const { data: allAgreements = [] } = useQuery({
+    queryKey: ["all-project-agreements"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_agreements")
+        .select("id, project_id, total_price");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allPhases = [] } = useQuery({
+    queryKey: ["all-project-phases"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_payment_phases")
+        .select("id, project_id, agreement_id, amount");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allInvoices = [] } = useQuery({
+    queryKey: ["all-project-invoices"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_invoices")
+        .select("id, project_id, amount, payments_received, open_balance");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allPayments = [] } = useQuery({
+    queryKey: ["all-project-payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_payments")
+        .select("id, project_id, payment_amount, payment_status");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allBills = [] } = useQuery({
+    queryKey: ["all-project-bills"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_bills")
+        .select("id, project_id, bill_amount, amount_paid");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Calculate financials for each project
+  const projectFinancials: Record<string, ProjectFinancials> = {};
+  
+  projects.forEach(project => {
+    const projectAgreements = allAgreements.filter(a => a.project_id === project.id);
+    const projectPhases = allPhases.filter(p => p.project_id === project.id);
+    const projectInvoices = allInvoices.filter(i => i.project_id === project.id);
+    const projectPayments = allPayments.filter(p => p.project_id === project.id);
+    const projectBills = allBills.filter(b => b.project_id === project.id);
+
+    const totalBillsReceived = projectBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
+    const totalBillsPaid = projectBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
+    const totalInvoiced = projectInvoices.reduce((sum, i) => sum + (i.amount || 0), 0);
+    const invoicesCollected = projectPayments
+      .filter(p => p.payment_status === "Received")
+      .reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+    const invoiceBalanceDue = projectInvoices.reduce((sum, i) => sum + (i.open_balance || 0), 0);
+    const contractsTotal = projectAgreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
+    
+    // Calculate phases total per agreement and check for mismatch
+    let hasPhaseMismatch = false;
+    projectAgreements.forEach(agreement => {
+      const agreementPhases = projectPhases.filter(p => p.agreement_id === agreement.id);
+      const phasesTotal = agreementPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
+      if (agreementPhases.length > 0 && phasesTotal !== (agreement.total_price || 0)) {
+        hasPhaseMismatch = true;
+      }
+    });
+
+    const phasesTotal = projectPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const projectBalanceDue = contractsTotal - invoicesCollected;
+    const profitToDate = invoicesCollected - totalBillsPaid;
+
+    projectFinancials[project.id] = {
+      projectId: project.id,
+      totalBillsReceived,
+      totalBillsPaid,
+      totalInvoiced,
+      invoicesCollected,
+      invoiceBalanceDue,
+      contractsTotal,
+      phasesTotal,
+      hasPhaseMismatch,
+      projectBalanceDue,
+      profitToDate,
+    };
   });
 
   const filteredProjects = projects.filter((project) => {
@@ -156,6 +277,7 @@ export default function Production() {
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId: string) => {
       // Delete related records in order (child tables first)
+      await supabase.from("project_payment_phases").delete().eq("project_id", projectId);
       await supabase.from("project_checklists").delete().eq("project_id", projectId);
       await supabase.from("project_messages").delete().eq("project_id", projectId);
       await supabase.from("project_cases").delete().eq("project_id", projectId);
@@ -186,8 +308,8 @@ export default function Production() {
     setDeleteTestProjectOpen(true);
   };
 
-  const formatCurrency = (value: number | null) => {
-    if (value === null) return "-";
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return "-";
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -238,310 +360,345 @@ export default function Production() {
   const totalEstimatedCost = projects.reduce((sum, p) => sum + (p.estimated_cost || 0), 0);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="px-8 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <Link to="/">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <Building2 className="h-6 w-6" />
-                Production
-              </h1>
-              <p className="text-sm text-muted-foreground">Project Management</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <User className="h-4 w-4" />
-                  <span className="hidden sm:inline">{profile?.full_name || user?.email}</span>
-                  <ChevronDown className="h-3 w-3" />
+    <TooltipProvider>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
+        <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+          <div className="px-8 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <Link to="/">
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="h-5 w-5" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
-                  <Key className="h-4 w-4 mr-2" />
-                  Change Password
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
-
-      <main className="px-8 py-6 space-y-6">
-        {/* KPI Cards */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total Projects</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{totalProjects}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>In Progress</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-amber-500">{inProgressProjects}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Completed</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-emerald-500">{completedProjects}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total Est. Cost</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{formatCurrency(totalEstimatedCost)}</p>
-            </CardContent>
-          </Card>
-        </section>
-
-        {/* Filters & Search */}
-        <section className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex gap-2 items-center flex-wrap">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search projects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="New Job">New Job</SelectItem>
-                <SelectItem value="In-Progress">In-Progress</SelectItem>
-                <SelectItem value="On-Hold">On-Hold</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="Cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2">
-            {isAdmin && (
-              <Button 
-                variant="outline" 
-                onClick={() => createTestProjectMutation.mutate()}
-                disabled={createTestProjectMutation.isPending}
-              >
-                {createTestProjectMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FlaskConical className="h-4 w-4 mr-2" />
-                )}
-                Add Test Project
-              </Button>
-            )}
-            <Button onClick={() => setNewProjectOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Project
-            </Button>
-          </div>
-        </section>
-
-        {/* Projects Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Projects</CardTitle>
-            <CardDescription>
-              {filteredProjects.length} project{filteredProjects.length !== 1 ? "s" : ""} found
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-2">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
+              </Link>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <Building2 className="h-6 w-6" />
+                  Production
+                </h1>
+                <p className="text-sm text-muted-foreground">Project Management</p>
               </div>
-            ) : filteredProjects.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No projects found</p>
-                <p className="text-sm">Projects will appear here when opportunities are marked as won</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">#</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Salesperson</TableHead>
-                    <TableHead className="text-right">Est. Cost</TableHead>
-                    {isAdmin && <TableHead className="w-12"></TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProjects.map((project) => (
-                    <TableRow 
-                      key={project.id} 
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleOpenProject(project)}
-                    >
-                      <TableCell className="font-medium">{project.project_number}</TableCell>
-                      <TableCell className="font-medium max-w-[200px] truncate" title={project.project_address || project.project_name}>
-                        {project.project_address || project.project_name || "-"}
-                      </TableCell>
-                      <TableCell className="text-xs">{project.project_type || "-"}</TableCell>
-                      <TableCell>
-                        {project.customer_first_name || project.customer_last_name
-                          ? `${project.customer_first_name || ""} ${project.customer_last_name || ""}`.trim()
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={statusColors[project.project_status || "New Job"] || ""}
-                        >
-                          {project.project_status || "New Job"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{project.primary_salesperson || "-"}</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(project.estimated_cost)}
-                      </TableCell>
-                      {isAdmin && (
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteTestProject(project);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </main>
-
-      {/* Project Detail Sheet */}
-      <ProjectDetailSheet
-        project={selectedProject}
-        open={detailSheetOpen}
-        onOpenChange={setDetailSheetOpen}
-        onUpdate={refetch}
-      />
-
-      {/* New Project Dialog */}
-      <NewProjectDialog
-        open={newProjectOpen}
-        onOpenChange={setNewProjectOpen}
-      />
-
-      {/* Change Password Dialog */}
-      <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>Enter your new password below.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="new-password">New Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
             </div>
-            <div>
-              <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <User className="h-4 w-4" />
+                    <span className="hidden sm:inline">{profile?.full_name || user?.email}</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+                    <Key className="h-4 w-4 mr-2" />
+                    Change Password
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setChangePasswordOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleChangePassword} disabled={isChangingPassword}>
-              {isChangingPassword ? "Updating..." : "Update Password"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </header>
 
-      {/* Delete Project Confirmation Dialog */}
-      <AlertDialog open={deleteTestProjectOpen} onOpenChange={setDeleteTestProjectOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project #{projectToDelete?.project_number}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the project "{projectToDelete?.project_name}" and ALL associated records including:
-              <ul className="list-disc list-inside mt-2 text-sm">
-                <li>Invoices, Payments, and Bills</li>
-                <li>Agreements and Commissions</li>
-                <li>Documents and Checklists</li>
-                <li>Messages and Feedback</li>
-              </ul>
-              <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => projectToDelete && deleteProjectMutation.mutate(projectToDelete.id)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteProjectMutation.isPending}
-            >
-              {deleteProjectMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete Project"
+        <main className="px-8 py-6 space-y-6">
+          {/* KPI Cards */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Total Projects</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{totalProjects}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>In Progress</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-amber-500">{inProgressProjects}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Completed</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-emerald-500">{completedProjects}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>Total Est. Cost</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{formatCurrency(totalEstimatedCost)}</p>
+              </CardContent>
+            </Card>
+          </section>
+
+          {/* Filters & Search */}
+          <section className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+            <div className="flex gap-2 items-center flex-wrap">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 w-64"
+                />
+              </div>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="New Job">New Job</SelectItem>
+                  <SelectItem value="In-Progress">In-Progress</SelectItem>
+                  <SelectItem value="On-Hold">On-Hold</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              {isAdmin && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => createTestProjectMutation.mutate()}
+                  disabled={createTestProjectMutation.isPending}
+                >
+                  {createTestProjectMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FlaskConical className="h-4 w-4 mr-2" />
+                  )}
+                  Add Test Project
+                </Button>
               )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+              <Button onClick={() => setNewProjectOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Project
+              </Button>
+            </div>
+          </section>
+
+          {/* Projects Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Projects</CardTitle>
+              <CardDescription>
+                {filteredProjects.length} project{filteredProjects.length !== 1 ? "s" : ""} found
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-2">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : filteredProjects.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No projects found</p>
+                  <p className="text-sm">Projects will appear here when opportunities are marked as won</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-16">#</TableHead>
+                        <TableHead>Address</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Salesperson</TableHead>
+                        <TableHead>Proj Mgr</TableHead>
+                        <TableHead className="text-right">Bills Rcvd</TableHead>
+                        <TableHead className="text-right">Bills Paid</TableHead>
+                        <TableHead className="text-right">Inv Collected</TableHead>
+                        <TableHead className="text-right">Inv Balance</TableHead>
+                        <TableHead className="text-right">Proj Balance</TableHead>
+                        <TableHead className="text-right">Profit TD</TableHead>
+                        {isAdmin && <TableHead className="w-12"></TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredProjects.map((project) => {
+                        const financials = projectFinancials[project.id];
+                        return (
+                          <TableRow 
+                            key={project.id} 
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => handleOpenProject(project)}
+                          >
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-1">
+                                {project.project_number}
+                                {financials?.hasPhaseMismatch && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Payment phases don't match contract total</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="font-medium max-w-[180px] truncate" title={project.project_address || project.project_name}>
+                              {project.project_address || project.project_name || "-"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant="outline" 
+                                className={statusColors[project.project_status || "New Job"] || ""}
+                              >
+                                {project.project_status || "New Job"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs">{project.primary_salesperson || "-"}</TableCell>
+                            <TableCell className="text-xs">{project.project_manager || "-"}</TableCell>
+                            <TableCell className="text-right text-xs">
+                              {formatCurrency(financials?.totalBillsReceived)}
+                            </TableCell>
+                            <TableCell className="text-right text-xs">
+                              {formatCurrency(financials?.totalBillsPaid)}
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-emerald-600">
+                              {formatCurrency(financials?.invoicesCollected)}
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-amber-600">
+                              {formatCurrency(financials?.invoiceBalanceDue)}
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-amber-600">
+                              {formatCurrency(financials?.projectBalanceDue)}
+                            </TableCell>
+                            <TableCell className={`text-right text-xs font-medium ${(financials?.profitToDate || 0) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                              {formatCurrency(financials?.profitToDate)}
+                            </TableCell>
+                            {isAdmin && (
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTestProject(project);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </main>
+
+        {/* Project Detail Sheet */}
+        <ProjectDetailSheet
+          project={selectedProject}
+          open={detailSheetOpen}
+          onOpenChange={setDetailSheetOpen}
+          onUpdate={refetch}
+        />
+
+        {/* New Project Dialog */}
+        <NewProjectDialog
+          open={newProjectOpen}
+          onOpenChange={setNewProjectOpen}
+        />
+
+        {/* Change Password Dialog */}
+        <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Change Password</DialogTitle>
+              <DialogDescription>Enter your new password below.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setChangePasswordOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleChangePassword} disabled={isChangingPassword}>
+                {isChangingPassword ? "Updating..." : "Update Password"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Project Confirmation Dialog */}
+        <AlertDialog open={deleteTestProjectOpen} onOpenChange={setDeleteTestProjectOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project #{projectToDelete?.project_number}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete the project "{projectToDelete?.project_name}" and ALL associated records including:
+                <ul className="list-disc list-inside mt-2 text-sm">
+                  <li>Invoices, Payments, and Bills</li>
+                  <li>Agreements and Commissions</li>
+                  <li>Documents and Checklists</li>
+                  <li>Messages and Feedback</li>
+                </ul>
+                <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => projectToDelete && deleteProjectMutation.mutate(projectToDelete.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteProjectMutation.isPending}
+              >
+                {deleteProjectMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Project"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </TooltipProvider>
   );
 }
