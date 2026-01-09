@@ -62,11 +62,19 @@ import {
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 
+interface SalespersonData {
+  name: string | null;
+  commissionPct: number;
+  profitSplitPct: number;
+}
+
 interface FinanceSectionProps {
   projectId: string;
   estimatedCost: number | null;
   totalPl: number | null;
-  onUpdateProject: (updates: { estimated_cost?: number; total_pl?: number }) => void;
+  leadCostPercent: number;
+  salespeople: SalespersonData[];
+  onUpdateProject: (updates: Record<string, unknown>) => void;
 }
 
 interface Invoice {
@@ -154,7 +162,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProject }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPercent, salespeople, onUpdateProject }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
   
@@ -743,23 +751,26 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         </Card>
       </div>
 
-      {/* Sub-tabs for Agreements, Phases, Invoices, Payments, Bills */}
+      {/* Sub-tabs for Agreements, Phases, Invoices, Payments, Bills, Commission */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="agreements" className="text-xs">
-            Contracts ({agreements.length})
+            Contracts
           </TabsTrigger>
           <TabsTrigger value="phases" className="text-xs">
-            Phases ({paymentPhases.length})
+            Phases
           </TabsTrigger>
           <TabsTrigger value="invoices" className="text-xs">
-            Invoices ({invoices.length})
+            Invoices
           </TabsTrigger>
           <TabsTrigger value="payments" className="text-xs">
-            Pmts Recvd ({payments.length})
+            Pmts Rcvd
           </TabsTrigger>
           <TabsTrigger value="bills" className="text-xs">
-            Bills ({bills.length})
+            Bills
+          </TabsTrigger>
+          <TabsTrigger value="commission" className="text-xs">
+            Commission
           </TabsTrigger>
         </TabsList>
 
@@ -1107,6 +1118,16 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Commission Tab */}
+        <TabsContent value="commission" className="mt-4">
+          <CommissionTab
+            totalContracts={totalAgreementsValue}
+            leadCostPercent={leadCostPercent}
+            totalBillsPaid={totalBillsPaid}
+            salespeople={salespeople}
+          />
         </TabsContent>
       </Tabs>
 
@@ -2489,5 +2510,134 @@ function QuickPayDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Commission Tab Component
+function CommissionTab({
+  totalContracts,
+  leadCostPercent,
+  totalBillsPaid,
+  salespeople,
+}: {
+  totalContracts: number;
+  leadCostPercent: number;
+  totalBillsPaid: number;
+  salespeople: SalespersonData[];
+}) {
+  // Calculations
+  const leadCostAmount = totalContracts * (leadCostPercent / 100);
+  const netAfterLeadCost = totalContracts - leadCostAmount;
+  const profit = totalContracts - leadCostAmount - totalBillsPaid;
+  
+  // Calculate commission for each salesperson
+  const salespeopleWithCommission = salespeople.map(sp => {
+    const commissionAmount = netAfterLeadCost * (sp.commissionPct / 100);
+    const profitShareAmount = profit > 0 ? profit * (sp.profitSplitPct / 100) : 0;
+    const totalEarnings = commissionAmount + profitShareAmount;
+    return {
+      ...sp,
+      commissionAmount,
+      profitShareAmount,
+      totalEarnings,
+    };
+  });
+
+  const totalCommissionPaid = salespeopleWithCommission.reduce((sum, sp) => sum + sp.commissionAmount, 0);
+  const totalProfitShared = salespeopleWithCommission.reduce((sum, sp) => sum + sp.profitShareAmount, 0);
+  const companyProfit = profit - totalProfitShared;
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Total Contracts</div>
+          <p className="text-lg font-semibold">{formatCurrency(totalContracts)}</p>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Lead Cost ({leadCostPercent}%)</div>
+          <p className="text-lg font-semibold text-amber-600">-{formatCurrency(leadCostAmount)}</p>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Net After Lead Cost</div>
+          <p className="text-lg font-semibold">{formatCurrency(netAfterLeadCost)}</p>
+        </Card>
+        <Card className="p-3">
+          <div className="text-xs text-muted-foreground">Total Bills Paid</div>
+          <p className="text-lg font-semibold text-amber-600">-{formatCurrency(totalBillsPaid)}</p>
+        </Card>
+      </div>
+
+      <Card className="p-3">
+        <div className="text-xs text-muted-foreground">Project Profit</div>
+        <p className={cn("text-xl font-bold", profit >= 0 ? "text-emerald-600" : "text-destructive")}>
+          {formatCurrency(profit)}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          (Total Contracts - Lead Cost - Bills Paid)
+        </p>
+      </Card>
+
+      {/* Salesperson Commission Breakdown */}
+      {salespeople.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Commission Breakdown by Salesperson</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Salesperson</TableHead>
+                  <TableHead className="text-xs text-right">Comm %</TableHead>
+                  <TableHead className="text-xs text-right">Commission</TableHead>
+                  <TableHead className="text-xs text-right">Profit Split %</TableHead>
+                  <TableHead className="text-xs text-right">Profit Share</TableHead>
+                  <TableHead className="text-xs text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {salespeopleWithCommission.map((sp, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="text-xs font-medium">{sp.name}</TableCell>
+                    <TableCell className="text-xs text-right">{sp.commissionPct}%</TableCell>
+                    <TableCell className="text-xs text-right">{formatCurrency(sp.commissionAmount)}</TableCell>
+                    <TableCell className="text-xs text-right">{sp.profitSplitPct}%</TableCell>
+                    <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(sp.profitShareAmount)}</TableCell>
+                    <TableCell className="text-xs text-right font-semibold">{formatCurrency(sp.totalEarnings)}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="font-semibold bg-muted/50">
+                  <TableCell className="text-xs">Total</TableCell>
+                  <TableCell className="text-xs text-right">-</TableCell>
+                  <TableCell className="text-xs text-right">{formatCurrency(totalCommissionPaid)}</TableCell>
+                  <TableCell className="text-xs text-right">-</TableCell>
+                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalProfitShared)}</TableCell>
+                  <TableCell className="text-xs text-right">{formatCurrency(totalCommissionPaid + totalProfitShared)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="p-6 text-center">
+          <p className="text-sm text-muted-foreground">No salespeople assigned to this project</p>
+          <p className="text-xs text-muted-foreground mt-1">Add salespeople in the Details tab</p>
+        </Card>
+      )}
+
+      {/* Company Profit */}
+      <Card className="p-3 border-primary/20">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground">Company Profit (After All Splits)</div>
+            <p className={cn("text-xl font-bold", companyProfit >= 0 ? "text-emerald-600" : "text-destructive")}>
+              {formatCurrency(companyProfit)}
+            </p>
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 }
