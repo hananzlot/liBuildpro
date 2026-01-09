@@ -79,7 +79,13 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
   // Recalculate totals using only projects with sales
   const filteredTotals = useMemo(() => {
     const totalRevenue = projectsWithSales.reduce((sum, p) => sum + p.contractsTotal, 0);
-    const totalCosts = projectsWithSales.reduce((sum, p) => sum + p.totalBillsReceived, 0);
+    // Use Max(Bills, Est) for costs - same logic as profit calculation
+    const totalCosts = projectsWithSales.reduce((sum, p) => {
+      const isCompleted = p.project_status === 'Completed';
+      return sum + (isCompleted 
+        ? p.totalBillsReceived 
+        : Math.max(p.totalBillsReceived, p.effectiveEstimatedCost));
+    }, 0);
     const totalLeadCost = projectsWithSales.reduce((sum, p) => sum + p.leadCostAmount, 0);
     const totalGrossProfit = projectsWithSales.reduce((sum, p) => sum + p.grossProfit, 0);
     const totalCommission = projectsWithSales.reduce((sum, p) => sum + p.totalCommission, 0);
@@ -192,7 +198,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
         <MetricCard
           title="Total Costs"
           value={formatCurrency(filteredTotals.totalCosts)}
-          subValue="Bills received"
+          subValue="Max(Bills, Est)"
           icon={Receipt}
           variant="warning"
           onClick={() => handleKPIClick('totalCosts')}
