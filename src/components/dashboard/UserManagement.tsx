@@ -106,7 +106,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -132,7 +132,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                 return (
                   <div
                     key={profile.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -150,25 +150,25 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <div className="flex flex-wrap gap-1">
+                    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                      <div className="flex flex-wrap gap-1 min-w-0">
                         {userIsAdmin && (
-                          <Badge variant="secondary" className="bg-primary/10 text-primary">
+                          <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
                             Admin
                           </Badge>
                         )}
                         {userIsMagazineEditor && (
-                          <Badge variant="secondary" className="bg-amber-500/10 text-amber-500">
+                          <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 text-xs">
                             Magazine
                           </Badge>
                         )}
                         {userIsProduction && (
-                          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500">
+                          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 text-xs">
                             Production
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-muted-foreground">Admin</span>
                           {isUpdatingAdmin ? (
