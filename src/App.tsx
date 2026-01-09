@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Production from "./pages/Production";
+import AuditLog from "./pages/AuditLog";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -69,6 +70,14 @@ const App = () => (
               element={
                 <ProtectedRoute requiredRole="production">
                   <Production />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/audit-log"
+              element={
+                <ProtectedRoute requiredRole="production">
+                  <AuditLog />
                 </ProtectedRoute>
               }
             />
