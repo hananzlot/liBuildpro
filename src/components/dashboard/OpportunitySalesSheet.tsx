@@ -38,6 +38,7 @@ interface Opportunity {
   assigned_to?: string | null;
   ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
+  won_at?: string | null;
 }
 
 interface Contact {

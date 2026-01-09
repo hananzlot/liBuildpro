@@ -32,6 +32,7 @@ interface DBOpportunity {
   pipeline_name: string | null;
   pipeline_id: string | null;
   pipeline_stage_id: string | null;
+  won_at?: string | null;
 }
 
 interface DBContact {

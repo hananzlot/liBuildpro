@@ -20,6 +20,7 @@ interface DBOpportunity {
   contact_id: string | null;
   assigned_to: string | null;
   ghl_date_updated: string | null;
+  won_at?: string | null;
 }
 
 interface DBAppointment {
