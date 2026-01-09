@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,14 +27,13 @@ import {
   Building2, 
   User, 
   DollarSign, 
-  FileText, 
   CheckSquare, 
   MessageSquare,
   Star,
   AlertCircle,
-  Save,
   Loader2
 } from "lucide-react";
+import { FinanceSection } from "./FinanceSection";
 
 interface Project {
   id: string;
@@ -413,40 +411,15 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
           </TabsContent>
 
           {/* Finance Tab */}
-          <TabsContent value="finance" className="space-y-4 mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Financial Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Estimated Cost</Label>
-                    <Input 
-                      type="number"
-                      value={fullProject?.estimated_cost || 0} 
-                      onChange={(e) => updateProjectMutation.mutate({ estimated_cost: Number(e.target.value) })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Total P/L</Label>
-                    <Input 
-                      type="number"
-                      value={fullProject?.total_pl || 0} 
-                      onChange={(e) => updateProjectMutation.mutate({ total_pl: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                <div className="pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    Detailed finance tracking (invoices, payments, bills) coming soon...
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="finance" className="mt-4">
+            {fullProject && (
+              <FinanceSection
+                projectId={project.id}
+                estimatedCost={fullProject.estimated_cost}
+                totalPl={fullProject.total_pl}
+                onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
+              />
+            )}
           </TabsContent>
 
           {/* Checklist Tab */}
