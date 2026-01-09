@@ -58,7 +58,8 @@ import {
   Check,
   ChevronsUpDown,
   ChevronDown,
-  AlertCircle
+  AlertCircle,
+  History
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 
@@ -174,6 +175,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const [phaseDialogOpen, setPhaseDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quickPayDialogOpen, setQuickPayDialogOpen] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
@@ -181,6 +183,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
   const [editingPhase, setEditingPhase] = useState<PaymentPhase | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
+  const [historyBill, setHistoryBill] = useState<Bill | null>(null);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
 
   // Fetch data
@@ -914,9 +917,10 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
                       <TableHead className="text-xs">Company</TableHead>
                       <TableHead className="text-xs">Category</TableHead>
                       <TableHead className="text-xs text-right">Amount</TableHead>
+                      <TableHead className="text-xs text-right">Paid</TableHead>
                       <TableHead className="text-xs text-right">Balance</TableHead>
                       <TableHead className="text-xs w-10"></TableHead>
-                      <TableHead className="text-xs w-20"></TableHead>
+                      <TableHead className="text-xs w-28"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -925,6 +929,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
                         <TableCell className="text-xs">{bill.installer_company || "-"}</TableCell>
                         <TableCell className="text-xs">{bill.category || "-"}</TableCell>
                         <TableCell className="text-xs text-right">{formatCurrency(bill.bill_amount)}</TableCell>
+                        <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(bill.amount_paid)}</TableCell>
                         <TableCell className="text-xs text-right">{formatCurrency(bill.balance)}</TableCell>
                         <TableCell>
                           {bill.attachment_url && (
@@ -940,6 +945,15 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-xs px-2"
+                              onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}
+                            >
+                              <History className="h-3 w-3 mr-1" />
+                              History
+                            </Button>
                             {(bill.balance || 0) > 0 && (
                               <Button 
                                 variant="outline" 
@@ -1211,6 +1225,13 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
         bill={payingBill}
         onSave={(payment) => payingBill && quickPayMutation.mutate({ billId: payingBill.id, payment })}
         isPending={quickPayMutation.isPending}
+      />
+
+      {/* Bill Payment History Dialog */}
+      <BillPaymentHistoryDialog
+        open={historyDialogOpen}
+        onOpenChange={setHistoryDialogOpen}
+        bill={historyBill}
       />
     </div>
   );
@@ -2508,6 +2529,96 @@ function QuickPayDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Bill Payment History Dialog Component
+function BillPaymentHistoryDialog({
+  open,
+  onOpenChange,
+  bill,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  bill: Bill | null;
+}) {
+  const { data: payments = [], isLoading } = useQuery({
+    queryKey: ["bill-payments", bill?.id],
+    queryFn: async () => {
+      if (!bill?.id) return [];
+      const { data, error } = await supabase
+        .from("bill_payments")
+        .select("*")
+        .eq("bill_id", bill.id)
+        .order("payment_date", { ascending: false });
+      if (error) throw error;
+      return data as BillPayment[];
+    },
+    enabled: !!bill?.id && open,
+  });
+
+  const totalPaid = payments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Payment History</DialogTitle>
+          <DialogDescription>
+            {bill?.installer_company && <span className="font-medium">{bill.installer_company}</span>}
+            {bill?.installer_company && " • "}
+            Bill Amount: <span className="font-semibold">{formatCurrency(bill?.bill_amount)}</span>
+          </DialogDescription>
+        </DialogHeader>
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin" />
+          </div>
+        ) : payments.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No payments recorded yet
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Method</TableHead>
+                  <TableHead className="text-xs">Reference</TableHead>
+                  <TableHead className="text-xs text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map((payment) => (
+                  <TableRow key={payment.id}>
+                    <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
+                    <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
+                    <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
+                    <TableCell className="text-xs text-right text-emerald-600 font-medium">
+                      {formatCurrency(payment.payment_amount)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="bg-muted/50 font-semibold">
+                  <TableCell colSpan={3} className="text-xs">Total Paid</TableCell>
+                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalPaid)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            <div className="flex justify-between text-sm border-t pt-3">
+              <span className="text-muted-foreground">Remaining Balance:</span>
+              <span className={cn("font-semibold", (bill?.balance || 0) > 0 ? "text-amber-600" : "text-emerald-600")}>
+                {formatCurrency(bill?.balance)}
+              </span>
+            </div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
