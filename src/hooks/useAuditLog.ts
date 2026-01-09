@@ -5,8 +5,8 @@ interface AuditLogParams {
   tableName: string;
   recordId: string;
   action: 'INSERT' | 'UPDATE' | 'DELETE';
-  oldValues?: Json | null;
-  newValues?: Json | null;
+  oldValues?: unknown | null;
+  newValues?: unknown | null;
   description?: string;
 }
 
@@ -23,8 +23,8 @@ export const logAudit = async ({
       p_table_name: tableName,
       p_record_id: recordId,
       p_action: action,
-      p_old_values: oldValues,
-      p_new_values: newValues,
+      p_old_values: oldValues as Json,
+      p_new_values: newValues as Json,
       p_description: description || null,
     });
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/hooks/useAuditLog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -283,16 +284,33 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const saveInvoiceMutation = useMutation({
     mutationFn: async (invoice: Partial<Invoice>) => {
       if (editingInvoice?.id) {
+        await logAudit({
+          tableName: 'project_invoices',
+          recordId: editingInvoice.id,
+          action: 'UPDATE',
+          oldValues: editingInvoice,
+          newValues: invoice,
+          description: `Updated invoice ${invoice.invoice_number || editingInvoice.invoice_number}`,
+        });
         const { error } = await supabase
           .from("project_invoices")
           .update(invoice)
           .eq("id", editingInvoice.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data: newInvoice, error } = await supabase
           .from("project_invoices")
-          .insert({ ...invoice, project_id: projectId });
+          .insert({ ...invoice, project_id: projectId })
+          .select()
+          .single();
         if (error) throw error;
+        await logAudit({
+          tableName: 'project_invoices',
+          recordId: newInvoice.id,
+          action: 'INSERT',
+          newValues: newInvoice,
+          description: `Created invoice ${invoice.invoice_number}`,
+        });
       }
     },
     onSuccess: () => {
@@ -310,16 +328,33 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const savePaymentMutation = useMutation({
     mutationFn: async (payment: Partial<Payment>) => {
       if (editingPayment?.id) {
+        await logAudit({
+          tableName: 'project_payments',
+          recordId: editingPayment.id,
+          action: 'UPDATE',
+          oldValues: editingPayment,
+          newValues: payment,
+          description: `Updated payment ${formatCurrency(payment.payment_amount)}`,
+        });
         const { error } = await supabase
           .from("project_payments")
           .update(payment)
           .eq("id", editingPayment.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data: newPayment, error } = await supabase
           .from("project_payments")
-          .insert({ ...payment, project_id: projectId });
+          .insert({ ...payment, project_id: projectId })
+          .select()
+          .single();
         if (error) throw error;
+        await logAudit({
+          tableName: 'project_payments',
+          recordId: newPayment.id,
+          action: 'INSERT',
+          newValues: newPayment,
+          description: `Created payment ${formatCurrency(payment.payment_amount)}`,
+        });
       }
 
       // Update invoice balance if payment is linked to an invoice
@@ -369,6 +404,14 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
       const balance = (bill.bill_amount || 0) - totalPaid;
       
       if (editingBill?.id) {
+        await logAudit({
+          tableName: 'project_bills',
+          recordId: editingBill.id,
+          action: 'UPDATE',
+          oldValues: editingBill,
+          newValues: { ...bill, amount_paid: totalPaid, balance },
+          description: `Updated bill ${bill.bill_ref || editingBill.bill_ref} - ${formatCurrency(bill.bill_amount)}`,
+        });
         const { error } = await supabase
           .from("project_bills")
           .update({ ...bill, amount_paid: totalPaid, balance })
@@ -392,6 +435,14 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
           .single();
         if (error) throw error;
         
+        await logAudit({
+          tableName: 'project_bills',
+          recordId: newBill.id,
+          action: 'INSERT',
+          newValues: newBill,
+          description: `Created bill ${bill.bill_ref} - ${formatCurrency(bill.bill_amount)}`,
+        });
+        
         if (billPayments.length > 0) {
           const { error: paymentsError } = await supabase
             .from("bill_payments")
@@ -414,10 +465,20 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const quickPayMutation = useMutation({
     mutationFn: async ({ billId, payment }: { billId: string; payment: Omit<BillPayment, 'id' | 'bill_id'> }) => {
       // Insert the payment
-      const { error: paymentError } = await supabase
+      const { data: newPayment, error: paymentError } = await supabase
         .from("bill_payments")
-        .insert({ ...payment, bill_id: billId });
+        .insert({ ...payment, bill_id: billId })
+        .select()
+        .single();
       if (paymentError) throw paymentError;
+
+      await logAudit({
+        tableName: 'bill_payments',
+        recordId: newPayment.id,
+        action: 'INSERT',
+        newValues: newPayment,
+        description: `Added bill payment ${formatCurrency(payment.payment_amount)}`,
+      });
 
       // Get all payments for this bill and update the bill's amount_paid and balance
       const { data: allPayments, error: fetchError } = await supabase
@@ -457,16 +518,33 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const saveAgreementMutation = useMutation({
     mutationFn: async (agreement: Partial<Agreement>) => {
       if (editingAgreement?.id) {
+        await logAudit({
+          tableName: 'project_agreements',
+          recordId: editingAgreement.id,
+          action: 'UPDATE',
+          oldValues: editingAgreement,
+          newValues: agreement,
+          description: `Updated agreement ${agreement.agreement_number || editingAgreement.agreement_number}`,
+        });
         const { error } = await supabase
           .from("project_agreements")
           .update(agreement)
           .eq("id", editingAgreement.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data: newAgreement, error } = await supabase
           .from("project_agreements")
-          .insert({ ...agreement, project_id: projectId });
+          .insert({ ...agreement, project_id: projectId })
+          .select()
+          .single();
         if (error) throw error;
+        await logAudit({
+          tableName: 'project_agreements',
+          recordId: newAgreement.id,
+          action: 'INSERT',
+          newValues: newAgreement,
+          description: `Created agreement ${agreement.agreement_number}`,
+        });
       }
     },
     onSuccess: () => {
@@ -483,6 +561,14 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const savePhaseMutation = useMutation({
     mutationFn: async (phase: Partial<PaymentPhase>) => {
       if (editingPhase?.id) {
+        await logAudit({
+          tableName: 'project_payment_phases',
+          recordId: editingPhase.id,
+          action: 'UPDATE',
+          oldValues: editingPhase,
+          newValues: phase,
+          description: `Updated phase ${phase.phase_name || editingPhase.phase_name}`,
+        });
         const { error } = await supabase
           .from("project_payment_phases")
           .update({
@@ -495,7 +581,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
           .eq("id", editingPhase.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { data: newPhase, error } = await supabase
           .from("project_payment_phases")
           .insert({
             project_id: projectId,
@@ -504,8 +590,17 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
             due_date: phase.due_date,
             amount: phase.amount,
             agreement_id: phase.agreement_id,
-          });
+          })
+          .select()
+          .single();
         if (error) throw error;
+        await logAudit({
+          tableName: 'project_payment_phases',
+          recordId: newPhase.id,
+          action: 'INSERT',
+          newValues: newPhase,
+          description: `Created phase ${phase.phase_name}`,
+        });
       }
     },
     onSuccess: () => {
@@ -527,6 +622,15 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
         : deleteTarget.type === "agreement" ? "project_agreements"
         : deleteTarget.type === "phase" ? "project_payment_phases"
         : "project_bills";
+      
+      // Log audit before delete
+      await logAudit({
+        tableName: table,
+        recordId: deleteTarget.id,
+        action: 'DELETE',
+        description: `Deleted ${deleteTarget.type}`,
+      });
+      
       const { error } = await supabase.from(table).delete().eq("id", deleteTarget.id);
       if (error) throw error;
     },
