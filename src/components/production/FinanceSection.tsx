@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Table,
   TableBody,
@@ -41,6 +43,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { 
   Plus, 
   Pencil, 
@@ -50,7 +53,9 @@ import {
   CreditCard,
   Receipt,
   Loader2,
-  Paperclip
+  Paperclip,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 
@@ -926,6 +931,27 @@ function BillDialog({
     memo: "",
     attachment_url: null as string | null,
   });
+  const [installerSearch, setInstallerSearch] = useState("");
+  const [installerOpen, setInstallerOpen] = useState(false);
+
+  // Fetch unique installer companies
+  const { data: existingInstallers = [] } = useQuery({
+    queryKey: ["installer-companies"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_bills")
+        .select("installer_company");
+      if (error) throw error;
+      
+      const names = new Set<string>();
+      data.forEach((b) => {
+        if (b.installer_company) names.add(b.installer_company);
+      });
+      
+      return Array.from(names).sort();
+    },
+    enabled: open,
+  });
 
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen && bill) {
@@ -968,7 +994,66 @@ function BillDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Installer/Company</Label>
-              <Input value={formData.installer_company} onChange={(e) => setFormData(p => ({ ...p, installer_company: e.target.value }))} />
+              <Popover open={installerOpen} onOpenChange={setInstallerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={installerOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {formData.installer_company || "Select or add..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder="Search or add new..." 
+                      value={installerSearch}
+                      onValueChange={setInstallerSearch}
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {installerSearch && (
+                          <CommandItem
+                            onSelect={() => {
+                              setFormData(p => ({ ...p, installer_company: installerSearch }));
+                              setInstallerSearch("");
+                              setInstallerOpen(false);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add "{installerSearch}"
+                          </CommandItem>
+                        )}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {existingInstallers.map((name) => (
+                          <CommandItem
+                            key={name}
+                            value={name}
+                            onSelect={() => {
+                              setFormData(p => ({ ...p, installer_company: name }));
+                              setInstallerSearch("");
+                              setInstallerOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.installer_company === name ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>Category</Label>
@@ -1037,6 +1122,30 @@ function AgreementDialog({
     attachment_url: null as string | null,
   });
 
+  // Query to get the next agreement number (starting from 1201)
+  const { data: nextAgreementNumber } = useQuery({
+    queryKey: ["next-agreement-number"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_agreements")
+        .select("agreement_number")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      
+      // Find the highest numeric agreement number
+      let maxNumber = 1200; // Start before 1201
+      data.forEach((a) => {
+        const num = parseInt(a.agreement_number || "0", 10);
+        if (!isNaN(num) && num > maxNumber) {
+          maxNumber = num;
+        }
+      });
+      
+      return (maxNumber + 1).toString();
+    },
+    enabled: open && !agreement, // Only fetch when creating new agreement
+  });
+
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen && agreement) {
       setFormData({
@@ -1048,10 +1157,25 @@ function AgreementDialog({
         attachment_url: agreement.attachment_url || null,
       });
     } else if (newOpen) {
-      setFormData({ agreement_number: "", agreement_type: "", agreement_signed_date: "", total_price: "", description_of_work: "", attachment_url: null });
+      // Auto-fill the next agreement number for new agreements
+      setFormData({ 
+        agreement_number: nextAgreementNumber || "1201", 
+        agreement_type: "", 
+        agreement_signed_date: "", 
+        total_price: "", 
+        description_of_work: "", 
+        attachment_url: null 
+      });
     }
     onOpenChange(newOpen);
   };
+
+  // Update agreement number when nextAgreementNumber loads (for new agreements)
+  useEffect(() => {
+    if (open && !agreement && nextAgreementNumber && !formData.agreement_number) {
+      setFormData(p => ({ ...p, agreement_number: nextAgreementNumber }));
+    }
+  }, [open, agreement, nextAgreementNumber]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
