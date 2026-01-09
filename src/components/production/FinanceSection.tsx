@@ -991,6 +991,23 @@ function InvoiceDialog({
     payment_phase_id: "",
   });
 
+  // Reset form when dialog opens or invoice changes
+  useEffect(() => {
+    if (open) {
+      if (invoice) {
+        setFormData({
+          invoice_number: invoice.invoice_number || "",
+          invoice_date: invoice.invoice_date || "",
+          amount: invoice.amount?.toString() || "",
+          agreement_id: invoice.agreement_id || "",
+          payment_phase_id: invoice.payment_phase_id || "",
+        });
+      } else {
+        setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
+      }
+    }
+  }, [open, invoice]);
+
   // Filter phases by selected agreement
   const filteredPhases = formData.agreement_id 
     ? paymentPhases.filter(p => p.agreement_id === formData.agreement_id)
@@ -1001,22 +1018,6 @@ function InvoiceDialog({
     ? payments.filter(p => p.invoice_id === invoice.id && p.payment_status === "Received")
         .reduce((sum, p) => sum + (p.payment_amount || 0), 0)
     : 0;
-
-  // Reset form when dialog opens with different invoice
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen && invoice) {
-      setFormData({
-        invoice_number: invoice.invoice_number || "",
-        invoice_date: invoice.invoice_date || "",
-        amount: invoice.amount?.toString() || "",
-        agreement_id: invoice.agreement_id || "",
-        payment_phase_id: invoice.payment_phase_id || "",
-      });
-    } else if (newOpen) {
-      setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
-    }
-    onOpenChange(newOpen);
-  };
 
   // Clear payment phase when agreement changes
   const handleAgreementChange = (value: string) => {
@@ -1042,7 +1043,7 @@ function InvoiceDialog({
   const openBalance = invoiceAmount - paymentsReceivedForInvoice;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{invoice ? "Edit Invoice" : "Add Invoice"}</DialogTitle>
