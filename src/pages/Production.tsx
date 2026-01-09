@@ -95,6 +95,9 @@ interface ProjectFinancials {
   hasMissingContract: boolean;
   hasMissingPhases: boolean;
   estimatedCost: number | null;
+  estimatedProjectCost: number | null;
+  effectiveEstimatedCost: number;
+  exceededExpectedCosts: boolean;
   projectBalanceDue: number;
   profitToDate: number;
   totalCommission: number;
@@ -102,7 +105,7 @@ interface ProjectFinancials {
   totalCash: number;
 }
 
-type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'commission' | 'expected_profit' | 'total_cash';
+type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'est_proj_cost' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'commission' | 'expected_profit' | 'total_cash';
 type SortDirection = 'asc' | 'desc';
 
 const statusColors: Record<string, string> = {
@@ -139,7 +142,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at")
+        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost")
         .is("deleted_at", null) // Only show non-deleted projects
         .order("project_number", { ascending: false });
       
@@ -152,6 +155,7 @@ export default function Production() {
         tertiary_commission_pct: number | null;
         quaternary_commission_pct: number | null;
         deleted_at: string | null;
+        estimated_project_cost: number | null;
       })[];
     },
   });
@@ -287,9 +291,19 @@ export default function Production() {
     const profit = contractsTotal - leadCostAmount - totalBillsReceived;
     const totalCommission = profit > 0 ? profit * (commissionSplitPct / 100) : 0;
     
-    // Expected Final Profit = Lead Cost (company keeps) + (Total Contracts - Lead Cost - Bills - Commission)
-    // Simplified: Total Contracts - Bills - Commission (lead cost is company profit from top line)
-    const expectedFinalProfit = contractsTotal - totalBillsReceived - totalCommission;
+    // Get estimated project cost - if null, default to 50% of estimated_cost (from dispatch)
+    const estimatedProjectCostRaw = project.estimated_project_cost;
+    const effectiveEstimatedCost = estimatedProjectCostRaw !== null 
+      ? estimatedProjectCostRaw 
+      : (project.estimated_cost ? project.estimated_cost * 0.5 : 0);
+    
+    // Check if actual costs (bills) exceed estimated project costs
+    const exceededExpectedCosts = effectiveEstimatedCost > 0 && totalBillsReceived > effectiveEstimatedCost;
+    
+    // Expected Final Profit = Total Contracts - max(Bills, Est Project Costs) - Commission
+    // Use max of actual bills or estimated project costs for profit calculation
+    const costForProfit = Math.max(totalBillsReceived, effectiveEstimatedCost);
+    const expectedFinalProfit = contractsTotal - costForProfit - totalCommission;
     
     // Total Cash = Payments received - Bill payments made
     const totalCash = invoicesCollected - totalBillPayments;
@@ -309,6 +323,9 @@ export default function Production() {
       hasMissingContract,
       hasMissingPhases,
       estimatedCost: project.estimated_cost,
+      estimatedProjectCost: project.estimated_project_cost,
+      effectiveEstimatedCost,
+      exceededExpectedCosts,
       projectBalanceDue,
       profitToDate,
       totalCommission,
@@ -372,6 +389,9 @@ export default function Production() {
           break;
         case 'sold_amount':
           comparison = (financialsA?.contractsTotal || 0) - (financialsB?.contractsTotal || 0);
+          break;
+        case 'est_proj_cost':
+          comparison = (financialsA?.effectiveEstimatedCost || 0) - (financialsB?.effectiveEstimatedCost || 0);
           break;
         case 'bills_received':
           comparison = (financialsA?.totalBillsReceived || 0) - (financialsB?.totalBillsReceived || 0);
@@ -782,6 +802,9 @@ export default function Production() {
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sold_amount')}>
                           <div className="flex items-center justify-end">Sold Amt <SortIcon column="sold_amount" /></div>
                         </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('est_proj_cost')}>
+                          <div className="flex items-center justify-end">Est Costs <SortIcon column="est_proj_cost" /></div>
+                        </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('bills_received')}>
                           <div className="flex items-center justify-end">Bills Rcvd <SortIcon column="bills_received" /></div>
                         </TableHead>
@@ -891,6 +914,23 @@ export default function Production() {
                             </TableCell>
                             <TableCell className="text-right text-xs font-medium">
                               {formatCurrency(financials?.contractsTotal)}
+                            </TableCell>
+                            <TableCell className="text-right text-xs">
+                              <div className="flex items-center justify-end gap-1">
+                                {formatCurrency(financials?.effectiveEstimatedCost)}
+                                {financials?.exceededExpectedCosts && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="h-5 px-1 text-[9px] bg-destructive/10 text-destructive border-destructive/20">
+                                        !
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Bills ({formatCurrency(financials.totalBillsReceived)}) exceed estimated costs ({formatCurrency(financials.effectiveEstimatedCost)})</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className="text-right text-xs">
                               {formatCurrency(financials?.totalBillsReceived)}

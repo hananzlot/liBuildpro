@@ -1848,6 +1848,7 @@ export type Database = {
           dropbox_link: string | null
           due_date: string | null
           estimated_cost: number | null
+          estimated_project_cost: number | null
           has_hoa: boolean | null
           home_phone: string | null
           id: string
@@ -1906,6 +1907,7 @@ export type Database = {
           dropbox_link?: string | null
           due_date?: string | null
           estimated_cost?: number | null
+          estimated_project_cost?: number | null
           has_hoa?: boolean | null
           home_phone?: string | null
           id?: string
@@ -1964,6 +1966,7 @@ export type Database = {
           dropbox_link?: string | null
           due_date?: string | null
           estimated_cost?: number | null
+          estimated_project_cost?: number | null
           has_hoa?: boolean | null
           home_phone?: string | null
           id?: string

@@ -73,6 +73,7 @@ interface SalespersonData {
 interface FinanceSectionProps {
   projectId: string;
   estimatedCost: number | null;
+  estimatedProjectCost: number | null;
   totalPl: number | null;
   leadCostPercent: number;
   commissionSplitPct: number;
@@ -158,7 +159,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
   const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
@@ -825,12 +826,19 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
         </Collapsible>
       )}
 
-      {/* Est. Cost Card - Editable */}
-      <EstCostCard 
-        estimatedCost={estimatedCost} 
-        contractsTotal={totalAgreementsValue}
-        onSave={(value) => onUpdateProject({ estimated_cost: value })}
-      />
+      {/* Sold Amount (Original from Dispatch) Card - was Est. Cost */}
+      <div className="grid grid-cols-2 gap-3">
+        <SoldAmountOriginalCard 
+          estimatedCost={estimatedCost} 
+          contractsTotal={totalAgreementsValue}
+          onSave={(value) => onUpdateProject({ estimated_cost: value })}
+        />
+        <EstimatedProjectCostsCard
+          estimatedProjectCost={estimatedProjectCost}
+          estimatedCost={estimatedCost}
+          onSave={(value) => onUpdateProject({ estimated_project_cost: value })}
+        />
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3">
@@ -2604,8 +2612,8 @@ function PhaseDialog({
   );
 }
 
-// Editable Est. Cost Card Component
-function EstCostCard({ 
+// Sold Amount (Original from Dispatch) Card Component - renamed from Est. Cost
+function SoldAmountOriginalCard({ 
   estimatedCost, 
   contractsTotal,
   onSave 
@@ -2643,7 +2651,7 @@ function EstCostCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Est. Cost</span>
+          <span className="text-xs text-muted-foreground">Sold Amount (Original from Dispatch)</span>
           {hasMismatch && (
             <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-destructive/10 text-destructive border-destructive/20">
               Mismatch
@@ -2679,6 +2687,85 @@ function EstCostCard({
             </span>
           )}
         </div>
+      )}
+    </Card>
+  );
+}
+
+// Estimated Project Costs Card Component - editable, defaults to 50% of original cost if null
+function EstimatedProjectCostsCard({ 
+  estimatedProjectCost,
+  estimatedCost, 
+  onSave 
+}: { 
+  estimatedProjectCost: number | null;
+  estimatedCost: number | null;
+  onSave: (value: number | null) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Calculate display value: use saved value or default to 50% of estimated_cost
+  const displayValue = estimatedProjectCost !== null 
+    ? estimatedProjectCost 
+    : (estimatedCost ? estimatedCost * 0.5 : null);
+  
+  const [value, setValue] = useState(displayValue?.toString() || "");
+
+  useEffect(() => {
+    setValue(displayValue?.toString() || "");
+  }, [displayValue]);
+
+  const handleSave = () => {
+    const numValue = parseFloat(value) || 0;
+    onSave(numValue);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+    } else if (e.key === "Escape") {
+      setValue(displayValue?.toString() || "");
+      setIsEditing(false);
+    }
+  };
+
+  const isDefaultValue = estimatedProjectCost === null && displayValue !== null;
+
+  return (
+    <Card className="p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Estimated Project Costs</span>
+          {isDefaultValue && (
+            <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+              Auto 50%
+            </Badge>
+          )}
+        </div>
+        {!isEditing && (
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+      {isEditing ? (
+        <div className="flex items-center gap-2 mt-1">
+          <Input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="h-8 text-lg font-semibold"
+            autoFocus
+          />
+          <Button size="sm" className="h-8" onClick={handleSave}>
+            <Check className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <p className="text-lg font-semibold">{formatCurrency(displayValue)}</p>
       )}
     </Card>
   );
