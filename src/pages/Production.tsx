@@ -69,6 +69,7 @@ import { toast } from "sonner";
 import { ProjectDetailSheet } from "@/components/production/ProjectDetailSheet";
 import { NewProjectDialog } from "@/components/production/NewProjectDialog";
 import { AnalyticsSection } from "@/components/production/AnalyticsSection";
+import { MissingProjectsSection } from "@/components/production/MissingProjectsSection";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -801,7 +802,10 @@ export default function Production() {
             </Card>
           )}
 
-          {/* Filters & Search */}
+              {/* Missing Projects from Won Opportunities - Admin Only */}
+              {isAdmin && <MissingProjectsSection />}
+
+              {/* Filters & Search */}
           <section className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="flex gap-2 items-center flex-wrap">
               <div className="relative">
