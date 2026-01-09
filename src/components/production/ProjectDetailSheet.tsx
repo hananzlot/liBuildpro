@@ -174,6 +174,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
 
   if (!project) return null;
 
+  const formatPhoneNumber = (phone: string | null | undefined): string => {
+    if (!phone) return "";
+    // Remove all non-digit characters
+    const digits = phone.replace(/\D/g, "");
+    // Format as (XXX) XXX-XXXX if 10 digits, or +1 (XXX) XXX-XXXX if 11 digits starting with 1
+    if (digits.length === 10) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    } else if (digits.length === 11 && digits.startsWith("1")) {
+      return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+    }
+    return phone; // Return original if doesn't match expected format
+  };
+
   const formatCurrency = (value: number | null | undefined) => {
     if (value === null || value === undefined) return "-";
     return new Intl.NumberFormat("en-US", {
@@ -183,6 +196,25 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
       maximumFractionDigits: 0,
     }).format(value);
   };
+
+  const PROJECT_TYPES = [
+    "Bathroom",
+    "Kitchen", 
+    "Backyard",
+    "Pool",
+    "ADU",
+    "Full Remodel",
+    "Room Addition",
+    "Roofing",
+    "Flooring",
+    "Painting",
+    "Landscaping",
+    "HVAC",
+    "Plumbing",
+    "Electrical",
+    "Windows & Doors",
+    "Other"
+  ];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -284,10 +316,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Project Type</Label>
-                        <Input 
-                          value={fullProject?.project_type || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ project_type: e.target.value })}
-                        />
+                        <Select 
+                          value={fullProject?.project_type || ""}
+                          onValueChange={(value) => updateProjectMutation.mutate({ project_type: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select type" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover z-50">
+                            {PROJECT_TYPES.map((type) => (
+                              <SelectItem key={type} value={type}>{type}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <Label>Project Manager</Label>
@@ -329,8 +370,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                       <div>
                         <Label>Cell Phone</Label>
                         <Input 
-                          value={fullProject?.cell_phone || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ cell_phone: e.target.value })}
+                          value={formatPhoneNumber(fullProject?.cell_phone)} 
+                          onChange={(e) => updateProjectMutation.mutate({ cell_phone: e.target.value.replace(/\D/g, "") })}
+                          placeholder="(555) 123-4567"
                         />
                       </div>
                       <div>
@@ -362,8 +404,63 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                         <Label>Commission %</Label>
                         <Input 
                           type="number"
-                          value={fullProject?.primary_commission_pct || 100} 
-                          onChange={(e) => updateProjectMutation.mutate({ primary_commission_pct: Number(e.target.value) })}
+                          value={fullProject?.primary_commission_pct || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ primary_commission_pct: e.target.value ? Number(e.target.value) : null })}
+                          placeholder="100"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Secondary Salesperson</Label>
+                        <Input 
+                          value={fullProject?.secondary_salesperson || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ secondary_salesperson: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Commission %</Label>
+                        <Input 
+                          type="number"
+                          value={fullProject?.secondary_commission_pct || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ secondary_commission_pct: e.target.value ? Number(e.target.value) : null })}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Tertiary Salesperson</Label>
+                        <Input 
+                          value={fullProject?.tertiary_salesperson || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ tertiary_salesperson: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Commission %</Label>
+                        <Input 
+                          type="number"
+                          value={fullProject?.tertiary_commission_pct || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ tertiary_commission_pct: e.target.value ? Number(e.target.value) : null })}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Quaternary Salesperson</Label>
+                        <Input 
+                          value={fullProject?.quaternary_salesperson || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ quaternary_salesperson: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Commission %</Label>
+                        <Input 
+                          type="number"
+                          value={fullProject?.quaternary_commission_pct || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ quaternary_commission_pct: e.target.value ? Number(e.target.value) : null })}
+                          placeholder="0"
                         />
                       </div>
                     </div>
