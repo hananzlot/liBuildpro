@@ -1200,7 +1200,11 @@ function AgreementDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Agreement Number</Label>
-              <Input value={formData.agreement_number} onChange={(e) => setFormData(p => ({ ...p, agreement_number: e.target.value }))} />
+              <Input 
+                value={formData.agreement_number} 
+                readOnly 
+                className="bg-muted cursor-not-allowed"
+              />
             </div>
             <div>
               <Label>Type</Label>
