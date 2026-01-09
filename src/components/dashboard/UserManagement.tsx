@@ -450,10 +450,10 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                     </div>
 
                     {/* Role toggles */}
-                    <div className="flex flex-wrap gap-x-4 gap-y-2 pl-13">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-2 pl-13">
                       {userRolesForProfile.map((roleInfo) => (
-                        <div key={roleInfo.role} className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground w-20">{roleInfo.label}</span>
+                        <div key={roleInfo.role} className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">{roleInfo.label}</span>
                           {roleInfo.isUpdating ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
