@@ -181,6 +181,48 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          changed_at: string
+          changes: Json | null
+          description: string | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          record_id: string | null
+          table_name: string
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changes?: Json | null
+          description?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changes?: Json | null
+          description?: string | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          record_id?: string | null
+          table_name?: string
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       bill_payments: {
         Row: {
           bill_id: string
@@ -2038,6 +2080,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      log_audit: {
+        Args: {
+          p_action: string
+          p_description?: string
+          p_new_values?: Json
+          p_old_values?: Json
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: string
       }
     }
     Enums: {
