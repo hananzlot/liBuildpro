@@ -84,11 +84,18 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
     return projectsWithSales
       .sort((a, b) => b.expectedNetProfit - a.expectedNetProfit)
       .slice(0, 15)
-      .map(p => ({
-        name: `#${p.project_number}`,
-        profit: p.expectedNetProfit,
-        revenue: p.contractsTotal,
-      }));
+      .map(p => {
+        // Create a short display name from address or project name
+        const fullName = p.project_address || p.project_name || `Project ${p.project_number}`;
+        // Truncate to ~25 chars for chart display
+        const displayName = fullName.length > 25 ? fullName.substring(0, 22) + '...' : fullName;
+        return {
+          name: displayName,
+          fullName,
+          profit: p.expectedNetProfit,
+          revenue: p.contractsTotal,
+        };
+      });
   }, [projectsWithSales]);
 
   // Profitability by Salesperson (only projects with sales)
@@ -200,14 +207,15 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
             <CardDescription>Top 15 projects by expected net profit</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={projectChartData} layout="vertical" margin={{ left: 40, right: 20 }}>
+                <BarChart data={projectChartData} layout="vertical" margin={{ left: 10, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis type="number" tickFormatter={formatCompactCurrency} className="text-xs" />
-                  <YAxis type="category" dataKey="name" width={50} className="text-xs" />
+                  <YAxis type="category" dataKey="name" width={140} className="text-xs" tick={{ fontSize: 10 }} />
                   <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload?.fullName || label}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                   />
                   <Bar dataKey="profit" radius={[0, 4, 4, 0]}>
@@ -231,7 +239,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
             <CardDescription>Net profit contribution by sales rep</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[400px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={salespersonProfitData} margin={{ left: 20, right: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -241,7 +249,14 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                     formatter={(value: number) => formatCurrency(value)}
                     contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                   />
-                  <Bar dataKey="profit" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="profit" radius={[4, 4, 0, 0]}>
+                    {salespersonProfitData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.profit >= 0 ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'} 
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
