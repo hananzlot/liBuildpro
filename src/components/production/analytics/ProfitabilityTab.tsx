@@ -43,7 +43,7 @@ interface ProfitabilityTabProps {
   onProjectClick?: (projectId: string) => void;
 }
 
-const DEFAULT_STATUSES = ['Completed', 'In Progress'];
+const DEFAULT_STATUSES = ['Completed', 'In-Progress', 'New Job'];
 
 export function ProfitabilityTab({ projects, totals, onProjectClick }: ProfitabilityTabProps) {
   const [selectedKPI, setSelectedKPI] = useState<KPIType | null>(null);
