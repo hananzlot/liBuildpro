@@ -17,7 +17,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
+import { Info } from "lucide-react";
 
 export type KPIType = 'totalSold' | 'totalCosts' | 'leadFee' | 'grossProfit' | 'commissions' | 'netProfit';
 
@@ -62,6 +69,54 @@ const kpiConfig: Record<KPIType, { title: string; description: string; valueKey:
   },
 };
 
+function CommissionBreakdownTooltip({ project }: { project: ProjectWithFinancials }) {
+  const leadCostPercent = project.lead_cost_percent ?? 18;
+  const commissionSplitPct = project.commission_split_pct ?? 50;
+  const costForProfit = Math.max(project.totalBillsReceived, project.effectiveEstimatedCost);
+  const commissionBase = project.contractsTotal - project.leadCostAmount - costForProfit;
+
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={100}>
+        <TooltipTrigger asChild onClick={(e) => e.stopPropagation()}>
+          <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground cursor-help ml-1" />
+        </TooltipTrigger>
+        <TooltipContent side="left" className="w-64 p-3" onClick={(e) => e.stopPropagation()}>
+          <div className="space-y-2 text-xs">
+            <div className="font-semibold text-sm border-b pb-1 mb-2">Commission Breakdown</div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Sold:</span>
+              <span className="font-medium">{formatCurrency(project.contractsTotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Lead Fee ({leadCostPercent}%):</span>
+              <span className="font-medium text-amber-600">-{formatCurrency(project.leadCostAmount)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Max(Bills, Est):</span>
+              <span className="font-medium text-amber-600">-{formatCurrency(costForProfit)}</span>
+            </div>
+            <div className="flex justify-between border-t pt-1">
+              <span className="text-muted-foreground">Commission Base:</span>
+              <span className={`font-medium ${commissionBase < 0 ? 'text-red-600' : ''}`}>
+                {formatCurrency(commissionBase)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Split %:</span>
+              <span className="font-medium">{commissionSplitPct}%</span>
+            </div>
+            <div className="flex justify-between border-t pt-1 font-semibold">
+              <span>Final Commission:</span>
+              <span className="text-primary">{formatCurrency(project.totalCommission)}</span>
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export function KPIProjectsSheet({
   open,
   onOpenChange,
@@ -91,6 +146,8 @@ export function KPIProjectsSheet({
   }, [sortedProjects, config]);
 
   if (!config) return null;
+
+  const isCommissionsView = kpiType === 'commissions';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -139,7 +196,10 @@ export function KPIProjectsSheet({
                     </TableCell>
                     <TableCell>{project.primary_salesperson || '-'}</TableCell>
                     <TableCell className={`text-right font-medium ${isNegative ? 'text-red-600' : ''}`}>
-                      {formatCurrency(value)}
+                      <div className="flex items-center justify-end">
+                        {formatCurrency(value)}
+                        {isCommissionsView && <CommissionBreakdownTooltip project={project} />}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs">
