@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { 
@@ -11,7 +11,10 @@ import {
   ChevronDown,
   User,
   Key,
-  LogOut
+  LogOut,
+  FlaskConical,
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -41,6 +44,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -52,6 +65,7 @@ interface Project {
   project_number: number;
   project_name: string;
   project_status: string | null;
+  project_type: string | null;
   customer_first_name: string | null;
   customer_last_name: string | null;
   cell_phone: string | null;
@@ -73,7 +87,8 @@ const statusColors: Record<string, string> = {
 };
 
 export default function Production() {
-  const { user, profile, signOut, updatePassword } = useAuth();
+  const queryClient = useQueryClient();
+  const { user, profile, isAdmin, signOut, updatePassword } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -83,6 +98,8 @@ export default function Production() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [deleteTestProjectOpen, setDeleteTestProjectOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
 
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
@@ -90,7 +107,7 @@ export default function Production() {
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("project_number", { ascending: false });
       
       if (error) throw error;
       return data as Project[];
@@ -101,6 +118,7 @@ export default function Production() {
     const matchesSearch =
       searchQuery === "" ||
       project.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.project_address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.customer_first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.customer_last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.project_number?.toString().includes(searchQuery);
@@ -110,6 +128,63 @@ export default function Production() {
 
     return matchesSearch && matchesStatus;
   });
+
+  // Create test project mutation
+  const createTestProjectMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("projects")
+        .insert({
+          project_name: "TEST PROJECT - Delete Me",
+          project_status: "New Job",
+          project_type: "Other",
+          location_id: "pVeFrqvtYWNIPRIi0Fmr",
+          customer_first_name: "Test",
+          customer_last_name: "Customer",
+          project_address: "123 Test Street, Test City, CA 90210",
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Test project created");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (error) => toast.error(`Failed to create test project: ${error.message}`),
+  });
+
+  // Delete project and all related records mutation
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      // Delete related records in order (child tables first)
+      await supabase.from("project_checklists").delete().eq("project_id", projectId);
+      await supabase.from("project_messages").delete().eq("project_id", projectId);
+      await supabase.from("project_cases").delete().eq("project_id", projectId);
+      await supabase.from("project_feedback").delete().eq("project_id", projectId);
+      await supabase.from("project_documents").delete().eq("project_id", projectId);
+      await supabase.from("project_commissions").delete().eq("project_id", projectId);
+      await supabase.from("project_bills").delete().eq("project_id", projectId);
+      await supabase.from("project_payments").delete().eq("project_id", projectId);
+      await supabase.from("project_invoices").delete().eq("project_id", projectId);
+      await supabase.from("project_finance").delete().eq("project_id", projectId);
+      await supabase.from("project_agreements").delete().eq("project_id", projectId);
+      
+      // Finally delete the project itself
+      const { error } = await supabase.from("projects").delete().eq("id", projectId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Project and all related records deleted");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setDeleteTestProjectOpen(false);
+      setProjectToDelete(null);
+    },
+    onError: (error) => toast.error(`Failed to delete project: ${error.message}`),
+  });
+
+  const handleDeleteTestProject = (project: Project) => {
+    setProjectToDelete(project);
+    setDeleteTestProjectOpen(true);
+  };
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return "-";
@@ -270,10 +345,26 @@ export default function Production() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => setNewProjectOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Project
-          </Button>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                onClick={() => createTestProjectMutation.mutate()}
+                disabled={createTestProjectMutation.isPending}
+              >
+                {createTestProjectMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FlaskConical className="h-4 w-4 mr-2" />
+                )}
+                Add Test Project
+              </Button>
+            )}
+            <Button onClick={() => setNewProjectOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Project
+            </Button>
+          </div>
         </section>
 
         {/* Projects Table */}
@@ -301,13 +392,14 @@ export default function Production() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-20">#</TableHead>
-                    <TableHead>Project Name</TableHead>
+                    <TableHead className="w-16">#</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Type</TableHead>
                     <TableHead>Customer</TableHead>
-                    <TableHead>Phone</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Salesperson</TableHead>
                     <TableHead className="text-right">Est. Cost</TableHead>
+                    {isAdmin && <TableHead className="w-12"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -318,13 +410,15 @@ export default function Production() {
                       onClick={() => handleOpenProject(project)}
                     >
                       <TableCell className="font-medium">{project.project_number}</TableCell>
-                      <TableCell className="font-medium">{project.project_name}</TableCell>
+                      <TableCell className="font-medium max-w-[200px] truncate" title={project.project_address || project.project_name}>
+                        {project.project_address || project.project_name || "-"}
+                      </TableCell>
+                      <TableCell className="text-xs">{project.project_type || "-"}</TableCell>
                       <TableCell>
                         {project.customer_first_name || project.customer_last_name
                           ? `${project.customer_first_name || ""} ${project.customer_last_name || ""}`.trim()
                           : "-"}
                       </TableCell>
-                      <TableCell>{project.cell_phone || "-"}</TableCell>
                       <TableCell>
                         <Badge 
                           variant="outline" 
@@ -337,6 +431,21 @@ export default function Production() {
                       <TableCell className="text-right">
                         {formatCurrency(project.estimated_cost)}
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTestProject(project);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -397,6 +506,42 @@ export default function Production() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Project Confirmation Dialog */}
+      <AlertDialog open={deleteTestProjectOpen} onOpenChange={setDeleteTestProjectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project #{projectToDelete?.project_number}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the project "{projectToDelete?.project_name}" and ALL associated records including:
+              <ul className="list-disc list-inside mt-2 text-sm">
+                <li>Invoices, Payments, and Bills</li>
+                <li>Agreements and Commissions</li>
+                <li>Documents and Checklists</li>
+                <li>Messages and Feedback</li>
+              </ul>
+              <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => projectToDelete && deleteProjectMutation.mutate(projectToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteProjectMutation.isPending}
+            >
+              {deleteProjectMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Project"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
