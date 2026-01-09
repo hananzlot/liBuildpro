@@ -55,7 +55,8 @@ import {
   Loader2,
   Paperclip,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
+  AlertCircle
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
 
@@ -100,6 +101,15 @@ interface PaymentPhase {
   description: string | null;
   due_date: string | null;
   amount: number | null;
+}
+
+interface BillPayment {
+  id: string;
+  bill_id: string;
+  payment_date: string | null;
+  payment_amount: number;
+  payment_method: string | null;
+  payment_reference: string | null;
 }
 
 interface Bill {
@@ -233,6 +243,26 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
   const totalBillsPaid = bills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
   const totalAgreementsValue = agreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
 
+  // Helper functions to check phase status
+  const getPhaseInvoiceStatus = (phaseId: string) => {
+    const phaseInvoices = invoices.filter(inv => inv.payment_phase_id === phaseId);
+    const totalInvoicedForPhase = phaseInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+    return { invoices: phaseInvoices, totalInvoiced: totalInvoicedForPhase };
+  };
+
+  const getPhasePaymentStatus = (phaseId: string) => {
+    const phasePayments = payments.filter(p => p.payment_phase_id === phaseId && p.payment_status === "Received");
+    const totalReceivedForPhase = phasePayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+    return { payments: phasePayments, totalReceived: totalReceivedForPhase };
+  };
+
+  // Calculate phases total by contract
+  const getPhasesTotalByAgreement = (agreementId: string) => {
+    return paymentPhases
+      .filter(p => p.agreement_id === agreementId)
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+  };
+
   // Invoice mutations
   const saveInvoiceMutation = useMutation({
     mutationFn: async (invoice: Partial<Invoice>) => {
@@ -283,21 +313,42 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
-  // Bill mutations
+  // Bill mutations - updated to handle bill payments
   const saveBillMutation = useMutation({
-    mutationFn: async (bill: Partial<Bill>) => {
-      const balance = (bill.bill_amount || 0) - (bill.amount_paid || 0);
+    mutationFn: async ({ bill, billPayments }: { bill: Partial<Bill>; billPayments: Omit<BillPayment, 'id' | 'bill_id'>[] }) => {
+      const totalPaid = billPayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+      const balance = (bill.bill_amount || 0) - totalPaid;
+      
       if (editingBill?.id) {
         const { error } = await supabase
           .from("project_bills")
-          .update({ ...bill, balance })
+          .update({ ...bill, amount_paid: totalPaid, balance })
           .eq("id", editingBill.id);
         if (error) throw error;
+        
+        // Delete existing payments and re-insert
+        await supabase.from("bill_payments").delete().eq("bill_id", editingBill.id);
+        
+        if (billPayments.length > 0) {
+          const { error: paymentsError } = await supabase
+            .from("bill_payments")
+            .insert(billPayments.map(p => ({ ...p, bill_id: editingBill.id })));
+          if (paymentsError) throw paymentsError;
+        }
       } else {
-        const { error } = await supabase
+        const { data: newBill, error } = await supabase
           .from("project_bills")
-          .insert({ ...bill, balance, project_id: projectId });
+          .insert({ ...bill, amount_paid: totalPaid, balance, project_id: projectId })
+          .select()
+          .single();
         if (error) throw error;
+        
+        if (billPayments.length > 0) {
+          const { error: paymentsError } = await supabase
+            .from("bill_payments")
+            .insert(billPayments.map(p => ({ ...p, bill_id: newBill.id })));
+          if (paymentsError) throw paymentsError;
+        }
       }
     },
     onSuccess: () => {
@@ -730,12 +781,19 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                       <TableHead className="text-xs">Contract</TableHead>
                       <TableHead className="text-xs">Due Date</TableHead>
                       <TableHead className="text-xs text-right">Amount</TableHead>
+                      <TableHead className="text-xs">Status</TableHead>
                       <TableHead className="text-xs w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paymentPhases.map((phase) => {
                       const agreement = agreements.find(a => a.id === phase.agreement_id);
+                      const invoiceStatus = getPhaseInvoiceStatus(phase.id);
+                      const paymentStatus = getPhasePaymentStatus(phase.id);
+                      const phaseAmount = phase.amount || 0;
+                      const isFullyInvoiced = invoiceStatus.totalInvoiced >= phaseAmount;
+                      const isFullyPaid = paymentStatus.totalReceived >= phaseAmount;
+                      
                       return (
                         <TableRow key={phase.id}>
                           <TableCell className="text-xs">
@@ -747,6 +805,22 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                           <TableCell className="text-xs">{agreement?.agreement_number || "-"}</TableCell>
                           <TableCell className="text-xs">{formatDate(phase.due_date)}</TableCell>
                           <TableCell className="text-xs text-right">{formatCurrency(phase.amount)}</TableCell>
+                          <TableCell className="text-xs">
+                            <div className="flex flex-col gap-1">
+                              <Badge 
+                                variant="outline" 
+                                className={isFullyInvoiced ? "bg-blue-500/10 text-blue-500" : "bg-muted text-muted-foreground"}
+                              >
+                                {isFullyInvoiced ? "Invoiced" : invoiceStatus.totalInvoiced > 0 ? `Invoiced: ${formatCurrency(invoiceStatus.totalInvoiced)}` : "Not Invoiced"}
+                              </Badge>
+                              <Badge 
+                                variant="outline" 
+                                className={isFullyPaid ? "bg-emerald-500/10 text-emerald-500" : paymentStatus.totalReceived > 0 ? "bg-amber-500/10 text-amber-500" : "bg-muted text-muted-foreground"}
+                              >
+                                {isFullyPaid ? "Paid" : paymentStatus.totalReceived > 0 ? `Paid: ${formatCurrency(paymentStatus.totalReceived)}` : "Unpaid"}
+                              </Badge>
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
@@ -818,6 +892,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         onSave={(data) => savePhaseMutation.mutate(data)}
         isPending={savePhaseMutation.isPending}
         agreements={agreements}
+        paymentPhases={paymentPhases}
       />
 
       {/* Delete Confirmation */}
@@ -889,11 +964,6 @@ function InvoiceDialog({
     onOpenChange(newOpen);
   };
 
-  // Filter phases by selected agreement
-  const filteredPhases = formData.agreement_id 
-    ? paymentPhases.filter(p => p.agreement_id === formData.agreement_id)
-    : paymentPhases;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(formData.amount) || 0;
@@ -920,13 +990,23 @@ function InvoiceDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Contract</Label>
-              <Select value={formData.agreement_id} onValueChange={(v) => setFormData(p => ({ ...p, agreement_id: v, payment_phase_id: "" }))}>
-                <SelectTrigger><SelectValue placeholder="Select contract" /></SelectTrigger>
+              <Label>Invoice Number</Label>
+              <Input value={formData.invoice_number} onChange={(e) => setFormData(p => ({ ...p, invoice_number: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Invoice Date</Label>
+              <Input type="date" value={formData.invoice_date} onChange={(e) => setFormData(p => ({ ...p, invoice_date: e.target.value }))} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Agreement</Label>
+              <Select value={formData.agreement_id} onValueChange={(v) => setFormData(p => ({ ...p, agreement_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select agreement" /></SelectTrigger>
                 <SelectContent>
                   {agreements.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {a.agreement_number} - {a.agreement_type || "Contract"}
+                      {a.agreement_number} - {formatCurrency(a.total_price)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -937,23 +1017,13 @@ function InvoiceDialog({
               <Select value={formData.payment_phase_id} onValueChange={(v) => setFormData(p => ({ ...p, payment_phase_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select phase" /></SelectTrigger>
                 <SelectContent>
-                  {filteredPhases.map((p) => (
+                  {paymentPhases.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.phase_name} - {formatCurrency(p.amount)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Invoice Number</Label>
-              <Input value={formData.invoice_number} onChange={(e) => setFormData(p => ({ ...p, invoice_number: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Invoice Date</Label>
-              <Input type="date" value={formData.invoice_date} onChange={(e) => setFormData(p => ({ ...p, invoice_date: e.target.value }))} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -1144,7 +1214,16 @@ function PaymentDialog({
   );
 }
 
-// Bill Dialog Component
+// Bill Payment sub-form item type
+interface BillPaymentFormItem {
+  id: string;
+  payment_date: string;
+  payment_amount: string;
+  payment_method: string;
+  payment_reference: string;
+}
+
+// Bill Dialog Component with multiple payments
 function BillDialog({ 
   open, 
   onOpenChange, 
@@ -1156,7 +1235,7 @@ function BillDialog({
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
   bill: Bill | null;
-  onSave: (data: Partial<Bill>) => void;
+  onSave: (data: { bill: Partial<Bill>; billPayments: Omit<BillPayment, 'id' | 'bill_id'>[] }) => void;
   isPending: boolean;
   projectId: string;
 }) {
@@ -1165,12 +1244,10 @@ function BillDialog({
     category: "",
     bill_ref: "",
     bill_amount: "",
-    amount_paid: "",
     memo: "",
     attachment_url: null as string | null,
-    payment_method: "",
-    payment_reference: "",
   });
+  const [billPayments, setBillPayments] = useState<BillPaymentFormItem[]>([]);
   const [installerSearch, setInstallerSearch] = useState("");
   const [installerOpen, setInstallerOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
@@ -1217,6 +1294,22 @@ function BillDialog({
     enabled: open,
   });
 
+  // Fetch existing bill payments when editing
+  const { data: existingBillPayments = [] } = useQuery({
+    queryKey: ["bill-payments", bill?.id],
+    queryFn: async () => {
+      if (!bill?.id) return [];
+      const { data, error } = await supabase
+        .from("bill_payments")
+        .select("*")
+        .eq("bill_id", bill.id)
+        .order("payment_date", { ascending: true });
+      if (error) throw error;
+      return data as BillPayment[];
+    },
+    enabled: open && !!bill?.id,
+  });
+
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen && bill) {
       setFormData({
@@ -1224,36 +1317,77 @@ function BillDialog({
         category: bill.category || "",
         bill_ref: bill.bill_ref || "",
         bill_amount: bill.bill_amount?.toString() || "",
-        amount_paid: bill.amount_paid?.toString() || "",
         memo: bill.memo || "",
         attachment_url: bill.attachment_url || null,
-        payment_method: bill.payment_method || "",
-        payment_reference: bill.payment_reference || "",
       });
+      // Payments will be loaded from query
     } else if (newOpen) {
-      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", amount_paid: "", memo: "", attachment_url: null, payment_method: "", payment_reference: "" });
+      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", memo: "", attachment_url: null });
+      setBillPayments([]);
     }
     onOpenChange(newOpen);
   };
 
+  // Update bill payments when existing data loads
+  useEffect(() => {
+    if (open && bill?.id && existingBillPayments.length > 0) {
+      setBillPayments(existingBillPayments.map(p => ({
+        id: p.id,
+        payment_date: p.payment_date || "",
+        payment_amount: p.payment_amount.toString(),
+        payment_method: p.payment_method || "",
+        payment_reference: p.payment_reference || "",
+      })));
+    } else if (open && !bill) {
+      setBillPayments([]);
+    }
+  }, [open, bill?.id, existingBillPayments]);
+
+  const addPayment = () => {
+    setBillPayments([...billPayments, {
+      id: crypto.randomUUID(),
+      payment_date: "",
+      payment_amount: "",
+      payment_method: "",
+      payment_reference: "",
+    }]);
+  };
+
+  const removePayment = (id: string) => {
+    setBillPayments(billPayments.filter(p => p.id !== id));
+  };
+
+  const updatePayment = (id: string, field: keyof BillPaymentFormItem, value: string) => {
+    setBillPayments(billPayments.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
+  const totalPaid = billPayments.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0);
+  const billAmount = parseFloat(formData.bill_amount) || 0;
+  const balance = billAmount - totalPaid;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
-      installer_company: formData.installer_company || null,
-      category: formData.category || null,
-      bill_ref: formData.bill_ref || null,
-      bill_amount: parseFloat(formData.bill_amount) || 0,
-      amount_paid: parseFloat(formData.amount_paid) || 0,
-      memo: formData.memo || null,
-      attachment_url: formData.attachment_url,
-      payment_method: formData.payment_method || null,
-      payment_reference: formData.payment_reference || null,
+      bill: {
+        installer_company: formData.installer_company || null,
+        category: formData.category || null,
+        bill_ref: formData.bill_ref || null,
+        bill_amount: billAmount,
+        memo: formData.memo || null,
+        attachment_url: formData.attachment_url,
+      },
+      billPayments: billPayments.map(p => ({
+        payment_date: p.payment_date || null,
+        payment_amount: parseFloat(p.payment_amount) || 0,
+        payment_method: p.payment_method || null,
+        payment_reference: p.payment_reference || null,
+      })),
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{bill ? "Edit Bill" : "Add Bill"}</DialogTitle>
           <DialogDescription>Enter bill details below.</DialogDescription>
@@ -1393,33 +1527,8 @@ function BillDialog({
               <Input type="number" value={formData.bill_amount} onChange={(e) => setFormData(p => ({ ...p, bill_amount: e.target.value }))} />
             </div>
             <div>
-              <Label>Amount Paid ($)</Label>
-              <Input type="number" value={formData.amount_paid} onChange={(e) => setFormData(p => ({ ...p, amount_paid: e.target.value }))} />
-            </div>
-          </div>
-          <div>
-            <Label>Bill Reference</Label>
-            <Input value={formData.bill_ref} onChange={(e) => setFormData(p => ({ ...p, bill_ref: e.target.value }))} placeholder="Invoice/PO number" />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Payment Method</Label>
-              <Select value={formData.payment_method} onValueChange={(v) => setFormData(p => ({ ...p, payment_method: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Cash">Cash</SelectItem>
-                  <SelectItem value="Check">Check</SelectItem>
-                  <SelectItem value="Wire">Wire</SelectItem>
-                  <SelectItem value="ACH">ACH</SelectItem>
-                  <SelectItem value="Credit Card">Credit Card</SelectItem>
-                  <SelectItem value="Zelle">Zelle</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Check # / Payment Ref</Label>
-              <Input value={formData.payment_reference} onChange={(e) => setFormData(p => ({ ...p, payment_reference: e.target.value }))} placeholder="Check number or reference" />
+              <Label>Bill Reference</Label>
+              <Input value={formData.bill_ref} onChange={(e) => setFormData(p => ({ ...p, bill_ref: e.target.value }))} placeholder="Invoice/PO number" />
             </div>
           </div>
           <div>
@@ -1435,6 +1544,85 @@ function BillDialog({
               folder="bills"
             />
           </div>
+
+          {/* Payments Sub-form */}
+          <div className="border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-medium">Payments Made</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addPayment}>
+                <Plus className="h-3 w-3 mr-1" />
+                Add Payment
+              </Button>
+            </div>
+            
+            {billPayments.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-2">No payments recorded yet</p>
+            ) : (
+              <div className="space-y-3">
+                {billPayments.map((payment, index) => (
+                  <div key={payment.id} className="border rounded-md p-3 bg-muted/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Payment {index + 1}</span>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removePayment(payment.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <Label className="text-xs">Date</Label>
+                        <Input 
+                          type="date" 
+                          className="h-8 text-xs"
+                          value={payment.payment_date} 
+                          onChange={(e) => updatePayment(payment.id, 'payment_date', e.target.value)} 
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Amount ($)</Label>
+                        <Input 
+                          type="number" 
+                          className="h-8 text-xs"
+                          value={payment.payment_amount} 
+                          onChange={(e) => updatePayment(payment.id, 'payment_amount', e.target.value)} 
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Method</Label>
+                        <Select value={payment.payment_method} onValueChange={(v) => updatePayment(payment.id, 'payment_method', v)}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Cash">Cash</SelectItem>
+                            <SelectItem value="Check">Check</SelectItem>
+                            <SelectItem value="Wire">Wire</SelectItem>
+                            <SelectItem value="ACH">ACH</SelectItem>
+                            <SelectItem value="Credit Card">Credit Card</SelectItem>
+                            <SelectItem value="Zelle">Zelle</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Reference</Label>
+                        <Input 
+                          className="h-8 text-xs"
+                          value={payment.payment_reference} 
+                          onChange={(e) => updatePayment(payment.id, 'payment_reference', e.target.value)} 
+                          placeholder="Check #"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Totals */}
+            <div className="flex justify-between pt-2 border-t text-sm">
+              <span>Total Paid: <span className="font-medium text-emerald-600">{formatCurrency(totalPaid)}</span></span>
+              <span>Balance: <span className={cn("font-medium", balance > 0 ? "text-amber-600" : "text-emerald-600")}>{formatCurrency(balance)}</span></span>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
@@ -1601,7 +1789,7 @@ function AgreementDialog({
   );
 }
 
-// Payment Phase Dialog Component
+// Payment Phase Dialog Component with validation
 function PhaseDialog({ 
   open, 
   onOpenChange, 
@@ -1609,6 +1797,7 @@ function PhaseDialog({
   onSave, 
   isPending,
   agreements,
+  paymentPhases,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -1616,6 +1805,7 @@ function PhaseDialog({
   onSave: (data: Partial<PaymentPhase>) => void;
   isPending: boolean;
   agreements: Agreement[];
+  paymentPhases: PaymentPhase[];
 }) {
   const [formData, setFormData] = useState({
     phase_name: "",
@@ -1624,6 +1814,7 @@ function PhaseDialog({
     amount: "",
     agreement_id: "",
   });
+  const [validationWarning, setValidationWarning] = useState("");
 
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen && phase) {
@@ -1637,8 +1828,41 @@ function PhaseDialog({
     } else if (newOpen) {
       setFormData({ phase_name: "", description: "", due_date: "", amount: "", agreement_id: "" });
     }
+    setValidationWarning("");
     onOpenChange(newOpen);
   };
+
+  // Calculate validation when agreement or amount changes
+  useEffect(() => {
+    if (!formData.agreement_id) {
+      setValidationWarning("");
+      return;
+    }
+    
+    const agreement = agreements.find(a => a.id === formData.agreement_id);
+    if (!agreement) {
+      setValidationWarning("");
+      return;
+    }
+    
+    const contractTotal = agreement.total_price || 0;
+    const currentPhaseAmount = parseFloat(formData.amount) || 0;
+    
+    // Sum of other phases for this agreement (excluding current phase if editing)
+    const otherPhasesTotal = paymentPhases
+      .filter(p => p.agreement_id === formData.agreement_id && p.id !== phase?.id)
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+    
+    const newTotal = otherPhasesTotal + currentPhaseAmount;
+    
+    if (newTotal > contractTotal) {
+      setValidationWarning(`Warning: Phase total (${formatCurrency(newTotal)}) exceeds contract value (${formatCurrency(contractTotal)})`);
+    } else if (newTotal < contractTotal) {
+      setValidationWarning(`Note: Phase total (${formatCurrency(newTotal)}) is less than contract value (${formatCurrency(contractTotal)}). Remaining: ${formatCurrency(contractTotal - newTotal)}`);
+    } else {
+      setValidationWarning("");
+    }
+  }, [formData.agreement_id, formData.amount, agreements, paymentPhases, phase?.id]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1666,7 +1890,7 @@ function PhaseDialog({
               <SelectContent>
                 {agreements.map((a) => (
                   <SelectItem key={a.id} value={a.id}>
-                    {a.agreement_number} - {a.agreement_type || "Contract"}
+                    {a.agreement_number} - {a.agreement_type || "Contract"} ({formatCurrency(a.total_price)})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1686,6 +1910,15 @@ function PhaseDialog({
             <Label>Amount ($)</Label>
             <Input type="number" value={formData.amount} onChange={(e) => setFormData(p => ({ ...p, amount: e.target.value }))} />
           </div>
+          {validationWarning && (
+            <div className={cn(
+              "flex items-start gap-2 p-3 rounded-md text-sm",
+              validationWarning.startsWith("Warning") ? "bg-destructive/10 text-destructive" : "bg-amber-500/10 text-amber-700"
+            )}>
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <span>{validationWarning}</span>
+            </div>
+          )}
           <div>
             <Label>Description</Label>
             <Input value={formData.description} onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))} placeholder="Additional details about this phase" />
