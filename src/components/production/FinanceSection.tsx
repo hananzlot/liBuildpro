@@ -95,6 +95,16 @@ interface Bill {
   attachment_url: string | null;
 }
 
+interface Agreement {
+  id: string;
+  agreement_number: string | null;
+  agreement_type: string | null;
+  agreement_signed_date: string | null;
+  total_price: number | null;
+  description_of_work: string | null;
+  attachment_url: string | null;
+}
+
 const formatCurrency = (value: number | null | undefined) => {
   if (value === null || value === undefined) return "$0";
   return new Intl.NumberFormat("en-US", {
@@ -118,11 +128,13 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [billDialogOpen, setBillDialogOpen] = useState(false);
+  const [agreementDialogOpen, setAgreementDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
 
   // Fetch data
@@ -165,11 +177,25 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     },
   });
 
+  const { data: agreements = [], isLoading: loadingAgreements } = useQuery({
+    queryKey: ["project-agreements", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_agreements")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as Agreement[];
+    },
+  });
+
   // Calculate totals
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
   const totalPaymentsReceived = payments.filter(p => p.payment_status === "Received").reduce((sum, p) => sum + (p.payment_amount || 0), 0);
   const totalBills = bills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
   const totalBillsPaid = bills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
+  const totalAgreementsValue = agreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
 
   // Invoice mutations
   const saveInvoiceMutation = useMutation({
@@ -247,12 +273,38 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
+  // Agreement mutations
+  const saveAgreementMutation = useMutation({
+    mutationFn: async (agreement: Partial<Agreement>) => {
+      if (editingAgreement?.id) {
+        const { error } = await supabase
+          .from("project_agreements")
+          .update(agreement)
+          .eq("id", editingAgreement.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("project_agreements")
+          .insert({ ...agreement, project_id: projectId });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success(editingAgreement?.id ? "Agreement updated" : "Agreement created");
+      queryClient.invalidateQueries({ queryKey: ["project-agreements", projectId] });
+      setAgreementDialogOpen(false);
+      setEditingAgreement(null);
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!deleteTarget) return;
       const table = deleteTarget.type === "invoice" ? "project_invoices" 
         : deleteTarget.type === "payment" ? "project_payments" 
+        : deleteTarget.type === "agreement" ? "project_agreements"
         : "project_bills";
       const { error } = await supabase.from(table).delete().eq("id", deleteTarget.id);
       if (error) throw error;
@@ -305,9 +357,9 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         </Card>
       </div>
 
-      {/* Sub-tabs for Invoices, Payments, Bills */}
+      {/* Sub-tabs for Invoices, Payments, Bills, Agreements */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="invoices" className="text-xs">
             Invoices ({invoices.length})
           </TabsTrigger>
@@ -316,6 +368,9 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
           </TabsTrigger>
           <TabsTrigger value="bills" className="text-xs">
             Bills ({bills.length})
+          </TabsTrigger>
+          <TabsTrigger value="agreements" className="text-xs">
+            Contracts ({agreements.length})
           </TabsTrigger>
         </TabsList>
 
@@ -501,6 +556,73 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Agreements Tab */}
+        <TabsContent value="agreements" className="mt-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Contracts & Agreements</CardTitle>
+                <Button size="sm" onClick={() => { setEditingAgreement(null); setAgreementDialogOpen(true); }}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingAgreements ? (
+                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : agreements.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No agreements yet</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Agreement #</TableHead>
+                      <TableHead className="text-xs">Type</TableHead>
+                      <TableHead className="text-xs">Date Signed</TableHead>
+                      <TableHead className="text-xs text-right">Value</TableHead>
+                      <TableHead className="text-xs w-10"></TableHead>
+                      <TableHead className="text-xs w-20"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {agreements.map((agreement) => (
+                      <TableRow key={agreement.id}>
+                        <TableCell className="text-xs">{agreement.agreement_number || "-"}</TableCell>
+                        <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
+                        <TableCell className="text-xs">{formatDate(agreement.agreement_signed_date)}</TableCell>
+                        <TableCell className="text-xs text-right">{formatCurrency(agreement.total_price)}</TableCell>
+                        <TableCell>
+                          {agreement.attachment_url && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => window.open(agreement.attachment_url!, "_blank")}
+                            >
+                              <Paperclip className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingAgreement(agreement); setAgreementDialogOpen(true); }}>
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("agreement", agreement.id)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Invoice Dialog */}
@@ -528,6 +650,16 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         bill={editingBill}
         onSave={(data) => saveBillMutation.mutate(data)}
         isPending={saveBillMutation.isPending}
+        projectId={projectId}
+      />
+
+      {/* Agreement Dialog */}
+      <AgreementDialog
+        open={agreementDialogOpen}
+        onOpenChange={setAgreementDialogOpen}
+        agreement={editingAgreement}
+        onSave={(data) => saveAgreementMutation.mutate(data)}
+        isPending={saveAgreementMutation.isPending}
         projectId={projectId}
       />
 
@@ -868,6 +1000,119 @@ function BillDialog({
               currentUrl={formData.attachment_url}
               onUpload={(url) => setFormData(p => ({ ...p, attachment_url: url }))}
               folder="bills"
+            />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Agreement Dialog Component
+function AgreementDialog({ 
+  open, 
+  onOpenChange, 
+  agreement, 
+  onSave, 
+  isPending,
+  projectId,
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  agreement: Agreement | null;
+  onSave: (data: Partial<Agreement>) => void;
+  isPending: boolean;
+  projectId: string;
+}) {
+  const [formData, setFormData] = useState({
+    agreement_number: "",
+    agreement_type: "",
+    agreement_signed_date: "",
+    total_price: "",
+    description_of_work: "",
+    attachment_url: null as string | null,
+  });
+
+  const handleOpenChange = (newOpen: boolean) => {
+    if (newOpen && agreement) {
+      setFormData({
+        agreement_number: agreement.agreement_number || "",
+        agreement_type: agreement.agreement_type || "",
+        agreement_signed_date: agreement.agreement_signed_date || "",
+        total_price: agreement.total_price?.toString() || "",
+        description_of_work: agreement.description_of_work || "",
+        attachment_url: agreement.attachment_url || null,
+      });
+    } else if (newOpen) {
+      setFormData({ agreement_number: "", agreement_type: "", agreement_signed_date: "", total_price: "", description_of_work: "", attachment_url: null });
+    }
+    onOpenChange(newOpen);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      agreement_number: formData.agreement_number || null,
+      agreement_type: formData.agreement_type || null,
+      agreement_signed_date: formData.agreement_signed_date || null,
+      total_price: parseFloat(formData.total_price) || 0,
+      description_of_work: formData.description_of_work || null,
+      attachment_url: formData.attachment_url,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{agreement ? "Edit Agreement" : "Add Agreement"}</DialogTitle>
+          <DialogDescription>Enter agreement/contract details below.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Agreement Number</Label>
+              <Input value={formData.agreement_number} onChange={(e) => setFormData(p => ({ ...p, agreement_number: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Type</Label>
+              <Select value={formData.agreement_type} onValueChange={(v) => setFormData(p => ({ ...p, agreement_type: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Contract">Contract</SelectItem>
+                  <SelectItem value="Change Order">Change Order</SelectItem>
+                  <SelectItem value="Addendum">Addendum</SelectItem>
+                  <SelectItem value="Amendment">Amendment</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Date Signed</Label>
+              <Input type="date" value={formData.agreement_signed_date} onChange={(e) => setFormData(p => ({ ...p, agreement_signed_date: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Total Value ($)</Label>
+              <Input type="number" value={formData.total_price} onChange={(e) => setFormData(p => ({ ...p, total_price: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <Label>Description of Work</Label>
+            <Input value={formData.description_of_work} onChange={(e) => setFormData(p => ({ ...p, description_of_work: e.target.value }))} placeholder="Scope of work covered" />
+          </div>
+          <div>
+            <Label>Contract Document</Label>
+            <FileUpload
+              projectId={projectId}
+              currentUrl={formData.attachment_url}
+              onUpload={(url) => setFormData(p => ({ ...p, attachment_url: url }))}
+              folder="agreements"
             />
           </div>
           <DialogFooter>
