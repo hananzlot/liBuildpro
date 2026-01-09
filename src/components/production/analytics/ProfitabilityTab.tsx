@@ -13,7 +13,8 @@ import {
 import { MetricCard } from "./MetricCard";
 import { KPIProjectsSheet, KPIType } from "./KPIProjectsSheet";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
-import { DollarSign, TrendingUp, TrendingDown, Percent, Receipt, Wallet } from "lucide-react";
+import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
+import { DollarSign, TrendingUp, TrendingDown, Percent, Receipt, Wallet, Filter } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -42,20 +43,38 @@ interface ProfitabilityTabProps {
   onProjectClick?: (projectId: string) => void;
 }
 
+const DEFAULT_STATUSES = ['Completed', 'In Progress'];
 
 export function ProfitabilityTab({ projects, totals, onProjectClick }: ProfitabilityTabProps) {
   const [selectedKPI, setSelectedKPI] = useState<KPIType | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(DEFAULT_STATUSES);
 
   const handleKPIClick = (kpi: KPIType) => {
     setSelectedKPI(kpi);
     setSheetOpen(true);
   };
 
-  // Filter out projects with zero sold amounts for profitability report
-  const projectsWithSales = useMemo(() => {
-    return projects.filter(p => p.contractsTotal > 0);
+  // Get unique statuses from projects
+  const statusOptions = useMemo(() => {
+    const statuses = new Set<string>();
+    projects.forEach(p => {
+      if (p.project_status) statuses.add(p.project_status);
+    });
+    return Array.from(statuses)
+      .sort()
+      .map(status => ({ value: status, label: status }));
   }, [projects]);
+
+  // Filter projects by selected statuses and with sales
+  const projectsWithSales = useMemo(() => {
+    return projects.filter(p => {
+      const hasSales = p.contractsTotal > 0;
+      const matchesStatus = selectedStatuses.length === 0 || 
+        selectedStatuses.includes(p.project_status || '');
+      return hasSales && matchesStatus;
+    });
+  }, [projects, selectedStatuses]);
 
   // Recalculate totals using only projects with sales
   const filteredTotals = useMemo(() => {
@@ -149,6 +168,18 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
 
   return (
     <div className="space-y-6">
+      {/* Filters */}
+      <div className="flex items-center gap-3">
+        <MultiSelectFilter
+          options={statusOptions}
+          selected={selectedStatuses}
+          onChange={setSelectedStatuses}
+          placeholder="Project Status"
+          icon={<Filter className="h-3.5 w-3.5" />}
+          className="w-[180px]"
+        />
+      </div>
+
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <MetricCard
