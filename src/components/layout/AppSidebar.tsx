@@ -122,13 +122,6 @@ const mainNavItems: NavItem[] = [
     icon: HardHat,
     roles: ['super_admin', 'admin', 'production']
   },
-  // Admin only
-  { 
-    title: "Audit Log", 
-    url: "/audit-log", 
-    icon: FileText,
-    roles: ['super_admin', 'admin']
-  },
 ];
 
 // Reports sub-menus removed for now - can be added when routes are created
