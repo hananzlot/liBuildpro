@@ -8,8 +8,9 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
 
 interface UserManagementProps {
@@ -38,6 +39,9 @@ const ROLE_CONFIG: { role: AppRole; label: string; color: string }[] = [
   { role: 'sales', label: 'Sales', color: 'bg-purple-500/10 text-purple-500' },
 ];
 
+const PROFILES_QUERY_KEY = ["user-management", "profiles"] as const;
+const ROLES_QUERY_KEY = ["user-management", "roles"] as const;
+
 export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const queryClient = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
@@ -53,34 +57,40 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const [showDirectPassword, setShowDirectPassword] = useState(false);
 
   // Fetch all profiles
-  const { data: profiles = [], isLoading: profilesLoading } = useQuery({
-    queryKey: ["all-profiles"],
+  const {
+    data: profiles = [],
+    isLoading: profilesLoading,
+    error: profilesError,
+  } = useQuery({
+    queryKey: PROFILES_QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("email");
-      
+      const { data, error } = await supabase.from("profiles").select("*").order("email");
+
       if (error) throw error;
       return data as Profile[];
     },
     enabled: open,
+    refetchOnMount: "always",
   });
 
   // Fetch all user roles
-  const { data: userRoles = [], isLoading: rolesLoading } = useQuery({
-    queryKey: ["all-user-roles"],
+  const {
+    data: userRoles = [],
+    isLoading: rolesLoading,
+    error: rolesError,
+  } = useQuery({
+    queryKey: ROLES_QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("*");
-      
+      const { data, error } = await supabase.from("user_roles").select("*");
+
       if (error) throw error;
       return data as UserRole[];
     },
     enabled: open,
+    refetchOnMount: "always",
   });
 
+  const loadError = profilesError || rolesError;
   const createUserMutation = useMutation({
     mutationFn: async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -98,7 +108,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["all-profiles"] });
+      queryClient.invalidateQueries({ queryKey: PROFILES_QUERY_KEY });
       toast.success("User created successfully");
       setNewEmail("");
       setNewPassword("");
@@ -136,22 +146,22 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
     onMutate: async ({ userId, role, hasRole }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["all-user-roles"] });
-      
+      await queryClient.cancelQueries({ queryKey: ROLES_QUERY_KEY });
+
       // Snapshot the previous value
-      const previousRoles = queryClient.getQueryData<UserRole[]>(["all-user-roles"]);
-      
+      const previousRoles = queryClient.getQueryData<UserRole[]>(ROLES_QUERY_KEY);
+
       // Optimistically update to the new value
-      queryClient.setQueryData<UserRole[]>(["all-user-roles"], (old = []) => {
+      queryClient.setQueryData<UserRole[]>(ROLES_QUERY_KEY, (old = []) => {
         if (hasRole) {
           // Remove the role
           return old.filter(r => !(r.user_id === userId && r.role === role));
-        } else {
-          // Add the role
-          return [...old, { user_id: userId, role }];
         }
+
+        // Add the role
+        return [...old, { user_id: userId, role }];
       });
-      
+
       return { previousRoles };
     },
     onSuccess: (data) => {
@@ -161,15 +171,15 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     onError: (error, variables, context) => {
       // Rollback on error
       if (context?.previousRoles) {
-        queryClient.setQueryData(["all-user-roles"], context.previousRoles);
+        queryClient.setQueryData(ROLES_QUERY_KEY, context.previousRoles);
       }
       toast.error(`Failed to update role: ${error.message}`);
     },
-    onSettled: () => {
+    onSettled: async () => {
       setUpdatingUserId(null);
       setUpdatingRole(null);
       // Refetch to ensure we're in sync with server
-      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+      await queryClient.refetchQueries({ queryKey: ROLES_QUERY_KEY });
     },
   });
 
@@ -254,6 +264,31 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
             User Management
           </DialogTitle>
         </DialogHeader>
+
+        {loadError && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Unable to load users/roles</AlertTitle>
+            <AlertDescription>
+              {(loadError instanceof Error && loadError.message) ? loadError.message : "Unknown error"}
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    await Promise.all([
+                      queryClient.refetchQueries({ queryKey: PROFILES_QUERY_KEY }),
+                      queryClient.refetchQueries({ queryKey: ROLES_QUERY_KEY }),
+                    ]);
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Create User Form */}
         {showCreateForm ? (
