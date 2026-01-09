@@ -59,7 +59,6 @@ import { SubcontractorsManagement } from "@/components/production/Subcontractors
 import { SubcontractorWarningsCard } from "@/components/production/SubcontractorWarningsCard";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useSidebar } from "@/components/ui/sidebar";
 
 
 interface Project {
@@ -120,8 +119,6 @@ const statusColors: Record<string, string> = {
 export default function Production() {
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
-  const { state: sidebarState } = useSidebar();
-  const sidebarExpanded = sidebarState === "expanded";
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = searchParams.get('view') || 'projects';
   const returnToProjectId = searchParams.get('returnToProject');
@@ -624,7 +621,7 @@ export default function Production() {
   return (
     <AppLayout showNotifications={false}>
       <TooltipProvider>
-        <div className={`py-4 space-y-4 transition-all duration-200 ${sidebarExpanded ? 'px-4 lg:px-6' : 'px-6 lg:px-8'}`}>
+        <div className="py-4 px-4 lg:px-6 space-y-4">
           {activeView === 'projects' && (
             <div className="space-y-4">
               <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
