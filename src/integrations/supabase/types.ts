@@ -1091,6 +1091,7 @@ export type Database = {
       }
       project_bills: {
         Row: {
+          agreement_id: string | null
           amount_paid: number | null
           attachment_url: string | null
           balance: number | null
@@ -1108,6 +1109,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          agreement_id?: string | null
           amount_paid?: number | null
           attachment_url?: string | null
           balance?: number | null
@@ -1125,6 +1127,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          agreement_id?: string | null
           amount_paid?: number | null
           attachment_url?: string | null
           balance?: number | null
@@ -1142,6 +1145,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "project_bills_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "project_agreements"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_bills_project_id_fkey"
             columns: ["project_id"]
