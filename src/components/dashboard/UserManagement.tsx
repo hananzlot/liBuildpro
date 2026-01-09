@@ -134,8 +134,8 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
       }
       return { role, hasRole };
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
+    onSuccess: async (data) => {
+      await queryClient.refetchQueries({ queryKey: ["all-user-roles"] });
       const roleLabel = ROLE_CONFIG.find(r => r.role === data.role)?.label || data.role;
       toast.success(data.hasRole ? `${roleLabel} role removed` : `${roleLabel} role granted`);
     },
