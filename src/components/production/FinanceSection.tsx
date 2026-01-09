@@ -1405,14 +1405,17 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
       />
 
       {/* PDF/Image Viewer Dialog */}
-      {selectedAttachment && (
-        <PdfViewerDialog
-          open={pdfViewerOpen}
-          onOpenChange={setPdfViewerOpen}
-          fileUrl={selectedAttachment.url}
-          fileName={selectedAttachment.name}
-        />
-      )}
+      <PdfViewerDialog
+        open={pdfViewerOpen}
+        onOpenChange={(open) => {
+          setPdfViewerOpen(open);
+          if (!open) {
+            setSelectedAttachment(null);
+          }
+        }}
+        fileUrl={selectedAttachment?.url || ""}
+        fileName={selectedAttachment?.name || ""}
+      />
     </div>
   );
 }
