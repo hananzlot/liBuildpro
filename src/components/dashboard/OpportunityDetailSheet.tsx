@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle, FolderOpen } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -160,9 +161,12 @@ export function OpportunityDetailSheet({
   initialTaskGhlId = null
 }: OpportunityDetailSheetProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const {
     user,
-    profile
+    profile,
+    isAdmin,
+    isProduction
   } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -272,14 +276,38 @@ export function OpportunityDetailSheet({
   const [isInlineEditingStatus, setIsInlineEditingStatus] = useState(false);
   const [isSavingInline, setIsSavingInline] = useState(false);
 
+  // Associated project for production link
+  const [associatedProjectId, setAssociatedProjectId] = useState<string | null>(null);
+
   // Reset saved values only when sheet opens fresh (was closed, now open)
   useEffect(() => {
     if (open && !wasOpen) {
       setSavedValues({});
       setSavedContactName(null);
+      setAssociatedProjectId(null);
     }
     setWasOpen(open);
   }, [open]);
+
+  // Fetch associated project when sheet opens
+  useEffect(() => {
+    if (!open || !opportunity?.ghl_id) {
+      setAssociatedProjectId(null);
+      return;
+    }
+    
+    const fetchProject = async () => {
+      const { data } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("opportunity_id", opportunity.ghl_id)
+        .maybeSingle();
+      
+      setAssociatedProjectId(data?.id ?? null);
+    };
+    
+    fetchProject();
+  }, [open, opportunity?.ghl_id]);
 
   // Filter users to primary location only and deduplicate by ghl_id
   const filteredUsers = useMemo(() => {
@@ -1760,6 +1788,20 @@ export function OpportunityDetailSheet({
               <Receipt className="h-3.5 w-3.5 mr-1" />
               Sales
             </Button>
+            {(isAdmin || isProduction) && associatedProjectId && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7" 
+                onClick={() => {
+                  onOpenChange(false);
+                  navigate("/production");
+                }}
+              >
+                <FolderOpen className="h-3.5 w-3.5 mr-1" />
+                Project
+              </Button>
+            )}
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Opportunity</AlertDialogTitle>
