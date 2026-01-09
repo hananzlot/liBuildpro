@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen, Receipt, ExternalLink } from "lucide-react";
+import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen, Receipt, ExternalLink, Briefcase } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
@@ -46,6 +46,7 @@ const Index = () => {
     profile,
     isAdmin,
     isMagazineEditor,
+    isProduction,
     signOut,
     updatePassword
   } = useAuth();
@@ -272,6 +273,17 @@ const Index = () => {
                   <BookOpen className="h-4 w-4" />
                   Magazine Sales
                 </TabsTrigger>}
+              {(isAdmin || isProduction) && <TabsTrigger 
+                value="production" 
+                className="gap-2"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = "/production";
+                }}
+              >
+                <Briefcase className="h-4 w-4" />
+                Production
+              </TabsTrigger>}
             </TabsList>
             <div className="flex items-center gap-2">
               {!isLoading && activeTab !== "magazine-sales" && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
