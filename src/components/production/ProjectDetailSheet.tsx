@@ -31,9 +31,11 @@ import {
   MessageSquare,
   Star,
   AlertCircle,
-  Loader2
+  Loader2,
+  FolderOpen
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
+import { DocumentsSection } from "./DocumentsSection";
 
 interface Project {
   id: string;
@@ -208,7 +210,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" className="text-xs">
               <Building2 className="h-3 w-3 mr-1" />
               Overview
@@ -216,6 +218,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
             <TabsTrigger value="finance" className="text-xs">
               <DollarSign className="h-3 w-3 mr-1" />
               Finance
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="text-xs">
+              <FolderOpen className="h-3 w-3 mr-1" />
+              Docs
             </TabsTrigger>
             <TabsTrigger value="checklist" className="text-xs">
               <CheckSquare className="h-3 w-3 mr-1" />
@@ -420,6 +426,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                 onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
               />
             )}
+          </TabsContent>
+
+          {/* Documents Tab */}
+          <TabsContent value="documents" className="mt-4">
+            <DocumentsSection projectId={project.id} />
           </TabsContent>
 
           {/* Checklist Tab */}
