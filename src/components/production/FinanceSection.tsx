@@ -499,16 +499,114 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     setDeleteDialogOpen(true);
   };
 
+  // Calculate profitability by agreement
+  const agreementProfitability = agreements.map(agreement => {
+    const agreementPhases = paymentPhases.filter(p => p.agreement_id === agreement.id);
+    const agreementInvoices = invoices.filter(inv => inv.agreement_id === agreement.id);
+    const totalInvoicedForAgreement = agreementInvoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+    
+    // Get payments for these invoices
+    const invoiceIds = agreementInvoices.map(inv => inv.id);
+    const agreementPayments = payments.filter(p => p.invoice_id && invoiceIds.includes(p.invoice_id) && p.payment_status === "Received");
+    const collectedForAgreement = agreementPayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+    
+    const phasesTotal = agreementPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const uninvoiced = (agreement.total_price || 0) - totalInvoicedForAgreement;
+    const uncollected = totalInvoicedForAgreement - collectedForAgreement;
+
+    return {
+      id: agreement.id,
+      agreementNumber: agreement.agreement_number,
+      agreementType: agreement.agreement_type,
+      totalPrice: agreement.total_price || 0,
+      phasesTotal,
+      phasesMatch: phasesTotal === (agreement.total_price || 0),
+      invoiced: totalInvoicedForAgreement,
+      collected: collectedForAgreement,
+      uninvoiced,
+      uncollected,
+    };
+  });
+
   return (
     <div className="space-y-4">
+      {/* Profitability by Agreement */}
+      {agreements.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              Profitability by Contract
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Contract</TableHead>
+                  <TableHead className="text-xs text-right">Sold</TableHead>
+                  <TableHead className="text-xs text-right">Invoiced</TableHead>
+                  <TableHead className="text-xs text-right">Collected</TableHead>
+                  <TableHead className="text-xs text-right">Uninvoiced</TableHead>
+                  <TableHead className="text-xs text-right">Uncollected</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {agreementProfitability.map((ap) => (
+                  <TableRow key={ap.id}>
+                    <TableCell className="text-xs font-medium">
+                      {ap.agreementNumber || ap.agreementType || "Contract"}
+                    </TableCell>
+                    <TableCell className="text-xs text-right font-medium">
+                      {formatCurrency(ap.totalPrice)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right">
+                      {formatCurrency(ap.invoiced)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right text-emerald-600">
+                      {formatCurrency(ap.collected)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right text-amber-600">
+                      {formatCurrency(ap.uninvoiced)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right text-amber-600">
+                      {formatCurrency(ap.uncollected)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {/* Totals row */}
+                <TableRow className="font-semibold bg-muted/50">
+                  <TableCell className="text-xs">Total</TableCell>
+                  <TableCell className="text-xs text-right">
+                    {formatCurrency(totalAgreementsValue)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right">
+                    {formatCurrency(totalInvoiced)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-emerald-600">
+                    {formatCurrency(totalPaymentsReceived)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-amber-600">
+                    {formatCurrency(totalAgreementsValue - totalInvoiced)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-amber-600">
+                    {formatCurrency(totalInvoiced - totalPaymentsReceived)}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-3">
           <div className="flex items-center gap-2">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Est. Cost</span>
+            <span className="text-xs text-muted-foreground">Total Sold</span>
           </div>
-          <p className="text-lg font-semibold">{formatCurrency(estimatedCost)}</p>
+          <p className="text-lg font-semibold">{formatCurrency(totalAgreementsValue)}</p>
         </Card>
         <Card className="p-3">
           <div className="flex items-center gap-2">
