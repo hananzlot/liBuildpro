@@ -87,7 +87,7 @@ const getFileIcon = (fileType: string | null, fileName: string) => {
 };
 
 export function DocumentsSection({ projectId }: DocumentsSectionProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -379,7 +379,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
-                    {doc.source === "document" && (
+                    {doc.source === "document" && isAdmin && (
                       <Button
                         variant="ghost"
                         size="icon"
