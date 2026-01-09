@@ -287,8 +287,9 @@ export default function Production() {
     const profit = contractsTotal - leadCostAmount - totalBillsReceived;
     const totalCommission = profit > 0 ? profit * (commissionSplitPct / 100) : 0;
     
-    // Expected Final Profit = Total Contracts - Lead Cost - Bills - Commission
-    const expectedFinalProfit = contractsTotal - leadCostAmount - totalBillsReceived - totalCommission;
+    // Expected Final Profit = Lead Cost (company keeps) + (Total Contracts - Lead Cost - Bills - Commission)
+    // Simplified: Total Contracts - Bills - Commission (lead cost is company profit from top line)
+    const expectedFinalProfit = contractsTotal - totalBillsReceived - totalCommission;
     
     // Total Cash = Payments received - Bill payments made
     const totalCash = invoicesCollected - totalBillPayments;
