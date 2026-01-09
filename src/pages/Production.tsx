@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit } from "@/hooks/useAuditLog";
+import { formatCurrency } from "@/lib/utils";
 import { 
   Search, 
   Plus, 
@@ -494,15 +495,6 @@ export default function Production() {
     setDeleteTestProjectOpen(true);
   };
 
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value === null || value === undefined || value === 0) return "-";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
   const toTitleCase = (str: string | null | undefined): string => {
     if (!str) return "";

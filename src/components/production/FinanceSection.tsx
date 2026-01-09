@@ -45,7 +45,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { 
   Plus, 
   Pencil, 
@@ -152,15 +152,6 @@ interface Agreement {
   attachment_url: string | null;
 }
 
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined || value === 0) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
 
 const formatDate = (date: string | null) => {
   if (!date) return "-";

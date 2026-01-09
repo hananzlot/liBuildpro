@@ -12,7 +12,7 @@ import {
 import { MetricCard } from "./MetricCard";
 import { SalespersonCommission } from "@/hooks/useProductionAnalytics";
 import { Users, DollarSign, Wallet, CheckCircle, Clock, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import {
   BarChart,
   Bar,
@@ -43,25 +43,6 @@ interface CommissionReportTabProps {
   };
 }
 
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined || value === 0) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
-const formatCompactCurrency = (value: number) => {
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`;
-  }
-  if (value >= 1000) {
-    return `$${(value / 1000).toFixed(0)}K`;
-  }
-  return `$${value.toFixed(0)}`;
-};
 
 export function CommissionReportTab({ commissionSummary, commissionPayments, totals }: CommissionReportTabProps) {
   // Chart data

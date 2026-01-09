@@ -12,7 +12,7 @@ import {
 import { MetricCard } from "./MetricCard";
 import { BankTransaction, ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
 import { Building, ArrowDownToLine, ArrowUpFromLine, Wallet, Receipt, CreditCard } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import {
   BarChart,
   Bar,
@@ -40,25 +40,6 @@ interface BankActivitiesTabProps {
   onProjectClick?: (projectId: string) => void;
 }
 
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined || value === 0) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
-const formatCompactCurrency = (value: number) => {
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`;
-  }
-  if (value >= 1000) {
-    return `$${(value / 1000).toFixed(0)}K`;
-  }
-  return `$${value.toFixed(0)}`;
-};
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
