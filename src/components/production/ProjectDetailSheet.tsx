@@ -374,7 +374,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
       const { data, error } = await supabase
         .from("project_types")
         .select("*")
-        .order("sort_order");
+        .order("name", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -600,7 +600,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                 value={newTypeValue}
                                 onValueChange={setNewTypeValue}
                               />
-                              <CommandList>
+                              <CommandList className="max-h-[200px] overflow-y-auto">
                                 <CommandEmpty>No type found.</CommandEmpty>
                                 <CommandGroup>
                                   {isSuperAdmin && newTypeValue && !projectTypes.some(t => t.name.toLowerCase() === newTypeValue.toLowerCase()) && (
