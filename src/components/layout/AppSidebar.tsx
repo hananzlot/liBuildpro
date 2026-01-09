@@ -261,13 +261,13 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                       <SidebarMenuSubButton 
                         asChild 
                         isActive={isSubActive}
+                        onClick={closeSidebar}
                       >
                         <NavLink 
                           to={subItem.url} 
                           end
                           className="flex items-center gap-2"
                           activeClassName="bg-sidebar-accent text-sidebar-accent-foreground"
-                          onClick={closeSidebar}
                         >
                           {subItem.icon && <subItem.icon className="h-3 w-3" />}
                           <span>{subItem.title}</span>
@@ -312,13 +312,13 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           asChild 
           isActive={isActive}
           tooltip={item.title}
+          onClick={closeSidebar}
         >
           <NavLink 
             to={item.url || "/"} 
             end 
             className="flex items-center gap-2"
             activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-            onClick={closeSidebar}
           >
             <item.icon className="h-4 w-4" />
             {!collapsed && <span>{item.title}</span>}
