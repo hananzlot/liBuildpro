@@ -12,7 +12,7 @@ import {
 import { MetricCard } from "./MetricCard";
 import { InvoiceWithAging } from "@/hooks/useProductionAnalytics";
 import { FileText, Clock, AlertCircle, CheckCircle, DollarSign, Calendar } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import {
   PieChart,
   Pie,
@@ -38,15 +38,6 @@ interface AccountsReceivableTabProps {
   onProjectClick?: (projectId: string) => void;
 }
 
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined || value === 0) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
 
 const getAgingColor = (bucket: string) => {
   switch (bucket) {

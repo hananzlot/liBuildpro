@@ -29,7 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { 
   Building2, 
   User, 
@@ -364,15 +364,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     return phone; // Return original if doesn't match expected format
   };
 
-  const formatCurrency = (value: number | null | undefined) => {
-    if (value === null || value === undefined || value === 0) return "-";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
 
   const PROJECT_TYPES = [
     "Bathroom",

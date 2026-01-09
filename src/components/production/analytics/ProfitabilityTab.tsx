@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { formatCurrency, formatCompactCurrency } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,25 +41,6 @@ interface ProfitabilityTabProps {
   onProjectClick?: (projectId: string) => void;
 }
 
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined || value === 0) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
-
-const formatCompactCurrency = (value: number) => {
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`;
-  }
-  if (value >= 1000) {
-    return `$${(value / 1000).toFixed(0)}K`;
-  }
-  return `$${value.toFixed(0)}`;
-};
 
 export function ProfitabilityTab({ projects, totals, onProjectClick }: ProfitabilityTabProps) {
   // Profitability by Project chart data

@@ -55,3 +55,26 @@ export const getAddressFromContact = (
   
   return null;
 };
+
+// Format currency with zero shown as dash
+export const formatCurrency = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || value === 0) return "-";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+};
+
+// Format currency compactly (e.g., $1.2M, $500K)
+export const formatCompactCurrency = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || value === 0) return "-";
+  if (Math.abs(value) >= 1000000) {
+    return `$${(value / 1000000).toFixed(1)}M`;
+  }
+  if (Math.abs(value) >= 1000) {
+    return `$${(value / 1000).toFixed(0)}K`;
+  }
+  return `$${value.toFixed(0)}`;
+};

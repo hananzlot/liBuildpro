@@ -12,7 +12,7 @@ import {
 import { MetricCard } from "./MetricCard";
 import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
 import { Banknote, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, TrendingUp, Wallet } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 interface CashFlowTabProps {
   projects: ProjectWithFinancials[];
@@ -26,15 +26,6 @@ interface CashFlowTabProps {
   onProjectClick?: (projectId: string) => void;
 }
 
-const formatCurrency = (value: number | null | undefined) => {
-  if (value === null || value === undefined || value === 0) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
 
 const getCashStatusColor = (status: string) => {
   switch (status) {
