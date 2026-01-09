@@ -49,8 +49,10 @@ import {
   FileText,
   CreditCard,
   Receipt,
-  Loader2
+  Loader2,
+  Paperclip
 } from "lucide-react";
+import { FileUpload } from "./FileUpload";
 
 interface FinanceSectionProps {
   projectId: string;
@@ -90,6 +92,7 @@ interface Bill {
   amount_paid: number | null;
   balance: number | null;
   memo: string | null;
+  attachment_url: string | null;
 }
 
 const formatCurrency = (value: number | null | undefined) => {
@@ -457,6 +460,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                       <TableHead className="text-xs">Category</TableHead>
                       <TableHead className="text-xs text-right">Amount</TableHead>
                       <TableHead className="text-xs text-right">Balance</TableHead>
+                      <TableHead className="text-xs w-10"></TableHead>
                       <TableHead className="text-xs w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -467,6 +471,18 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                         <TableCell className="text-xs">{bill.category || "-"}</TableCell>
                         <TableCell className="text-xs text-right">{formatCurrency(bill.bill_amount)}</TableCell>
                         <TableCell className="text-xs text-right">{formatCurrency(bill.balance)}</TableCell>
+                        <TableCell>
+                          {bill.attachment_url && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => window.open(bill.attachment_url!, "_blank")}
+                            >
+                              <Paperclip className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingBill(bill); setBillDialogOpen(true); }}>
@@ -512,6 +528,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         bill={editingBill}
         onSave={(data) => saveBillMutation.mutate(data)}
         isPending={saveBillMutation.isPending}
+        projectId={projectId}
       />
 
       {/* Delete Confirmation */}
@@ -758,13 +775,15 @@ function BillDialog({
   onOpenChange, 
   bill, 
   onSave, 
-  isPending 
+  isPending,
+  projectId,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
   bill: Bill | null;
   onSave: (data: Partial<Bill>) => void;
   isPending: boolean;
+  projectId: string;
 }) {
   const [formData, setFormData] = useState({
     installer_company: "",
@@ -773,6 +792,7 @@ function BillDialog({
     bill_amount: "",
     amount_paid: "",
     memo: "",
+    attachment_url: null as string | null,
   });
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -784,9 +804,10 @@ function BillDialog({
         bill_amount: bill.bill_amount?.toString() || "",
         amount_paid: bill.amount_paid?.toString() || "",
         memo: bill.memo || "",
+        attachment_url: bill.attachment_url || null,
       });
     } else if (newOpen) {
-      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", amount_paid: "", memo: "" });
+      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", amount_paid: "", memo: "", attachment_url: null });
     }
     onOpenChange(newOpen);
   };
@@ -800,6 +821,7 @@ function BillDialog({
       bill_amount: parseFloat(formData.bill_amount) || 0,
       amount_paid: parseFloat(formData.amount_paid) || 0,
       memo: formData.memo || null,
+      attachment_url: formData.attachment_url,
     });
   };
 
@@ -838,6 +860,15 @@ function BillDialog({
           <div>
             <Label>Memo</Label>
             <Input value={formData.memo} onChange={(e) => setFormData(p => ({ ...p, memo: e.target.value }))} />
+          </div>
+          <div>
+            <Label>Receipt/Attachment</Label>
+            <FileUpload
+              projectId={projectId}
+              currentUrl={formData.attachment_url}
+              onUpload={(url) => setFormData(p => ({ ...p, attachment_url: url }))}
+              folder="bills"
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
