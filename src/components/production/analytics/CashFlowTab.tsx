@@ -26,7 +26,8 @@ interface CashFlowTabProps {
   onProjectClick?: (projectId: string) => void;
 }
 
-const formatCurrency = (value: number) => {
+const formatCurrency = (value: number | null | undefined) => {
+  if (value === null || value === undefined || value === 0) return "-";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
