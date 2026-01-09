@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, KeyRound, Lock } from "lucide-react";
 
 interface UserManagementProps {
   open: boolean;
@@ -38,6 +38,9 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const [newFullName, setNewFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
+  const [settingPasswordForUser, setSettingPasswordForUser] = useState<Profile | null>(null);
+  const [directPassword, setDirectPassword] = useState("");
+  const [showDirectPassword, setShowDirectPassword] = useState(false);
 
   // Fetch all profiles
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
@@ -156,6 +159,41 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
       setResettingUserId(null);
     },
   });
+
+  const setPasswordMutation = useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      const response = await supabase.functions.invoke("update-user-password", {
+        body: { userId, password },
+      });
+
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
+      
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Password updated successfully");
+      setSettingPasswordForUser(null);
+      setDirectPassword("");
+      setShowDirectPassword(false);
+    },
+    onError: (error) => {
+      toast.error(`Failed to set password: ${error.message}`);
+    },
+  });
+
+  const handleSetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!settingPasswordForUser || !directPassword) {
+      toast.error("Password is required");
+      return;
+    }
+    if (directPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    setPasswordMutation.mutate({ userId: settingPasswordForUser.id, password: directPassword });
+  };
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -388,6 +426,19 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                           variant="ghost"
                           size="sm"
                           className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setSettingPasswordForUser(profile);
+                            setDirectPassword("");
+                            setShowDirectPassword(false);
+                          }}
+                          title="Set password directly"
+                        >
+                          <Lock className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-muted-foreground hover:text-foreground"
                           disabled={resettingUserId === profile.id}
                           onClick={() => {
                             setResettingUserId(profile.id);
@@ -414,6 +465,69 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
               )}
             </div>
           </ScrollArea>
+        )}
+
+        {/* Set Password Dialog */}
+        {settingPasswordForUser && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <form onSubmit={handleSetPassword} className="bg-background border border-border rounded-lg p-6 w-full max-w-md space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Set Password for {settingPasswordForUser.full_name || settingPasswordForUser.email}
+              </h3>
+              <div className="space-y-2">
+                <Label htmlFor="directPassword">New Password</Label>
+                <div className="relative">
+                  <Input
+                    id="directPassword"
+                    type={showDirectPassword ? "text" : "password"}
+                    placeholder="Minimum 6 characters"
+                    value={directPassword}
+                    onChange={(e) => setDirectPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    autoFocus
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowDirectPassword(!showDirectPassword)}
+                  >
+                    {showDirectPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSettingPasswordForUser(null);
+                    setDirectPassword("");
+                    setShowDirectPassword(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={setPasswordMutation.isPending}>
+                  {setPasswordMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Setting...
+                    </>
+                  ) : (
+                    "Set Password"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
         )}
 
         <div className="flex justify-end pt-4 border-t border-border">
