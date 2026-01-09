@@ -247,8 +247,10 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       // Use max of actual bills or estimated project costs for profit calculation
       const costForProfit = Math.max(totalBillsReceived, effectiveEstimatedCost);
       const grossProfit = contractsTotal - costForProfit;
-      const totalCommission = grossProfit > 0 ? grossProfit * (commissionSplitPct / 100) : 0;
-      const expectedNetProfit = contractsTotal - leadCostAmount - costForProfit - totalCommission;
+      // Commission is calculated on (Gross Profit - Lead Fee)
+      const commissionBase = grossProfit - leadCostAmount;
+      const totalCommission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
+      const expectedNetProfit = grossProfit - leadCostAmount - totalCommission;
       const cashPosition = invoicesCollected - totalBillPayments;
 
       // Determine cash status
