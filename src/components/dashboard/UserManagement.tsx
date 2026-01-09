@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, KeyRound } from "lucide-react";
 
 interface UserManagementProps {
   open: boolean;
@@ -37,6 +37,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const [newPassword, setNewPassword] = useState("");
   const [newFullName, setNewFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [resettingUserId, setResettingUserId] = useState<string | null>(null);
 
   // Fetch all profiles
   const { data: profiles = [], isLoading: profilesLoading } = useQuery({
@@ -137,6 +138,24 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const hasRole = (userId: string, role: "admin" | "magazine_editor" | "production") => {
     return userRoles.some(r => r.user_id === userId && r.role === role);
   };
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ email }: { email: string }) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Password reset email sent successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to send reset email: ${error.message}`);
+    },
+    onSettled: () => {
+      setResettingUserId(null);
+    },
+  });
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -365,6 +384,23 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                             />
                           )}
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                          disabled={resettingUserId === profile.id}
+                          onClick={() => {
+                            setResettingUserId(profile.id);
+                            resetPasswordMutation.mutate({ email: profile.email });
+                          }}
+                          title="Send password reset email"
+                        >
+                          {resettingUserId === profile.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <KeyRound className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
                     </div>
                   </div>
