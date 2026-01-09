@@ -105,30 +105,15 @@ const mainNavItems: NavItem[] = [
     icon: Briefcase,
     roles: ['admin', 'production']
   },
+  { 
+    title: "Audit Log", 
+    url: "/audit-log", 
+    icon: FileText,
+    roles: ['admin']
+  },
 ];
 
-const reportsNavItems: NavItem[] = [
-  {
-    title: "Reports",
-    icon: BarChart3,
-    excludeRoles: ['production'],
-    subItems: [
-      { title: "Sales Leaderboard", url: "/reports/leaderboard", icon: Trophy },
-      { title: "Won Deals", url: "/reports/won-deals", icon: DollarSign },
-      { title: "Appointments", url: "/reports/appointments", icon: Calendar },
-    ]
-  },
-  {
-    title: "Analytics",
-    icon: PieChart,
-    roles: ['admin', 'production'],
-    subItems: [
-      { title: "Profitability", url: "/analytics/profitability", icon: TrendingUp },
-      { title: "Cash Flow", url: "/analytics/cashflow", icon: DollarSign },
-      { title: "Commissions", url: "/analytics/commissions", icon: BarChart3 },
-    ]
-  },
-];
+// Reports sub-menus removed for now - can be added when routes are created
 
 interface AdminMenuItem {
   title: string;
@@ -203,7 +188,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   };
 
   const visibleNavItems = mainNavItems.filter(canViewItem);
-  const visibleReportItems = reportsNavItems.filter(canViewItem);
+  
 
   const renderNavItem = (item: NavItem) => {
     const isActive = !item.external && !item.subItems && location.pathname === item.url;
@@ -335,20 +320,6 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Reports & Analytics with collapsible sub-menus */}
-        {visibleReportItems.length > 0 && (
-          <>
-            <SidebarSeparator />
-            <SidebarGroup>
-              <SidebarGroupLabel>Reports & Analytics</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {visibleReportItems.map(renderNavItem)}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </>
-        )}
 
         {/* Admin Tools */}
         {isAdmin && onAdminAction && (

@@ -8,13 +8,23 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Production from "./pages/Production";
 import AuditLog from "./pages/AuditLog";
+import FollowUp from "./pages/FollowUp";
+import MagazineSales from "./pages/MagazineSales";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode; requiredRole?: 'admin' | 'production' }) {
-  const { user, isLoading, isAdmin, isProduction } = useAuth();
+function ProtectedRoute({ 
+  children, 
+  requiredRole,
+  allowedRoles 
+}: { 
+  children: React.ReactNode; 
+  requiredRole?: 'admin' | 'production';
+  allowedRoles?: ('admin' | 'magazine_editor')[];
+}) {
+  const { user, isLoading, isAdmin, isProduction, isMagazineEditor } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -45,6 +55,20 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode;
     return <Navigate to="/" replace />;
   }
 
+  // Check allowed roles
+  if (allowedRoles && allowedRoles.length > 0) {
+    const hasAccess = allowedRoles.some(role => {
+      switch (role) {
+        case 'admin': return isAdmin;
+        case 'magazine_editor': return isMagazineEditor;
+        default: return false;
+      }
+    });
+    if (!hasAccess) {
+      return <Navigate to="/" replace />;
+    }
+  }
+
   return <>{children}</>;
 }
 
@@ -62,6 +86,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/follow-up"
+              element={
+                <ProtectedRoute>
+                  <FollowUp />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/magazine-sales"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'magazine_editor']}>
+                  <MagazineSales />
                 </ProtectedRoute>
               }
             />

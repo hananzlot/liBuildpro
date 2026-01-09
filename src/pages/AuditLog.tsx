@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import {
   Table,
@@ -32,8 +32,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, FileText, ArrowLeft, Filter, X } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
+import { Loader2, FileText, Filter, X } from "lucide-react";
+import { AppLayout } from "@/components/layout/AppLayout";
 
 interface AuditLog {
   id: string;
@@ -50,6 +50,7 @@ interface AuditLog {
 }
 
 export default function AuditLog() {
+  const navigate = useNavigate();
   const { isAdmin, isLoading: authLoading } = useAuth();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -125,6 +126,10 @@ export default function AuditLog() {
     }
   };
 
+  const handleAdminAction = (action: string) => {
+    // No additional admin actions needed on this page
+  };
+
   if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -138,21 +143,14 @@ export default function AuditLog() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto py-6 px-4">
-        <div className="flex items-center gap-4 mb-6">
-          <NavLink to="/production">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </NavLink>
-          <div>
-            <h1 className="text-2xl font-bold">Audit Log</h1>
-            <p className="text-muted-foreground">View all changes made to projects and related data</p>
-          </div>
+    <AppLayout onAdminAction={handleAdminAction}>
+      <div className="px-6 py-6 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Audit Log</h1>
+          <p className="text-muted-foreground">View all changes made to projects and related data</p>
         </div>
 
-        <Card className="mb-6">
+        <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -365,6 +363,6 @@ export default function AuditLog() {
           )}
         </SheetContent>
       </Sheet>
-    </div>
+    </AppLayout>
   );
 }
