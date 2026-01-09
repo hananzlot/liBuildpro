@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,7 +15,10 @@ import {
   FlaskConical,
   Trash2,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -95,6 +98,9 @@ interface ProjectFinancials {
   profitToDate: number;
 }
 
+type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'profit';
+type SortDirection = 'asc' | 'desc';
+
 const statusColors: Record<string, string> = {
   "New Job": "bg-blue-500/10 text-blue-500 border-blue-500/20",
   "In-Progress": "bg-amber-500/10 text-amber-500 border-amber-500/20",
@@ -117,6 +123,8 @@ export default function Production() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [deleteTestProjectOpen, setDeleteTestProjectOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('project_number');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
@@ -235,20 +243,82 @@ export default function Production() {
     };
   });
 
-  const filteredProjects = projects.filter((project) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      project.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.project_address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.customer_first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.customer_last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.project_number?.toString().includes(searchQuery);
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
 
-    const matchesStatus =
-      statusFilter === "all" || project.project_status === statusFilter;
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" /> 
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
 
-    return matchesSearch && matchesStatus;
-  });
+  const sortedAndFilteredProjects = useMemo(() => {
+    const filtered = projects.filter((project) => {
+      const matchesSearch =
+        searchQuery === "" ||
+        project.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.project_address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.customer_first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.customer_last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.project_number?.toString().includes(searchQuery);
+
+      const matchesStatus =
+        statusFilter === "all" || project.project_status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+
+    return filtered.sort((a, b) => {
+      const financialsA = projectFinancials[a.id];
+      const financialsB = projectFinancials[b.id];
+      let comparison = 0;
+
+      switch (sortColumn) {
+        case 'project_number':
+          comparison = a.project_number - b.project_number;
+          break;
+        case 'address':
+          comparison = (a.project_address || a.project_name || '').localeCompare(b.project_address || b.project_name || '');
+          break;
+        case 'status':
+          comparison = (a.project_status || '').localeCompare(b.project_status || '');
+          break;
+        case 'salesperson':
+          comparison = (a.primary_salesperson || '').localeCompare(b.primary_salesperson || '');
+          break;
+        case 'project_manager':
+          comparison = (a.project_manager || '').localeCompare(b.project_manager || '');
+          break;
+        case 'bills_received':
+          comparison = (financialsA?.totalBillsReceived || 0) - (financialsB?.totalBillsReceived || 0);
+          break;
+        case 'bills_paid':
+          comparison = (financialsA?.totalBillsPaid || 0) - (financialsB?.totalBillsPaid || 0);
+          break;
+        case 'inv_collected':
+          comparison = (financialsA?.invoicesCollected || 0) - (financialsB?.invoicesCollected || 0);
+          break;
+        case 'inv_balance':
+          comparison = (financialsA?.invoiceBalanceDue || 0) - (financialsB?.invoiceBalanceDue || 0);
+          break;
+        case 'proj_balance':
+          comparison = (financialsA?.projectBalanceDue || 0) - (financialsB?.projectBalanceDue || 0);
+          break;
+        case 'profit':
+          comparison = (financialsA?.profitToDate || 0) - (financialsB?.profitToDate || 0);
+          break;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [projects, searchQuery, statusFilter, sortColumn, sortDirection, projectFinancials]);
 
   // Create test project mutation
   const createTestProjectMutation = useMutation({
@@ -495,7 +565,7 @@ export default function Production() {
             <CardHeader>
               <CardTitle>Projects</CardTitle>
               <CardDescription>
-                {filteredProjects.length} project{filteredProjects.length !== 1 ? "s" : ""} found
+                {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? "s" : ""} found
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -505,7 +575,7 @@ export default function Production() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : filteredProjects.length === 0 ? (
+              ) : sortedAndFilteredProjects.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No projects found</p>
@@ -516,22 +586,44 @@ export default function Production() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-16">#</TableHead>
-                        <TableHead>Address</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Salesperson</TableHead>
-                        <TableHead>Proj Mgr</TableHead>
-                        <TableHead className="text-right">Bills Rcvd</TableHead>
-                        <TableHead className="text-right">Bills Paid</TableHead>
-                        <TableHead className="text-right">Inv Collected</TableHead>
-                        <TableHead className="text-right">Inv Balance</TableHead>
-                        <TableHead className="text-right">Proj Balance</TableHead>
-                        <TableHead className="text-right">Profit TD</TableHead>
+                        <TableHead className="w-16 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('project_number')}>
+                          <div className="flex items-center"># <SortIcon column="project_number" /></div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('address')}>
+                          <div className="flex items-center">Address <SortIcon column="address" /></div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
+                          <div className="flex items-center">Status <SortIcon column="status" /></div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('salesperson')}>
+                          <div className="flex items-center">Salesperson <SortIcon column="salesperson" /></div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('project_manager')}>
+                          <div className="flex items-center">Proj Mgr <SortIcon column="project_manager" /></div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('bills_received')}>
+                          <div className="flex items-center justify-end">Bills Rcvd <SortIcon column="bills_received" /></div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('bills_paid')}>
+                          <div className="flex items-center justify-end">Bills Paid <SortIcon column="bills_paid" /></div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('inv_collected')}>
+                          <div className="flex items-center justify-end">Inv Collected <SortIcon column="inv_collected" /></div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('inv_balance')}>
+                          <div className="flex items-center justify-end">Inv Balance <SortIcon column="inv_balance" /></div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('proj_balance')}>
+                          <div className="flex items-center justify-end">Proj Balance <SortIcon column="proj_balance" /></div>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('profit')}>
+                          <div className="flex items-center justify-end">Profit TD <SortIcon column="profit" /></div>
+                        </TableHead>
                         {isAdmin && <TableHead className="w-12"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredProjects.map((project) => {
+                      {sortedAndFilteredProjects.map((project) => {
                         const financials = projectFinancials[project.id];
                         return (
                           <TableRow 
