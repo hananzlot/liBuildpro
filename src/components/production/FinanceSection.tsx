@@ -79,6 +79,7 @@ interface FinanceSectionProps {
   salespeople: SalespersonData[];
   onUpdateProject: (updates: Record<string, unknown>) => void;
   onNavigateToSubcontractors?: () => void;
+  autoOpenBillDialog?: boolean;
 }
 
 interface Invoice {
@@ -166,9 +167,10 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
+  const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
   
   // Dialog states
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
@@ -179,6 +181,15 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quickPayDialogOpen, setQuickPayDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+
+  // Auto-open bill dialog when returning from subcontractor add
+  useEffect(() => {
+    if (autoOpenBillDialog && !hasAutoOpenedBill) {
+      setActiveSubTab("bills");
+      setBillDialogOpen(true);
+      setHasAutoOpenedBill(true);
+    }
+  }, [autoOpenBillDialog, hasAutoOpenedBill]);
   
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
