@@ -700,14 +700,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[280px] p-0 z-50 bg-popover" align="start">
-                            <Command>
+                          <PopoverContent className="w-[280px] p-0 z-50 bg-popover max-h-[300px]" align="start">
+                            <Command className="flex flex-col">
                               <CommandInput 
                                 placeholder={isSuperAdmin ? "Search or add..." : "Search..."} 
                                 value={newTypeValue}
                                 onValueChange={setNewTypeValue}
                               />
-                              <CommandList className="max-h-[250px] overflow-y-auto">
+                              <CommandList className="flex-1 overflow-y-auto" style={{ maxHeight: '220px' }}>
                                 <CommandEmpty>No type found.</CommandEmpty>
                                 <CommandGroup>
                                   {isSuperAdmin && newTypeValue && !projectTypes.some(t => t.name.toLowerCase() === newTypeValue.toLowerCase()) && (
