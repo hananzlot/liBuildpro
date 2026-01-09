@@ -75,7 +75,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by } = await req.json();
+    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at } = await req.json();
 
     if (!ghl_id) {
       throw new Error('Missing ghl_id');
@@ -84,7 +84,7 @@ serve(async (req) => {
     // Fetch current opportunity values BEFORE update
     const { data: currentOpp } = await supabase
       .from('opportunities')
-      .select('status, stage_name, pipeline_name, monetary_value, assigned_to, location_id')
+      .select('status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at')
       .eq('ghl_id', ghl_id)
       .single();
 
@@ -140,7 +140,7 @@ serve(async (req) => {
     console.log('GHL update successful:', ghlData);
 
     // Now update Supabase
-    const supabaseUpdate: Record<string, string | number> = {};
+    const supabaseUpdate: Record<string, string | number | null> = {};
     if (status) {
       supabaseUpdate.status = status;
     }
@@ -161,6 +161,16 @@ serve(async (req) => {
     }
     if (assigned_to) {
       supabaseUpdate.assigned_to = assigned_to;
+    }
+    
+    // Handle won_at timestamp
+    // If explicitly provided (admin edit), use that value
+    if (won_at !== undefined) {
+      supabaseUpdate.won_at = won_at;
+    }
+    // If status is changing TO "won" and wasn't "won" before, and won_at not explicitly provided, set it now
+    else if (status === 'won' && currentOpp?.status !== 'won' && !currentOpp?.won_at) {
+      supabaseUpdate.won_at = new Date().toISOString();
     }
 
     const { error: supabaseError } = await supabase
@@ -242,6 +252,18 @@ serve(async (req) => {
           field_name: 'assigned_to',
           old_value: currentOpp.assigned_to || null,
           new_value: assigned_to,
+          edited_by: edited_by || null,
+          location_id: effectiveLocationId,
+        });
+      }
+
+      // Check won_at (only if explicitly provided - admin edits)
+      if (won_at !== undefined && currentOpp.won_at !== won_at) {
+        editsToInsert.push({
+          opportunity_ghl_id: ghl_id,
+          field_name: 'won_at',
+          old_value: currentOpp.won_at || null,
+          new_value: won_at,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
         });

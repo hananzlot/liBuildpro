@@ -633,25 +633,57 @@ async function syncLocationData(
   }
 
   // Sync opportunities with last_synced_at tracking
+  // IMPORTANT: Preserve won_at field - don't overwrite it during sync
   if (opportunities.length > 0) {
     console.log(`Syncing ${opportunities.length} opportunities...`);
-    const oppsToUpsert = opportunities.map(o => ({
-      ghl_id: o.id,
-      location_id: o.locationId || locationId,
-      contact_id: o.contactId || null,
-      pipeline_id: o.pipelineId || null,
-      pipeline_stage_id: o.pipelineStageId || null,
-      pipeline_name: pipelineNames.get(o.pipelineId) || null,
-      stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
-      name: o.name || null,
-      monetary_value: o.monetaryValue || null,
-      status: o.status || null,
-      assigned_to: o.assignedTo || null,
-      ghl_date_added: o.createdAt || null,
-      ghl_date_updated: o.updatedAt || null,
-      custom_fields: o.customFields || null,
-      last_synced_at: syncTimestamp,
-    }));
+    
+    // Fetch existing won_at values to preserve them
+    const oppGhlIds = opportunities.map(o => o.id);
+    const { data: existingOpps } = await supabase
+      .from('opportunities')
+      .select('ghl_id, won_at, status')
+      .in('ghl_id', oppGhlIds);
+    
+    const existingWonAtMap = new Map<string, { won_at: string | null; status: string | null }>();
+    (existingOpps || []).forEach((opp: { ghl_id: string; won_at: string | null; status: string | null }) => {
+      existingWonAtMap.set(opp.ghl_id, { won_at: opp.won_at, status: opp.status });
+    });
+    
+    const oppsToUpsert = opportunities.map(o => {
+      const existing = existingWonAtMap.get(o.id);
+      
+      // Determine won_at value:
+      // 1. If already has won_at, preserve it
+      // 2. If status is 'won' in GHL and not previously won in DB, set won_at now
+      // 3. Otherwise, leave it null
+      let wonAt: string | null = null;
+      if (existing?.won_at) {
+        // Preserve existing won_at
+        wonAt = existing.won_at;
+      } else if (o.status === 'won' && existing?.status !== 'won') {
+        // First time being marked as won from GHL sync - use updatedAt or now
+        wonAt = o.updatedAt || new Date().toISOString();
+      }
+      
+      return {
+        ghl_id: o.id,
+        location_id: o.locationId || locationId,
+        contact_id: o.contactId || null,
+        pipeline_id: o.pipelineId || null,
+        pipeline_stage_id: o.pipelineStageId || null,
+        pipeline_name: pipelineNames.get(o.pipelineId) || null,
+        stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
+        name: o.name || null,
+        monetary_value: o.monetaryValue || null,
+        status: o.status || null,
+        assigned_to: o.assignedTo || null,
+        ghl_date_added: o.createdAt || null,
+        ghl_date_updated: o.updatedAt || null,
+        custom_fields: o.customFields || null,
+        last_synced_at: syncTimestamp,
+        won_at: wonAt,
+      };
+    });
 
     for (let i = 0; i < oppsToUpsert.length; i += 100) {
       const batch = oppsToUpsert.slice(i, i + 100);

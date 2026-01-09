@@ -41,6 +41,7 @@ interface DBOpportunity {
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
   updated_at: string | null;
+  won_at: string | null;
 }
 
 interface DBAppointment {
@@ -657,7 +658,7 @@ function processMetrics(
     .filter((o) => o.status !== "lost" && o.status !== "abandoned")
     .reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
-  // Won opportunities metrics - based on opportunity close date (ghl_date_updated)
+  // Won opportunities metrics - based on won_at (accurate), fallback to ghl_date_updated
   const allWonOpportunities = opportunities.filter((o) => o.status?.toLowerCase() === "won");
 
   let wonOpportunities: DBOpportunity[];
@@ -667,8 +668,8 @@ function processMetrics(
     endDate.setHours(23, 59, 59, 999);
 
     wonOpportunities = allWonOpportunities.filter((o) => {
-      // Use ghl_date_updated (when status was changed to won in GHL), fall back to ghl_date_added
-      const dateStr = o.ghl_date_updated || o.ghl_date_added;
+      // Use won_at (accurate), fallback to ghl_date_updated, then ghl_date_added
+      const dateStr = o.won_at || o.ghl_date_updated || o.ghl_date_added;
       if (!dateStr) return false;
       const d = new Date(dateStr);
       return d >= startDate && d <= endDate;
@@ -678,11 +679,11 @@ function processMetrics(
     wonOpportunities = allWonOpportunities;
   }
 
-  // Always sort by close date (ghl_date_updated when won) newest first
+  // Always sort by won date (won_at when available) newest first
   wonOpportunities = wonOpportunities.sort(
     (a, b) =>
-      new Date(b.ghl_date_updated || b.ghl_date_added || 0).getTime() -
-      new Date(a.ghl_date_updated || a.ghl_date_added || 0).getTime(),
+      new Date(b.won_at || b.ghl_date_updated || b.ghl_date_added || 0).getTime() -
+      new Date(a.won_at || a.ghl_date_updated || a.ghl_date_added || 0).getTime(),
   );
 
   const wonOpportunitiesCount = wonOpportunities.length;
