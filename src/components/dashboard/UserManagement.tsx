@@ -9,7 +9,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, KeyRound, Lock } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock } from "lucide-react";
+import type { AppRole } from "@/contexts/AuthContext";
 
 interface UserManagementProps {
   open: boolean;
@@ -25,8 +26,17 @@ interface Profile {
 
 interface UserRole {
   user_id: string;
-  role: "admin" | "user" | "magazine_editor" | "production";
+  role: AppRole;
 }
+
+const ROLE_CONFIG: { role: AppRole; label: string; color: string }[] = [
+  { role: 'super_admin', label: 'Super Admin', color: 'bg-red-500/10 text-red-500' },
+  { role: 'admin', label: 'Admin', color: 'bg-primary/10 text-primary' },
+  { role: 'magazine', label: 'Magazine', color: 'bg-amber-500/10 text-amber-500' },
+  { role: 'production', label: 'Production', color: 'bg-emerald-500/10 text-emerald-500' },
+  { role: 'dispatch', label: 'Dispatch', color: 'bg-blue-500/10 text-blue-500' },
+  { role: 'sales', label: 'Sales', color: 'bg-purple-500/10 text-purple-500' },
+];
 
 export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const queryClient = useQueryClient();
@@ -101,7 +111,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   });
 
   const toggleRoleMutation = useMutation({
-    mutationFn: async ({ userId, role, hasRole }: { userId: string; role: "admin" | "magazine_editor" | "production"; hasRole: boolean }) => {
+    mutationFn: async ({ userId, role, hasRole }: { userId: string; role: AppRole; hasRole: boolean }) => {
       setUpdatingUserId(userId);
       setUpdatingRole(role);
       
@@ -126,8 +136,8 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
-      const roleName = data.role === "admin" ? "Admin" : data.role === "production" ? "Production" : "Magazine Editor";
-      toast.success(data.hasRole ? `${roleName} role removed` : `${roleName} role granted`);
+      const roleLabel = ROLE_CONFIG.find(r => r.role === data.role)?.label || data.role;
+      toast.success(data.hasRole ? `${roleLabel} role removed` : `${roleLabel} role granted`);
     },
     onError: (error) => {
       toast.error(`Failed to update role: ${error.message}`);
@@ -138,7 +148,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
   });
 
-  const hasRole = (userId: string, role: "admin" | "magazine_editor" | "production") => {
+  const hasRole = (userId: string, role: AppRole) => {
     return userRoles.some(r => r.user_id === userId && r.role === role);
   };
 
@@ -212,7 +222,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -324,103 +334,44 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
           <ScrollArea className="max-h-[50vh]">
             <div className="space-y-2">
               {profiles.map((profile) => {
-                const userIsAdmin = hasRole(profile.id, "admin");
-                const userIsMagazineEditor = hasRole(profile.id, "magazine_editor");
-                const userIsProduction = hasRole(profile.id, "production");
-                const isUpdatingAdmin = updatingUserId === profile.id && updatingRole === "admin";
-                const isUpdatingMagazine = updatingUserId === profile.id && updatingRole === "magazine_editor";
-                const isUpdatingProduction = updatingUserId === profile.id && updatingRole === "production";
+                const userRolesForProfile = ROLE_CONFIG.map(cfg => ({
+                  ...cfg,
+                  active: hasRole(profile.id, cfg.role),
+                  isUpdating: updatingUserId === profile.id && updatingRole === cfg.role,
+                }));
+
+                const activeRoles = userRolesForProfile.filter(r => r.active);
+                const isUserAdmin = hasRole(profile.id, 'super_admin') || hasRole(profile.id, 'admin');
 
                 return (
                   <div
                     key={profile.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                    className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        {userIsAdmin ? (
-                          <ShieldCheck className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Shield className="h-5 w-5 text-muted-foreground" />
-                        )}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          {isUserAdmin ? (
+                            <ShieldCheck className="h-5 w-5 text-primary" />
+                          ) : (
+                            <Shield className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {profile.full_name || profile.email.split("@")[0]}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{profile.email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {profile.full_name || profile.email.split("@")[0]}
-                        </p>
-                        <p className="text-sm text-muted-foreground">{profile.email}</p>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                      <div className="flex flex-wrap gap-1 min-w-0">
-                        {userIsAdmin && (
-                          <Badge variant="secondary" className="bg-primary/10 text-primary text-xs">
-                            Admin
-                          </Badge>
-                        )}
-                        {userIsMagazineEditor && (
-                          <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 text-xs">
-                            Magazine
-                          </Badge>
-                        )}
-                        {userIsProduction && (
-                          <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 text-xs">
-                            Production
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Admin</span>
-                          {isUpdatingAdmin ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Switch
-                              checked={userIsAdmin}
-                              onCheckedChange={() => {
-                                toggleRoleMutation.mutate({
-                                  userId: profile.id,
-                                  role: "admin",
-                                  hasRole: userIsAdmin,
-                                });
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Magazine</span>
-                          {isUpdatingMagazine ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Switch
-                              checked={userIsMagazineEditor}
-                              onCheckedChange={() => {
-                                toggleRoleMutation.mutate({
-                                  userId: profile.id,
-                                  role: "magazine_editor",
-                                  hasRole: userIsMagazineEditor,
-                                });
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Production</span>
-                          {isUpdatingProduction ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Switch
-                              checked={userIsProduction}
-                              onCheckedChange={() => {
-                                toggleRoleMutation.mutate({
-                                  userId: profile.id,
-                                  role: "production",
-                                  hasRole: userIsProduction,
-                                });
-                              }}
-                            />
-                          )}
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap gap-1">
+                          {activeRoles.map(r => (
+                            <Badge key={r.role} variant="secondary" className={`text-xs ${r.color}`}>
+                              {r.label}
+                            </Badge>
+                          ))}
                         </div>
                         <Button
                           variant="ghost"
@@ -435,106 +386,103 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                         >
                           <Lock className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                          disabled={resettingUserId === profile.id}
-                          onClick={() => {
-                            setResettingUserId(profile.id);
-                            resetPasswordMutation.mutate({ email: profile.email });
-                          }}
-                          title="Send password reset email"
-                        >
-                          {resettingUserId === profile.id ? (
+                      </div>
+                    </div>
+
+                    {/* Role toggles */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-2 pl-13">
+                      {userRolesForProfile.map((roleInfo) => (
+                        <div key={roleInfo.role} className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-20">{roleInfo.label}</span>
+                          {roleInfo.isUpdating ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <KeyRound className="h-4 w-4" />
+                            <Switch
+                              checked={roleInfo.active}
+                              onCheckedChange={() => {
+                                toggleRoleMutation.mutate({
+                                  userId: profile.id,
+                                  role: roleInfo.role,
+                                  hasRole: roleInfo.active,
+                                });
+                              }}
+                            />
                           )}
-                        </Button>
-                      </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );
               })}
-
-              {profiles.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No users found
-                </div>
-              )}
             </div>
           </ScrollArea>
         )}
 
         {/* Set Password Dialog */}
         {settingPasswordForUser && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <form onSubmit={handleSetPassword} className="bg-background border border-border rounded-lg p-6 w-full max-w-md space-y-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Lock className="h-4 w-4" />
-                Set Password for {settingPasswordForUser.full_name || settingPasswordForUser.email}
-              </h3>
-              <div className="space-y-2">
-                <Label htmlFor="directPassword">New Password</Label>
-                <div className="relative">
-                  <Input
-                    id="directPassword"
-                    type={showDirectPassword ? "text" : "password"}
-                    placeholder="Minimum 6 characters"
-                    value={directPassword}
-                    onChange={(e) => setDirectPassword(e.target.value)}
-                    required
-                    minLength={6}
-                    autoFocus
-                  />
+          <Dialog open={!!settingPasswordForUser} onOpenChange={() => setSettingPasswordForUser(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Lock className="h-5 w-5" />
+                  Set Password for {settingPasswordForUser.full_name || settingPasswordForUser.email}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSetPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="directPassword">New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="directPassword"
+                      type={showDirectPassword ? "text" : "password"}
+                      placeholder="Minimum 6 characters"
+                      value={directPassword}
+                      onChange={(e) => setDirectPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowDirectPassword(!showDirectPassword)}
+                    >
+                      {showDirectPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowDirectPassword(!showDirectPassword)}
+                    variant="outline"
+                    onClick={() => {
+                      setSettingPasswordForUser(null);
+                      setDirectPassword("");
+                      setShowDirectPassword(false);
+                    }}
                   >
-                    {showDirectPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={setPasswordMutation.isPending}>
+                    {setPasswordMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Setting...
+                      </>
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      "Set Password"
                     )}
                   </Button>
                 </div>
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setSettingPasswordForUser(null);
-                    setDirectPassword("");
-                    setShowDirectPassword(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={setPasswordMutation.isPending}>
-                  {setPasswordMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      Setting...
-                    </>
-                  ) : (
-                    "Set Password"
-                  )}
-                </Button>
-              </div>
-            </form>
-          </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         )}
-
-        <div className="flex justify-end pt-4 border-t border-border">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   );

@@ -22,9 +22,9 @@ function ProtectedRoute({
 }: { 
   children: React.ReactNode; 
   requiredRole?: 'admin' | 'production';
-  allowedRoles?: ('admin' | 'magazine_editor')[];
+  allowedRoles?: ('admin' | 'magazine')[];
 }) {
-  const { user, isLoading, isAdmin, isProduction, isMagazineEditor } = useAuth();
+  const { user, isLoading, isAdmin, isProduction, isMagazine } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -60,7 +60,7 @@ function ProtectedRoute({
     const hasAccess = allowedRoles.some(role => {
       switch (role) {
         case 'admin': return isAdmin;
-        case 'magazine_editor': return isMagazineEditor;
+        case 'magazine': return isMagazine;
         default: return false;
       }
     });
@@ -100,7 +100,7 @@ const App = () => (
             <Route
               path="/magazine-sales"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'magazine_editor']}>
+                <ProtectedRoute allowedRoles={['admin', 'magazine']}>
                   <MagazineSales />
                 </ProtectedRoute>
               }

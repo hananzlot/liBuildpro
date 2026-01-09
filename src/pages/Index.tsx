@@ -39,7 +39,7 @@ const Index = () => {
   const {
     user,
     isAdmin,
-    isMagazineEditor,
+    isMagazine,
     isProduction,
   } = useAuth();
   
@@ -91,7 +91,7 @@ const Index = () => {
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin || isMagazineEditor
+    enabled: isAdmin || isMagazine
   });
 
   // Calculate magazine sales total
@@ -302,7 +302,7 @@ const Index = () => {
                 icon={Receipt} 
                 onClick={() => setOpportunitySalesSheetOpen(true)} 
               />
-              {(isAdmin || isMagazineEditor) && (
+              {(isAdmin || isMagazine) && (
                 <ClickableMetricCard 
                   title="Magazine Sales" 
                   value={formatCurrency(magazineSalesTotal)} 

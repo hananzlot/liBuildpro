@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppRole = 'admin' | 'user' | 'magazine_editor' | 'production';
+export type AppRole = 'super_admin' | 'admin' | 'magazine' | 'production' | 'dispatch' | 'sales';
 
 interface Profile {
   id: string;
@@ -15,9 +15,14 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
-  isAdmin: boolean;
-  isMagazineEditor: boolean;
+  // Role checks
+  isSuperAdmin: boolean;
+  isAdmin: boolean; // true if super_admin OR admin
+  isMagazine: boolean;
   isProduction: boolean;
+  isDispatch: boolean;
+  isSales: boolean;
+  userRoles: AppRole[];
   isLoading: boolean;
   // Role simulation for admins
   simulatedRole: AppRole | null;
@@ -33,32 +38,54 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ALL_ROLES: AppRole[] = ['admin', 'user', 'magazine_editor', 'production'];
+const ALL_ROLES: AppRole[] = ['super_admin', 'admin', 'magazine', 'production', 'dispatch', 'sales'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [actualIsAdmin, setActualIsAdmin] = useState(false);
-  const [actualIsMagazineEditor, setActualIsMagazineEditor] = useState(false);
-  const [actualIsProduction, setActualIsProduction] = useState(false);
+  const [actualRoles, setActualRoles] = useState<AppRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [simulatedRole, setSimulatedRole] = useState<AppRole | null>(null);
+
+  // Calculate actual role flags
+  const actualIsSuperAdmin = actualRoles.includes('super_admin');
+  const actualIsAdmin = actualRoles.includes('admin') || actualIsSuperAdmin;
+  const actualIsMagazine = actualRoles.includes('magazine');
+  const actualIsProduction = actualRoles.includes('production');
+  const actualIsDispatch = actualRoles.includes('dispatch');
+  const actualIsSales = actualRoles.includes('sales');
 
   // Calculate effective roles based on simulation
   const isSimulating = actualIsAdmin && simulatedRole !== null;
   
+  const isSuperAdmin = isSimulating 
+    ? simulatedRole === 'super_admin' 
+    : actualIsSuperAdmin;
+  
   const isAdmin = isSimulating 
-    ? simulatedRole === 'admin' 
+    ? (simulatedRole === 'super_admin' || simulatedRole === 'admin')
     : actualIsAdmin;
   
-  const isMagazineEditor = isSimulating 
-    ? simulatedRole === 'magazine_editor' 
-    : actualIsMagazineEditor;
+  const isMagazine = isSimulating 
+    ? simulatedRole === 'magazine' 
+    : actualIsMagazine;
   
   const isProduction = isSimulating 
     ? simulatedRole === 'production' 
     : actualIsProduction;
+
+  const isDispatch = isSimulating 
+    ? simulatedRole === 'dispatch' 
+    : actualIsDispatch;
+
+  const isSales = isSimulating 
+    ? simulatedRole === 'sales' 
+    : actualIsSales;
+
+  const userRoles = isSimulating 
+    ? [simulatedRole!] 
+    : actualRoles;
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -75,9 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }, 0);
         } else {
           setProfile(null);
-          setActualIsAdmin(false);
-          setActualIsMagazineEditor(false);
-          setActualIsProduction(false);
+          setActualRoles([]);
           setSimulatedRole(null);
         }
       }
@@ -117,14 +142,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq("user_id", userId);
 
     if (!error && data) {
-      const roles = data.map(r => r.role);
-      setActualIsAdmin(roles.includes("admin"));
-      setActualIsMagazineEditor(roles.includes("magazine_editor"));
-      setActualIsProduction(roles.includes("production"));
+      const roles = data.map(r => r.role as AppRole);
+      setActualRoles(roles);
     } else {
-      setActualIsAdmin(false);
-      setActualIsMagazineEditor(false);
-      setActualIsProduction(false);
+      setActualRoles([]);
     }
   };
 
@@ -154,9 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
-    setActualIsAdmin(false);
-    setActualIsMagazineEditor(false);
-    setActualIsProduction(false);
+    setActualRoles([]);
     setSimulatedRole(null);
   };
 
@@ -191,9 +210,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, 
       session, 
       profile, 
+      isSuperAdmin,
       isAdmin, 
-      isMagazineEditor,
+      isMagazine,
       isProduction,
+      isDispatch,
+      isSales,
+      userRoles,
       isLoading,
       // Role simulation
       simulatedRole,
