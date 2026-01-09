@@ -1794,6 +1794,7 @@ export type Database = {
           customer_first_name: string | null
           customer_last_name: string | null
           date_of_birth: string | null
+          deleted_at: string | null
           dropbox_link: string | null
           due_date: string | null
           estimated_cost: number | null
@@ -1851,6 +1852,7 @@ export type Database = {
           customer_first_name?: string | null
           customer_last_name?: string | null
           date_of_birth?: string | null
+          deleted_at?: string | null
           dropbox_link?: string | null
           due_date?: string | null
           estimated_cost?: number | null
@@ -1908,6 +1910,7 @@ export type Database = {
           customer_first_name?: string | null
           customer_last_name?: string | null
           date_of_birth?: string | null
+          deleted_at?: string | null
           dropbox_link?: string | null
           due_date?: string | null
           estimated_cost?: number | null

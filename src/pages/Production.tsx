@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  History
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -138,7 +139,8 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct")
+        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at")
+        .is("deleted_at", null) // Only show non-deleted projects
         .order("project_number", { ascending: false });
       
       if (error) throw error;
@@ -149,6 +151,7 @@ export default function Production() {
         secondary_commission_pct: number | null;
         tertiary_commission_pct: number | null;
         quaternary_commission_pct: number | null;
+        deleted_at: string | null;
       })[];
     },
   });
@@ -408,49 +411,69 @@ export default function Production() {
     onError: (error) => toast.error(`Failed to create test project: ${error.message}`),
   });
 
-  // Delete project and all related records mutation
+  // Delete project mutation - soft delete for regular projects, hard delete only for "Test" projects
   const deleteProjectMutation = useMutation({
     mutationFn: async (project: Project) => {
-      // Log audit before deletion
-      await logAudit({
-        tableName: 'projects',
-        recordId: project.id,
-        action: 'DELETE',
-        oldValues: {
-          project_number: project.project_number,
-          project_name: project.project_name,
-          project_status: project.project_status,
-          project_address: project.project_address,
-          primary_salesperson: project.primary_salesperson,
-        },
-        description: `Deleted project #${project.project_number} - ${project.project_name}`,
-      });
-
-      // Delete related records in order (child tables first)
-      await supabase.from("project_payment_phases").delete().eq("project_id", project.id);
-      await supabase.from("project_checklists").delete().eq("project_id", project.id);
-      await supabase.from("project_messages").delete().eq("project_id", project.id);
-      await supabase.from("project_cases").delete().eq("project_id", project.id);
-      await supabase.from("project_feedback").delete().eq("project_id", project.id);
-      await supabase.from("project_documents").delete().eq("project_id", project.id);
-      await supabase.from("project_commissions").delete().eq("project_id", project.id);
-      await supabase.from("project_bills").delete().eq("project_id", project.id);
-      await supabase.from("project_payments").delete().eq("project_id", project.id);
-      await supabase.from("project_invoices").delete().eq("project_id", project.id);
-      await supabase.from("project_finance").delete().eq("project_id", project.id);
-      await supabase.from("project_agreements").delete().eq("project_id", project.id);
+      const isTestProject = project.project_name?.toLowerCase().includes("test");
       
-      // Finally delete the project itself
-      const { error } = await supabase.from("projects").delete().eq("id", project.id);
-      if (error) throw error;
+      if (isTestProject) {
+        // Hard delete for test projects
+        await logAudit({
+          tableName: 'projects',
+          recordId: project.id,
+          action: 'DELETE',
+          oldValues: {
+            project_number: project.project_number,
+            project_name: project.project_name,
+            project_status: project.project_status,
+            project_address: project.project_address,
+            primary_salesperson: project.primary_salesperson,
+          },
+          description: `Permanently deleted test project #${project.project_number} - ${project.project_name}`,
+        });
+
+        // Delete related records in order (child tables first)
+        await supabase.from("project_payment_phases").delete().eq("project_id", project.id);
+        await supabase.from("project_checklists").delete().eq("project_id", project.id);
+        await supabase.from("project_messages").delete().eq("project_id", project.id);
+        await supabase.from("project_cases").delete().eq("project_id", project.id);
+        await supabase.from("project_feedback").delete().eq("project_id", project.id);
+        await supabase.from("project_documents").delete().eq("project_id", project.id);
+        await supabase.from("project_commissions").delete().eq("project_id", project.id);
+        await supabase.from("project_bills").delete().eq("project_id", project.id);
+        await supabase.from("project_payments").delete().eq("project_id", project.id);
+        await supabase.from("project_invoices").delete().eq("project_id", project.id);
+        await supabase.from("project_finance").delete().eq("project_id", project.id);
+        await supabase.from("project_agreements").delete().eq("project_id", project.id);
+        
+        const { error } = await supabase.from("projects").delete().eq("id", project.id);
+        if (error) throw error;
+      } else {
+        // Soft delete for regular projects
+        await logAudit({
+          tableName: 'projects',
+          recordId: project.id,
+          action: 'UPDATE',
+          oldValues: { deleted_at: null },
+          newValues: { deleted_at: new Date().toISOString() },
+          description: `Archived project #${project.project_number} - ${project.project_name}`,
+        });
+
+        const { error } = await supabase
+          .from("projects")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", project.id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
-      toast.success("Project and all related records deleted");
+      const isTestProject = projectToDelete?.project_name?.toLowerCase().includes("test");
+      toast.success(isTestProject ? "Test project permanently deleted" : "Project archived");
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       setDeleteTestProjectOpen(false);
       setProjectToDelete(null);
     },
-    onError: (error) => toast.error(`Failed to delete project: ${error.message}`),
+    onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
   const handleDeleteTestProject = (project: Project) => {
@@ -543,6 +566,17 @@ export default function Production() {
                     <Key className="h-4 w-4 mr-2" />
                     Change Password
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/audit-log">
+                          <History className="h-4 w-4 mr-2" />
+                          View Audit Log
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>
                     <LogOut className="h-4 w-4 mr-2" />
@@ -869,32 +903,51 @@ export default function Production() {
         <AlertDialog open={deleteTestProjectOpen} onOpenChange={setDeleteTestProjectOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete Project #{projectToDelete?.project_number}?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will permanently delete the project "{projectToDelete?.project_name}" and ALL associated records including:
-                <ul className="list-disc list-inside mt-2 text-sm">
-                  <li>Invoices, Payments, and Bills</li>
-                  <li>Agreements and Commissions</li>
-                  <li>Documents and Checklists</li>
-                  <li>Messages and Feedback</li>
-                </ul>
-                <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
+              <AlertDialogTitle>
+                {projectToDelete?.project_name?.toLowerCase().includes("test") 
+                  ? `Permanently Delete Test Project #${projectToDelete?.project_number}?`
+                  : `Archive Project #${projectToDelete?.project_number}?`
+                }
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div>
+                  {projectToDelete?.project_name?.toLowerCase().includes("test") ? (
+                    <>
+                      <p>This will <strong>permanently delete</strong> the test project "{projectToDelete?.project_name}" and ALL associated records including:</p>
+                      <ul className="list-disc list-inside mt-2 text-sm">
+                        <li>Invoices, Payments, and Bills</li>
+                        <li>Agreements and Commissions</li>
+                        <li>Documents and Checklists</li>
+                        <li>Messages and Feedback</li>
+                      </ul>
+                      <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
+                    </>
+                  ) : (
+                    <>
+                      <p>This will archive project "{projectToDelete?.project_name}" and remove it from the dashboard.</p>
+                      <p className="mt-2 text-sm">The project data will be preserved but hidden from view. This action is logged in the audit trail.</p>
+                    </>
+                  )}
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction 
                 onClick={() => projectToDelete && deleteProjectMutation.mutate(projectToDelete)}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                className={projectToDelete?.project_name?.toLowerCase().includes("test") 
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : ""
+                }
                 disabled={deleteProjectMutation.isPending}
               >
                 {deleteProjectMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Deleting...
+                    {projectToDelete?.project_name?.toLowerCase().includes("test") ? "Deleting..." : "Archiving..."}
                   </>
                 ) : (
-                  "Delete Project"
+                  projectToDelete?.project_name?.toLowerCase().includes("test") ? "Delete Permanently" : "Archive Project"
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>
