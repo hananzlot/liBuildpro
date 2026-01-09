@@ -44,8 +44,10 @@ import {
   FolderOpen,
   Receipt,
   FileSignature,
-  Plus
+  Plus,
+  Eye
 } from "lucide-react";
+import { PdfViewerDialog } from "./PdfViewerDialog";
 
 interface DocumentsSectionProps {
   projectId: string;
@@ -98,6 +100,8 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     notes: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
 
   // Fetch all documents from project_documents table
   const { data: projectDocuments = [], isLoading: loadingDocs } = useQuery({
@@ -278,6 +282,19 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
     return new Date(date).toLocaleDateString();
   };
 
+  const handleDocumentClick = (doc: Document) => {
+    const ext = doc.file_name.split('.').pop()?.toLowerCase() || '';
+    const isPdf = ext === 'pdf' || doc.file_type?.includes('pdf');
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || doc.file_type?.startsWith('image');
+    
+    if (isPdf || isImage) {
+      setSelectedDocument(doc);
+      setPdfViewerOpen(true);
+    } else {
+      window.open(doc.file_url, "_blank");
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Upload Button */}
@@ -348,7 +365,17 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8"
+                      onClick={() => handleDocumentClick(doc)}
+                      title="View"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
                       onClick={() => window.open(doc.file_url, "_blank")}
+                      title="Open in new tab"
                     >
                       <ExternalLink className="h-4 w-4" />
                     </Button>
@@ -358,6 +385,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
                         size="icon"
                         className="h-8 w-8 text-destructive"
                         onClick={() => handleDeleteClick(doc)}
+                        title="Delete"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -449,6 +477,16 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* PDF/Image Viewer Dialog */}
+      {selectedDocument && (
+        <PdfViewerDialog
+          open={pdfViewerOpen}
+          onOpenChange={setPdfViewerOpen}
+          fileUrl={selectedDocument.file_url}
+          fileName={selectedDocument.file_name}
+        />
+      )}
     </div>
   );
 }

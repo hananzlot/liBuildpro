@@ -63,6 +63,7 @@ import {
   History
 } from "lucide-react";
 import { FileUpload } from "./FileUpload";
+import { PdfViewerDialog } from "./PdfViewerDialog";
 
 interface SalespersonData {
   name: string | null;
@@ -186,6 +187,8 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
   const [historyBill, setHistoryBill] = useState<Bill | null>(null);
   const [payingBill, setPayingBill] = useState<Bill | null>(null);
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState<{ url: string; name: string } | null>(null);
 
   // Fetch data
   const { data: invoices = [], isLoading: loadingInvoices } = useQuery({
@@ -1041,7 +1044,10 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => window.open(bill.attachment_url!, "_blank")}
+                              onClick={() => {
+                                setSelectedAttachment({ url: bill.attachment_url!, name: bill.installer_company ? `Bill - ${bill.installer_company}` : "Bill Attachment" });
+                                setPdfViewerOpen(true);
+                              }}
                             >
                               <Paperclip className="h-3 w-3" />
                             </Button>
@@ -1128,7 +1134,10 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => window.open(agreement.attachment_url!, "_blank")}
+                              onClick={() => {
+                                setSelectedAttachment({ url: agreement.attachment_url!, name: agreement.agreement_number ? `Agreement #${agreement.agreement_number}` : (agreement.agreement_type || "Agreement") });
+                                setPdfViewerOpen(true);
+                              }}
                             >
                               <Paperclip className="h-3 w-3" />
                             </Button>
@@ -1338,6 +1347,16 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
         onOpenChange={setHistoryDialogOpen}
         bill={historyBill}
       />
+
+      {/* PDF/Image Viewer Dialog */}
+      {selectedAttachment && (
+        <PdfViewerDialog
+          open={pdfViewerOpen}
+          onOpenChange={setPdfViewerOpen}
+          fileUrl={selectedAttachment.url}
+          fileName={selectedAttachment.name}
+        />
+      )}
     </div>
   );
 }
