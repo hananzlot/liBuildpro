@@ -700,124 +700,126 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[280px] p-0 z-50 bg-popover max-h-[300px]" align="start">
+                          <PopoverContent className="w-[280px] p-0 z-50 bg-popover overflow-hidden" align="start">
                             <Command className="flex flex-col">
                               <CommandInput 
                                 placeholder={isSuperAdmin ? "Search or add..." : "Search..."} 
                                 value={newTypeValue}
                                 onValueChange={setNewTypeValue}
                               />
-                              <CommandList className="flex-1 overflow-y-auto" style={{ maxHeight: '220px' }}>
-                                <CommandEmpty>No type found.</CommandEmpty>
-                                <CommandGroup>
-                                  {isSuperAdmin && newTypeValue && !projectTypes.some(t => t.name.toLowerCase() === newTypeValue.toLowerCase()) && (
-                                    <CommandItem
-                                      value={`add-${newTypeValue}`}
-                                      onSelect={() => {
-                                        addTypeMutation.mutate(newTypeValue);
-                                      }}
-                                      className="cursor-pointer"
-                                    >
-                                      <Plus className="mr-2 h-4 w-4" />
-                                      Add "{newTypeValue}"
-                                    </CommandItem>
-                                  )}
-                                  {projectTypes.map((type) => {
-                                    const selectedTypes = (fullProject?.project_type || '').split(',').map(t => t.trim()).filter(Boolean);
-                                    const isSelected = selectedTypes.includes(type.name);
-                                    
-                                    const toggleType = () => {
-                                      if (editingTypeId === type.id) return;
-                                      let newTypes: string[];
-                                      if (isSelected) {
-                                        newTypes = selectedTypes.filter(t => t !== type.name);
-                                      } else {
-                                        newTypes = [...selectedTypes, type.name];
-                                      }
-                                      updateProjectMutation.mutate({ project_type: newTypes.join(', ') || null });
-                                    };
-                                    
-                                    return (
+                              <div className="max-h-[260px] overflow-y-auto overscroll-contain">
+                                <CommandList className="max-h-none overflow-visible">
+                                  <CommandEmpty>No type found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {isSuperAdmin && newTypeValue && !projectTypes.some(t => t.name.toLowerCase() === newTypeValue.toLowerCase()) && (
                                       <CommandItem
-                                        key={type.id}
-                                        value={type.name}
-                                        onSelect={toggleType}
-                                        className="flex items-center justify-between"
+                                        value={`add-${newTypeValue}`}
+                                        onSelect={() => {
+                                          addTypeMutation.mutate(newTypeValue);
+                                        }}
+                                        className="cursor-pointer"
                                       >
-                                        <div className="flex items-center">
-                                          <Checkbox
-                                            checked={isSelected}
-                                            className="mr-2 h-4 w-4"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              toggleType();
-                                            }}
-                                          />
-                                          {editingTypeId === type.id ? (
-                                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                              <Input
-                                                value={editingTypeName}
-                                                onChange={(e) => setEditingTypeName(e.target.value)}
-                                                className="h-6 w-24 text-xs"
-                                                autoFocus
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Enter' && editingTypeName.trim()) {
-                                                    updateTypeMutation.mutate({ id: type.id, name: editingTypeName.trim() });
-                                                  } else if (e.key === 'Escape') {
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add "{newTypeValue}"
+                                      </CommandItem>
+                                    )}
+                                    {projectTypes.map((type) => {
+                                      const selectedTypes = (fullProject?.project_type || '').split(',').map(t => t.trim()).filter(Boolean);
+                                      const isSelected = selectedTypes.includes(type.name);
+                                      
+                                      const toggleType = () => {
+                                        if (editingTypeId === type.id) return;
+                                        let newTypes: string[];
+                                        if (isSelected) {
+                                          newTypes = selectedTypes.filter(t => t !== type.name);
+                                        } else {
+                                          newTypes = [...selectedTypes, type.name];
+                                        }
+                                        updateProjectMutation.mutate({ project_type: newTypes.join(', ') || null });
+                                      };
+                                      
+                                      return (
+                                        <CommandItem
+                                          key={type.id}
+                                          value={type.name}
+                                          onSelect={toggleType}
+                                          className="flex items-center justify-between"
+                                        >
+                                          <div className="flex items-center">
+                                            <Checkbox
+                                              checked={isSelected}
+                                              className="mr-2 h-4 w-4"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleType();
+                                              }}
+                                            />
+                                            {editingTypeId === type.id ? (
+                                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <Input
+                                                  value={editingTypeName}
+                                                  onChange={(e) => setEditingTypeName(e.target.value)}
+                                                  className="h-6 w-24 text-xs"
+                                                  autoFocus
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && editingTypeName.trim()) {
+                                                      updateTypeMutation.mutate({ id: type.id, name: editingTypeName.trim() });
+                                                    } else if (e.key === 'Escape') {
+                                                      setEditingTypeId(null);
+                                                      setEditingTypeName("");
+                                                    }
+                                                  }}
+                                                />
+                                                <Button
+                                                  size="icon"
+                                                  variant="ghost"
+                                                  className="h-5 w-5"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (editingTypeName.trim()) {
+                                                      updateTypeMutation.mutate({ id: type.id, name: editingTypeName.trim() });
+                                                    }
+                                                  }}
+                                                >
+                                                  <Check className="h-3 w-3" />
+                                                </Button>
+                                                <Button
+                                                  size="icon"
+                                                  variant="ghost"
+                                                  className="h-5 w-5"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
                                                     setEditingTypeId(null);
                                                     setEditingTypeName("");
-                                                  }
-                                                }}
-                                              />
-                                              <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-5 w-5"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  if (editingTypeName.trim()) {
-                                                    updateTypeMutation.mutate({ id: type.id, name: editingTypeName.trim() });
-                                                  }
-                                                }}
-                                              >
-                                                <Check className="h-3 w-3" />
-                                              </Button>
-                                              <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-5 w-5"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  setEditingTypeId(null);
-                                                  setEditingTypeName("");
-                                                }}
-                                              >
-                                                <X className="h-3 w-3" />
-                                              </Button>
-                                            </div>
-                                          ) : (
-                                            <span>{type.name}</span>
+                                                  }}
+                                                >
+                                                  <X className="h-3 w-3" />
+                                                </Button>
+                                              </div>
+                                            ) : (
+                                              <span>{type.name}</span>
+                                            )}
+                                          </div>
+                                          {isSuperAdmin && editingTypeId !== type.id && (
+                                            <Button
+                                              size="icon"
+                                              variant="ghost"
+                                              className="h-5 w-5 opacity-50 hover:opacity-100"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingTypeId(type.id);
+                                                setEditingTypeName(type.name);
+                                              }}
+                                            >
+                                              <Pencil className="h-3 w-3" />
+                                            </Button>
                                           )}
-                                        </div>
-                                        {isSuperAdmin && editingTypeId !== type.id && (
-                                          <Button
-                                            size="icon"
-                                            variant="ghost"
-                                            className="h-5 w-5 opacity-50 hover:opacity-100"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setEditingTypeId(type.id);
-                                              setEditingTypeName(type.name);
-                                            }}
-                                          >
-                                            <Pencil className="h-3 w-3" />
-                                          </Button>
-                                        )}
-                                      </CommandItem>
-                                    );
-                                  })}
-                                </CommandGroup>
-                              </CommandList>
+                                        </CommandItem>
+                                      );
+                                    })}
+                                  </CommandGroup>
+                                </CommandList>
+                              </div>
                             </Command>
                           </PopoverContent>
                         </Popover>
