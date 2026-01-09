@@ -570,8 +570,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                         <Label>Project Start Date</Label>
                         <Input 
                           type="date"
-                          value={fullProject?.install_start_date || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ install_start_date: e.target.value })}
+                          value={fullProject?.install_start_date ? fullProject.install_start_date.split('T')[0] : ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ install_start_date: e.target.value || null })}
                         />
                       </div>
                     </div>
