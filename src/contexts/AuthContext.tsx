@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+type AppRole = 'admin' | 'user' | 'magazine_editor' | 'production';
+
 interface Profile {
   id: string;
   email: string;
@@ -17,6 +19,11 @@ interface AuthContextType {
   isMagazineEditor: boolean;
   isProduction: boolean;
   isLoading: boolean;
+  // Role simulation for admins
+  simulatedRole: AppRole | null;
+  isSimulating: boolean;
+  setSimulatedRole: (role: AppRole | null) => void;
+  availableRoles: AppRole[];
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -26,14 +33,32 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const ALL_ROLES: AppRole[] = ['admin', 'user', 'magazine_editor', 'production'];
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isMagazineEditor, setIsMagazineEditor] = useState(false);
-  const [isProduction, setIsProduction] = useState(false);
+  const [actualIsAdmin, setActualIsAdmin] = useState(false);
+  const [actualIsMagazineEditor, setActualIsMagazineEditor] = useState(false);
+  const [actualIsProduction, setActualIsProduction] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [simulatedRole, setSimulatedRole] = useState<AppRole | null>(null);
+
+  // Calculate effective roles based on simulation
+  const isSimulating = actualIsAdmin && simulatedRole !== null;
+  
+  const isAdmin = isSimulating 
+    ? simulatedRole === 'admin' 
+    : actualIsAdmin;
+  
+  const isMagazineEditor = isSimulating 
+    ? simulatedRole === 'magazine_editor' 
+    : actualIsMagazineEditor;
+  
+  const isProduction = isSimulating 
+    ? simulatedRole === 'production' 
+    : actualIsProduction;
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -50,9 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }, 0);
         } else {
           setProfile(null);
-          setIsAdmin(false);
-          setIsMagazineEditor(false);
-          setIsProduction(false);
+          setActualIsAdmin(false);
+          setActualIsMagazineEditor(false);
+          setActualIsProduction(false);
+          setSimulatedRole(null);
         }
       }
     );
@@ -92,13 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!error && data) {
       const roles = data.map(r => r.role);
-      setIsAdmin(roles.includes("admin"));
-      setIsMagazineEditor(roles.includes("magazine_editor"));
-      setIsProduction(roles.includes("production"));
+      setActualIsAdmin(roles.includes("admin"));
+      setActualIsMagazineEditor(roles.includes("magazine_editor"));
+      setActualIsProduction(roles.includes("production"));
     } else {
-      setIsAdmin(false);
-      setIsMagazineEditor(false);
-      setIsProduction(false);
+      setActualIsAdmin(false);
+      setActualIsMagazineEditor(false);
+      setActualIsProduction(false);
     }
   };
 
@@ -128,9 +154,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
-    setIsAdmin(false);
-    setIsMagazineEditor(false);
-    setIsProduction(false);
+    setActualIsAdmin(false);
+    setActualIsMagazineEditor(false);
+    setActualIsProduction(false);
+    setSimulatedRole(null);
   };
 
   const resetPassword = async (email: string) => {
@@ -167,7 +194,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin, 
       isMagazineEditor,
       isProduction,
-      isLoading, 
+      isLoading,
+      // Role simulation
+      simulatedRole,
+      isSimulating,
+      setSimulatedRole: actualIsAdmin ? setSimulatedRole : () => {}, // Only admins can simulate
+      availableRoles: ALL_ROLES,
       signIn, 
       signUp, 
       signOut,
