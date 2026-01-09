@@ -124,6 +124,7 @@ interface Bill {
   attachment_url: string | null;
   payment_method: string | null;
   payment_reference: string | null;
+  agreement_id: string | null;
 }
 
 interface Agreement {
@@ -1018,6 +1019,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         onSave={(data) => saveBillMutation.mutate(data)}
         isPending={saveBillMutation.isPending}
         projectId={projectId}
+        agreements={agreements}
       />
 
       {/* Agreement Dialog */}
@@ -1431,6 +1433,7 @@ function BillDialog({
   onSave, 
   isPending,
   projectId,
+  agreements,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -1438,6 +1441,7 @@ function BillDialog({
   onSave: (data: { bill: Partial<Bill>; billPayments: Omit<BillPayment, 'id' | 'bill_id'>[] }) => void;
   isPending: boolean;
   projectId: string;
+  agreements: Agreement[];
 }) {
   const [formData, setFormData] = useState({
     installer_company: "",
@@ -1446,6 +1450,7 @@ function BillDialog({
     bill_amount: "",
     memo: "",
     attachment_url: null as string | null,
+    agreement_id: "",
   });
   const [billPayments, setBillPayments] = useState<BillPaymentFormItem[]>([]);
   const [installerSearch, setInstallerSearch] = useState("");
@@ -1519,10 +1524,11 @@ function BillDialog({
         bill_amount: bill.bill_amount?.toString() || "",
         memo: bill.memo || "",
         attachment_url: bill.attachment_url || null,
+        agreement_id: bill.agreement_id || "",
       });
       // Payments will be loaded from query
     } else if (newOpen) {
-      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", memo: "", attachment_url: null });
+      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", memo: "", attachment_url: null, agreement_id: "" });
       setBillPayments([]);
     }
     onOpenChange(newOpen);
@@ -1575,6 +1581,7 @@ function BillDialog({
         bill_amount: billAmount,
         memo: formData.memo || null,
         attachment_url: formData.attachment_url,
+        agreement_id: formData.agreement_id || null,
       },
       billPayments: billPayments.map(p => ({
         payment_date: p.payment_date || null,
@@ -1721,7 +1728,20 @@ function BillDialog({
               </Popover>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <Label>Contract</Label>
+              <Select value={formData.agreement_id} onValueChange={(v) => setFormData(p => ({ ...p, agreement_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select contract" /></SelectTrigger>
+                <SelectContent>
+                  {agreements.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.agreement_number || a.agreement_type || "Contract"} - {formatCurrency(a.total_price)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label>Bill Amount ($)</Label>
               <Input type="number" value={formData.bill_amount} onChange={(e) => setFormData(p => ({ ...p, bill_amount: e.target.value }))} />
