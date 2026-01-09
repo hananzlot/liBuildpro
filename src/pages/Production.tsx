@@ -104,7 +104,7 @@ interface ProjectFinancials {
   totalCash: number;
 }
 
-type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'profit' | 'commission' | 'expected_profit' | 'total_cash';
+type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'commission' | 'expected_profit' | 'total_cash';
 type SortDirection = 'asc' | 'desc';
 
 const statusColors: Record<string, string> = {
@@ -368,9 +368,6 @@ export default function Production() {
           break;
         case 'proj_balance':
           comparison = (financialsA?.projectBalanceDue || 0) - (financialsB?.projectBalanceDue || 0);
-          break;
-        case 'profit':
-          comparison = (financialsA?.profitToDate || 0) - (financialsB?.profitToDate || 0);
           break;
         case 'commission':
           comparison = (financialsA?.totalCommission || 0) - (financialsB?.totalCommission || 0);
@@ -686,9 +683,6 @@ export default function Production() {
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('proj_balance')}>
                           <div className="flex items-center justify-end">Proj Balance <SortIcon column="proj_balance" /></div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('profit')}>
-                          <div className="flex items-center justify-end">Profit TD <SortIcon column="profit" /></div>
-                        </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('commission')}>
                           <div className="flex items-center justify-end">Commission <SortIcon column="commission" /></div>
                         </TableHead>
@@ -767,9 +761,6 @@ export default function Production() {
                             </TableCell>
                             <TableCell className="text-right text-xs text-amber-600">
                               {formatCurrency(financials?.projectBalanceDue)}
-                            </TableCell>
-                            <TableCell className={`text-right text-xs font-medium ${(financials?.profitToDate || 0) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                              {formatCurrency(financials?.profitToDate)}
                             </TableCell>
                             <TableCell className="text-right text-xs text-muted-foreground">
                               {formatCurrency(financials?.totalCommission)}
