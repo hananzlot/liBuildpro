@@ -447,7 +447,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     <CardTitle className="text-sm">Project Information</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <Label>Project Name</Label>
                         <DebouncedInput 
@@ -472,6 +472,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                             <SelectItem value="Cancelled">Cancelled</SelectItem>
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div>
+                        <Label>Project Start Date</Label>
+                        <Input 
+                          type="date"
+                          value={fullProject?.install_start_date || ""} 
+                          onChange={(e) => updateProjectMutation.mutate({ install_start_date: e.target.value })}
+                        />
                       </div>
                     </div>
                     <div>
@@ -977,48 +985,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                   </CardContent>
                 </Card>
 
-                {/* Install Status */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Installation Status</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Install Status</Label>
-                        <Select 
-                          value={fullProject?.install_status || "New Job"}
-                          onValueChange={(value) => updateProjectMutation.mutate({ install_status: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="New Job">New Job</SelectItem>
-                            <SelectItem value="Scheduled">Scheduled</SelectItem>
-                            <SelectItem value="In-Progress">In-Progress</SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Install Start Date</Label>
-                        <Input 
-                          type="date"
-                          value={fullProject?.install_start_date || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ install_start_date: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label>Install Notes</Label>
-                      <DebouncedTextarea 
-                        value={fullProject?.install_notes || ""} 
-                        onSave={(value) => updateProjectMutation.mutate({ install_notes: value })}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
               </>
             )}
           </TabsContent>
