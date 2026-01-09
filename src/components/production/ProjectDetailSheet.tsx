@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Sheet,
   SheetContent,
@@ -78,6 +79,7 @@ const statusColors: Record<string, string> = {
 
 export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: ProjectDetailSheetProps) {
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
 
   // Fetch full project details
@@ -516,8 +518,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                         <p className="text-xs text-muted-foreground mt-1">Default: 18%</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
+                    {/* Primary Salesperson Row */}
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
                         <Label>Primary Salesperson</Label>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -583,8 +586,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div>
-                        <Label>Commission %</Label>
+                      <div className="w-24">
+                        <Label>Comm %</Label>
                         <Input 
                           type="number"
                           min="0"
@@ -600,15 +603,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="100"
                         />
                       </div>
-                      <div>
-                        <Label>Profit Split %</Label>
+                      <div className="w-24">
+                        <Label>Split %</Label>
                         <Input 
                           type="number"
                           min="0"
                           max="100"
-                          value={fullProject?.primary_profit_split_pct || ""} 
+                          value={fullProject?.primary_profit_split_pct ?? 50} 
                           onChange={(e) => updateProjectMutation.mutate({ primary_profit_split_pct: parseFloat(e.target.value) || 0 })}
-                          placeholder="0"
+                          placeholder="50"
+                          disabled={!isAdmin}
+                          className={!isAdmin ? "bg-muted" : ""}
                         />
                       </div>
                     </div>
@@ -622,8 +627,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                       <span className="font-medium">Total Commission:</span>
                       <span className="font-bold">{totalCommission}%</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
+                    {/* Secondary Salesperson Row */}
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
                         <Label>Secondary Salesperson</Label>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -683,8 +689,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div>
-                        <Label>Commission %</Label>
+                      <div className="w-24">
+                        <Label>Comm %</Label>
                         <Input 
                           type="number"
                           min="0"
@@ -700,20 +706,23 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="0"
                         />
                       </div>
-                      <div>
-                        <Label>Profit Split %</Label>
+                      <div className="w-24">
+                        <Label>Split %</Label>
                         <Input 
                           type="number"
                           min="0"
                           max="100"
-                          value={fullProject?.secondary_profit_split_pct || ""} 
+                          value={fullProject?.secondary_profit_split_pct ?? 50} 
                           onChange={(e) => updateProjectMutation.mutate({ secondary_profit_split_pct: parseFloat(e.target.value) || 0 })}
-                          placeholder="0"
+                          placeholder="50"
+                          disabled={!isAdmin}
+                          className={!isAdmin ? "bg-muted" : ""}
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
+                    {/* Tertiary Salesperson Row */}
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
                         <Label>Tertiary Salesperson</Label>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -773,8 +782,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div>
-                        <Label>Commission %</Label>
+                      <div className="w-24">
+                        <Label>Comm %</Label>
                         <Input 
                           type="number"
                           min="0"
@@ -790,20 +799,23 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="0"
                         />
                       </div>
-                      <div>
-                        <Label>Profit Split %</Label>
+                      <div className="w-24">
+                        <Label>Split %</Label>
                         <Input 
                           type="number"
                           min="0"
                           max="100"
-                          value={fullProject?.tertiary_profit_split_pct || ""} 
+                          value={fullProject?.tertiary_profit_split_pct ?? 50} 
                           onChange={(e) => updateProjectMutation.mutate({ tertiary_profit_split_pct: parseFloat(e.target.value) || 0 })}
-                          placeholder="0"
+                          placeholder="50"
+                          disabled={!isAdmin}
+                          className={!isAdmin ? "bg-muted" : ""}
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
+                    {/* Quaternary Salesperson Row */}
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
                         <Label>Quaternary Salesperson</Label>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -863,8 +875,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div>
-                        <Label>Commission %</Label>
+                      <div className="w-24">
+                        <Label>Comm %</Label>
                         <Input 
                           type="number"
                           min="0"
@@ -880,15 +892,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="0"
                         />
                       </div>
-                      <div>
-                        <Label>Profit Split %</Label>
+                      <div className="w-24">
+                        <Label>Split %</Label>
                         <Input 
                           type="number"
                           min="0"
                           max="100"
-                          value={fullProject?.quaternary_profit_split_pct || ""} 
+                          value={fullProject?.quaternary_profit_split_pct ?? 50} 
                           onChange={(e) => updateProjectMutation.mutate({ quaternary_profit_split_pct: parseFloat(e.target.value) || 0 })}
-                          placeholder="0"
+                          placeholder="50"
+                          disabled={!isAdmin}
+                          className={!isAdmin ? "bg-muted" : ""}
                         />
                       </div>
                     </div>
