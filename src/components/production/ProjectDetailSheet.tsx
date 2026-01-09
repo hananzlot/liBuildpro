@@ -622,8 +622,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           value={fullProject?.lead_cost_percent ?? 18} 
                           onSave={(value) => updateProjectMutation.mutate({ lead_cost_percent: value ?? 18 })}
                           placeholder="18"
+                          disabled={!isAdmin}
+                          className={!isAdmin ? "bg-muted" : ""}
                         />
-                        <p className="text-xs text-muted-foreground mt-1">Default: 18%</p>
+                        <p className="text-xs text-muted-foreground mt-1">Admin only</p>
                       </div>
                       <div>
                         <Label>Commission Split %</Label>
