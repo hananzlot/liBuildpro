@@ -115,8 +115,10 @@ const statusColors: Record<string, string> = {
 export default function Production() {
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeView = searchParams.get('view') || 'projects';
+  const returnToProjectId = searchParams.get('returnToProject');
+  const openBillDialog = searchParams.get('openBill') === 'true';
   
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -129,6 +131,7 @@ export default function Production() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [warningSheetOpen, setWarningSheetOpen] = useState(false);
   const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | null>(null);
+  const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
 
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
@@ -983,7 +986,22 @@ export default function Production() {
           )}
 
           {activeView === 'subcontractors' && (
-            <SubcontractorsManagement />
+            <SubcontractorsManagement 
+              autoOpenAdd={!!returnToProjectId}
+              onSubcontractorAdded={() => {
+                if (returnToProjectId) {
+                  // Find the project and open it with bill dialog
+                  const project = projects.find(p => p.id === returnToProjectId);
+                  if (project) {
+                    setSelectedProject(project);
+                    setPendingBillDialogOpen(true);
+                    setDetailSheetOpen(true);
+                  }
+                  // Clear the return params
+                  setSearchParams({ view: 'projects' });
+                }
+              }}
+            />
           )}
         </div>
 
@@ -993,6 +1011,8 @@ export default function Production() {
           open={detailSheetOpen}
           onOpenChange={setDetailSheetOpen}
           onUpdate={refetch}
+          autoOpenBillDialog={pendingBillDialogOpen}
+          onBillDialogOpened={() => setPendingBillDialogOpen(false)}
         />
 
         {/* New Project Dialog */}

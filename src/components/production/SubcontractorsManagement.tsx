@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -73,7 +74,12 @@ const getExpirationStatus = (expirationDate: string): { status: 'ok' | 'warning'
   return { status: 'ok', daysLeft };
 };
 
-export function SubcontractorsManagement() {
+interface SubcontractorsManagementProps {
+  onSubcontractorAdded?: () => void;
+  autoOpenAdd?: boolean;
+}
+
+export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: SubcontractorsManagementProps = {}) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -82,6 +88,16 @@ export function SubcontractorsManagement() {
   const [deleteTarget, setDeleteTarget] = useState<Subcontractor | null>(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string } | null>(null);
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
+
+  // Auto-open the add dialog if requested (from bill flow)
+  useEffect(() => {
+    if (autoOpenAdd && !hasAutoOpened) {
+      setDialogOpen(true);
+      setEditingSubcontractor(null);
+      setHasAutoOpened(true);
+    }
+  }, [autoOpenAdd, hasAutoOpened]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -209,8 +225,14 @@ export function SubcontractorsManagement() {
     onSuccess: () => {
       toast.success(editingSubcontractor ? "Subcontractor updated" : "Subcontractor added");
       queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
+      queryClient.invalidateQueries({ queryKey: ["active-subcontractors"] });
       setDialogOpen(false);
       setEditingSubcontractor(null);
+      
+      // If we're adding a new subcontractor and have a callback, call it
+      if (!editingSubcontractor && onSubcontractorAdded) {
+        onSubcontractorAdded();
+      }
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });

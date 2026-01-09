@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,6 +73,8 @@ interface ProjectDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: () => void;
+  autoOpenBillDialog?: boolean;
+  onBillDialogOpened?: () => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -83,7 +85,7 @@ const statusColors: Record<string, string> = {
   "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: ProjectDetailSheetProps) {
+export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, autoOpenBillDialog, onBillDialogOpened }: ProjectDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
@@ -92,10 +94,18 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [editingChecklistText, setEditingChecklistText] = useState("");
 
+  // Auto-switch to finance tab and signal bill dialog open when returning from subcontractor add
+  useEffect(() => {
+    if (open && autoOpenBillDialog && project) {
+      setActiveTab("finance");
+      onBillDialogOpened?.();
+    }
+  }, [open, autoOpenBillDialog, project, onBillDialogOpened]);
+
   const handleNavigateToSubcontractors = useCallback(() => {
     onOpenChange(false); // Close the sheet first
-    navigate("/production?view=subcontractors");
-  }, [navigate, onOpenChange]);
+    navigate(`/production?view=subcontractors&returnToProject=${project?.id}`);
+  }, [navigate, onOpenChange, project?.id]);
 
   // Fetch full project details
   const { data: fullProject, isLoading } = useQuery({
@@ -1039,6 +1049,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                 ].filter(s => s.name)}
                 onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
                 onNavigateToSubcontractors={handleNavigateToSubcontractors}
+                autoOpenBillDialog={autoOpenBillDialog}
               />
             )}
           </TabsContent>
