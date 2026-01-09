@@ -546,7 +546,8 @@ const Index = () => {
             contact_id: opp.contact_id,
             assigned_to: opp.assigned_to,
             ghl_date_added: opp.ghl_date_added,
-            ghl_date_updated: opp.ghl_date_updated
+            ghl_date_updated: opp.ghl_date_updated,
+            won_at: opp.won_at
           });
           setWonOpportunitiesSheetOpen(false);
           setOppDetailSheetOpen(true);
@@ -583,7 +584,8 @@ const Index = () => {
             contact_id: opp.contact_id,
             assigned_to: opp.assigned_to,
             ghl_date_added: opp.ghl_date_added,
-            ghl_date_updated: opp.ghl_date_updated
+            ghl_date_updated: opp.ghl_date_updated,
+            won_at: opp.won_at
           });
           setOpportunitiesSheetOpen(false);
           setOppDetailSheetOpen(true);
@@ -647,7 +649,8 @@ const Index = () => {
             contact_id: opp.contact_id,
             assigned_to: opp.assigned_to,
             ghl_date_added: null,
-            ghl_date_updated: opp.ghl_date_updated
+            ghl_date_updated: opp.ghl_date_updated,
+            won_at: opp.won_at
           });
           setInitialTaskGhlId(null);
           setActivitySheetOpen(false);
@@ -666,7 +669,8 @@ const Index = () => {
             contact_id: opp.contact_id,
             assigned_to: opp.assigned_to,
             ghl_date_added: null,
-            ghl_date_updated: opp.ghl_date_updated
+            ghl_date_updated: opp.ghl_date_updated,
+            won_at: opp.won_at
           });
           setInitialTaskGhlId(task.ghl_id);
           setActivitySheetOpen(false);
@@ -715,7 +719,8 @@ const Index = () => {
             contact_id: opp.contact_id || null,
             assigned_to: opp.assigned_to || null,
             ghl_date_added: opp.ghl_date_added || null,
-            ghl_date_updated: opp.ghl_date_updated || null
+            ghl_date_updated: opp.ghl_date_updated || null,
+            won_at: opp.won_at || null
           });
           setOpportunitySalesSheetOpen(false);
           setOppDetailSheetOpen(true);

@@ -1657,6 +1657,7 @@ export function OpportunityDetailSheet({
       toast.success("Won date updated");
       setIsEditingWonAt(false);
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["won-opportunities"] });
       queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
     } catch (error) {
       console.error("Error saving won date:", error);
