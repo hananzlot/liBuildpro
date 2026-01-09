@@ -1061,6 +1061,8 @@ export type Database = {
           installer_company: string | null
           memo: string | null
           not_affecting_payment: boolean | null
+          payment_method: string | null
+          payment_reference: string | null
           project_id: string | null
           updated_at: string | null
         }
@@ -1076,6 +1078,8 @@ export type Database = {
           installer_company?: string | null
           memo?: string | null
           not_affecting_payment?: boolean | null
+          payment_method?: string | null
+          payment_reference?: string | null
           project_id?: string | null
           updated_at?: string | null
         }
@@ -1091,6 +1095,8 @@ export type Database = {
           installer_company?: string | null
           memo?: string | null
           not_affecting_payment?: boolean | null
+          payment_method?: string | null
+          payment_reference?: string | null
           project_id?: string | null
           updated_at?: string | null
         }
