@@ -132,19 +132,44 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
         
         if (error) throw error;
       }
-      return { role, hasRole };
+      return { role, hasRole, userId };
     },
-    onSuccess: async (data) => {
-      await queryClient.refetchQueries({ queryKey: ["all-user-roles"] });
+    onMutate: async ({ userId, role, hasRole }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["all-user-roles"] });
+      
+      // Snapshot the previous value
+      const previousRoles = queryClient.getQueryData<UserRole[]>(["all-user-roles"]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<UserRole[]>(["all-user-roles"], (old = []) => {
+        if (hasRole) {
+          // Remove the role
+          return old.filter(r => !(r.user_id === userId && r.role === role));
+        } else {
+          // Add the role
+          return [...old, { user_id: userId, role }];
+        }
+      });
+      
+      return { previousRoles };
+    },
+    onSuccess: (data) => {
       const roleLabel = ROLE_CONFIG.find(r => r.role === data.role)?.label || data.role;
       toast.success(data.hasRole ? `${roleLabel} role removed` : `${roleLabel} role granted`);
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback on error
+      if (context?.previousRoles) {
+        queryClient.setQueryData(["all-user-roles"], context.previousRoles);
+      }
       toast.error(`Failed to update role: ${error.message}`);
     },
     onSettled: () => {
       setUpdatingUserId(null);
       setUpdatingRole(null);
+      // Refetch to ensure we're in sync with server
+      queryClient.invalidateQueries({ queryKey: ["all-user-roles"] });
     },
   });
 
