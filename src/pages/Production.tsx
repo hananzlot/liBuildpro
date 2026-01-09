@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -118,7 +118,8 @@ const statusColors: Record<string, string> = {
 
 export default function Production() {
   const queryClient = useQueryClient();
-  const { isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { isAdmin, isSimulating } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = searchParams.get('view') || 'projects';
   const returnToProjectId = searchParams.get('returnToProject');
@@ -618,8 +619,19 @@ export default function Production() {
     missingSalesperson: 'Missing Salesperson',
   };
 
+  const handleAdminAction = (action: string) => {
+    switch (action) {
+      case 'audit':
+        navigate('/audit-log');
+        break;
+    }
+  };
+
   return (
-    <AppLayout showNotifications={false}>
+    <AppLayout 
+      showNotifications={false}
+      onAdminAction={(isAdmin || isSimulating) ? handleAdminAction : undefined}
+    >
       <TooltipProvider>
         <div className="py-4 px-4 lg:px-6 space-y-4">
           {activeView === 'projects' && (

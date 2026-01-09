@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const FollowUp = () => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSimulating } = useAuth();
   
   const [dateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
@@ -43,7 +43,7 @@ const FollowUp = () => {
   };
 
   return (
-    <AppLayout onAdminAction={isAdmin ? handleAdminAction : undefined}>
+    <AppLayout onAdminAction={(isAdmin || isSimulating) ? handleAdminAction : undefined}>
       <div className="px-6 py-6 space-y-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground mb-1">Follow-up Management</h2>
