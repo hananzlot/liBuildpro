@@ -57,6 +57,28 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
     return projects.filter(p => p.contractsTotal > 0);
   }, [projects]);
 
+  // Recalculate totals using only projects with sales
+  const filteredTotals = useMemo(() => {
+    const totalRevenue = projectsWithSales.reduce((sum, p) => sum + p.contractsTotal, 0);
+    const totalCosts = projectsWithSales.reduce((sum, p) => sum + p.totalBillsReceived, 0);
+    const totalLeadCost = projectsWithSales.reduce((sum, p) => sum + p.leadCostAmount, 0);
+    const totalGrossProfit = projectsWithSales.reduce((sum, p) => sum + p.grossProfit, 0);
+    const totalCommission = projectsWithSales.reduce((sum, p) => sum + p.totalCommission, 0);
+    const totalNetProfit = projectsWithSales.reduce((sum, p) => sum + p.expectedNetProfit, 0);
+    const profitMargin = totalRevenue > 0 ? (totalGrossProfit / totalRevenue) * 100 : 0;
+
+    return {
+      totalRevenue,
+      totalCosts,
+      totalLeadCost,
+      totalGrossProfit,
+      totalCommission,
+      totalNetProfit,
+      profitMargin,
+      projectCount: projectsWithSales.length,
+    };
+  }, [projectsWithSales]);
+
   // Profitability by Project chart data
   const projectChartData = useMemo(() => {
     return projectsWithSales
@@ -124,14 +146,14 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <MetricCard
           title="Total Sold"
-          value={formatCurrency(totals.totalRevenue)}
-          subValue={`${totals.projectCount} projects`}
+          value={formatCurrency(filteredTotals.totalRevenue)}
+          subValue={`${filteredTotals.projectCount} projects`}
           icon={DollarSign}
           onClick={() => handleKPIClick('totalSold')}
         />
         <MetricCard
           title="Total Costs"
-          value={formatCurrency(totals.totalCosts)}
+          value={formatCurrency(filteredTotals.totalCosts)}
           subValue="Bills received"
           icon={Receipt}
           variant="warning"
@@ -139,32 +161,32 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
         />
         <MetricCard
           title="Lead % Fee"
-          value={formatCurrency(totals.totalLeadCost)}
+          value={formatCurrency(filteredTotals.totalLeadCost)}
           subValue="Company fee from sales"
           icon={TrendingDown}
           onClick={() => handleKPIClick('leadFee')}
         />
         <MetricCard
           title="Gross Profit"
-          value={formatCurrency(totals.totalGrossProfit)}
+          value={formatCurrency(filteredTotals.totalGrossProfit)}
           subValue="Sold - Max(Bills, Est)"
           icon={TrendingUp}
-          variant={totals.totalGrossProfit > 0 ? 'success' : 'danger'}
+          variant={filteredTotals.totalGrossProfit > 0 ? 'success' : 'danger'}
           onClick={() => handleKPIClick('grossProfit')}
         />
         <MetricCard
           title="Commissions"
-          value={formatCurrency(totals.totalCommission)}
+          value={formatCurrency(filteredTotals.totalCommission)}
           subValue="% of Gross to sales"
           icon={Wallet}
           onClick={() => handleKPIClick('commissions')}
         />
         <MetricCard
           title="Net Profit"
-          value={formatCurrency(totals.totalNetProfit)}
+          value={formatCurrency(filteredTotals.totalNetProfit)}
           subValue="Gross - Commissions"
           icon={Percent}
-          variant={totals.totalNetProfit > 0 ? 'success' : 'danger'}
+          variant={filteredTotals.totalNetProfit > 0 ? 'success' : 'danger'}
           onClick={() => handleKPIClick('netProfit')}
         />
       </div>
