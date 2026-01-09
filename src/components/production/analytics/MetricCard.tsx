@@ -11,6 +11,7 @@ interface MetricCardProps {
   trendValue?: string;
   variant?: 'default' | 'success' | 'warning' | 'danger';
   className?: string;
+  onClick?: () => void;
 }
 
 export function MetricCard({
@@ -22,6 +23,7 @@ export function MetricCard({
   trendValue,
   variant = 'default',
   className,
+  onClick,
 }: MetricCardProps) {
   const variantStyles = {
     default: 'border-border',
@@ -38,7 +40,14 @@ export function MetricCard({
   };
 
   return (
-    <Card className={cn(variantStyles[variant], className)}>
+    <Card 
+      className={cn(
+        variantStyles[variant], 
+        onClick && 'cursor-pointer hover:shadow-md hover:border-primary/50 transition-all',
+        className
+      )}
+      onClick={onClick}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
