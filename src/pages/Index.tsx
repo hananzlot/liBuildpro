@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen, Receipt, ExternalLink, Briefcase } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +42,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 const Index = () => {
+  const navigate = useNavigate();
   const {
     user,
     profile,
@@ -278,7 +280,7 @@ const Index = () => {
                 className="gap-2"
                 onClick={(e) => {
                   e.preventDefault();
-                  window.location.href = "/production";
+                  navigate("/production");
                 }}
               >
                 <Briefcase className="h-4 w-4" />
