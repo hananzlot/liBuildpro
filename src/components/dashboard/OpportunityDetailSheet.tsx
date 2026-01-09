@@ -1278,6 +1278,65 @@ export function OpportunityDetailSheet({
   };
 
   // Inline save for status change (without entering full edit mode)
+  // Helper function to create a project when opportunity is won
+  const createProjectForWonOpportunity = async (oppGhlId: string) => {
+    try {
+      // Check if project already exists for this opportunity
+      const { data: existingProject } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("opportunity_id", oppGhlId)
+        .maybeSingle();
+      
+      if (existingProject) {
+        console.log("Project already exists for this opportunity, skipping creation");
+        return;
+      }
+
+      // Get opportunity and contact details
+      const { data: oppData } = await supabase
+        .from("opportunities")
+        .select("*, contact_id, location_id, name, monetary_value, assigned_to")
+        .eq("ghl_id", oppGhlId)
+        .single();
+      
+      if (!oppData) return;
+
+      const contact = contacts.find(c => c.ghl_id === oppData.contact_id);
+      const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
+      const assignedUser = users.find(u => u.ghl_id === oppData.assigned_to);
+
+      // Create the project
+      const { error: createError } = await supabase
+        .from("projects")
+        .insert({
+          opportunity_id: oppGhlId,
+          location_id: oppData.location_id || "pVeFrqvtYWNIPRIi0Fmr",
+          project_name: oppData.name || "Untitled Project",
+          customer_first_name: contact?.first_name || null,
+          customer_last_name: contact?.last_name || null,
+          customer_email: contact?.email || null,
+          cell_phone: contact?.phone || null,
+          project_address: address,
+          primary_salesperson: assignedUser?.name || assignedUser?.first_name || null,
+          estimated_cost: oppData.monetary_value || null,
+          project_status: "New Job",
+          contact_id: oppData.contact_id || null,
+          created_by: user?.id || null,
+          lead_source: contact?.source || null
+        });
+
+      if (createError) {
+        console.error("Error creating project:", createError);
+      } else {
+        toast.success("Project created from won opportunity!");
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+      }
+    } catch (err) {
+      console.error("Error in createProjectForWonOpportunity:", err);
+    }
+  };
+
   const handleInlineStatusChange = async (newStatus: string) => {
     if (!opportunity) return;
     setIsSavingInline(true);
@@ -1306,6 +1365,11 @@ export function OpportunityDetailSheet({
       queryClient.invalidateQueries({
         queryKey: ["opportunity_edits"]
       });
+
+      // Create project if status changed to "won"
+      if (newStatus.toLowerCase() === "won") {
+        await createProjectForWonOpportunity(opportunity.ghl_id);
+      }
     } catch (error) {
       console.error("Error updating status:", error);
       toast.error("Failed to update status");
@@ -1386,6 +1450,11 @@ export function OpportunityDetailSheet({
       queryClient.invalidateQueries({
         queryKey: ["opportunity_edits"]
       });
+
+      // Create project if status changed to "won"
+      if (editedStatus.toLowerCase() === "won") {
+        await createProjectForWonOpportunity(opportunity.ghl_id);
+      }
     } catch (error) {
       console.error("Error updating opportunity:", error);
       toast.error("Failed to update opportunity in GHL");
