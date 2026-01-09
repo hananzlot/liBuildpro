@@ -561,6 +561,8 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                 <TableRow>
                   <TableHead className="text-xs">Contract</TableHead>
                   <TableHead className="text-xs text-right">Sold</TableHead>
+                  <TableHead className="text-xs text-right">Uninvoiced</TableHead>
+                  <TableHead className="text-xs text-right">Uncollected</TableHead>
                   <TableHead className="text-xs text-right">Collected</TableHead>
                   <TableHead className="text-xs text-right">Bills</TableHead>
                   <TableHead className="text-xs text-right">Bills Paid</TableHead>
@@ -575,6 +577,12 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                     </TableCell>
                     <TableCell className="text-xs text-right font-medium">
                       {formatCurrency(ap.totalPrice)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right text-amber-600">
+                      {formatCurrency(ap.uninvoiced)}
+                    </TableCell>
+                    <TableCell className="text-xs text-right text-amber-600">
+                      {formatCurrency(ap.uncollected)}
                     </TableCell>
                     <TableCell className="text-xs text-right text-emerald-600">
                       {formatCurrency(ap.collected)}
@@ -596,6 +604,8 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                     <TableCell className="text-xs italic">Unassigned Bills</TableCell>
                     <TableCell className="text-xs text-right">-</TableCell>
                     <TableCell className="text-xs text-right">-</TableCell>
+                    <TableCell className="text-xs text-right">-</TableCell>
+                    <TableCell className="text-xs text-right">-</TableCell>
                     <TableCell className="text-xs text-right text-amber-600">
                       {formatCurrency(unassignedBillsTotal)}
                     </TableCell>
@@ -612,6 +622,12 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
                   <TableCell className="text-xs">Total</TableCell>
                   <TableCell className="text-xs text-right">
                     {formatCurrency(totalAgreementsValue)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-amber-600">
+                    {formatCurrency(totalAgreementsValue - totalInvoiced)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right text-amber-600">
+                    {formatCurrency(totalInvoiced - totalPaymentsReceived)}
                   </TableCell>
                   <TableCell className="text-xs text-right text-emerald-600">
                     {formatCurrency(totalPaymentsReceived)}
