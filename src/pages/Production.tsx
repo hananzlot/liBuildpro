@@ -98,7 +98,7 @@ interface ProjectFinancials {
   profitToDate: number;
 }
 
-type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'profit';
+type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'profit';
 type SortDirection = 'asc' | 'desc';
 
 const statusColors: Record<string, string> = {
@@ -295,6 +295,9 @@ export default function Production() {
           break;
         case 'project_manager':
           comparison = (a.project_manager || '').localeCompare(b.project_manager || '');
+          break;
+        case 'sold_amount':
+          comparison = (financialsA?.contractsTotal || 0) - (financialsB?.contractsTotal || 0);
           break;
         case 'bills_received':
           comparison = (financialsA?.totalBillsReceived || 0) - (financialsB?.totalBillsReceived || 0);
@@ -601,6 +604,9 @@ export default function Production() {
                         <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('project_manager')}>
                           <div className="flex items-center">Proj Mgr <SortIcon column="project_manager" /></div>
                         </TableHead>
+                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sold_amount')}>
+                          <div className="flex items-center justify-end">Sold Amt <SortIcon column="sold_amount" /></div>
+                        </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('bills_received')}>
                           <div className="flex items-center justify-end">Bills Rcvd <SortIcon column="bills_received" /></div>
                         </TableHead>
@@ -659,6 +665,9 @@ export default function Production() {
                             </TableCell>
                             <TableCell className="text-xs">{project.primary_salesperson || "-"}</TableCell>
                             <TableCell className="text-xs">{project.project_manager || "-"}</TableCell>
+                            <TableCell className="text-right text-xs font-medium">
+                              {formatCurrency(financials?.contractsTotal)}
+                            </TableCell>
                             <TableCell className="text-right text-xs">
                               {formatCurrency(financials?.totalBillsReceived)}
                             </TableCell>
