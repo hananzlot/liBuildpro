@@ -20,7 +20,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  History
+  History,
+  BarChart3,
+  FolderKanban
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -66,8 +68,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { toast } from "sonner";
 import { ProjectDetailSheet } from "@/components/production/ProjectDetailSheet";
 import { NewProjectDialog } from "@/components/production/NewProjectDialog";
+import { AnalyticsSection } from "@/components/production/AnalyticsSection";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Project {
   id: string;
@@ -139,6 +143,7 @@ export default function Production() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [warningSheetOpen, setWarningSheetOpen] = useState(false);
   const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | null>(null);
+  const [activeMainTab, setActiveMainTab] = useState<string>("projects");
 
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
@@ -679,41 +684,55 @@ export default function Production() {
         </header>
 
         <main className="px-8 py-6 space-y-6">
-          {/* KPI Cards */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Total Projects</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">{totalProjects}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>In Progress</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-amber-500">{inProgressProjects}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Completed</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold text-emerald-500">{completedProjects}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardDescription>Total Sold</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">{formatCurrency(filteredFinancialsTotal)}</p>
-              </CardContent>
-            </Card>
-          </section>
+          {/* Main Tabs */}
+          <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="projects" className="flex items-center gap-2">
+                <FolderKanban className="h-4 w-4" />
+                Projects
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="projects" className="mt-6 space-y-6">
+              {/* KPI Cards */}
+              <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Total Projects</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold">{totalProjects}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>In Progress</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold text-amber-500">{inProgressProjects}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Completed</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold text-emerald-500">{completedProjects}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Total Sold</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-bold">{formatCurrency(filteredFinancialsTotal)}</p>
+                  </CardContent>
+                </Card>
+              </section>
 
           {/* Financial Warnings Summary */}
           {totalWarnings > 0 && (
@@ -1035,6 +1054,19 @@ export default function Production() {
               )}
             </CardContent>
           </Card>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="mt-6">
+              <AnalyticsSection 
+                onProjectClick={(projectId) => {
+                  const project = projects.find(p => p.id === projectId);
+                  if (project) {
+                    handleOpenProject(project);
+                  }
+                }}
+              />
+            </TabsContent>
+          </Tabs>
         </main>
 
         {/* Project Detail Sheet */}
