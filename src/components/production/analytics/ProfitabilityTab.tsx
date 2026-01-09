@@ -316,9 +316,12 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
                     ? (project.expectedNetProfit / project.contractsTotal) * 100 
                     : 0;
                   
-                  // Show max of bills or estimated costs
-                  const costForDisplay = Math.max(project.totalBillsReceived, project.effectiveEstimatedCost);
-                  const isUsingEstimate = project.effectiveEstimatedCost > project.totalBillsReceived;
+                  // For completed projects, always use real bills - no estimates
+                  const isCompleted = project.project_status === 'Completed';
+                  const costForDisplay = isCompleted 
+                    ? project.totalBillsReceived 
+                    : Math.max(project.totalBillsReceived, project.effectiveEstimatedCost);
+                  const isUsingEstimate = !isCompleted && project.effectiveEstimatedCost > project.totalBillsReceived;
                   
                   return (
                     <TableRow 
