@@ -73,10 +73,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update the user's password
+    // Update the user's password and confirm their email
     const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
-      { password }
+      { password, email_confirm: true }
     );
 
     if (updateError) {
