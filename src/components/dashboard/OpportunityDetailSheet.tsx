@@ -1627,15 +1627,16 @@ export function OpportunityDetailSheet({
     }
   };
   
-  // Admin-only: Save won_at date
+  // Admin-only: Save won_at date (date only, no time)
   const handleSaveWonAt = async () => {
     if (!opportunity || !isAdmin) return;
     setIsSavingWonAt(true);
     try {
-      // Build the won_at timestamp from date and time inputs
+      // Build the won_at timestamp from date input only (use noon PST as default time)
       let wonAtValue: string | null = null;
       if (editedWonAtDate) {
-        const timeStr = editedWonAtTime || "12:00";
+        // Use noon PST as default time for date-only storage
+        const timeStr = "12:00";
         // Treat input as PST: parse as UTC then add PST offset to get actual UTC
         const pstOffset = getPSTOffset(new Date(`${editedWonAtDate}T12:00:00Z`));
         const tempUtcDate = new Date(`${editedWonAtDate}T${timeStr}:00.000Z`);
@@ -1743,6 +1744,15 @@ export function OpportunityDetailSheet({
       minute: "2-digit",
       hour12: true
     }) + " PST";
+  };
+  const formatDateOnly = (dateString: string | null) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleString("en-US", {
+      timeZone: "America/Los_Angeles",
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
   };
   const getStatusColor = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -2118,12 +2128,6 @@ export function OpportunityDetailSheet({
                       onChange={(e) => setEditedWonAtDate(e.target.value)}
                       className="h-6 text-xs w-28 px-1"
                     />
-                    <Input
-                      type="time"
-                      value={editedWonAtTime}
-                      onChange={(e) => setEditedWonAtTime(e.target.value)}
-                      className="h-6 text-xs w-20 px-1"
-                    />
                     <Button variant="ghost" size="sm" className="h-6 px-1" onClick={handleSaveWonAt} disabled={isSavingWonAt}>
                       {isSavingWonAt ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                     </Button>
@@ -2143,20 +2147,18 @@ export function OpportunityDetailSheet({
                         const pstOffset = getPSTOffset(d);
                         const pstDate = new Date(d.getTime() - pstOffset * 60 * 60 * 1000);
                         setEditedWonAtDate(pstDate.toISOString().split("T")[0]);
-                        setEditedWonAtTime(pstDate.toISOString().split("T")[1].slice(0, 5));
                       } else {
                         // Default to now
                         const now = new Date();
                         const pstOffset = getPSTOffset(now);
                         const pstNow = new Date(now.getTime() - pstOffset * 60 * 60 * 1000);
                         setEditedWonAtDate(pstNow.toISOString().split("T")[0]);
-                        setEditedWonAtTime(pstNow.toISOString().split("T")[1].slice(0, 5));
                       }
                       setIsEditingWonAt(true);
                     }}
                     disabled={!isAdmin}
                   >
-                    {formatDate(savedWonAt ?? opportunity.won_at)}
+                    {formatDateOnly(savedWonAt ?? opportunity.won_at)}
                     {isAdmin && <Pencil className="h-2.5 w-2.5 inline ml-1 opacity-50" />}
                   </button>
                 )}
