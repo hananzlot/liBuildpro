@@ -909,7 +909,6 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         onSave={(data) => savePaymentMutation.mutate(data)}
         isPending={savePaymentMutation.isPending}
         invoices={invoices}
-        paymentPhases={paymentPhases}
       />
 
       {/* Bill Dialog */}
@@ -1125,7 +1124,6 @@ function PaymentDialog({
   onSave, 
   isPending,
   invoices,
-  paymentPhases,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
@@ -1133,7 +1131,6 @@ function PaymentDialog({
   onSave: (data: Partial<Payment>) => void;
   isPending: boolean;
   invoices: Invoice[];
-  paymentPhases: PaymentPhase[];
 }) {
   const [formData, setFormData] = useState({
     bank_name: "",
@@ -1144,7 +1141,6 @@ function PaymentDialog({
     payment_fee: "",
     check_number: "",
     invoice_id: "",
-    payment_phase_id: "",
   });
   const [amountError, setAmountError] = useState("");
 
@@ -1159,16 +1155,15 @@ function PaymentDialog({
         payment_fee: payment.payment_fee?.toString() || "",
         check_number: payment.check_number || "",
         invoice_id: payment.invoice_id || "",
-        payment_phase_id: payment.payment_phase_id || "",
       });
     } else if (newOpen) {
-      setFormData({ bank_name: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "", payment_phase_id: "" });
+      setFormData({ bank_name: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "" });
     }
     setAmountError("");
     onOpenChange(newOpen);
   };
 
-  // Get selected invoice to validate amount
+  // Get selected invoice to validate amount and get phase
   const selectedInvoice = invoices.find(i => i.id === formData.invoice_id);
   const maxAmount = selectedInvoice?.open_balance || 0;
 
@@ -1182,6 +1177,9 @@ function PaymentDialog({
       return;
     }
     
+    // Get payment phase from selected invoice
+    const paymentPhaseId = selectedInvoice?.payment_phase_id || null;
+    
     onSave({
       bank_name: formData.bank_name || null,
       projected_received_date: formData.projected_received_date || null,
@@ -1191,7 +1189,7 @@ function PaymentDialog({
       payment_fee: parseFloat(formData.payment_fee) || 0,
       check_number: formData.check_number || null,
       invoice_id: formData.invoice_id || null,
-      payment_phase_id: formData.payment_phase_id || null,
+      payment_phase_id: paymentPhaseId,
     });
   };
 
@@ -1199,7 +1197,7 @@ function PaymentDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{payment ? "Edit Payment" : "Add Payment"}</DialogTitle>
+          <DialogTitle>{payment ? "Edit Payment Received" : "Add Payment Received"}</DialogTitle>
           <DialogDescription>Enter payment details below.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -1209,37 +1207,22 @@ function PaymentDialog({
               <Input value={formData.bank_name} onChange={(e) => setFormData(p => ({ ...p, bank_name: e.target.value }))} />
             </div>
             <div>
-              <Label>Expected Date</Label>
+              <Label>Date Received</Label>
               <Input type="date" value={formData.projected_received_date} onChange={(e) => setFormData(p => ({ ...p, projected_received_date: e.target.value }))} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Invoice</Label>
-              <Select value={formData.invoice_id} onValueChange={(v) => { setFormData(p => ({ ...p, invoice_id: v })); setAmountError(""); }}>
-                <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
-                <SelectContent>
-                  {invoices.map((inv) => (
-                    <SelectItem key={inv.id} value={inv.id}>
-                      {inv.invoice_number} - Balance: {formatCurrency(inv.open_balance)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Payment Phase</Label>
-              <Select value={formData.payment_phase_id} onValueChange={(v) => setFormData(p => ({ ...p, payment_phase_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select phase" /></SelectTrigger>
-                <SelectContent>
-                  {paymentPhases.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.phase_name} - {formatCurrency(p.amount)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div>
+            <Label>Invoice</Label>
+            <Select value={formData.invoice_id} onValueChange={(v) => { setFormData(p => ({ ...p, invoice_id: v })); setAmountError(""); }}>
+              <SelectTrigger><SelectValue placeholder="Select invoice" /></SelectTrigger>
+              <SelectContent>
+                {invoices.map((inv) => (
+                  <SelectItem key={inv.id} value={inv.id}>
+                    {inv.invoice_number} - Balance: {formatCurrency(inv.open_balance)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
