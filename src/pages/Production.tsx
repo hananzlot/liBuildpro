@@ -4,15 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import { 
-  ArrowLeft, 
   Building2, 
   Search, 
   Plus, 
   Filter,
-  ChevronDown,
-  User,
-  Key,
-  LogOut,
   FlaskConical,
   Trash2,
   Loader2,
@@ -20,11 +15,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  History,
   BarChart3,
   FolderKanban
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,13 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -62,8 +49,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { ProjectDetailSheet } from "@/components/production/ProjectDetailSheet";
@@ -128,16 +113,12 @@ const statusColors: Record<string, string> = {
 
 export default function Production() {
   const queryClient = useQueryClient();
-  const { user, profile, isAdmin, signOut, updatePassword } = useAuth();
+  const { isAdmin } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
-  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [deleteTestProjectOpen, setDeleteTestProjectOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>('project_number');
@@ -530,36 +511,6 @@ export default function Production() {
     return toTitleCase(fullName);
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    toast.success("Signed out successfully");
-  };
-
-  const handleChangePassword = async () => {
-    if (newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords don't match");
-      return;
-    }
-    setIsChangingPassword(true);
-    try {
-      const { error } = await updatePassword(newPassword);
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Password updated successfully");
-        setChangePasswordOpen(false);
-        setNewPassword("");
-        setConfirmPassword("");
-      }
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
   const handleOpenProject = (project: Project) => {
     setSelectedProject(project);
     setDetailSheetOpen(true);
@@ -629,62 +580,9 @@ export default function Production() {
   };
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-          <div className="px-8 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                  <Building2 className="h-6 w-6" />
-                  Production
-                </h1>
-                <p className="text-sm text-muted-foreground">Project Management</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-2">
-                    <User className="h-4 w-4" />
-                    <span className="hidden sm:inline">{profile?.full_name || user?.email}</span>
-                    <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
-                    <Key className="h-4 w-4 mr-2" />
-                    Change Password
-                  </DropdownMenuItem>
-                  {isAdmin && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link to="/audit-log">
-                          <History className="h-4 w-4 mr-2" />
-                          View Audit Log
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </header>
-
-        <main className="px-8 py-6 space-y-6">
+    <AppLayout showNotifications={false}>
+      <TooltipProvider>
+        <div className="px-8 py-6 space-y-6">
           {/* Main Tabs */}
           <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2">
@@ -1071,7 +969,7 @@ export default function Production() {
               />
             </TabsContent>
           </Tabs>
-        </main>
+        </div>
 
         {/* Project Detail Sheet */}
         <ProjectDetailSheet
@@ -1086,44 +984,6 @@ export default function Production() {
           open={newProjectOpen}
           onOpenChange={setNewProjectOpen}
         />
-
-        {/* Change Password Dialog */}
-        <Dialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Change Password</DialogTitle>
-              <DialogDescription>Enter your new password below.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="new-password">New Password</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="confirm-password">Confirm Password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setChangePasswordOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleChangePassword} disabled={isChangingPassword}>
-                {isChangingPassword ? "Updating..." : "Update Password"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Delete Project Confirmation Dialog */}
         <AlertDialog open={deleteTestProjectOpen} onOpenChange={setDeleteTestProjectOpen}>
@@ -1248,7 +1108,7 @@ export default function Production() {
             </ScrollArea>
           </SheetContent>
         </Sheet>
-      </div>
-    </TooltipProvider>
+      </TooltipProvider>
+    </AppLayout>
   );
 }
