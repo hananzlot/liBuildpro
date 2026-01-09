@@ -922,7 +922,26 @@ export default function Production() {
                             <TableCell className={`text-right text-xs font-medium ${(financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
                               {formatCurrency(financials?.expectedFinalProfit)}
                             </TableCell>
-                            <TableCell className={`text-right text-xs font-bold bg-primary/5 ${(financials?.totalCash || 0) >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                            <TableCell className={`text-right text-xs font-bold ${(() => {
+                              const cash = financials?.totalCash || 0;
+                              const billsPaid = financials?.totalBillPayments || 0;
+                              const collected = financials?.invoicesCollected || 0;
+                              
+                              // No background when bills paid is zero
+                              if (billsPaid === 0) return '';
+                              
+                              // Red when negative
+                              if (cash < 0) return 'bg-red-500/20 text-red-700';
+                              
+                              // Calculate ratio: bills paid / collected
+                              const ratio = collected > 0 ? billsPaid / collected : 0;
+                              
+                              // Green when positive and ratio > 35%
+                              if (ratio > 0.35) return 'bg-emerald-500/20 text-emerald-700';
+                              
+                              // Light orange when positive and ratio <= 35%
+                              return 'bg-orange-400/20 text-orange-700';
+                            })()}`}>
                               {formatCurrency(financials?.totalCash)}
                             </TableCell>
                             {isAdmin && (
