@@ -282,8 +282,9 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     },
     onSuccess: () => {
       toast.success(editingInvoice?.id ? "Invoice updated" : "Invoice created");
-      queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["all-project-invoices"], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["project-payments", projectId], refetchType: 'all' });
       setInvoiceDialogOpen(false);
       setEditingInvoice(null);
     },
