@@ -21,7 +21,7 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -58,8 +58,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-type UserRole = 'admin' | 'user' | 'magazine_editor' | 'production';
-
 interface NavSubItem {
   title: string;
   url: string;
@@ -71,52 +69,65 @@ interface NavItem {
   url?: string;
   icon: React.ComponentType<{ className?: string }>;
   external?: boolean;
-  roles?: UserRole[];
-  excludeRoles?: ('production')[];
+  roles?: AppRole[];
+  excludeRoles?: AppRole[];
   subItems?: NavSubItem[];
 }
 
 const mainNavItems: NavItem[] = [
+  // Sales section - Dashboard, Palisades  
   { 
     title: "Dashboard", 
     url: "/", 
     icon: LayoutDashboard,
-    excludeRoles: ['production']
+    roles: ['super_admin', 'admin', 'dispatch', 'sales']
   },
   { 
     title: "Palisades", 
     url: "https://palisades.ca-probuilders.com", 
     icon: ExternalLink,
     external: true,
-    excludeRoles: ['production']
+    roles: ['super_admin', 'admin', 'sales']
   },
+  // Dispatch section - Follow-up
   { 
     title: "Follow-up", 
     url: "/follow-up", 
     icon: ListChecks,
-    excludeRoles: ['production']
+    roles: ['super_admin', 'admin', 'dispatch']
   },
+  // Magazine section
   { 
     title: "Magazine Sales", 
     url: "/magazine-sales", 
     icon: BookOpen,
-    roles: ['admin', 'magazine_editor']
+    roles: ['super_admin', 'admin', 'magazine']
+  },
+  // Production section - now flat menu items
+  { 
+    title: "Projects", 
+    url: "/production?view=projects", 
+    icon: FolderKanban,
+    roles: ['super_admin', 'admin', 'production']
   },
   { 
-    title: "Production", 
-    icon: Briefcase,
-    roles: ['admin', 'production'],
-    subItems: [
-      { title: "Projects", url: "/production?view=projects", icon: FolderKanban },
-      { title: "Analytics", url: "/production?view=analytics", icon: BarChart3 },
-      { title: "Subcontractors", url: "/production?view=subcontractors", icon: HardHat },
-    ]
+    title: "Analytics", 
+    url: "/production?view=analytics", 
+    icon: BarChart3,
+    roles: ['super_admin', 'admin', 'production']
   },
+  { 
+    title: "Subcontractors", 
+    url: "/production?view=subcontractors", 
+    icon: HardHat,
+    roles: ['super_admin', 'admin', 'production']
+  },
+  // Admin only
   { 
     title: "Audit Log", 
     url: "/audit-log", 
     icon: FileText,
-    roles: ['admin']
+    roles: ['super_admin', 'admin']
   },
 ];
 
@@ -423,7 +434,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                               setSimulatedRole(null);
                               toast.info("Role simulation disabled");
                             } else {
-                              setSimulatedRole(value as UserRole);
+                              setSimulatedRole(value as AppRole);
                               toast.info(`Now viewing as: ${value}`);
                             }
                           }}
