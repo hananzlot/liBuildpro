@@ -98,6 +98,8 @@ interface ProjectFinancials {
   phasesTotal: number;
   hasPhaseMismatch: boolean;
   hasContractMismatch: boolean;
+  hasMissingContract: boolean;
+  hasMissingPhases: boolean;
   estimatedCost: number | null;
   projectBalanceDue: number;
   profitToDate: number;
@@ -251,17 +253,29 @@ export default function Production() {
     
     // Calculate phases total per agreement and check for mismatch
     let hasPhaseMismatch = false;
+    let hasMissingPhases = false;
+    
+    // Check if any agreement is missing phases
     projectAgreements.forEach(agreement => {
       const agreementPhases = projectPhases.filter(p => p.agreement_id === agreement.id);
-      const phasesTotal = agreementPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
-      if (agreementPhases.length > 0 && phasesTotal !== (agreement.total_price || 0)) {
-        hasPhaseMismatch = true;
+      if (agreementPhases.length === 0) {
+        // Agreement exists but no phases entered
+        hasMissingPhases = true;
+      } else {
+        const phasesTotal = agreementPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
+        if (phasesTotal !== (agreement.total_price || 0)) {
+          hasPhaseMismatch = true;
+        }
       }
     });
 
-    // Check if contracts total matches estimated cost
+    // Flag if there are no contracts at all (missing contract)
+    const hasMissingContract = projectAgreements.length === 0;
+
+    // Check if contracts total matches estimated cost (only when both exist and differ)
     const hasContractMismatch = project.estimated_cost !== null && 
       project.estimated_cost > 0 && 
+      contractsTotal > 0 &&
       contractsTotal !== project.estimated_cost;
 
     const phasesTotal = projectPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -293,6 +307,8 @@ export default function Production() {
       phasesTotal,
       hasPhaseMismatch,
       hasContractMismatch,
+      hasMissingContract,
+      hasMissingPhases,
       estimatedCost: project.estimated_cost,
       projectBalanceDue,
       profitToDate,
@@ -770,6 +786,30 @@ export default function Production() {
                             <TableCell className="font-medium">
                               <div className="flex items-center gap-1">
                                 {project.project_number}
+                                {financials?.hasMissingContract && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="h-5 px-1 text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+                                        C
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>No contract/agreement entered</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {financials?.hasMissingPhases && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="h-5 px-1 text-[10px] bg-orange-500/10 text-orange-500 border-orange-500/20">
+                                        P
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Payment phases not entered for agreement</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                                 {financials?.hasPhaseMismatch && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
