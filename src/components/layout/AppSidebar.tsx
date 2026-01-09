@@ -151,7 +151,21 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       }
     }, 100);
   };
-  
+
+  const handleSidebarContentClickCapture = (event: React.MouseEvent) => {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+
+    // Only close when a real navigation link inside the sidebar is clicked
+    const linkEl = target.closest("a");
+    if (!linkEl) return;
+
+    const insideMenu = linkEl.closest('[data-sidebar="menu-button"], [data-sidebar="menu-sub-button"]');
+    if (!insideMenu) return;
+
+    closeSidebar();
+  };
+
   // Track which collapsible menus are open
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
 
@@ -344,7 +358,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent onClickCapture={handleSidebarContentClickCapture}>
         {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
