@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -21,8 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { 
   Building2, 
   User, 
@@ -32,7 +36,10 @@ import {
   Star,
   AlertCircle,
   Loader2,
-  FolderOpen
+  FolderOpen,
+  Check,
+  ChevronsUpDown,
+  Plus
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
 import { DocumentsSection } from "./DocumentsSection";
@@ -135,7 +142,37 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
     enabled: !!project?.id && open,
   });
 
-  // Update project mutation
+  // Fetch unique salespeople names from all projects
+  const { data: existingSalespeople = [] } = useQuery({
+    queryKey: ["project-salespeople"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson, project_manager");
+      if (error) throw error;
+      
+      // Extract unique non-null names
+      const names = new Set<string>();
+      data.forEach((p) => {
+        if (p.primary_salesperson) names.add(p.primary_salesperson);
+        if (p.secondary_salesperson) names.add(p.secondary_salesperson);
+        if (p.tertiary_salesperson) names.add(p.tertiary_salesperson);
+        if (p.quaternary_salesperson) names.add(p.quaternary_salesperson);
+        if (p.project_manager) names.add(p.project_manager);
+      });
+      
+      return Array.from(names).sort();
+    },
+    enabled: open,
+  });
+
+  // State for combobox inputs
+  const [managerSearch, setManagerSearch] = useState("");
+  const [primarySearch, setPrimarySearch] = useState("");
+  const [secondarySearch, setSecondarySearch] = useState("");
+  const [tertiarySearch, setTertiarySearch] = useState("");
+  const [quaternarySearch, setQuaternarySearch] = useState("");
+
   const updateProjectMutation = useMutation({
     mutationFn: async (updates: Partial<typeof fullProject>) => {
       if (!project?.id) throw new Error("No project selected");
@@ -332,10 +369,63 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                       </div>
                       <div>
                         <Label>Project Manager</Label>
-                        <Input 
-                          value={fullProject?.project_manager || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ project_manager: e.target.value })}
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              {fullProject?.project_manager || "Select or add..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder="Search or add new..." 
+                                value={managerSearch}
+                                onValueChange={setManagerSearch}
+                              />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {managerSearch && (
+                                    <CommandItem
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ project_manager: managerSearch });
+                                        setManagerSearch("");
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add "{managerSearch}"
+                                    </CommandItem>
+                                  )}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {existingSalespeople.map((name) => (
+                                    <CommandItem
+                                      key={name}
+                                      value={name}
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ project_manager: name });
+                                        setManagerSearch("");
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          fullProject?.project_manager === name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
                   </CardContent>
@@ -395,10 +485,69 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Primary Salesperson</Label>
-                        <Input 
-                          value={fullProject?.primary_salesperson || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ primary_salesperson: e.target.value })}
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              {fullProject?.primary_salesperson || "Select or add..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder="Search or add new..." 
+                                value={primarySearch}
+                                onValueChange={setPrimarySearch}
+                              />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {primarySearch && (
+                                    <CommandItem
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ 
+                                          primary_salesperson: primarySearch,
+                                          project_manager: fullProject?.project_manager || primarySearch
+                                        });
+                                        setPrimarySearch("");
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add "{primarySearch}"
+                                    </CommandItem>
+                                  )}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {existingSalespeople.map((name) => (
+                                    <CommandItem
+                                      key={name}
+                                      value={name}
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ 
+                                          primary_salesperson: name,
+                                          project_manager: fullProject?.project_manager || name
+                                        });
+                                        setPrimarySearch("");
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          fullProject?.primary_salesperson === name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div>
                         <Label>Commission %</Label>
@@ -413,10 +562,63 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Secondary Salesperson</Label>
-                        <Input 
-                          value={fullProject?.secondary_salesperson || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ secondary_salesperson: e.target.value })}
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              {fullProject?.secondary_salesperson || "Select or add..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder="Search or add new..." 
+                                value={secondarySearch}
+                                onValueChange={setSecondarySearch}
+                              />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {secondarySearch && (
+                                    <CommandItem
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ secondary_salesperson: secondarySearch });
+                                        setSecondarySearch("");
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add "{secondarySearch}"
+                                    </CommandItem>
+                                  )}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {existingSalespeople.map((name) => (
+                                    <CommandItem
+                                      key={name}
+                                      value={name}
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ secondary_salesperson: name });
+                                        setSecondarySearch("");
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          fullProject?.secondary_salesperson === name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div>
                         <Label>Commission %</Label>
@@ -431,10 +633,63 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Tertiary Salesperson</Label>
-                        <Input 
-                          value={fullProject?.tertiary_salesperson || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ tertiary_salesperson: e.target.value })}
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              {fullProject?.tertiary_salesperson || "Select or add..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder="Search or add new..." 
+                                value={tertiarySearch}
+                                onValueChange={setTertiarySearch}
+                              />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {tertiarySearch && (
+                                    <CommandItem
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ tertiary_salesperson: tertiarySearch });
+                                        setTertiarySearch("");
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add "{tertiarySearch}"
+                                    </CommandItem>
+                                  )}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {existingSalespeople.map((name) => (
+                                    <CommandItem
+                                      key={name}
+                                      value={name}
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ tertiary_salesperson: name });
+                                        setTertiarySearch("");
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          fullProject?.tertiary_salesperson === name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div>
                         <Label>Commission %</Label>
@@ -449,10 +704,63 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Quaternary Salesperson</Label>
-                        <Input 
-                          value={fullProject?.quaternary_salesperson || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ quaternary_salesperson: e.target.value })}
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              {fullProject?.quaternary_salesperson || "Select or add..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder="Search or add new..." 
+                                value={quaternarySearch}
+                                onValueChange={setQuaternarySearch}
+                              />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {quaternarySearch && (
+                                    <CommandItem
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ quaternary_salesperson: quaternarySearch });
+                                        setQuaternarySearch("");
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add "{quaternarySearch}"
+                                    </CommandItem>
+                                  )}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {existingSalespeople.map((name) => (
+                                    <CommandItem
+                                      key={name}
+                                      value={name}
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ quaternary_salesperson: name });
+                                        setQuaternarySearch("");
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          fullProject?.quaternary_salesperson === name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div>
                         <Label>Commission %</Label>
