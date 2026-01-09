@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, Calendar, Database, DollarSign, CalendarCheck, Trophy, Settings, ListChecks, Pencil, LogOut, Wrench, Key, User, ChevronDown, BookOpen, Receipt, ExternalLink, Briefcase } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -80,6 +80,13 @@ const Index = () => {
   const [adminCleanupOpen, setAdminCleanupOpen] = useState(false);
   const [userManagementOpen, setUserManagementOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Redirect production-only users to the production page
+  useEffect(() => {
+    if (isProduction && !isAdmin) {
+      navigate("/production");
+    }
+  }, [isProduction, isAdmin, navigate]);
 
   // Change password state
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -254,23 +261,28 @@ const Index = () => {
       <main className="px-8 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <TabsList>
-              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-              <TabsTrigger 
-                value="palisades" 
-                className="gap-2"
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.open("https://palisades.ca-probuilders.com", "_blank");
-                }}
-              >
-                <ExternalLink className="h-4 w-4" />
-                Palisades
-              </TabsTrigger>
-              <TabsTrigger value="follow-up" className="gap-2">
-                <ListChecks className="h-4 w-4" />
-                Follow-up
-              </TabsTrigger>
+          <TabsList>
+              {/* Production-only users should only see Production tab */}
+              {(!isProduction || isAdmin) && (
+                <>
+                  <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                  <TabsTrigger 
+                    value="palisades" 
+                    className="gap-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.open("https://palisades.ca-probuilders.com", "_blank");
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Palisades
+                  </TabsTrigger>
+                  <TabsTrigger value="follow-up" className="gap-2">
+                    <ListChecks className="h-4 w-4" />
+                    Follow-up
+                  </TabsTrigger>
+                </>
+              )}
               {(isAdmin || isMagazineEditor) && <TabsTrigger value="magazine-sales" className="gap-2">
                   <BookOpen className="h-4 w-4" />
                   Magazine Sales
