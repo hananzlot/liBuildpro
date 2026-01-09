@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
 import { DocumentsSection } from "./DocumentsSection";
+import { DebouncedInput, DebouncedTextarea, DebouncedNumberInput } from "@/components/ui/debounced-input";
 
 interface Project {
   id: string;
@@ -441,9 +442,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Project Name</Label>
-                        <Input 
+                        <DebouncedInput 
                           value={fullProject?.project_name || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ project_name: e.target.value })}
+                          onSave={(value) => updateProjectMutation.mutate({ project_name: value })}
                         />
                       </div>
                       <div>
@@ -467,9 +468,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     </div>
                     <div>
                       <Label>Project Address</Label>
-                      <Input 
+                      <DebouncedInput 
                         value={fullProject?.project_address || ""} 
-                        onChange={(e) => updateProjectMutation.mutate({ project_address: e.target.value })}
+                        onSave={(value) => updateProjectMutation.mutate({ project_address: value })}
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -565,33 +566,33 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>First Name</Label>
-                        <Input 
+                        <DebouncedInput 
                           value={fullProject?.customer_first_name || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ customer_first_name: e.target.value })}
+                          onSave={(value) => updateProjectMutation.mutate({ customer_first_name: value })}
                         />
                       </div>
                       <div>
                         <Label>Last Name</Label>
-                        <Input 
+                        <DebouncedInput 
                           value={fullProject?.customer_last_name || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ customer_last_name: e.target.value })}
+                          onSave={(value) => updateProjectMutation.mutate({ customer_last_name: value })}
                         />
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Cell Phone</Label>
-                        <Input 
+                        <DebouncedInput 
                           value={formatPhoneNumber(fullProject?.cell_phone)} 
-                          onChange={(e) => updateProjectMutation.mutate({ cell_phone: e.target.value.replace(/\D/g, "") })}
+                          onSave={(value) => updateProjectMutation.mutate({ cell_phone: value.replace(/\D/g, "") })}
                           placeholder="(555) 123-4567"
                         />
                       </div>
                       <div>
                         <Label>Email</Label>
-                        <Input 
+                        <DebouncedInput 
                           value={fullProject?.customer_email || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ customer_email: e.target.value })}
+                          onSave={(value) => updateProjectMutation.mutate({ customer_email: value })}
                         />
                       </div>
                     </div>
@@ -608,24 +609,22 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Lead Cost %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
+                        <DebouncedNumberInput 
+                          min={0}
+                          max={100}
                           value={fullProject?.lead_cost_percent ?? 18} 
-                          onChange={(e) => updateProjectMutation.mutate({ lead_cost_percent: parseFloat(e.target.value) || 18 })}
+                          onSave={(value) => updateProjectMutation.mutate({ lead_cost_percent: value ?? 18 })}
                           placeholder="18"
                         />
                         <p className="text-xs text-muted-foreground mt-1">Default: 18%</p>
                       </div>
                       <div>
                         <Label>Commission Split %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
+                        <DebouncedNumberInput 
+                          min={0}
+                          max={100}
                           value={fullProject?.commission_split_pct ?? 50} 
-                          onChange={(e) => updateProjectMutation.mutate({ commission_split_pct: parseFloat(e.target.value) || 50 })}
+                          onSave={(value) => updateProjectMutation.mutate({ commission_split_pct: value ?? 50 })}
                           placeholder="50"
                           disabled={!isAdmin}
                           className={!isAdmin ? "bg-muted" : ""}
@@ -703,14 +702,13 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                       </div>
                       <div className="w-24">
                         <Label>Comm %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={fullProject?.primary_commission_pct || ""} 
-                          onChange={(e) => updateCommission(
+                        <DebouncedNumberInput 
+                          min={0}
+                          max={100}
+                          value={fullProject?.primary_commission_pct} 
+                          onSave={(value) => updateCommission(
                             'primary_commission_pct', 
-                            e.target.value,
+                            value?.toString() || '',
                             (fullProject?.secondary_commission_pct || 0) + 
                             (fullProject?.tertiary_commission_pct || 0) + 
                             (fullProject?.quaternary_commission_pct || 0)
@@ -793,14 +791,13 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                       </div>
                       <div className="w-24">
                         <Label>Comm %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={fullProject?.secondary_commission_pct || ""} 
-                          onChange={(e) => updateCommission(
+                        <DebouncedNumberInput 
+                          min={0}
+                          max={100}
+                          value={fullProject?.secondary_commission_pct} 
+                          onSave={(value) => updateCommission(
                             'secondary_commission_pct', 
-                            e.target.value,
+                            value?.toString() || '',
                             (fullProject?.primary_commission_pct || 0) + 
                             (fullProject?.tertiary_commission_pct || 0) + 
                             (fullProject?.quaternary_commission_pct || 0)
@@ -873,14 +870,13 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                       </div>
                       <div className="w-24">
                         <Label>Comm %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={fullProject?.tertiary_commission_pct || ""} 
-                          onChange={(e) => updateCommission(
+                        <DebouncedNumberInput 
+                          min={0}
+                          max={100}
+                          value={fullProject?.tertiary_commission_pct} 
+                          onSave={(value) => updateCommission(
                             'tertiary_commission_pct', 
-                            e.target.value,
+                            value?.toString() || '',
                             (fullProject?.primary_commission_pct || 0) + 
                             (fullProject?.secondary_commission_pct || 0) + 
                             (fullProject?.quaternary_commission_pct || 0)
@@ -953,14 +949,13 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                       </div>
                       <div className="w-24">
                         <Label>Comm %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={fullProject?.quaternary_commission_pct || ""} 
-                          onChange={(e) => updateCommission(
+                        <DebouncedNumberInput 
+                          min={0}
+                          max={100}
+                          value={fullProject?.quaternary_commission_pct} 
+                          onSave={(value) => updateCommission(
                             'quaternary_commission_pct', 
-                            e.target.value,
+                            value?.toString() || '',
                             (fullProject?.primary_commission_pct || 0) + 
                             (fullProject?.secondary_commission_pct || 0) + 
                             (fullProject?.tertiary_commission_pct || 0)
@@ -1007,9 +1002,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     </div>
                     <div>
                       <Label>Install Notes</Label>
-                      <Textarea 
+                      <DebouncedTextarea 
                         value={fullProject?.install_notes || ""} 
-                        onChange={(e) => updateProjectMutation.mutate({ install_notes: e.target.value })}
+                        onSave={(value) => updateProjectMutation.mutate({ install_notes: value })}
                       />
                     </div>
                   </CardContent>
