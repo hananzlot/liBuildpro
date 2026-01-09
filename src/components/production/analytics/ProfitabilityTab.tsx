@@ -131,7 +131,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
         <MetricCard
           title="Gross Profit"
           value={formatCurrency(totals.totalGrossProfit)}
-          subValue="Sold - Lead Fee - Max(Bills, Est)"
+          subValue="Sold - Max(Bills, Est)"
           icon={TrendingUp}
           variant={totals.totalGrossProfit > 0 ? 'success' : 'danger'}
         />
