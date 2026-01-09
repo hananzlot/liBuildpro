@@ -173,6 +173,25 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
   const [tertiarySearch, setTertiarySearch] = useState("");
   const [quaternarySearch, setQuaternarySearch] = useState("");
 
+  // Calculate total commission percentage
+  const totalCommission = (fullProject?.primary_commission_pct || 0) + 
+    (fullProject?.secondary_commission_pct || 0) + 
+    (fullProject?.tertiary_commission_pct || 0) + 
+    (fullProject?.quaternary_commission_pct || 0);
+
+  // Helper to validate and update commission
+  const updateCommission = (field: string, value: string, otherCommissions: number) => {
+    const newValue = value ? Number(value) : 0;
+    const newTotal = newValue + otherCommissions;
+    
+    if (newTotal > 100) {
+      toast.error(`Total commission cannot exceed 100%. Current total would be ${newTotal}%`);
+      return;
+    }
+    
+    updateProjectMutation.mutate({ [field]: value ? Number(value) : null });
+  };
+
   const updateProjectMutation = useMutation({
     mutationFn: async (updates: Partial<typeof fullProject>) => {
       if (!project?.id) throw new Error("No project selected");
@@ -553,11 +572,29 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                         <Label>Commission %</Label>
                         <Input 
                           type="number"
+                          min="0"
+                          max="100"
                           value={fullProject?.primary_commission_pct || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ primary_commission_pct: e.target.value ? Number(e.target.value) : null })}
+                          onChange={(e) => updateCommission(
+                            'primary_commission_pct', 
+                            e.target.value,
+                            (fullProject?.secondary_commission_pct || 0) + 
+                            (fullProject?.tertiary_commission_pct || 0) + 
+                            (fullProject?.quaternary_commission_pct || 0)
+                          )}
                           placeholder="100"
                         />
                       </div>
+                    </div>
+                    {/* Commission Total Display */}
+                    <div className={cn(
+                      "flex items-center justify-between p-2 rounded-md text-sm",
+                      totalCommission > 100 ? "bg-destructive/10 text-destructive" : 
+                      totalCommission === 100 ? "bg-emerald-500/10 text-emerald-600" : 
+                      "bg-muted text-muted-foreground"
+                    )}>
+                      <span className="font-medium">Total Commission:</span>
+                      <span className="font-bold">{totalCommission}%</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -624,8 +661,16 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                         <Label>Commission %</Label>
                         <Input 
                           type="number"
+                          min="0"
+                          max="100"
                           value={fullProject?.secondary_commission_pct || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ secondary_commission_pct: e.target.value ? Number(e.target.value) : null })}
+                          onChange={(e) => updateCommission(
+                            'secondary_commission_pct', 
+                            e.target.value,
+                            (fullProject?.primary_commission_pct || 0) + 
+                            (fullProject?.tertiary_commission_pct || 0) + 
+                            (fullProject?.quaternary_commission_pct || 0)
+                          )}
                           placeholder="0"
                         />
                       </div>
@@ -695,8 +740,16 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                         <Label>Commission %</Label>
                         <Input 
                           type="number"
+                          min="0"
+                          max="100"
                           value={fullProject?.tertiary_commission_pct || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ tertiary_commission_pct: e.target.value ? Number(e.target.value) : null })}
+                          onChange={(e) => updateCommission(
+                            'tertiary_commission_pct', 
+                            e.target.value,
+                            (fullProject?.primary_commission_pct || 0) + 
+                            (fullProject?.secondary_commission_pct || 0) + 
+                            (fullProject?.quaternary_commission_pct || 0)
+                          )}
                           placeholder="0"
                         />
                       </div>
@@ -766,8 +819,16 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                         <Label>Commission %</Label>
                         <Input 
                           type="number"
+                          min="0"
+                          max="100"
                           value={fullProject?.quaternary_commission_pct || ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ quaternary_commission_pct: e.target.value ? Number(e.target.value) : null })}
+                          onChange={(e) => updateCommission(
+                            'quaternary_commission_pct', 
+                            e.target.value,
+                            (fullProject?.primary_commission_pct || 0) + 
+                            (fullProject?.secondary_commission_pct || 0) + 
+                            (fullProject?.tertiary_commission_pct || 0)
+                          )}
                           placeholder="0"
                         />
                       </div>
