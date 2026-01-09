@@ -167,19 +167,32 @@ serve(async (req) => {
     // If explicitly provided (admin edit), use that value
     if (won_at !== undefined) {
       supabaseUpdate.won_at = won_at;
+      console.log(`Setting won_at to explicitly provided value: ${won_at}`);
     }
     // If status is changing TO "won" and wasn't "won" before, and won_at not explicitly provided, set it now
     else if (status === 'won' && currentOpp?.status !== 'won' && !currentOpp?.won_at) {
       supabaseUpdate.won_at = new Date().toISOString();
+      console.log(`Auto-setting won_at to current time for status change to won`);
     }
 
-    const { error: supabaseError } = await supabase
-      .from('opportunities')
-      .update(supabaseUpdate)
-      .eq('ghl_id', ghl_id);
+    console.log(`Supabase update payload for ${ghl_id}:`, JSON.stringify(supabaseUpdate));
 
-    if (supabaseError) {
-      console.error('Supabase update error:', supabaseError);
+    // Only update if there are fields to update
+    if (Object.keys(supabaseUpdate).length > 0) {
+      const { data: updateResult, error: supabaseError } = await supabase
+        .from('opportunities')
+        .update(supabaseUpdate)
+        .eq('ghl_id', ghl_id)
+        .select('won_at')
+        .single();
+
+      if (supabaseError) {
+        console.error('Supabase update error:', supabaseError);
+        throw new Error(`Supabase update failed: ${supabaseError.message}`);
+      }
+      console.log(`Supabase update successful, won_at now: ${updateResult?.won_at}`);
+    } else {
+      console.log('No fields to update in Supabase');
     }
 
     // Track edits - compare old vs new values
