@@ -41,6 +41,7 @@ const Index = () => {
     isAdmin,
     isMagazine,
     isProduction,
+    isSimulating,
   } = useAuth();
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
@@ -70,11 +71,12 @@ const Index = () => {
   const [userManagementOpen, setUserManagementOpen] = useState(false);
 
   // Redirect production-only users to the production page
+  // Don't redirect when an admin is simulating a role
   useEffect(() => {
-    if (isProduction && !isAdmin) {
+    if (isProduction && !isAdmin && !isSimulating) {
       navigate("/production");
     }
-  }, [isProduction, isAdmin, navigate]);
+  }, [isProduction, isAdmin, isSimulating, navigate]);
 
   const {
     data: metrics,
