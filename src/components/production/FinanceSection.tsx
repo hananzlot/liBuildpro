@@ -2316,8 +2316,9 @@ function AgreementDialog({
     enabled: open && !agreement, // Only fetch when creating new agreement
   });
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen && agreement) {
+  // Populate form when agreement changes or dialog opens
+  useEffect(() => {
+    if (open && agreement) {
       setFormData({
         agreement_number: agreement.agreement_number || "",
         agreement_type: agreement.agreement_type || "",
@@ -2326,7 +2327,7 @@ function AgreementDialog({
         description_of_work: agreement.description_of_work || "",
         attachment_url: agreement.attachment_url || null,
       });
-    } else if (newOpen) {
+    } else if (open && !agreement) {
       // Auto-fill the next agreement number for new agreements
       setFormData({ 
         agreement_number: nextAgreementNumber || "1201", 
@@ -2336,14 +2337,6 @@ function AgreementDialog({
         description_of_work: "", 
         attachment_url: null 
       });
-    }
-    onOpenChange(newOpen);
-  };
-
-  // Update agreement number when nextAgreementNumber loads (for new agreements)
-  useEffect(() => {
-    if (open && !agreement && nextAgreementNumber && !formData.agreement_number) {
-      setFormData(p => ({ ...p, agreement_number: nextAgreementNumber }));
     }
   }, [open, agreement, nextAgreementNumber]);
 
@@ -2360,7 +2353,7 @@ function AgreementDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{agreement ? "Edit Agreement" : "Add Agreement"}</DialogTitle>
