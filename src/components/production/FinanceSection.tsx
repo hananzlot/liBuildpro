@@ -282,6 +282,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     onSuccess: () => {
       toast.success(editingInvoice?.id ? "Invoice updated" : "Invoice created");
       queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
       setInvoiceDialogOpen(false);
       setEditingInvoice(null);
     },
@@ -307,6 +308,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     onSuccess: () => {
       toast.success(editingPayment?.id ? "Payment updated" : "Payment created");
       queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       setPaymentDialogOpen(false);
       setEditingPayment(null);
     },
@@ -354,6 +356,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     onSuccess: () => {
       toast.success(editingBill?.id ? "Bill updated" : "Bill created");
       queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       setBillDialogOpen(false);
       setEditingBill(null);
     },
@@ -379,6 +382,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     onSuccess: () => {
       toast.success(editingAgreement?.id ? "Agreement updated" : "Agreement created");
       queryClient.invalidateQueries({ queryKey: ["project-agreements", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-agreements"] });
       setAgreementDialogOpen(false);
       setEditingAgreement(null);
     },
@@ -417,6 +421,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
     onSuccess: () => {
       toast.success(editingPhase?.id ? "Phase updated" : "Phase created");
       queryClient.invalidateQueries({ queryKey: ["project-payment-phases", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
       setPhaseDialogOpen(false);
       setEditingPhase(null);
     },
@@ -441,6 +446,18 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         ? ["project-payment-phases", projectId]
         : [`project-${deleteTarget?.type}s`, projectId];
       queryClient.invalidateQueries({ queryKey });
+      // Also invalidate global queries for main list refresh
+      if (deleteTarget?.type === "phase") {
+        queryClient.invalidateQueries({ queryKey: ["all-project-phases"] });
+      } else if (deleteTarget?.type === "agreement") {
+        queryClient.invalidateQueries({ queryKey: ["all-project-agreements"] });
+      } else if (deleteTarget?.type === "invoice") {
+        queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
+      } else if (deleteTarget?.type === "payment") {
+        queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
+      } else if (deleteTarget?.type === "bill") {
+        queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      }
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
     },
