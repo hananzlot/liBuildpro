@@ -143,7 +143,10 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
 
   const closeSidebarOnMobile = () => {
     if (isMobile) {
-      setOpenMobile(false);
+      // Small delay to ensure navigation completes before closing
+      setTimeout(() => {
+        setOpenMobile(false);
+      }, 100);
     }
   };
   
