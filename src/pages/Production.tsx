@@ -491,6 +491,19 @@ export default function Production() {
     }).format(value);
   };
 
+  const toTitleCase = (str: string | null | undefined): string => {
+    if (!str) return "";
+    return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+  };
+
+  const getCustomerName = (project: Project): string | null => {
+    const firstName = project.customer_first_name?.trim();
+    const lastName = project.customer_last_name?.trim();
+    if (!firstName && !lastName) return null;
+    const fullName = [firstName, lastName].filter(Boolean).join(" ");
+    return toTitleCase(fullName);
+  };
+
   const handleLogout = async () => {
     await signOut();
     toast.success("Signed out successfully");
@@ -781,8 +794,17 @@ export default function Production() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="font-medium max-w-[180px] truncate" title={project.project_address || project.project_name}>
-                              {project.project_address || project.project_name || "-"}
+                            <TableCell className="font-medium max-w-[180px]" title={project.project_address || project.project_name}>
+                              <div className="flex flex-col">
+                                {getCustomerName(project) && (
+                                  <span className="text-xs text-muted-foreground truncate">
+                                    {getCustomerName(project)}
+                                  </span>
+                                )}
+                                <span className="truncate">
+                                  {project.project_address || project.project_name || "-"}
+                                </span>
+                              </div>
                             </TableCell>
                             <TableCell>
                               <Badge 
