@@ -54,6 +54,7 @@ import { ProjectDetailSheet } from "@/components/production/ProjectDetailSheet";
 import { NewProjectDialog } from "@/components/production/NewProjectDialog";
 import { AnalyticsSection } from "@/components/production/AnalyticsSection";
 import { MissingProjectsSection } from "@/components/production/MissingProjectsSection";
+import { SubcontractorsManagement } from "@/components/production/SubcontractorsManagement";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -956,6 +957,10 @@ export default function Production() {
                 }
               }}
             />
+          )}
+
+          {activeView === 'subcontractors' && (
+            <SubcontractorsManagement />
           )}
         </div>
 

@@ -1847,29 +1847,23 @@ function BillDialog({
     agreement_id: "",
   });
   const [billPayments, setBillPayments] = useState<BillPaymentFormItem[]>([]);
-  const [installerSearch, setInstallerSearch] = useState("");
-  const [installerOpen, setInstallerOpen] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
 
   // Predefined categories
   const predefinedCategories = ["Materials", "Labor", "Permits", "Equipment", "Subcontractor"];
 
-  // Fetch unique installer companies
-  const { data: existingInstallers = [] } = useQuery({
-    queryKey: ["installer-companies"],
+  // Fetch active subcontractors from subcontractors table
+  const { data: activeSubcontractors = [] } = useQuery({
+    queryKey: ["active-subcontractors"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("project_bills")
-        .select("installer_company");
+        .from("subcontractors")
+        .select("id, company_name")
+        .eq("is_active", true)
+        .order("company_name", { ascending: true });
       if (error) throw error;
-      
-      const names = new Set<string>();
-      data.forEach((b) => {
-        if (b.installer_company) names.add(b.installer_company);
-      });
-      
-      return Array.from(names).sort();
+      return data;
     },
     enabled: open,
   });
@@ -1996,67 +1990,33 @@ function BillDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Installer/Company</Label>
-              <Popover open={installerOpen} onOpenChange={setInstallerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={installerOpen}
-                    className="w-full justify-between font-normal"
-                  >
-                    {formData.installer_company || "Select or add..."}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[250px] p-0 z-50" align="start">
-                  <Command>
-                    <CommandInput 
-                      placeholder="Search or add new..." 
-                      value={installerSearch}
-                      onValueChange={setInstallerSearch}
-                    />
-                    <CommandList>
-                      <CommandEmpty>No results found.</CommandEmpty>
-                      <CommandGroup>
-                        {installerSearch && !existingInstallers.some(n => n.toLowerCase() === installerSearch.toLowerCase()) && (
-                          <CommandItem
-                            value={installerSearch}
-                            onSelect={() => {
-                              setFormData(p => ({ ...p, installer_company: installerSearch }));
-                              setInstallerSearch("");
-                              setInstallerOpen(false);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add "{installerSearch}"
-                          </CommandItem>
-                        )}
-                        {existingInstallers.map((name) => (
-                          <CommandItem
-                            key={name}
-                            value={name}
-                            onSelect={() => {
-                              setFormData(p => ({ ...p, installer_company: name }));
-                              setInstallerSearch("");
-                              setInstallerOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                formData.installer_company === name ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <Label>Subcontractor/Installer</Label>
+              <Select 
+                value={formData.installer_company} 
+                onValueChange={(value) => setFormData(p => ({ ...p, installer_company: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subcontractor..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeSubcontractors.length === 0 ? (
+                    <SelectItem value="__no_subs__" disabled>
+                      No active subcontractors
+                    </SelectItem>
+                  ) : (
+                    activeSubcontractors.map((sub) => (
+                      <SelectItem key={sub.id} value={sub.company_name}>
+                        {sub.company_name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {activeSubcontractors.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add subcontractors in Production → Subcontractors
+                </p>
+              )}
             </div>
             <div>
               <Label>Category</Label>
