@@ -922,20 +922,20 @@ export default function Production() {
                               const billsPaid = financials?.totalBillPayments || 0;
                               const collected = financials?.invoicesCollected || 0;
                               
-                              // No background when bills paid is zero
-                              if (billsPaid === 0) return '';
-                              
-                              // Red when negative
-                              if (cash < 0) return 'bg-red-500/20 text-red-700';
+                              // Blank background if cash is zero
+                              if (cash === 0) return '';
                               
                               // Calculate ratio: bills paid / collected
                               const ratio = collected > 0 ? billsPaid / collected : 0;
                               
-                              // Green when positive and ratio > 35%
-                              if (ratio > 0.35) return 'bg-emerald-500/20 text-emerald-700';
+                              // Green if ratio < 70%
+                              if (ratio < 0.70) return 'bg-emerald-500/20 text-emerald-700';
                               
-                              // Light orange when positive and ratio <= 35%
-                              return 'bg-orange-400/20 text-orange-700';
+                              // Orange if ratio between 70%-85%
+                              if (ratio <= 0.85) return 'bg-orange-400/20 text-orange-700';
+                              
+                              // Red if ratio > 85%
+                              return 'bg-red-500/20 text-red-700';
                             })()}`}>
                               {formatCurrency(financials?.totalCash)}
                             </TableCell>
