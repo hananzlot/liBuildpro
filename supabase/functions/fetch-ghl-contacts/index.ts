@@ -633,36 +633,52 @@ async function syncLocationData(
   }
 
   // Sync opportunities with last_synced_at tracking
-  // IMPORTANT: Preserve won_at field - don't overwrite it during sync
+  // IMPORTANT: Preserve won_at field - NEVER overwrite manually set won_at during sync
   if (opportunities.length > 0) {
     console.log(`Syncing ${opportunities.length} opportunities...`);
     
-    // Fetch existing won_at values to preserve them
+    // Fetch ALL existing opportunity data to preserve won_at values
+    // We need to fetch in batches if there are many opportunities
     const oppGhlIds = opportunities.map(o => o.id);
-    const { data: existingOpps } = await supabase
-      .from('opportunities')
-      .select('ghl_id, won_at, status')
-      .in('ghl_id', oppGhlIds);
-    
     const existingWonAtMap = new Map<string, { won_at: string | null; status: string | null }>();
-    (existingOpps || []).forEach((opp: { ghl_id: string; won_at: string | null; status: string | null }) => {
-      existingWonAtMap.set(opp.ghl_id, { won_at: opp.won_at, status: opp.status });
-    });
+    
+    // Fetch in batches of 100 to avoid query limits
+    for (let i = 0; i < oppGhlIds.length; i += 100) {
+      const batchIds = oppGhlIds.slice(i, i + 100);
+      const { data: existingOpps, error: fetchError } = await supabase
+        .from('opportunities')
+        .select('ghl_id, won_at, status')
+        .in('ghl_id', batchIds);
+      
+      if (fetchError) {
+        console.error('Error fetching existing opportunities for won_at preservation:', fetchError);
+      }
+      
+      (existingOpps || []).forEach((opp: { ghl_id: string; won_at: string | null; status: string | null }) => {
+        existingWonAtMap.set(opp.ghl_id, { won_at: opp.won_at, status: opp.status });
+      });
+    }
+    
+    console.log(`Found ${existingWonAtMap.size} existing opportunities with potential won_at values to preserve`);
     
     const oppsToUpsert = opportunities.map(o => {
       const existing = existingWonAtMap.get(o.id);
       
       // Determine won_at value:
-      // 1. If already has won_at, preserve it
-      // 2. If status is 'won' in GHL and not previously won in DB, set won_at now
-      // 3. Otherwise, leave it null
-      let wonAt: string | null = null;
+      // 1. If already has won_at in DB, ALWAYS preserve it (never overwrite manual edits)
+      // 2. If status is 'won' in GHL and we have no won_at, only set it for NEW won opportunities
+      // 3. Otherwise, leave it as-is (null or existing value)
+      let wonAt: string | null = existing?.won_at || null;
+      
       if (existing?.won_at) {
-        // Preserve existing won_at
+        // ALWAYS preserve existing won_at - this is critical for manual edits
         wonAt = existing.won_at;
-      } else if (o.status === 'won' && existing?.status !== 'won') {
-        // First time being marked as won from GHL sync - use updatedAt or now
-        wonAt = o.updatedAt || new Date().toISOString();
+        console.log(`Preserving won_at for ${o.id}: ${wonAt}`);
+      } else if (o.status === 'won' && !existing?.won_at) {
+        // Only set won_at if this is a newly won opportunity without an existing won_at
+        // Use current time, NOT GHL updatedAt (which changes on any edit)
+        wonAt = new Date().toISOString();
+        console.log(`Setting new won_at for ${o.id}: ${wonAt}`);
       }
       
       return {
