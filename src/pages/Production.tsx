@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { logAudit } from "@/hooks/useAuditLog";
 import { 
   ArrowLeft, 
   Building2, 
@@ -409,23 +410,38 @@ export default function Production() {
 
   // Delete project and all related records mutation
   const deleteProjectMutation = useMutation({
-    mutationFn: async (projectId: string) => {
+    mutationFn: async (project: Project) => {
+      // Log audit before deletion
+      await logAudit({
+        tableName: 'projects',
+        recordId: project.id,
+        action: 'DELETE',
+        oldValues: {
+          project_number: project.project_number,
+          project_name: project.project_name,
+          project_status: project.project_status,
+          project_address: project.project_address,
+          primary_salesperson: project.primary_salesperson,
+        },
+        description: `Deleted project #${project.project_number} - ${project.project_name}`,
+      });
+
       // Delete related records in order (child tables first)
-      await supabase.from("project_payment_phases").delete().eq("project_id", projectId);
-      await supabase.from("project_checklists").delete().eq("project_id", projectId);
-      await supabase.from("project_messages").delete().eq("project_id", projectId);
-      await supabase.from("project_cases").delete().eq("project_id", projectId);
-      await supabase.from("project_feedback").delete().eq("project_id", projectId);
-      await supabase.from("project_documents").delete().eq("project_id", projectId);
-      await supabase.from("project_commissions").delete().eq("project_id", projectId);
-      await supabase.from("project_bills").delete().eq("project_id", projectId);
-      await supabase.from("project_payments").delete().eq("project_id", projectId);
-      await supabase.from("project_invoices").delete().eq("project_id", projectId);
-      await supabase.from("project_finance").delete().eq("project_id", projectId);
-      await supabase.from("project_agreements").delete().eq("project_id", projectId);
+      await supabase.from("project_payment_phases").delete().eq("project_id", project.id);
+      await supabase.from("project_checklists").delete().eq("project_id", project.id);
+      await supabase.from("project_messages").delete().eq("project_id", project.id);
+      await supabase.from("project_cases").delete().eq("project_id", project.id);
+      await supabase.from("project_feedback").delete().eq("project_id", project.id);
+      await supabase.from("project_documents").delete().eq("project_id", project.id);
+      await supabase.from("project_commissions").delete().eq("project_id", project.id);
+      await supabase.from("project_bills").delete().eq("project_id", project.id);
+      await supabase.from("project_payments").delete().eq("project_id", project.id);
+      await supabase.from("project_invoices").delete().eq("project_id", project.id);
+      await supabase.from("project_finance").delete().eq("project_id", project.id);
+      await supabase.from("project_agreements").delete().eq("project_id", project.id);
       
       // Finally delete the project itself
-      const { error } = await supabase.from("projects").delete().eq("id", projectId);
+      const { error } = await supabase.from("projects").delete().eq("id", project.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -868,7 +884,7 @@ export default function Production() {
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction 
-                onClick={() => projectToDelete && deleteProjectMutation.mutate(projectToDelete.id)}
+                onClick={() => projectToDelete && deleteProjectMutation.mutate(projectToDelete)}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={deleteProjectMutation.isPending}
               >
