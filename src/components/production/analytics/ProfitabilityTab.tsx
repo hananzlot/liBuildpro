@@ -184,7 +184,7 @@ export function ProfitabilityTab({ projects, totals, onProjectClick }: Profitabi
         <MetricCard
           title="Net Profit"
           value={formatCurrency(filteredTotals.totalNetProfit)}
-          subValue="Gross - Lead Fee - Comm"
+          subValue="Gross - Commission"
           icon={Percent}
           variant={filteredTotals.totalNetProfit > 0 ? 'success' : 'danger'}
           onClick={() => handleKPIClick('netProfit')}

@@ -250,7 +250,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       // Commission is calculated on (Gross Profit - Lead Fee)
       const commissionBase = grossProfit - leadCostAmount;
       const totalCommission = commissionBase > 0 ? commissionBase * (commissionSplitPct / 100) : 0;
-      const expectedNetProfit = grossProfit - leadCostAmount - totalCommission;
+      // Net Profit = Gross Profit - Commission (company keeps lead fee as profit)
+      const expectedNetProfit = grossProfit - totalCommission;
       const cashPosition = invoicesCollected - totalBillPayments;
 
       // Determine cash status
