@@ -88,11 +88,15 @@ const statusColors: Record<string, string> = {
 export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, autoOpenBillDialog, onBillDialogOpened }: ProjectDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isSuperAdmin, user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [editingChecklistText, setEditingChecklistText] = useState("");
+  const [newStatusValue, setNewStatusValue] = useState("");
+  const [newTypeValue, setNewTypeValue] = useState("");
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false);
+  const [typePopoverOpen, setTypePopoverOpen] = useState(false);
 
   // Auto-switch to finance tab and signal bill dialog open when returning from subcontractor add
   useEffect(() => {
@@ -365,24 +369,71 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   };
 
 
-  const PROJECT_TYPES = [
-    "Bathroom",
-    "Kitchen", 
-    "Backyard",
-    "Pool",
-    "ADU",
-    "Full Remodel",
-    "Room Addition",
-    "Roofing",
-    "Flooring",
-    "Painting",
-    "Landscaping",
-    "HVAC",
-    "Plumbing",
-    "Electrical",
-    "Windows & Doors",
-    "Other"
-  ];
+  // Fetch project statuses from database
+  const { data: projectStatuses = [] } = useQuery({
+    queryKey: ["project-statuses"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_statuses")
+        .select("*")
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch project types from database
+  const { data: projectTypes = [] } = useQuery({
+    queryKey: ["project-types"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_types")
+        .select("*")
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Add new status mutation
+  const addStatusMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const maxSort = projectStatuses.length > 0 
+        ? Math.max(...projectStatuses.map(s => s.sort_order || 0)) 
+        : 0;
+      const { error } = await supabase
+        .from("project_statuses")
+        .insert({ name, sort_order: maxSort + 1 });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Status added");
+      setNewStatusValue("");
+      queryClient.invalidateQueries({ queryKey: ["project-statuses"] });
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
+  // Add new type mutation
+  const addTypeMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const maxSort = projectTypes.length > 0 
+        ? Math.max(...projectTypes.map(t => t.sort_order || 0)) 
+        : 0;
+      const { error } = await supabase
+        .from("project_types")
+        .insert({ name, sort_order: maxSort + 1 });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Type added");
+      setNewTypeValue("");
+      queryClient.invalidateQueries({ queryKey: ["project-types"] });
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -457,21 +508,63 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                       </div>
                       <div>
                         <Label>Status</Label>
-                        <Select 
-                          value={fullProject?.project_status || "New Job"}
-                          onValueChange={(value) => updateProjectMutation.mutate({ project_status: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="New Job">New Job</SelectItem>
-                            <SelectItem value="In-Progress">In-Progress</SelectItem>
-                            <SelectItem value="On-Hold">On-Hold</SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
-                            <SelectItem value="Cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              {fullProject?.project_status || "New Job"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[200px] p-0 z-50" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder={isSuperAdmin ? "Search or add..." : "Search..."} 
+                                value={newStatusValue}
+                                onValueChange={setNewStatusValue}
+                              />
+                              <CommandList>
+                                <CommandEmpty>No status found.</CommandEmpty>
+                                <CommandGroup>
+                                  {isSuperAdmin && newStatusValue && !projectStatuses.some(s => s.name.toLowerCase() === newStatusValue.toLowerCase()) && (
+                                    <CommandItem
+                                      value={newStatusValue}
+                                      onSelect={() => {
+                                        addStatusMutation.mutate(newStatusValue);
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add "{newStatusValue}"
+                                    </CommandItem>
+                                  )}
+                                  {projectStatuses.map((status) => (
+                                    <CommandItem
+                                      key={status.id}
+                                      value={status.name}
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ project_status: status.name });
+                                        setStatusPopoverOpen(false);
+                                        setNewStatusValue("");
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          fullProject?.project_status === status.name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {status.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div>
                         <Label>Project Start Date</Label>
@@ -492,19 +585,63 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Project Type</Label>
-                        <Select 
-                          value={fullProject?.project_type || ""}
-                          onValueChange={(value) => updateProjectMutation.mutate({ project_type: value })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover z-50">
-                            {PROJECT_TYPES.map((type) => (
-                              <SelectItem key={type} value={type}>{type}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className="w-full justify-between font-normal"
+                            >
+                              {fullProject?.project_type || "Select type..."}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                            <Command>
+                              <CommandInput 
+                                placeholder={isSuperAdmin ? "Search or add..." : "Search..."} 
+                                value={newTypeValue}
+                                onValueChange={setNewTypeValue}
+                              />
+                              <CommandList>
+                                <CommandEmpty>No type found.</CommandEmpty>
+                                <CommandGroup>
+                                  {isSuperAdmin && newTypeValue && !projectTypes.some(t => t.name.toLowerCase() === newTypeValue.toLowerCase()) && (
+                                    <CommandItem
+                                      value={newTypeValue}
+                                      onSelect={() => {
+                                        addTypeMutation.mutate(newTypeValue);
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <Plus className="mr-2 h-4 w-4" />
+                                      Add "{newTypeValue}"
+                                    </CommandItem>
+                                  )}
+                                  {projectTypes.map((type) => (
+                                    <CommandItem
+                                      key={type.id}
+                                      value={type.name}
+                                      onSelect={() => {
+                                        updateProjectMutation.mutate({ project_type: type.name });
+                                        setTypePopoverOpen(false);
+                                        setNewTypeValue("");
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          fullProject?.project_type === type.name ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      {type.name}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <div>
                         <Label>Project Manager</Label>
