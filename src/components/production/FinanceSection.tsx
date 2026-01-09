@@ -66,7 +66,6 @@ import { FileUpload } from "./FileUpload";
 interface SalespersonData {
   name: string | null;
   commissionPct: number;
-  profitSplitPct: number;
 }
 
 interface FinanceSectionProps {
@@ -74,6 +73,7 @@ interface FinanceSectionProps {
   estimatedCost: number | null;
   totalPl: number | null;
   leadCostPercent: number;
+  commissionSplitPct: number;
   salespeople: SalespersonData[];
   onUpdateProject: (updates: Record<string, unknown>) => void;
 }
@@ -163,7 +163,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPercent, salespeople, onUpdateProject }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
   
@@ -1139,6 +1139,7 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, leadCostPerc
           <CommissionTab
             totalContracts={totalAgreementsValue}
             leadCostPercent={leadCostPercent}
+            commissionSplitPct={commissionSplitPct}
             totalBillsPaid={totalBillsPaid}
             salespeople={salespeople}
           />
@@ -2628,35 +2629,37 @@ function BillPaymentHistoryDialog({
 function CommissionTab({
   totalContracts,
   leadCostPercent,
+  commissionSplitPct,
   totalBillsPaid,
   salespeople,
 }: {
   totalContracts: number;
   leadCostPercent: number;
+  commissionSplitPct: number;
   totalBillsPaid: number;
   salespeople: SalespersonData[];
 }) {
-  // Calculations
+  // Calculations: (Total Contracts - Lead Cost - Bills) × Split%
   const leadCostAmount = totalContracts * (leadCostPercent / 100);
-  const netAfterLeadCost = totalContracts - leadCostAmount;
   const profit = totalContracts - leadCostAmount - totalBillsPaid;
+  const commissionPool = profit > 0 ? profit * (commissionSplitPct / 100) : 0;
   
-  // Calculate commission for each salesperson
+  // Calculate total commission % to normalize if needed
+  const totalCommissionPct = salespeople.reduce((sum, sp) => sum + sp.commissionPct, 0);
+  
+  // Calculate commission for each salesperson based on their share of the pool
   const salespeopleWithCommission = salespeople.map(sp => {
-    const commissionAmount = netAfterLeadCost * (sp.commissionPct / 100);
-    const profitShareAmount = profit > 0 ? profit * (sp.profitSplitPct / 100) : 0;
-    const totalEarnings = commissionAmount + profitShareAmount;
+    const shareOfPool = totalCommissionPct > 0 ? sp.commissionPct / totalCommissionPct : 0;
+    const commissionAmount = commissionPool * shareOfPool;
     return {
       ...sp,
+      shareOfPool,
       commissionAmount,
-      profitShareAmount,
-      totalEarnings,
     };
   });
 
   const totalCommissionPaid = salespeopleWithCommission.reduce((sum, sp) => sum + sp.commissionAmount, 0);
-  const totalProfitShared = salespeopleWithCommission.reduce((sum, sp) => sum + sp.profitShareAmount, 0);
-  const companyProfit = profit - totalProfitShared;
+  const companyProfit = profit - totalCommissionPaid;
 
   return (
     <div className="space-y-4">
@@ -2671,30 +2674,40 @@ function CommissionTab({
           <p className="text-lg font-semibold text-amber-600">-{formatCurrency(leadCostAmount)}</p>
         </Card>
         <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Net After Lead Cost</div>
-          <p className="text-lg font-semibold">{formatCurrency(netAfterLeadCost)}</p>
+          <div className="text-xs text-muted-foreground">Total Bills</div>
+          <p className="text-lg font-semibold text-amber-600">-{formatCurrency(totalBillsPaid)}</p>
         </Card>
         <Card className="p-3">
-          <div className="text-xs text-muted-foreground">Total Bills Paid</div>
-          <p className="text-lg font-semibold text-amber-600">-{formatCurrency(totalBillsPaid)}</p>
+          <div className="text-xs text-muted-foreground">Project Profit</div>
+          <p className={cn("text-lg font-semibold", profit >= 0 ? "text-emerald-600" : "text-destructive")}>
+            {formatCurrency(profit)}
+          </p>
         </Card>
       </div>
 
-      <Card className="p-3">
-        <div className="text-xs text-muted-foreground">Project Profit</div>
-        <p className={cn("text-xl font-bold", profit >= 0 ? "text-emerald-600" : "text-destructive")}>
-          {formatCurrency(profit)}
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          (Total Contracts - Lead Cost - Bills Paid)
-        </p>
+      {/* Commission Pool Calculation */}
+      <Card className="p-3 border-primary/20">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs text-muted-foreground">Commission Pool ({commissionSplitPct}% of Profit)</div>
+            <p className={cn("text-xl font-bold", commissionPool >= 0 ? "text-primary" : "text-destructive")}>
+              {formatCurrency(commissionPool)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              (Total Contracts - Lead Cost - Bills) × {commissionSplitPct}%
+            </p>
+          </div>
+        </div>
       </Card>
 
       {/* Salesperson Commission Breakdown */}
       {salespeople.length > 0 ? (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Commission Breakdown by Salesperson</CardTitle>
+            <CardTitle className="text-sm">Commission Distribution</CardTitle>
+            <CardDescription className="text-xs">
+              Commission pool divided among salespeople based on their Commission %
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -2702,10 +2715,8 @@ function CommissionTab({
                 <TableRow>
                   <TableHead className="text-xs">Salesperson</TableHead>
                   <TableHead className="text-xs text-right">Comm %</TableHead>
+                  <TableHead className="text-xs text-right">Share of Pool</TableHead>
                   <TableHead className="text-xs text-right">Commission</TableHead>
-                  <TableHead className="text-xs text-right">Profit Split %</TableHead>
-                  <TableHead className="text-xs text-right">Profit Share</TableHead>
-                  <TableHead className="text-xs text-right">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -2713,19 +2724,17 @@ function CommissionTab({
                   <TableRow key={index}>
                     <TableCell className="text-xs font-medium">{sp.name}</TableCell>
                     <TableCell className="text-xs text-right">{sp.commissionPct}%</TableCell>
-                    <TableCell className="text-xs text-right">{formatCurrency(sp.commissionAmount)}</TableCell>
-                    <TableCell className="text-xs text-right">{sp.profitSplitPct}%</TableCell>
-                    <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(sp.profitShareAmount)}</TableCell>
-                    <TableCell className="text-xs text-right font-semibold">{formatCurrency(sp.totalEarnings)}</TableCell>
+                    <TableCell className="text-xs text-right">{(sp.shareOfPool * 100).toFixed(1)}%</TableCell>
+                    <TableCell className="text-xs text-right font-semibold text-emerald-600">
+                      {formatCurrency(sp.commissionAmount)}
+                    </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="font-semibold bg-muted/50">
                   <TableCell className="text-xs">Total</TableCell>
-                  <TableCell className="text-xs text-right">-</TableCell>
-                  <TableCell className="text-xs text-right">{formatCurrency(totalCommissionPaid)}</TableCell>
-                  <TableCell className="text-xs text-right">-</TableCell>
-                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalProfitShared)}</TableCell>
-                  <TableCell className="text-xs text-right">{formatCurrency(totalCommissionPaid + totalProfitShared)}</TableCell>
+                  <TableCell className="text-xs text-right">{totalCommissionPct}%</TableCell>
+                  <TableCell className="text-xs text-right">100%</TableCell>
+                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalCommissionPaid)}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -2742,7 +2751,7 @@ function CommissionTab({
       <Card className="p-3 border-primary/20">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs text-muted-foreground">Company Profit (After All Splits)</div>
+            <div className="text-xs text-muted-foreground">Company Profit (After Commission)</div>
             <p className={cn("text-xl font-bold", companyProfit >= 0 ? "text-emerald-600" : "text-destructive")}>
               {formatCurrency(companyProfit)}
             </p>

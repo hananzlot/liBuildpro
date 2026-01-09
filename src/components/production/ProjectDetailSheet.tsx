@@ -503,7 +503,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                     <CardTitle className="text-sm">Sales Team</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Lead Cost % */}
+                    {/* Lead Cost % and Commission Split % */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Lead Cost %</Label>
@@ -516,6 +516,20 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="18"
                         />
                         <p className="text-xs text-muted-foreground mt-1">Default: 18%</p>
+                      </div>
+                      <div>
+                        <Label>Commission Split %</Label>
+                        <Input 
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={fullProject?.commission_split_pct ?? 50} 
+                          onChange={(e) => updateProjectMutation.mutate({ commission_split_pct: parseFloat(e.target.value) || 50 })}
+                          placeholder="50"
+                          disabled={!isAdmin}
+                          className={!isAdmin ? "bg-muted" : ""}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Admin only</p>
                       </div>
                     </div>
                     {/* Primary Salesperson Row */}
@@ -601,19 +615,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                             (fullProject?.quaternary_commission_pct || 0)
                           )}
                           placeholder="100"
-                        />
-                      </div>
-                      <div className="w-24">
-                        <Label>Split %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={fullProject?.primary_profit_split_pct ?? 50} 
-                          onChange={(e) => updateProjectMutation.mutate({ primary_profit_split_pct: parseFloat(e.target.value) || 0 })}
-                          placeholder="50"
-                          disabled={!isAdmin}
-                          className={!isAdmin ? "bg-muted" : ""}
                         />
                       </div>
                     </div>
@@ -706,19 +707,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="0"
                         />
                       </div>
-                      <div className="w-24">
-                        <Label>Split %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={fullProject?.secondary_profit_split_pct ?? 50} 
-                          onChange={(e) => updateProjectMutation.mutate({ secondary_profit_split_pct: parseFloat(e.target.value) || 0 })}
-                          placeholder="50"
-                          disabled={!isAdmin}
-                          className={!isAdmin ? "bg-muted" : ""}
-                        />
-                      </div>
                     </div>
                     {/* Tertiary Salesperson Row */}
                     <div className="flex items-end gap-2">
@@ -797,19 +785,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                             (fullProject?.quaternary_commission_pct || 0)
                           )}
                           placeholder="0"
-                        />
-                      </div>
-                      <div className="w-24">
-                        <Label>Split %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={fullProject?.tertiary_profit_split_pct ?? 50} 
-                          onChange={(e) => updateProjectMutation.mutate({ tertiary_profit_split_pct: parseFloat(e.target.value) || 0 })}
-                          placeholder="50"
-                          disabled={!isAdmin}
-                          className={!isAdmin ? "bg-muted" : ""}
                         />
                       </div>
                     </div>
@@ -892,19 +867,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                           placeholder="0"
                         />
                       </div>
-                      <div className="w-24">
-                        <Label>Split %</Label>
-                        <Input 
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={fullProject?.quaternary_profit_split_pct ?? 50} 
-                          onChange={(e) => updateProjectMutation.mutate({ quaternary_profit_split_pct: parseFloat(e.target.value) || 0 })}
-                          placeholder="50"
-                          disabled={!isAdmin}
-                          className={!isAdmin ? "bg-muted" : ""}
-                        />
-                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -963,11 +925,12 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate }: Pr
                 estimatedCost={fullProject.estimated_cost}
                 totalPl={fullProject.total_pl}
                 leadCostPercent={fullProject.lead_cost_percent ?? 18}
+                commissionSplitPct={fullProject.commission_split_pct ?? 50}
                 salespeople={[
-                  { name: fullProject.primary_salesperson, commissionPct: fullProject.primary_commission_pct || 0, profitSplitPct: fullProject.primary_profit_split_pct || 0 },
-                  { name: fullProject.secondary_salesperson, commissionPct: fullProject.secondary_commission_pct || 0, profitSplitPct: fullProject.secondary_profit_split_pct || 0 },
-                  { name: fullProject.tertiary_salesperson, commissionPct: fullProject.tertiary_commission_pct || 0, profitSplitPct: fullProject.tertiary_profit_split_pct || 0 },
-                  { name: fullProject.quaternary_salesperson, commissionPct: fullProject.quaternary_commission_pct || 0, profitSplitPct: fullProject.quaternary_profit_split_pct || 0 },
+                  { name: fullProject.primary_salesperson, commissionPct: fullProject.primary_commission_pct || 0 },
+                  { name: fullProject.secondary_salesperson, commissionPct: fullProject.secondary_commission_pct || 0 },
+                  { name: fullProject.tertiary_salesperson, commissionPct: fullProject.tertiary_commission_pct || 0 },
+                  { name: fullProject.quaternary_salesperson, commissionPct: fullProject.quaternary_commission_pct || 0 },
                 ].filter(s => s.name)}
                 onUpdateProject={(updates) => updateProjectMutation.mutate(updates)}
               />
