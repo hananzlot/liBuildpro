@@ -659,6 +659,13 @@ export function FinanceSection({ projectId, estimatedCost, totalPl, onUpdateProj
         </Collapsible>
       )}
 
+      {/* Est. Cost Card - Editable */}
+      <EstCostCard 
+        estimatedCost={estimatedCost} 
+        contractsTotal={totalAgreementsValue}
+        onSave={(value) => onUpdateProject({ estimated_cost: value })}
+      />
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3">
         <Card className="p-3">
@@ -2209,5 +2216,85 @@ function PhaseDialog({
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Editable Est. Cost Card Component
+function EstCostCard({ 
+  estimatedCost, 
+  contractsTotal,
+  onSave 
+}: { 
+  estimatedCost: number | null;
+  contractsTotal: number;
+  onSave: (value: number) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(estimatedCost?.toString() || "");
+
+  useEffect(() => {
+    setValue(estimatedCost?.toString() || "");
+  }, [estimatedCost]);
+
+  const handleSave = () => {
+    const numValue = parseFloat(value) || 0;
+    onSave(numValue);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+    } else if (e.key === "Escape") {
+      setValue(estimatedCost?.toString() || "");
+      setIsEditing(false);
+    }
+  };
+
+  const hasMismatch = estimatedCost !== null && estimatedCost > 0 && contractsTotal !== estimatedCost;
+
+  return (
+    <Card className={cn("p-3", hasMismatch && "border-destructive/50")}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">Est. Cost</span>
+          {hasMismatch && (
+            <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-destructive/10 text-destructive border-destructive/20">
+              Mismatch
+            </Badge>
+          )}
+        </div>
+        {!isEditing && (
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+      {isEditing ? (
+        <div className="flex items-center gap-2 mt-1">
+          <Input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="h-8 text-lg font-semibold"
+            autoFocus
+          />
+          <Button size="sm" className="h-8" onClick={handleSave}>
+            <Check className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <p className="text-lg font-semibold">{formatCurrency(estimatedCost)}</p>
+          {hasMismatch && (
+            <span className="text-xs text-muted-foreground">
+              (Contracts: {formatCurrency(contractsTotal)})
+            </span>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
