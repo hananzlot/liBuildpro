@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -700,14 +701,18 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-[280px] p-0 z-50 bg-popover overflow-hidden" align="start">
+                          <PopoverContent className="w-[280px] p-0 z-50 bg-popover" align="start">
                             <Command className="flex flex-col">
                               <CommandInput 
                                 placeholder={isSuperAdmin ? "Search or add..." : "Search..."} 
                                 value={newTypeValue}
                                 onValueChange={setNewTypeValue}
                               />
-                              <div className="max-h-[260px] overflow-y-auto overscroll-contain">
+                              <ScrollArea
+                                className="h-[260px]"
+                                onWheelCapture={(e) => e.stopPropagation()}
+                                onTouchMoveCapture={(e) => e.stopPropagation()}
+                              >
                                 <CommandList className="max-h-none overflow-visible">
                                   <CommandEmpty>No type found.</CommandEmpty>
                                   <CommandGroup>
@@ -726,7 +731,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                     {projectTypes.map((type) => {
                                       const selectedTypes = (fullProject?.project_type || '').split(',').map(t => t.trim()).filter(Boolean);
                                       const isSelected = selectedTypes.includes(type.name);
-                                      
+
                                       const toggleType = () => {
                                         if (editingTypeId === type.id) return;
                                         let newTypes: string[];
@@ -737,7 +742,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                         }
                                         updateProjectMutation.mutate({ project_type: newTypes.join(', ') || null });
                                       };
-                                      
+
                                       return (
                                         <CommandItem
                                           key={type.id}
@@ -819,7 +824,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                     })}
                                   </CommandGroup>
                                 </CommandList>
-                              </div>
+                              </ScrollArea>
                             </Command>
                           </PopoverContent>
                         </Popover>
