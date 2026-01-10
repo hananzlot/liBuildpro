@@ -103,6 +103,8 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Subcontractor | null>(null);
+  const [deleteHasPaidBills, setDeleteHasPaidBills] = useState(false);
+  const [checkingPaidBills, setCheckingPaidBills] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string } | null>(null);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
@@ -317,10 +319,44 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
+  // Check if subcontractor has paid bills
+  const checkForPaidBills = async (companyName: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from("project_bills")
+      .select("id, bill_payments(id)")
+      .eq("installer_company", companyName)
+      .not("bill_payments", "is", null);
+    
+    if (error) {
+      console.error("Error checking paid bills:", error);
+      return false;
+    }
+    
+    // Check if any bill has at least one payment
+    return data?.some(bill => bill.bill_payments && (bill.bill_payments as any[]).length > 0) ?? false;
+  };
+
+  const handleDeleteClick = async (sub: Subcontractor) => {
+    setDeleteTarget(sub);
+    setCheckingPaidBills(true);
+    setDeleteDialogOpen(true);
+    
+    const hasPaidBills = await checkForPaidBills(sub.company_name);
+    setDeleteHasPaidBills(hasPaidBills);
+    setCheckingPaidBills(false);
+  };
+
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
       if (!deleteTarget) return;
+      
+      // Double-check for paid bills before deletion
+      const hasPaidBills = await checkForPaidBills(deleteTarget.company_name);
+      if (hasPaidBills) {
+        throw new Error("Cannot delete subcontractor with paid bills");
+      }
+      
       const { error } = await supabase
         .from("subcontractors")
         .delete()
@@ -332,6 +368,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
+      setDeleteHasPaidBills(false);
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
@@ -545,10 +582,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                            onClick={() => {
-                              setDeleteTarget(sub);
-                              setDeleteDialogOpen(true);
-                            }}
+                            onClick={() => handleDeleteClick(sub)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -609,10 +643,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                          onClick={() => {
-                            setDeleteTarget(sub);
-                            setDeleteDialogOpen(true);
-                          }}
+                          onClick={() => handleDeleteClick(sub)}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -999,23 +1030,44 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) {
+          setDeleteHasPaidBills(false);
+          setCheckingPaidBills(false);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Subcontractor?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {checkingPaidBills ? "Checking..." : deleteHasPaidBills ? "Cannot Delete Subcontractor" : "Delete Subcontractor?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete <strong>{deleteTarget?.company_name}</strong>. This action cannot be undone.
+              {checkingPaidBills ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Checking for paid bills...
+                </span>
+              ) : deleteHasPaidBills ? (
+                <span className="text-destructive">
+                  <strong>{deleteTarget?.company_name}</strong> has paid bills on record and cannot be deleted. You can deactivate the subcontractor instead.
+                </span>
+              ) : (
+                <>This will permanently delete <strong>{deleteTarget?.company_name}</strong>. This action cannot be undone.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteMutation.mutate()}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Delete
-            </AlertDialogAction>
+            {!deleteHasPaidBills && !checkingPaidBills && (
+              <AlertDialogAction
+                onClick={() => deleteMutation.mutate()}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Delete
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
