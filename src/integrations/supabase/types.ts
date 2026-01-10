@@ -1228,12 +1228,16 @@ export type Database = {
           created_at: string | null
           id: string
           installer_company: string | null
+          is_voided: boolean
           memo: string | null
           not_affecting_payment: boolean | null
           payment_method: string | null
           payment_reference: string | null
           project_id: string | null
           updated_at: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           agreement_id?: string | null
@@ -1246,12 +1250,16 @@ export type Database = {
           created_at?: string | null
           id?: string
           installer_company?: string | null
+          is_voided?: boolean
           memo?: string | null
           not_affecting_payment?: boolean | null
           payment_method?: string | null
           payment_reference?: string | null
           project_id?: string | null
           updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           agreement_id?: string | null
@@ -1264,12 +1272,16 @@ export type Database = {
           created_at?: string | null
           id?: string
           installer_company?: string | null
+          is_voided?: boolean
           memo?: string | null
           not_affecting_payment?: boolean | null
           payment_method?: string | null
           payment_reference?: string | null
           project_id?: string | null
           updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -1284,6 +1296,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_bills_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

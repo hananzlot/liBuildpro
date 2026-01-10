@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -142,6 +143,10 @@ interface Bill {
   payment_method: string | null;
   payment_reference: string | null;
   agreement_id: string | null;
+  is_voided: boolean;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
 }
 
 interface Agreement {
@@ -162,6 +167,7 @@ const formatDate = (date: string | null) => {
 
 export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog }: FinanceSectionProps) {
   const queryClient = useQueryClient();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
   const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
   
@@ -174,6 +180,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [quickPayDialogOpen, setQuickPayDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [voidingBill, setVoidingBill] = useState<Bill | null>(null);
+  const [voidReason, setVoidReason] = useState("");
 
   // Auto-open bill dialog when returning from subcontractor add
   useEffect(() => {
@@ -261,11 +270,12 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     },
   });
 
-  // Calculate totals
+  // Calculate totals - exclude voided bills
+  const activeBills = bills.filter(b => !b.is_voided);
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
   const totalPaymentsReceived = payments.filter(p => p.payment_status === "Received").reduce((sum, p) => sum + (p.payment_amount || 0), 0);
-  const totalBills = bills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
-  const totalBillsPaid = bills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
+  const totalBills = activeBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
+  const totalBillsPaid = activeBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
   const totalAgreementsValue = agreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
 
   // Helper functions to check phase status
@@ -506,6 +516,39 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       setPayingBill(null);
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
+  // Void bill mutation
+  const voidBillMutation = useMutation({
+    mutationFn: async ({ billId, reason, userId }: { billId: string; reason: string; userId: string }) => {
+      const { error } = await supabase
+        .from("project_bills")
+        .update({
+          is_voided: true,
+          voided_at: new Date().toISOString(),
+          voided_by: userId,
+          void_reason: reason,
+        })
+        .eq("id", billId);
+      if (error) throw error;
+
+      await logAudit({
+        tableName: 'project_bills',
+        recordId: billId,
+        action: 'UPDATE',
+        newValues: { is_voided: true, void_reason: reason },
+        description: `Voided bill - Reason: ${reason}`,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Bill voided");
+      queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      setVoidDialogOpen(false);
+      setVoidingBill(null);
+      setVoidReason("");
+    },
+    onError: (error) => toast.error(`Failed to void bill: ${error.message}`),
   });
 
   const saveAgreementMutation = useMutation({
@@ -1027,23 +1070,38 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="text-xs">Status</TableHead>
                       <TableHead className="text-xs">Company</TableHead>
                       <TableHead className="text-xs">Category</TableHead>
                       <TableHead className="text-xs text-right">Amount</TableHead>
                       <TableHead className="text-xs text-right">Paid</TableHead>
                       <TableHead className="text-xs text-right">Balance</TableHead>
                       <TableHead className="text-xs w-10"></TableHead>
-                      <TableHead className="text-xs w-28"></TableHead>
+                      <TableHead className="text-xs w-40"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {bills.map((bill) => (
-                      <TableRow key={bill.id}>
+                      <TableRow key={bill.id} className={bill.is_voided ? "opacity-50 bg-muted/30" : ""}>
+                        <TableCell className="text-xs">
+                          {bill.is_voided ? (
+                            <div>
+                              <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {bill.voided_at ? formatDate(bill.voided_at) : ""}
+                              </p>
+                            </div>
+                          ) : (bill.balance || 0) <= 0 ? (
+                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px]">Open</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs">{bill.installer_company || "-"}</TableCell>
                         <TableCell className="text-xs">{bill.category || "-"}</TableCell>
-                        <TableCell className="text-xs text-right">{formatCurrency(bill.bill_amount)}</TableCell>
-                        <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(bill.amount_paid)}</TableCell>
-                        <TableCell className="text-xs text-right">{formatCurrency(bill.balance)}</TableCell>
+                        <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.bill_amount)}</TableCell>
+                        <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency(bill.amount_paid)}</TableCell>
+                        <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.balance)}</TableCell>
                         <TableCell>
                           {bill.attachment_url && (
                             <Button
@@ -1060,34 +1118,51 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 text-xs px-2"
-                              onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}
-                            >
-                              <History className="h-3 w-3 mr-1" />
-                              History
-                            </Button>
-                            {(bill.balance || 0) > 0 && (
+                          {bill.is_voided ? (
+                            <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={bill.void_reason || ""}>
+                              {bill.void_reason || "No reason"}
+                            </p>
+                          ) : (
+                            <div className="flex gap-1">
                               <Button 
-                                variant="outline" 
+                                variant="ghost" 
                                 size="sm" 
                                 className="h-7 text-xs px-2"
-                                onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}
+                                onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}
                               >
-                                <CreditCard className="h-3 w-3 mr-1" />
-                                Pay
+                                <History className="h-3 w-3 mr-1" />
+                                History
                               </Button>
-                            )}
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingBill(bill); setBillDialogOpen(true); }}>
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
+                              {(bill.balance || 0) > 0 && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="h-7 text-xs px-2"
+                                  onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}
+                                >
+                                  <CreditCard className="h-3 w-3 mr-1" />
+                                  Pay
+                                </Button>
+                              )}
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingBill(bill); setBillDialogOpen(true); }}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              {(isAdmin || isSuperAdmin) ? (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              ) : (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
+                                  onClick={() => { setVoidingBill(bill); setVoidDialogOpen(true); }}
+                                >
+                                  Void
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1417,6 +1492,56 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         onOpenChange={setHistoryDialogOpen}
         bill={historyBill}
       />
+
+      {/* Void Bill Dialog */}
+      <AlertDialog open={voidDialogOpen} onOpenChange={(open) => {
+        setVoidDialogOpen(open);
+        if (!open) {
+          setVoidingBill(null);
+          setVoidReason("");
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Void Bill</AlertDialogTitle>
+            <AlertDialogDescription>
+              {voidingBill?.installer_company && (
+                <span className="font-medium">{voidingBill.installer_company} - </span>
+              )}
+              {formatCurrency(voidingBill?.bill_amount)}
+              <br /><br />
+              Once voided, this bill cannot be restored and will be excluded from all financial calculations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Label>Reason for voiding <span className="text-destructive">*</span></Label>
+            <Input
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="Enter reason for voiding this bill..."
+              className="mt-1"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (voidingBill && user?.id && voidReason.trim()) {
+                  voidBillMutation.mutate({ 
+                    billId: voidingBill.id, 
+                    reason: voidReason.trim(),
+                    userId: user.id 
+                  });
+                }
+              }} 
+              disabled={!voidReason.trim() || voidBillMutation.isPending}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+            >
+              {voidBillMutation.isPending ? "Voiding..." : "Void Bill"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* PDF/Image Viewer Dialog */}
       <PdfViewerDialog
