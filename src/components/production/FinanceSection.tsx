@@ -3021,6 +3021,7 @@ interface CommissionPayment {
   payment_method: string | null;
   payment_reference: string | null;
   notes: string | null;
+  bank_name: string | null;
 }
 
 // Commission Tab Component
@@ -3410,6 +3411,21 @@ function CommissionPaymentDialog({
     payment_method: "",
     payment_reference: "",
     notes: "",
+    bank_name: "",
+  });
+
+  // Fetch existing bank names from banks table
+  const { data: existingBanks = [] } = useQuery({
+    queryKey: ["banks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("banks")
+        .select("name")
+        .order("name");
+      if (error) throw error;
+      return data.map(b => b.name);
+    },
+    enabled: open,
   });
 
   // Reset form when dialog opens/closes or editing changes
@@ -3423,6 +3439,7 @@ function CommissionPaymentDialog({
           payment_method: editingPayment.payment_method || "",
           payment_reference: editingPayment.payment_reference || "",
           notes: editingPayment.notes || "",
+          bank_name: editingPayment.bank_name || "",
         });
       } else {
         setFormData({
@@ -3432,6 +3449,7 @@ function CommissionPaymentDialog({
           payment_method: "",
           payment_reference: "",
           notes: "",
+          bank_name: "",
         });
       }
     }
@@ -3446,6 +3464,7 @@ function CommissionPaymentDialog({
       payment_method: formData.payment_method || null,
       payment_reference: formData.payment_reference || null,
       notes: formData.notes || null,
+      bank_name: formData.bank_name || null,
     });
   };
 
@@ -3522,6 +3541,22 @@ function CommissionPaymentDialog({
               </Button>
             </div>
           )}
+          <div>
+            <Label>Bank Account *</Label>
+            <Select
+              value={formData.bank_name}
+              onValueChange={(v) => setFormData(p => ({ ...p, bank_name: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select bank account" />
+              </SelectTrigger>
+              <SelectContent>
+                {existingBanks.map((bank) => (
+                  <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Payment Method</Label>
@@ -3564,7 +3599,7 @@ function CommissionPaymentDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button
               type="submit"
-              disabled={isPending || !formData.salesperson_name || paymentAmount <= 0}
+              disabled={isPending || !formData.salesperson_name || !formData.bank_name || paymentAmount <= 0}
             >
               {isPending ? "Saving..." : editingPayment ? "Update Payment" : "Record Payment"}
             </Button>
