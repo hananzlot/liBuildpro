@@ -621,17 +621,20 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
               <Label htmlFor="subcontractor_type">Type *</Label>
               <Select
                 value={formData.subcontractor_type}
-                onValueChange={(value: SubcontractorType) => {
+                onValueChange={async (value: SubcontractorType) => {
                   setFormData(prev => ({ ...prev, subcontractor_type: value }));
                   // Auto-save type when editing existing subcontractor
                   if (editingSubcontractor) {
-                    supabase
+                    const { error } = await supabase
                       .from("subcontractors")
                       .update({ subcontractor_type: value })
-                      .eq("id", editingSubcontractor.id)
-                      .then(() => {
-                        queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
-                      });
+                      .eq("id", editingSubcontractor.id);
+                    if (error) {
+                      toast.error("Failed to update type");
+                    } else {
+                      toast.success("Type updated");
+                      queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
+                    }
                   }
                 }}
               >
