@@ -533,26 +533,27 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
               <>
                 {/* Project Info */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Project Information</CardTitle>
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-xs font-medium">Project Information</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>Project Name</Label>
-                        <DebouncedInput 
+                  <CardContent className="space-y-3 px-4 pb-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Project Name</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
                           value={fullProject?.project_name || ""} 
                           onSave={(value) => updateProjectMutation.mutate({ project_name: value })}
                         />
                       </div>
-                      <div>
-                        <Label>Status</Label>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Status</Label>
                         <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal"
+                              className="w-full justify-between font-normal h-8 text-xs"
                             >
                               {fullProject?.project_status || "New Job"}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -668,9 +669,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div>
-                        <Label>Project Start Date</Label>
-                        <Input 
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Project Start Date</Label>
+                        <Input
+                          className="h-8 text-xs"
                           type="date"
                           defaultValue={fullProject?.install_start_date ? fullProject.install_start_date.split('T')[0] : ""} 
                           key={fullProject?.install_start_date}
@@ -684,22 +686,23 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                         />
                       </div>
                     </div>
-                    <div>
-                      <Label>Project Address</Label>
-                      <DebouncedInput 
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Project Address</Label>
+                      <DebouncedInput
+                        className="h-8 text-xs"
                         value={fullProject?.project_address || ""} 
                         onSave={(value) => updateProjectMutation.mutate({ project_address: value })}
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Project Type</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Project Type</Label>
                         <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal h-auto min-h-10"
+                              className="w-full justify-between font-normal h-8 text-xs"
                             >
                               <span className="text-left flex-1 truncate">
                                 {fullProject?.project_type 
@@ -837,14 +840,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div>
-                        <Label>Project Manager</Label>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Project Manager</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal"
+                              className="w-full justify-between font-normal h-8 text-xs"
                             >
                               {fullProject?.project_manager || "Select or add..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -903,41 +906,45 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
                 {/* Customer Info */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <User className="h-4 w-4" />
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-xs font-medium flex items-center gap-2">
+                      <User className="h-3 w-3" />
                       Customer Information
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>First Name</Label>
-                        <DebouncedInput 
+                  <CardContent className="space-y-3 px-4 pb-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">First Name</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
                           value={fullProject?.customer_first_name || ""} 
                           onSave={(value) => updateProjectMutation.mutate({ customer_first_name: value })}
                         />
                       </div>
-                      <div>
-                        <Label>Last Name</Label>
-                        <DebouncedInput 
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Last Name</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
                           value={fullProject?.customer_last_name || ""} 
                           onSave={(value) => updateProjectMutation.mutate({ customer_last_name: value })}
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Cell Phone</Label>
-                        <DebouncedInput 
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Cell Phone</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
                           value={formatPhoneNumber(fullProject?.cell_phone)} 
                           onSave={(value) => updateProjectMutation.mutate({ cell_phone: value.replace(/\D/g, "") })}
                           placeholder="(555) 123-4567"
                         />
                       </div>
-                      <div>
-                        <Label>Email</Label>
-                        <DebouncedInput 
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Email</Label>
+                        <DebouncedInput
+                          className="h-8 text-xs"
                           value={fullProject?.customer_email || ""} 
                           onSave={(value) => updateProjectMutation.mutate({ customer_email: value })}
                         />
@@ -948,49 +955,49 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
                 {/* Salesperson Info */}
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm">Sales Team</CardTitle>
+                  <CardHeader className="py-3 px-4">
+                    <CardTitle className="text-xs font-medium">Sales Team</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-3 px-4 pb-4">
                     {/* Lead Cost % and Commission Split % */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Lead Cost %</Label>
-                        <DebouncedNumberInput 
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Lead Cost %</Label>
+                        <DebouncedNumberInput
+                          className={cn("h-8 text-xs", !isAdmin && "bg-muted")}
                           min={0}
                           max={100}
                           value={fullProject?.lead_cost_percent ?? 18} 
                           onSave={(value) => updateProjectMutation.mutate({ lead_cost_percent: value ?? 18 })}
                           placeholder="18"
                           disabled={!isAdmin}
-                          className={!isAdmin ? "bg-muted" : ""}
                         />
-                        <p className="text-xs text-muted-foreground mt-1">Admin only</p>
+                        <p className="text-[10px] text-muted-foreground">Admin only</p>
                       </div>
-                      <div>
-                        <Label>Commission Split %</Label>
-                        <DebouncedNumberInput 
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Commission Split %</Label>
+                        <DebouncedNumberInput
+                          className={cn("h-8 text-xs", !isAdmin && "bg-muted")}
                           min={0}
                           max={100}
                           value={fullProject?.commission_split_pct ?? 50} 
                           onSave={(value) => updateProjectMutation.mutate({ commission_split_pct: value ?? 50 })}
                           placeholder="50"
                           disabled={!isAdmin}
-                          className={!isAdmin ? "bg-muted" : ""}
                         />
-                        <p className="text-xs text-muted-foreground mt-1">Admin only</p>
+                        <p className="text-[10px] text-muted-foreground">Admin only</p>
                       </div>
                     </div>
                     {/* Primary Salesperson Row */}
                     <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label>Primary Salesperson</Label>
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Primary Salesperson</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal"
+                              className="w-full justify-between font-normal h-8 text-xs"
                             >
                               {fullProject?.primary_salesperson || "Select or add..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1049,9 +1056,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div className="w-24">
-                        <Label>Comm %</Label>
-                        <DebouncedNumberInput 
+                      <div className="w-20 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Comm %</Label>
+                        <DebouncedNumberInput
+                          className="h-8 text-xs"
                           min={0}
                           max={100}
                           value={fullProject?.primary_commission_pct} 
@@ -1068,7 +1076,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     </div>
                     {/* Commission Total Display */}
                     <div className={cn(
-                      "flex items-center justify-between p-2 rounded-md text-sm",
+                      "flex items-center justify-between px-2 py-1.5 rounded-md text-xs",
                       totalCommission > 100 ? "bg-destructive/10 text-destructive" : 
                       totalCommission === 100 ? "bg-emerald-500/10 text-emerald-600" : 
                       "bg-muted text-muted-foreground"
@@ -1078,14 +1086,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     </div>
                     {/* Secondary Salesperson Row */}
                     <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label>Secondary Salesperson</Label>
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Secondary Salesperson</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal"
+                              className="w-full justify-between font-normal h-8 text-xs"
                             >
                               {fullProject?.secondary_salesperson || "Select or add..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1138,9 +1146,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div className="w-24">
-                        <Label>Comm %</Label>
-                        <DebouncedNumberInput 
+                      <div className="w-20 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Comm %</Label>
+                        <DebouncedNumberInput
+                          className="h-8 text-xs"
                           min={0}
                           max={100}
                           value={fullProject?.secondary_commission_pct} 
@@ -1157,14 +1166,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     </div>
                     {/* Tertiary Salesperson Row */}
                     <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label>Tertiary Salesperson</Label>
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Tertiary Salesperson</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal"
+                              className="w-full justify-between font-normal h-8 text-xs"
                             >
                               {fullProject?.tertiary_salesperson || "Select or add..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1217,9 +1226,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div className="w-24">
-                        <Label>Comm %</Label>
-                        <DebouncedNumberInput 
+                      <div className="w-20 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Comm %</Label>
+                        <DebouncedNumberInput
+                          className="h-8 text-xs"
                           min={0}
                           max={100}
                           value={fullProject?.tertiary_commission_pct} 
@@ -1236,14 +1246,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     </div>
                     {/* Quaternary Salesperson Row */}
                     <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <Label>Quaternary Salesperson</Label>
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Quaternary Salesperson</Label>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="outline"
                               role="combobox"
-                              className="w-full justify-between font-normal"
+                              className="w-full justify-between font-normal h-8 text-xs"
                             >
                               {fullProject?.quaternary_salesperson || "Select or add..."}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1296,9 +1306,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div className="w-24">
-                        <Label>Comm %</Label>
-                        <DebouncedNumberInput 
+                      <div className="w-20 space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Comm %</Label>
+                        <DebouncedNumberInput
+                          className="h-8 text-xs"
                           min={0}
                           max={100}
                           value={fullProject?.quaternary_commission_pct} 
@@ -1350,22 +1361,25 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
 
           {/* Checklist Tab */}
-          <TabsContent value="checklist" className="space-y-4 mt-4">
+          <TabsContent value="checklist" className="space-y-3 mt-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4" />
-                  Office Checklist
-                </CardTitle>
-                <CardDescription>
-                  {checklists.filter(c => c.completed).length} of {checklists.length} completed
-                </CardDescription>
+              <CardHeader className="py-3 px-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-medium flex items-center gap-2">
+                    <CheckSquare className="h-3 w-3" />
+                    Office Checklist
+                  </CardTitle>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    {checklists.filter(c => c.completed).length}/{checklists.length}
+                  </Badge>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-2 px-4 pb-4">
                 {/* Add new item */}
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <Input
-                    placeholder="Add new checklist item..."
+                    className="h-7 text-xs"
+                    placeholder="Add new item..."
                     value={newChecklistItem}
                     onChange={(e) => setNewChecklistItem(e.target.value)}
                     onKeyDown={(e) => {
@@ -1376,6 +1390,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                   />
                   <Button
                     size="sm"
+                    className="h-7 w-7 p-0"
                     onClick={() => {
                       if (newChecklistItem.trim()) {
                         addChecklistMutation.mutate(newChecklistItem.trim());
@@ -1383,29 +1398,30 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     }}
                     disabled={!newChecklistItem.trim() || addChecklistMutation.isPending}
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3 w-3" />
                   </Button>
                 </div>
 
                 {checklists.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No checklist items yet. Add one above!
+                  <p className="text-xs text-muted-foreground text-center py-3">
+                    No checklist items yet
                   </p>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {checklists.map((item) => (
                       <div 
                         key={item.id} 
-                        className="flex items-center gap-3 p-2 rounded hover:bg-muted/50 group"
+                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 group"
                       >
-                        <Checkbox 
+                        <Checkbox
+                          className="h-3.5 w-3.5"
                           checked={item.completed}
                           onCheckedChange={(checked) => 
                             toggleChecklistMutation.mutate({ id: item.id, completed: !!checked })
                           }
                         />
                         {editingChecklistId === item.id ? (
-                          <div className="flex-1 flex gap-2">
+                          <div className="flex-1 flex gap-1">
                             <Input
                               value={editingChecklistText}
                               onChange={(e) => setEditingChecklistText(e.target.value)}
@@ -1419,12 +1435,12 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                 }
                               }}
                               autoFocus
-                              className="h-7"
+                              className="h-6 text-xs"
                             />
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               onClick={() => {
                                 if (editingChecklistText.trim()) {
                                   updateChecklistMutation.mutate({ id: item.id, item: editingChecklistText.trim() });
@@ -1436,7 +1452,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               onClick={() => {
                                 setEditingChecklistId(null);
                                 setEditingChecklistText("");
@@ -1447,28 +1463,28 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </div>
                         ) : (
                           <>
-                            <span className={cn("flex-1", item.completed && "line-through text-muted-foreground")}>
+                            <span className={cn("flex-1 text-xs", item.completed && "line-through text-muted-foreground")}>
                               {item.item}
                             </span>
-                            <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                            <div className="opacity-0 group-hover:opacity-100 flex gap-0.5">
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-6 w-6 p-0"
+                                className="h-5 w-5 p-0"
                                 onClick={() => {
                                   setEditingChecklistId(item.id);
                                   setEditingChecklistText(item.item);
                                 }}
                               >
-                                <Pencil className="h-3 w-3" />
+                                <Pencil className="h-2.5 w-2.5" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                className="h-5 w-5 p-0 text-destructive hover:text-destructive"
                                 onClick={() => deleteChecklistMutation.mutate(item.id)}
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className="h-2.5 w-2.5" />
                               </Button>
                             </div>
                           </>
@@ -1482,27 +1498,27 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
           </TabsContent>
 
           {/* Feedback Tab */}
-          <TabsContent value="feedback" className="space-y-4 mt-4">
+          <TabsContent value="feedback" className="space-y-3 mt-4">
             {/* Notes Section - First */}
             <NotesSection projectId={project.id} />
 
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Star className="h-4 w-4" />
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-xs font-medium flex items-center gap-2">
+                  <Star className="h-3 w-3" />
                   Customer Feedback
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 pb-4">
                 {feedback ? (
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Satisfaction Rating</Label>
-                      <div className="flex gap-1 mt-1">
+                  <div className="space-y-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Satisfaction Rating</Label>
+                      <div className="flex gap-0.5">
                         {[1, 2, 3, 4, 5].map((rating) => (
                           <Star 
                             key={rating}
-                            className={`h-5 w-5 ${
+                            className={`h-4 w-4 ${
                               rating <= (feedback.satisfaction_rank || 0) 
                                 ? "fill-amber-500 text-amber-500" 
                                 : "text-muted-foreground"
@@ -1512,20 +1528,20 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                       </div>
                     </div>
                     {feedback.customer_feedback && (
-                      <div>
-                        <Label>Customer Comments</Label>
-                        <p className="text-sm mt-1 p-3 bg-muted rounded">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Customer Comments</Label>
+                        <p className="text-xs p-2 bg-muted rounded">
                           {feedback.customer_feedback}
                         </p>
                       </div>
                     )}
                     {feedback.online_review_given && (
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500">
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500">
                           Online Review Given
                         </Badge>
                         {feedback.review_location && (
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground">
                             on {feedback.review_location}
                           </span>
                         )}
@@ -1533,7 +1549,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
+                  <p className="text-xs text-muted-foreground text-center py-3">
                     No feedback recorded yet
                   </p>
                 )}
@@ -1542,32 +1558,32 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
             {/* Messages */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4" />
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-xs font-medium flex items-center gap-2">
+                  <MessageSquare className="h-3 w-3" />
                   Project Messages
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 pb-4">
                 {messages.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
+                  <p className="text-xs text-muted-foreground text-center py-3">
                     No messages yet
                   </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {messages.map((msg) => (
-                      <div key={msg.id} className="p-3 bg-muted rounded">
+                      <div key={msg.id} className="p-2 bg-muted rounded">
                         {msg.is_alert && (
-                          <Badge variant="destructive" className="mb-2">
-                            <AlertCircle className="h-3 w-3 mr-1" />
+                          <Badge variant="destructive" className="mb-1.5 text-[10px] px-1.5 py-0">
+                            <AlertCircle className="h-2.5 w-2.5 mr-0.5" />
                             Alert
                           </Badge>
                         )}
                         {msg.subject && (
-                          <p className="font-medium text-sm">{msg.subject}</p>
+                          <p className="font-medium text-xs">{msg.subject}</p>
                         )}
-                        <p className="text-sm">{msg.message}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs">{msg.message}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
                           {new Date(msg.created_at).toLocaleString()}
                         </p>
                       </div>
