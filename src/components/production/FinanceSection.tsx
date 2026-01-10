@@ -3179,7 +3179,7 @@ function CommissionTab({
         </Card>
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Lead Cost ({leadCostPercent}%)</div>
-          <p className="text-lg font-semibold text-amber-600">-{formatCurrency(leadCostAmount)}</p>
+          <p className="text-lg font-semibold text-amber-600">{formatCurrency(leadCostAmount)}</p>
         </Card>
         <Card className="p-3">
           <div className="text-xs text-muted-foreground">Total Bills</div>

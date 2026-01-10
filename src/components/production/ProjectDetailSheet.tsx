@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
 import { DocumentsSection } from "./DocumentsSection";
+import { NotesSection } from "./NotesSection";
 import { DebouncedInput, DebouncedTextarea, DebouncedNumberInput } from "@/components/ui/debounced-input";
 
 interface Project {
@@ -511,6 +512,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             <TabsTrigger value="documents" className="text-xs">
               <FolderOpen className="h-3 w-3 mr-1" />
               Docs
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="text-xs">
+              <MessageSquare className="h-3 w-3 mr-1" />
+              Notes
             </TabsTrigger>
             <TabsTrigger value="checklist" className="text-xs">
               <CheckSquare className="h-3 w-3 mr-1" />
@@ -1345,6 +1350,11 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
           {/* Documents Tab */}
           <TabsContent value="documents" className="mt-4">
             <DocumentsSection projectId={project.id} />
+          </TabsContent>
+
+          {/* Notes Tab */}
+          <TabsContent value="notes" className="mt-4">
+            <NotesSection projectId={project.id} />
           </TabsContent>
 
           {/* Checklist Tab */}
