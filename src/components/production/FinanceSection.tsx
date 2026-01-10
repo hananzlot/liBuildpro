@@ -1783,9 +1783,12 @@ function PaymentDialog({
                     />
                     <CommandList>
                       <CommandEmpty>
-                        {bankSearch && (
+                        {bankSearch ? `No bank found. Press enter or click below to add "${bankSearch}".` : "Type to search or add a bank."}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {bankSearch && !filteredBanks.some(b => b.toLowerCase() === bankSearch.toLowerCase()) && (
                           <CommandItem
-                            value={bankSearch}
+                            value={`add-${bankSearch}`}
                             onSelect={() => {
                               setFormData(p => ({ ...p, bank_name: bankSearch }));
                               setBankOpen(false);
@@ -1797,8 +1800,6 @@ function PaymentDialog({
                             Add "{bankSearch}"
                           </CommandItem>
                         )}
-                      </CommandEmpty>
-                      <CommandGroup>
                         {filteredBanks.map((bank) => (
                           <CommandItem
                             key={bank}
@@ -1814,20 +1815,6 @@ function PaymentDialog({
                             {bank}
                           </CommandItem>
                         ))}
-                        {bankSearch && !filteredBanks.includes(bankSearch) && filteredBanks.length > 0 && (
-                          <CommandItem
-                            value={bankSearch}
-                            onSelect={() => {
-                              setFormData(p => ({ ...p, bank_name: bankSearch }));
-                              setBankOpen(false);
-                              setBankSearch("");
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Plus className="h-3 w-3 mr-2" />
-                            Add "{bankSearch}"
-                          </CommandItem>
-                        )}
                       </CommandGroup>
                     </CommandList>
                   </Command>
