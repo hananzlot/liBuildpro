@@ -414,6 +414,8 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
               <TableHeader>
                 <TableRow>
                   <TableHead>Company</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Trade(s)</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>License Exp.</TableHead>
                   <TableHead>Insurance Exp.</TableHead>
@@ -431,6 +433,20 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                       <TableCell>
                         <div className="font-medium">{sub.company_name}</div>
                         {sub.phone && <div className="text-xs text-muted-foreground">{sub.phone}</div>}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">{sub.subcontractor_type}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        {sub.trade && sub.trade.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {sub.trade.map((t) => (
+                              <Badge key={t} variant="secondary" className="text-xs">{t}</Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-sm">{sub.contact_name || "-"}</TableCell>
                       <TableCell>
