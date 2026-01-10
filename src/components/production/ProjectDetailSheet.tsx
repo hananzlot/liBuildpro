@@ -1074,16 +1074,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                         />
                       </div>
                     </div>
-                    {/* Commission Total Display */}
-                    <div className={cn(
-                      "flex items-center justify-between px-2 py-1.5 rounded-md text-xs",
-                      totalCommission > 100 ? "bg-destructive/10 text-destructive" : 
-                      totalCommission === 100 ? "bg-emerald-500/10 text-emerald-600" : 
-                      "bg-muted text-muted-foreground"
-                    )}>
-                      <span className="font-medium">Total Commission:</span>
-                      <span className="font-bold">{totalCommission}%</span>
-                    </div>
                     {/* Secondary Salesperson Row */}
                     <div className="flex items-end gap-2">
                       <div className="flex-1 space-y-1">
@@ -1323,6 +1313,16 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           placeholder="0"
                         />
                       </div>
+                    </div>
+                    {/* Commission Total Display */}
+                    <div className={cn(
+                      "flex items-center justify-between px-2 py-1.5 rounded-md text-xs",
+                      totalCommission > 100 ? "bg-destructive/10 text-destructive" : 
+                      totalCommission === 100 ? "bg-emerald-500/10 text-emerald-600" : 
+                      "bg-muted text-muted-foreground"
+                    )}>
+                      <span className="font-medium">Total Commission:</span>
+                      <span className="font-bold">{totalCommission}%</span>
                     </div>
                   </CardContent>
                 </Card>
