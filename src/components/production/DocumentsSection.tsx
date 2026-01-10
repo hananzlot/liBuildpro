@@ -296,13 +296,13 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Upload Button */}
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-sm font-medium">All Project Documents</h3>
-          <p className="text-xs text-muted-foreground">
-            {allDocuments.length} file{allDocuments.length !== 1 ? "s" : ""} uploaded
+          <h3 className="text-xs font-medium">All Project Documents</h3>
+          <p className="text-[10px] text-muted-foreground">
+            {allDocuments.length} file{allDocuments.length !== 1 ? "s" : ""}
           </p>
         </div>
         <div>
@@ -313,81 +313,79 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
             onChange={handleFileSelect}
             className="hidden"
           />
-          <Button size="sm" onClick={() => fileInputRef.current?.click()}>
+          <Button size="sm" className="h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
             <Plus className="h-3 w-3 mr-1" />
             Upload
           </Button>
         </div>
       </div>
 
-      {/* Documents List */}
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="pt-3 px-3 pb-3">
           {loadingDocs ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : allDocuments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <FolderOpen className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No documents uploaded yet</p>
-              <p className="text-xs mt-1">Upload contracts, permits, photos, and more</p>
+            <div className="text-center py-6 text-muted-foreground">
+              <FolderOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-xs">No documents uploaded yet</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {allDocuments.map((doc) => (
                 <div 
                   key={`${doc.source}-${doc.id}`}
-                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 transition-colors"
                 >
-                  <div className="shrink-0 p-2 rounded bg-muted">
+                  <div className="shrink-0 p-1.5 rounded bg-muted">
                     {doc.source === "bill" ? (
-                      <Receipt className="h-4 w-4 text-orange-500" />
+                      <Receipt className="h-3 w-3 text-orange-500" />
                     ) : doc.source === "agreement" ? (
-                      <FileSignature className="h-4 w-4 text-indigo-500" />
+                      <FileSignature className="h-3 w-3 text-indigo-500" />
                     ) : (
                       getFileIcon(doc.file_type, doc.file_name)
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{doc.file_name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className={`text-xs ${categoryColors[doc.category || "General"] || ""}`}>
+                    <p className="text-xs font-medium truncate">{doc.file_name}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Badge variant="outline" className={`text-[10px] px-1 py-0 ${categoryColors[doc.category || "General"] || ""}`}>
                         {doc.category || "General"}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[10px] text-muted-foreground">
                         {formatDate(doc.created_at)}
                       </span>
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
+                  <div className="flex gap-0.5 shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-6 w-6"
                       onClick={() => handleDocumentClick(doc)}
                       title="View"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-3 w-3" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-6 w-6"
                       onClick={() => window.open(doc.file_url, "_blank")}
                       title="Open in new tab"
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <ExternalLink className="h-3 w-3" />
                     </Button>
                     {doc.source === "document" && isAdmin && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-destructive"
+                        className="h-6 w-6 text-destructive"
                         onClick={() => handleDeleteClick(doc)}
                         title="Delete"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     )}
                   </div>
