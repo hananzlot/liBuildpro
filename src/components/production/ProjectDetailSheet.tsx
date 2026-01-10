@@ -513,10 +513,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
               <FolderOpen className="h-3 w-3 mr-1" />
               Docs
             </TabsTrigger>
-            <TabsTrigger value="notes" className="text-xs">
-              <MessageSquare className="h-3 w-3 mr-1" />
-              Notes
-            </TabsTrigger>
             <TabsTrigger value="checklist" className="text-xs">
               <CheckSquare className="h-3 w-3 mr-1" />
               Checklist
@@ -1352,10 +1348,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             <DocumentsSection projectId={project.id} />
           </TabsContent>
 
-          {/* Notes Tab */}
-          <TabsContent value="notes" className="mt-4">
-            <NotesSection projectId={project.id} />
-          </TabsContent>
 
           {/* Checklist Tab */}
           <TabsContent value="checklist" className="space-y-4 mt-4">
@@ -1491,6 +1483,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
           {/* Feedback Tab */}
           <TabsContent value="feedback" className="space-y-4 mt-4">
+            {/* Notes Section - First */}
+            <NotesSection projectId={project.id} />
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
