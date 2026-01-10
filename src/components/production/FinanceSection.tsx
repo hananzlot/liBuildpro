@@ -935,45 +935,33 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         />
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="p-3">
-          <div className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Total Sold</span>
-          </div>
-          <p className="text-lg font-semibold">{formatCurrency(totalAgreementsValue)}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Total Invoiced</span>
-          </div>
-          <p className="text-lg font-semibold">{formatCurrency(totalInvoiced)}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Payments Received</span>
-          </div>
-          <p className="text-lg font-semibold text-emerald-600">{formatCurrency(totalPaymentsReceived)}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Receipt className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Bills</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-xs text-muted-foreground">Submitted</p>
-              <p className="text-sm font-semibold">{formatCurrency(totalBills)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Outstanding</p>
-              <p className="text-sm font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</p>
-            </div>
-          </div>
-        </Card>
+      {/* Summary Cards - Compact single row */}
+      <div className="flex gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5">
+          <DollarSign className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[10px] text-muted-foreground">Sold:</span>
+          <span className="text-xs font-semibold">{formatCurrency(totalAgreementsValue)}</span>
+        </div>
+        <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5">
+          <FileText className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[10px] text-muted-foreground">Invoiced:</span>
+          <span className="text-xs font-semibold">{formatCurrency(totalInvoiced)}</span>
+        </div>
+        <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1.5">
+          <CreditCard className="h-3 w-3 text-emerald-600" />
+          <span className="text-[10px] text-muted-foreground">Received:</span>
+          <span className="text-xs font-semibold text-emerald-600">{formatCurrency(totalPaymentsReceived)}</span>
+        </div>
+        <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5">
+          <Receipt className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[10px] text-muted-foreground">Bills:</span>
+          <span className="text-xs font-semibold">{formatCurrency(totalBills)}</span>
+        </div>
+        <div className="flex items-center gap-1.5 bg-amber-500/10 rounded-md px-2 py-1.5">
+          <AlertCircle className="h-3 w-3 text-amber-600" />
+          <span className="text-[10px] text-muted-foreground">Outstanding:</span>
+          <span className="text-xs font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</span>
+        </div>
       </div>
 
       {/* Sub-tabs for Agreements, Phases, Invoices, Payments, Bills, Commission */}
