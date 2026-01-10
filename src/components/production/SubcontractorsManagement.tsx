@@ -106,6 +106,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string } | null>(null);
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   // Auto-open the add dialog if requested (from bill flow)
   useEffect(() => {
@@ -403,10 +404,22 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
             Manage your subcontractors with license and insurance tracking
           </p>
         </div>
-        <Button onClick={() => { setEditingSubcontractor(null); setDialogOpen(true); }}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Subcontractor
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select value={statusFilter} onValueChange={(v: 'all' | 'active' | 'inactive') => setStatusFilter(v)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All ({subcontractors.length})</SelectItem>
+              <SelectItem value="active">Active ({activeSubcontractors.length})</SelectItem>
+              <SelectItem value="inactive">Inactive ({inactiveSubcontractors.length})</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => { setEditingSubcontractor(null); setDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Subcontractor
+          </Button>
+        </div>
       </div>
 
       {expiringCount > 0 && (
@@ -420,6 +433,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         </Card>
       )}
 
+      {(statusFilter === 'all' || statusFilter === 'active') && (
       <Card>
         <CardHeader>
           <CardTitle>Active Subcontractors ({activeSubcontractors.length})</CardTitle>
@@ -564,8 +578,9 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
           )}
         </CardContent>
       </Card>
+      )}
 
-      {inactiveSubcontractors.length > 0 && (
+      {(statusFilter === 'all' || statusFilter === 'inactive') && inactiveSubcontractors.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-muted-foreground">Inactive Subcontractors ({inactiveSubcontractors.length})</CardTitle>
@@ -690,7 +705,22 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                 <MultiSelectFilter
                   options={tradesData.map(t => ({ value: t, label: t }))}
                   selected={formData.trade}
-                  onChange={(selected) => setFormData(prev => ({ ...prev, trade: selected }))}
+                  onChange={async (selected) => {
+                    setFormData(prev => ({ ...prev, trade: selected }));
+                    // Auto-save trades when editing existing subcontractor
+                    if (editingSubcontractor) {
+                      const { error } = await supabase
+                        .from("subcontractors")
+                        .update({ trade: selected.length > 0 ? selected : null })
+                        .eq("id", editingSubcontractor.id);
+                      if (error) {
+                        toast.error("Failed to update trades");
+                      } else {
+                        toast.success("Trades updated");
+                        queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
+                      }
+                    }
+                  }}
                   placeholder="Select trades..."
                 />
                 {isSuperAdmin && (
