@@ -2,13 +2,12 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
-import { Plus, Loader2, Trash2, MessageSquare, User, Reply, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Loader2, Trash2, MessageSquare, User, Reply, ChevronDown, ChevronUp, Send } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +19,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface NoteComment {
   id: string;
@@ -167,170 +168,167 @@ export function NotesSection({ projectId }: NotesSectionProps) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Add Note Form */}
-      <Card>
-        <CardHeader className="pb-3">
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            Add Note
+            Notes
           </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Textarea
-            placeholder="Enter your note..."
+          <Badge variant="outline" className="text-[10px]">{notes.length}</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {/* Compact Add Note Form */}
+        <div className="flex gap-2">
+          <Input
+            placeholder="Add a note..."
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
-            rows={3}
+            className="h-8 text-xs"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleAddNote();
+              }
+            }}
           />
           <Button
             onClick={handleAddNote}
             disabled={!newNote.trim() || addNoteMutation.isPending}
             size="sm"
+            className="h-8 px-3"
           >
             {addNoteMutation.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
-              <Plus className="h-4 w-4 mr-2" />
+              <Send className="h-3 w-3" />
             )}
-            Add Note
           </Button>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Notes List */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Notes History</CardTitle>
-          <CardDescription>{notes.length} note{notes.length !== 1 ? 's' : ''}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
-            </div>
-          ) : notes.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No notes yet. Add your first note above.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {notes.map((note) => {
-                const comments = note.project_note_comments || [];
-                const isExpanded = expandedNotes.has(note.id);
-                
-                return (
-                  <div
-                    key={note.id}
-                    className="border rounded-lg p-3 space-y-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm whitespace-pre-wrap flex-1">{note.note_text}</p>
-                      {canDeleteNotes && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0"
-                          onClick={() => setDeleteNoteId(note.id)}
-                        >
-                          <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+        {/* Notes List - Compact */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </div>
+        ) : notes.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground text-center py-3">
+            No notes yet
+          </p>
+        ) : (
+          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            {notes.map((note) => {
+              const comments = note.project_note_comments || [];
+              const isExpanded = expandedNotes.has(note.id);
+              
+              return (
+                <div
+                  key={note.id}
+                  className="border rounded-md p-2 space-y-1.5 bg-muted/30"
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <p className="text-xs whitespace-pre-wrap flex-1 leading-relaxed">{note.note_text}</p>
+                    {canDeleteNotes && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 shrink-0"
+                        onClick={() => setDeleteNoteId(note.id)}
+                      >
+                        <Trash2 className="h-2.5 w-2.5 text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    <span className="font-medium">{note.profiles?.full_name || note.profiles?.email?.split('@')[0] || "Unknown"}</span>
+                    <span>•</span>
+                    <span>{format(parseISO(note.created_at), "MMM d, h:mm a")}</span>
+                  </div>
+
+                  {/* Comments Section - Compact */}
+                  <Collapsible open={isExpanded} onOpenChange={() => toggleNoteExpanded(note.id)}>
+                    <div className="flex items-center gap-1 pt-1">
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]">
+                          {isExpanded ? (
+                            <ChevronUp className="h-2.5 w-2.5 mr-0.5" />
+                          ) : (
+                            <ChevronDown className="h-2.5 w-2.5 mr-0.5" />
+                          )}
+                          {comments.length}
                         </Button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <User className="h-3 w-3" />
-                      <span>{note.profiles?.full_name || note.profiles?.email || "Unknown"}</span>
-                      <span>•</span>
-                      <span>{format(parseISO(note.created_at), "MMM d, yyyy 'at' h:mm a")}</span>
+                      </CollapsibleTrigger>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 px-1.5 text-[10px]"
+                        onClick={() => {
+                          setReplyingToNoteId(replyingToNoteId === note.id ? null : note.id);
+                          if (!isExpanded) toggleNoteExpanded(note.id);
+                        }}
+                      >
+                        <Reply className="h-2.5 w-2.5 mr-0.5" />
+                        Reply
+                      </Button>
                     </div>
 
-                    {/* Comments Section */}
-                    <div className="pt-2 border-t mt-2">
-                      <Collapsible open={isExpanded} onOpenChange={() => toggleNoteExpanded(note.id)}>
-                        <div className="flex items-center justify-between">
-                          <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                              {isExpanded ? (
-                                <ChevronUp className="h-3 w-3 mr-1" />
-                              ) : (
-                                <ChevronDown className="h-3 w-3 mr-1" />
-                              )}
-                              {comments.length} comment{comments.length !== 1 ? 's' : ''}
-                            </Button>
-                          </CollapsibleTrigger>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => {
-                              setReplyingToNoteId(replyingToNoteId === note.id ? null : note.id);
-                              if (!isExpanded) toggleNoteExpanded(note.id);
+                    <CollapsibleContent className="space-y-1.5 mt-1.5">
+                      {/* Existing Comments */}
+                      {comments.length > 0 && (
+                        <div className="space-y-1 pl-2 border-l border-muted-foreground/20">
+                          {comments
+                            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                            .map((comment) => (
+                              <div key={comment.id} className="text-[10px] py-1 px-1.5 bg-background rounded">
+                                <p className="text-foreground leading-relaxed">{comment.comment_text}</p>
+                                <div className="flex items-center gap-1 text-muted-foreground mt-0.5">
+                                  <span className="font-medium">{comment.profiles?.full_name || comment.profiles?.email?.split('@')[0] || "Unknown"}</span>
+                                  <span>•</span>
+                                  <span>{format(parseISO(comment.created_at), "MMM d, h:mm a")}</span>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+
+                      {/* Add Comment Form */}
+                      {replyingToNoteId === note.id && (
+                        <div className="flex gap-1 mt-1">
+                          <Input
+                            placeholder="Reply..."
+                            value={newComment}
+                            onChange={(e) => setNewComment(e.target.value)}
+                            className="h-6 text-[10px] px-2"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleAddComment(note.id);
+                              }
                             }}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-6 px-2"
+                            disabled={!newComment.trim() || addCommentMutation.isPending}
+                            onClick={() => handleAddComment(note.id)}
                           >
-                            <Reply className="h-3 w-3 mr-1" />
-                            Reply
+                            {addCommentMutation.isPending ? (
+                              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                            ) : (
+                              <Send className="h-2.5 w-2.5" />
+                            )}
                           </Button>
                         </div>
-
-                        <CollapsibleContent className="space-y-2 mt-2">
-                          {/* Existing Comments */}
-                          {comments.length > 0 && (
-                            <div className="space-y-2 pl-4 border-l-2 border-muted">
-                              {comments
-                                .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                                .map((comment) => (
-                                  <div key={comment.id} className="text-xs space-y-1 bg-muted/50 rounded p-2">
-                                    <p className="text-foreground">{comment.comment_text}</p>
-                                    <div className="flex items-center gap-1 text-muted-foreground">
-                                      <User className="h-2.5 w-2.5" />
-                                      <span>{comment.profiles?.full_name || comment.profiles?.email || "Unknown"}</span>
-                                      <span>•</span>
-                                      <span>{format(parseISO(comment.created_at), "MMM d, yyyy 'at' h:mm a")}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                            </div>
-                          )}
-
-                          {/* Add Comment Form */}
-                          {replyingToNoteId === note.id && (
-                            <div className="flex gap-2 mt-2">
-                              <Input
-                                placeholder="Add a comment..."
-                                value={newComment}
-                                onChange={(e) => setNewComment(e.target.value)}
-                                className="h-8 text-xs"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleAddComment(note.id);
-                                  }
-                                }}
-                              />
-                              <Button
-                                size="sm"
-                                className="h-8 px-3"
-                                disabled={!newComment.trim() || addCommentMutation.isPending}
-                                onClick={() => handleAddComment(note.id)}
-                              >
-                                {addCommentMutation.isPending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  "Send"
-                                )}
-                              </Button>
-                            </div>
-                          )}
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteNoteId} onOpenChange={() => setDeleteNoteId(null)}>
@@ -353,6 +351,6 @@ export function NotesSection({ projectId }: NotesSectionProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </Card>
   );
 }
