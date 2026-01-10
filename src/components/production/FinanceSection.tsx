@@ -2186,17 +2186,28 @@ function BillDialog({
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label>Contract</Label>
+              <Label>Contract <span className="text-destructive">*</span></Label>
               <Select value={formData.agreement_id} onValueChange={(v) => setFormData(p => ({ ...p, agreement_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select contract" /></SelectTrigger>
+                <SelectTrigger className={!formData.agreement_id ? "border-destructive" : ""}>
+                  <SelectValue placeholder="Select contract (required)" />
+                </SelectTrigger>
                 <SelectContent>
-                  {agreements.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.agreement_number ? `${a.agreement_number} - ` : ""}{a.agreement_type || "Contract"} - {formatCurrency(a.total_price)}
+                  {agreements.length === 0 ? (
+                    <SelectItem value="__no_contracts__" disabled>
+                      No contracts - add one first
                     </SelectItem>
-                  ))}
+                  ) : (
+                    agreements.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.agreement_number ? `${a.agreement_number} - ` : ""}{a.agreement_type || "Contract"} - {formatCurrency(a.total_price)}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+              {!formData.agreement_id && (
+                <p className="text-xs text-destructive mt-1">A contract is required to track bill costs</p>
+              )}
             </div>
             <div>
               <Label>Bill Amount ($)</Label>
@@ -2303,7 +2314,9 @@ function BillDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
+            <Button type="submit" disabled={isPending || !formData.agreement_id}>
+              {isPending ? "Saving..." : "Save"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
