@@ -405,40 +405,32 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
-  // Bill mutations - updated to handle bill payments
+  // Bill mutations - simplified (payments handled via QuickPay only)
   const saveBillMutation = useMutation({
-    mutationFn: async ({ bill, billPayments }: { bill: Partial<Bill>; billPayments: Omit<BillPayment, 'id' | 'bill_id'>[] }) => {
-      const totalPaid = billPayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
-      const balance = (bill.bill_amount || 0) - totalPaid;
-      
+    mutationFn: async (bill: Partial<Bill>) => {
       if (editingBill?.id) {
+        // When editing, preserve existing amount_paid and recalculate balance
+        const currentAmountPaid = editingBill.amount_paid || 0;
+        const balance = (bill.bill_amount || 0) - currentAmountPaid;
+        
         await logAudit({
           tableName: 'project_bills',
           recordId: editingBill.id,
           action: 'UPDATE',
           oldValues: editingBill,
-          newValues: { ...bill, amount_paid: totalPaid, balance },
+          newValues: { ...bill, balance },
           description: `Updated bill ${bill.bill_ref || editingBill.bill_ref} - ${formatCurrency(bill.bill_amount)}`,
         });
         const { error } = await supabase
           .from("project_bills")
-          .update({ ...bill, amount_paid: totalPaid, balance })
+          .update({ ...bill, balance })
           .eq("id", editingBill.id);
         if (error) throw error;
-        
-        // Delete existing payments and re-insert
-        await supabase.from("bill_payments").delete().eq("bill_id", editingBill.id);
-        
-        if (billPayments.length > 0) {
-          const { error: paymentsError } = await supabase
-            .from("bill_payments")
-            .insert(billPayments.map(p => ({ ...p, bill_id: editingBill.id })));
-          if (paymentsError) throw paymentsError;
-        }
       } else {
+        // New bill starts with 0 paid and full balance
         const { data: newBill, error } = await supabase
           .from("project_bills")
-          .insert({ ...bill, amount_paid: totalPaid, balance, project_id: projectId })
+          .insert({ ...bill, amount_paid: 0, balance: bill.bill_amount || 0, project_id: projectId })
           .select()
           .single();
         if (error) throw error;
@@ -450,13 +442,6 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           newValues: newBill,
           description: `Created bill ${bill.bill_ref} - ${formatCurrency(bill.bill_amount)}`,
         });
-        
-        if (billPayments.length > 0) {
-          const { error: paymentsError } = await supabase
-            .from("bill_payments")
-            .insert(billPayments.map(p => ({ ...p, bill_id: newBill.id })));
-          if (paymentsError) throw paymentsError;
-        }
       }
     },
     onSuccess: () => {
@@ -1903,17 +1888,7 @@ function PaymentDialog({
   );
 }
 
-// Bill Payment sub-form item type
-interface BillPaymentFormItem {
-  id: string;
-  payment_date: string;
-  payment_amount: string;
-  payment_method: string;
-  payment_reference: string;
-  bank_name: string;
-}
-
-// Bill Dialog Component with multiple payments
+// Bill Dialog Component - simplified (payments handled via QuickPay only)
 function BillDialog({ 
   open, 
   onOpenChange, 
@@ -1927,7 +1902,7 @@ function BillDialog({
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
   bill: Bill | null;
-  onSave: (data: { bill: Partial<Bill>; billPayments: Omit<BillPayment, 'id' | 'bill_id'>[] }) => void;
+  onSave: (data: Partial<Bill>) => void;
   isPending: boolean;
   projectId: string;
   agreements: Agreement[];
@@ -1942,7 +1917,6 @@ function BillDialog({
     attachment_url: null as string | null,
     agreement_id: "",
   });
-  const [billPayments, setBillPayments] = useState<BillPaymentFormItem[]>([]);
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
 
@@ -1983,36 +1957,6 @@ function BillDialog({
     enabled: open,
   });
 
-  // Fetch existing bank names for bill payments
-  const { data: existingBanks = [] } = useQuery({
-    queryKey: ["banks"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("banks")
-        .select("name")
-        .order("name");
-      if (error) throw error;
-      return data.map(b => b.name);
-    },
-    enabled: open,
-  });
-
-  // Fetch existing bill payments when editing
-  const { data: existingBillPayments = [] } = useQuery({
-    queryKey: ["bill-payments", bill?.id],
-    queryFn: async () => {
-      if (!bill?.id) return [];
-      const { data, error } = await supabase
-        .from("bill_payments")
-        .select("*")
-        .eq("bill_id", bill.id)
-        .order("payment_date", { ascending: true });
-      if (error) throw error;
-      return data as BillPayment[];
-    },
-    enabled: open && !!bill?.id,
-  });
-
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
@@ -2027,7 +1971,6 @@ function BillDialog({
           agreement_id: bill.agreement_id || "",
         });
       } else {
-        // Reset to empty for new bill
         setFormData({ 
           installer_company: "", 
           category: "", 
@@ -2037,82 +1980,31 @@ function BillDialog({
           attachment_url: null, 
           agreement_id: "" 
         });
-        setBillPayments([]);
       }
     }
   }, [open, bill]);
 
-  // Update bill payments when existing data loads
-  useEffect(() => {
-    if (open && bill?.id && existingBillPayments.length > 0) {
-      setBillPayments(existingBillPayments.map(p => ({
-        id: p.id,
-        payment_date: p.payment_date || "",
-        payment_amount: p.payment_amount.toString(),
-        payment_method: p.payment_method || "",
-        payment_reference: p.payment_reference || "",
-        bank_name: (p as any).bank_name || "",
-      })));
-    } else if (open && !bill) {
-      setBillPayments([]);
-    }
-  }, [open, bill?.id, existingBillPayments]);
-
-  const handleOpenChange = (newOpen: boolean) => {
-    onOpenChange(newOpen);
-  };
-
-  const addPayment = () => {
-    setBillPayments([...billPayments, {
-      id: crypto.randomUUID(),
-      payment_date: "",
-      payment_amount: "",
-      payment_method: "",
-      payment_reference: "",
-      bank_name: "",
-    }]);
-  };
-
-  const removePayment = (id: string) => {
-    setBillPayments(billPayments.filter(p => p.id !== id));
-  };
-
-  const updatePayment = (id: string, field: keyof BillPaymentFormItem, value: string) => {
-    setBillPayments(billPayments.map(p => p.id === id ? { ...p, [field]: value } : p));
-  };
-
-  const totalPaid = billPayments.reduce((sum, p) => sum + (parseFloat(p.payment_amount) || 0), 0);
   const billAmount = parseFloat(formData.bill_amount) || 0;
-  const balance = billAmount - totalPaid;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
-      bill: {
-        installer_company: formData.installer_company || null,
-        category: formData.category || null,
-        bill_ref: formData.bill_ref || null,
-        bill_amount: billAmount,
-        memo: formData.memo || null,
-        attachment_url: formData.attachment_url,
-        agreement_id: formData.agreement_id || null,
-      },
-      billPayments: billPayments.map(p => ({
-        payment_date: p.payment_date || null,
-        payment_amount: parseFloat(p.payment_amount) || 0,
-        payment_method: p.payment_method || null,
-        payment_reference: p.payment_reference || null,
-        bank_name: p.bank_name || null,
-      })),
+      installer_company: formData.installer_company || null,
+      category: formData.category || null,
+      bill_ref: formData.bill_ref || null,
+      bill_amount: billAmount,
+      memo: formData.memo || null,
+      attachment_url: formData.attachment_url,
+      agreement_id: formData.agreement_id || null,
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{bill ? "Edit Bill" : "Add Bill"}</DialogTitle>
-          <DialogDescription>Enter bill details below.</DialogDescription>
+          <DialogDescription>Enter bill details below. Payments are recorded separately via the "Record Payment" button.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -2224,7 +2116,7 @@ function BillDialog({
                 <SelectTrigger className={!formData.agreement_id ? "border-destructive" : ""}>
                   <SelectValue placeholder="Select contract (required)" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover z-50">
                   {agreements.length === 0 ? (
                     <SelectItem value="__no_contracts__" disabled>
                       No contracts - add one first
@@ -2265,104 +2157,11 @@ function BillDialog({
             />
           </div>
 
-          {/* Payments Sub-form - Only show when editing an existing bill */}
-          {bill && (
-            <div className="border rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-medium">Payments Made</Label>
-                <Button type="button" variant="outline" size="sm" onClick={addPayment}>
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add Payment
-                </Button>
-              </div>
-              
-              {billPayments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-2">No payments recorded yet</p>
-              ) : (
-                <div className="space-y-3">
-                  {billPayments.map((payment, index) => (
-                    <div key={payment.id} className="border rounded-md p-3 bg-muted/30">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Payment {index + 1}</span>
-                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removePayment(payment.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-5 gap-2">
-                        <div>
-                          <Label className="text-xs">Bank <span className="text-destructive">*</span></Label>
-                          <Select value={payment.bank_name} onValueChange={(v) => updatePayment(payment.id, 'bank_name', v)}>
-                            <SelectTrigger className={cn("h-8 text-xs", !payment.bank_name && "border-destructive")}>
-                              <SelectValue placeholder="Select bank" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {existingBanks.map((bank) => (
-                                <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Date</Label>
-                          <Input 
-                            type="date" 
-                            className="h-8 text-xs"
-                            value={payment.payment_date} 
-                            onChange={(e) => updatePayment(payment.id, 'payment_date', e.target.value)} 
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Amount ($)</Label>
-                          <Input 
-                            type="number" 
-                            className="h-8 text-xs"
-                            value={payment.payment_amount} 
-                            onChange={(e) => updatePayment(payment.id, 'payment_amount', e.target.value)} 
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">Method</Label>
-                          <Select value={payment.payment_method} onValueChange={(v) => updatePayment(payment.id, 'payment_method', v)}>
-                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Cash">Cash</SelectItem>
-                              <SelectItem value="Check">Check</SelectItem>
-                              <SelectItem value="Wire">Wire</SelectItem>
-                              <SelectItem value="ACH">ACH</SelectItem>
-                              <SelectItem value="Credit Card">Credit Card</SelectItem>
-                              <SelectItem value="Zelle">Zelle</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Reference</Label>
-                          <Input 
-                            className="h-8 text-xs"
-                            value={payment.payment_reference} 
-                            onChange={(e) => updatePayment(payment.id, 'payment_reference', e.target.value)} 
-                            placeholder="Check #"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Totals */}
-              <div className="flex justify-between pt-2 border-t text-sm">
-                <span>Total Paid: <span className="font-medium text-emerald-600">{formatCurrency(totalPaid)}</span></span>
-                <span>Balance: <span className={cn("font-medium", balance > 0 ? "text-amber-600" : "text-emerald-600")}>{formatCurrency(balance)}</span></span>
-              </div>
-            </div>
-          )}
-
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button 
               type="submit" 
-              disabled={isPending || !formData.agreement_id || billPayments.some(p => !p.bank_name && p.payment_amount)}
+              disabled={isPending || !formData.agreement_id}
             >
               {isPending ? "Saving..." : "Save"}
             </Button>
