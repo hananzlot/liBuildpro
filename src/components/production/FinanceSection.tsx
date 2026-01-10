@@ -108,6 +108,10 @@ interface Payment {
   deposit_verified: boolean | null;
   invoice_id: string | null;
   payment_phase_id: string | null;
+  is_voided: boolean;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
 }
 
 interface PaymentPhase {
@@ -183,6 +187,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [voidingBill, setVoidingBill] = useState<Bill | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [voidPaymentDialogOpen, setVoidPaymentDialogOpen] = useState(false);
+  const [voidingPayment, setVoidingPayment] = useState<Payment | null>(null);
+  const [voidPaymentReason, setVoidPaymentReason] = useState("");
 
   // Auto-open bill dialog when returning from subcontractor add
   useEffect(() => {
@@ -270,10 +277,11 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     },
   });
 
-  // Calculate totals - exclude voided bills
+  // Calculate totals - exclude voided bills and payments
   const activeBills = bills.filter(b => !b.is_voided);
+  const activePayments = payments.filter(p => !p.is_voided);
   const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
-  const totalPaymentsReceived = payments.filter(p => p.payment_status === "Received").reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+  const totalPaymentsReceived = activePayments.filter(p => p.payment_status === "Received").reduce((sum, p) => sum + (p.payment_amount || 0), 0);
   const totalBills = activeBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
   const totalBillsPaid = activeBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
   const totalAgreementsValue = agreements.reduce((sum, a) => sum + (a.total_price || 0), 0);
@@ -286,7 +294,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   };
 
   const getPhasePaymentStatus = (phaseId: string) => {
-    const phasePayments = payments.filter(p => p.payment_phase_id === phaseId && p.payment_status === "Received");
+    const phasePayments = activePayments.filter(p => p.payment_phase_id === phaseId && p.payment_status === "Received");
     const totalReceivedForPhase = phasePayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
     return { payments: phasePayments, totalReceived: totalReceivedForPhase };
   };
@@ -549,6 +557,40 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       setVoidReason("");
     },
     onError: (error) => toast.error(`Failed to void bill: ${error.message}`),
+  });
+
+  // Void payment mutation
+  const voidPaymentMutation = useMutation({
+    mutationFn: async ({ paymentId, reason, userId }: { paymentId: string; reason: string; userId: string }) => {
+      const { error } = await supabase
+        .from("project_payments")
+        .update({
+          is_voided: true,
+          voided_at: new Date().toISOString(),
+          voided_by: userId,
+          void_reason: reason,
+        })
+        .eq("id", paymentId);
+      if (error) throw error;
+
+      await logAudit({
+        tableName: 'project_payments',
+        recordId: paymentId,
+        action: 'UPDATE',
+        newValues: { is_voided: true, void_reason: reason },
+        description: `Voided payment - Reason: ${reason}`,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Payment voided");
+      queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId] });
+      setVoidPaymentDialogOpen(false);
+      setVoidingPayment(null);
+      setVoidPaymentReason("");
+    },
+    onError: (error) => toast.error(`Failed to void payment: ${error.message}`),
   });
 
   const saveAgreementMutation = useMutation({
@@ -1008,16 +1050,29 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="text-xs">Status</TableHead>
                       <TableHead className="text-xs">Bank</TableHead>
                       <TableHead className="text-xs">Date</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
+                      <TableHead className="text-xs">Payment Status</TableHead>
                       <TableHead className="text-xs text-right">Amount</TableHead>
-                      <TableHead className="text-xs w-20"></TableHead>
+                      <TableHead className="text-xs w-24"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {payments.map((pmt) => (
-                      <TableRow key={pmt.id}>
+                      <TableRow key={pmt.id} className={pmt.is_voided ? "opacity-50 bg-muted/30" : ""}>
+                        <TableCell className="text-xs">
+                          {pmt.is_voided ? (
+                            <div>
+                              <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {formatDate(pmt.voided_at)}
+                              </p>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">Active</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-xs">{pmt.bank_name || "-"}</TableCell>
                         <TableCell className="text-xs">{formatDate(pmt.projected_received_date)}</TableCell>
                         <TableCell className="text-xs">
@@ -1029,16 +1084,32 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                             {pmt.payment_status || "Pending"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-xs text-right">{formatCurrency(pmt.payment_amount)}</TableCell>
+                        <TableCell className={cn("text-xs text-right", pmt.is_voided && "line-through")}>{formatCurrency(pmt.payment_amount)}</TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPayment(pmt); setPaymentDialogOpen(true); }}>
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("payment", pmt.id)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
+                          {pmt.is_voided ? (
+                            <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={pmt.void_reason || ""}>
+                              {pmt.void_reason || "No reason"}
+                            </p>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPayment(pmt); setPaymentDialogOpen(true); }}>
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
+                                onClick={() => { setVoidingPayment(pmt); setVoidPaymentDialogOpen(true); }}
+                              >
+                                Void
+                              </Button>
+                              {(isAdmin || isSuperAdmin) && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("payment", pmt.id)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1537,6 +1608,49 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
               className="bg-amber-600 text-white hover:bg-amber-700"
             >
               {voidBillMutation.isPending ? "Voiding..." : "Void Bill"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Void Payment Dialog */}
+      <AlertDialog open={voidPaymentDialogOpen} onOpenChange={(open) => { setVoidPaymentDialogOpen(open); if (!open) { setVoidingPayment(null); setVoidPaymentReason(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Void Payment
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The payment of {formatCurrency(voidingPayment?.payment_amount)} will be marked as voided and excluded from all financial calculations.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4">
+            <Label htmlFor="voidPaymentReason">Reason for voiding <span className="text-destructive">*</span></Label>
+            <Input
+              id="voidPaymentReason"
+              value={voidPaymentReason}
+              onChange={(e) => setVoidPaymentReason(e.target.value)}
+              placeholder="Enter reason for voiding this payment..."
+              className="mt-1"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (voidingPayment && user?.id && voidPaymentReason.trim()) {
+                  voidPaymentMutation.mutate({ 
+                    paymentId: voidingPayment.id, 
+                    reason: voidPaymentReason.trim(),
+                    userId: user.id 
+                  });
+                }
+              }} 
+              disabled={!voidPaymentReason.trim() || voidPaymentMutation.isPending}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+            >
+              {voidPaymentMutation.isPending ? "Voiding..." : "Void Payment"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
