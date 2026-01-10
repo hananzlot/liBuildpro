@@ -50,12 +50,14 @@ interface Subcontractor {
   email: string | null;
   address: string | null;
   license_number: string | null;
-  license_expiration_date: string;
-  license_document_url: string;
-  insurance_expiration_date: string;
-  insurance_document_url: string;
+  license_expiration_date: string | null;
+  license_document_url: string | null;
+  insurance_expiration_date: string | null;
+  insurance_document_url: string | null;
   notes: string | null;
   is_active: boolean;
+  do_not_require_license: boolean;
+  do_not_require_insurance: boolean;
   created_at: string;
 }
 
@@ -64,7 +66,8 @@ const formatDate = (date: string | null) => {
   return format(parseISO(date), "MMM d, yyyy");
 };
 
-const getExpirationStatus = (expirationDate: string): { status: 'ok' | 'warning' | 'expired'; daysLeft: number } => {
+const getExpirationStatus = (expirationDate: string | null): { status: 'ok' | 'warning' | 'expired' | 'na'; daysLeft: number } => {
+  if (!expirationDate) return { status: 'na', daysLeft: 0 };
   const today = new Date();
   const expDate = parseISO(expirationDate);
   const daysLeft = differenceInDays(expDate, today);
@@ -113,6 +116,8 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     insurance_document_url: "",
     notes: "",
     is_active: true,
+    do_not_require_license: false,
+    do_not_require_insurance: false,
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -140,12 +145,14 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         email: editingSubcontractor.email || "",
         address: editingSubcontractor.address || "",
         license_number: editingSubcontractor.license_number || "",
-        license_expiration_date: editingSubcontractor.license_expiration_date,
-        license_document_url: editingSubcontractor.license_document_url,
-        insurance_expiration_date: editingSubcontractor.insurance_expiration_date,
-        insurance_document_url: editingSubcontractor.insurance_document_url,
+        license_expiration_date: editingSubcontractor.license_expiration_date || "",
+        license_document_url: editingSubcontractor.license_document_url || "",
+        insurance_expiration_date: editingSubcontractor.insurance_expiration_date || "",
+        insurance_document_url: editingSubcontractor.insurance_document_url || "",
         notes: editingSubcontractor.notes || "",
         is_active: editingSubcontractor.is_active,
+        do_not_require_license: editingSubcontractor.do_not_require_license,
+        do_not_require_insurance: editingSubcontractor.do_not_require_insurance,
       });
       setFormErrors({});
     } else if (dialogOpen) {
@@ -162,6 +169,8 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         insurance_document_url: "",
         notes: "",
         is_active: true,
+        do_not_require_license: false,
+        do_not_require_insurance: false,
       });
       setFormErrors({});
     }
@@ -174,17 +183,25 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     if (!formData.company_name.trim()) {
       errors.company_name = "Company name is required";
     }
-    if (!formData.license_expiration_date) {
-      errors.license_expiration_date = "License expiration date is required";
+    
+    // License validation - only required if not exempted
+    if (!formData.do_not_require_license) {
+      if (!formData.license_expiration_date) {
+        errors.license_expiration_date = "License expiration date is required";
+      }
+      if (!formData.license_document_url) {
+        errors.license_document_url = "License document is required";
+      }
     }
-    if (!formData.license_document_url) {
-      errors.license_document_url = "License document is required";
-    }
-    if (!formData.insurance_expiration_date) {
-      errors.insurance_expiration_date = "Insurance expiration date is required";
-    }
-    if (!formData.insurance_document_url) {
-      errors.insurance_document_url = "Insurance document is required";
+    
+    // Insurance validation - only required if not exempted
+    if (!formData.do_not_require_insurance) {
+      if (!formData.insurance_expiration_date) {
+        errors.insurance_expiration_date = "Insurance expiration date is required";
+      }
+      if (!formData.insurance_document_url) {
+        errors.insurance_document_url = "Insurance document is required";
+      }
     }
 
     setFormErrors(errors);
@@ -201,12 +218,14 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         email: data.email.trim() || null,
         address: data.address.trim() || null,
         license_number: data.license_number.trim() || null,
-        license_expiration_date: data.license_expiration_date,
-        license_document_url: data.license_document_url,
-        insurance_expiration_date: data.insurance_expiration_date,
-        insurance_document_url: data.insurance_document_url,
+        license_expiration_date: data.do_not_require_license ? null : (data.license_expiration_date || null),
+        license_document_url: data.do_not_require_license ? null : (data.license_document_url || null),
+        insurance_expiration_date: data.do_not_require_insurance ? null : (data.insurance_expiration_date || null),
+        insurance_document_url: data.do_not_require_insurance ? null : (data.insurance_document_url || null),
         notes: data.notes.trim() || null,
         is_active: data.is_active,
+        do_not_require_license: data.do_not_require_license,
+        do_not_require_insurance: data.do_not_require_insurance,
       };
 
       if (editingSubcontractor) {
@@ -288,11 +307,15 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   const activeSubcontractors = subcontractors.filter(s => s.is_active);
   const inactiveSubcontractors = subcontractors.filter(s => !s.is_active);
 
-  // Count warnings
+  // Count warnings - only for subcontractors that require the documents
   const expiringCount = subcontractors.filter(s => {
-    const licenseStatus = getExpirationStatus(s.license_expiration_date);
-    const insuranceStatus = getExpirationStatus(s.insurance_expiration_date);
-    return s.is_active && (licenseStatus.status !== 'ok' || insuranceStatus.status !== 'ok');
+    if (!s.is_active) return false;
+    
+    const licenseStatus = !s.do_not_require_license ? getExpirationStatus(s.license_expiration_date) : { status: 'na' as const, daysLeft: 0 };
+    const insuranceStatus = !s.do_not_require_insurance ? getExpirationStatus(s.insurance_expiration_date) : { status: 'na' as const, daysLeft: 0 };
+    
+    return (licenseStatus.status !== 'ok' && licenseStatus.status !== 'na') || 
+           (insuranceStatus.status !== 'ok' && insuranceStatus.status !== 'na');
   }).length;
 
   return (
@@ -583,122 +606,164 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
 
             {/* License Section */}
             <div className="border rounded-lg p-4 space-y-4">
-              <h4 className="font-medium">License Information *</h4>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="license_number">License Number</Label>
-                  <Input
-                    id="license_number"
-                    value={formData.license_number}
-                    onChange={(e) => setFormData(prev => ({ ...prev, license_number: e.target.value }))}
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">License Information {!formData.do_not_require_license && '*'}</h4>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="do_not_require_license"
+                    checked={formData.do_not_require_license}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, do_not_require_license: checked }))}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="license_expiration_date">Expiration Date *</Label>
-                  <Input
-                    id="license_expiration_date"
-                    type="date"
-                    value={formData.license_expiration_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, license_expiration_date: e.target.value }))}
-                    className={formErrors.license_expiration_date ? "border-destructive" : ""}
-                  />
-                  {formErrors.license_expiration_date && (
-                    <p className="text-xs text-destructive">{formErrors.license_expiration_date}</p>
-                  )}
+                  <Label htmlFor="do_not_require_license" className="text-sm text-muted-foreground">
+                    Not required
+                  </Label>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>License Document (PDF) *</Label>
-                {formData.license_document_url ? (
-                  <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-600">Document uploaded</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedDocument({ url: formData.license_document_url, name: "License Document" });
-                        setPdfViewerOpen(true);
-                      }}
-                    >
-                      View
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setFormData(prev => ({ ...prev, license_document_url: "" }))}
-                    >
-                      Replace
-                    </Button>
+              
+              {!formData.do_not_require_license && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="license_number">License Number</Label>
+                      <Input
+                        id="license_number"
+                        value={formData.license_number}
+                        onChange={(e) => setFormData(prev => ({ ...prev, license_number: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="license_expiration_date">Expiration Date *</Label>
+                      <Input
+                        id="license_expiration_date"
+                        type="date"
+                        value={formData.license_expiration_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, license_expiration_date: e.target.value }))}
+                        className={formErrors.license_expiration_date ? "border-destructive" : ""}
+                      />
+                      {formErrors.license_expiration_date && (
+                        <p className="text-xs text-destructive">{formErrors.license_expiration_date}</p>
+                      )}
+                    </div>
                   </div>
-                ) : (
-                  <FileUpload
-                    projectId="subcontractor-licenses"
-                    currentUrl={null}
-                    onUpload={(url) => url && handleFileUploaded('license_document_url', url)}
-                    folder="licenses"
-                    accept=".pdf,application/pdf"
-                  />
-                )}
-                {formErrors.license_document_url && (
-                  <p className="text-xs text-destructive">{formErrors.license_document_url}</p>
-                )}
-              </div>
+                  <div className="space-y-2">
+                    <Label>License Document (PDF) *</Label>
+                    {formData.license_document_url ? (
+                      <div className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-600" />
+                        <span className="text-sm text-green-600">Document uploaded</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedDocument({ url: formData.license_document_url, name: "License Document" });
+                            setPdfViewerOpen(true);
+                          }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFormData(prev => ({ ...prev, license_document_url: "" }))}
+                        >
+                          Replace
+                        </Button>
+                      </div>
+                    ) : (
+                      <FileUpload
+                        projectId="subcontractor-licenses"
+                        currentUrl={null}
+                        onUpload={(url) => url && handleFileUploaded('license_document_url', url)}
+                        folder="licenses"
+                        accept=".pdf,application/pdf"
+                      />
+                    )}
+                    {formErrors.license_document_url && (
+                      <p className="text-xs text-destructive">{formErrors.license_document_url}</p>
+                    )}
+                  </div>
+                </>
+              )}
+              
+              {formData.do_not_require_license && (
+                <p className="text-sm text-muted-foreground">License documentation is not required for this subcontractor.</p>
+              )}
             </div>
 
             {/* Insurance Section */}
             <div className="border rounded-lg p-4 space-y-4">
-              <h4 className="font-medium">Insurance Information *</h4>
-              <div className="space-y-2">
-                <Label htmlFor="insurance_expiration_date">Expiration Date *</Label>
-                <Input
-                  id="insurance_expiration_date"
-                  type="date"
-                  value={formData.insurance_expiration_date}
-                  onChange={(e) => setFormData(prev => ({ ...prev, insurance_expiration_date: e.target.value }))}
-                  className={formErrors.insurance_expiration_date ? "border-destructive" : ""}
-                />
-                {formErrors.insurance_expiration_date && (
-                  <p className="text-xs text-destructive">{formErrors.insurance_expiration_date}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Insurance Document (PDF) *</Label>
-                {formData.insurance_document_url ? (
-                  <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-600">Document uploaded</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedDocument({ url: formData.insurance_document_url, name: "Insurance Document" });
-                        setPdfViewerOpen(true);
-                      }}
-                    >
-                      View
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setFormData(prev => ({ ...prev, insurance_document_url: "" }))}
-                    >
-                      Replace
-                    </Button>
-                  </div>
-                ) : (
-                  <FileUpload
-                    projectId="subcontractor-insurance"
-                    currentUrl={null}
-                    onUpload={(url) => url && handleFileUploaded('insurance_document_url', url)}
-                    folder="insurance"
-                    accept=".pdf,application/pdf"
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium">Insurance Information {!formData.do_not_require_insurance && '*'}</h4>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="do_not_require_insurance"
+                    checked={formData.do_not_require_insurance}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, do_not_require_insurance: checked }))}
                   />
-                )}
-                {formErrors.insurance_document_url && (
-                  <p className="text-xs text-destructive">{formErrors.insurance_document_url}</p>
-                )}
+                  <Label htmlFor="do_not_require_insurance" className="text-sm text-muted-foreground">
+                    Not required
+                  </Label>
+                </div>
               </div>
+              
+              {!formData.do_not_require_insurance && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="insurance_expiration_date">Expiration Date *</Label>
+                    <Input
+                      id="insurance_expiration_date"
+                      type="date"
+                      value={formData.insurance_expiration_date}
+                      onChange={(e) => setFormData(prev => ({ ...prev, insurance_expiration_date: e.target.value }))}
+                      className={formErrors.insurance_expiration_date ? "border-destructive" : ""}
+                    />
+                    {formErrors.insurance_expiration_date && (
+                      <p className="text-xs text-destructive">{formErrors.insurance_expiration_date}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Insurance Document (PDF) *</Label>
+                    {formData.insurance_document_url ? (
+                      <div className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-600" />
+                        <span className="text-sm text-green-600">Document uploaded</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedDocument({ url: formData.insurance_document_url, name: "Insurance Document" });
+                            setPdfViewerOpen(true);
+                          }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFormData(prev => ({ ...prev, insurance_document_url: "" }))}
+                        >
+                          Replace
+                        </Button>
+                      </div>
+                    ) : (
+                      <FileUpload
+                        projectId="subcontractor-insurance"
+                        currentUrl={null}
+                        onUpload={(url) => url && handleFileUploaded('insurance_document_url', url)}
+                        folder="insurance"
+                        accept=".pdf,application/pdf"
+                      />
+                    )}
+                    {formErrors.insurance_document_url && (
+                      <p className="text-xs text-destructive">{formErrors.insurance_document_url}</p>
+                    )}
+                  </div>
+                </>
+              )}
+              
+              {formData.do_not_require_insurance && (
+                <p className="text-sm text-muted-foreground">Insurance documentation is not required for this subcontractor.</p>
+              )}
             </div>
 
             {/* Notes */}

@@ -2092,13 +2092,15 @@ export type Database = {
           contact_name: string | null
           created_at: string
           created_by: string | null
+          do_not_require_insurance: boolean
+          do_not_require_license: boolean
           email: string | null
           id: string
-          insurance_document_url: string
-          insurance_expiration_date: string
+          insurance_document_url: string | null
+          insurance_expiration_date: string | null
           is_active: boolean
-          license_document_url: string
-          license_expiration_date: string
+          license_document_url: string | null
+          license_expiration_date: string | null
           license_number: string | null
           notes: string | null
           phone: string | null
@@ -2110,13 +2112,15 @@ export type Database = {
           contact_name?: string | null
           created_at?: string
           created_by?: string | null
+          do_not_require_insurance?: boolean
+          do_not_require_license?: boolean
           email?: string | null
           id?: string
-          insurance_document_url: string
-          insurance_expiration_date: string
+          insurance_document_url?: string | null
+          insurance_expiration_date?: string | null
           is_active?: boolean
-          license_document_url: string
-          license_expiration_date: string
+          license_document_url?: string | null
+          license_expiration_date?: string | null
           license_number?: string | null
           notes?: string | null
           phone?: string | null
@@ -2128,13 +2132,15 @@ export type Database = {
           contact_name?: string | null
           created_at?: string
           created_by?: string | null
+          do_not_require_insurance?: boolean
+          do_not_require_license?: boolean
           email?: string | null
           id?: string
-          insurance_document_url?: string
-          insurance_expiration_date?: string
+          insurance_document_url?: string | null
+          insurance_expiration_date?: string | null
           is_active?: boolean
-          license_document_url?: string
-          license_expiration_date?: string
+          license_document_url?: string | null
+          license_expiration_date?: string | null
           license_number?: string | null
           notes?: string | null
           phone?: string | null
