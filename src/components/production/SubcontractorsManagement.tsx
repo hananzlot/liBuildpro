@@ -52,24 +52,7 @@ import { format, differenceInDays, parseISO } from "date-fns";
 
 const SUBCONTRACTOR_TYPES = ['Material/Equipment', 'Other', 'Subcontractor'] as const;
 type SubcontractorType = typeof SUBCONTRACTOR_TYPES[number];
-
-const TRADES = [
-  'Plumbing',
-  'Electrical',
-  'HVAC',
-  'Roofing',
-  'Flooring',
-  'Painting',
-  'Carpentry',
-  'Drywall',
-  'Landscaping',
-  'Concrete',
-  'Masonry',
-  'Windows & Doors',
-  'Insulation',
-  'General',
-  'Other',
-] as const;
+// Trades are now fetched from database
 
 interface Subcontractor {
   id: string;
@@ -157,6 +140,50 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
 
   // Determine if license/insurance are required based on type
   const requiresLicenseAndInsurance = formData.subcontractor_type === 'Subcontractor';
+
+  // Check if user is super admin
+  const { data: userRoles } = useQuery({
+    queryKey: ["user-roles", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+      if (error) throw error;
+      return data.map(r => r.role);
+    },
+    enabled: !!user?.id,
+  });
+  const isSuperAdmin = userRoles?.includes("super_admin") ?? false;
+
+  // Fetch trades from database
+  const { data: tradesData = [] } = useQuery({
+    queryKey: ["trades"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("trades")
+        .select("name")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data.map(t => t.name);
+    },
+  });
+
+  // Add trade mutation (super admin only)
+  const addTradeMutation = useMutation({
+    mutationFn: async (tradeName: string) => {
+      const { error } = await supabase
+        .from("trades")
+        .insert({ name: tradeName, created_by: user?.id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Trade added");
+      queryClient.invalidateQueries({ queryKey: ["trades"] });
+    },
+    onError: (error) => toast.error(`Failed to add trade: ${error.message}`),
+  });
 
   // Fetch subcontractors
   const { data: subcontractors = [], isLoading } = useQuery({
@@ -661,11 +688,46 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
               <div className="space-y-2">
                 <Label>Trade(s)</Label>
                 <MultiSelectFilter
-                  options={TRADES.map(t => ({ value: t, label: t }))}
+                  options={tradesData.map(t => ({ value: t, label: t }))}
                   selected={formData.trade}
                   onChange={(selected) => setFormData(prev => ({ ...prev, trade: selected }))}
                   placeholder="Select trades..."
                 />
+                {isSuperAdmin && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      placeholder="Add new trade..."
+                      id="new-trade-input"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const input = e.target as HTMLInputElement;
+                          const value = input.value.trim();
+                          if (value && !tradesData.includes(value)) {
+                            addTradeMutation.mutate(value);
+                            input.value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const input = document.getElementById('new-trade-input') as HTMLInputElement;
+                        const value = input?.value?.trim();
+                        if (value && !tradesData.includes(value)) {
+                          addTradeMutation.mutate(value);
+                          input.value = '';
+                        }
+                      }}
+                      disabled={addTradeMutation.isPending}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
