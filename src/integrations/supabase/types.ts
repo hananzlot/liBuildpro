@@ -1895,6 +1895,7 @@ export type Database = {
           do_not_summarize: boolean | null
           id: string
           invoice_id: string | null
+          is_voided: boolean
           payment_amount: number | null
           payment_fee: number | null
           payment_phase_id: string | null
@@ -1903,6 +1904,9 @@ export type Database = {
           project_id: string | null
           projected_received_date: string | null
           updated_at: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           bank_name?: string | null
@@ -1912,6 +1916,7 @@ export type Database = {
           do_not_summarize?: boolean | null
           id?: string
           invoice_id?: string | null
+          is_voided?: boolean
           payment_amount?: number | null
           payment_fee?: number | null
           payment_phase_id?: string | null
@@ -1920,6 +1925,9 @@ export type Database = {
           project_id?: string | null
           projected_received_date?: string | null
           updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           bank_name?: string | null
@@ -1929,6 +1937,7 @@ export type Database = {
           do_not_summarize?: boolean | null
           id?: string
           invoice_id?: string | null
+          is_voided?: boolean
           payment_amount?: number | null
           payment_fee?: number | null
           payment_phase_id?: string | null
@@ -1937,6 +1946,9 @@ export type Database = {
           project_id?: string | null
           projected_received_date?: string | null
           updated_at?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -1958,6 +1970,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_payments_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
