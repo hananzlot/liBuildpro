@@ -1678,24 +1678,43 @@ function PaymentDialog({
   const [bankSearch, setBankSearch] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
 
-  // Fetch existing bank names
+  // Fetch existing bank names from banks table
   const { data: existingBanks = [] } = useQuery({
-    queryKey: ["bank-names"],
+    queryKey: ["banks"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("project_payments")
-        .select("bank_name");
+        .from("banks")
+        .select("name")
+        .order("name");
       if (error) throw error;
-      
-      const names = new Set<string>();
-      data.forEach((p) => {
-        if (p.bank_name) names.add(p.bank_name);
-      });
-      
-      return Array.from(names).sort();
+      return data.map(b => b.name);
     },
     enabled: open,
   });
+
+  const queryClient = useQueryClient();
+
+  // Mutation to add new bank
+  const addBankMutation = useMutation({
+    mutationFn: async (bankName: string) => {
+      const { error } = await supabase
+        .from("banks")
+        .insert({ name: bankName })
+        .select()
+        .single();
+      if (error && !error.message.includes('duplicate')) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["banks"] });
+    },
+  });
+
+  const handleAddBank = (bankName: string) => {
+    setFormData(p => ({ ...p, bank_name: bankName }));
+    addBankMutation.mutate(bankName);
+    setBankOpen(false);
+    setBankSearch("");
+  };
 
   const filteredBanks = existingBanks.filter(bank => 
     bank.toLowerCase().includes(bankSearch.toLowerCase())
@@ -1789,11 +1808,7 @@ function PaymentDialog({
                         {bankSearch && !filteredBanks.some(b => b.toLowerCase() === bankSearch.toLowerCase()) && (
                           <CommandItem
                             value={`add-${bankSearch}`}
-                            onSelect={() => {
-                              setFormData(p => ({ ...p, bank_name: bankSearch }));
-                              setBankOpen(false);
-                              setBankSearch("");
-                            }}
+                            onSelect={() => handleAddBank(bankSearch)}
                             className="cursor-pointer"
                           >
                             <Plus className="h-3 w-3 mr-2" />
