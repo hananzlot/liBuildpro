@@ -1585,6 +1585,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         open={historyDialogOpen}
         onOpenChange={setHistoryDialogOpen}
         bill={historyBill}
+        projectId={projectId}
+        isAdmin={isAdmin}
+        isSuperAdmin={isSuperAdmin}
       />
 
       {/* Void Bill Dialog */}
@@ -3088,11 +3091,20 @@ function BillPaymentHistoryDialog({
   open,
   onOpenChange,
   bill,
+  projectId,
+  isAdmin,
+  isSuperAdmin,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bill: Bill | null;
+  projectId: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
 }) {
+  const queryClient = useQueryClient();
+  const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+
   const { data: payments = [], isLoading } = useQuery({
     queryKey: ["bill-payments", bill?.id],
     queryFn: async () => {
@@ -3108,68 +3120,166 @@ function BillPaymentHistoryDialog({
     enabled: !!bill?.id && open,
   });
 
+  // Delete bill payment mutation
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      const payment = payments.find(p => p.id === paymentId);
+      
+      await logAudit({
+        tableName: 'bill_payments',
+        recordId: paymentId,
+        action: 'DELETE',
+        oldValues: payment,
+        description: `Deleted bill payment of ${formatCurrency(payment?.payment_amount)}`,
+      });
+
+      const { error } = await supabase
+        .from("bill_payments")
+        .delete()
+        .eq("id", paymentId);
+      if (error) throw error;
+
+      // Recalculate bill totals
+      if (bill?.id) {
+        const { data: remainingPayments } = await supabase
+          .from("bill_payments")
+          .select("payment_amount")
+          .eq("bill_id", bill.id);
+        
+        const newTotalPaid = (remainingPayments || []).reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+        const newBalance = (bill.bill_amount || 0) - newTotalPaid;
+
+        await supabase
+          .from("project_bills")
+          .update({ amount_paid: newTotalPaid, balance: newBalance })
+          .eq("id", bill.id);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Payment deleted");
+      queryClient.invalidateQueries({ queryKey: ["bill-payments", bill?.id] });
+      queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      setDeletePaymentId(null);
+    },
+    onError: (error) => toast.error(`Failed to delete: ${error.message}`),
+  });
+
   const totalPaid = payments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+  const canDelete = isAdmin || isSuperAdmin;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Payment History</DialogTitle>
-          <DialogDescription>
-            {bill?.installer_company && <span className="font-medium">{bill.installer_company}</span>}
-            {bill?.installer_company && " • "}
-            Bill Amount: <span className="font-semibold">{formatCurrency(bill?.bill_amount)}</span>
-          </DialogDescription>
-        </DialogHeader>
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        ) : payments.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No payments recorded yet
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Date</TableHead>
-                  <TableHead className="text-xs">Method</TableHead>
-                  <TableHead className="text-xs">Reference</TableHead>
-                  <TableHead className="text-xs text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
-                    <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
-                    <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
-                    <TableCell className="text-xs text-right text-emerald-600 font-medium">
-                      {formatCurrency(payment.payment_amount)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="bg-muted/50 font-semibold">
-                  <TableCell colSpan={3} className="text-xs">Total Paid</TableCell>
-                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalPaid)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-            <div className="flex justify-between text-sm border-t pt-3">
-              <span className="text-muted-foreground">Remaining Balance:</span>
-              <span className={cn("font-semibold", (bill?.balance || 0) > 0 ? "text-amber-600" : "text-emerald-600")}>
-                {formatCurrency(bill?.balance)}
-              </span>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Payment History</DialogTitle>
+            <DialogDescription>
+              {bill?.installer_company && <span className="font-medium">{bill.installer_company}</span>}
+              {bill?.installer_company && " • "}
+              Bill Ref: <span className="font-medium">{bill?.bill_ref || "N/A"}</span>
+              {" • "}
+              Bill Amount: <span className="font-semibold">{formatCurrency(bill?.bill_amount)}</span>
+            </DialogDescription>
+          </DialogHeader>
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-5 w-5 animate-spin" />
             </div>
-          </div>
-        )}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          ) : payments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No payments recorded yet
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs">Bank Account</TableHead>
+                    <TableHead className="text-xs">Method</TableHead>
+                    <TableHead className="text-xs">Reference</TableHead>
+                    <TableHead className="text-xs text-right">Amount</TableHead>
+                    {canDelete && <TableHead className="text-xs w-12"></TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((payment) => (
+                    <TableRow key={payment.id}>
+                      <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
+                      <TableCell className="text-xs">
+                        {payment.bank_name ? (
+                          <Badge variant="outline" className="text-[10px]">{payment.bank_name}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
+                      <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
+                      <TableCell className="text-xs text-right text-emerald-600 font-medium">
+                        {formatCurrency(payment.payment_amount)}
+                      </TableCell>
+                      {canDelete && (
+                        <TableCell>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 text-destructive hover:text-destructive"
+                            onClick={() => setDeletePaymentId(payment.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                  <TableRow className="bg-muted/50 font-semibold">
+                    <TableCell colSpan={4} className="text-xs">Total Paid</TableCell>
+                    <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalPaid)}</TableCell>
+                    {canDelete && <TableCell />}
+                  </TableRow>
+                </TableBody>
+              </Table>
+              <div className="flex justify-between text-sm border-t pt-3">
+                <span className="text-muted-foreground">Remaining Balance:</span>
+                <span className={cn("font-semibold", (bill?.balance || 0) > 0 ? "text-amber-600" : "text-emerald-600")}>
+                  {formatCurrency(bill?.balance)}
+                </span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Payment Confirmation */}
+      <AlertDialog open={!!deletePaymentId} onOpenChange={(open) => { if (!open) setDeletePaymentId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment Record</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this payment record? This will update the bill balance accordingly. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (deletePaymentId) {
+                  deletePaymentMutation.mutate(deletePaymentId);
+                }
+              }}
+              disabled={deletePaymentMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletePaymentMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
