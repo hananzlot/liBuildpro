@@ -98,7 +98,7 @@ interface SubcontractorsManagementProps {
 
 export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: SubcontractorsManagementProps = {}) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null);
@@ -141,22 +141,6 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
 
   // Determine if license/insurance are required based on type
   const requiresLicenseAndInsurance = formData.subcontractor_type === 'Subcontractor';
-
-  // Check if user is super admin
-  const { data: userRoles } = useQuery({
-    queryKey: ["user-roles", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
-      if (error) throw error;
-      return data.map(r => r.role);
-    },
-    enabled: !!user?.id,
-  });
-  const isSuperAdmin = userRoles?.includes("super_admin") ?? false;
 
   // Fetch trades from database
   const { data: tradesData = [] } = useQuery({
