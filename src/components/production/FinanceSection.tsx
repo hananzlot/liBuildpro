@@ -864,11 +864,20 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           <p className="text-lg font-semibold text-emerald-600">{formatCurrency(totalPaymentsReceived)}</p>
         </Card>
         <Card className="p-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-1">
             <Receipt className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Bills Outstanding</span>
+            <span className="text-xs text-muted-foreground">Bills</span>
           </div>
-          <p className="text-lg font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-xs text-muted-foreground">Submitted</p>
+              <p className="text-sm font-semibold">{formatCurrency(totalBills)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Outstanding</p>
+              <p className="text-sm font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</p>
+            </div>
+          </div>
         </Card>
       </div>
 
