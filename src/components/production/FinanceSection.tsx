@@ -1909,6 +1909,7 @@ interface BillPaymentFormItem {
   payment_amount: string;
   payment_method: string;
   payment_reference: string;
+  bank_name: string;
 }
 
 // Bill Dialog Component with multiple payments
@@ -1981,6 +1982,20 @@ function BillDialog({
     enabled: open,
   });
 
+  // Fetch existing bank names for bill payments
+  const { data: existingBanks = [] } = useQuery({
+    queryKey: ["banks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("banks")
+        .select("name")
+        .order("name");
+      if (error) throw error;
+      return data.map(b => b.name);
+    },
+    enabled: open,
+  });
+
   // Fetch existing bill payments when editing
   const { data: existingBillPayments = [] } = useQuery({
     queryKey: ["bill-payments", bill?.id],
@@ -2035,6 +2050,7 @@ function BillDialog({
         payment_amount: p.payment_amount.toString(),
         payment_method: p.payment_method || "",
         payment_reference: p.payment_reference || "",
+        bank_name: (p as any).bank_name || "",
       })));
     } else if (open && !bill) {
       setBillPayments([]);
@@ -2052,6 +2068,7 @@ function BillDialog({
       payment_amount: "",
       payment_method: "",
       payment_reference: "",
+      bank_name: "",
     }]);
   };
 
@@ -2084,6 +2101,7 @@ function BillDialog({
         payment_amount: parseFloat(p.payment_amount) || 0,
         payment_method: p.payment_method || null,
         payment_reference: p.payment_reference || null,
+        bank_name: p.bank_name || null,
       })),
     });
   };
@@ -2269,7 +2287,20 @@ function BillDialog({
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-5 gap-2">
+                        <div>
+                          <Label className="text-xs">Bank <span className="text-destructive">*</span></Label>
+                          <Select value={payment.bank_name} onValueChange={(v) => updatePayment(payment.id, 'bank_name', v)}>
+                            <SelectTrigger className={cn("h-8 text-xs", !payment.bank_name && "border-destructive")}>
+                              <SelectValue placeholder="Select bank" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {existingBanks.map((bank) => (
+                                <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div>
                           <Label className="text-xs">Date</Label>
                           <Input 
@@ -2328,7 +2359,10 @@ function BillDialog({
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending || !formData.agreement_id}>
+            <Button 
+              type="submit" 
+              disabled={isPending || !formData.agreement_id || billPayments.some(p => !p.bank_name && p.payment_amount)}
+            >
               {isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>

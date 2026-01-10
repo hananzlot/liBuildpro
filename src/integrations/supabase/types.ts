@@ -254,6 +254,7 @@ export type Database = {
       }
       bill_payments: {
         Row: {
+          bank_name: string | null
           bill_id: string
           created_at: string
           id: string
@@ -264,6 +265,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bank_name?: string | null
           bill_id: string
           created_at?: string
           id?: string
@@ -274,6 +276,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bank_name?: string | null
           bill_id?: string
           created_at?: string
           id?: string
