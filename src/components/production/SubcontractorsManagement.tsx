@@ -50,7 +50,7 @@ import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
 import { format, differenceInDays, parseISO } from "date-fns";
 
-const SUBCONTRACTOR_TYPES = ['Subcontractor', 'Material/Equipment', 'Other'] as const;
+const SUBCONTRACTOR_TYPES = ['Material/Equipment', 'Other', 'Subcontractor'] as const;
 type SubcontractorType = typeof SUBCONTRACTOR_TYPES[number];
 
 const TRADES = [
