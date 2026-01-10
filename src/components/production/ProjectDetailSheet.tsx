@@ -671,8 +671,15 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                         <Label>Project Start Date</Label>
                         <Input 
                           type="date"
-                          value={fullProject?.install_start_date ? fullProject.install_start_date.split('T')[0] : ""} 
-                          onChange={(e) => updateProjectMutation.mutate({ install_start_date: e.target.value || null })}
+                          defaultValue={fullProject?.install_start_date ? fullProject.install_start_date.split('T')[0] : ""} 
+                          key={fullProject?.install_start_date}
+                          onBlur={(e) => {
+                            const newValue = e.target.value || null;
+                            const oldValue = fullProject?.install_start_date ? fullProject.install_start_date.split('T')[0] : null;
+                            if (newValue !== oldValue) {
+                              updateProjectMutation.mutate({ install_start_date: newValue });
+                            }
+                          }}
                         />
                       </div>
                     </div>
