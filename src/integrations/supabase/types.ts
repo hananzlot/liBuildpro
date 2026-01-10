@@ -2104,6 +2104,7 @@ export type Database = {
           license_number: string | null
           notes: string | null
           phone: string | null
+          subcontractor_type: string
           updated_at: string
         }
         Insert: {
@@ -2124,6 +2125,7 @@ export type Database = {
           license_number?: string | null
           notes?: string | null
           phone?: string | null
+          subcontractor_type?: string
           updated_at?: string
         }
         Update: {
@@ -2144,6 +2146,7 @@ export type Database = {
           license_number?: string | null
           notes?: string | null
           phone?: string | null
+          subcontractor_type?: string
           updated_at?: string
         }
         Relationships: [

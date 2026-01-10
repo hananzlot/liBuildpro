@@ -11,6 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -42,6 +49,9 @@ import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
 import { format, differenceInDays, parseISO } from "date-fns";
 
+const SUBCONTRACTOR_TYPES = ['Subcontractor', 'Material/Equipment', 'Other'] as const;
+type SubcontractorType = typeof SUBCONTRACTOR_TYPES[number];
+
 interface Subcontractor {
   id: string;
   company_name: string;
@@ -58,6 +68,7 @@ interface Subcontractor {
   is_active: boolean;
   do_not_require_license: boolean;
   do_not_require_insurance: boolean;
+  subcontractor_type: SubcontractorType;
   created_at: string;
 }
 
@@ -118,9 +129,13 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     is_active: true,
     do_not_require_license: false,
     do_not_require_insurance: false,
+    subcontractor_type: 'Subcontractor' as SubcontractorType,
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Determine if license/insurance are required based on type
+  const requiresLicenseAndInsurance = formData.subcontractor_type === 'Subcontractor';
 
   // Fetch subcontractors
   const { data: subcontractors = [], isLoading } = useQuery({
@@ -153,6 +168,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         is_active: editingSubcontractor.is_active,
         do_not_require_license: editingSubcontractor.do_not_require_license,
         do_not_require_insurance: editingSubcontractor.do_not_require_insurance,
+        subcontractor_type: editingSubcontractor.subcontractor_type,
       });
       setFormErrors({});
     } else if (dialogOpen) {
@@ -171,6 +187,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         is_active: true,
         do_not_require_license: false,
         do_not_require_insurance: false,
+        subcontractor_type: 'Subcontractor',
       });
       setFormErrors({});
     }
@@ -184,8 +201,11 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       errors.company_name = "Company name is required";
     }
     
-    // License validation - only required if not exempted
-    if (!formData.do_not_require_license) {
+    // License and insurance only required for "Subcontractor" type AND if not manually exempted
+    const needsLicenseInsurance = formData.subcontractor_type === 'Subcontractor';
+    
+    // License validation - only required for Subcontractor type and if not exempted
+    if (needsLicenseInsurance && !formData.do_not_require_license) {
       if (!formData.license_expiration_date) {
         errors.license_expiration_date = "License expiration date is required";
       }
@@ -194,8 +214,8 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       }
     }
     
-    // Insurance validation - only required if not exempted
-    if (!formData.do_not_require_insurance) {
+    // Insurance validation - only required for Subcontractor type and if not exempted
+    if (needsLicenseInsurance && !formData.do_not_require_insurance) {
       if (!formData.insurance_expiration_date) {
         errors.insurance_expiration_date = "Insurance expiration date is required";
       }
@@ -211,6 +231,10 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
+      const needsLicenseInsurance = data.subcontractor_type === 'Subcontractor';
+      const skipLicense = !needsLicenseInsurance || data.do_not_require_license;
+      const skipInsurance = !needsLicenseInsurance || data.do_not_require_insurance;
+      
       const payload = {
         company_name: data.company_name.trim(),
         contact_name: data.contact_name.trim() || null,
@@ -218,14 +242,15 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         email: data.email.trim() || null,
         address: data.address.trim() || null,
         license_number: data.license_number.trim() || null,
-        license_expiration_date: data.do_not_require_license ? null : (data.license_expiration_date || null),
-        license_document_url: data.do_not_require_license ? null : (data.license_document_url || null),
-        insurance_expiration_date: data.do_not_require_insurance ? null : (data.insurance_expiration_date || null),
-        insurance_document_url: data.do_not_require_insurance ? null : (data.insurance_document_url || null),
+        license_expiration_date: skipLicense ? null : (data.license_expiration_date || null),
+        license_document_url: skipLicense ? null : (data.license_document_url || null),
+        insurance_expiration_date: skipInsurance ? null : (data.insurance_expiration_date || null),
+        insurance_document_url: skipInsurance ? null : (data.insurance_document_url || null),
         notes: data.notes.trim() || null,
         is_active: data.is_active,
         do_not_require_license: data.do_not_require_license,
         do_not_require_insurance: data.do_not_require_insurance,
+        subcontractor_type: data.subcontractor_type,
       };
 
       if (editingSubcontractor) {
@@ -551,6 +576,31 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            {/* Type Selector */}
+            <div className="space-y-2">
+              <Label htmlFor="subcontractor_type">Type *</Label>
+              <Select
+                value={formData.subcontractor_type}
+                onValueChange={(value: SubcontractorType) => setFormData(prev => ({ ...prev, subcontractor_type: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUBCONTRACTOR_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formData.subcontractor_type !== 'Subcontractor' && (
+                <p className="text-xs text-muted-foreground">
+                  License and insurance are not required for {formData.subcontractor_type} types.
+                </p>
+              )}
+            </div>
+
             {/* Company Info Section */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -559,9 +609,9 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                   id="company_name"
                   value={formData.company_name}
                   onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
-                  className={formErrors.company_name ? "border-destructive" : ""}
+                  className={formErrors?.company_name ? "border-destructive" : ""}
                 />
-                {formErrors.company_name && (
+                {formErrors?.company_name && (
                   <p className="text-xs text-destructive">{formErrors.company_name}</p>
                 )}
               </div>
@@ -604,7 +654,8 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
               />
             </div>
 
-            {/* License Section */}
+            {/* License Section - only show for Subcontractor type */}
+            {formData.subcontractor_type === 'Subcontractor' && (
             <div className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">License Information {!formData.do_not_require_license && '*'}</h4>
@@ -689,8 +740,10 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                 <p className="text-sm text-muted-foreground">License documentation is not required for this subcontractor.</p>
               )}
             </div>
+            )}
 
-            {/* Insurance Section */}
+            {/* Insurance Section - only show for Subcontractor type */}
+            {formData.subcontractor_type === 'Subcontractor' && (
             <div className="border rounded-lg p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Insurance Information {!formData.do_not_require_insurance && '*'}</h4>
@@ -765,6 +818,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
                 <p className="text-sm text-muted-foreground">Insurance documentation is not required for this subcontractor.</p>
               )}
             </div>
+            )}
 
             {/* Notes */}
             <div className="space-y-2">
