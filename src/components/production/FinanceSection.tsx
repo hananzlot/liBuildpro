@@ -1720,8 +1720,9 @@ function PaymentDialog({
     bank.toLowerCase().includes(bankSearch.toLowerCase())
   );
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen && payment) {
+  // Initialize form data when dialog opens or payment changes
+  useEffect(() => {
+    if (open && payment) {
       setFormData({
         bank_name: payment.bank_name || "",
         projected_received_date: payment.projected_received_date || "",
@@ -1732,11 +1733,14 @@ function PaymentDialog({
         check_number: payment.check_number || "",
         invoice_id: payment.invoice_id || "",
       });
-    } else if (newOpen) {
+    } else if (open) {
       setFormData({ bank_name: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "" });
     }
     setAmountError("");
     setBankSearch("");
+  }, [open, payment]);
+
+  const handleOpenChange = (newOpen: boolean) => {
     onOpenChange(newOpen);
   };
 
