@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Loader2, FileText, AlertTriangle, Check } from "lucide-react";
+import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import { FileUpload } from "./FileUpload";
 import { PdfViewerDialog } from "./PdfViewerDialog";
 import { format, differenceInDays, parseISO } from "date-fns";
@@ -87,7 +88,7 @@ interface Subcontractor {
   do_not_require_license: boolean;
   do_not_require_insurance: boolean;
   subcontractor_type: SubcontractorType;
-  trade: string | null;
+  trade: string[] | null;
   created_at: string;
 }
 
@@ -149,7 +150,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     do_not_require_license: false,
     do_not_require_insurance: false,
     subcontractor_type: 'Subcontractor' as SubcontractorType,
-    trade: "",
+    trade: [] as string[],
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -189,7 +190,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         do_not_require_license: editingSubcontractor.do_not_require_license,
         do_not_require_insurance: editingSubcontractor.do_not_require_insurance,
         subcontractor_type: editingSubcontractor.subcontractor_type,
-        trade: editingSubcontractor.trade || "",
+        trade: editingSubcontractor.trade || [],
       });
       setFormErrors({});
     } else if (dialogOpen) {
@@ -209,7 +210,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         do_not_require_license: false,
         do_not_require_insurance: false,
         subcontractor_type: 'Subcontractor',
-        trade: "",
+        trade: [],
       });
       setFormErrors({});
     }
@@ -273,7 +274,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
         do_not_require_license: data.do_not_require_license,
         do_not_require_insurance: data.do_not_require_insurance,
         subcontractor_type: data.subcontractor_type,
-        trade: data.subcontractor_type === 'Subcontractor' ? (data.trade.trim() || null) : null,
+        trade: data.subcontractor_type === 'Subcontractor' && data.trade.length > 0 ? data.trade : null,
       };
 
       if (editingSubcontractor) {
@@ -627,22 +628,13 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
             {/* Trade Selector - only show for Subcontractor type */}
             {formData.subcontractor_type === 'Subcontractor' && (
               <div className="space-y-2">
-                <Label htmlFor="trade">Trade</Label>
-                <Select
-                  value={formData.trade}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, trade: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select trade..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TRADES.map((trade) => (
-                      <SelectItem key={trade} value={trade}>
-                        {trade}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Trade(s)</Label>
+                <MultiSelectFilter
+                  options={TRADES.map(t => ({ value: t, label: t }))}
+                  selected={formData.trade}
+                  onChange={(selected) => setFormData(prev => ({ ...prev, trade: selected }))}
+                  placeholder="Select trades..."
+                />
               </div>
             )}
 
