@@ -529,6 +529,19 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   // Void bill mutation
   const voidBillMutation = useMutation({
     mutationFn: async ({ billId, reason, userId }: { billId: string; reason: string; userId: string }) => {
+      // Check if any payments exist for this bill
+      const { data: existingPayments, error: checkError } = await supabase
+        .from("bill_payments")
+        .select("id, payment_amount")
+        .eq("bill_id", billId);
+      
+      if (checkError) throw checkError;
+      
+      if (existingPayments && existingPayments.length > 0) {
+        const totalPaid = existingPayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+        throw new Error(`Cannot void bill: ${existingPayments.length} payment(s) totaling ${formatCurrency(totalPaid)} have been recorded against this bill. Please void or remove payments first.`);
+      }
+
       const { error } = await supabase
         .from("project_bills")
         .update({
