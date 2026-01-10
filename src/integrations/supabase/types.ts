@@ -337,6 +337,7 @@ export type Database = {
       }
       commission_payments: {
         Row: {
+          bank_name: string | null
           created_at: string
           id: string
           notes: string | null
@@ -349,6 +350,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bank_name?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -361,6 +363,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bank_name?: string | null
           created_at?: string
           id?: string
           notes?: string | null
