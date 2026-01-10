@@ -754,6 +754,17 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     setDeleteDialogOpen(true);
   };
 
+  // Check if bill has payments before allowing edit
+  const handleEditBillClick = async (bill: Bill) => {
+    // If bill has any amount paid, prevent editing
+    if ((bill.amount_paid || 0) > 0) {
+      toast.error(`Cannot edit bill: ${formatCurrency(bill.amount_paid)} in payments have been recorded. Please void or remove payments first.`);
+      return;
+    }
+    setEditingBill(bill);
+    setBillDialogOpen(true);
+  };
+
   // Calculate profitability by agreement
   const agreementProfitability = agreements.map(agreement => {
     const agreementPhases = paymentPhases.filter(p => p.agreement_id === agreement.id);
@@ -1228,7 +1239,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                   Pay
                                 </Button>
                               )}
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingBill(bill); setBillDialogOpen(true); }}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditBillClick(bill)}>
                                 <Pencil className="h-3 w-3" />
                               </Button>
                               <Button 
