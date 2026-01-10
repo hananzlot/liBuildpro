@@ -621,7 +621,19 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
               <Label htmlFor="subcontractor_type">Type *</Label>
               <Select
                 value={formData.subcontractor_type}
-                onValueChange={(value: SubcontractorType) => setFormData(prev => ({ ...prev, subcontractor_type: value }))}
+                onValueChange={(value: SubcontractorType) => {
+                  setFormData(prev => ({ ...prev, subcontractor_type: value }));
+                  // Auto-save type when editing existing subcontractor
+                  if (editingSubcontractor) {
+                    supabase
+                      .from("subcontractors")
+                      .update({ subcontractor_type: value })
+                      .eq("id", editingSubcontractor.id)
+                      .then(() => {
+                        queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
+                      });
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type..." />
