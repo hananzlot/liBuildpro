@@ -11,9 +11,12 @@ import { useNavigate } from "react-router-dom";
 interface Subcontractor {
   id: string;
   company_name: string;
-  license_expiration_date: string;
-  insurance_expiration_date: string;
+  license_expiration_date: string | null;
+  insurance_expiration_date: string | null;
   is_active: boolean;
+  do_not_require_license: boolean;
+  do_not_require_insurance: boolean;
+  subcontractor_type: string;
 }
 
 interface ExpirationWarning {
@@ -32,7 +35,7 @@ export function SubcontractorWarningsCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subcontractors")
-        .select("id, company_name, license_expiration_date, insurance_expiration_date, is_active")
+        .select("id, company_name, license_expiration_date, insurance_expiration_date, is_active, do_not_require_license, do_not_require_insurance, subcontractor_type")
         .eq("is_active", true);
       if (error) throw error;
       return data as Subcontractor[];
@@ -44,28 +47,35 @@ export function SubcontractorWarningsCard() {
   const today = new Date();
 
   subcontractors.forEach((sub) => {
-    // Check license
-    const licenseExpiry = parseISO(sub.license_expiration_date);
-    const licenseDays = differenceInDays(licenseExpiry, today);
-    if (licenseDays <= 30) {
-      warnings.push({
-        subcontractor: sub,
-        type: 'license',
-        daysUntilExpiry: licenseDays,
-        expirationDate: sub.license_expiration_date,
-      });
+    // Only check license/insurance for "Subcontractor" type and if not exempted
+    const isSubcontractorType = sub.subcontractor_type === 'Subcontractor';
+    
+    // Check license - only if required
+    if (isSubcontractorType && !sub.do_not_require_license && sub.license_expiration_date) {
+      const licenseExpiry = parseISO(sub.license_expiration_date);
+      const licenseDays = differenceInDays(licenseExpiry, today);
+      if (licenseDays <= 30) {
+        warnings.push({
+          subcontractor: sub,
+          type: 'license',
+          daysUntilExpiry: licenseDays,
+          expirationDate: sub.license_expiration_date,
+        });
+      }
     }
 
-    // Check insurance
-    const insuranceExpiry = parseISO(sub.insurance_expiration_date);
-    const insuranceDays = differenceInDays(insuranceExpiry, today);
-    if (insuranceDays <= 30) {
-      warnings.push({
-        subcontractor: sub,
-        type: 'insurance',
-        daysUntilExpiry: insuranceDays,
-        expirationDate: sub.insurance_expiration_date,
-      });
+    // Check insurance - only if required
+    if (isSubcontractorType && !sub.do_not_require_insurance && sub.insurance_expiration_date) {
+      const insuranceExpiry = parseISO(sub.insurance_expiration_date);
+      const insuranceDays = differenceInDays(insuranceExpiry, today);
+      if (insuranceDays <= 30) {
+        warnings.push({
+          subcontractor: sub,
+          type: 'insurance',
+          daysUntilExpiry: insuranceDays,
+          expirationDate: sub.insurance_expiration_date,
+        });
+      }
     }
   });
 
