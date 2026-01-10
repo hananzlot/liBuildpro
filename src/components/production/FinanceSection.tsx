@@ -1997,24 +1997,34 @@ function BillDialog({
     enabled: open && !!bill?.id,
   });
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen && bill) {
-      setFormData({
-        installer_company: bill.installer_company || "",
-        category: bill.category || "",
-        bill_ref: bill.bill_ref || "",
-        bill_amount: bill.bill_amount?.toString() || "",
-        memo: bill.memo || "",
-        attachment_url: bill.attachment_url || null,
-        agreement_id: bill.agreement_id || "",
-      });
-      // Payments will be loaded from query
-    } else if (newOpen) {
-      setFormData({ installer_company: "", category: "", bill_ref: "", bill_amount: "", memo: "", attachment_url: null, agreement_id: "" });
-      setBillPayments([]);
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      if (bill) {
+        setFormData({
+          installer_company: bill.installer_company || "",
+          category: bill.category || "",
+          bill_ref: bill.bill_ref || "",
+          bill_amount: bill.bill_amount?.toString() || "",
+          memo: bill.memo || "",
+          attachment_url: bill.attachment_url || null,
+          agreement_id: bill.agreement_id || "",
+        });
+      } else {
+        // Reset to empty for new bill
+        setFormData({ 
+          installer_company: "", 
+          category: "", 
+          bill_ref: "", 
+          bill_amount: "", 
+          memo: "", 
+          attachment_url: null, 
+          agreement_id: "" 
+        });
+        setBillPayments([]);
+      }
     }
-    onOpenChange(newOpen);
-  };
+  }, [open, bill]);
 
   // Update bill payments when existing data loads
   useEffect(() => {
@@ -2030,6 +2040,10 @@ function BillDialog({
       setBillPayments([]);
     }
   }, [open, bill?.id, existingBillPayments]);
+
+  const handleOpenChange = (newOpen: boolean) => {
+    onOpenChange(newOpen);
+  };
 
   const addPayment = () => {
     setBillPayments([...billPayments, {
