@@ -921,8 +921,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         </Collapsible>
       )}
 
-      {/* Sold Amount (Original from Dispatch) Card - was Est. Cost */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Sold Amount & Estimated Costs - Compact inline */}
+      <div className="flex gap-2 flex-wrap">
         <SoldAmountOriginalCard 
           estimatedCost={estimatedCost} 
           contractsTotal={totalAgreementsValue}
@@ -2748,7 +2748,7 @@ function PhaseDialog({
   );
 }
 
-// Sold Amount (Original from Dispatch) Card Component - renamed from Est. Cost
+// Sold Amount (Original from Dispatch) Card Component - compact inline version
 function SoldAmountOriginalCard({ 
   estimatedCost, 
   contractsTotal,
@@ -2783,52 +2783,44 @@ function SoldAmountOriginalCard({
   const hasMismatch = estimatedCost !== null && estimatedCost > 0 && contractsTotal !== estimatedCost;
 
   return (
-    <Card className={cn("p-3", hasMismatch && "border-destructive/50")}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Sold Amount (Original from Dispatch)</span>
-          {hasMismatch && (
-            <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-destructive/10 text-destructive border-destructive/20">
-              Mismatch
-            </Badge>
-          )}
-        </div>
-        {!isEditing && (
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditing(true)}>
-            <Pencil className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
+    <div className={cn(
+      "flex items-center gap-1.5 rounded-md px-2 py-1.5",
+      hasMismatch ? "bg-destructive/10 border border-destructive/30" : "bg-muted/50"
+    )}>
+      <DollarSign className="h-3 w-3 text-muted-foreground" />
+      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Sold (Dispatch):</span>
       {isEditing ? (
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-1">
           <Input
             type="number"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="h-8 text-lg font-semibold"
+            className="h-5 w-20 text-xs px-1"
             autoFocus
           />
-          <Button size="sm" className="h-8" onClick={handleSave}>
-            <Check className="h-3 w-3" />
+          <Button size="sm" className="h-5 w-5 p-0" onClick={handleSave}>
+            <Check className="h-2.5 w-2.5" />
           </Button>
         </div>
       ) : (
-        <div className="flex items-center gap-2">
-          <p className="text-lg font-semibold">{formatCurrency(estimatedCost)}</p>
+        <>
+          <span className={cn("text-xs font-semibold", hasMismatch && "text-destructive")}>{formatCurrency(estimatedCost)}</span>
           {hasMismatch && (
-            <span className="text-xs text-muted-foreground">
-              (Contracts: {formatCurrency(contractsTotal)})
-            </span>
+            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-destructive/10 text-destructive border-destructive/20">
+              ≠{formatCurrency(contractsTotal)}
+            </Badge>
           )}
-        </div>
+          <Button variant="ghost" size="icon" className="h-4 w-4 ml-0.5" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-2.5 w-2.5" />
+          </Button>
+        </>
       )}
-    </Card>
+    </div>
   );
 }
 
-// Estimated Project Costs Card Component - editable, defaults to 50% of original cost if null
+// Estimated Project Costs Card Component - compact inline version
 function EstimatedProjectCostsCard({ 
   estimatedProjectCost,
   estimatedCost, 
@@ -2869,41 +2861,40 @@ function EstimatedProjectCostsCard({
   const isDefaultValue = estimatedProjectCost === null && displayValue !== null;
 
   return (
-    <Card className="p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground">Estimated Project Costs</span>
-          {isDefaultValue && (
-            <Badge variant="outline" className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20">
-              Auto 50%
-            </Badge>
-          )}
-        </div>
-        {!isEditing && (
-          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsEditing(true)}>
-            <Pencil className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
+    <div className={cn(
+      "flex items-center gap-1.5 rounded-md px-2 py-1.5",
+      isDefaultValue ? "bg-amber-500/10" : "bg-muted/50"
+    )}>
+      <DollarSign className="h-3 w-3 text-muted-foreground" />
+      <span className="text-[10px] text-muted-foreground whitespace-nowrap">Est. Costs:</span>
       {isEditing ? (
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-1">
           <Input
             type="number"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="h-8 text-lg font-semibold"
+            className="h-5 w-20 text-xs px-1"
             autoFocus
           />
-          <Button size="sm" className="h-8" onClick={handleSave}>
-            <Check className="h-3 w-3" />
+          <Button size="sm" className="h-5 w-5 p-0" onClick={handleSave}>
+            <Check className="h-2.5 w-2.5" />
           </Button>
         </div>
       ) : (
-        <p className="text-lg font-semibold">{formatCurrency(displayValue)}</p>
+        <>
+          <span className="text-xs font-semibold">{formatCurrency(displayValue)}</span>
+          {isDefaultValue && (
+            <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+              Auto
+            </Badge>
+          )}
+          <Button variant="ghost" size="icon" className="h-4 w-4 ml-0.5" onClick={() => setIsEditing(true)}>
+            <Pencil className="h-2.5 w-2.5" />
+          </Button>
+        </>
       )}
-    </Card>
+    </div>
   );
 }
 
