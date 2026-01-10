@@ -219,7 +219,9 @@ export function DebouncedNumberInput({
   return (
     <Input
       {...props}
-      type="number"
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*\.?[0-9]*"
       value={localValue}
       onChange={handleChange}
       onBlur={handleBlur}
