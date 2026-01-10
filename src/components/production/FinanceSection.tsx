@@ -3444,20 +3444,27 @@ function CommissionTab({
         </Card>
       </div>
 
-      {/* Commission Pool Calculation */}
-      <Card className="p-3 border-primary/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs text-muted-foreground">Commission Pool ({commissionSplitPct}% of Profit)</div>
-            <p className={cn("text-xl font-bold", commissionPool >= 0 ? "text-primary" : "text-destructive")}>
-              {formatCurrency(commissionPool)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              (Total Contracts - Lead Cost - Bills) × {commissionSplitPct}%
-            </p>
-          </div>
-        </div>
-      </Card>
+      {/* Commission Pool & Company Profit - Same Line */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="p-3 border-primary/20">
+          <div className="text-xs text-muted-foreground">Commission Pool ({commissionSplitPct}%)</div>
+          <p className={cn("text-lg font-bold", commissionPool >= 0 ? "text-primary" : "text-destructive")}>
+            {formatCurrency(commissionPool)}
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            (Contracts - Lead - Bills) × {commissionSplitPct}%
+          </p>
+        </Card>
+        <Card className="p-3 border-emerald-500/20">
+          <div className="text-xs text-muted-foreground">Company Profit (After Comm)</div>
+          <p className={cn("text-lg font-bold", companyProfit >= 0 ? "text-emerald-600" : "text-destructive")}>
+            {formatCurrency(companyProfit)}
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Profit - Commission Pool
+          </p>
+        </Card>
+      </div>
 
       {/* Salesperson Commission Breakdown */}
       {salespeople.length > 0 ? (
@@ -3588,18 +3595,6 @@ function CommissionTab({
             </Table>
           )}
         </CardContent>
-      </Card>
-
-      {/* Company Profit */}
-      <Card className="p-3 border-primary/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-xs text-muted-foreground">Company Profit (After Commission)</div>
-            <p className={cn("text-xl font-bold", companyProfit >= 0 ? "text-emerald-600" : "text-destructive")}>
-              {formatCurrency(companyProfit)}
-            </p>
-          </div>
-        </div>
       </Card>
 
       {/* Commission Payment Dialog */}
