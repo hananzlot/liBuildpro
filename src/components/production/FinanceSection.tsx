@@ -126,6 +126,7 @@ interface BillPayment {
   payment_amount: number;
   payment_method: string | null;
   payment_reference: string | null;
+  bank_name: string | null;
 }
 
 interface Bill {
@@ -2873,6 +2874,21 @@ function QuickPayDialog({
     payment_amount: "",
     payment_method: "",
     payment_reference: "",
+    bank_name: "",
+  });
+
+  // Fetch existing bank names
+  const { data: existingBanks = [] } = useQuery({
+    queryKey: ["banks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("banks")
+        .select("name")
+        .order("name");
+      if (error) throw error;
+      return data.map(b => b.name);
+    },
+    enabled: open,
   });
 
   // Reset form when dialog opens
@@ -2883,6 +2899,7 @@ function QuickPayDialog({
         payment_amount: (bill.balance || 0).toString(),
         payment_method: "",
         payment_reference: "",
+        bank_name: "",
       });
     }
   }, [open, bill]);
@@ -2894,6 +2911,7 @@ function QuickPayDialog({
       payment_amount: parseFloat(formData.payment_amount) || 0,
       payment_method: formData.payment_method || null,
       payment_reference: formData.payment_reference || null,
+      bank_name: formData.bank_name || null,
     });
   };
 
@@ -2913,6 +2931,28 @@ function QuickPayDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Bank Account - Required */}
+          <div>
+            <Label>Bank Account <span className="text-destructive">*</span></Label>
+            <Select value={formData.bank_name} onValueChange={(v) => setFormData(p => ({ ...p, bank_name: v }))}>
+              <SelectTrigger className={!formData.bank_name ? "border-destructive" : ""}>
+                <SelectValue placeholder="Select bank account (required)" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                {existingBanks.length === 0 ? (
+                  <SelectItem value="__no_banks__" disabled>No banks configured</SelectItem>
+                ) : (
+                  existingBanks.map((bank) => (
+                    <SelectItem key={bank} value={bank}>{bank}</SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            {!formData.bank_name && (
+              <p className="text-xs text-destructive mt-1">Bank account is required</p>
+            )}
+          </div>
+          
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Payment Date</Label>
@@ -2940,7 +2980,7 @@ function QuickPayDialog({
               <Label>Payment Method</Label>
               <Select value={formData.payment_method} onValueChange={(v) => setFormData(p => ({ ...p, payment_method: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select method" /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover z-50">
                   <SelectItem value="Cash">Cash</SelectItem>
                   <SelectItem value="Check">Check</SelectItem>
                   <SelectItem value="Wire">Wire</SelectItem>
@@ -2972,7 +3012,7 @@ function QuickPayDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending || paymentAmount <= 0}>
+            <Button type="submit" disabled={isPending || paymentAmount <= 0 || !formData.bank_name}>
               {isPending ? "Saving..." : "Record Payment"}
             </Button>
           </DialogFooter>
