@@ -1,0 +1,13 @@
+### PAYMENTS IMPORT TEMPLATE ###
+### Instructions: Link to invoices using invoice_ref from the Invoices sheet. ###
+### payment_status options: Pending, Scheduled, Received ###
+### payment_schedule options: Net 30, Net 15, Due on Receipt, etc. ###
+
+invoice_ref*,bank_name,projected_received_date,payment_schedule,payment_status,payment_amount,payment_fee,check_number,deposit_verified
+INV-001,Chase Bank,2024-01-15,Due on Receipt,Received,10500,0,1001,TRUE
+INV-002,Chase Bank,2024-01-28,Net 30,Received,14000,0,1002,TRUE
+INV-003,Chase Bank,2024-03-01,Net 30,Pending,10500,0,,FALSE
+INV-004,Wells Fargo,2024-02-05,Due on Receipt,Received,2500,50,CC-001,TRUE
+INV-005,Wells Fargo,2024-02-20,Due on Receipt,Scheduled,2500,0,,FALSE
+INV-006,Chase Bank,2024-02-01,Due on Receipt,Received,11000,0,2001,TRUE
+INV-007,Chase Bank,2024-03-20,Net 30,Pending,11000,0,,FALSE

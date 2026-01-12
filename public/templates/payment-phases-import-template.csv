@@ -1,0 +1,12 @@
+### PAYMENT PHASES IMPORT TEMPLATE ###
+### Instructions: Link to agreements using agreement_ref from the Agreements sheet. ###
+### Each row is one payment phase/milestone. Use phase_ref to link invoices. ###
+
+agreement_ref*,phase_ref*,phase_name*,description,due_date,amount
+AGR-001,PH-001,Deposit,Initial deposit upon contract signing,2024-01-15,10500
+AGR-001,PH-002,Materials,Payment for materials delivery,2024-01-25,14000
+AGR-001,PH-003,Completion,Final payment upon project completion,2024-02-28,10500
+AGR-002,PH-004,Skylight Deposit,Deposit for skylight work,2024-02-01,2500
+AGR-002,PH-005,Skylight Completion,Final skylight payment,2024-02-15,2500
+AGR-003,PH-006,Cabinet Deposit,50% deposit,2024-02-01,11000
+AGR-003,PH-007,Cabinet Final,Final payment,2024-03-15,11000

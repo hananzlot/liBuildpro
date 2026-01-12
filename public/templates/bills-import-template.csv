@@ -1,0 +1,12 @@
+### BILLS IMPORT TEMPLATE ###
+### Instructions: Link to projects using project_ref from the Projects sheet. ###
+### Optionally link to agreements using agreement_ref. ###
+### category options: Materials, Labor, Subcontractor, Permits, Equipment, Other ###
+
+project_ref*,agreement_ref,installer_company,category,bill_ref,bill_amount,amount_paid,memo,payment_method,payment_reference
+PROJ-001,AGR-001,ABC Roofing Supply,Materials,BILL-001,12000,12000,Roofing materials,Check,CHK-5001
+PROJ-001,AGR-001,XYZ Labor Co,Labor,BILL-002,8000,8000,Installation labor,ACH,ACH-001
+PROJ-001,AGR-001,City Permits,Permits,BILL-003,500,500,Building permit,Check,CHK-5002
+PROJ-001,AGR-002,Skylight Pro,Subcontractor,BILL-004,3000,1500,Skylight installation - partial,Check,CHK-5003
+PROJ-002,AGR-003,Cabinet World,Materials,BILL-005,9000,9000,Cabinet materials,Wire,WIRE-001
+PROJ-002,AGR-003,Install Pros,Labor,BILL-006,6000,3000,Cabinet installation - in progress,Check,CHK-6001
