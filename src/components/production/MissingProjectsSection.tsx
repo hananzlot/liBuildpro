@@ -39,6 +39,7 @@ interface WonOpportunity {
   won_at: string | null;
   stage_name: string | null;
   location_id: string;
+  scope_of_work: string | null;
   contact?: {
     contact_name: string | null;
     first_name: string | null;
@@ -46,6 +47,7 @@ interface WonOpportunity {
     phone: string | null;
     email: string | null;
     source: string | null;
+    custom_fields: unknown;
   } | null;
 }
 
@@ -85,7 +87,8 @@ export function MissingProjectsSection() {
           ghl_date_added,
           won_at,
           stage_name,
-          location_id
+          location_id,
+          scope_of_work
         `)
         .eq("status", "won")
         .order("ghl_date_added", { ascending: false });
@@ -101,7 +104,7 @@ export function MissingProjectsSection() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
-        .select("ghl_id, contact_name, first_name, last_name, phone, email, source");
+        .select("ghl_id, contact_name, first_name, last_name, phone, email, source, custom_fields");
       if (error) throw error;
       return data;
     },
@@ -193,6 +196,17 @@ export function MissingProjectsSection() {
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
         
+        // Get scope from opportunity first, fallback to contact custom_fields
+        let projectScope: string | null = opp.scope_of_work || null;
+        if (!projectScope && opp.contact?.custom_fields && Array.isArray(opp.contact.custom_fields)) {
+          const scopeField = (opp.contact.custom_fields as Array<{ id: string; value?: string }>).find(
+            (field) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+          );
+          if (scopeField && scopeField.value) {
+            projectScope = scopeField.value;
+          }
+        }
+        
         return {
           project_name: opp.name || contactName || 'New Project',
           project_status: 'New Job',
@@ -206,6 +220,7 @@ export function MissingProjectsSection() {
           primary_salesperson: getSalespersonName(opp.assigned_to) !== '-' ? getSalespersonName(opp.assigned_to) : null,
           estimated_cost: opp.monetary_value,
           lead_source: opp.contact?.source || null,
+          project_scope_dispatch: projectScope,
         };
       });
 
