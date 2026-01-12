@@ -39,19 +39,21 @@ interface MagazineSalesEntryDialogProps {
 
 const PAGE_NUMBERS = ["Cover", "Inside Front Cover", ...Array.from({ length: 50 }, (_, i) => String(i + 1)), "Inside Back Cover", "Back Page", "Random"];
 
-// Convert legacy page_size to sections
+// Convert legacy page_size to sections (now using 12 sections)
 const legacySizeToSections = (pageSize: string): number[] => {
   switch (pageSize) {
     case "Full":
     case "Cover":
     case "Back Page":
-      return [1, 2, 3, 4, 5, 6, 7, 8];
+      return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     case "3/4":
-      return [1, 2, 3, 4, 5, 6];
+      return [1, 2, 3, 4, 5, 6, 7, 8, 9];
     case "1/2":
-      return [1, 2, 3, 4];
+      return [1, 2, 3, 4, 5, 6];
     case "1/4":
-      return [1, 2];
+      return [1, 2, 3];
+    case "1/3":
+      return [1, 4, 7, 10];
     default:
       return [];
   }
@@ -60,12 +62,11 @@ const legacySizeToSections = (pageSize: string): number[] => {
 // Convert sections to page_size label
 const sectionsToSize = (sections: number[]): string => {
   const count = sections.length;
-  if (count === 8) return "Full";
-  if (count === 6) return "3/4";
-  if (count === 4) return "1/2";
-  if (count === 2) return "1/4";
-  if (count === 1) return "1/8";
-  return `${count}/8`;
+  if (count === 12) return "Full";
+  if (count === 6) return "1/2";
+  if (count === 4) return "1/3";
+  if (count === 3) return "1/4";
+  return `${count}/12`;
 };
 
 export const MagazineSalesEntryDialog = ({
@@ -437,15 +438,12 @@ export const MagazineSalesEntryDialog = ({
           </div>
 
           {/* Page Section Selector */}
-          <div className="space-y-2">
-            <Label>Page Sections *</Label>
-            <PageSectionSelector
-              selectedSections={selectedSections}
-              onSectionsChange={setSelectedSections}
-              soldSections={pageNumber === "Random" ? [] : soldSectionsForPage}
-              disabled={!pageNumber}
-            />
-          </div>
+          <PageSectionSelector
+            selectedSections={selectedSections}
+            onSectionsChange={setSelectedSections}
+            soldSections={pageNumber === "Random" ? [] : soldSectionsForPage}
+            disabled={!pageNumber}
+          />
 
           {/* Price */}
           <div className="space-y-2">
