@@ -1282,12 +1282,20 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                       <TableHead className="text-xs">Type</TableHead>
                       <TableHead className="text-xs">Date Signed</TableHead>
                       <TableHead className="text-xs text-right">Value</TableHead>
+                      <TableHead className="text-xs text-right">Phases Total</TableHead>
                       <TableHead className="text-xs w-10"></TableHead>
                       <TableHead className="text-xs w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {agreements.map((agreement) => (
+                    {agreements.map((agreement) => {
+                      const phasesTotal = paymentPhases
+                        .filter(p => p.agreement_id === agreement.id)
+                        .reduce((sum, p) => sum + (p.amount || 0), 0);
+                      const contractValue = agreement.total_price || 0;
+                      const isBalanced = Math.abs(contractValue - phasesTotal) < 0.01;
+                      
+                      return (
                       <TableRow 
                         key={agreement.id} 
                         className="cursor-pointer hover:bg-muted/50"
@@ -1300,6 +1308,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                         <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
                         <TableCell className="text-xs">{formatDate(agreement.agreement_signed_date)}</TableCell>
                         <TableCell className="text-xs text-right">{formatCurrency(agreement.total_price)}</TableCell>
+                        <TableCell className={`text-xs text-right ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
+                          {formatCurrency(phasesTotal)}
+                        </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {agreement.attachment_url && (
                             <Button
@@ -1326,7 +1337,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
