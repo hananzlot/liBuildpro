@@ -104,15 +104,16 @@ export const MagazineSalesEntryDialog = ({
     return Array.from(ads).sort();
   }, [existingSales]);
 
-  // Get sold sections and page sizes for selected page/issue
-  const { soldSectionsForPage, existingPageSizes } = useMemo(() => {
+  // Get sold sections, page sizes, and ad types for selected page/issue
+  const { soldSectionsForPage, existingPageSizes, existingAdType } = useMemo(() => {
     const finalIssueDate = magazineIssueDate === "custom" ? customIssueDate : magazineIssueDate;
     if (!finalIssueDate || pageNumber === "Random" || !pageNumber) {
-      return { soldSectionsForPage: [], existingPageSizes: [] as string[] };
+      return { soldSectionsForPage: [], existingPageSizes: [] as string[], existingAdType: "" };
     }
 
     const soldSections: number[] = [];
     const pageSizes: string[] = [];
+    let adType = "";
     
     existingSales
       .filter((s) => 
@@ -127,13 +128,26 @@ export const MagazineSalesEntryDialog = ({
         }
         // Track page sizes sold on this page
         pageSizes.push(sale.page_size.toLowerCase());
+        // Track ad type - once set, it's locked for the page
+        if (!adType && sale.ad_sold) {
+          adType = sale.ad_sold;
+        }
       });
 
     return { 
       soldSectionsForPage: [...new Set(soldSections)], 
-      existingPageSizes: pageSizes 
+      existingPageSizes: pageSizes,
+      existingAdType: adType
     };
   }, [existingSales, magazineIssueDate, customIssueDate, pageNumber, editingSale]);
+
+  // Auto-set ad type if page already has sales with a specific ad type
+  useEffect(() => {
+    if (existingAdType && !editingSale) {
+      setAdSold(existingAdType);
+      setCustomAdSold("");
+    }
+  }, [existingAdType, editingSale]);
 
   // Reset form when dialog opens/closes or editing sale changes
   useEffect(() => {
@@ -412,27 +426,42 @@ export const MagazineSalesEntryDialog = ({
 
           {/* Ad Sold */}
           <div className="space-y-2">
-            <Label>Ad Sold *</Label>
-            <Select value={adSold} onValueChange={setAdSold}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select ad type" />
-              </SelectTrigger>
-              <SelectContent>
-                {existingAdTypes.map((ad) => (
-                  <SelectItem key={ad} value={ad}>
-                    {ad}
-                  </SelectItem>
-                ))}
-                <SelectItem value="custom">+ Add New Ad Type</SelectItem>
-              </SelectContent>
-            </Select>
-            {adSold === "custom" && (
-              <Input
-                value={customAdSold}
-                onChange={(e) => setCustomAdSold(e.target.value)}
-                placeholder="Enter ad type"
-                className="mt-2"
-              />
+            <Label>Ad Type *</Label>
+            {existingAdType ? (
+              <div>
+                <Input 
+                  value={existingAdType} 
+                  disabled 
+                  className="bg-muted"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ad type is locked for this page
+                </p>
+              </div>
+            ) : (
+              <>
+                <Select value={adSold} onValueChange={setAdSold}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select ad type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {existingAdTypes.map((ad) => (
+                      <SelectItem key={ad} value={ad}>
+                        {ad}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">+ Add New Ad Type</SelectItem>
+                  </SelectContent>
+                </Select>
+                {adSold === "custom" && (
+                  <Input
+                    value={customAdSold}
+                    onChange={(e) => setCustomAdSold(e.target.value)}
+                    placeholder="Enter ad type"
+                    className="mt-2"
+                  />
+                )}
+              </>
             )}
           </div>
 
