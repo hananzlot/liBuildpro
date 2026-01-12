@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAppVersion } from "@/hooks/useAppVersion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -175,6 +176,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, isAdmin, isMagazine, isProduction, isDispatch, isSales, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
+  const { versionString } = useAppVersion();
   const collapsed = state === "collapsed";
 
   const closeSidebar = () => {
@@ -439,7 +441,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-semibold truncate">CA Pro Builders</span>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">Dashboard v2.5</span>
+                <span className="text-xs text-muted-foreground">Dashboard {versionString}</span>
                 {isSimulating && (
                   <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
                     Simulating
