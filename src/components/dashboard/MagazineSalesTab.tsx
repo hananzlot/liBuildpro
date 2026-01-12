@@ -2,14 +2,16 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { BookOpen, DollarSign, Plus, Users } from "lucide-react";
+import { ChevronDown, DollarSign, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ClickableMetricCard } from "./ClickableMetricCard";
 import { MagazineSalesEntryDialog } from "./MagazineSalesEntryDialog";
 import { MagazineSalesDetailSheet } from "./MagazineSalesDetailSheet";
 import { MagazinePageAvailability } from "./MagazinePageAvailability";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface MagazineSale {
   id: string;
@@ -170,97 +172,111 @@ export const MagazineSalesTab = () => {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
-      <section className="flex flex-wrap items-end gap-3">
-        {/* Sales by Page Size */}
-        <div className="rounded-2xl bg-card p-4 border border-border/50">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">Sales by Page Size</p>
-          </div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Full Page:</span>
-              <span className="font-semibold">{kpiData.salesBySize.full.count}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Half Page:</span>
-              <span className="font-semibold">{kpiData.salesBySize.half.count}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">1/3 Page:</span>
-              <span className="font-semibold">{kpiData.salesBySize.third.count}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">1/4 Page:</span>
-              <span className="font-semibold">{kpiData.salesBySize.quarter.count}</span>
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-border flex justify-between text-sm">
-            <span className="text-muted-foreground">Total Sales:</span>
-            <span className="font-bold text-primary">{kpiData.totalSales}</span>
-          </div>
-        </div>
-
-        {/* Revenue by Page Size */}
-        <div className="rounded-2xl bg-card p-4 border border-border/50 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setDetailSheetOpen(true)}>
-          <div className="flex items-center gap-2 mb-3">
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">Revenue by Page Size</p>
-          </div>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Full Page:</span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.full.revenue)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Half Page:</span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.half.revenue)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">1/3 Page:</span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.third.revenue)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">1/4 Page:</span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.quarter.revenue)}</span>
-            </div>
-          </div>
-          <div className="mt-3 pt-2 border-t border-border flex justify-between text-sm">
-            <span className="text-muted-foreground">Total Revenue:</span>
-            <span className="font-bold text-emerald-500">{formatCurrency(kpiData.totalRevenue)}</span>
-          </div>
-        </div>
-
-        {/* Sales by Issue Card */}
-        {Object.keys(kpiData.salesByIssue).length > 0 && (
-          <div className="rounded-2xl bg-card p-4 border border-border/50">
-            <p className="text-sm text-muted-foreground mb-2">Sales by Issue</p>
-            <div className="space-y-1">
-              {Object.entries(kpiData.salesByIssue)
-                .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
-                .slice(0, 4)
-                .map(([issueDate, data]) => (
-                  <div
-                    key={issueDate}
-                    className="flex items-center justify-between text-sm cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 py-0.5"
-                    onClick={() => setDetailSheetOpen(true)}
-                  >
-                    <span className="text-muted-foreground">
-                      {new Date(issueDate).toLocaleDateString("en-US", { month: "short", year: "2-digit" })}
-                    </span>
-                    <span className="font-semibold text-emerald-500">{formatCurrency(data.total)}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-        <div className="flex-1" />
+      {/* Header with New Entry button */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Magazine Sales</h2>
         <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm">
           <Plus className="h-4 w-4 mr-2" />
           New Entry
         </Button>
-      </section>
+      </div>
+
+      {/* KPI Cards in Collapsible */}
+      <Collapsible defaultOpen={false}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
+            <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
+            <span>View KPIs</span>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <div className="flex flex-wrap items-end gap-3">
+            {/* Sales by Page Size */}
+            <div className="rounded-2xl bg-card p-4 border border-border/50">
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Sales by Page Size</p>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Full Page:</span>
+                  <span className="font-semibold">{kpiData.salesBySize.full.count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Half Page:</span>
+                  <span className="font-semibold">{kpiData.salesBySize.half.count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">1/3 Page:</span>
+                  <span className="font-semibold">{kpiData.salesBySize.third.count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">1/4 Page:</span>
+                  <span className="font-semibold">{kpiData.salesBySize.quarter.count}</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-border flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Sales:</span>
+                <span className="font-bold text-primary">{kpiData.totalSales}</span>
+              </div>
+            </div>
+
+            {/* Revenue by Page Size */}
+            <div className="rounded-2xl bg-card p-4 border border-border/50 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setDetailSheetOpen(true)}>
+              <div className="flex items-center gap-2 mb-3">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Revenue by Page Size</p>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Full Page:</span>
+                  <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.full.revenue)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Half Page:</span>
+                  <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.half.revenue)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">1/3 Page:</span>
+                  <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.third.revenue)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">1/4 Page:</span>
+                  <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.quarter.revenue)}</span>
+                </div>
+              </div>
+              <div className="mt-3 pt-2 border-t border-border flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Revenue:</span>
+                <span className="font-bold text-emerald-500">{formatCurrency(kpiData.totalRevenue)}</span>
+              </div>
+            </div>
+
+            {/* Sales by Issue Card */}
+            {Object.keys(kpiData.salesByIssue).length > 0 && (
+              <div className="rounded-2xl bg-card p-4 border border-border/50">
+                <p className="text-sm text-muted-foreground mb-2">Sales by Issue</p>
+                <div className="space-y-1">
+                  {Object.entries(kpiData.salesByIssue)
+                    .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+                    .slice(0, 4)
+                    .map(([issueDate, data]) => (
+                      <div
+                        key={issueDate}
+                        className="flex items-center justify-between text-sm cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 py-0.5"
+                        onClick={() => setDetailSheetOpen(true)}
+                      >
+                        <span className="text-muted-foreground">
+                          {new Date(issueDate).toLocaleDateString("en-US", { month: "short", year: "2-digit" })}
+                        </span>
+                        <span className="font-semibold text-emerald-500">{formatCurrency(data.total)}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Page Availability Grid */}
       <MagazinePageAvailability sales={sales} onEditSale={handleEdit} />
