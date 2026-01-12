@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAppVersion } from "@/hooks/useAppVersion";
+import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -176,7 +177,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile, isAdmin, isMagazine, isProduction, isDispatch, isSales, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
-  const { versionString } = useAppVersion();
+  const { versionString, version } = useAppVersion();
   const collapsed = state === "collapsed";
 
   const closeSidebar = () => {
@@ -442,6 +443,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               <span className="text-sm font-semibold truncate">CA Pro Builders</span>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">{versionString}</span>
+                {isAdmin && (
+                  <VersionBumpDialog currentVersion={version} />
+                )}
                 {isSimulating && (
                   <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
                     Simulating
