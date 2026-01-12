@@ -338,7 +338,7 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-4 h-4 rounded border-2 border-red-500 bg-red-500/10" />
-              <span className="text-muted-foreground">Full (12 buyers)</span>
+              <span className="text-muted-foreground">Full (12 slots)</span>
             </div>
           </div>
 
