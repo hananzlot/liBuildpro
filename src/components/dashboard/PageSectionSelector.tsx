@@ -15,14 +15,15 @@ interface PageSectionSelectorProps {
   disabled?: boolean;
 }
 
-// Map page size + position to section numbers (12 sections total, 3 columns x 4 rows)
+// Map page size + position to ad slot numbers (12 slots total, 3 columns x 4 rows)
+// Each slot represents a potential buyer position on the page
 // Grid layout:
 // [1]  [2]  [3]
 // [4]  [5]  [6]
 // [7]  [8]  [9]
 // [10] [11] [12]
 
-const getSectionsForSelection = (
+const getSlotsForSelection = (
   pageSize: PageSize,
   position?: HalfPosition | ThirdPosition | QuarterPosition
 ): number[] => {
@@ -49,11 +50,11 @@ const getSectionsForSelection = (
   }
 };
 
-// Detect page size and position from sections
-const detectFromSections = (
-  sections: number[]
+// Detect page size and position from slots
+const detectFromSlots = (
+  slots: number[]
 ): { pageSize: PageSize | ""; position: string } => {
-  const sorted = [...sections].sort((a, b) => a - b);
+  const sorted = [...slots].sort((a, b) => a - b);
   const key = sorted.join(",");
 
   // Full page
@@ -77,14 +78,14 @@ const detectFromSections = (
   return { pageSize: "", position: "" };
 };
 
-// Check if a position is available (no sold sections overlap)
+// Check if a position is available (no sold slots overlap)
 const isPositionAvailable = (
   pageSize: PageSize,
   position: string,
-  soldSections: number[]
+  soldSlots: number[]
 ): boolean => {
-  const sections = getSectionsForSelection(pageSize, position as any);
-  return !sections.some((s) => soldSections.includes(s));
+  const slots = getSlotsForSelection(pageSize, position as any);
+  return !slots.some((s) => soldSlots.includes(s));
 };
 
 export const PageSectionSelector = ({
@@ -100,13 +101,13 @@ export const PageSectionSelector = ({
   // Sync state from selectedSections when editing existing data
   useEffect(() => {
     if (selectedSections.length > 0) {
-      const detected = detectFromSections(selectedSections);
+      const detected = detectFromSlots(selectedSections);
       if (detected.pageSize) {
         setPageSize(detected.pageSize);
         setPosition(detected.position);
       }
     } else {
-      // Only reset if sections are cleared externally (e.g., page number change)
+      // Only reset if slots are cleared externally (e.g., page number change)
       setPageSize("");
       setPosition("");
     }
@@ -117,10 +118,10 @@ export const PageSectionSelector = ({
     setPosition(""); // Reset position when size changes
     
     if (newSize === "full") {
-      // Full page - set all 12 sections immediately
-      onSectionsChange(getSectionsForSelection("full"));
+      // Full page - set all 12 slots immediately
+      onSectionsChange(getSlotsForSelection("full"));
     } else {
-      // Clear sections, user needs to select position
+      // Clear slots, user needs to select position
       onSectionsChange([]);
     }
   };
@@ -128,8 +129,8 @@ export const PageSectionSelector = ({
   const handlePositionChange = (newPosition: string) => {
     if (!pageSize || pageSize === "full") return;
     setPosition(newPosition);
-    const sections = getSectionsForSelection(pageSize, newPosition as any);
-    onSectionsChange(sections);
+    const slots = getSlotsForSelection(pageSize, newPosition as any);
+    onSectionsChange(slots);
   };
 
   const getPositionOptions = () => {
@@ -159,10 +160,10 @@ export const PageSectionSelector = ({
 
   const positionOptions = getPositionOptions();
 
-  const getSectionLabel = (count: number) => {
-    if (count === 0) return "None";
+  const getPageSizeLabel = (count: number) => {
+    if (count === 0) return "None selected";
     if (count === 12) return "Full Page";
-    if (count === 6) return "1/2 Page";
+    if (count === 6) return "Half Page";
     if (count === 4) return "1/3 Page";
     if (count === 3) return "1/4 Page";
     return `${count}/12 Page`;
@@ -220,49 +221,52 @@ export const PageSectionSelector = ({
         </div>
       )}
 
-      {/* Visual Preview */}
-      <div className="flex items-center gap-4">
-        <div className="grid grid-cols-3 gap-1 p-2 rounded-lg border-2 border-border bg-card">
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((section) => {
-            const isSold = soldSections.includes(section);
-            const isSelected = selectedSections.includes(section);
-            return (
-              <div
-                key={section}
-                title={
-                  isSold
-                    ? `Section ${section}: Already sold`
-                    : isSelected
-                    ? `Section ${section}: Selected`
-                    : `Section ${section}: Available`
-                }
-                className={cn(
-                  "w-6 h-6 rounded border-2 flex items-center justify-center font-medium text-xs",
-                  isSold
-                    ? "bg-red-500 border-red-600 text-white"
-                    : isSelected
-                    ? "bg-primary border-primary text-primary-foreground"
-                    : "bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300"
-                )}
-              >
-                {section}
-              </div>
-            );
-          })}
-        </div>
+      {/* Visual Preview - Ad Slots Grid */}
+      <div className="space-y-2">
+        <Label className="text-muted-foreground text-xs">Page Ad Slots Preview</Label>
+        <div className="flex items-center gap-4">
+          <div className="grid grid-cols-3 gap-1 p-2 rounded-lg border-2 border-border bg-card">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((slot) => {
+              const isSold = soldSections.includes(slot);
+              const isSelected = selectedSections.includes(slot);
+              return (
+                <div
+                  key={slot}
+                  title={
+                    isSold
+                      ? `Slot ${slot}: Already sold to another buyer`
+                      : isSelected
+                      ? `Slot ${slot}: Your selection`
+                      : `Slot ${slot}: Available`
+                  }
+                  className={cn(
+                    "w-6 h-6 rounded border-2 flex items-center justify-center font-medium text-xs",
+                    isSold
+                      ? "bg-red-500 border-red-600 text-white"
+                      : isSelected
+                      ? "bg-primary border-primary text-primary-foreground"
+                      : "bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-300"
+                  )}
+                >
+                  {slot}
+                </div>
+              );
+            })}
+          </div>
 
-        <div className="text-sm">
-          <p className="font-medium text-foreground">
-            {getSectionLabel(selectedSections.length)}
-          </p>
-          <p className="text-muted-foreground">
-            {selectedSections.length}/12 sections selected
-          </p>
-          {soldSections.length > 0 && (
-            <p className="text-red-500 text-xs mt-1">
-              {soldSections.length} section(s) already sold
+          <div className="text-sm">
+            <p className="font-medium text-foreground">
+              {getPageSizeLabel(selectedSections.length)}
             </p>
-          )}
+            <p className="text-muted-foreground">
+              {selectedSections.length} of 12 ad slots
+            </p>
+            {soldSections.length > 0 && (
+              <p className="text-red-500 text-xs mt-1">
+                {soldSections.length} slot(s) sold to other buyers
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -274,11 +278,11 @@ export const PageSectionSelector = ({
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded bg-primary border border-primary" />
-          <span>Selected</span>
+          <span>Your Selection</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded bg-red-500 border border-red-600" />
-          <span>Already Sold</span>
+          <span>Sold to Other Buyer</span>
         </div>
       </div>
     </div>
