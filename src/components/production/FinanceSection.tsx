@@ -1747,11 +1747,19 @@ function InvoiceDialog({
   useEffect(() => {
     if (open) {
       if (invoice) {
+        // Derive agreement_id from payment phase if not set on invoice
+        let agreementId = invoice.agreement_id || "";
+        if (!agreementId && invoice.payment_phase_id) {
+          const phase = paymentPhases.find(p => p.id === invoice.payment_phase_id);
+          if (phase) {
+            agreementId = phase.agreement_id || "";
+          }
+        }
         setFormData({
           invoice_number: invoice.invoice_number || "",
           invoice_date: invoice.invoice_date || "",
           amount: invoice.amount?.toString() || "",
-          agreement_id: invoice.agreement_id || "",
+          agreement_id: agreementId,
           payment_phase_id: invoice.payment_phase_id || "",
         });
       } else if (prePopulatedData) {
@@ -1768,7 +1776,7 @@ function InvoiceDialog({
       }
       setAmountError("");
     }
-  }, [open, invoice, prePopulatedData]);
+  }, [open, invoice, prePopulatedData, paymentPhases]);
 
   // Filter phases by selected agreement
   const filteredPhases = formData.agreement_id 
