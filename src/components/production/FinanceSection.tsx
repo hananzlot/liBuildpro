@@ -1523,24 +1523,26 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                         </TableCell>
                                         <TableCell>
                                           <div className="flex gap-1">
-                                            <Button 
-                                              variant="ghost" 
-                                              size="icon" 
-                                              className="h-7 w-7" 
-                                              title="Add Invoice from Phase"
-                                              onClick={() => { 
-                                                setEditingInvoice(null);
-                                                setPrePopulatedInvoice({
-                                                  agreement_id: phase.agreement_id,
-                                                  payment_phase_id: phase.id,
-                                                  amount: (phase.amount || 0) - invoiceStatus.totalInvoiced,
-                                                  invoice_date: new Date().toISOString().split('T')[0],
-                                                });
-                                                setInvoiceDialogOpen(true); 
-                                              }}
-                                            >
-                                              <FileText className="h-3 w-3" />
-                                            </Button>
+                                            {!isFullyInvoiced && (
+                                              <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-7 w-7" 
+                                                title="Add Invoice from Phase"
+                                                onClick={() => { 
+                                                  setEditingInvoice(null);
+                                                  setPrePopulatedInvoice({
+                                                    agreement_id: phase.agreement_id,
+                                                    payment_phase_id: phase.id,
+                                                    amount: (phase.amount || 0) - invoiceStatus.totalInvoiced,
+                                                    invoice_date: new Date().toISOString().split('T')[0],
+                                                  });
+                                                  setInvoiceDialogOpen(true); 
+                                                }}
+                                              >
+                                                <FileText className="h-3 w-3" />
+                                              </Button>
+                                            )}
                                             {(() => {
                                               // Find the first invoice with open balance for this phase
                                               const phaseInvoice = invoices.find(inv => 
