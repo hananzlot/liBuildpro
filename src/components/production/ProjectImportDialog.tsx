@@ -167,6 +167,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
 
         const { data, error } = await supabase.from('projects').insert({
           project_name: projectName,
+          legacy_project_number: projectRef, // Store the original project ref for admin visibility
           project_status: row['project_status'] || null,
           project_type: row['project_type'] || null,
           project_subcategory: row['project_subcategory'] || null,
