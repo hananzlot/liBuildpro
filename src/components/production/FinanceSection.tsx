@@ -1294,7 +1294,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                         .filter(p => p.agreement_id === agreement.id)
                         .reduce((sum, p) => sum + (p.amount || 0), 0);
                       const contractValue = agreement.total_price || 0;
-                      const isBalanced = Math.abs(contractValue - phasesTotal) < 0.01;
+                      const isBalanced = Math.abs(contractValue - phasesTotal) < 0.05;
                       
                       return (
                       <TableRow 
@@ -1997,12 +1997,19 @@ function InvoiceDialog({
               <Input 
                 type="number" 
                 value={formData.amount} 
-                onChange={(e) => handleAmountChange(e.target.value)} 
+                onChange={(e) => handleAmountChange(e.target.value)}
+                disabled={!!prePopulatedData}
+                className={prePopulatedData ? "opacity-70 bg-muted" : ""}
               />
               {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
-              {formData.payment_phase_id && (
+              {formData.payment_phase_id && !prePopulatedData && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Max: {formatCurrency(uninvoicedBalance)}
+                </p>
+              )}
+              {prePopulatedData && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Amount set from phase
                 </p>
               )}
             </div>
