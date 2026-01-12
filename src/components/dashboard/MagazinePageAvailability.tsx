@@ -357,46 +357,46 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
             )}
           </div>
 
-          {/* Pages grouped by Ad Type */}
-          <div className="space-y-6">
+          {/* Pages grouped by Ad Type - condensed horizontal layout */}
+          <div className="flex flex-wrap gap-4">
             {/* Pages with Ad Types */}
             {Object.entries(filteredPagesByAdType.groups).map(([adType, pages]) => (
-              <div key={adType} className="space-y-2">
-                <h4 className="text-sm font-semibold text-foreground capitalize border-b border-border pb-1">
+              <div key={adType} className="flex-shrink-0 p-3 rounded-lg border border-border bg-muted/30">
+                <h4 className="text-xs font-semibold text-foreground capitalize mb-2 whitespace-nowrap">
                   {adType}
                 </h4>
-                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
+                <div className="flex flex-wrap gap-1.5 max-w-[280px]">
                   {pages.map((page) => {
                     const label = page === "Inside Front Cover" ? "IFC" 
                       : page === "Inside Back Cover" ? "IBC" 
                       : page === "Back Page" ? "Back"
                       : page === "Cover" ? "Cover"
-                      : `Pg ${page}`;
+                      : `${page}`;
                     return renderPageCell(page, label, "border-2");
                   })}
                 </div>
               </div>
             ))}
-
-            {/* Unassigned Pages */}
-            {filteredPagesByAdType.unassigned.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-muted-foreground border-b border-border pb-1">
-                  Available Pages
-                </h4>
-                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
-                  {filteredPagesByAdType.unassigned.map((page) => {
-                    const label = page === "Inside Front Cover" ? "IFC" 
-                      : page === "Inside Back Cover" ? "IBC" 
-                      : page === "Back Page" ? "Back"
-                      : page === "Cover" ? "Cover"
-                      : `Pg ${page}`;
-                    return renderPageCell(page, label, "border-2");
-                  })}
-                </div>
-              </div>
-            )}
           </div>
+
+          {/* Unassigned Pages - separate section */}
+          {filteredPagesByAdType.unassigned.length > 0 && (
+            <div className="space-y-2 pt-4 border-t border-border">
+              <h4 className="text-sm font-semibold text-muted-foreground">
+                Available Pages
+              </h4>
+              <div className="grid grid-cols-8 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-16 xl:grid-cols-20 gap-1.5">
+                {filteredPagesByAdType.unassigned.map((page) => {
+                  const label = page === "Inside Front Cover" ? "IFC" 
+                    : page === "Inside Back Cover" ? "IBC" 
+                    : page === "Back Page" ? "Back"
+                    : page === "Cover" ? "Cover"
+                    : `${page}`;
+                  return renderPageCell(page, label, "border-2");
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Random Pages Note */}
           {randomPagesSold.count > 0 && (
