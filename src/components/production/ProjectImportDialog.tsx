@@ -662,8 +662,8 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
                 Upload files in sequence. Projects must be uploaded first. Other files are optional.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 overflow-hidden">
-              <ScrollArea className="h-[300px]">
+            <CardContent className="flex-1 overflow-hidden p-0">
+              <ScrollArea className="h-[350px] px-6 pb-4">
                 <div className="space-y-3">
                   {IMPORT_STEPS.map((step, index) => {
                     const result = stepResults[step.id];
