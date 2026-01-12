@@ -172,15 +172,6 @@ export const MagazineSalesTab = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header with New Entry button */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Magazine Sales</h2>
-        <Button onClick={() => { setEditingSale(null); setEntryDialogOpen(true); }} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          New Entry
-        </Button>
-      </div>
-
       {/* KPI Cards in Collapsible */}
       <Collapsible defaultOpen={false}>
         <CollapsibleTrigger asChild>
@@ -279,7 +270,11 @@ export const MagazineSalesTab = () => {
       </Collapsible>
 
       {/* Page Availability Grid */}
-      <MagazinePageAvailability sales={sales} onEditSale={handleEdit} />
+      <MagazinePageAvailability 
+        sales={sales} 
+        onEditSale={handleEdit} 
+        onNewEntry={() => { setEditingSale(null); setEntryDialogOpen(true); }}
+      />
 
       {/* Entry Dialog */}
       <MagazineSalesEntryDialog
