@@ -681,6 +681,17 @@ async function syncLocationData(
         console.log(`Setting new won_at for ${o.id}: ${wonAt}`);
       }
       
+      // Determine status value:
+      // If won_at is set (manually marked as won), ALWAYS preserve 'won' status
+      // This prevents GHL sync from overwriting the status back to 'open'
+      let finalStatus = o.status || null;
+      if (wonAt) {
+        finalStatus = 'won';
+        if (o.status !== 'won') {
+          console.log(`Preserving 'won' status for ${o.id} (has won_at: ${wonAt}) despite GHL status: ${o.status}`);
+        }
+      }
+      
       return {
         ghl_id: o.id,
         location_id: o.locationId || locationId,
@@ -691,7 +702,7 @@ async function syncLocationData(
         stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
         name: o.name || null,
         monetary_value: o.monetaryValue || null,
-        status: o.status || null,
+        status: finalStatus,
         assigned_to: o.assignedTo || null,
         ghl_date_added: o.createdAt || null,
         ghl_date_updated: o.updatedAt || null,
