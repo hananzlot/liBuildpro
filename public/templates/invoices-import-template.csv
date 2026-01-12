@@ -1,0 +1,12 @@
+### INVOICES IMPORT TEMPLATE ###
+### Instructions: Link to payment phases using phase_ref from the Payment Phases sheet. ###
+### Each row is one invoice. Use invoice_ref to link payments. ###
+
+phase_ref*,invoice_ref*,invoice_number,invoice_date,amount
+PH-001,INV-001,INV-2024-001,2024-01-15,10500
+PH-002,INV-002,INV-2024-002,2024-01-25,14000
+PH-003,INV-003,INV-2024-003,2024-02-28,10500
+PH-004,INV-004,INV-2024-004,2024-02-01,2500
+PH-005,INV-005,INV-2024-005,2024-02-15,2500
+PH-006,INV-006,INV-2024-006,2024-02-01,11000
+PH-007,INV-007,INV-2024-007,2024-03-15,11000

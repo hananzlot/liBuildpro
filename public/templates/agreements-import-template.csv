@@ -1,0 +1,8 @@
+### AGREEMENTS IMPORT TEMPLATE ###
+### Instructions: Link to projects using project_ref from the Projects sheet. Each row is one agreement/contract. ###
+### A project can have multiple agreements. Use agreement_ref to link payment phases. ###
+
+project_ref*,agreement_ref*,agreement_number,agreement_type,agreement_signed_date,total_price,description_of_work
+PROJ-001,AGR-001,1001,Original,2024-01-15,35000,Full roof replacement including materials and labor
+PROJ-001,AGR-002,1001-CO1,Change Order,2024-02-01,5000,Additional skylight installation
+PROJ-002,AGR-003,1002,Original,2024-02-01,22000,Complete kitchen cabinet replacement
