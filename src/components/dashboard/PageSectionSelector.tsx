@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -38,9 +39,9 @@ const getSectionsForSelection = (
       if (position === "right") return [3, 6, 9, 12];
       return [];
     case "quarter":
-      if (position === "top-left") return [1, 4, 2];
+      if (position === "top-left") return [1, 2, 4];
       if (position === "top-right") return [2, 3, 5];
-      if (position === "bottom-left") return [7, 10, 8];
+      if (position === "bottom-left") return [7, 8, 10];
       if (position === "bottom-right") return [8, 9, 11];
       return [];
     default:
@@ -92,13 +93,31 @@ export const PageSectionSelector = ({
   soldSections = [],
   disabled = false,
 }: PageSectionSelectorProps) => {
-  const detected = detectFromSections(selectedSections);
-  const pageSize = detected.pageSize as PageSize | "";
-  const position = detected.position;
+  // Maintain internal state for pageSize and position
+  const [pageSize, setPageSize] = useState<PageSize | "">("");
+  const [position, setPosition] = useState<string>("");
+
+  // Sync state from selectedSections when editing existing data
+  useEffect(() => {
+    if (selectedSections.length > 0) {
+      const detected = detectFromSections(selectedSections);
+      if (detected.pageSize) {
+        setPageSize(detected.pageSize);
+        setPosition(detected.position);
+      }
+    } else {
+      // Only reset if sections are cleared externally (e.g., page number change)
+      setPageSize("");
+      setPosition("");
+    }
+  }, [selectedSections]);
 
   const handlePageSizeChange = (newSize: PageSize) => {
+    setPageSize(newSize);
+    setPosition(""); // Reset position when size changes
+    
     if (newSize === "full") {
-      // Full page - set all 12 sections
+      // Full page - set all 12 sections immediately
       onSectionsChange(getSectionsForSelection("full"));
     } else {
       // Clear sections, user needs to select position
@@ -108,6 +127,7 @@ export const PageSectionSelector = ({
 
   const handlePositionChange = (newPosition: string) => {
     if (!pageSize || pageSize === "full") return;
+    setPosition(newPosition);
     const sections = getSectionsForSelection(pageSize, newPosition as any);
     onSectionsChange(sections);
   };
