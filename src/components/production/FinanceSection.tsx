@@ -707,6 +707,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
+  // Track payments associated with invoice being deleted
+  const [invoicePaymentsToDelete, setInvoicePaymentsToDelete] = useState<Payment[]>([]);
+
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -716,6 +719,20 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         : deleteTarget.type === "agreement" ? "project_agreements"
         : deleteTarget.type === "phase" ? "project_payment_phases"
         : "project_bills";
+      
+      // If deleting an invoice with associated payments, delete payments first
+      if (deleteTarget.type === "invoice" && invoicePaymentsToDelete.length > 0) {
+        for (const payment of invoicePaymentsToDelete) {
+          await logAudit({
+            tableName: "project_payments",
+            recordId: payment.id,
+            action: 'DELETE',
+            description: `Deleted payment (cascade from invoice delete)`,
+          });
+          const { error: paymentError } = await supabase.from("project_payments").delete().eq("id", payment.id);
+          if (paymentError) throw paymentError;
+        }
+      }
       
       // Log audit before delete
       await logAudit({
@@ -741,6 +758,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         queryClient.invalidateQueries({ queryKey: ["all-project-agreements"] });
       } else if (deleteTarget?.type === "invoice") {
         queryClient.invalidateQueries({ queryKey: ["all-project-invoices"] });
+        // Also invalidate payments since we may have deleted associated payments
+        queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+        queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       } else if (deleteTarget?.type === "payment") {
         queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       } else if (deleteTarget?.type === "bill") {
@@ -748,11 +768,19 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       }
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
+      setInvoicePaymentsToDelete([]);
     },
     onError: (error) => toast.error(`Failed to delete: ${error.message}`),
   });
 
   const handleDeleteClick = (type: string, id: string) => {
+    // If deleting an invoice, check for associated payments
+    if (type === "invoice") {
+      const associatedPayments = payments.filter(p => p.invoice_id === id);
+      setInvoicePaymentsToDelete(associatedPayments);
+    } else {
+      setInvoicePaymentsToDelete([]);
+    }
     setDeleteTarget({ type, id });
     setDeleteDialogOpen(true);
   };
@@ -1629,18 +1657,47 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       />
 
       {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        setDeleteDialogOpen(open);
+        if (!open) {
+          setDeleteTarget(null);
+          setInvoicePaymentsToDelete([]);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleteTarget?.type}?</AlertDialogTitle>
+            <AlertDialogTitle className={invoicePaymentsToDelete.length > 0 ? "flex items-center gap-2" : ""}>
+              {invoicePaymentsToDelete.length > 0 && <AlertCircle className="h-5 w-5 text-amber-600" />}
+              Delete {deleteTarget?.type}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone.
+              {invoicePaymentsToDelete.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-amber-600 font-medium">
+                    Warning: This invoice has {invoicePaymentsToDelete.length} payment{invoicePaymentsToDelete.length > 1 ? 's' : ''} recorded against it totaling {formatCurrency(invoicePaymentsToDelete.reduce((sum, p) => sum + (p.payment_amount || 0), 0))}.
+                  </p>
+                  <p>If you proceed, the following payments will also be deleted:</p>
+                  <ul className="list-disc list-inside text-sm">
+                    {invoicePaymentsToDelete.map(p => (
+                      <li key={p.id}>
+                        {formatCurrency(p.payment_amount)} - {p.payment_status} ({formatDate(p.projected_received_date)})
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="font-medium">This action cannot be undone.</p>
+                </div>
+              ) : (
+                "This action cannot be undone."
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteMutation.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
+            <AlertDialogAction 
+              onClick={() => deleteMutation.mutate()} 
+              className={invoicePaymentsToDelete.length > 0 ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
+            >
+              {invoicePaymentsToDelete.length > 0 ? "Delete Invoice & Payments" : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
