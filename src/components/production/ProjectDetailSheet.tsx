@@ -46,12 +46,14 @@ import {
   Plus,
   Trash2,
   Pencil,
-  X
+  X,
+  Settings2
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
 import { DocumentsSection } from "./DocumentsSection";
 import { NotesSection } from "./NotesSection";
 import { DebouncedInput, DebouncedTextarea, DebouncedNumberInput } from "@/components/ui/debounced-input";
+import { CustomLeadCostsDialog, WeightedAverageTooltip } from "./CustomLeadCostsDialog";
 
 interface Project {
   id: string;
@@ -103,6 +105,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   const [editingStatusName, setEditingStatusName] = useState("");
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [editingTypeName, setEditingTypeName] = useState("");
+  const [customLeadCostsOpen, setCustomLeadCostsOpen] = useState(false);
 
   // Auto-switch to finance tab and signal bill dialog open when returning from subcontractor add
   useEffect(() => {
@@ -972,7 +975,20 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     {/* Lead Cost % and Commission Split % */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Lead Cost %</Label>
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[11px] text-muted-foreground">Lead Cost %</Label>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() => setCustomLeadCostsOpen(true)}
+                              title="Custom Lead Costs"
+                            >
+                              <Settings2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                         <DebouncedNumberInput
                           className={cn("h-8 text-xs", !isAdmin && "bg-muted")}
                           min={0}
@@ -982,7 +998,15 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           placeholder="18"
                           disabled={!isAdmin}
                         />
-                        <p className="text-[10px] text-muted-foreground">Admin only</p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-[10px] text-muted-foreground">Admin only</p>
+                          {fullProject?.id && (
+                            <WeightedAverageTooltip 
+                              projectId={fullProject.id} 
+                              leadCostPercent={fullProject?.lead_cost_percent ?? 18} 
+                            />
+                          )}
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Commission Split %</Label>
@@ -1604,6 +1628,20 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Custom Lead Costs Dialog */}
+        {fullProject?.id && (
+          <CustomLeadCostsDialog
+            open={customLeadCostsOpen}
+            onOpenChange={setCustomLeadCostsOpen}
+            projectId={fullProject.id}
+            defaultLeadCostPercent={fullProject.lead_cost_percent ?? 18}
+            onWeightedAverageCalculated={(weightedAvg, isWeighted) => {
+              // Refetch project data to show updated value
+              queryClient.invalidateQueries({ queryKey: ["project-detail", fullProject.id] });
+            }}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );
