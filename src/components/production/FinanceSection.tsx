@@ -1879,6 +1879,9 @@ function InvoiceDialog({
   const [phaseError, setPhaseError] = useState("");
 
   // Reset form when dialog opens or invoice/prePopulatedData changes
+  // Use JSON.stringify to ensure we detect object content changes
+  const prePopulatedKey = prePopulatedData ? JSON.stringify(prePopulatedData) : null;
+  
   useEffect(() => {
     if (!open) return;
     
@@ -1912,7 +1915,7 @@ function InvoiceDialog({
     }
     setAmountError("");
     setPhaseError("");
-  }, [open, invoice, prePopulatedData, paymentPhases]);
+  }, [open, invoice, prePopulatedKey, paymentPhases]);
 
   // Filter phases by selected agreement, but always include the currently selected phase
   const filteredPhases = useMemo(() => {
