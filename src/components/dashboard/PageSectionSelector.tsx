@@ -157,7 +157,7 @@ export const PageSectionSelector = ({
           disabled={disabled || isPageFull}
         >
           <SelectTrigger>
-            <SelectValue placeholder={isPageFull ? "Page is full (12 buyers)" : "Select page size"} />
+            <SelectValue placeholder={isPageFull ? "Page is full (12 slots)" : "Select page size"} />
           </SelectTrigger>
           <SelectContent>
             {pageSizeOptions.map((option) => {
