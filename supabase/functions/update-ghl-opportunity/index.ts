@@ -326,6 +326,9 @@ serve(async (req) => {
             contact = contactData;
           }
           
+          // Get scope from opportunity name or stage_name as default
+          const projectScope = opportunity.stage_name || null;
+          
           // Create the project
           const projectData = {
             opportunity_id: ghl_id,
@@ -340,6 +343,8 @@ serve(async (req) => {
             lead_source: contact?.source || null,
             primary_salesperson: opportunity.assigned_to || null,
             estimated_cost: opportunity.monetary_value || 0,
+            sold_dispatch_value: opportunity.monetary_value || 0,
+            project_scope_dispatch: projectScope,
           };
           
           const { data: newProject, error: projectError } = await supabase

@@ -2094,6 +2094,7 @@ export type Database = {
           project_manager: string | null
           project_name: string
           project_number: number
+          project_scope_dispatch: string | null
           project_status: string | null
           project_subcategory: string | null
           project_type: string | null
@@ -2103,6 +2104,7 @@ export type Database = {
           secondary_commission_pct: number | null
           secondary_profit_split_pct: number | null
           secondary_salesperson: string | null
+          sold_dispatch_value: number | null
           sold_under: string | null
           tertiary_commission_pct: number | null
           tertiary_profit_split_pct: number | null
@@ -2153,6 +2155,7 @@ export type Database = {
           project_manager?: string | null
           project_name: string
           project_number?: number
+          project_scope_dispatch?: string | null
           project_status?: string | null
           project_subcategory?: string | null
           project_type?: string | null
@@ -2162,6 +2165,7 @@ export type Database = {
           secondary_commission_pct?: number | null
           secondary_profit_split_pct?: number | null
           secondary_salesperson?: string | null
+          sold_dispatch_value?: number | null
           sold_under?: string | null
           tertiary_commission_pct?: number | null
           tertiary_profit_split_pct?: number | null
@@ -2212,6 +2216,7 @@ export type Database = {
           project_manager?: string | null
           project_name?: string
           project_number?: number
+          project_scope_dispatch?: string | null
           project_status?: string | null
           project_subcategory?: string | null
           project_type?: string | null
@@ -2221,6 +2226,7 @@ export type Database = {
           secondary_commission_pct?: number | null
           secondary_profit_split_pct?: number | null
           secondary_salesperson?: string | null
+          sold_dispatch_value?: number | null
           sold_under?: string | null
           tertiary_commission_pct?: number | null
           tertiary_profit_split_pct?: number | null
