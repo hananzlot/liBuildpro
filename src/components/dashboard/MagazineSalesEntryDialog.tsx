@@ -104,12 +104,16 @@ export const MagazineSalesEntryDialog = ({
     return Array.from(ads).sort();
   }, [existingSales]);
 
-  // Get sold sections for selected page/issue (each sale = 1 slot)
-  const soldSectionsForPage = useMemo(() => {
+  // Get sold sections and page sizes for selected page/issue
+  const { soldSectionsForPage, existingPageSizes } = useMemo(() => {
     const finalIssueDate = magazineIssueDate === "custom" ? customIssueDate : magazineIssueDate;
-    if (!finalIssueDate || pageNumber === "Random" || !pageNumber) return [];
+    if (!finalIssueDate || pageNumber === "Random" || !pageNumber) {
+      return { soldSectionsForPage: [], existingPageSizes: [] as string[] };
+    }
 
     const soldSections: number[] = [];
+    const pageSizes: string[] = [];
+    
     existingSales
       .filter((s) => 
         s.magazine_issue_date === finalIssueDate && 
@@ -117,13 +121,18 @@ export const MagazineSalesEntryDialog = ({
         s.id !== editingSale?.id // Exclude current sale when editing
       )
       .forEach((sale) => {
-        // Each sale = 1 slot. Use sections_sold if available, otherwise assign based on index
+        // Each sale = 1 slot. Use sections_sold if available
         if (sale.sections_sold?.length) {
           soldSections.push(...sale.sections_sold);
         }
+        // Track page sizes sold on this page
+        pageSizes.push(sale.page_size.toLowerCase());
       });
 
-    return [...new Set(soldSections)];
+    return { 
+      soldSectionsForPage: [...new Set(soldSections)], 
+      existingPageSizes: pageSizes 
+    };
   }, [existingSales, magazineIssueDate, customIssueDate, pageNumber, editingSale]);
 
   // Reset form when dialog opens/closes or editing sale changes
@@ -452,6 +461,7 @@ export const MagazineSalesEntryDialog = ({
             disabled={!pageNumber}
             pageSize={pageSize}
             onPageSizeChange={setPageSize}
+            existingPageSizes={pageNumber === "Random" ? [] : existingPageSizes}
           />
 
           {/* Price */}
