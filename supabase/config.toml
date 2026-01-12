@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.update-opportunity-scope]
 verify_jwt = false
+
+[functions.update-opportunity-address]
+verify_jwt = false
