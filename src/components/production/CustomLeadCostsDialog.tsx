@@ -58,10 +58,11 @@ export function CustomLeadCostsDialog({
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   
-  // Local state for editing lead costs
+  // Local state for editing lead costs - initialize with default
   const [contractLeadCost, setContractLeadCost] = useState<number>(defaultLeadCostPercent);
   const [changeOrderLeadCost, setChangeOrderLeadCost] = useState<number>(defaultLeadCostPercent);
   const [isSaving, setIsSaving] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   // Fetch agreements for this project
   const { data: agreements = [], isLoading } = useQuery({
@@ -99,20 +100,26 @@ export function CustomLeadCostsDialog({
   const changeOrderTotal = changeOrderAgreements.reduce((sum, a) => sum + a.totalPrice, 0);
   const grandTotal = contractTotal + changeOrderTotal;
 
-  // Determine current lead cost % for each category (from first agreement or default)
+  // Initialize lead costs when dialog opens or agreements load
   useEffect(() => {
-    if (agreements.length > 0) {
-      // Get lead cost from first Contract type agreement, or default
-      const firstContract = contractAgreements[0];
-      const firstChangeOrder = changeOrderAgreements[0];
-      
-      setContractLeadCost(firstContract?.leadCostPercent ?? defaultLeadCostPercent);
-      setChangeOrderLeadCost(firstChangeOrder?.leadCostPercent ?? defaultLeadCostPercent);
-    } else {
-      setContractLeadCost(defaultLeadCostPercent);
-      setChangeOrderLeadCost(defaultLeadCostPercent);
+    if (!open) {
+      setInitialized(false);
+      return;
     }
-  }, [agreements, defaultLeadCostPercent, contractAgreements, changeOrderAgreements]);
+    
+    if (!isLoading && !initialized) {
+      // Get lead cost from first Contract type agreement, or default
+      const contractAgrs = agreements.filter(a => a.agreement_type === "Contract");
+      const changeOrderAgrs = agreements.filter(a => a.agreement_type !== "Contract");
+      
+      const contractLc = contractAgrs[0]?.lead_cost_percent;
+      const changeOrderLc = changeOrderAgrs[0]?.lead_cost_percent;
+      
+      setContractLeadCost(contractLc ?? defaultLeadCostPercent);
+      setChangeOrderLeadCost(changeOrderLc ?? defaultLeadCostPercent);
+      setInitialized(true);
+    }
+  }, [open, isLoading, agreements, defaultLeadCostPercent, initialized]);
 
   // Calculate weighted average
   const weightedAverage = useMemo(() => {
