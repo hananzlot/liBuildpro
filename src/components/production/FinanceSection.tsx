@@ -1415,6 +1415,13 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                     const contractTotal = agreement.total_price || 0;
                     const balance = contractTotal - phasesTotal;
                     const isBalanced = Math.abs(balance) < 0.01;
+                    
+                    // Calculate invoiced amount for this agreement's phases
+                    const phaseIds = agreementPhases.map(p => p.id);
+                    const invoicedForPhases = invoices
+                      .filter(inv => inv.payment_phase_id && phaseIds.includes(inv.payment_phase_id))
+                      .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+                    const stillToInvoice = phasesTotal - invoicedForPhases;
 
                     return (
                       <Collapsible key={agreement.id} defaultOpen={selectedAgreementFilter === agreement.id}>
@@ -1436,7 +1443,11 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Phases Total: {formatCurrency(phasesTotal)}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Phases Total: {formatCurrency(phasesTotal)} • 
+                                  <span className="text-emerald-600"> Invoiced: {formatCurrency(invoicedForPhases)}</span> • 
+                                  <span className={stillToInvoice > 0 ? "text-amber-600" : "text-muted-foreground"}> To Invoice: {formatCurrency(stillToInvoice)}</span>
+                                </p>
                                 {isBalanced ? (
                                   <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs">
                                     Balanced
