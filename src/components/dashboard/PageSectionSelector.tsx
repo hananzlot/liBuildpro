@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -97,25 +97,46 @@ export const PageSectionSelector = ({
   // Maintain internal state for pageSize and position
   const [pageSize, setPageSize] = useState<PageSize | "">("");
   const [position, setPosition] = useState<string>("");
+  
+  // Track if change is internal to prevent useEffect from resetting state
+  const isInternalChange = useRef(false);
+  const prevSectionsRef = useRef<string>("");
 
-  // Sync state from selectedSections when editing existing data
+  // Sync state from selectedSections only for external changes (e.g., editing existing data or page change)
   useEffect(() => {
-    if (selectedSections.length > 0) {
-      const detected = detectFromSlots(selectedSections);
-      if (detected.pageSize) {
-        setPageSize(detected.pageSize);
-        setPosition(detected.position);
+    const currentKey = selectedSections.sort((a, b) => a - b).join(",");
+    
+    // Skip if this was an internal change
+    if (isInternalChange.current) {
+      isInternalChange.current = false;
+      prevSectionsRef.current = currentKey;
+      return;
+    }
+    
+    // Only update if sections actually changed from external source
+    if (currentKey !== prevSectionsRef.current) {
+      prevSectionsRef.current = currentKey;
+      
+      if (selectedSections.length > 0) {
+        const detected = detectFromSlots(selectedSections);
+        if (detected.pageSize) {
+          setPageSize(detected.pageSize);
+          setPosition(detected.position);
+        }
+      } else {
+        // External reset (e.g., page number changed)
+        setPageSize("");
+        setPosition("");
       }
-    } else {
-      // Only reset if slots are cleared externally (e.g., page number change)
-      setPageSize("");
-      setPosition("");
     }
   }, [selectedSections]);
 
   const handlePageSizeChange = (newSize: PageSize) => {
     setPageSize(newSize);
     setPosition(""); // Reset position when size changes
+    
+    // Mark as internal change to prevent useEffect from resetting
+    isInternalChange.current = true;
     
     if (newSize === "full") {
       // Full page - set all 12 slots immediately
@@ -129,6 +150,10 @@ export const PageSectionSelector = ({
   const handlePositionChange = (newPosition: string) => {
     if (!pageSize || pageSize === "full") return;
     setPosition(newPosition);
+    
+    // Mark as internal change to prevent useEffect from resetting
+    isInternalChange.current = true;
+    
     const slots = getSlotsForSelection(pageSize, newPosition as any);
     onSectionsChange(slots);
   };
