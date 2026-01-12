@@ -2673,6 +2673,7 @@ function PhaseDialog({
     agreement_id: "",
   });
   const [validationWarning, setValidationWarning] = useState("");
+  const [agreementError, setAgreementError] = useState("");
 
   // Calculate which agreements are fully accounted for
   const getAvailableAgreements = () => {
@@ -2704,10 +2705,12 @@ function PhaseDialog({
       setFormData({ phase_name: "", description: "", due_date: "", amount: "", agreement_id: "" });
     }
     setValidationWarning("");
+    setAgreementError("");
   }, [open, phase]);
 
   const handleOpenChange = (newOpen: boolean) => {
     setValidationWarning("");
+    setAgreementError("");
     onOpenChange(newOpen);
   };
 
@@ -2745,12 +2748,19 @@ function PhaseDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate agreement is selected
+    if (!formData.agreement_id) {
+      setAgreementError("Contract/Agreement is required");
+      return;
+    }
+    
     onSave({
       phase_name: formData.phase_name || "New Phase",
       description: formData.description || null,
       due_date: formData.due_date || null,
       amount: parseFloat(formData.amount) || 0,
-      agreement_id: formData.agreement_id || null,
+      agreement_id: formData.agreement_id,
     });
   };
 
@@ -2764,7 +2774,13 @@ function PhaseDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label>Contract</Label>
-            <Select value={formData.agreement_id} onValueChange={(v) => setFormData(p => ({ ...p, agreement_id: v }))}>
+            <Select 
+              value={formData.agreement_id} 
+              onValueChange={(v) => {
+                setFormData(p => ({ ...p, agreement_id: v }));
+                setAgreementError("");
+              }}
+            >
               <SelectTrigger><SelectValue placeholder="Select contract" /></SelectTrigger>
               <SelectContent>
                 {availableAgreements.map((a) => {
@@ -2780,6 +2796,7 @@ function PhaseDialog({
                 })}
               </SelectContent>
             </Select>
+            {agreementError && <p className="text-xs text-destructive mt-1">{agreementError}</p>}
             {availableAgreements.length === 0 && (
               <p className="text-xs text-muted-foreground mt-1">All contracts are fully accounted for in payment phases.</p>
             )}
