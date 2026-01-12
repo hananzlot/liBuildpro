@@ -50,6 +50,7 @@ interface Opportunity {
   ghl_date_updated: string | null;
   location_id?: string;
   won_at?: string | null;
+  scope_of_work?: string | null;
 }
 interface Appointment {
   ghl_id: string;
@@ -1527,27 +1528,26 @@ export function OpportunityDetailSheet({
     }
   };
   const handleSaveScope = async () => {
-    if (!opportunity?.contact_id) return;
+    if (!opportunity?.ghl_id) return;
     setIsSavingScope(true);
     try {
       const {
         data,
         error
-      } = await supabase.functions.invoke("update-contact-scope", {
+      } = await supabase.functions.invoke("update-opportunity-scope", {
         body: {
-          contactId: opportunity.contact_id,
+          opportunityGhlId: opportunity.ghl_id,
           scopeOfWork: editedScope.trim(),
-          editedBy: user?.id || null,
-          opportunityGhlId: opportunity.ghl_id
+          editedBy: user?.id || null
         }
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Scope of work saved");
       setIsEditingScope(false);
-      // Refresh contacts to get updated custom_fields
+      // Refresh opportunities to get updated scope_of_work
       queryClient.invalidateQueries({
-        queryKey: ["contacts"]
+        queryKey: ["opportunities"]
       });
       queryClient.invalidateQueries({
         queryKey: ["opportunity_edits"]
@@ -1798,7 +1798,8 @@ export function OpportunityDetailSheet({
   const contactAddress = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
   const apptAddressFallback = relatedAppointments.find(a => a.address)?.address || null;
   const address = contactAddress || apptAddressFallback;
-  // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
+  // Get scope from opportunity directly, with fallback to contact custom_fields for legacy data
+  const scopeFromOpportunity = opportunity?.scope_of_work;
   const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
   const scopeFromAttributions = (() => {
     if (!contact?.attributions) return null;
@@ -1810,7 +1811,8 @@ export function OpportunityDetailSheet({
     }
     return null;
   })();
-  const scopeOfWork = scopeFromCustomField || scopeFromAttributions;
+  // Prefer opportunity scope, fallback to contact custom field, then attributions
+  const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
   const contactNotes = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.NOTES);
   return <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-3xl overflow-y-auto p-0">

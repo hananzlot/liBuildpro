@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.ai-check-never-answers]
 verify_jwt = false
+
+[functions.update-opportunity-scope]
+verify_jwt = false
