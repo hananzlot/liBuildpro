@@ -326,8 +326,18 @@ serve(async (req) => {
             contact = contactData;
           }
           
-          // Get scope from opportunity name or stage_name as default
-          const projectScope = opportunity.stage_name || null;
+          // Extract scope of work from contact's custom_fields
+          // Custom field ID for scope of work: KwQRtJT0aMSHnq3mwR68
+          let projectScope: string | null = null;
+          if (contact?.custom_fields && Array.isArray(contact.custom_fields)) {
+            const scopeField = contact.custom_fields.find(
+              (field: { id: string; value: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+            );
+            if (scopeField && scopeField.value) {
+              projectScope = scopeField.value;
+              console.log(`Found scope of work from contact custom field: ${projectScope}`);
+            }
+          }
           
           // Create the project
           const projectData = {
