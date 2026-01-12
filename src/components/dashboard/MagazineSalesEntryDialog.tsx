@@ -424,9 +424,26 @@ export const MagazineSalesEntryDialog = ({
             )}
           </div>
 
+          {/* Page Number */}
+          <div className="space-y-2">
+            <Label>Page Number *</Label>
+            <Select value={pageNumber} onValueChange={setPageNumber}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select page number" />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_NUMBERS.map((num) => (
+                  <SelectItem key={num} value={num}>
+                    {num}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Ad Sold */}
           <div className="space-y-2">
-            <Label>Ad Type *</Label>
+            <Label className={!pageNumber ? "text-muted-foreground" : ""}>Ad Type *</Label>
             {existingAdType ? (
               <div>
                 <Input 
@@ -440,9 +457,9 @@ export const MagazineSalesEntryDialog = ({
               </div>
             ) : (
               <>
-                <Select value={adSold} onValueChange={setAdSold}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select ad type" />
+                <Select value={adSold} onValueChange={setAdSold} disabled={!pageNumber}>
+                  <SelectTrigger className={!pageNumber ? "opacity-50" : ""}>
+                    <SelectValue placeholder={!pageNumber ? "Select page first" : "Select ad type"} />
                   </SelectTrigger>
                   <SelectContent>
                     {existingAdTypes.map((ad) => (
@@ -463,23 +480,6 @@ export const MagazineSalesEntryDialog = ({
                 )}
               </>
             )}
-          </div>
-
-          {/* Page Number */}
-          <div className="space-y-2">
-            <Label>Page Number *</Label>
-            <Select value={pageNumber} onValueChange={setPageNumber}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select page number" />
-              </SelectTrigger>
-              <SelectContent>
-                {PAGE_NUMBERS.map((num) => (
-                  <SelectItem key={num} value={num}>
-                    {num}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Page Section Selector */}
