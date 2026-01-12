@@ -840,6 +840,16 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
+                      {fullProject?.project_scope_dispatch && (
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Project Scope (Dispatch)</Label>
+                          <div className="h-8 px-3 py-1.5 text-xs rounded-md border bg-muted/50 flex items-center text-muted-foreground">
+                            {fullProject.project_scope_dispatch}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Project Manager</Label>
                         <Popover>
