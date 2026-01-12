@@ -46,7 +46,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatCurrencyWithDecimals } from "@/lib/utils";
 import { 
   Plus, 
   Pencil, 
@@ -1336,9 +1336,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                         <TableCell className="text-xs font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
                         <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
                         <TableCell className="text-xs">{formatDate(agreement.agreement_signed_date)}</TableCell>
-                        <TableCell className="text-xs text-right">{formatCurrency(agreement.total_price)}</TableCell>
+                        <TableCell className="text-xs text-right">{formatCurrencyWithDecimals(agreement.total_price)}</TableCell>
                         <TableCell className={`text-xs text-right ${isBalanced ? 'text-emerald-600' : phasesTotal > contractValue ? 'text-red-600' : 'text-amber-600'}`}>
-                          {formatCurrency(phasesTotal)}
+                          {formatCurrencyWithDecimals(phasesTotal)}
                         </TableCell>
                         <TableCell onClick={(e) => e.stopPropagation()}>
                           {agreement.attachment_url && (
