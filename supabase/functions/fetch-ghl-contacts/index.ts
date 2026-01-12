@@ -661,6 +661,15 @@ async function syncLocationData(
     
     console.log(`Found ${existingWonAtMap.size} existing opportunities with potential won_at values to preserve`);
     
+    // Build a map of contact IDs to their custom_fields for scope extraction
+    const contactCustomFieldsMap = new Map<string, any[]>();
+    contacts.forEach(c => {
+      if (c.id && c.customFields && Array.isArray(c.customFields)) {
+        contactCustomFieldsMap.set(c.id, c.customFields);
+      }
+    });
+    console.log(`Built contact custom fields map for ${contactCustomFieldsMap.size} contacts`);
+    
     const oppsToUpsert = opportunities.map(o => {
       const existing = existingWonAtMap.get(o.id);
       
@@ -692,6 +701,18 @@ async function syncLocationData(
         }
       }
       
+      // Extract scope_of_work from contact's custom_fields (field ID: KwQRtJT0aMSHnq3mwR68)
+      let scopeOfWork: string | null = null;
+      const contactCustomFields = contactCustomFieldsMap.get(o.contactId);
+      if (contactCustomFields) {
+        const scopeField = contactCustomFields.find(
+          (field: { id: string; value?: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+        );
+        if (scopeField && scopeField.value) {
+          scopeOfWork = scopeField.value;
+        }
+      }
+      
       return {
         ghl_id: o.id,
         location_id: o.locationId || locationId,
@@ -709,6 +730,7 @@ async function syncLocationData(
         custom_fields: o.customFields || null,
         last_synced_at: syncTimestamp,
         won_at: wonAt,
+        scope_of_work: scopeOfWork,
       };
     });
 
