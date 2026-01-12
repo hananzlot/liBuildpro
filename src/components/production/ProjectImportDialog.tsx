@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { 
   Download, 
@@ -692,7 +691,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
-              <ScrollArea className="h-[350px] px-6 pb-4">
+              <div className="max-h-[55vh] overflow-y-auto px-6 pb-4 scrollbar-styled">
                 <div className="space-y-3">
                   {IMPORT_STEPS.map((step, index) => {
                     const result = stepResults[step.id];
@@ -792,7 +791,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
                     );
                   })}
                 </div>
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
 
