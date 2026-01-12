@@ -527,11 +527,101 @@ export default function Production() {
     return false;
   };
 
+  // Admin: hard-delete project AND all related records (so the project delete never gets blocked)
+  const deleteProjectCascade = async (projectId: string) => {
+    // bill_payments depend on project_bills
+    const { data: bills, error: billsSelError } = await supabase
+      .from('project_bills')
+      .select('id')
+      .eq('project_id', projectId);
+    if (billsSelError) throw billsSelError;
+
+    const billIds = (bills ?? []).map((b) => b.id);
+    if (billIds.length > 0) {
+      const { error } = await supabase.from('bill_payments').delete().in('bill_id', billIds);
+      if (error) throw error;
+    }
+
+    // project_note_comments depend on project_notes
+    const { data: notes, error: notesSelError } = await supabase
+      .from('project_notes')
+      .select('id')
+      .eq('project_id', projectId);
+    if (notesSelError) throw notesSelError;
+
+    const noteIds = (notes ?? []).map((n) => n.id);
+    if (noteIds.length > 0) {
+      const { error } = await supabase.from('project_note_comments').delete().in('note_id', noteIds);
+      if (error) throw error;
+    }
+
+    // Financial chain
+    {
+      const { error } = await supabase.from('project_payments').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_invoices').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_payment_phases').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_agreements').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+
+    // Bills (after bill_payments)
+    {
+      const { error } = await supabase.from('project_bills').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+
+    // Other related records
+    {
+      const { error } = await supabase.from('project_documents').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_commissions').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('commission_payments').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_notes').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_checklists').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_messages').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_cases').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_feedback').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_finance').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+  };
+
   // Delete project mutation - soft delete for projects with records, hard delete for empty projects (admin only)
   const deleteProjectMutation = useMutation({
     mutationFn: async ({ project, permanentDelete, isTestProject }: { project: Project; permanentDelete: boolean; isTestProject?: boolean }) => {
       if (permanentDelete) {
-        // Hard delete for empty projects or test projects (admin only)
         await logAudit({
           tableName: 'projects',
           recordId: project.id,
@@ -543,30 +633,11 @@ export default function Production() {
             project_address: project.project_address,
             primary_salesperson: project.primary_salesperson,
           },
-          description: `Permanently deleted ${isTestProject ? 'test ' : 'empty '}project #${project.project_number} - ${project.project_name}`,
+          description: `Permanently deleted project #${project.project_number} - ${project.project_name} (and all related records)`,
         });
 
-        // For test projects, delete ALL related records first
-        if (isTestProject) {
-          // Delete financial records
-          await supabase.from("project_agreements").delete().eq("project_id", project.id);
-          await supabase.from("project_bills").delete().eq("project_id", project.id);
-          await supabase.from("project_payments").delete().eq("project_id", project.id);
-          await supabase.from("project_invoices").delete().eq("project_id", project.id);
-          await supabase.from("project_payment_phases").delete().eq("project_id", project.id);
-          await supabase.from("project_documents").delete().eq("project_id", project.id);
-          await supabase.from("project_commissions").delete().eq("project_id", project.id);
-          await supabase.from("project_notes").delete().eq("project_id", project.id);
-          await supabase.from("commission_payments").delete().eq("project_id", project.id);
-        }
+        await deleteProjectCascade(project.id);
 
-        // Delete lightweight records that might exist
-        await supabase.from("project_checklists").delete().eq("project_id", project.id);
-        await supabase.from("project_messages").delete().eq("project_id", project.id);
-        await supabase.from("project_cases").delete().eq("project_id", project.id);
-        await supabase.from("project_feedback").delete().eq("project_id", project.id);
-        await supabase.from("project_finance").delete().eq("project_id", project.id);
-        
         const { error } = await supabase.from("projects").delete().eq("id", project.id);
         if (error) throw error;
       } else {
@@ -1263,7 +1334,7 @@ export default function Production() {
                 ) : projectHasRecords === false ? (
                   `Permanently Delete Project #${projectToDelete?.project_number}?`
                 ) : (
-                  `Archive Project #${projectToDelete?.project_number}?`
+                  `Delete Project #${projectToDelete?.project_number} (and all related records)?`
                 )}
               </AlertDialogTitle>
               <AlertDialogDescription asChild>
@@ -1286,8 +1357,9 @@ export default function Production() {
                     </>
                   ) : (
                     <>
-                      <p>This project has associated records and can only be archived.</p>
-                      <p className="mt-2 text-sm">The project data will be preserved but hidden from view. This action is logged in the audit trail.</p>
+                      <p>This project has associated records (agreements, invoices, payments, bills, etc.).</p>
+                      <p className="mt-2"><strong>Deleting will permanently remove the project and all related records.</strong></p>
+                      <span className="block mt-2 font-medium text-destructive">This action cannot be undone.</span>
                     </>
                   )}
                 </div>
@@ -1295,7 +1367,7 @@ export default function Production() {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              {!checkingRecords && (projectHasRecords === false || (projectToDelete && isTestProject(projectToDelete))) && (
+              {!checkingRecords && projectToDelete && (
                 <AlertDialogAction 
                   onClick={() => projectToDelete && deleteProjectMutation.mutate({ 
                     project: projectToDelete, 
