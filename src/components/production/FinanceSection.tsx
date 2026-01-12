@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1743,45 +1743,56 @@ function InvoiceDialog({
   });
   const [amountError, setAmountError] = useState("");
 
-  // Reset form when dialog opens or invoice changes
+  // Reset form when dialog opens or invoice/prePopulatedData changes
   useEffect(() => {
-    if (open) {
-      if (invoice) {
-        // Derive agreement_id from payment phase if not set on invoice
-        let agreementId = invoice.agreement_id || "";
-        if (!agreementId && invoice.payment_phase_id) {
-          const phase = paymentPhases.find(p => p.id === invoice.payment_phase_id);
-          if (phase) {
-            agreementId = phase.agreement_id || "";
-          }
+    if (!open) return;
+    
+    if (invoice) {
+      // Derive agreement_id from payment phase if not set on invoice
+      let agreementId = invoice.agreement_id || "";
+      if (!agreementId && invoice.payment_phase_id) {
+        const phase = paymentPhases.find(p => p.id === invoice.payment_phase_id);
+        if (phase) {
+          agreementId = phase.agreement_id || "";
         }
-        setFormData({
-          invoice_number: invoice.invoice_number || "",
-          invoice_date: invoice.invoice_date || "",
-          amount: invoice.amount?.toString() || "",
-          agreement_id: agreementId,
-          payment_phase_id: invoice.payment_phase_id || "",
-        });
-      } else if (prePopulatedData) {
-        // Pre-populate from payment phase
-        setFormData({
-          invoice_number: "",
-          invoice_date: prePopulatedData.invoice_date || new Date().toISOString().split('T')[0],
-          amount: prePopulatedData.amount?.toString() || "",
-          agreement_id: prePopulatedData.agreement_id || "",
-          payment_phase_id: prePopulatedData.payment_phase_id || "",
-        });
-      } else {
-        setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
       }
-      setAmountError("");
+      setFormData({
+        invoice_number: invoice.invoice_number || "",
+        invoice_date: invoice.invoice_date || "",
+        amount: invoice.amount?.toString() || "",
+        agreement_id: agreementId,
+        payment_phase_id: invoice.payment_phase_id || "",
+      });
+    } else if (prePopulatedData) {
+      // Pre-populate from payment phase
+      setFormData({
+        invoice_number: "",
+        invoice_date: prePopulatedData.invoice_date || new Date().toISOString().split('T')[0],
+        amount: prePopulatedData.amount?.toString() || "",
+        agreement_id: prePopulatedData.agreement_id || "",
+        payment_phase_id: prePopulatedData.payment_phase_id || "",
+      });
+    } else {
+      setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
     }
+    setAmountError("");
   }, [open, invoice, prePopulatedData, paymentPhases]);
 
-  // Filter phases by selected agreement
-  const filteredPhases = formData.agreement_id 
-    ? paymentPhases.filter(p => p.agreement_id === formData.agreement_id)
-    : [];
+  // Filter phases by selected agreement, but always include the currently selected phase
+  const filteredPhases = useMemo(() => {
+    const baseFiltered = formData.agreement_id 
+      ? paymentPhases.filter(p => p.agreement_id === formData.agreement_id)
+      : [];
+    
+    // Ensure currently selected phase is included for display purposes
+    if (formData.payment_phase_id && !baseFiltered.some(p => p.id === formData.payment_phase_id)) {
+      const selectedPhase = paymentPhases.find(p => p.id === formData.payment_phase_id);
+      if (selectedPhase) {
+        return [selectedPhase, ...baseFiltered];
+      }
+    }
+    return baseFiltered;
+  }, [formData.agreement_id, formData.payment_phase_id, paymentPhases]);
 
   // Calculate payments received for this invoice from payment records
   const paymentsReceivedForInvoice = invoice?.id 
