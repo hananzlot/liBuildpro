@@ -2113,6 +2113,7 @@ export type Database = {
           lead_cost_percent: number | null
           lead_number: string | null
           lead_source: string | null
+          legacy_project_number: string | null
           location_id: string
           lock_box_code: string | null
           opportunity_id: string | null
@@ -2174,6 +2175,7 @@ export type Database = {
           lead_cost_percent?: number | null
           lead_number?: string | null
           lead_source?: string | null
+          legacy_project_number?: string | null
           location_id: string
           lock_box_code?: string | null
           opportunity_id?: string | null
@@ -2235,6 +2237,7 @@ export type Database = {
           lead_cost_percent?: number | null
           lead_number?: string | null
           lead_source?: string | null
+          legacy_project_number?: string | null
           location_id?: string
           lock_box_code?: string | null
           opportunity_id?: string | null

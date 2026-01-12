@@ -80,6 +80,7 @@ interface Project {
   created_at: string;
   opportunity_id: string | null;
   location_id: string;
+  legacy_project_number: string | null;
 }
 
 interface ProjectFinancials {
@@ -150,7 +151,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value")
+        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number")
         .is("deleted_at", null) // Only show non-deleted projects
         .order("project_number", { ascending: false });
       
@@ -1014,8 +1015,9 @@ export default function Production() {
                             onClick={() => handleOpenProject(project)}
                           >
                             <TableCell className="font-medium">
-                              <div className="flex items-center gap-1">
-                                {project.project_number}
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-1">
+                                  {project.project_number}
                                 {financials?.hasMissingContract && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
@@ -1061,6 +1063,12 @@ export default function Production() {
                                       <p>Contracts total ({formatCurrency(financials.contractsTotal)}) doesn't match Est. Cost ({formatCurrency(financials.estimatedCost)})</p>
                                     </TooltipContent>
                                   </Tooltip>
+                                )}
+                                </div>
+                                {(isAdmin || isSimulating) && project.legacy_project_number && (
+                                  <span className="text-[10px] text-muted-foreground font-normal">
+                                    {project.legacy_project_number}
+                                  </span>
                                 )}
                               </div>
                             </TableCell>
