@@ -1851,8 +1851,14 @@ function InvoiceDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Agreement</Label>
-              <Select value={formData.agreement_id} onValueChange={handleAgreementChange}>
-                <SelectTrigger><SelectValue placeholder="Select agreement" /></SelectTrigger>
+              <Select 
+                value={formData.agreement_id} 
+                onValueChange={handleAgreementChange}
+                disabled={!!prePopulatedData}
+              >
+                <SelectTrigger className={prePopulatedData ? "opacity-70" : ""}>
+                  <SelectValue placeholder="Select agreement" />
+                </SelectTrigger>
                 <SelectContent>
                   {agreements.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
@@ -1867,9 +1873,9 @@ function InvoiceDialog({
               <Select 
                 value={formData.payment_phase_id} 
                 onValueChange={handlePhaseChange}
-                disabled={!formData.agreement_id}
+                disabled={!formData.agreement_id || !!prePopulatedData}
               >
-                <SelectTrigger>
+                <SelectTrigger className={prePopulatedData ? "opacity-70" : ""}>
                   <SelectValue placeholder={formData.agreement_id ? "Select phase" : "Select agreement first"} />
                 </SelectTrigger>
                 <SelectContent>
