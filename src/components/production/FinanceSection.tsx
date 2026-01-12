@@ -173,6 +173,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
+  const [selectedAgreementFilter, setSelectedAgreementFilter] = useState<string | null>(null);
   const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
   
   // Dialog states
@@ -1287,12 +1288,19 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                   </TableHeader>
                   <TableBody>
                     {agreements.map((agreement) => (
-                      <TableRow key={agreement.id}>
-                        <TableCell className="text-xs">{agreement.agreement_number || "-"}</TableCell>
+                      <TableRow 
+                        key={agreement.id} 
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => {
+                          setSelectedAgreementFilter(agreement.id);
+                          setActiveSubTab("phases");
+                        }}
+                      >
+                        <TableCell className="text-xs font-medium text-primary underline">{agreement.agreement_number || "-"}</TableCell>
                         <TableCell className="text-xs">{agreement.agreement_type || "-"}</TableCell>
                         <TableCell className="text-xs">{formatDate(agreement.agreement_signed_date)}</TableCell>
                         <TableCell className="text-xs text-right">{formatCurrency(agreement.total_price)}</TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           {agreement.attachment_url && (
                             <Button
                               variant="ghost"
@@ -1307,7 +1315,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                             </Button>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <div className="flex gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingAgreement(agreement); setAgreementDialogOpen(true); }}>
                               <Pencil className="h-3 w-3" />
@@ -1331,7 +1339,20 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Payment Phases</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-sm">Payment Phases</CardTitle>
+                  {selectedAgreementFilter && (
+                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                      {agreements.find(a => a.id === selectedAgreementFilter)?.agreement_number || "Contract"}
+                      <button 
+                        onClick={() => setSelectedAgreementFilter(null)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        ×
+                      </button>
+                    </Badge>
+                  )}
+                </div>
                 <Button size="sm" onClick={() => { setEditingPhase(null); setPhaseDialogOpen(true); }}>
                   <Plus className="h-3 w-3 mr-1" />
                   Add
@@ -1345,7 +1366,9 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                 <p className="text-sm text-muted-foreground text-center py-4">No contracts yet. Add a contract first to create payment phases.</p>
               ) : (
                 <div className="space-y-6">
-                  {agreements.map((agreement) => {
+                  {agreements
+                    .filter(a => !selectedAgreementFilter || a.id === selectedAgreementFilter)
+                    .map((agreement) => {
                     const agreementPhases = paymentPhases.filter(p => p.agreement_id === agreement.id);
                     const phasesTotal = agreementPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
                     const contractTotal = agreement.total_price || 0;
@@ -1353,7 +1376,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                     const isBalanced = Math.abs(balance) < 0.01;
 
                     return (
-                      <Collapsible key={agreement.id} defaultOpen={false}>
+                      <Collapsible key={agreement.id} defaultOpen={selectedAgreementFilter === agreement.id}>
                         <div className="border rounded-lg overflow-hidden">
                           {/* Agreement Header - now clickable */}
                           <CollapsibleTrigger asChild>
