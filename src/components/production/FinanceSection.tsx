@@ -201,6 +201,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   }, [autoOpenBillDialog, hasAutoOpenedBill]);
   
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [prePopulatedInvoice, setPrePopulatedInvoice] = useState<Partial<Invoice> | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
@@ -1447,6 +1448,24 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                         </TableCell>
                                         <TableCell>
                                           <div className="flex gap-1">
+                                            <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              className="h-7 w-7" 
+                                              title="Add Invoice from Phase"
+                                              onClick={() => { 
+                                                setEditingInvoice(null);
+                                                setPrePopulatedInvoice({
+                                                  agreement_id: phase.agreement_id,
+                                                  payment_phase_id: phase.id,
+                                                  amount: (phase.amount || 0) - invoiceStatus.totalInvoiced,
+                                                  invoice_date: new Date().toISOString().split('T')[0],
+                                                });
+                                                setInvoiceDialogOpen(true); 
+                                              }}
+                                            >
+                                              <FileText className="h-3 w-3" />
+                                            </Button>
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
                                               <Pencil className="h-3 w-3" />
                                             </Button>
@@ -1488,8 +1507,12 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       {/* Invoice Dialog */}
       <InvoiceDialog
         open={invoiceDialogOpen}
-        onOpenChange={setInvoiceDialogOpen}
+        onOpenChange={(open) => {
+          setInvoiceDialogOpen(open);
+          if (!open) setPrePopulatedInvoice(null);
+        }}
         invoice={editingInvoice}
+        prePopulatedData={prePopulatedInvoice}
         onSave={(data) => saveInvoiceMutation.mutate(data)}
         isPending={saveInvoiceMutation.isPending}
         agreements={agreements}
@@ -1691,7 +1714,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 function InvoiceDialog({ 
   open, 
   onOpenChange, 
-  invoice, 
+  invoice,
+  prePopulatedData,
   onSave, 
   isPending,
   agreements,
@@ -1702,6 +1726,7 @@ function InvoiceDialog({
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
   invoice: Invoice | null;
+  prePopulatedData?: Partial<Invoice> | null;
   onSave: (data: Partial<Invoice>) => void;
   isPending: boolean;
   agreements: Agreement[];
@@ -1729,12 +1754,21 @@ function InvoiceDialog({
           agreement_id: invoice.agreement_id || "",
           payment_phase_id: invoice.payment_phase_id || "",
         });
+      } else if (prePopulatedData) {
+        // Pre-populate from payment phase
+        setFormData({
+          invoice_number: "",
+          invoice_date: prePopulatedData.invoice_date || new Date().toISOString().split('T')[0],
+          amount: prePopulatedData.amount?.toString() || "",
+          agreement_id: prePopulatedData.agreement_id || "",
+          payment_phase_id: prePopulatedData.payment_phase_id || "",
+        });
       } else {
         setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
       }
       setAmountError("");
     }
-  }, [open, invoice]);
+  }, [open, invoice, prePopulatedData]);
 
   // Filter phases by selected agreement
   const filteredPhases = formData.agreement_id 
