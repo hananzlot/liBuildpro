@@ -145,7 +145,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost")
+        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value")
         .is("deleted_at", null) // Only show non-deleted projects
         .order("project_number", { ascending: false });
       
@@ -159,6 +159,7 @@ export default function Production() {
         quaternary_commission_pct: number | null;
         deleted_at: string | null;
         estimated_project_cost: number | null;
+        sold_dispatch_value: number | null;
       })[];
     },
   });
@@ -169,7 +170,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_agreements")
-        .select("id, project_id, total_price");
+        .select("id, project_id, total_price, agreement_type");
       if (error) throw error;
       return data;
     },
@@ -277,11 +278,14 @@ export default function Production() {
     // Flag if there are no contracts at all (missing contract)
     const hasMissingContract = projectAgreements.length === 0;
 
-    // Check if contracts total matches estimated cost (only when both exist and differ)
-    const hasContractMismatch = project.estimated_cost !== null && 
-      project.estimated_cost > 0 && 
-      contractsTotal > 0 &&
-      contractsTotal !== project.estimated_cost;
+    // Check if "Contract" type agreements total matches sold_dispatch_value (ignore change orders)
+    const contractTypeTotal = projectAgreements
+      .filter(a => a.agreement_type === 'Contract')
+      .reduce((sum, a) => sum + (a.total_price || 0), 0);
+    const soldDispatchValue = project.sold_dispatch_value ?? 0;
+    const hasContractMismatch = soldDispatchValue > 0 && 
+      contractTypeTotal > 0 &&
+      contractTypeTotal !== soldDispatchValue;
 
     const phasesTotal = projectPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
     const projectBalanceDue = contractsTotal - invoicesCollected;
@@ -680,7 +684,7 @@ export default function Production() {
     missingContract: 'Missing Contract',
     missingPhases: 'Missing Payment Phases',
     phaseMismatch: 'Phase Amount Mismatch',
-    contractMismatch: 'Contract vs Estimate Mismatch',
+    contractMismatch: 'Contract Mismatch Dispatch Reported $ Sold',
     missingSalesperson: 'Missing Salesperson',
   };
 
@@ -797,7 +801,7 @@ export default function Production() {
                           <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-red-500 text-white border-0">
                             $
                           </Badge>
-                          Estimate Mismatch: {warningCounts.contractMismatch}
+                          Contract Mismatch: {warningCounts.contractMismatch}
                         </Button>
                       )}
                     </div>
