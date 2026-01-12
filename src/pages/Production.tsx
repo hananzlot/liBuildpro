@@ -89,6 +89,8 @@ interface ProjectFinancials {
   invoicesCollected: number;
   invoiceBalanceDue: number;
   contractsTotal: number;
+  contractTypeTotal: number;
+  upsellsTotal: number;
   phasesTotal: number;
   hasPhaseMismatch: boolean;
   hasContractMismatch: boolean;
@@ -287,6 +289,9 @@ export default function Production() {
       contractTypeTotal > 0 &&
       contractTypeTotal !== soldDispatchValue;
 
+    // Calculate upsells (change orders) = total contracts - original contract type
+    const upsellsTotal = contractsTotal - contractTypeTotal;
+
     const phasesTotal = projectPhases.reduce((sum, p) => sum + (p.amount || 0), 0);
     const projectBalanceDue = contractsTotal - invoicesCollected;
     const profitToDate = invoicesCollected - totalBillsPaid;
@@ -327,6 +332,8 @@ export default function Production() {
       invoicesCollected,
       invoiceBalanceDue,
       contractsTotal,
+      contractTypeTotal,
+      upsellsTotal,
       phasesTotal,
       hasPhaseMismatch,
       hasContractMismatch,
@@ -1047,7 +1054,14 @@ export default function Production() {
                               {project.primary_salesperson || "-"} / {project.project_manager || "-"}
                             </TableCell>
                             <TableCell className="text-right text-xs font-medium">
-                              {formatCurrency(financials?.contractsTotal)}
+                              <div>
+                                {formatCurrency(financials?.contractsTotal)}
+                                {(financials?.upsellsTotal ?? 0) > 0 && (
+                                  <div className="text-[10px] text-muted-foreground font-normal">
+                                    (Upsells: {formatCurrency(financials?.upsellsTotal)})
+                                  </div>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className="text-right text-xs">
                               {financials?.contractsTotal > 0 ? (
