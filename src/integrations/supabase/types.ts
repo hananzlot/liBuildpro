@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_version: {
+        Row: {
+          created_at: string
+          deployed_at: string
+          id: string
+          notes: string | null
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          deployed_at?: string
+          id?: string
+          notes?: string | null
+          version_number?: number
+        }
+        Update: {
+          created_at?: string
+          deployed_at?: string
+          id?: string
+          notes?: string | null
+          version_number?: number
+        }
+        Relationships: []
+      }
       appointment_edits: {
         Row: {
           appointment_ghl_id: string
