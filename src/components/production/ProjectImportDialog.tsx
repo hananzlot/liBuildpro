@@ -236,25 +236,78 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
     return result;
   };
 
+  // Helper to lookup project by legacy_project_number or from session mappings
+  const lookupProjectId = async (projectRef: string): Promise<string | null> => {
+    // First check session mappings
+    if (refMappings.projects?.[projectRef]) {
+      return refMappings.projects[projectRef];
+    }
+    // Then check database by legacy_project_number
+    const { data } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('legacy_project_number', projectRef)
+      .is('deleted_at', null)
+      .limit(1)
+      .single();
+    return data?.id || null;
+  };
+
+  // Helper to lookup agreement by agreement_number or from session mappings
+  const lookupAgreementId = async (agreementRef: string): Promise<string | null> => {
+    if (refMappings.agreements?.[agreementRef]) {
+      return refMappings.agreements[agreementRef];
+    }
+    const { data } = await supabase
+      .from('project_agreements')
+      .select('id')
+      .eq('agreement_number', agreementRef)
+      .limit(1)
+      .single();
+    return data?.id || null;
+  };
+
+  // Helper to lookup phase by phase_name or from session mappings
+  const lookupPhaseId = async (phaseRef: string): Promise<string | null> => {
+    if (refMappings.phases?.[phaseRef]) {
+      return refMappings.phases[phaseRef];
+    }
+    // Phases don't have a unique ref column, so we can only use session mappings
+    return null;
+  };
+
+  // Helper to lookup invoice by invoice_number or from session mappings
+  const lookupInvoiceId = async (invoiceRef: string): Promise<string | null> => {
+    if (refMappings.invoices?.[invoiceRef]) {
+      return refMappings.invoices[invoiceRef];
+    }
+    const { data } = await supabase
+      .from('project_invoices')
+      .select('id')
+      .eq('invoice_number', invoiceRef)
+      .limit(1)
+      .single();
+    return data?.id || null;
+  };
+
   const importAgreements = async (rows: Record<string, string>[]): Promise<ImportResult> => {
     const result: ImportResult = { success: true, imported: 0, errors: [], warnings: [] };
-    const projectMappings = refMappings.projects || {};
     const newMappings: Record<string, string> = {};
 
     for (const row of rows) {
       try {
         const projectRef = row['project_ref*'] || row['project_ref'];
         const agreementRef = row['agreement_ref*'] || row['agreement_ref'];
-        const projectId = projectMappings[projectRef];
+        const projectId = await lookupProjectId(projectRef);
 
         if (!projectId) {
-          result.errors.push(`Project ref "${projectRef}" not found. Import projects first.`);
+          result.errors.push(`Project ref "${projectRef}" not found in database. Import projects first or check the reference.`);
           continue;
         }
 
         const { data, error } = await supabase.from('project_agreements').insert({
           project_id: projectId,
-          agreement_number: row['agreement_number'] || null,
+          agreement_number: agreementRef, // Store agreement_ref as agreement_number for later lookups
           agreement_type: row['agreement_type'] || null,
           agreement_signed_date: row['agreement_signed_date'] || null,
           total_price: row['total_price'] ? parseFloat(row['total_price']) : null,
@@ -280,35 +333,29 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
 
   const importPhases = async (rows: Record<string, string>[]): Promise<ImportResult> => {
     const result: ImportResult = { success: true, imported: 0, errors: [], warnings: [] };
-    const agreementMappings = refMappings.agreements || {};
     const newMappings: Record<string, string> = {};
-
-    // Get project IDs from agreements
-    const agreementIds = Object.values(agreementMappings);
-    const { data: agreements } = await supabase
-      .from('project_agreements')
-      .select('id, project_id')
-      .in('id', agreementIds);
-    
-    const agreementToProject: Record<string, string> = {};
-    agreements?.forEach(a => { agreementToProject[a.id] = a.project_id || ''; });
 
     for (const row of rows) {
       try {
         const agreementRef = row['agreement_ref*'] || row['agreement_ref'];
         const phaseRef = row['phase_ref*'] || row['phase_ref'];
         const phaseName = row['phase_name*'] || row['phase_name'];
-        const agreementId = agreementMappings[agreementRef];
+        const agreementId = await lookupAgreementId(agreementRef);
 
         if (!agreementId) {
-          result.errors.push(`Agreement ref "${agreementRef}" not found. Import agreements first.`);
+          result.errors.push(`Agreement ref "${agreementRef}" not found in database. Import agreements first or check the reference.`);
           continue;
         }
 
-        const projectId = agreementToProject[agreementId];
+        // Get project ID from agreement
+        const { data: agreement } = await supabase
+          .from('project_agreements')
+          .select('project_id')
+          .eq('id', agreementId)
+          .single();
 
         const { data, error } = await supabase.from('project_payment_phases').insert({
-          project_id: projectId,
+          project_id: agreement?.project_id,
           agreement_id: agreementId,
           phase_name: phaseName || 'Unnamed Phase',
           description: row['description'] || null,
@@ -335,40 +382,34 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
 
   const importInvoices = async (rows: Record<string, string>[]): Promise<ImportResult> => {
     const result: ImportResult = { success: true, imported: 0, errors: [], warnings: [] };
-    const phaseMappings = refMappings.phases || {};
     const newMappings: Record<string, string> = {};
-
-    // Get project and agreement IDs from phases
-    const phaseIds = Object.values(phaseMappings);
-    const { data: phases } = await supabase
-      .from('project_payment_phases')
-      .select('id, project_id, agreement_id')
-      .in('id', phaseIds);
-    
-    const phaseInfo: Record<string, { projectId: string; agreementId: string }> = {};
-    phases?.forEach(p => { 
-      phaseInfo[p.id] = { projectId: p.project_id || '', agreementId: p.agreement_id || '' }; 
-    });
 
     for (const row of rows) {
       try {
         const phaseRef = row['phase_ref*'] || row['phase_ref'];
         const invoiceRef = row['invoice_ref*'] || row['invoice_ref'];
-        const phaseId = phaseMappings[phaseRef];
+        const invoiceNumber = row['invoice_number'] || invoiceRef; // Use invoice_ref as invoice_number for lookups
+        const phaseId = await lookupPhaseId(phaseRef);
 
         if (!phaseId) {
-          result.errors.push(`Phase ref "${phaseRef}" not found. Import phases first.`);
+          result.errors.push(`Phase ref "${phaseRef}" not found. Phases must be imported in the same session, or you can manually link invoices later.`);
           continue;
         }
 
-        const info = phaseInfo[phaseId];
+        // Get project and agreement IDs from phase
+        const { data: phase } = await supabase
+          .from('project_payment_phases')
+          .select('project_id, agreement_id')
+          .eq('id', phaseId)
+          .single();
+
         const amount = row['amount'] ? parseFloat(row['amount']) : 0;
 
         const { data, error } = await supabase.from('project_invoices').insert({
-          project_id: info?.projectId,
-          agreement_id: info?.agreementId,
+          project_id: phase?.project_id,
+          agreement_id: phase?.agreement_id,
           payment_phase_id: phaseId,
-          invoice_number: row['invoice_number'] || null,
+          invoice_number: invoiceNumber,
           invoice_date: row['invoice_date'] || null,
           amount: amount,
           total_expected: amount,
@@ -395,37 +436,30 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
 
   const importPayments = async (rows: Record<string, string>[]): Promise<ImportResult> => {
     const result: ImportResult = { success: true, imported: 0, errors: [], warnings: [] };
-    const invoiceMappings = refMappings.invoices || {};
-
-    // Get project IDs from invoices
-    const invoiceIds = Object.values(invoiceMappings);
-    const { data: invoices } = await supabase
-      .from('project_invoices')
-      .select('id, project_id, payment_phase_id')
-      .in('id', invoiceIds);
-    
-    const invoiceInfo: Record<string, { projectId: string; phaseId: string }> = {};
-    invoices?.forEach(i => { 
-      invoiceInfo[i.id] = { projectId: i.project_id || '', phaseId: i.payment_phase_id || '' }; 
-    });
 
     for (const row of rows) {
       try {
         const invoiceRef = row['invoice_ref*'] || row['invoice_ref'];
-        const invoiceId = invoiceMappings[invoiceRef];
+        const invoiceId = await lookupInvoiceId(invoiceRef);
 
         if (!invoiceId) {
-          result.errors.push(`Invoice ref "${invoiceRef}" not found. Import invoices first.`);
+          result.errors.push(`Invoice ref "${invoiceRef}" not found in database. Import invoices first or check the reference.`);
           continue;
         }
 
-        const info = invoiceInfo[invoiceId];
+        // Get project and phase IDs from invoice
+        const { data: invoice } = await supabase
+          .from('project_invoices')
+          .select('project_id, payment_phase_id')
+          .eq('id', invoiceId)
+          .single();
+
         const paymentAmount = row['payment_amount'] ? parseFloat(row['payment_amount']) : 0;
 
         const { error } = await supabase.from('project_payments').insert({
-          project_id: info?.projectId,
+          project_id: invoice?.project_id,
           invoice_id: invoiceId,
-          payment_phase_id: info?.phaseId,
+          payment_phase_id: invoice?.payment_phase_id,
           bank_name: row['bank_name'] || null,
           projected_received_date: row['projected_received_date'] || null,
           payment_schedule: row['payment_schedule'] || null,
@@ -471,18 +505,16 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
 
   const importBills = async (rows: Record<string, string>[]): Promise<ImportResult> => {
     const result: ImportResult = { success: true, imported: 0, errors: [], warnings: [] };
-    const projectMappings = refMappings.projects || {};
-    const agreementMappings = refMappings.agreements || {};
 
     for (const row of rows) {
       try {
         const projectRef = row['project_ref*'] || row['project_ref'];
         const agreementRef = row['agreement_ref'];
-        const projectId = projectMappings[projectRef];
-        const agreementId = agreementRef ? agreementMappings[agreementRef] : null;
+        const projectId = await lookupProjectId(projectRef);
+        const agreementId = agreementRef ? await lookupAgreementId(agreementRef) : null;
 
         if (!projectId) {
-          result.errors.push(`Project ref "${projectRef}" not found. Import projects first.`);
+          result.errors.push(`Project ref "${projectRef}" not found in database. Import projects first or check the reference.`);
           continue;
         }
 
@@ -591,12 +623,9 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
     setRefMappings({});
   };
 
+  // All steps are now independent - no locking needed
   const canProceedToNext = () => {
-    if (currentStep === 0) {
-      // Must import projects first
-      return stepResults.projects?.imported && stepResults.projects.imported > 0;
-    }
-    return true; // Other steps are optional
+    return true; // All steps are optional and independent
   };
 
   return (
@@ -656,10 +685,10 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Upload className="h-4 w-4" />
-                Step 2: Upload CSV Files (In Order)
+                Step 2: Upload CSV Files
               </CardTitle>
               <CardDescription className="text-xs">
-                Upload files in sequence. Projects must be uploaded first. Other files are optional.
+                Click on any import type to upload. References are looked up from the database, so you can import across sessions.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
@@ -670,20 +699,18 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
                     const isActive = index === currentStep;
                     const isCompleted = result?.imported && result.imported > 0;
                     const hasErrors = result?.errors && result.errors.length > 0;
-                    const isLocked = index > 0 && !stepResults.projects?.imported;
 
                     return (
                       <div
                         key={step.id}
-                        className={`p-3 rounded-lg border transition-colors ${
+                        onClick={() => setCurrentStep(index)}
+                        className={`p-3 rounded-lg border transition-colors cursor-pointer hover:border-primary/50 ${
                           isActive
                             ? 'border-primary bg-primary/5'
                             : isCompleted
                             ? 'border-emerald-500/50 bg-emerald-500/5'
                             : hasErrors
                             ? 'border-amber-500/50 bg-amber-500/5'
-                            : isLocked
-                            ? 'border-muted bg-muted/50 opacity-50'
                             : 'border-border'
                         }`}
                       >
@@ -718,7 +745,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
                               </div>
                             )}
                             
-                            {isActive && !isLocked && (
+                            {isActive && (
                               <div>
                                 <input
                                   ref={fileInputRef}
