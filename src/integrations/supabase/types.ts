@@ -972,6 +972,7 @@ export type Database = {
       }
       opportunities: {
         Row: {
+          address: string | null
           assigned_to: string | null
           contact_id: string | null
           created_at: string
@@ -995,6 +996,7 @@ export type Database = {
           won_at: string | null
         }
         Insert: {
+          address?: string | null
           assigned_to?: string | null
           contact_id?: string | null
           created_at?: string
@@ -1018,6 +1020,7 @@ export type Database = {
           won_at?: string | null
         }
         Update: {
+          address?: string | null
           assigned_to?: string | null
           contact_id?: string | null
           created_at?: string

@@ -51,6 +51,7 @@ interface Opportunity {
   location_id?: string;
   won_at?: string | null;
   scope_of_work?: string | null;
+  address?: string | null;
 }
 interface Appointment {
   ghl_id: string;
@@ -1560,31 +1561,38 @@ export function OpportunityDetailSheet({
     }
   };
   const handleSaveAddress = async () => {
-    if (!opportunity?.contact_id) return;
+    if (!opportunity?.ghl_id) return;
     setIsSavingAddress(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke("update-contact-address", {
+      // Save to opportunity (primary)
+      const { data: oppData, error: oppError } = await supabase.functions.invoke("update-opportunity-address", {
         body: {
-          contactId: opportunity.contact_id,
+          opportunityGhlId: opportunity.ghl_id,
           address: editedAddress.trim(),
           editedBy: user?.id || null,
-          opportunityGhlId: opportunity.ghl_id
         }
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (oppError) throw oppError;
+      if (oppData?.error) throw new Error(oppData.error);
+
+      // Also update contact custom_fields for legacy compatibility
+      if (opportunity.contact_id) {
+        await supabase.functions.invoke("update-contact-address", {
+          body: {
+            contactId: opportunity.contact_id,
+            address: editedAddress.trim(),
+            editedBy: user?.id || null,
+            opportunityGhlId: opportunity.ghl_id
+          }
+        });
+      }
+
       toast.success("Address saved");
       setIsEditingAddress(false);
-      // Refresh contacts to get updated custom_fields
-      queryClient.invalidateQueries({
-        queryKey: ["contacts"]
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["opportunity_edits"]
-      });
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
     } catch (error) {
       console.error("Error saving address:", error);
       toast.error("Failed to save address");
@@ -1794,10 +1802,11 @@ export function OpportunityDetailSheet({
   const assignedUser = users.find(u => u.ghl_id === effectiveAssignedTo);
   const contactName = savedContactName || contact?.contact_name || (contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}` : contact?.first_name || contact?.last_name || "Unknown");
   const userName = assignedUser?.name || (assignedUser?.first_name && assignedUser?.last_name ? `${assignedUser.first_name} ${assignedUser.last_name}` : "Unassigned");
-  // Get address from contact custom_fields, or fall back to appointment address from GHL calendar
+  // Get address from opportunity first, fallback to contact custom_fields, then appointment address
+  const addressFromOpportunity = opportunity?.address;
   const contactAddress = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
   const apptAddressFallback = relatedAppointments.find(a => a.address)?.address || null;
-  const address = contactAddress || apptAddressFallback;
+  const address = addressFromOpportunity || contactAddress || apptAddressFallback;
   // Get scope from opportunity directly, with fallback to contact custom_fields for legacy data
   const scopeFromOpportunity = opportunity?.scope_of_work;
   const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);

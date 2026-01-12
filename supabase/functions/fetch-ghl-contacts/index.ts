@@ -640,26 +640,26 @@ async function syncLocationData(
     // Fetch ALL existing opportunity data to preserve won_at values
     // We need to fetch in batches if there are many opportunities
     const oppGhlIds = opportunities.map(o => o.id);
-    const existingWonAtMap = new Map<string, { won_at: string | null; status: string | null }>();
+    const existingWonAtMap = new Map<string, { won_at: string | null; status: string | null; scope_of_work: string | null; address: string | null }>();
     
     // Fetch in batches of 100 to avoid query limits
     for (let i = 0; i < oppGhlIds.length; i += 100) {
       const batchIds = oppGhlIds.slice(i, i + 100);
       const { data: existingOpps, error: fetchError } = await supabase
         .from('opportunities')
-        .select('ghl_id, won_at, status')
+        .select('ghl_id, won_at, status, scope_of_work, address')
         .in('ghl_id', batchIds);
       
       if (fetchError) {
-        console.error('Error fetching existing opportunities for won_at preservation:', fetchError);
+        console.error('Error fetching existing opportunities for preservation:', fetchError);
       }
       
-      (existingOpps || []).forEach((opp: { ghl_id: string; won_at: string | null; status: string | null }) => {
-        existingWonAtMap.set(opp.ghl_id, { won_at: opp.won_at, status: opp.status });
+      (existingOpps || []).forEach((opp: { ghl_id: string; won_at: string | null; status: string | null; scope_of_work: string | null; address: string | null }) => {
+        existingWonAtMap.set(opp.ghl_id, { won_at: opp.won_at, status: opp.status, scope_of_work: opp.scope_of_work, address: opp.address });
       });
     }
     
-    console.log(`Found ${existingWonAtMap.size} existing opportunities with potential won_at values to preserve`);
+    console.log(`Found ${existingWonAtMap.size} existing opportunities with potential values to preserve`);
     
     // Build a map of contact IDs to their custom_fields for scope extraction
     const contactCustomFieldsMap = new Map<string, any[]>();
@@ -701,15 +701,31 @@ async function syncLocationData(
         }
       }
       
-      // Extract scope_of_work from contact's custom_fields (field ID: KwQRtJT0aMSHnq3mwR68)
-      let scopeOfWork: string | null = null;
+      // Extract scope_of_work and address from contact's custom_fields
+      // Only set if not already in opportunity (preserve existing values)
+      let scopeOfWork: string | null = existing?.scope_of_work || null;
+      let opportunityAddress: string | null = existing?.address || null;
+      
       const contactCustomFields = contactCustomFieldsMap.get(o.contactId);
       if (contactCustomFields) {
-        const scopeField = contactCustomFields.find(
-          (field: { id: string; value?: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
-        );
-        if (scopeField && scopeField.value) {
-          scopeOfWork = scopeField.value;
+        // Scope of work (field ID: KwQRtJT0aMSHnq3mwR68) - only if not already set
+        if (!scopeOfWork) {
+          const scopeField = contactCustomFields.find(
+            (field: { id: string; value?: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+          );
+          if (scopeField && scopeField.value) {
+            scopeOfWork = scopeField.value;
+          }
+        }
+        
+        // Address (field ID: b7oTVsUQrLgZt84bHpCn) - only if not already set
+        if (!opportunityAddress) {
+          const addressField = contactCustomFields.find(
+            (field: { id: string; value?: string }) => field.id === 'b7oTVsUQrLgZt84bHpCn'
+          );
+          if (addressField && addressField.value) {
+            opportunityAddress = addressField.value;
+          }
         }
       }
       
@@ -731,6 +747,7 @@ async function syncLocationData(
         last_synced_at: syncTimestamp,
         won_at: wonAt,
         scope_of_work: scopeOfWork,
+        address: opportunityAddress,
       };
     });
 
