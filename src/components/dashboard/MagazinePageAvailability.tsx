@@ -34,6 +34,7 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
   const [tempPageCount, setTempPageCount] = useState("");
   const [selectedPage, setSelectedPage] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [adTypeFilter, setAdTypeFilter] = useState<string>("all");
 
   // Get unique issue dates
   const issueDates = useMemo(() => {
@@ -91,6 +92,15 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
     return { sectionOccupancy: occupancy, pageAdTypes: adTypes };
   }, [sales, selectedIssue]);
 
+  // Get unique ad types for filter
+  const uniqueAdTypes = useMemo(() => {
+    const adTypes = new Set<string>();
+    Object.values(pageAdTypes).forEach((adType) => {
+      if (adType) adTypes.add(adType);
+    });
+    return Array.from(adTypes).sort();
+  }, [pageAdTypes]);
+
   // Group pages by ad type
   const pagesByAdType = useMemo(() => {
     const groups: Record<string, string[]> = {};
@@ -119,6 +129,22 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
 
     return { groups, unassigned };
   }, [pageAdTypes, currentPageCount]);
+
+  // Filter pages based on selected ad type
+  const filteredPagesByAdType = useMemo(() => {
+    if (adTypeFilter === "all") {
+      return pagesByAdType;
+    }
+    if (adTypeFilter === "available") {
+      return { groups: {}, unassigned: pagesByAdType.unassigned };
+    }
+    // Filter to specific ad type
+    const filteredGroups: Record<string, string[]> = {};
+    if (pagesByAdType.groups[adTypeFilter]) {
+      filteredGroups[adTypeFilter] = pagesByAdType.groups[adTypeFilter];
+    }
+    return { groups: filteredGroups, unassigned: [] };
+  }, [pagesByAdType, adTypeFilter]);
 
   // Count random page sales
   const randomPagesSold = useMemo(() => {
@@ -240,17 +266,31 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
     <>
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="text-lg">Page Availability</CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Select value={selectedIssue} onValueChange={setSelectedIssue}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Select issue" />
                 </SelectTrigger>
                 <SelectContent>
                   {issueDates.map((date) => (
                     <SelectItem key={date} value={date}>
                       {new Date(date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={adTypeFilter} onValueChange={setAdTypeFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Filter by Ad Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Ad Types</SelectItem>
+                  <SelectItem value="available">Available Only</SelectItem>
+                  {uniqueAdTypes.map((adType) => (
+                    <SelectItem key={adType} value={adType}>
+                      {adType}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -320,7 +360,7 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
           {/* Pages grouped by Ad Type */}
           <div className="space-y-6">
             {/* Pages with Ad Types */}
-            {Object.entries(pagesByAdType.groups).map(([adType, pages]) => (
+            {Object.entries(filteredPagesByAdType.groups).map(([adType, pages]) => (
               <div key={adType} className="space-y-2">
                 <h4 className="text-sm font-semibold text-foreground capitalize border-b border-border pb-1">
                   {adType}
@@ -339,13 +379,13 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
             ))}
 
             {/* Unassigned Pages */}
-            {pagesByAdType.unassigned.length > 0 && (
+            {filteredPagesByAdType.unassigned.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-muted-foreground border-b border-border pb-1">
                   Available Pages
                 </h4>
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
-                  {pagesByAdType.unassigned.map((page) => {
+                  {filteredPagesByAdType.unassigned.map((page) => {
                     const label = page === "Inside Front Cover" ? "IFC" 
                       : page === "Inside Back Cover" ? "IBC" 
                       : page === "Back Page" ? "Back"
