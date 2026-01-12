@@ -204,6 +204,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [prePopulatedInvoice, setPrePopulatedInvoice] = useState<Partial<Invoice> | null>(null);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [prePopulatedPayment, setPrePopulatedPayment] = useState<Partial<Payment> | null>(null);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [editingAgreement, setEditingAgreement] = useState<Agreement | null>(null);
   const [editingPhase, setEditingPhase] = useState<PaymentPhase | null>(null);
@@ -1501,6 +1502,30 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                             >
                                               <FileText className="h-3 w-3" />
                                             </Button>
+                                            {(() => {
+                                              // Find the first invoice with open balance for this phase
+                                              const phaseInvoice = invoices.find(inv => 
+                                                inv.payment_phase_id === phase.id && (inv.open_balance || 0) > 0
+                                              );
+                                              return phaseInvoice ? (
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="icon" 
+                                                  className="h-7 w-7 text-emerald-600" 
+                                                  title={`Record Payment for Invoice #${phaseInvoice.invoice_number || 'N/A'}`}
+                                                  onClick={() => { 
+                                                    setEditingPayment(null);
+                                                    setPrePopulatedPayment({
+                                                      invoice_id: phaseInvoice.id,
+                                                      payment_amount: phaseInvoice.open_balance || 0,
+                                                    });
+                                                    setPaymentDialogOpen(true); 
+                                                  }}
+                                                >
+                                                  <DollarSign className="h-3 w-3" />
+                                                </Button>
+                                              ) : null;
+                                            })()}
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
                                               <Pencil className="h-3 w-3" />
                                             </Button>
@@ -1559,8 +1584,12 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       {/* Payment Dialog */}
       <PaymentDialog
         open={paymentDialogOpen}
-        onOpenChange={setPaymentDialogOpen}
+        onOpenChange={(open) => {
+          setPaymentDialogOpen(open);
+          if (!open) setPrePopulatedPayment(null);
+        }}
         payment={editingPayment}
+        prePopulatedData={prePopulatedPayment}
         onSave={(data) => savePaymentMutation.mutate(data)}
         isPending={savePaymentMutation.isPending}
         invoices={invoices}
@@ -1999,7 +2028,8 @@ function InvoiceDialog({
 function PaymentDialog({ 
   open, 
   onOpenChange, 
-  payment, 
+  payment,
+  prePopulatedData,
   onSave, 
   isPending,
   invoices,
@@ -2007,6 +2037,7 @@ function PaymentDialog({
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
   payment: Payment | null;
+  prePopulatedData?: Partial<Payment> | null;
   onSave: (data: Partial<Payment>) => void;
   isPending: boolean;
   invoices: Invoice[];
@@ -2069,7 +2100,9 @@ function PaymentDialog({
 
   // Initialize form data when dialog opens or payment changes
   useEffect(() => {
-    if (open && payment) {
+    if (!open) return;
+    
+    if (payment) {
       setFormData({
         bank_name: payment.bank_name || "",
         projected_received_date: payment.projected_received_date || "",
@@ -2080,12 +2113,23 @@ function PaymentDialog({
         check_number: payment.check_number || "",
         invoice_id: payment.invoice_id || "",
       });
-    } else if (open) {
+    } else if (prePopulatedData) {
+      setFormData({
+        bank_name: "",
+        projected_received_date: new Date().toISOString().split('T')[0],
+        payment_schedule: "",
+        payment_status: "Received",
+        payment_amount: prePopulatedData.payment_amount?.toString() || "",
+        payment_fee: "",
+        check_number: "",
+        invoice_id: prePopulatedData.invoice_id || "",
+      });
+    } else {
       setFormData({ bank_name: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "" });
     }
     setAmountError("");
     setBankSearch("");
-  }, [open, payment]);
+  }, [open, payment, prePopulatedData]);
 
   const handleOpenChange = (newOpen: boolean) => {
     onOpenChange(newOpen);
