@@ -841,9 +841,9 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                         </Popover>
                       </div>
                       {fullProject?.project_scope_dispatch && (
-                        <div className="space-y-1">
+                        <div className="space-y-1 col-span-2">
                           <Label className="text-[11px] text-muted-foreground">Project Scope (Dispatch)</Label>
-                          <div className="h-8 px-3 py-1.5 text-xs rounded-md border bg-muted/50 flex items-center text-muted-foreground">
+                          <div className="px-3 py-2 text-xs rounded-md border bg-muted/50 text-muted-foreground whitespace-pre-wrap break-words">
                             {fullProject.project_scope_dispatch}
                           </div>
                         </div>
