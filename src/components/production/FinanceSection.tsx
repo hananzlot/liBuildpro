@@ -1742,6 +1742,7 @@ function InvoiceDialog({
     payment_phase_id: "",
   });
   const [amountError, setAmountError] = useState("");
+  const [phaseError, setPhaseError] = useState("");
 
   // Reset form when dialog opens or invoice/prePopulatedData changes
   useEffect(() => {
@@ -1776,6 +1777,7 @@ function InvoiceDialog({
       setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
     }
     setAmountError("");
+    setPhaseError("");
   }, [open, invoice, prePopulatedData, paymentPhases]);
 
   // Filter phases by selected agreement, but always include the currently selected phase
@@ -1817,6 +1819,7 @@ function InvoiceDialog({
   const handlePhaseChange = (value: string) => {
     setFormData(p => ({ ...p, payment_phase_id: value }));
     setAmountError("");
+    setPhaseError("");
   };
 
   const handleAmountChange = (value: string) => {
@@ -1827,6 +1830,16 @@ function InvoiceDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(formData.amount) || 0;
+    
+    // Validate payment phase is selected
+    if (!formData.payment_phase_id) {
+      setPhaseError("Payment phase is required");
+      // If phases aren't loaded properly, refresh the page
+      if (paymentPhases.length === 0) {
+        window.location.reload();
+      }
+      return;
+    }
     
     // Validate amount doesn't exceed uninvoiced balance for the phase
     if (formData.payment_phase_id && amount > uninvoicedBalance) {
@@ -1842,7 +1855,7 @@ function InvoiceDialog({
       payments_received: paymentsReceivedForInvoice,
       open_balance: amount - paymentsReceivedForInvoice,
       agreement_id: formData.agreement_id || null,
-      payment_phase_id: formData.payment_phase_id || null,
+      payment_phase_id: formData.payment_phase_id,
     });
   };
 
@@ -1911,6 +1924,7 @@ function InvoiceDialog({
                   })}
                 </SelectContent>
               </Select>
+              {phaseError && <p className="text-xs text-destructive mt-1">{phaseError}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
