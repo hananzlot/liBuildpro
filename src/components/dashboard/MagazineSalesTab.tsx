@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { BookOpen, DollarSign, Plus } from "lucide-react";
+import { BookOpen, DollarSign, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ClickableMetricCard } from "./ClickableMetricCard";
 import { MagazineSalesEntryDialog } from "./MagazineSalesEntryDialog";
@@ -93,27 +93,47 @@ export const MagazineSalesTab = () => {
     },
   });
 
-  // Calculate KPIs
-  const { totalPages, salesByIssue } = useMemo(() => {
-    let totalPages = 0;
-    const salesByIssue: Record<string, { pages: number; total: number }> = {};
+  // Calculate KPIs by page size
+  const kpiData = useMemo(() => {
+    const buyersBySize = {
+      full: { count: 0, revenue: 0 },
+      half: { count: 0, revenue: 0 },
+      third: { count: 0, revenue: 0 },
+      quarter: { count: 0, revenue: 0 },
+    };
+    const salesByIssue: Record<string, { buyers: number; total: number }> = {};
 
     sales.forEach((sale) => {
-      const pageValue = getPageValue(sale);
-      totalPages += pageValue;
-
-      if (!salesByIssue[sale.magazine_issue_date]) {
-        salesByIssue[sale.magazine_issue_date] = { pages: 0, total: 0 };
+      const price = Number(sale.price);
+      
+      // Categorize by page_size
+      const size = sale.page_size.toLowerCase();
+      if (size === "full" || size === "cover" || size === "back page") {
+        buyersBySize.full.count++;
+        buyersBySize.full.revenue += price;
+      } else if (size === "1/2" || size === "half") {
+        buyersBySize.half.count++;
+        buyersBySize.half.revenue += price;
+      } else if (size === "1/3" || size === "third") {
+        buyersBySize.third.count++;
+        buyersBySize.third.revenue += price;
+      } else if (size === "1/4" || size === "quarter") {
+        buyersBySize.quarter.count++;
+        buyersBySize.quarter.revenue += price;
       }
-      salesByIssue[sale.magazine_issue_date].pages += pageValue;
-      salesByIssue[sale.magazine_issue_date].total += Number(sale.price);
+
+      // Sales by issue
+      if (!salesByIssue[sale.magazine_issue_date]) {
+        salesByIssue[sale.magazine_issue_date] = { buyers: 0, total: 0 };
+      }
+      salesByIssue[sale.magazine_issue_date].buyers++;
+      salesByIssue[sale.magazine_issue_date].total += price;
     });
 
-    return { totalPages, salesByIssue };
-  }, [sales]);
+    const totalBuyers = sales.length;
+    const totalRevenue = sales.reduce((sum, s) => sum + Number(s.price), 0);
 
-  const totalSales = useMemo(() => {
-    return sales.reduce((sum, sale) => sum + Number(sale.price), 0);
+    return { buyersBySize, salesByIssue, totalBuyers, totalRevenue };
   }, [sales]);
 
   const formatCurrency = (value: number) => {
@@ -152,30 +172,72 @@ export const MagazineSalesTab = () => {
     <div className="space-y-6">
       {/* KPI Cards */}
       <section className="flex flex-wrap items-end gap-3">
-        <div className="w-44">
-          <ClickableMetricCard
-            title="Pages Sold"
-            value={formatPageCount(totalPages)}
-            subtitle="All issues"
-            icon={BookOpen}
-            onClick={() => setDetailSheetOpen(true)}
-          />
+        {/* Buyers by Page Size */}
+        <div className="rounded-2xl bg-card p-4 border border-border/50">
+          <div className="flex items-center gap-2 mb-3">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">Buyers by Page Size</p>
+          </div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Full Page:</span>
+              <span className="font-semibold">{kpiData.buyersBySize.full.count}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Half Page:</span>
+              <span className="font-semibold">{kpiData.buyersBySize.half.count}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">1/3 Page:</span>
+              <span className="font-semibold">{kpiData.buyersBySize.third.count}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">1/4 Page:</span>
+              <span className="font-semibold">{kpiData.buyersBySize.quarter.count}</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-border flex justify-between text-sm">
+            <span className="text-muted-foreground">Total Buyers:</span>
+            <span className="font-bold text-primary">{kpiData.totalBuyers}</span>
+          </div>
         </div>
-        <div className="w-44">
-          <ClickableMetricCard
-            title="Total Sales"
-            value={formatCurrency(totalSales)}
-            subtitle="Revenue"
-            icon={DollarSign}
-            onClick={() => setDetailSheetOpen(true)}
-          />
+
+        {/* Revenue by Page Size */}
+        <div className="rounded-2xl bg-card p-4 border border-border/50 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setDetailSheetOpen(true)}>
+          <div className="flex items-center gap-2 mb-3">
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">Revenue by Page Size</p>
+          </div>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Full Page:</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.buyersBySize.full.revenue)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Half Page:</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.buyersBySize.half.revenue)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">1/3 Page:</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.buyersBySize.third.revenue)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">1/4 Page:</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.buyersBySize.quarter.revenue)}</span>
+            </div>
+          </div>
+          <div className="mt-3 pt-2 border-t border-border flex justify-between text-sm">
+            <span className="text-muted-foreground">Total Revenue:</span>
+            <span className="font-bold text-emerald-500">{formatCurrency(kpiData.totalRevenue)}</span>
+          </div>
         </div>
+
         {/* Sales by Issue Card */}
-        {Object.keys(salesByIssue).length > 0 && (
-          <div className="w-44 rounded-2xl bg-card p-4 border border-border/50">
+        {Object.keys(kpiData.salesByIssue).length > 0 && (
+          <div className="rounded-2xl bg-card p-4 border border-border/50">
             <p className="text-sm text-muted-foreground mb-2">Sales by Issue</p>
             <div className="space-y-1">
-              {Object.entries(salesByIssue)
+              {Object.entries(kpiData.salesByIssue)
                 .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
                 .slice(0, 4)
                 .map(([issueDate, data]) => (
