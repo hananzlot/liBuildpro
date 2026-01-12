@@ -16,7 +16,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Building2
+  Building2,
+  Upload
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ import { AnalyticsSection } from "@/components/production/AnalyticsSection";
 import { MissingProjectsSection } from "@/components/production/MissingProjectsSection";
 import { SubcontractorsManagement } from "@/components/production/SubcontractorsManagement";
 import { SubcontractorWarningsCard } from "@/components/production/SubcontractorWarningsCard";
+import { ProjectImportDialog } from "@/components/production/ProjectImportDialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -141,6 +143,7 @@ export default function Production() {
   const [warningSheetOpen, setWarningSheetOpen] = useState(false);
   const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | null>(null);
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
@@ -922,6 +925,10 @@ export default function Production() {
                   Add Test Project
                 </Button>
               )}
+              <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Import
+              </Button>
               <Button onClick={() => setNewProjectOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Project
@@ -1223,6 +1230,12 @@ export default function Production() {
         <NewProjectDialog
           open={newProjectOpen}
           onOpenChange={setNewProjectOpen}
+        />
+
+        {/* Import Projects Dialog */}
+        <ProjectImportDialog
+          open={importDialogOpen}
+          onOpenChange={setImportDialogOpen}
         />
 
         {/* Delete Project Confirmation Dialog */}
