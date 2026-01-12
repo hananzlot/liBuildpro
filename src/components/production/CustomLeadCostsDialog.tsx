@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -48,6 +48,13 @@ interface AgreementLeadCost {
   category: "Contract" | "Change Order / Other";
 }
 
+function parsePercentInput(input: string, fallback: number) {
+  const normalized = input.trim().replace(/%$/, "");
+  const n = Number(normalized);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, n));
+}
+
 export function CustomLeadCostsDialog({
   open,
   onOpenChange,
@@ -58,11 +65,25 @@ export function CustomLeadCostsDialog({
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   
-  // Local state for editing lead costs - initialize with default
-  const [contractLeadCost, setContractLeadCost] = useState<number>(defaultLeadCostPercent);
-  const [changeOrderLeadCost, setChangeOrderLeadCost] = useState<number>(defaultLeadCostPercent);
+  // Local state for editing lead costs
+  const [contractLeadCostInput, setContractLeadCostInput] = useState<string>(
+    String(defaultLeadCostPercent),
+  );
+  const [changeOrderLeadCostInput, setChangeOrderLeadCostInput] = useState<string>(
+    String(defaultLeadCostPercent),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+
+  const contractLeadCost = useMemo(
+    () => parsePercentInput(contractLeadCostInput, defaultLeadCostPercent),
+    [contractLeadCostInput, defaultLeadCostPercent],
+  );
+
+  const changeOrderLeadCost = useMemo(
+    () => parsePercentInput(changeOrderLeadCostInput, defaultLeadCostPercent),
+    [changeOrderLeadCostInput, defaultLeadCostPercent],
+  );
 
   // Fetch agreements for this project
   const { data: agreements = [], isLoading } = useQuery({
@@ -100,26 +121,35 @@ export function CustomLeadCostsDialog({
   const changeOrderTotal = changeOrderAgreements.reduce((sum, a) => sum + a.totalPrice, 0);
   const grandTotal = contractTotal + changeOrderTotal;
 
-  // Initialize lead costs when dialog opens or agreements load
+  // Initialize lead costs when dialog opens
   useEffect(() => {
     if (!open) {
       setInitialized(false);
       return;
     }
-    
-    if (!isLoading && !initialized) {
-      // Get lead cost from first Contract type agreement, or default
-      const contractAgrs = agreements.filter(a => a.agreement_type === "Contract");
-      const changeOrderAgrs = agreements.filter(a => a.agreement_type !== "Contract");
-      
-      const contractLc = contractAgrs[0]?.lead_cost_percent;
-      const changeOrderLc = changeOrderAgrs[0]?.lead_cost_percent;
-      
-      setContractLeadCost(contractLc ?? defaultLeadCostPercent);
-      setChangeOrderLeadCost(changeOrderLc ?? defaultLeadCostPercent);
-      setInitialized(true);
-    }
-  }, [open, isLoading, agreements, defaultLeadCostPercent, initialized]);
+
+    if (isLoading || initialized) return;
+
+    // Always start from the project's default unless we have a clear saved split
+    const contractAgrs = agreements.filter((a) => a.agreement_type === "Contract");
+    const changeOrderAgrs = agreements.filter((a) => a.agreement_type !== "Contract");
+
+    const contractLc = contractAgrs[0]?.lead_cost_percent;
+    const changeOrderLc = changeOrderAgrs[0]?.lead_cost_percent;
+
+    const hasStoredSplit =
+      contractLc !== null &&
+      contractLc !== undefined &&
+      changeOrderLc !== null &&
+      changeOrderLc !== undefined &&
+      contractLc !== changeOrderLc;
+
+    const baseline = String(defaultLeadCostPercent);
+
+    setContractLeadCostInput(hasStoredSplit ? String(contractLc) : baseline);
+    setChangeOrderLeadCostInput(hasStoredSplit ? String(changeOrderLc) : baseline);
+    setInitialized(true);
+  }, [open, isLoading, initialized, agreements, defaultLeadCostPercent]);
 
   // Calculate weighted average
   const weightedAverage = useMemo(() => {
@@ -226,16 +256,15 @@ export function CustomLeadCostsDialog({
                   <TableCell className="text-right">
                     {isAdmin ? (
                       <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.1}
-                        value={contractLeadCost}
-                        onChange={(e) => setContractLeadCost(parseFloat(e.target.value) || 0)}
+                        type="text"
+                        inputMode="decimal"
+                        value={contractLeadCostInput}
+                        onChange={(e) => setContractLeadCostInput(e.target.value)}
+                        placeholder={String(defaultLeadCostPercent)}
                         className="h-7 w-20 text-xs text-right ml-auto"
                       />
                     ) : (
-                      <span className="text-xs">{contractLeadCost}%</span>
+                      <span className="text-xs">{contractLeadCost.toFixed(2)}%</span>
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-right text-amber-600">
@@ -253,16 +282,15 @@ export function CustomLeadCostsDialog({
                   <TableCell className="text-right">
                     {isAdmin ? (
                       <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.1}
-                        value={changeOrderLeadCost}
-                        onChange={(e) => setChangeOrderLeadCost(parseFloat(e.target.value) || 0)}
+                        type="text"
+                        inputMode="decimal"
+                        value={changeOrderLeadCostInput}
+                        onChange={(e) => setChangeOrderLeadCostInput(e.target.value)}
+                        placeholder={String(defaultLeadCostPercent)}
                         className="h-7 w-20 text-xs text-right ml-auto"
                       />
                     ) : (
-                      <span className="text-xs">{changeOrderLeadCost}%</span>
+                      <span className="text-xs">{changeOrderLeadCost.toFixed(2)}%</span>
                     )}
                   </TableCell>
                   <TableCell className="text-xs text-right text-amber-600">
