@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,7 @@ interface PageSectionSelectorProps {
   disabled?: boolean;
   pageSize: PageSize | "";
   onPageSizeChange: (size: PageSize) => void;
+  existingPageSizes?: string[]; // Page sizes already sold on this page
 }
 
 // 12 buyer slots per page
@@ -33,6 +34,63 @@ const getNextAvailableSlot = (soldSlots: number[]): number | null => {
   return null; // Page is full
 };
 
+// Determine allowed page sizes based on existing sales
+// Rules:
+// - Full page already sold → only Full allowed
+// - Half page already sold → only 1/2, 1/3, 1/4 allowed
+// - 1/3 page already sold → only 1/3 allowed
+// - 1/4 page already sold → only 1/4 and 1/2 allowed
+const getAllowedPageSizes = (existingPageSizes: string[]): PageSize[] => {
+  if (existingPageSizes.length === 0) {
+    // No existing sales, all sizes allowed
+    return ["full", "half", "third", "quarter"];
+  }
+
+  // Normalize existing sizes
+  const normalizedSizes = existingPageSizes.map(s => {
+    const lower = s.toLowerCase();
+    if (lower === "full" || lower === "cover" || lower === "back page") return "full";
+    if (lower === "1/2" || lower === "half") return "half";
+    if (lower === "1/3" || lower === "third") return "third";
+    if (lower === "1/4" || lower === "quarter") return "quarter";
+    return lower;
+  });
+
+  // Check what's already sold
+  const hasFullPage = normalizedSizes.includes("full");
+  const hasHalfPage = normalizedSizes.includes("half");
+  const hasThirdPage = normalizedSizes.includes("third");
+  const hasQuarterPage = normalizedSizes.includes("quarter");
+
+  // Apply rules
+  if (hasFullPage) {
+    // Only full page allowed after a full page sale
+    return ["full"];
+  }
+
+  if (hasThirdPage) {
+    // Only 1/3 allowed after a 1/3 sale
+    return ["third"];
+  }
+
+  if (hasHalfPage && hasQuarterPage) {
+    // Both half and quarter exist, only those two allowed
+    return ["half", "quarter"];
+  }
+
+  if (hasHalfPage) {
+    // Half page sold → 1/2, 1/3, 1/4 allowed
+    return ["half", "third", "quarter"];
+  }
+
+  if (hasQuarterPage) {
+    // 1/4 sold → only 1/4 and 1/2 allowed
+    return ["quarter", "half"];
+  }
+
+  return ["full", "half", "third", "quarter"];
+};
+
 export const PageSectionSelector = ({
   selectedSections,
   onSectionsChange,
@@ -40,8 +98,14 @@ export const PageSectionSelector = ({
   disabled = false,
   pageSize,
   onPageSizeChange,
+  existingPageSizes = [],
 }: PageSectionSelectorProps) => {
   
+  // Calculate allowed page sizes based on existing sales
+  const allowedPageSizes = useMemo(() => {
+    return getAllowedPageSizes(existingPageSizes);
+  }, [existingPageSizes]);
+
   // Auto-assign the next available slot when page size is selected and no slot is assigned yet
   useEffect(() => {
     if (pageSize && selectedSections.length === 0) {
@@ -75,6 +139,13 @@ export const PageSectionSelector = ({
   const availableSlots = ALL_SLOTS.filter(s => !soldSections.includes(s));
   const isPageFull = availableSlots.length === 0;
 
+  const pageSizeOptions: { value: PageSize; label: string }[] = [
+    { value: "full", label: "Full Page" },
+    { value: "half", label: "Half Page (1/2)" },
+    { value: "third", label: "1/3 Page" },
+    { value: "quarter", label: "1/4 Page" },
+  ];
+
   return (
     <div className="space-y-4">
       {/* Page Size Selection */}
@@ -89,12 +160,26 @@ export const PageSectionSelector = ({
             <SelectValue placeholder={isPageFull ? "Page is full (12 buyers)" : "Select page size"} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="full">Full Page</SelectItem>
-            <SelectItem value="half">Half Page (1/2)</SelectItem>
-            <SelectItem value="third">1/3 Page</SelectItem>
-            <SelectItem value="quarter">1/4 Page</SelectItem>
+            {pageSizeOptions.map((option) => {
+              const isAllowed = allowedPageSizes.includes(option.value);
+              return (
+                <SelectItem 
+                  key={option.value} 
+                  value={option.value}
+                  disabled={!isAllowed}
+                >
+                  {option.label}
+                  {!isAllowed && " (not compatible)"}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
+        {existingPageSizes.length > 0 && allowedPageSizes.length < 4 && (
+          <p className="text-xs text-muted-foreground">
+            Options limited based on existing sales on this page
+          </p>
+        )}
       </div>
 
       {/* Visual Preview - Buyer Slots Grid */}
