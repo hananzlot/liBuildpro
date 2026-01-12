@@ -58,11 +58,12 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
     );
   }, [sales, selectedIssue, selectedPage]);
 
-  // Calculate section occupancy for selected issue (includes special pages)
-  const sectionOccupancy = useMemo(() => {
-    if (!selectedIssue) return {};
+  // Calculate section occupancy and ad types for selected issue
+  const { sectionOccupancy, pageAdTypes } = useMemo(() => {
+    if (!selectedIssue) return { sectionOccupancy: {}, pageAdTypes: {} };
 
     const occupancy: Record<string, { sections: Set<number>; buyers: Map<number, string>; hasSales: boolean }> = {};
+    const adTypes: Record<string, string> = {}; // pageNumber -> adType
     const issueSales = sales.filter((s) => s.magazine_issue_date === selectedIssue);
 
     issueSales.forEach((sale) => {
@@ -80,10 +81,44 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
         occupancy[pageKey].sections.add(sec);
         occupancy[pageKey].buyers.set(sec, sale.buyer_name);
       });
+
+      // Track ad type for page (first one wins)
+      if (!adTypes[pageKey] && sale.ad_sold) {
+        adTypes[pageKey] = sale.ad_sold;
+      }
     });
 
-    return occupancy;
+    return { sectionOccupancy: occupancy, pageAdTypes: adTypes };
   }, [sales, selectedIssue]);
+
+  // Group pages by ad type
+  const pagesByAdType = useMemo(() => {
+    const groups: Record<string, string[]> = {};
+    const unassigned: string[] = [];
+
+    // All pages including special ones
+    const allPages = [
+      "Cover",
+      "Inside Front Cover",
+      ...Array.from({ length: currentPageCount }, (_, i) => String(i + 1)),
+      "Inside Back Cover",
+      "Back Page",
+    ];
+
+    allPages.forEach((page) => {
+      const adType = pageAdTypes[page];
+      if (adType) {
+        if (!groups[adType]) {
+          groups[adType] = [];
+        }
+        groups[adType].push(page);
+      } else {
+        unassigned.push(page);
+      }
+    });
+
+    return { groups, unassigned };
+  }, [pageAdTypes, currentPageCount]);
 
   // Count random page sales
   const randomPagesSold = useMemo(() => {
@@ -185,9 +220,7 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
               <span className="text-foreground">{soldCount}</span>
               <span className="text-[10px] text-muted-foreground">sold</span>
             </>
-          ) : (
-            <span className="text-emerald-600 dark:text-emerald-400">Free</span>
-          )}
+          ) : null}
         </div>
       </div>
     );
@@ -284,24 +317,45 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
             )}
           </div>
 
-          {/* Page Grid */}
-          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
-            {/* Cover Page */}
-            {renderPageCell("Cover", "Cover", "border-2")}
-
-            {/* Inside Front Cover */}
-            {renderPageCell("Inside Front Cover", "IFC", "border-2")}
-
-            {/* Numbered Pages */}
-            {Array.from({ length: currentPageCount }, (_, i) => i + 1).map((pageNum) => (
-              renderPageCell(String(pageNum), `Pg ${pageNum}`, "border-2")
+          {/* Pages grouped by Ad Type */}
+          <div className="space-y-6">
+            {/* Pages with Ad Types */}
+            {Object.entries(pagesByAdType.groups).map(([adType, pages]) => (
+              <div key={adType} className="space-y-2">
+                <h4 className="text-sm font-semibold text-foreground capitalize border-b border-border pb-1">
+                  {adType}
+                </h4>
+                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
+                  {pages.map((page) => {
+                    const label = page === "Inside Front Cover" ? "IFC" 
+                      : page === "Inside Back Cover" ? "IBC" 
+                      : page === "Back Page" ? "Back"
+                      : page === "Cover" ? "Cover"
+                      : `Pg ${page}`;
+                    return renderPageCell(page, label, "border-2");
+                  })}
+                </div>
+              </div>
             ))}
 
-            {/* Inside Back Cover */}
-            {renderPageCell("Inside Back Cover", "IBC", "border-2")}
-
-            {/* Back Page */}
-            {renderPageCell("Back Page", "Back", "border-2")}
+            {/* Unassigned Pages */}
+            {pagesByAdType.unassigned.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-muted-foreground border-b border-border pb-1">
+                  Available Pages
+                </h4>
+                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
+                  {pagesByAdType.unassigned.map((page) => {
+                    const label = page === "Inside Front Cover" ? "IFC" 
+                      : page === "Inside Back Cover" ? "IBC" 
+                      : page === "Back Page" ? "Back"
+                      : page === "Cover" ? "Cover"
+                      : `Pg ${page}`;
+                    return renderPageCell(page, label, "border-2");
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Random Pages Note */}

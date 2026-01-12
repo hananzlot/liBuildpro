@@ -95,13 +95,13 @@ export const MagazineSalesTab = () => {
 
   // Calculate KPIs by page size
   const kpiData = useMemo(() => {
-    const buyersBySize = {
+    const salesBySize = {
       full: { count: 0, revenue: 0 },
       half: { count: 0, revenue: 0 },
       third: { count: 0, revenue: 0 },
       quarter: { count: 0, revenue: 0 },
     };
-    const salesByIssue: Record<string, { buyers: number; total: number }> = {};
+    const salesByIssue: Record<string, { sales: number; total: number }> = {};
 
     sales.forEach((sale) => {
       const price = Number(sale.price);
@@ -109,31 +109,31 @@ export const MagazineSalesTab = () => {
       // Categorize by page_size
       const size = sale.page_size.toLowerCase();
       if (size === "full" || size === "cover" || size === "back page") {
-        buyersBySize.full.count++;
-        buyersBySize.full.revenue += price;
+        salesBySize.full.count++;
+        salesBySize.full.revenue += price;
       } else if (size === "1/2" || size === "half") {
-        buyersBySize.half.count++;
-        buyersBySize.half.revenue += price;
+        salesBySize.half.count++;
+        salesBySize.half.revenue += price;
       } else if (size === "1/3" || size === "third") {
-        buyersBySize.third.count++;
-        buyersBySize.third.revenue += price;
+        salesBySize.third.count++;
+        salesBySize.third.revenue += price;
       } else if (size === "1/4" || size === "quarter") {
-        buyersBySize.quarter.count++;
-        buyersBySize.quarter.revenue += price;
+        salesBySize.quarter.count++;
+        salesBySize.quarter.revenue += price;
       }
 
       // Sales by issue
       if (!salesByIssue[sale.magazine_issue_date]) {
-        salesByIssue[sale.magazine_issue_date] = { buyers: 0, total: 0 };
+        salesByIssue[sale.magazine_issue_date] = { sales: 0, total: 0 };
       }
-      salesByIssue[sale.magazine_issue_date].buyers++;
+      salesByIssue[sale.magazine_issue_date].sales++;
       salesByIssue[sale.magazine_issue_date].total += price;
     });
 
-    const totalBuyers = sales.length;
+    const totalSales = sales.length;
     const totalRevenue = sales.reduce((sum, s) => sum + Number(s.price), 0);
 
-    return { buyersBySize, salesByIssue, totalBuyers, totalRevenue };
+    return { salesBySize, salesByIssue, totalSales, totalRevenue };
   }, [sales]);
 
   const formatCurrency = (value: number) => {
@@ -172,33 +172,33 @@ export const MagazineSalesTab = () => {
     <div className="space-y-6">
       {/* KPI Cards */}
       <section className="flex flex-wrap items-end gap-3">
-        {/* Buyers by Page Size */}
+        {/* Sales by Page Size */}
         <div className="rounded-2xl bg-card p-4 border border-border/50">
           <div className="flex items-center gap-2 mb-3">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">Buyers by Page Size</p>
+            <p className="text-sm font-medium text-foreground">Sales by Page Size</p>
           </div>
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Full Page:</span>
-              <span className="font-semibold">{kpiData.buyersBySize.full.count}</span>
+              <span className="font-semibold">{kpiData.salesBySize.full.count}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Half Page:</span>
-              <span className="font-semibold">{kpiData.buyersBySize.half.count}</span>
+              <span className="font-semibold">{kpiData.salesBySize.half.count}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">1/3 Page:</span>
-              <span className="font-semibold">{kpiData.buyersBySize.third.count}</span>
+              <span className="font-semibold">{kpiData.salesBySize.third.count}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">1/4 Page:</span>
-              <span className="font-semibold">{kpiData.buyersBySize.quarter.count}</span>
+              <span className="font-semibold">{kpiData.salesBySize.quarter.count}</span>
             </div>
           </div>
           <div className="mt-3 pt-2 border-t border-border flex justify-between text-sm">
-            <span className="text-muted-foreground">Total Buyers:</span>
-            <span className="font-bold text-primary">{kpiData.totalBuyers}</span>
+            <span className="text-muted-foreground">Total Sales:</span>
+            <span className="font-bold text-primary">{kpiData.totalSales}</span>
           </div>
         </div>
 
@@ -211,19 +211,19 @@ export const MagazineSalesTab = () => {
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Full Page:</span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.buyersBySize.full.revenue)}</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.full.revenue)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Half Page:</span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.buyersBySize.half.revenue)}</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.half.revenue)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">1/3 Page:</span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.buyersBySize.third.revenue)}</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.third.revenue)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">1/4 Page:</span>
-              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.buyersBySize.quarter.revenue)}</span>
+              <span className="font-semibold text-emerald-500">{formatCurrency(kpiData.salesBySize.quarter.revenue)}</span>
             </div>
           </div>
           <div className="mt-3 pt-2 border-t border-border flex justify-between text-sm">
