@@ -4,7 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings2, Check } from "lucide-react";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Settings2, Check, Edit2, User, DollarSign, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MagazineSale {
@@ -23,31 +24,16 @@ interface MagazineSale {
 
 interface MagazinePageAvailabilityProps {
   sales: MagazineSale[];
+  onEditSale?: (sale: MagazineSale) => void;
 }
 
-// Convert legacy page_size to sections (for backward compatibility)
-const legacySizeToSections = (pageSize: string): number[] => {
-  switch (pageSize) {
-    case "Full":
-    case "Cover":
-    case "Back Page":
-      return [1, 2, 3, 4, 5, 6, 7, 8];
-    case "3/4":
-      return [1, 2, 3, 4, 5, 6];
-    case "1/2":
-      return [1, 2, 3, 4];
-    case "1/4":
-      return [1, 2];
-    default:
-      return [];
-  }
-};
-
-export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProps) => {
+export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvailabilityProps) => {
   const [selectedIssue, setSelectedIssue] = useState<string>("");
   const [pageCountByIssue, setPageCountByIssue] = useState<Record<string, number>>({});
   const [editingPageCount, setEditingPageCount] = useState(false);
   const [tempPageCount, setTempPageCount] = useState("");
+  const [selectedPage, setSelectedPage] = useState<string | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
   // Get unique issue dates
   const issueDates = useMemo(() => {
@@ -64,28 +50,32 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
 
   const currentPageCount = pageCountByIssue[selectedIssue] || 48;
 
+  // Get sales for selected page
+  const pageSales = useMemo(() => {
+    if (!selectedIssue || !selectedPage) return [];
+    return sales.filter(
+      (s) => s.magazine_issue_date === selectedIssue && s.page_number === selectedPage
+    );
+  }, [sales, selectedIssue, selectedPage]);
+
   // Calculate section occupancy for selected issue (includes special pages)
   const sectionOccupancy = useMemo(() => {
     if (!selectedIssue) return {};
 
-    const occupancy: Record<string, { sections: Set<number>; buyers: Map<number, string> }> = {};
+    const occupancy: Record<string, { sections: Set<number>; buyers: Map<number, string>; hasSales: boolean }> = {};
     const issueSales = sales.filter((s) => s.magazine_issue_date === selectedIssue);
 
     issueSales.forEach((sale) => {
       if (sale.page_number === "Random") return;
 
-      // Handle special pages (Cover, Back Page) and numbered pages
       const pageKey = sale.page_number;
-      
-      // Use sections_sold if available, otherwise convert from legacy page_size
-      const sections = sale.sections_sold?.length 
-        ? sale.sections_sold 
-        : legacySizeToSections(sale.page_size);
+      const sections = sale.sections_sold?.length ? sale.sections_sold : [];
 
       if (!occupancy[pageKey]) {
-        occupancy[pageKey] = { sections: new Set(), buyers: new Map() };
+        occupancy[pageKey] = { sections: new Set(), buyers: new Map(), hasSales: false };
       }
 
+      occupancy[pageKey].hasSales = true;
       sections.forEach((sec) => {
         occupancy[pageKey].sections.add(sec);
         occupancy[pageKey].buyers.set(sec, sale.buyer_name);
@@ -97,18 +87,13 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
 
   // Count random page sales
   const randomPagesSold = useMemo(() => {
-    if (!selectedIssue) return { count: 0, totalSections: 0 };
+    if (!selectedIssue) return { count: 0 };
 
     const randomSales = sales.filter(
       (s) => s.magazine_issue_date === selectedIssue && s.page_number === "Random"
     );
 
-    const totalSections = randomSales.reduce((sum, s) => {
-      const sections = s.sections_sold?.length || legacySizeToSections(s.page_size).length;
-      return sum + sections;
-    }, 0);
-
-    return { count: randomSales.length, totalSections };
+    return { count: randomSales.length };
   }, [sales, selectedIssue]);
 
   // Special pages
@@ -116,30 +101,25 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
 
   // Stats (including special pages)
   const stats = useMemo(() => {
-    const totalPages = currentPageCount + specialPages.length; // +4 for special pages
-    let fullySold = 0;
-    let partiallySold = 0;
+    const totalPages = currentPageCount + specialPages.length;
+    let pagesWithSales = 0;
+    let available = 0;
 
     // Count special pages
     specialPages.forEach((page) => {
       const pageData = sectionOccupancy[page];
-      if (pageData) {
-        if (pageData.sections.size >= 8) fullySold++;
-        else if (pageData.sections.size > 0) partiallySold++;
-      }
+      if (pageData?.hasSales) pagesWithSales++;
+      else available++;
     });
 
     // Count numbered pages
     for (let i = 1; i <= currentPageCount; i++) {
       const pageData = sectionOccupancy[String(i)];
-      if (pageData) {
-        if (pageData.sections.size >= 8) fullySold++;
-        else if (pageData.sections.size > 0) partiallySold++;
-      }
+      if (pageData?.hasSales) pagesWithSales++;
+      else available++;
     }
 
-    const available = totalPages - fullySold - partiallySold;
-    return { totalPages, fullySold, partiallySold, available };
+    return { totalPages, pagesWithSales, available };
   }, [sectionOccupancy, currentPageCount]);
 
   const handleSavePageCount = () => {
@@ -150,10 +130,67 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
     setEditingPageCount(false);
   };
 
-  const getSectionColor = (isSold: boolean) => {
-    return isSold
-      ? "bg-red-500 border-red-600"
-      : "bg-emerald-100 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700";
+  const handlePageClick = (pageNumber: string) => {
+    setSelectedPage(pageNumber);
+    setDetailSheetOpen(true);
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
+  const getPageStyles = (pageKey: string) => {
+    const pageData = sectionOccupancy[pageKey];
+    const hasSales = pageData?.hasSales || false;
+    const soldCount = pageData?.sections?.size || 0;
+    
+    if (soldCount >= 12) {
+      // Fully sold (all 12 slots)
+      return "border-red-500 bg-red-500/10";
+    } else if (hasSales) {
+      // Has some sales
+      return "border-amber-500 bg-amber-500/10";
+    }
+    // Available
+    return "border-emerald-500 bg-emerald-500/10";
+  };
+
+  const renderPageCell = (pageKey: string, label: string, borderClass: string = "border") => {
+    const pageData = sectionOccupancy[pageKey];
+    const soldCount = pageData?.sections?.size || 0;
+    const hasSales = pageData?.hasSales || false;
+
+    return (
+      <div
+        className={cn(
+          "flex flex-col items-center cursor-pointer hover:scale-105 transition-transform",
+        )}
+        onClick={() => handlePageClick(pageKey)}
+      >
+        <span className="text-xs text-muted-foreground mb-1 font-medium truncate max-w-full">{label}</span>
+        <div
+          className={cn(
+            "w-10 h-12 rounded flex flex-col items-center justify-center text-xs font-medium",
+            borderClass,
+            getPageStyles(pageKey)
+          )}
+        >
+          {hasSales ? (
+            <>
+              <span className="text-foreground">{soldCount}</span>
+              <span className="text-[10px] text-muted-foreground">sold</span>
+            </>
+          ) : (
+            <span className="text-emerald-600 dark:text-emerald-400">Free</span>
+          )}
+        </div>
+      </div>
+    );
   };
 
   if (issueDates.length === 0) {
@@ -167,220 +204,205 @@ export const MagazinePageAvailability = ({ sales }: MagazinePageAvailabilityProp
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <CardTitle className="text-lg">Page Availability</CardTitle>
-          <div className="flex items-center gap-2">
-            <Select value={selectedIssue} onValueChange={setSelectedIssue}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Select issue" />
-              </SelectTrigger>
-              <SelectContent>
-                {issueDates.map((date) => (
-                  <SelectItem key={date} value={date}>
-                    {new Date(date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {editingPageCount ? (
-              <div className="flex items-center gap-1">
-                <Input
-                  type="number"
-                  value={tempPageCount}
-                  onChange={(e) => setTempPageCount(e.target.value)}
-                  className="w-20 h-9"
-                  min={1}
-                  max={200}
-                />
-                <Button size="sm" variant="ghost" onClick={handleSavePageCount}>
-                  <Check className="h-4 w-4" />
+    <>
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="text-lg">Page Availability</CardTitle>
+            <div className="flex items-center gap-2">
+              <Select value={selectedIssue} onValueChange={setSelectedIssue}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select issue" />
+                </SelectTrigger>
+                <SelectContent>
+                  {issueDates.map((date) => (
+                    <SelectItem key={date} value={date}>
+                      {new Date(date).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {editingPageCount ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="number"
+                    value={tempPageCount}
+                    onChange={(e) => setTempPageCount(e.target.value)}
+                    className="w-20 h-9"
+                    min={1}
+                    max={200}
+                  />
+                  <Button size="sm" variant="ghost" onClick={handleSavePageCount}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setTempPageCount(String(currentPageCount));
+                    setEditingPageCount(true);
+                  }}
+                >
+                  <Settings2 className="h-4 w-4 mr-1" />
+                  {currentPageCount} pages
                 </Button>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setTempPageCount(String(currentPageCount));
-                  setEditingPageCount(true);
-                }}
-              >
-                <Settings2 className="h-4 w-4 mr-1" />
-                {currentPageCount} pages
-              </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Legend */}
+          <div className="flex flex-wrap gap-3 text-sm">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border-2 border-emerald-500 bg-emerald-500/10" />
+              <span className="text-muted-foreground">Available</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border-2 border-amber-500 bg-amber-500/10" />
+              <span className="text-muted-foreground">Has Sales</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-4 rounded border-2 border-red-500 bg-red-500/10" />
+              <span className="text-muted-foreground">Full (12 buyers)</span>
+            </div>
+          </div>
+
+          {/* Stats Summary */}
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+              {stats.available} Available
+            </Badge>
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+              {stats.pagesWithSales} With Sales
+            </Badge>
+            {randomPagesSold.count > 0 && (
+              <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
+                {randomPagesSold.count} Random
+              </Badge>
             )}
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Legend */}
-        <div className="flex flex-wrap gap-3 text-sm">
-          <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 rounded bg-emerald-100 border border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700" />
-            <span className="text-muted-foreground">Available</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-4 h-4 rounded bg-red-500 border border-red-600" />
-            <span className="text-muted-foreground">Sold</span>
-          </div>
-        </div>
 
-        {/* Stats Summary */}
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-            {stats.available} Fully Available
-          </Badge>
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
-            {stats.partiallySold} Partially Sold
-          </Badge>
-          <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/30">
-            {stats.fullySold} Fully Sold
-          </Badge>
+          {/* Page Grid */}
+          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
+            {/* Cover Page */}
+            {renderPageCell("Cover", "Cover", "border-2")}
+
+            {/* Inside Front Cover */}
+            {renderPageCell("Inside Front Cover", "IFC", "border-2")}
+
+            {/* Numbered Pages */}
+            {Array.from({ length: currentPageCount }, (_, i) => i + 1).map((pageNum) => (
+              renderPageCell(String(pageNum), `Pg ${pageNum}`, "border-2")
+            ))}
+
+            {/* Inside Back Cover */}
+            {renderPageCell("Inside Back Cover", "IBC", "border-2")}
+
+            {/* Back Page */}
+            {renderPageCell("Back Page", "Back", "border-2")}
+          </div>
+
+          {/* Random Pages Note */}
           {randomPagesSold.count > 0 && (
-            <Badge variant="outline" className="bg-purple-500/10 text-purple-600 border-purple-500/30">
-              {randomPagesSold.count} Random ({randomPagesSold.totalSections} sections)
-            </Badge>
+            <p className="text-xs text-muted-foreground">
+              * {randomPagesSold.count} sale(s) assigned to "Random" pages (click to view in detail sheet)
+            </p>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Page Grid - Each page is a 2x4 grid of sections */}
-        <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 xl:grid-cols-14 gap-2">
-          {/* Cover Page */}
-          {(() => {
-            const pageData = sectionOccupancy["Cover"];
-            const soldSections = pageData?.sections || new Set<number>();
-            const buyerMap = pageData?.buyers || new Map<number, string>();
-            return (
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-muted-foreground mb-1 font-medium">Cover</span>
-                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border-2 border-primary/50 bg-card">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
-                    const isSold = soldSections.has(section);
-                    const buyer = buyerMap.get(section);
-                    return (
-                      <div
-                        key={section}
-                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
-                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
-                      />
-                    );
-                  })}
-                </div>
+      {/* Page Detail Sheet */}
+      <Sheet open={detailSheetOpen} onOpenChange={setDetailSheetOpen}>
+        <SheetContent className="sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>
+              {selectedPage} - {selectedIssue && new Date(selectedIssue).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+            </SheetTitle>
+            <SheetDescription>
+              {pageSales.length === 0
+                ? "No buyers on this page yet"
+                : `${pageSales.length} buyer${pageSales.length > 1 ? "s" : ""} on this page`}
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-6 space-y-4">
+            {pageSales.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>This page has no sales yet.</p>
               </div>
-            );
-          })()}
+            ) : (
+              pageSales.map((sale) => (
+                <div
+                  key={sale.id}
+                  className="p-4 rounded-lg border border-border bg-card space-y-3"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">{sale.buyer_name}</span>
+                    </div>
+                    {onEditSale && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setDetailSheetOpen(false);
+                          onEditSale(sale);
+                        }}
+                      >
+                        <Edit2 className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    )}
+                  </div>
 
-          {/* Inside Front Cover */}
-          {(() => {
-            const pageData = sectionOccupancy["Inside Front Cover"];
-            const soldSections = pageData?.sections || new Set<number>();
-            const buyerMap = pageData?.buyers || new Map<number, string>();
-            return (
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-muted-foreground mb-1 font-medium">IFC</span>
-                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border-2 border-amber-500/50 bg-card">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
-                    const isSold = soldSections.has(section);
-                    const buyer = buyerMap.get(section);
-                    return (
-                      <div
-                        key={section}
-                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
-                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
-                      />
-                    );
-                  })}
+                  {sale.company_name && (
+                    <p className="text-sm text-muted-foreground">{sale.company_name}</p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Page Size:</span>{" "}
+                      <span className="font-medium">{sale.page_size}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Ad Type:</span>{" "}
+                      <span className="font-medium">{sale.ad_sold}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <DollarSign className="h-4 w-4 text-emerald-500" />
+                    <span className="font-semibold text-emerald-500">{formatCurrency(sale.price)}</span>
+                  </div>
+
+                  {(sale.buyer_phone || sale.buyer_email) && (
+                    <div className="pt-2 border-t border-border text-sm space-y-1">
+                      {sale.buyer_phone && (
+                        <p className="text-muted-foreground">📞 {sale.buyer_phone}</p>
+                      )}
+                      {sale.buyer_email && (
+                        <p className="text-muted-foreground">✉️ {sale.buyer_email}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {sale.sections_sold && sale.sections_sold.length > 0 && (
+                    <div className="pt-2 border-t border-border">
+                      <span className="text-xs text-muted-foreground">
+                        Slot: #{sale.sections_sold.join(", #")}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            );
-          })()}
-
-          {/* Numbered Pages */}
-          {Array.from({ length: currentPageCount }, (_, i) => i + 1).map((pageNum) => {
-            const pageData = sectionOccupancy[String(pageNum)];
-            const soldSections = pageData?.sections || new Set<number>();
-            const buyerMap = pageData?.buyers || new Map<number, string>();
-
-            return (
-              <div key={pageNum} className="flex flex-col items-center">
-                <span className="text-xs text-muted-foreground mb-1">Pg {pageNum}</span>
-                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border border-border bg-card">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
-                    const isSold = soldSections.has(section);
-                    const buyer = buyerMap.get(section);
-                    return (
-                      <div
-                        key={section}
-                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
-                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Inside Back Cover */}
-          {(() => {
-            const pageData = sectionOccupancy["Inside Back Cover"];
-            const soldSections = pageData?.sections || new Set<number>();
-            const buyerMap = pageData?.buyers || new Map<number, string>();
-            return (
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-muted-foreground mb-1 font-medium">IBC</span>
-                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border-2 border-amber-500/50 bg-card">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
-                    const isSold = soldSections.has(section);
-                    const buyer = buyerMap.get(section);
-                    return (
-                      <div
-                        key={section}
-                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
-                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Back Page */}
-          {(() => {
-            const pageData = sectionOccupancy["Back Page"];
-            const soldSections = pageData?.sections || new Set<number>();
-            const buyerMap = pageData?.buyers || new Map<number, string>();
-            return (
-              <div className="flex flex-col items-center">
-                <span className="text-xs text-muted-foreground mb-1 font-medium">Back</span>
-                <div className="grid grid-cols-2 gap-0.5 p-1 rounded border-2 border-primary/50 bg-card">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((section) => {
-                    const isSold = soldSections.has(section);
-                    const buyer = buyerMap.get(section);
-                    return (
-                      <div
-                        key={section}
-                        title={isSold ? `Section ${section}: ${buyer}` : `Section ${section}: Available`}
-                        className={cn("w-3 h-3 rounded-sm border cursor-default", getSectionColor(isSold))}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Random Pages Note */}
-        {randomPagesSold.count > 0 && (
-          <p className="text-xs text-muted-foreground">
-            * {randomPagesSold.count} sale(s) assigned to "Random" pages (not shown in grid)
-          </p>
-        )}
-      </CardContent>
-    </Card>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 };

@@ -263,7 +263,7 @@ export const MagazineSalesTab = () => {
       </section>
 
       {/* Page Availability Grid */}
-      <MagazinePageAvailability sales={sales} />
+      <MagazinePageAvailability sales={sales} onEditSale={handleEdit} />
 
       {/* Entry Dialog */}
       <MagazineSalesEntryDialog
