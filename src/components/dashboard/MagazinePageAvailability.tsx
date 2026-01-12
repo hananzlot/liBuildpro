@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Settings2, Check, Edit2, User, DollarSign, FileText } from "lucide-react";
+import { Settings2, Check, Edit2, User, DollarSign, FileText, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MagazineSale {
@@ -25,9 +25,10 @@ interface MagazineSale {
 interface MagazinePageAvailabilityProps {
   sales: MagazineSale[];
   onEditSale?: (sale: MagazineSale) => void;
+  onNewEntry?: () => void;
 }
 
-export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvailabilityProps) => {
+export const MagazinePageAvailability = ({ sales, onEditSale, onNewEntry }: MagazinePageAvailabilityProps) => {
   const [selectedIssue, setSelectedIssue] = useState<string>("");
   const [pageCountByIssue, setPageCountByIssue] = useState<Record<string, number>>({});
   const [editingPageCount, setEditingPageCount] = useState(false);
@@ -335,6 +336,12 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
                 >
                   <Settings2 className="h-4 w-4 mr-1" />
                   {currentPageCount} pages
+                </Button>
+              )}
+              {onNewEntry && (
+                <Button onClick={onNewEntry} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Entry
                 </Button>
               )}
             </div>
