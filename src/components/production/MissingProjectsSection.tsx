@@ -196,14 +196,25 @@ export function MissingProjectsSection() {
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
         
-        // Get scope from opportunity first, fallback to contact custom_fields
+        // Get scope and address from contact custom_fields
         let projectScope: string | null = opp.scope_of_work || null;
-        if (!projectScope && opp.contact?.custom_fields && Array.isArray(opp.contact.custom_fields)) {
-          const scopeField = (opp.contact.custom_fields as Array<{ id: string; value?: string }>).find(
-            (field) => field.id === 'KwQRtJT0aMSHnq3mwR68'
-          );
-          if (scopeField && scopeField.value) {
-            projectScope = scopeField.value;
+        let projectAddress: string | null = null;
+        
+        if (opp.contact?.custom_fields && Array.isArray(opp.contact.custom_fields)) {
+          const customFields = opp.contact.custom_fields as Array<{ id: string; value?: string }>;
+          
+          // Scope of work fallback (if not on opportunity)
+          if (!projectScope) {
+            const scopeField = customFields.find((field) => field.id === 'KwQRtJT0aMSHnq3mwR68');
+            if (scopeField && scopeField.value) {
+              projectScope = scopeField.value;
+            }
+          }
+          
+          // Address field
+          const addressField = customFields.find((field) => field.id === 'b7oTVsUQrLgZt84bHpCn');
+          if (addressField && addressField.value) {
+            projectAddress = addressField.value;
           }
         }
         
@@ -221,6 +232,7 @@ export function MissingProjectsSection() {
           estimated_cost: opp.monetary_value,
           lead_source: opp.contact?.source || null,
           project_scope_dispatch: projectScope,
+          project_address: projectAddress,
         };
       });
 
