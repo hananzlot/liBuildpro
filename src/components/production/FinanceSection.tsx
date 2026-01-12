@@ -1298,7 +1298,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                       return (
                       <TableRow 
                         key={agreement.id} 
-                        className="cursor-pointer hover:bg-muted/50"
+                        className={`cursor-pointer hover:bg-muted/50 ${!isBalanced ? 'bg-red-50 dark:bg-red-950/20' : ''}`}
                         onClick={() => {
                           setSelectedAgreementFilter(agreement.id);
                           setActiveSubTab("phases");
