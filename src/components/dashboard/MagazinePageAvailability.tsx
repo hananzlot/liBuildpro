@@ -59,12 +59,13 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
     );
   }, [sales, selectedIssue, selectedPage]);
 
-  // Calculate section occupancy and ad types for selected issue
-  const { sectionOccupancy, pageAdTypes } = useMemo(() => {
-    if (!selectedIssue) return { sectionOccupancy: {}, pageAdTypes: {} };
+  // Calculate section occupancy, ad types, and page sizes for selected issue
+  const { sectionOccupancy, pageAdTypes, pagePageSizes } = useMemo(() => {
+    if (!selectedIssue) return { sectionOccupancy: {}, pageAdTypes: {}, pagePageSizes: {} };
 
     const occupancy: Record<string, { sections: Set<number>; buyers: Map<number, string>; hasSales: boolean }> = {};
     const adTypes: Record<string, string> = {}; // pageNumber -> adType
+    const pageSizes: Record<string, Set<string>> = {}; // pageNumber -> set of page sizes
     const issueSales = sales.filter((s) => s.magazine_issue_date === selectedIssue);
 
     issueSales.forEach((sale) => {
@@ -76,6 +77,9 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
       if (!occupancy[pageKey]) {
         occupancy[pageKey] = { sections: new Set(), buyers: new Map(), hasSales: false };
       }
+      if (!pageSizes[pageKey]) {
+        pageSizes[pageKey] = new Set();
+      }
 
       occupancy[pageKey].hasSales = true;
       sections.forEach((sec) => {
@@ -83,13 +87,18 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
         occupancy[pageKey].buyers.set(sec, sale.buyer_name);
       });
 
+      // Track page sizes sold on this page
+      if (sale.page_size) {
+        pageSizes[pageKey].add(sale.page_size);
+      }
+
       // Track ad type for page (first one wins)
       if (!adTypes[pageKey] && sale.ad_sold) {
         adTypes[pageKey] = sale.ad_sold;
       }
     });
 
-    return { sectionOccupancy: occupancy, pageAdTypes: adTypes };
+    return { sectionOccupancy: occupancy, pageAdTypes: adTypes, pagePageSizes: pageSizes };
   }, [sales, selectedIssue]);
 
   // Get unique ad types for filter
@@ -225,9 +234,12 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
     const pageData = sectionOccupancy[pageKey];
     const soldCount = pageData?.sections?.size || 0;
     const hasSales = pageData?.hasSales || false;
+    const sizes = pagePageSizes[pageKey];
+    const pageSizeLabel = sizes ? Array.from(sizes).join(", ") : "";
 
     return (
       <div
+        key={pageKey}
         className={cn(
           "flex flex-col items-center cursor-pointer hover:scale-105 transition-transform",
         )}
@@ -236,7 +248,7 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
         <span className="text-xs text-muted-foreground mb-1 font-medium truncate max-w-full">{label}</span>
         <div
           className={cn(
-            "w-10 h-12 rounded flex flex-col items-center justify-center text-xs font-medium",
+            "w-12 h-14 rounded flex flex-col items-center justify-center text-xs font-medium",
             borderClass,
             getPageStyles(pageKey)
           )}
@@ -244,7 +256,10 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
           {hasSales ? (
             <>
               <span className="text-foreground">{soldCount}</span>
-              <span className="text-[10px] text-muted-foreground">sold</span>
+              <span className="text-[9px] text-muted-foreground">sold</span>
+              {pageSizeLabel && (
+                <span className="text-[8px] text-muted-foreground truncate max-w-[44px]">{pageSizeLabel}</span>
+              )}
             </>
           ) : null}
         </div>
@@ -335,10 +350,6 @@ export const MagazinePageAvailability = ({ sales, onEditSale }: MagazinePageAvai
             <div className="flex items-center gap-1.5">
               <div className="w-4 h-4 rounded border-2 border-amber-500 bg-amber-500/10" />
               <span className="text-muted-foreground">Has Sales</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-4 h-4 rounded border-2 border-red-500 bg-red-500/10" />
-              <span className="text-muted-foreground">Full (12 slots)</span>
             </div>
           </div>
 
