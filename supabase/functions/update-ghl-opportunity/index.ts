@@ -326,17 +326,21 @@ serve(async (req) => {
             contact = contactData;
           }
           
-          // Extract scope of work from contact's custom_fields
-          // Custom field ID for scope of work: KwQRtJT0aMSHnq3mwR68
-          let projectScope: string | null = null;
-          if (contact?.custom_fields && Array.isArray(contact.custom_fields)) {
+          // Get scope of work from opportunity (primary) or fallback to contact custom_fields (legacy)
+          let projectScope: string | null = opportunity.scope_of_work || null;
+          
+          // Fallback: Extract scope from contact's custom_fields if not on opportunity
+          if (!projectScope && contact?.custom_fields && Array.isArray(contact.custom_fields)) {
             const scopeField = contact.custom_fields.find(
               (field: { id: string; value: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
             );
             if (scopeField && scopeField.value) {
               projectScope = scopeField.value;
-              console.log(`Found scope of work from contact custom field: ${projectScope}`);
+              console.log(`Found scope of work from contact custom field (legacy): ${projectScope}`);
             }
+          }
+          if (projectScope) {
+            console.log(`Using scope of work: ${projectScope}`);
           }
           
           // Create the project
