@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Calendar as CalendarIcon, AlertTriangle, CheckCircle } from "lucide-react";
+import { Calendar as CalendarIcon, AlertTriangle, CheckCircle, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 
@@ -23,6 +23,7 @@ interface SchedulePaymentDialogProps {
   onOpenChange: (open: boolean) => void;
   payable: PayableWithCashImpact | null;
   onSave: (billId: string, date: Date, amount: number) => void;
+  onDelete?: (billId: string) => void;
 }
 
 export function SchedulePaymentDialog({
@@ -30,6 +31,7 @@ export function SchedulePaymentDialog({
   onOpenChange,
   payable,
   onSave,
+  onDelete,
 }: SchedulePaymentDialogProps) {
   const [date, setDate] = useState<Date | undefined>(
     payable?.scheduled_payment_date ? new Date(payable.scheduled_payment_date) : new Date()
@@ -182,13 +184,29 @@ export function SchedulePaymentDialog({
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!date || paymentAmount <= 0}>
-            Schedule Payment
-          </Button>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
+            {payable.scheduled_payment_date && onDelete && (
+              <Button 
+                variant="destructive" 
+                onClick={() => {
+                  onDelete(payable.id);
+                  onOpenChange(false);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            )}
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={!date || paymentAmount <= 0}>
+              Schedule Payment
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

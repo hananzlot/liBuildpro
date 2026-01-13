@@ -257,8 +257,13 @@ export function PayablesSheet({
                         <span className="text-muted-foreground text-sm">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {payable.project_address || payable.project_name}
+                    <TableCell className="max-w-[200px]">
+                      <div className="flex flex-col">
+                        <span className="truncate">{payable.project_address || payable.project_name}</span>
+                        {payable.project_address && (
+                          <span className="text-xs text-muted-foreground truncate">{payable.project_name}</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>{payable.vendor || '-'}</TableCell>
                     <TableCell className="text-center font-medium">
