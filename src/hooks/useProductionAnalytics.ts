@@ -173,7 +173,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_bills")
-        .select("id, project_id, bill_amount, amount_paid, balance, installer_company, category, bill_ref, scheduled_payment_date, scheduled_payment_amount, is_voided");
+        .select("id, project_id, bill_amount, amount_paid, balance, installer_company, category, bill_ref, memo, scheduled_payment_date, scheduled_payment_amount, is_voided");
       if (error) throw error;
       return data;
     },
@@ -424,7 +424,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         project_id: bill.project_id,
         project_name: project?.project_name || 'Unknown',
         project_address: project?.project_address || null,
-        description: `${bill.installer_company || 'Vendor'} - ${bill.bill_ref || 'Bill'}`,
+        description: `${bill.category || 'Category'} - ${bill.memo || 'Memo'}`,
         amount: bp.payment_amount || 0,
         bank_or_method: bp.payment_method,
         vendor_name: bill.installer_company || null,
