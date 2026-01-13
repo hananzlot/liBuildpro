@@ -16,10 +16,12 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface AnalyticsSectionProps {
-  onProjectClick?: (projectId: string, initialTab?: string) => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables') => void;
+  reopenPayablesSheet?: boolean;
+  onPayablesSheetOpened?: () => void;
 }
 
-export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
+export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
   const queryClient = useQueryClient();
   
@@ -280,6 +282,8 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
             onSchedulePayment={handleSchedulePayment}
             onClearSchedule={handleClearSchedule}
             onMarkAsPaid={handleMarkAsPaid}
+            reopenPayablesSheet={reopenPayablesSheet}
+            onPayablesSheetOpened={onPayablesSheetOpened}
           />
         </TabsContent>
 
