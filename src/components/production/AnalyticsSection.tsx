@@ -69,6 +69,8 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
       
       toast.success("Payment scheduled");
       queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
     } catch (error: any) {
       toast.error(`Failed to schedule payment: ${error.message}`);
     }
@@ -89,6 +91,8 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
       
       toast.success("Schedule cleared");
       queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
     } catch (error: any) {
       toast.error(`Failed to clear schedule: ${error.message}`);
     }
@@ -144,6 +148,8 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
 
       toast.success("Payment recorded successfully");
       queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
     } catch (error: any) {
       toast.error(`Failed to record payment: ${error.message}`);
     }
