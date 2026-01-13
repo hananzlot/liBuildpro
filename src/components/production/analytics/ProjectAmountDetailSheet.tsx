@@ -392,7 +392,7 @@ function BillsPaidContent({ bills, total, projectName }: { bills: any[]; total: 
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Bill Ref</TableHead>
+                    <TableHead>Description</TableHead>
                     <TableHead className="text-right">Bill Amount</TableHead>
                     <TableHead className="text-right">Paid</TableHead>
                     <TableHead className="text-right">Balance</TableHead>
@@ -401,7 +401,7 @@ function BillsPaidContent({ bills, total, projectName }: { bills: any[]; total: 
                 <TableBody>
                   {group.bills.map((b) => (
                     <TableRow key={b.id}>
-                      <TableCell>{b.bill_ref || '-'}</TableCell>
+                      <TableCell>{b.memo || '-'}</TableCell>
                       <TableCell className="text-right">{formatCurrency(b.bill_amount || 0)}</TableCell>
                       <TableCell className="text-right font-medium text-red-600">
                         {formatCurrency(b.amount_paid || 0)}
@@ -428,7 +428,7 @@ function BillsPaidContent({ bills, total, projectName }: { bills: any[]; total: 
               <TableRow>
                 <TableHead>Vendor Name</TableHead>
                 <TableHead>Vendor Type</TableHead>
-                <TableHead>Bill Ref</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead className="text-right">Bill Amount</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
@@ -443,7 +443,7 @@ function BillsPaidContent({ bills, total, projectName }: { bills: any[]; total: 
                       {b.category || '-'}
                     </Badge>
                   </TableCell>
-                  <TableCell>{b.bill_ref || '-'}</TableCell>
+                  <TableCell>{b.memo || '-'}</TableCell>
                   <TableCell className="text-right">{formatCurrency(b.bill_amount || 0)}</TableCell>
                   <TableCell className="text-right font-medium text-red-600">
                     {formatCurrency(b.amount_paid || 0)}
