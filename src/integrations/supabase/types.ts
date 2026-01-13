@@ -1264,6 +1264,8 @@ export type Database = {
           payment_method: string | null
           payment_reference: string | null
           project_id: string | null
+          scheduled_payment_amount: number | null
+          scheduled_payment_date: string | null
           updated_at: string | null
           void_reason: string | null
           voided_at: string | null
@@ -1286,6 +1288,8 @@ export type Database = {
           payment_method?: string | null
           payment_reference?: string | null
           project_id?: string | null
+          scheduled_payment_amount?: number | null
+          scheduled_payment_date?: string | null
           updated_at?: string | null
           void_reason?: string | null
           voided_at?: string | null
@@ -1308,6 +1312,8 @@ export type Database = {
           payment_method?: string | null
           payment_reference?: string | null
           project_id?: string | null
+          scheduled_payment_amount?: number | null
+          scheduled_payment_date?: string | null
           updated_at?: string | null
           void_reason?: string | null
           voided_at?: string | null

@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -10,9 +11,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MetricCard } from "./MetricCard";
-import { ProjectWithFinancials } from "@/hooks/useProductionAnalytics";
-import { Banknote, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, TrendingUp, Wallet } from "lucide-react";
+import { ProjectWithFinancials, InvoiceWithAging, BankTransaction, PayableWithCashImpact, CashFlowTimelinePoint } from "@/hooks/useProductionAnalytics";
+import { Banknote, ArrowDownToLine, ArrowUpFromLine, AlertTriangle, Wallet, Calendar } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { CashFlowKPISheet, CashFlowKPIType } from "./CashFlowKPISheet";
+import { PayablesSheet } from "./PayablesSheet";
+import { PaymentScheduleSheet } from "./PaymentScheduleSheet";
+import { SchedulePaymentDialog } from "./SchedulePaymentDialog";
 
 interface CashFlowTabProps {
   projects: ProjectWithFinancials[];
@@ -23,9 +28,15 @@ interface CashFlowTabProps {
     totalPayables: number;
     cashPosition: number;
   };
+  invoicesWithAging: InvoiceWithAging[];
+  bankTransactions: BankTransaction[];
+  payablesWithCashImpact: PayableWithCashImpact[];
+  cashFlowTimeline: CashFlowTimelinePoint[];
+  scheduledPayments: PayableWithCashImpact[];
   onProjectClick?: (projectId: string) => void;
+  onSchedulePayment?: (billId: string, date: Date, amount: number) => void;
+  onClearSchedule?: (billId: string) => void;
 }
-
 
 const getCashStatusColor = (status: string) => {
   switch (status) {
@@ -57,7 +68,26 @@ const getCashStatusLabel = (status: string) => {
   }
 };
 
-export function CashFlowTab({ projects, totals, onProjectClick }: CashFlowTabProps) {
+export function CashFlowTab({ 
+  projects, 
+  totals, 
+  invoicesWithAging,
+  bankTransactions,
+  payablesWithCashImpact,
+  cashFlowTimeline,
+  scheduledPayments,
+  onProjectClick,
+  onSchedulePayment,
+  onClearSchedule,
+}: CashFlowTabProps) {
+  // Sheet states
+  const [selectedKPI, setSelectedKPI] = useState<CashFlowKPIType | null>(null);
+  const [kpiSheetOpen, setKpiSheetOpen] = useState(false);
+  const [payablesSheetOpen, setPayablesSheetOpen] = useState(false);
+  const [scheduleSheetOpen, setScheduleSheetOpen] = useState(false);
+  const [schedulingPayable, setSchedulingPayable] = useState<PayableWithCashImpact | null>(null);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+
   // Summary counts
   const statusCounts = useMemo(() => {
     return projects.reduce((acc, p) => {
@@ -81,9 +111,46 @@ export function CashFlowTab({ projects, totals, onProjectClick }: CashFlowTabPro
     p.cashStatus === 'negative' || p.cashStatus === 'overdue' || p.cashStatus === 'low'
   );
 
+  const handleKPIClick = (kpi: CashFlowKPIType) => {
+    if (kpi === 'outstandingAP') {
+      setPayablesSheetOpen(true);
+    } else {
+      setSelectedKPI(kpi);
+      setKpiSheetOpen(true);
+    }
+  };
+
+  const handleSchedulePayment = (payable: PayableWithCashImpact) => {
+    setSchedulingPayable(payable);
+    setScheduleDialogOpen(true);
+  };
+
+  const handleSaveSchedule = (billId: string, date: Date, amount: number) => {
+    onSchedulePayment?.(billId, date, amount);
+    setScheduleDialogOpen(false);
+    setSchedulingPayable(null);
+  };
+
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* Header with Payment Schedule button */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          onClick={() => setScheduleSheetOpen(true)}
+          className="flex items-center gap-2"
+        >
+          <Calendar className="h-4 w-4" />
+          Payment Schedule
+          {scheduledPayments.length > 0 && (
+            <Badge variant="secondary" className="ml-1">
+              {scheduledPayments.length}
+            </Badge>
+          )}
+        </Button>
+      </div>
+
+      {/* KPI Cards - Now Clickable */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <MetricCard
           title="Cash Position"
@@ -91,6 +158,7 @@ export function CashFlowTab({ projects, totals, onProjectClick }: CashFlowTabPro
           subValue="Collected - Paid"
           icon={Banknote}
           variant={totals.cashPosition >= 0 ? 'success' : 'danger'}
+          onClick={() => handleKPIClick('cashPosition')}
         />
         <MetricCard
           title="Total Collected"
@@ -98,12 +166,14 @@ export function CashFlowTab({ projects, totals, onProjectClick }: CashFlowTabPro
           subValue="Payments received"
           icon={ArrowDownToLine}
           variant="success"
+          onClick={() => handleKPIClick('totalCollected')}
         />
         <MetricCard
           title="Bills Paid"
           value={formatCurrency(totals.totalBillsPaid)}
           subValue="Vendor payments"
           icon={ArrowUpFromLine}
+          onClick={() => handleKPIClick('billsPaid')}
         />
         <MetricCard
           title="Outstanding AR"
@@ -111,6 +181,7 @@ export function CashFlowTab({ projects, totals, onProjectClick }: CashFlowTabPro
           subValue="To collect"
           icon={Wallet}
           variant={totals.totalReceivables > 0 ? 'warning' : 'default'}
+          onClick={() => handleKPIClick('outstandingAR')}
         />
         <MetricCard
           title="Outstanding AP"
@@ -118,6 +189,7 @@ export function CashFlowTab({ projects, totals, onProjectClick }: CashFlowTabPro
           subValue="Bills unpaid"
           icon={AlertTriangle}
           variant={totals.totalPayables > 0 ? 'warning' : 'default'}
+          onClick={() => handleKPIClick('outstandingAP')}
         />
         <MetricCard
           title="Projects At Risk"
@@ -125,6 +197,7 @@ export function CashFlowTab({ projects, totals, onProjectClick }: CashFlowTabPro
           subValue={`of ${projects.length} total`}
           icon={AlertTriangle}
           variant={problemProjects.length > 0 ? 'danger' : 'success'}
+          onClick={() => handleKPIClick('projectsAtRisk')}
         />
       </div>
 
@@ -220,6 +293,41 @@ export function CashFlowTab({ projects, totals, onProjectClick }: CashFlowTabPro
           </div>
         </CardContent>
       </Card>
+
+      {/* Sheets and Dialogs */}
+      <CashFlowKPISheet
+        open={kpiSheetOpen}
+        onOpenChange={setKpiSheetOpen}
+        kpiType={selectedKPI}
+        projects={projects}
+        invoicesWithAging={invoicesWithAging}
+        bankTransactions={bankTransactions}
+        onProjectClick={onProjectClick}
+      />
+
+      <PayablesSheet
+        open={payablesSheetOpen}
+        onOpenChange={setPayablesSheetOpen}
+        payables={payablesWithCashImpact}
+        onProjectClick={onProjectClick}
+        onSchedulePayment={handleSchedulePayment}
+      />
+
+      <PaymentScheduleSheet
+        open={scheduleSheetOpen}
+        onOpenChange={setScheduleSheetOpen}
+        scheduledPayments={scheduledPayments}
+        cashFlowTimeline={cashFlowTimeline}
+        onClearSchedule={(billId) => onClearSchedule?.(billId)}
+        onProjectClick={onProjectClick}
+      />
+
+      <SchedulePaymentDialog
+        open={scheduleDialogOpen}
+        onOpenChange={setScheduleDialogOpen}
+        payable={schedulingPayable}
+        onSave={handleSaveSchedule}
+      />
     </div>
   );
 }

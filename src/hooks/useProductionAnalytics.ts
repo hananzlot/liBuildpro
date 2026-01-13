@@ -78,6 +78,39 @@ export interface SalespersonCommission {
   projectCount: number;
 }
 
+export interface PayableWithCashImpact {
+  id: string;
+  project_id: string;
+  project_number: number;
+  project_name: string;
+  project_address: string | null;
+  vendor: string | null;
+  bill_ref: string | null;
+  category: string | null;
+  amount_due: number;
+  scheduled_payment_date: string | null;
+  scheduled_payment_amount: number | null;
+  project_current_cash: number;
+  cash_if_this_paid: number;
+  total_project_payables: number;
+  cash_if_all_project_payables_paid: number;
+}
+
+export interface CashFlowTimelinePoint {
+  date: string;
+  cashPosition: number;
+  inflows: number;
+  outflows: number;
+  cumulativeInflows: number;
+  cumulativeOutflows: number;
+  details: Array<{
+    type: 'inflow' | 'outflow';
+    description: string;
+    amount: number;
+    project_number: number;
+  }>;
+}
+
 export function useProductionAnalytics(filters: AnalyticsFilters) {
   // Fetch all projects
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
@@ -132,7 +165,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_bills")
-        .select("id, project_id, bill_amount, amount_paid, installer_company, category, bill_ref");
+        .select("id, project_id, bill_amount, amount_paid, balance, installer_company, category, bill_ref, scheduled_payment_date, scheduled_payment_amount, is_voided");
       if (error) throw error;
       return data;
     },
@@ -481,6 +514,99 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     };
   }, [projectsWithFinancials, commissionSummary, invoicesWithAging]);
 
+  // Payables with cash impact calculations
+  const payablesWithCashImpact: PayableWithCashImpact[] = useMemo(() => {
+    const activeBills = bills.filter(b => !b.is_voided && (b.balance || 0) > 0);
+    
+    return activeBills.map(bill => {
+      const project = projectsWithFinancials.find(p => p.id === bill.project_id);
+      const projectBills = activeBills.filter(b => b.project_id === bill.project_id);
+      const totalProjectPayables = projectBills.reduce((sum, b) => sum + (b.balance || 0), 0);
+      const projectCurrentCash = project?.cashPosition || 0;
+      
+      return {
+        id: bill.id,
+        project_id: bill.project_id || '',
+        project_number: project?.project_number || 0,
+        project_name: project?.project_name || 'Unknown',
+        project_address: project?.project_address || null,
+        vendor: bill.installer_company,
+        bill_ref: bill.bill_ref,
+        category: bill.category,
+        amount_due: bill.balance || 0,
+        scheduled_payment_date: bill.scheduled_payment_date,
+        scheduled_payment_amount: bill.scheduled_payment_amount,
+        project_current_cash: projectCurrentCash,
+        cash_if_this_paid: projectCurrentCash - (bill.balance || 0),
+        total_project_payables: totalProjectPayables,
+        cash_if_all_project_payables_paid: projectCurrentCash - totalProjectPayables,
+      };
+    }).filter(p => p.project_id);
+  }, [bills, projectsWithFinancials]);
+
+  // Scheduled payments
+  const scheduledPayments = useMemo(() => {
+    return payablesWithCashImpact.filter(p => p.scheduled_payment_date);
+  }, [payablesWithCashImpact]);
+
+  // Cash flow timeline (90-day projection)
+  const cashFlowTimeline: CashFlowTimelinePoint[] = useMemo(() => {
+    const timeline: CashFlowTimelinePoint[] = [];
+    const today = new Date();
+    let runningCash = totals.cashPosition;
+
+    for (let i = 0; i < 90; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+
+      // Find scheduled outflows for this date
+      const outflows = scheduledPayments.filter(p => p.scheduled_payment_date === dateStr);
+      const totalOutflow = outflows.reduce((sum, p) => sum + (p.scheduled_payment_amount || p.amount_due), 0);
+
+      // Find expected inflows (pending payments with projected_received_date)
+      const inflows = payments
+        .filter(p => p.payment_status === 'Pending' && p.projected_received_date === dateStr)
+        .map(p => {
+          const project = projects.find(proj => proj.id === p.project_id);
+          return { ...p, project };
+        });
+      const totalInflow = inflows.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+
+      runningCash = runningCash + totalInflow - totalOutflow;
+
+      const details: CashFlowTimelinePoint['details'] = [];
+      inflows.forEach(p => {
+        details.push({
+          type: 'inflow',
+          description: p.payment_schedule || 'Payment',
+          amount: p.payment_amount || 0,
+          project_number: p.project?.project_number || 0,
+        });
+      });
+      outflows.forEach(p => {
+        details.push({
+          type: 'outflow',
+          description: `${p.vendor || 'Vendor'} - ${p.bill_ref || 'Bill'}`,
+          amount: p.scheduled_payment_amount || p.amount_due,
+          project_number: p.project_number,
+        });
+      });
+
+      timeline.push({
+        date: dateStr,
+        cashPosition: runningCash,
+        inflows: totalInflow,
+        outflows: totalOutflow,
+        cumulativeInflows: timeline.length > 0 ? (timeline[timeline.length - 1].cumulativeInflows + totalInflow) : totalInflow,
+        cumulativeOutflows: timeline.length > 0 ? (timeline[timeline.length - 1].cumulativeOutflows + totalOutflow) : totalOutflow,
+        details,
+      });
+    }
+
+    return timeline;
+  }, [totals.cashPosition, scheduledPayments, payments, projects]);
+
   return {
     isLoading: loadingProjects,
     projects: projectsWithFinancials,
@@ -494,5 +620,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     ),
     totals,
     filters,
+    payablesWithCashImpact,
+    scheduledPayments,
+    cashFlowTimeline,
   };
 }

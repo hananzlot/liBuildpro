@@ -11,6 +11,9 @@ import { CommissionReportTab } from "./analytics/CommissionReportTab";
 import { useProductionAnalytics } from "@/hooks/useProductionAnalytics";
 import { useAuth } from "@/contexts/AuthContext";
 import { TrendingUp, Wallet, FileText, Building, Users } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface AnalyticsSectionProps {
   onProjectClick?: (projectId: string) => void;
@@ -18,6 +21,7 @@ interface AnalyticsSectionProps {
 
 export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
+  const queryClient = useQueryClient();
   
   // Check if user can view profitability tab (admin only, not production-only users)
   const canViewProfitability = isAdmin || !isProduction;
@@ -39,11 +43,54 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
     commissionSummary,
     commissionPayments,
     totals,
+    payablesWithCashImpact,
+    scheduledPayments,
+    cashFlowTimeline,
   } = useProductionAnalytics({
     dateRange,
     selectedProjects,
     selectedSalespeople,
   });
+
+  // Schedule payment handler
+  const handleSchedulePayment = useCallback(async (billId: string, date: Date, amount: number) => {
+    try {
+      const { error } = await supabase
+        .from("project_bills")
+        .update({
+          scheduled_payment_date: date.toISOString().split('T')[0],
+          scheduled_payment_amount: amount,
+        })
+        .eq("id", billId);
+
+      if (error) throw error;
+      
+      toast.success("Payment scheduled");
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+    } catch (error: any) {
+      toast.error(`Failed to schedule payment: ${error.message}`);
+    }
+  }, [queryClient]);
+
+  // Clear schedule handler
+  const handleClearSchedule = useCallback(async (billId: string) => {
+    try {
+      const { error } = await supabase
+        .from("project_bills")
+        .update({
+          scheduled_payment_date: null,
+          scheduled_payment_amount: null,
+        })
+        .eq("id", billId);
+
+      if (error) throw error;
+      
+      toast.success("Schedule cleared");
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+    } catch (error: any) {
+      toast.error(`Failed to clear schedule: ${error.message}`);
+    }
+  }, [queryClient]);
 
   // Prepare filter options
   const projectOptions = useMemo(() => {
@@ -169,7 +216,14 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
           <CashFlowTab
             projects={projects}
             totals={totals}
+            invoicesWithAging={invoicesWithAging}
+            bankTransactions={bankTransactions}
+            payablesWithCashImpact={payablesWithCashImpact}
+            cashFlowTimeline={cashFlowTimeline}
+            scheduledPayments={scheduledPayments}
             onProjectClick={onProjectClick}
+            onSchedulePayment={handleSchedulePayment}
+            onClearSchedule={handleClearSchedule}
           />
         </TabsContent>
 
