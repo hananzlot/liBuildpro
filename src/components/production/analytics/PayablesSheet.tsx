@@ -386,19 +386,19 @@ export function PayablesSheet({
                           </TableCell>
                           <TableCell className="text-center">
                             {payable.scheduled_payment_amount ? (
-                              <div className="flex flex-col items-center gap-1">
+                              <div className="flex items-center justify-center gap-1">
                                 <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 no-print"
+                                  className="h-5 w-5 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 no-print"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onMarkAsPaid?.(payable);
                                   }}
                                   title="Mark as Paid"
                                 >
-                                  <Circle className="h-4 w-4" />
+                                  <Circle className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             ) : (
@@ -465,19 +465,19 @@ export function PayablesSheet({
                         </TableCell>
                         <TableCell className="text-center">
                           {payable.scheduled_payment_amount ? (
-                            <div className="flex flex-col items-center gap-1">
+                            <div className="flex items-center justify-center gap-1">
                               <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-6 w-6 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 no-print"
+                                className="h-5 w-5 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 no-print"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   onMarkAsPaid?.(payable);
                                 }}
                                 title="Mark as Paid"
                               >
-                                <Circle className="h-4 w-4" />
+                                <Circle className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           ) : (
