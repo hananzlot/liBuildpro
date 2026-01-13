@@ -18,6 +18,7 @@ import { CashFlowKPISheet, CashFlowKPIType } from "./CashFlowKPISheet";
 import { PayablesSheet } from "./PayablesSheet";
 import { PaymentScheduleSheet } from "./PaymentScheduleSheet";
 import { SchedulePaymentDialog } from "./SchedulePaymentDialog";
+import { MarkAsPaidDialog } from "./MarkAsPaidDialog";
 import { ProjectAmountDetailSheet, AmountType } from "./ProjectAmountDetailSheet";
 
 interface CashFlowTabProps {
@@ -37,7 +38,13 @@ interface CashFlowTabProps {
   onProjectClick?: (projectId: string) => void;
   onSchedulePayment?: (billId: string, date: Date, amount: number) => void;
   onClearSchedule?: (billId: string) => void;
-  onMarkAsPaid?: (billId: string, amount: number) => void;
+  onMarkAsPaid?: (billId: string, data: {
+    paymentDate: Date;
+    amount: number;
+    bankName: string | null;
+    paymentMethod: string | null;
+    paymentReference: string | null;
+  }) => void;
 }
 
 const getCashStatusColor = (status: string) => {
@@ -90,6 +97,8 @@ export function CashFlowTab({
   const [scheduleSheetOpen, setScheduleSheetOpen] = useState(false);
   const [schedulingPayable, setSchedulingPayable] = useState<PayableWithCashImpact | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [markingAsPaidPayable, setMarkingAsPaidPayable] = useState<PayableWithCashImpact | null>(null);
+  const [markAsPaidDialogOpen, setMarkAsPaidDialogOpen] = useState(false);
   
   // Project amount detail states
   const [amountDetailOpen, setAmountDetailOpen] = useState(false);
@@ -147,8 +156,20 @@ export function CashFlowTab({
   };
 
   const handleMarkAsPaid = (payable: PayableWithCashImpact) => {
-    const amount = payable.scheduled_payment_amount || payable.amount_due;
-    onMarkAsPaid?.(payable.id, amount);
+    setMarkingAsPaidPayable(payable);
+    setMarkAsPaidDialogOpen(true);
+  };
+
+  const handleSaveMarkAsPaid = (billId: string, data: {
+    paymentDate: Date;
+    amount: number;
+    bankName: string | null;
+    paymentMethod: string | null;
+    paymentReference: string | null;
+  }) => {
+    onMarkAsPaid?.(billId, data);
+    setMarkAsPaidDialogOpen(false);
+    setMarkingAsPaidPayable(null);
   };
 
   return (
@@ -371,6 +392,13 @@ export function CashFlowTab({
         allPayables={payablesWithCashImpact}
         onSave={handleSaveSchedule}
         onDelete={(billId) => onClearSchedule?.(billId)}
+      />
+
+      <MarkAsPaidDialog
+        open={markAsPaidDialogOpen}
+        onOpenChange={setMarkAsPaidDialogOpen}
+        payable={markingAsPaidPayable}
+        onSave={handleSaveMarkAsPaid}
       />
 
       <ProjectAmountDetailSheet

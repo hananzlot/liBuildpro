@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Sheet,
   SheetContent,
@@ -22,7 +23,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn, formatCurrency } from "@/lib/utils";
 import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X } from "lucide-react";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
-import { format, nextFriday, isSameDay, parseISO } from "date-fns";
+import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 interface PayablesSheetProps {
   open: boolean;
@@ -62,6 +64,15 @@ const getNextFriday = (): Date => {
   return nextFriday(today);
 };
 
+// Get the previous Saturday from today (or today if it's Saturday)
+const getPastSaturday = (): Date => {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  // If today is Saturday (6), return today, otherwise get previous Saturday
+  if (dayOfWeek === 6) return today;
+  return previousSaturday(today);
+};
+
 export function PayablesSheet({
   open,
   onOpenChange,
@@ -70,6 +81,7 @@ export function PayablesSheet({
   onSchedulePayment,
   onMarkAsPaid,
 }: PayablesSheetProps) {
+  const [activeTab, setActiveTab] = useState<"outstanding" | "history">("outstanding");
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>('amount_due');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -77,6 +89,55 @@ export function PayablesSheet({
   const [groupByProject, setGroupByProject] = useState(false);
   const [scheduledDateFilter, setScheduledDateFilter] = useState<Date | undefined>(getNextFriday());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  
+  // Paid History tab state
+  const [historyStartDate, setHistoryStartDate] = useState<Date>(getPastSaturday());
+  const [historyEndDate, setHistoryEndDate] = useState<Date>(getNextFriday());
+  const [historyStartPickerOpen, setHistoryStartPickerOpen] = useState(false);
+  const [historyEndPickerOpen, setHistoryEndPickerOpen] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+
+  // Fetch bill payments for history tab
+  const { data: billPayments = [], isLoading: loadingPayments } = useQuery({
+    queryKey: ["bill-payments-history", historyStartDate?.toISOString(), historyEndDate?.toISOString()],
+    queryFn: async () => {
+      const startDateStr = historyStartDate ? format(historyStartDate, 'yyyy-MM-dd') : null;
+      const endDateStr = historyEndDate ? format(historyEndDate, 'yyyy-MM-dd') : null;
+      
+      let query = supabase
+        .from("bill_payments")
+        .select(`
+          *,
+          project_bills!inner (
+            id,
+            project_id,
+            installer_company,
+            bill_ref,
+            category,
+            memo,
+            projects!inner (
+              id,
+              project_number,
+              project_name,
+              project_address
+            )
+          )
+        `)
+        .order("payment_date", { ascending: false });
+      
+      if (startDateStr) {
+        query = query.gte("payment_date", startDateStr);
+      }
+      if (endDateStr) {
+        query = query.lte("payment_date", endDateStr);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && activeTab === "history",
+  });
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -221,19 +282,49 @@ export function PayablesSheet({
     </Button>
   );
 
+  // Filter bill payments by search
+  const filteredBillPayments = useMemo(() => {
+    if (!historySearch) return billPayments;
+    const lower = historySearch.toLowerCase();
+    return billPayments.filter((bp: any) => {
+      const project = bp.project_bills?.projects;
+      const bill = bp.project_bills;
+      return (
+        project?.project_name?.toLowerCase().includes(lower) ||
+        project?.project_address?.toLowerCase().includes(lower) ||
+        bill?.installer_company?.toLowerCase().includes(lower) ||
+        bill?.bill_ref?.toLowerCase().includes(lower) ||
+        String(project?.project_number).includes(lower)
+      );
+    });
+  }, [billPayments, historySearch]);
+
+  // Calculate total paid in history
+  const historyTotalPaid = useMemo(() => {
+    return filteredBillPayments.reduce((sum: number, bp: any) => sum + (bp.payment_amount || 0), 0);
+  }, [filteredBillPayments]);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-7xl overflow-y-auto">
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>
-            <SheetTitle>Outstanding Payables (AP)</SheetTitle>
+              <SheetTitle>Accounts Payable</SheetTitle>
               <SheetDescription>
-                {payables.length} unpaid bills totaling {formatCurrency(totals.totalDue)}
-                {totals.totalScheduledAmount > 0 && (
-                  <span className="ml-2 text-primary font-medium">
-                    • {formatCurrency(totals.totalScheduledAmount)} scheduled
-                  </span>
+                {activeTab === "outstanding" ? (
+                  <>
+                    {payables.length} unpaid bills totaling {formatCurrency(totals.totalDue)}
+                    {totals.totalScheduledAmount > 0 && (
+                      <span className="ml-2 text-primary font-medium">
+                        • {formatCurrency(totals.totalScheduledAmount)} scheduled
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {filteredBillPayments.length} payments totaling {formatCurrency(historyTotalPaid)}
+                  </>
                 )}
               </SheetDescription>
             </div>
@@ -250,8 +341,36 @@ export function PayablesSheet({
         </SheetHeader>
 
         <div className="mt-6 space-y-4">
-          {/* Controls row */}
-          <div className="flex items-center justify-between gap-4 no-print flex-wrap">
+          {/* Tab switcher */}
+          <div className="flex gap-2 border-b no-print">
+            <button
+              onClick={() => setActiveTab("outstanding")}
+              className={cn(
+                "px-4 py-2 text-sm font-medium transition-colors",
+                activeTab === "outstanding"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Outstanding ({payables.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={cn(
+                "px-4 py-2 text-sm font-medium transition-colors",
+                activeTab === "history"
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Paid History
+            </button>
+          </div>
+
+          {activeTab === "outstanding" ? (
+            <>
+              {/* Controls row */}
+              <div className="flex items-center justify-between gap-4 no-print flex-wrap">
             {/* Summary badges - clickable filters */}
             <div className="flex gap-2 flex-wrap items-center">
               <Badge 
@@ -604,6 +723,139 @@ export function PayablesSheet({
               </TableBody>
             </Table>
           </div>
+            </>
+          ) : (
+            /* Paid History Tab */
+            <>
+              {/* Date Range Filter */}
+              <div className="flex items-center gap-4 no-print flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">From:</span>
+                  <Popover open={historyStartPickerOpen} onOpenChange={setHistoryStartPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="justify-start text-left font-normal">
+                        <CalendarIcon className="h-4 w-4 mr-1" />
+                        {historyStartDate ? format(historyStartDate, "MMM d, yyyy") : "Select"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={historyStartDate}
+                        onSelect={(date) => {
+                          if (date) setHistoryStartDate(date);
+                          setHistoryStartPickerOpen(false);
+                        }}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">To:</span>
+                  <Popover open={historyEndPickerOpen} onOpenChange={setHistoryEndPickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="justify-start text-left font-normal">
+                        <CalendarIcon className="h-4 w-4 mr-1" />
+                        {historyEndDate ? format(historyEndDate, "MMM d, yyyy") : "Select"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={historyEndDate}
+                        onSelect={(date) => {
+                          if (date) setHistoryEndDate(date);
+                          setHistoryEndPickerOpen(false);
+                        }}
+                        initialFocus
+                        className="p-3 pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {filteredBillPayments.length} payments • {formatCurrency(historyTotalPaid)}
+                </Badge>
+              </div>
+
+              {/* Search */}
+              <div className="relative no-print">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by project, vendor, or bill ref..."
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+
+              {/* History Table */}
+              <div className="border rounded-lg overflow-x-auto">
+                <Table className="print-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead>Vendor</TableHead>
+                      <TableHead>Bill Ref</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Bank</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingPayments ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          Loading...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredBillPayments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          No payments found in this date range
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredBillPayments.map((bp: any) => {
+                        const project = bp.project_bills?.projects;
+                        const bill = bp.project_bills;
+                        return (
+                          <TableRow
+                            key={bp.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => project?.id && onProjectClick?.(project.id)}
+                          >
+                            <TableCell className="text-sm">
+                              {bp.payment_date ? format(parseISO(bp.payment_date), "MMM d, yyyy") : "-"}
+                            </TableCell>
+                            <TableCell className="max-w-[200px]">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium truncate">
+                                  #{project?.project_number} - {project?.project_address || project?.project_name}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">{bill?.installer_company || "-"}</TableCell>
+                            <TableCell className="text-sm">{bill?.bill_ref || "-"}</TableCell>
+                            <TableCell className="text-right font-medium text-emerald-600">
+                              {formatCurrency(bp.payment_amount)}
+                            </TableCell>
+                            <TableCell className="text-sm">{bp.payment_method || "-"}</TableCell>
+                            <TableCell className="text-sm">{bp.payment_reference || "-"}</TableCell>
+                            <TableCell className="text-sm">{bp.bank_name || "-"}</TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </div>
       </SheetContent>
     </Sheet>

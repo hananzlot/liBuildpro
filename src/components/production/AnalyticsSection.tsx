@@ -93,7 +93,13 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
   }, [queryClient]);
 
   // Mark as paid handler - creates bill_payment record and updates bill
-  const handleMarkAsPaid = useCallback(async (billId: string, amount: number) => {
+  const handleMarkAsPaid = useCallback(async (billId: string, data: {
+    paymentDate: Date;
+    amount: number;
+    bankName: string | null;
+    paymentMethod: string | null;
+    paymentReference: string | null;
+  }) => {
     try {
       // Get current bill data
       const { data: bill, error: fetchError } = await supabase
@@ -104,20 +110,23 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
 
       if (fetchError) throw fetchError;
 
-      // Create bill payment record
+      // Create bill payment record with all details
       const { error: paymentError } = await supabase
         .from("bill_payments")
         .insert({
           bill_id: billId,
-          payment_amount: amount,
-          payment_date: bill.scheduled_payment_date || new Date().toISOString().split('T')[0],
+          payment_amount: data.amount,
+          payment_date: data.paymentDate.toISOString().split('T')[0],
+          bank_name: data.bankName,
+          payment_method: data.paymentMethod,
+          payment_reference: data.paymentReference,
         });
 
       if (paymentError) throw paymentError;
 
       // Update bill's amount_paid and balance
-      const newAmountPaid = (bill.amount_paid || 0) + amount;
-      const newBalance = (bill.balance || 0) - amount;
+      const newAmountPaid = (bill.amount_paid || 0) + data.amount;
+      const newBalance = (bill.balance || 0) - data.amount;
 
       const { error: updateError } = await supabase
         .from("project_bills")
