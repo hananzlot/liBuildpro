@@ -182,6 +182,8 @@ export function PayablesSheet({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bill-payments-history"] });
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
       toast.success("Payment deleted successfully");
       setDeleteDialogOpen(false);
       setDeletePaymentId(null);
