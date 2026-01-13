@@ -1389,19 +1389,32 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {allBillPayments.map((payment: any) => (
-                          <TableRow key={payment.id}>
-                            <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
-                            <TableCell className="text-xs">{payment.bill?.installer_company || "-"}</TableCell>
-                            <TableCell className="text-xs">{payment.bill?.bill_ref || "-"}</TableCell>
-                            <TableCell className="text-xs text-right text-emerald-600 font-medium">
-                              {formatCurrency(payment.payment_amount)}
-                            </TableCell>
-                            <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
-                            <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
-                            <TableCell className="text-xs">{payment.bank_name || "-"}</TableCell>
-                          </TableRow>
-                        ))}
+                        {allBillPayments.map((payment: any) => {
+                          // Find the full bill record to pass to history dialog
+                          const fullBill = bills.find(b => b.id === payment.bill_id);
+                          return (
+                            <TableRow 
+                              key={payment.id} 
+                              className="cursor-pointer hover:bg-muted/50"
+                              onClick={() => {
+                                if (fullBill) {
+                                  setHistoryBill(fullBill);
+                                  setHistoryDialogOpen(true);
+                                }
+                              }}
+                            >
+                              <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
+                              <TableCell className="text-xs">{payment.bill?.installer_company || "-"}</TableCell>
+                              <TableCell className="text-xs">{payment.bill?.bill_ref || "-"}</TableCell>
+                              <TableCell className="text-xs text-right text-emerald-600 font-medium">
+                                {formatCurrency(payment.payment_amount)}
+                              </TableCell>
+                              <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
+                              <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
+                              <TableCell className="text-xs">{payment.bank_name || "-"}</TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   )}
