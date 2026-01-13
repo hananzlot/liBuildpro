@@ -42,6 +42,7 @@ export function PayablesSheet({
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>('amount_due');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [scheduleFilter, setScheduleFilter] = useState<'all' | 'scheduled' | 'unscheduled'>('all');
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -52,8 +53,19 @@ export function PayablesSheet({
     }
   };
 
+  const toggleScheduleFilter = (filter: 'scheduled' | 'unscheduled') => {
+    setScheduleFilter(prev => prev === filter ? 'all' : filter);
+  };
+
   const filteredPayables = useMemo(() => {
     let result = payables;
+    
+    // Schedule filter
+    if (scheduleFilter === 'scheduled') {
+      result = result.filter(p => p.scheduled_payment_date);
+    } else if (scheduleFilter === 'unscheduled') {
+      result = result.filter(p => !p.scheduled_payment_date);
+    }
     
     // Search filter
     if (search) {
@@ -97,7 +109,7 @@ export function PayablesSheet({
     });
 
     return result;
-  }, [payables, search, sortField, sortDir]);
+  }, [payables, search, sortField, sortDir, scheduleFilter]);
 
   const totals = useMemo(() => ({
     totalDue: payables.reduce((sum, p) => sum + p.amount_due, 0),
@@ -119,7 +131,7 @@ export function PayablesSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-5xl overflow-y-auto">
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>
@@ -141,14 +153,41 @@ export function PayablesSheet({
         </SheetHeader>
 
         <div className="mt-6 space-y-4">
-          {/* Summary badges */}
+          {/* Summary badges - clickable filters */}
           <div className="flex gap-2 flex-wrap no-print">
-            <Badge variant="outline" className="bg-muted/50">
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "cursor-pointer transition-colors",
+                scheduleFilter === 'scheduled' 
+                  ? "bg-primary text-primary-foreground border-primary" 
+                  : "bg-muted/50 hover:bg-muted"
+              )}
+              onClick={() => toggleScheduleFilter('scheduled')}
+            >
               {totals.scheduled} Scheduled
             </Badge>
-            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "cursor-pointer transition-colors",
+                scheduleFilter === 'unscheduled' 
+                  ? "bg-amber-500 text-white border-amber-500" 
+                  : "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"
+              )}
+              onClick={() => toggleScheduleFilter('unscheduled')}
+            >
               {totals.unscheduled} Unscheduled
             </Badge>
+            {scheduleFilter !== 'all' && (
+              <Badge 
+                variant="outline" 
+                className="cursor-pointer bg-muted/50 hover:bg-muted"
+                onClick={() => setScheduleFilter('all')}
+              >
+                Clear filter
+              </Badge>
+            )}
           </div>
 
           {/* Search */}
