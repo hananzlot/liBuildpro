@@ -688,7 +688,7 @@ export function PayablesSheet({
                   <TableHead className="text-center whitespace-nowrap">
                     <SortButton field="project_current_cash">Project<br/>Cash</SortButton>
                   </TableHead>
-                  <TableHead className="text-center whitespace-nowrap">Total<br/>AP</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Total Project<br/>AP</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
