@@ -19,7 +19,8 @@ import {
   Building2,
   Upload,
   Archive,
-  RotateCcw
+  RotateCcw,
+  TrendingUp
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -149,6 +150,8 @@ export default function Production() {
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [profitSheetOpen, setProfitSheetOpen] = useState(false);
+  const [profitSheetType, setProfitSheetType] = useState<'expected' | 'realized' | null>(null);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
@@ -788,6 +791,31 @@ export default function Production() {
     return filteredByStatus.reduce((sum, p) => sum + (projectFinancials[p.id]?.contractsTotal || 0), 0);
   }, [filteredByStatus, projectFinancials]);
 
+  // Calculate profit KPIs (admin only)
+  const profitKPIs = useMemo(() => {
+    let expectedProfit = 0;
+    let realizedProfit = 0;
+    const expectedProfitProjects: string[] = [];
+    const realizedProfitProjects: string[] = [];
+
+    projects.forEach((p) => {
+      const financials = projectFinancials[p.id];
+      if (!financials || financials.contractsTotal === 0) return;
+      
+      const profit = financials.expectedFinalProfit || 0;
+      
+      if (p.project_status === 'Completed') {
+        realizedProfit += profit;
+        realizedProfitProjects.push(p.id);
+      } else {
+        expectedProfit += profit;
+        expectedProfitProjects.push(p.id);
+      }
+    });
+
+    return { expectedProfit, realizedProfit, expectedProfitProjects, realizedProfitProjects };
+  }, [projects, projectFinancials]);
+
   // Calculate warning counts
   const warningCounts = useMemo(() => {
     const counts = {
@@ -903,6 +931,56 @@ export default function Production() {
                   </CardContent>
                 </Card>
               </section>
+
+              {/* Admin-only Profit KPIs */}
+              {isAdmin && (
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Card 
+                    className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-emerald-500/30 bg-emerald-500/5"
+                    onClick={() => {
+                      setProfitSheetType('expected');
+                      setProfitSheetOpen(true);
+                    }}
+                  >
+                    <CardHeader className="pb-1 pt-3 px-4">
+                      <CardDescription className="text-xs flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        Expected Profit (In-Progress)
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-3 px-4">
+                      <p className={`text-2xl font-bold ${profitKPIs.expectedProfit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                        {formatCurrency(profitKPIs.expectedProfit)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {profitKPIs.expectedProfitProjects.length} project{profitKPIs.expectedProfitProjects.length !== 1 ? 's' : ''}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card 
+                    className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-blue-500/30 bg-blue-500/5"
+                    onClick={() => {
+                      setProfitSheetType('realized');
+                      setProfitSheetOpen(true);
+                    }}
+                  >
+                    <CardHeader className="pb-1 pt-3 px-4">
+                      <CardDescription className="text-xs flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        Realized Profit (Completed)
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-3 px-4">
+                      <p className={`text-2xl font-bold ${profitKPIs.realizedProfit >= 0 ? 'text-blue-600' : 'text-destructive'}`}>
+                        {formatCurrency(profitKPIs.realizedProfit)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {profitKPIs.realizedProfitProjects.length} project{profitKPIs.realizedProfitProjects.length !== 1 ? 's' : ''}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </section>
+              )}
 
           {/* Warnings Section - Two Columns */}
           {(totalWarnings > 0 || totalBookkeepingWarnings > 0) && (
@@ -1140,9 +1218,11 @@ export default function Production() {
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('proj_balance')}>
                           <div className="flex items-center justify-end">Proj Balance <SortIcon column="proj_balance" /></div>
                         </TableHead>
-                        <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('expected_profit')}>
-                          <div className="flex items-center justify-end">Exp Profit <SortIcon column="expected_profit" /></div>
-                        </TableHead>
+                        {isAdmin && (
+                          <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('expected_profit')}>
+                            <div className="flex items-center justify-end">Exp Profit <SortIcon column="expected_profit" /></div>
+                          </TableHead>
+                        )}
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50 bg-primary/10" onClick={() => handleSort('total_cash')}>
                           <div className="flex items-center justify-end font-semibold">Cash <SortIcon column="total_cash" /></div>
                         </TableHead>
@@ -1285,9 +1365,11 @@ export default function Production() {
                             <TableCell className="text-right text-xs text-amber-600">
                               {formatCurrency(financials?.projectBalanceDue)}
                             </TableCell>
-                            <TableCell className={`text-right text-xs font-medium ${financials?.contractsTotal > 0 ? ((financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
-                              {financials?.contractsTotal > 0 ? formatCurrency(financials?.expectedFinalProfit) : <span className="text-muted-foreground">-</span>}
-                            </TableCell>
+                            {isAdmin && (
+                              <TableCell className={`text-right text-xs font-medium ${financials?.contractsTotal > 0 ? ((financials?.expectedFinalProfit || 0) >= 0 ? 'text-emerald-600' : 'text-destructive') : ''}`}>
+                                {financials?.contractsTotal > 0 ? formatCurrency(financials?.expectedFinalProfit) : <span className="text-muted-foreground">-</span>}
+                              </TableCell>
+                            )}
                             <TableCell className={`text-right text-xs font-bold ${(() => {
                               const cash = financials?.totalCash || 0;
                               const billsPaid = financials?.totalBillPayments || 0;
@@ -1626,6 +1708,62 @@ export default function Production() {
                             Contract ≠ Est
                           </Badge>
                         )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </SheetContent>
+        </Sheet>
+
+        {/* Profit Projects Sheet (Admin only) */}
+        <Sheet open={profitSheetOpen} onOpenChange={setProfitSheetOpen}>
+          <SheetContent className="w-full sm:max-w-xl">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <TrendingUp className={`h-5 w-5 ${profitSheetType === 'expected' ? 'text-emerald-500' : 'text-blue-500'}`} />
+                {profitSheetType === 'expected' ? 'Expected Profit (In-Progress)' : 'Realized Profit (Completed)'}
+              </SheetTitle>
+              <SheetDescription>
+                {profitSheetType === 'expected' 
+                  ? `${profitKPIs.expectedProfitProjects.length} project(s) with expected profit of ${formatCurrency(profitKPIs.expectedProfit)}`
+                  : `${profitKPIs.realizedProfitProjects.length} project(s) with realized profit of ${formatCurrency(profitKPIs.realizedProfit)}`
+                }
+              </SheetDescription>
+            </SheetHeader>
+            <ScrollArea className="h-[calc(100vh-140px)] mt-4">
+              <div className="space-y-2 pr-4">
+                {(profitSheetType === 'expected' ? profitKPIs.expectedProfitProjects : profitKPIs.realizedProfitProjects).map((projectId) => {
+                  const project = projects.find(p => p.id === projectId);
+                  if (!project) return null;
+                  const financials = projectFinancials[project.id];
+                  const profit = financials?.expectedFinalProfit || 0;
+                  
+                  return (
+                    <div
+                      key={project.id}
+                      className="p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setProfitSheetOpen(false);
+                        handleOpenProject(project);
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">#{project.project_number} - {project.project_address || project.project_name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {project.primary_salesperson || 'No salesperson'} • Sold: {formatCurrency(financials?.contractsTotal || 0)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                            {formatCurrency(profit)}
+                          </p>
+                          <Badge variant="outline" className="text-[10px]">
+                            {project.project_status}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
                   );
