@@ -290,6 +290,9 @@ export function PayablesSheet({
                     <SortButton field="scheduled_payment_date">Scheduled<br/>Date</SortButton>
                   </TableHead>
                   <TableHead className="text-center whitespace-nowrap">Scheduled<br/>Amount</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">
+                    <SortButton field="cash_after_payment">Cash After<br/>Payment</SortButton>
+                  </TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>
                     <SortButton field="vendor">Vendor</SortButton>
@@ -301,9 +304,6 @@ export function PayablesSheet({
                     <SortButton field="project_current_cash">Project<br/>Cash</SortButton>
                   </TableHead>
                   <TableHead className="text-center whitespace-nowrap">Total<br/>AP</TableHead>
-                  <TableHead className="text-center whitespace-nowrap">
-                    <SortButton field="cash_after_payment">Cash After<br/>Payment</SortButton>
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -320,6 +320,12 @@ export function PayablesSheet({
                         <TableCell className="no-print" />
                         <TableCell />
                         <TableCell />
+                        <TableCell className={cn(
+                          "text-center font-semibold",
+                          group.cash_if_all_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
+                        )}>
+                          {formatCurrency(group.cash_if_all_paid)}
+                        </TableCell>
                         <TableCell className="font-semibold" colSpan={2}>
                           <div className="flex flex-col">
                             <span>{group.project_address || group.project_name}</span>
@@ -339,12 +345,6 @@ export function PayablesSheet({
                         </TableCell>
                         <TableCell className="text-center font-semibold text-muted-foreground">
                           {formatCurrency(group.total_ap)}
-                        </TableCell>
-                        <TableCell className={cn(
-                          "text-center font-semibold",
-                          group.cash_if_all_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
-                        )}>
-                          {formatCurrency(group.cash_if_all_paid)}
                         </TableCell>
                       </TableRow>
                       {/* Bill rows */}
@@ -389,6 +389,14 @@ export function PayablesSheet({
                               <span className="text-muted-foreground text-sm">-</span>
                             )}
                           </TableCell>
+                          <TableCell className={cn(
+                            "text-center",
+                            cashAfterPayment !== null 
+                              ? (cashAfterPayment >= 0 ? 'text-emerald-600' : 'text-red-600')
+                              : 'text-muted-foreground'
+                          )}>
+                            {cashAfterPayment !== null ? formatCurrency(cashAfterPayment) : '-'}
+                          </TableCell>
                           <TableCell className="pl-8 text-muted-foreground text-sm">
                             └ Bill
                           </TableCell>
@@ -398,14 +406,6 @@ export function PayablesSheet({
                           </TableCell>
                           <TableCell className="text-center text-muted-foreground">-</TableCell>
                           <TableCell className="text-center text-muted-foreground">-</TableCell>
-                          <TableCell className={cn(
-                            "text-center",
-                            cashAfterPayment !== null 
-                              ? (cashAfterPayment >= 0 ? 'text-emerald-600' : 'text-red-600')
-                              : 'text-muted-foreground'
-                          )}>
-                            {cashAfterPayment !== null ? formatCurrency(cashAfterPayment) : '-'}
-                          </TableCell>
                         </TableRow>
                         );
                       })}
@@ -454,6 +454,14 @@ export function PayablesSheet({
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
                         </TableCell>
+                        <TableCell className={cn(
+                          "text-center",
+                          cashAfterPayment !== null 
+                            ? (cashAfterPayment >= 0 ? 'text-emerald-600' : 'text-red-600')
+                            : 'text-muted-foreground'
+                        )}>
+                          {cashAfterPayment !== null ? formatCurrency(cashAfterPayment) : '-'}
+                        </TableCell>
                         <TableCell className="max-w-[200px]">
                           <div className="flex flex-col">
                             <span className="truncate">{payable.project_address || payable.project_name}</span>
@@ -474,14 +482,6 @@ export function PayablesSheet({
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground">
                           {formatCurrency(payable.total_project_payables)}
-                        </TableCell>
-                        <TableCell className={cn(
-                          "text-center",
-                          cashAfterPayment !== null 
-                            ? (cashAfterPayment >= 0 ? 'text-emerald-600' : 'text-red-600')
-                            : 'text-muted-foreground'
-                        )}>
-                          {cashAfterPayment !== null ? formatCurrency(cashAfterPayment) : '-'}
                         </TableCell>
                       </TableRow>
                     );
