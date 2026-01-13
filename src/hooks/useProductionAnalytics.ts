@@ -51,6 +51,7 @@ export interface InvoiceWithAging {
   project_name: string;
   project_number: number;
   project_address: string | null;
+  primary_salesperson: string | null;
   invoice_number: string | null;
   invoice_date: string | null;
   amount: number | null;
@@ -375,6 +376,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
           project_name: project?.project_name || 'Unknown',
           project_number: project?.project_number || 0,
           project_address: project?.project_address || null,
+          primary_salesperson: project?.primary_salesperson || null,
           invoice_number: inv.invoice_number,
           invoice_date: inv.invoice_date,
           amount: inv.amount,
