@@ -2531,14 +2531,14 @@ function BillDialog({
               </Select>
             </div>
             <div>
-              <Label>Category</Label>
+              <Label>Category <span className="text-destructive">*</span></Label>
               <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={categoryOpen}
-                    className="w-full justify-between font-normal"
+                    className={cn("w-full justify-between font-normal", !formData.category && "border-destructive")}
                   >
                     {formData.category || "Select or add..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -2592,6 +2592,9 @@ function BillDialog({
                   </Command>
                 </PopoverContent>
               </Popover>
+              {!formData.category && (
+                <p className="text-xs text-destructive mt-1">Category is required</p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
@@ -2629,8 +2632,16 @@ function BillDialog({
             </div>
           </div>
           <div>
-            <Label>Memo</Label>
-            <Input value={formData.memo} onChange={(e) => setFormData(p => ({ ...p, memo: e.target.value }))} />
+            <Label>Memo/Description <span className="text-destructive">*</span></Label>
+            <Input 
+              value={formData.memo} 
+              onChange={(e) => setFormData(p => ({ ...p, memo: e.target.value }))} 
+              placeholder="Describe the work or expense"
+              className={!formData.memo.trim() ? "border-destructive" : ""}
+            />
+            {!formData.memo.trim() && (
+              <p className="text-xs text-destructive mt-1">Memo is required</p>
+            )}
           </div>
           <div>
             <Label>Receipt/Attachment</Label>
@@ -2646,7 +2657,7 @@ function BillDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button 
               type="submit" 
-              disabled={isPending || !formData.agreement_id}
+              disabled={isPending || !formData.agreement_id || !formData.category || !formData.memo.trim()}
             >
               {isPending ? "Saving..." : "Save"}
             </Button>
