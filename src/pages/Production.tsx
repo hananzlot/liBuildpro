@@ -93,6 +93,7 @@ interface Project {
   deleted_at: string | null;
   agreement_signed_date: string | null;
   install_start_date: string | null;
+  completion_date: string | null;
 }
 
 interface ProjectFinancials {
@@ -156,7 +157,7 @@ export default function Production() {
   const [sortColumn, setSortColumn] = useState<SortColumn>('project_number');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [warningSheetOpen, setWarningSheetOpen] = useState(false);
-  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | null>(null);
+  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | null>(null);
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [projectInitialTab, setProjectInitialTab] = useState<string | undefined>(undefined);
@@ -961,11 +962,16 @@ export default function Production() {
   const bookkeepingWarningCounts = useMemo(() => {
     const counts = {
       missingSalesperson: 0,
+      missingCompletionDate: 0,
     };
     
     projects.forEach((p) => {
       if (!p.primary_salesperson || p.primary_salesperson.trim() === '') {
         counts.missingSalesperson++;
+      }
+      // Completed projects missing completion_date
+      if (p.project_status === 'Completed' && !p.completion_date) {
+        counts.missingCompletionDate++;
       }
     });
     
@@ -973,10 +979,10 @@ export default function Production() {
   }, [projects]);
 
   const totalWarnings = warningCounts.missingContract + warningCounts.missingPhases + warningCounts.phaseMismatch + warningCounts.contractMismatch;
-  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson;
+  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson + bookkeepingWarningCounts.missingCompletionDate;
 
   // Get projects with specific warning type
-  const getWarningProjects = useCallback((type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson') => {
+  const getWarningProjects = useCallback((type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate') => {
     return projects.filter(p => {
       const f = projectFinancials[p.id];
       switch (type) {
@@ -985,11 +991,12 @@ export default function Production() {
         case 'phaseMismatch': return f?.hasPhaseMismatch;
         case 'contractMismatch': return f?.hasContractMismatch;
         case 'missingSalesperson': return !p.primary_salesperson || p.primary_salesperson.trim() === '';
+        case 'missingCompletionDate': return p.project_status === 'Completed' && !p.completion_date;
       }
     });
   }, [projects, projectFinancials]);
 
-  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson') => {
+  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate') => {
     setWarningSheetType(type);
     setWarningSheetOpen(true);
   };
@@ -1000,6 +1007,7 @@ export default function Production() {
     phaseMismatch: 'Phase Amount Mismatch',
     contractMismatch: 'Contract Mismatch Dispatch Reported $ Sold',
     missingSalesperson: 'Missing Salesperson',
+    missingCompletionDate: 'Missing Completion Date',
   };
 
   const handleAdminAction = (action: string) => {
@@ -1224,6 +1232,19 @@ export default function Production() {
                             S
                           </Badge>
                           No Salesperson: {bookkeepingWarningCounts.missingSalesperson}
+                        </Button>
+                      )}
+                      {bookkeepingWarningCounts.missingCompletionDate > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs bg-red-500/10 border-red-500/30 text-red-600 hover:bg-red-500/20"
+                          onClick={() => handleOpenWarningSheet('missingCompletionDate')}
+                        >
+                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-red-500 text-white border-0">
+                            E
+                          </Badge>
+                          No End Date: {bookkeepingWarningCounts.missingCompletionDate}
                         </Button>
                       )}
                     </div>
@@ -1470,11 +1491,14 @@ export default function Production() {
                                 {project.install_start_date && (
                                   <span className="text-[10px] text-muted-foreground">
                                     {format(parseISO(project.install_start_date), "M/d/yy")}
+                                    {project.completion_date && (
+                                      <> - {format(parseISO(project.completion_date), "M/d/yy")}</>
+                                    )}
                                     {" "}
                                     ({(() => {
                                       const startDate = parseISO(project.install_start_date!);
-                                      const endDate = project.project_status === "Completed" && project.updated_at
-                                        ? parseISO(project.updated_at)
+                                      const endDate = project.completion_date
+                                        ? parseISO(project.completion_date)
                                         : new Date();
                                       const diffDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
                                       return `${diffDays}d`;

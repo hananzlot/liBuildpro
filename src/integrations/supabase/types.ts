@@ -2094,6 +2094,7 @@ export type Database = {
           branch: string | null
           cell_phone: string | null
           commission_split_pct: number | null
+          completion_date: string | null
           contact_id: string | null
           contact_preferences: string | null
           contract_expiration_date: string | null
@@ -2156,6 +2157,7 @@ export type Database = {
           branch?: string | null
           cell_phone?: string | null
           commission_split_pct?: number | null
+          completion_date?: string | null
           contact_id?: string | null
           contact_preferences?: string | null
           contract_expiration_date?: string | null
@@ -2218,6 +2220,7 @@ export type Database = {
           branch?: string | null
           cell_phone?: string | null
           commission_split_pct?: number | null
+          completion_date?: string | null
           contact_id?: string | null
           contact_preferences?: string | null
           contract_expiration_date?: string | null
