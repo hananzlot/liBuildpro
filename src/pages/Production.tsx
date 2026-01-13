@@ -112,6 +112,8 @@ interface ProjectFinancials {
   estimatedCost: number | null;
   estimatedProjectCost: number | null;
   effectiveEstimatedCost: number;
+  displayCost: number; // For completed projects: actual bills; for others: max(bills, estimated)
+  isCompleted: boolean;
   exceededExpectedCosts: boolean;
   projectBalanceDue: number;
   profitToDate: number;
@@ -398,6 +400,8 @@ export default function Production() {
       estimatedCost: project.estimated_cost,
       estimatedProjectCost: project.estimated_project_cost,
       effectiveEstimatedCost,
+      displayCost: costForProfit, // For completed: actual bills; for others: max(bills, estimated)
+      isCompleted,
       exceededExpectedCosts,
       projectBalanceDue,
       profitToDate,
@@ -464,7 +468,7 @@ export default function Production() {
           comparison = (financialsA?.contractsTotal || 0) - (financialsB?.contractsTotal || 0);
           break;
         case 'est_proj_cost':
-          comparison = (financialsA?.effectiveEstimatedCost || 0) - (financialsB?.effectiveEstimatedCost || 0);
+          comparison = (financialsA?.displayCost || 0) - (financialsB?.displayCost || 0);
           break;
         case 'bills_received':
           comparison = (financialsA?.totalBillsReceived || 0) - (financialsB?.totalBillsReceived || 0);
@@ -1328,7 +1332,7 @@ export default function Production() {
                           <div className="flex items-center justify-end">Sold Amt <SortIcon column="sold_amount" /></div>
                         </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('est_proj_cost')}>
-                          <div className="flex items-center justify-end">Est Costs</div>
+                          <div className="flex items-center justify-end">Proj Cost <SortIcon column="est_proj_cost" /></div>
                         </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('bills_received')}>
                           <div className="flex items-center justify-end">Bills Rcvd <SortIcon column="bills_received" /></div>
@@ -1459,8 +1463,22 @@ export default function Production() {
                             <TableCell className="text-right text-xs">
                               {financials?.contractsTotal > 0 ? (
                                 <div className="flex items-center justify-end gap-1">
-                                  {formatCurrency(financials?.effectiveEstimatedCost)}
-                                  {financials?.exceededExpectedCosts && (
+                                  <span className={financials?.isCompleted ? 'text-blue-600' : ''}>
+                                    {formatCurrency(financials?.displayCost)}
+                                  </span>
+                                  {financials?.isCompleted && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Badge variant="outline" className="h-5 px-1 text-[9px] bg-blue-500/10 text-blue-600 border-blue-500/20">
+                                          A
+                                        </Badge>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Actual costs from bills (project completed)</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  {!financials?.isCompleted && financials?.exceededExpectedCosts && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <Badge variant="outline" className="h-5 px-1 text-[9px] bg-destructive/10 text-destructive border-destructive/20">
