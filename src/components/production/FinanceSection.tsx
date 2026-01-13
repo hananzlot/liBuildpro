@@ -2293,7 +2293,7 @@ function PaymentDialog({
         .select("name")
         .order("name");
       if (error) throw error;
-      return data.map(b => b.name);
+      return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
     },
     enabled: open,
   });
@@ -3337,7 +3337,7 @@ function QuickPayDialog({
         .select("name")
         .order("name");
       if (error) throw error;
-      return data.map(b => b.name);
+      return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
     },
     enabled: open,
   });
@@ -4077,7 +4077,7 @@ function CommissionPaymentDialog({
         .select("name")
         .order("name");
       if (error) throw error;
-      return data.map(b => b.name);
+      return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
     },
     enabled: open,
   });
