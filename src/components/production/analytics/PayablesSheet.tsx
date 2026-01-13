@@ -31,26 +31,36 @@ interface PayablesSheetProps {
   onOpenChange: (open: boolean) => void;
   payables: PayableWithCashImpact[];
   onProjectClick?: (projectId: string) => void;
-  onSchedulePayment?: (payable: PayableWithCashImpact) => void;
+  onSchedulePayment?: (payable: PayableWithCashImpact, scheduledDateFilter?: Date) => void;
   onMarkAsPaid?: (payable: PayableWithCashImpact) => void;
 }
 
 type SortField = 'project_number' | 'vendor' | 'amount_due' | 'project_current_cash' | 'cash_after_payment' | 'scheduled_payment_date';
 type SortDir = 'asc' | 'desc';
 
-// Helper to calculate total scheduled payments per project
-const getProjectScheduledTotal = (payables: PayableWithCashImpact[], projectId: string): number => {
+// Helper to calculate total scheduled payments per project (filtered by date)
+const getProjectScheduledTotal = (
+  payables: PayableWithCashImpact[], 
+  projectId: string,
+  filterDate?: Date
+): number => {
   return payables
-    .filter(p => p.project_id === projectId && p.scheduled_payment_date)
+    .filter(p => {
+      if (p.project_id !== projectId || !p.scheduled_payment_date) return false;
+      if (!filterDate) return true;
+      const scheduledDate = parseISO(p.scheduled_payment_date);
+      return scheduledDate <= filterDate;
+    })
     .reduce((sum, p) => sum + (p.scheduled_payment_amount || p.amount_due), 0);
 };
 
-// Helper to calculate cash after ALL scheduled payments for the project
+// Helper to calculate cash after ALL scheduled payments for the project (filtered by date)
 const getCashAfterAllScheduledPayments = (
   payable: PayableWithCashImpact, 
-  allPayables: PayableWithCashImpact[]
+  allPayables: PayableWithCashImpact[],
+  filterDate?: Date
 ): number | null => {
-  const totalScheduled = getProjectScheduledTotal(allPayables, payable.project_id);
+  const totalScheduled = getProjectScheduledTotal(allPayables, payable.project_id, filterDate);
   if (totalScheduled === 0) return null;
   return payable.project_current_cash - totalScheduled;
 };
@@ -207,8 +217,8 @@ export function PayablesSheet({
           cmp = a.project_current_cash - b.project_current_cash;
           break;
         case 'cash_after_payment':
-          const cashA = getCashAfterAllScheduledPayments(a, payables);
-          const cashB = getCashAfterAllScheduledPayments(b, payables);
+          const cashA = getCashAfterAllScheduledPayments(a, payables, scheduledDateFilter);
+          const cashB = getCashAfterAllScheduledPayments(b, payables, scheduledDateFilter);
           if (cashA === null && cashB === null) cmp = 0;
           else if (cashA === null) cmp = 1;
           else if (cashB === null) cmp = -1;
@@ -547,7 +557,7 @@ export function PayablesSheet({
                       </TableRow>
                       {/* Bill rows */}
                       {group.bills.map((payable) => {
-                        const cashAfterPayment = getCashAfterAllScheduledPayments(payable, payables);
+                        const cashAfterPayment = getCashAfterAllScheduledPayments(payable, payables, scheduledDateFilter);
                         return (
                         <TableRow
                           key={payable.id}
@@ -561,7 +571,7 @@ export function PayablesSheet({
                               className="h-8 w-8"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onSchedulePayment?.(payable);
+                                onSchedulePayment?.(payable, scheduledDateFilter);
                               }}
                             >
                               {payable.scheduled_payment_date ? (
@@ -626,7 +636,7 @@ export function PayablesSheet({
                 ) : (
                   // Flat view
                   filteredPayables.map((payable) => {
-                    const cashAfterPayment = getCashAfterAllScheduledPayments(payable, payables);
+                    const cashAfterPayment = getCashAfterAllScheduledPayments(payable, payables, scheduledDateFilter);
                     return (
                       <TableRow
                         key={payable.id}
@@ -640,7 +650,7 @@ export function PayablesSheet({
                             className="h-8 w-8"
                             onClick={(e) => {
                               e.stopPropagation();
-                              onSchedulePayment?.(payable);
+                              onSchedulePayment?.(payable, scheduledDateFilter);
                             }}
                           >
                             {payable.scheduled_payment_date ? (

@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Calendar as CalendarIcon, AlertTriangle, CheckCircle, Trash2 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 
 interface SchedulePaymentDialogProps {
@@ -23,6 +23,7 @@ interface SchedulePaymentDialogProps {
   onOpenChange: (open: boolean) => void;
   payable: PayableWithCashImpact | null;
   allPayables?: PayableWithCashImpact[];
+  scheduledDateFilter?: Date;
   onSave: (billId: string, date: Date, amount: number) => void;
   onDelete?: (billId: string) => void;
 }
@@ -32,6 +33,7 @@ export function SchedulePaymentDialog({
   onOpenChange,
   payable,
   allPayables = [],
+  scheduledDateFilter,
   onSave,
   onDelete,
 }: SchedulePaymentDialogProps) {
@@ -56,12 +58,19 @@ export function SchedulePaymentDialog({
   const paymentAmount = parseFloat(amount) || 0;
   
   // Calculate other scheduled payments for the same project (excluding this bill)
+  // Only include payments scheduled on or before the filter date
   const otherScheduledPayments = allPayables
-    .filter(p => 
-      p.project_id === payable.project_id && 
-      p.id !== payable.id && 
-      p.scheduled_payment_date
-    )
+    .filter(p => {
+      if (p.project_id !== payable.project_id || p.id === payable.id || !p.scheduled_payment_date) {
+        return false;
+      }
+      // If there's a filter date, only include payments scheduled on or before that date
+      if (scheduledDateFilter) {
+        const scheduledDate = parseISO(p.scheduled_payment_date);
+        return scheduledDate <= scheduledDateFilter;
+      }
+      return true;
+    })
     .reduce((sum, p) => sum + (p.scheduled_payment_amount || p.amount_due), 0);
   
   const projectedCash = payable.project_current_cash - paymentAmount - otherScheduledPayments;

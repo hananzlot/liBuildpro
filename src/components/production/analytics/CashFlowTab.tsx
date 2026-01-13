@@ -96,6 +96,7 @@ export function CashFlowTab({
   const [payablesSheetOpen, setPayablesSheetOpen] = useState(false);
   const [scheduleSheetOpen, setScheduleSheetOpen] = useState(false);
   const [schedulingPayable, setSchedulingPayable] = useState<PayableWithCashImpact | null>(null);
+  const [scheduledDateFilter, setScheduledDateFilter] = useState<Date | undefined>(undefined);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [markingAsPaidPayable, setMarkingAsPaidPayable] = useState<PayableWithCashImpact | null>(null);
   const [markAsPaidDialogOpen, setMarkAsPaidDialogOpen] = useState(false);
@@ -144,8 +145,9 @@ export function CashFlowTab({
     }
   };
 
-  const handleSchedulePayment = (payable: PayableWithCashImpact) => {
+  const handleSchedulePayment = (payable: PayableWithCashImpact, dateFilter?: Date) => {
     setSchedulingPayable(payable);
+    setScheduledDateFilter(dateFilter);
     setScheduleDialogOpen(true);
   };
 
@@ -390,6 +392,7 @@ export function CashFlowTab({
         onOpenChange={setScheduleDialogOpen}
         payable={schedulingPayable}
         allPayables={payablesWithCashImpact}
+        scheduledDateFilter={scheduledDateFilter}
         onSave={handleSaveSchedule}
         onDelete={(billId) => onClearSchedule?.(billId)}
       />
