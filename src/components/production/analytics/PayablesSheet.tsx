@@ -30,7 +30,7 @@ interface PayablesSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   payables: PayableWithCashImpact[];
-  onProjectClick?: (projectId: string) => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history') => void;
   onBillClick?: (projectId: string, billId: string) => void;
   onSchedulePayment?: (payable: PayableWithCashImpact, scheduledDateFilter?: Date) => void;
   onMarkAsPaid?: (payable: PayableWithCashImpact) => void;
@@ -239,14 +239,26 @@ export function PayablesSheet({
     return result;
   }, [payables, search, sortField, sortDir, scheduleFilter, scheduledDateFilter]);
 
-  const totals = useMemo(() => ({
-    totalDue: payables.reduce((sum, p) => sum + p.amount_due, 0),
-    scheduled: payables.filter(p => p.scheduled_payment_date).length,
-    unscheduled: payables.filter(p => !p.scheduled_payment_date).length,
-    totalScheduledAmount: payables
-      .filter(p => p.scheduled_payment_date)
-      .reduce((sum, p) => sum + (p.scheduled_payment_amount || p.amount_due), 0),
-  }), [payables]);
+  const totals = useMemo(() => {
+    // Apply date filter for counts if date is set
+    let filteredForCounts = payables;
+    if (scheduledDateFilter) {
+      filteredForCounts = payables.filter(p => {
+        if (!p.scheduled_payment_date) return true; // unscheduled always included
+        const scheduledDate = parseISO(p.scheduled_payment_date);
+        return scheduledDate <= scheduledDateFilter;
+      });
+    }
+    
+    return {
+      totalDue: payables.reduce((sum, p) => sum + p.amount_due, 0),
+      scheduled: filteredForCounts.filter(p => p.scheduled_payment_date).length,
+      unscheduled: filteredForCounts.filter(p => !p.scheduled_payment_date).length,
+      totalScheduledAmount: filteredForCounts
+        .filter(p => p.scheduled_payment_date)
+        .reduce((sum, p) => sum + (p.scheduled_payment_amount || p.amount_due), 0),
+    };
+  }, [payables, scheduledDateFilter]);
 
   // Group payables by project
   const groupedPayables = useMemo(() => {
@@ -564,7 +576,7 @@ export function PayablesSheet({
                         <TableRow
                           key={payable.id}
                           className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => onProjectClick?.(payable.project_id)}
+                          onClick={() => onProjectClick?.(payable.project_id, "finance", "payables", "bills")}
                         >
                           <TableCell className="no-print">
                             <Button
@@ -643,7 +655,7 @@ export function PayablesSheet({
                       <TableRow
                         key={payable.id}
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => onProjectClick?.(payable.project_id)}
+                        onClick={() => onProjectClick?.(payable.project_id, "finance", "payables", "bills")}
                       >
                         <TableCell className="no-print">
                           <Button
