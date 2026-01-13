@@ -1470,89 +1470,118 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                   </p>
                 ) : (
                   <div className="space-y-0.5">
-                    {checklists.map((item) => (
-                      <div 
-                        key={item.id} 
-                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 group"
-                      >
-                        <Checkbox
-                          className="h-3.5 w-3.5"
-                          checked={item.completed}
-                          onCheckedChange={(checked) => 
-                            toggleChecklistMutation.mutate({ id: item.id, completed: !!checked })
-                          }
-                        />
-                        {editingChecklistId === item.id ? (
-                          <div className="flex-1 flex gap-1">
-                            <Input
-                              value={editingChecklistText}
-                              onChange={(e) => setEditingChecklistText(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && editingChecklistText.trim()) {
-                                  updateChecklistMutation.mutate({ id: item.id, item: editingChecklistText.trim() });
-                                }
-                                if (e.key === "Escape") {
-                                  setEditingChecklistId(null);
-                                  setEditingChecklistText("");
-                                }
-                              }}
-                              autoFocus
-                              className="h-6 text-xs"
-                            />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0"
-                              onClick={() => {
-                                if (editingChecklistText.trim()) {
-                                  updateChecklistMutation.mutate({ id: item.id, item: editingChecklistText.trim() });
-                                }
-                              }}
-                            >
-                              <Check className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0"
-                              onClick={() => {
-                                setEditingChecklistId(null);
-                                setEditingChecklistText("");
-                              }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            <span className={cn("flex-1 text-xs", item.completed && "line-through text-muted-foreground")}>
-                              {item.item}
-                            </span>
-                            <div className="opacity-0 group-hover:opacity-100 flex gap-0.5">
+                    {checklists.map((item) => {
+                      const isOverdue = item.due_date && !item.completed && new Date(item.due_date) < new Date();
+                      return (
+                        <div 
+                          key={item.id} 
+                          className={cn(
+                            "flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted/50 group",
+                            isOverdue && "bg-destructive/10"
+                          )}
+                        >
+                          <Checkbox
+                            className="h-3.5 w-3.5"
+                            checked={item.completed}
+                            onCheckedChange={(checked) => 
+                              toggleChecklistMutation.mutate({ id: item.id, completed: !!checked })
+                            }
+                          />
+                          {editingChecklistId === item.id ? (
+                            <div className="flex-1 flex gap-1">
+                              <Input
+                                value={editingChecklistText}
+                                onChange={(e) => setEditingChecklistText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && editingChecklistText.trim()) {
+                                    updateChecklistMutation.mutate({ id: item.id, item: editingChecklistText.trim() });
+                                  }
+                                  if (e.key === "Escape") {
+                                    setEditingChecklistId(null);
+                                    setEditingChecklistText("");
+                                  }
+                                }}
+                                autoFocus
+                                className="h-6 text-xs"
+                              />
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-5 w-5 p-0"
+                                className="h-6 w-6 p-0"
                                 onClick={() => {
-                                  setEditingChecklistId(item.id);
-                                  setEditingChecklistText(item.item);
+                                  if (editingChecklistText.trim()) {
+                                    updateChecklistMutation.mutate({ id: item.id, item: editingChecklistText.trim() });
+                                  }
                                 }}
                               >
-                                <Pencil className="h-2.5 w-2.5" />
+                                <Check className="h-3 w-3" />
                               </Button>
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-5 w-5 p-0 text-destructive hover:text-destructive"
-                                onClick={() => deleteChecklistMutation.mutate(item.id)}
+                                className="h-6 w-6 p-0"
+                                onClick={() => {
+                                  setEditingChecklistId(null);
+                                  setEditingChecklistText("");
+                                }}
                               >
-                                <Trash2 className="h-2.5 w-2.5" />
+                                <X className="h-3 w-3" />
                               </Button>
                             </div>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                          ) : (
+                            <>
+                              <span className={cn("flex-1 text-xs", item.completed && "line-through text-muted-foreground")}>
+                                {item.item}
+                                {item.due_date && (
+                                  <span className={cn(
+                                    "ml-2 text-[10px]",
+                                    isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
+                                  )}>
+                                    (Due: {new Date(item.due_date).toLocaleDateString()})
+                                  </span>
+                                )}
+                              </span>
+                              <div className="opacity-0 group-hover:opacity-100 flex gap-0.5">
+                                <Input
+                                  type="date"
+                                  className="h-5 w-[100px] text-[10px] px-1"
+                                  value={item.due_date || ""}
+                                  onChange={(e) => {
+                                    const newDate = e.target.value || null;
+                                    supabase
+                                      .from("project_checklists")
+                                      .update({ due_date: newDate })
+                                      .eq("id", item.id)
+                                      .then(() => {
+                                        queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
+                                      });
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => {
+                                    setEditingChecklistId(item.id);
+                                    setEditingChecklistText(item.item);
+                                  }}
+                                >
+                                  <Pencil className="h-2.5 w-2.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                  onClick={() => deleteChecklistMutation.mutate(item.id)}
+                                >
+                                  <Trash2 className="h-2.5 w-2.5" />
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

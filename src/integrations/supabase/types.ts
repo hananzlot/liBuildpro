@@ -1397,6 +1397,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           created_at: string | null
+          due_date: string | null
           id: string
           item: string
           project_id: string | null
@@ -1406,6 +1407,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
+          due_date?: string | null
           id?: string
           item: string
           project_id?: string | null
@@ -1415,6 +1417,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string | null
+          due_date?: string | null
           id?: string
           item?: string
           project_id?: string | null

@@ -157,7 +157,7 @@ export default function Production() {
   const [sortColumn, setSortColumn] = useState<SortColumn>('project_number');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [warningSheetOpen, setWarningSheetOpen] = useState(false);
-  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | null>(null);
+  const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists' | null>(null);
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [projectInitialTab, setProjectInitialTab] = useState<string | undefined>(undefined);
@@ -293,6 +293,18 @@ export default function Production() {
       const { data, error } = await supabase
         .from("commission_payments")
         .select("id, project_id, payment_amount, payment_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch all checklist items to check for overdue
+  const { data: allChecklists = [] } = useQuery({
+    queryKey: ["all-project-checklists"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_checklists")
+        .select("id, project_id, item, completed, due_date");
       if (error) throw error;
       return data;
     },
@@ -960,9 +972,13 @@ export default function Production() {
 
   // Calculate bookkeeping warning counts
   const bookkeepingWarningCounts = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const counts = {
       missingSalesperson: 0,
       missingCompletionDate: 0,
+      overdueChecklists: 0,
     };
     
     projects.forEach((p) => {
@@ -975,14 +991,41 @@ export default function Production() {
       }
     });
     
+    // Count projects with overdue checklists
+    const projectsWithOverdue = new Set<string>();
+    allChecklists.forEach((item) => {
+      if (item.due_date && !item.completed) {
+        const dueDate = new Date(item.due_date);
+        if (dueDate < today) {
+          projectsWithOverdue.add(item.project_id);
+        }
+      }
+    });
+    counts.overdueChecklists = projectsWithOverdue.size;
+    
     return counts;
-  }, [projects]);
+  }, [projects, allChecklists]);
 
   const totalWarnings = warningCounts.missingContract + warningCounts.missingPhases + warningCounts.phaseMismatch + warningCounts.contractMismatch;
-  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson + bookkeepingWarningCounts.missingCompletionDate;
+  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson + bookkeepingWarningCounts.missingCompletionDate + bookkeepingWarningCounts.overdueChecklists;
 
   // Get projects with specific warning type
-  const getWarningProjects = useCallback((type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate') => {
+  const getWarningProjects = useCallback((type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists') => {
+    if (type === 'overdueChecklists') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const projectsWithOverdue = new Set<string>();
+      allChecklists.forEach((item) => {
+        if (item.due_date && !item.completed) {
+          const dueDate = new Date(item.due_date);
+          if (dueDate < today) {
+            projectsWithOverdue.add(item.project_id);
+          }
+        }
+      });
+      return projects.filter(p => projectsWithOverdue.has(p.id));
+    }
+    
     return projects.filter(p => {
       const f = projectFinancials[p.id];
       switch (type) {
@@ -994,9 +1037,9 @@ export default function Production() {
         case 'missingCompletionDate': return p.project_status === 'Completed' && !p.completion_date;
       }
     });
-  }, [projects, projectFinancials]);
+  }, [projects, projectFinancials, allChecklists]);
 
-  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate') => {
+  const handleOpenWarningSheet = (type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists') => {
     setWarningSheetType(type);
     setWarningSheetOpen(true);
   };
@@ -1245,6 +1288,19 @@ export default function Production() {
                             E
                           </Badge>
                           No End Date: {bookkeepingWarningCounts.missingCompletionDate}
+                        </Button>
+                      )}
+                      {bookkeepingWarningCounts.overdueChecklists > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs bg-orange-500/10 border-orange-500/30 text-orange-600 hover:bg-orange-500/20"
+                          onClick={() => handleOpenWarningSheet('overdueChecklists')}
+                        >
+                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-orange-500 text-white border-0">
+                            C
+                          </Badge>
+                          Overdue Checklists: {bookkeepingWarningCounts.overdueChecklists}
                         </Button>
                       )}
                     </div>
