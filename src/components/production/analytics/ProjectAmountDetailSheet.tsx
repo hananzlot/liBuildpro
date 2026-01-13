@@ -510,7 +510,7 @@ function CashPositionContent({
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead>Phase Description</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
               </TableRow>
             </TableHeader>
@@ -520,7 +520,9 @@ function CashPositionContent({
                   <TableCell>
                     {p.projected_received_date ? new Date(p.projected_received_date).toLocaleDateString() : '-'}
                   </TableCell>
-                  <TableCell>{p.payment_schedule || p.bank_name || 'Payment'}</TableCell>
+                  <TableCell>
+                    {p.payment_phase?.description || p.payment_phase?.phase_name || p.payment_schedule || '-'}
+                  </TableCell>
                   <TableCell className="text-right font-medium text-emerald-600">
                     +{formatCurrency(p.payment_amount || 0)}
                   </TableCell>
