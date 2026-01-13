@@ -157,6 +157,7 @@ export default function Production() {
   const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | null>(null);
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [projectInitialTab, setProjectInitialTab] = useState<string | undefined>(undefined);
   const [showArchived, setShowArchived] = useState(false);
   const [profitSheetOpen, setProfitSheetOpen] = useState(false);
   const [profitSheetType, setProfitSheetType] = useState<'expected' | 'realized' | null>(null);
@@ -794,7 +795,8 @@ export default function Production() {
     return toTitleCase(fullName);
   };
 
-  const handleOpenProject = (project: Project) => {
+  const handleOpenProject = (project: Project, initialTab?: string) => {
+    setProjectInitialTab(initialTab);
     setSelectedProject(project);
     setDetailSheetOpen(true);
   };
@@ -1655,10 +1657,10 @@ export default function Production() {
 
           {activeView === 'analytics' && (
             <AnalyticsSection 
-              onProjectClick={(projectId) => {
+              onProjectClick={(projectId, initialTab) => {
                 const project = projects.find(p => p.id === projectId);
                 if (project) {
-                  handleOpenProject(project);
+                  handleOpenProject(project, initialTab);
                 }
               }}
             />
@@ -1688,10 +1690,14 @@ export default function Production() {
         <ProjectDetailSheet
           project={selectedProject}
           open={detailSheetOpen}
-          onOpenChange={setDetailSheetOpen}
+          onOpenChange={(open) => {
+            setDetailSheetOpen(open);
+            if (!open) setProjectInitialTab(undefined);
+          }}
           onUpdate={refetch}
           autoOpenBillDialog={pendingBillDialogOpen}
           onBillDialogOpened={() => setPendingBillDialogOpen(false)}
+          initialTab={projectInitialTab}
         />
 
         {/* New Project Dialog */}
