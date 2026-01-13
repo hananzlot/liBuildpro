@@ -1534,44 +1534,62 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                 {item.item}
                               </span>
                               <Input
-                                type="date"
+                                type="text"
+                                placeholder="MM/DD/YYYY"
                                 className={cn(
-                                  "h-5 w-[110px] text-[10px] px-1",
+                                  "h-5 w-[90px] text-[10px] px-1",
                                   isOverdue && "border-destructive text-destructive"
                                 )}
-                                value={item.due_date || ""}
-                                onChange={(e) => {
-                                  const newDate = e.target.value || null;
-                                  supabase
-                                    .from("project_checklists")
-                                    .update({ due_date: newDate })
-                                    .eq("id", item.id)
-                                    .then(() => {
-                                      queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
-                                    });
+                                defaultValue={item.due_date ? new Date(item.due_date).toLocaleDateString('en-US') : ""}
+                                key={item.due_date}
+                                onBlur={(e) => {
+                                  const input = e.target.value.trim();
+                                  if (!input) {
+                                    supabase
+                                      .from("project_checklists")
+                                      .update({ due_date: null })
+                                      .eq("id", item.id)
+                                      .then(() => {
+                                        queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
+                                      });
+                                    return;
+                                  }
+                                  const parsed = new Date(input);
+                                  if (!isNaN(parsed.getTime())) {
+                                    const formatted = parsed.toISOString().split('T')[0];
+                                    supabase
+                                      .from("project_checklists")
+                                      .update({ due_date: formatted })
+                                      .eq("id", item.id)
+                                      .then(() => {
+                                        queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
+                                      });
+                                  }
                                 }}
                               />
-                              <div className="opacity-0 group-hover:opacity-100 flex gap-0.5">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-5 w-5 p-0"
-                                  onClick={() => {
-                                    setEditingChecklistId(item.id);
-                                    setEditingChecklistText(item.item);
-                                  }}
-                                >
-                                  <Pencil className="h-2.5 w-2.5" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-5 w-5 p-0 text-destructive hover:text-destructive"
-                                  onClick={() => deleteChecklistMutation.mutate(item.id)}
-                                >
-                                  <Trash2 className="h-2.5 w-2.5" />
-                                </Button>
-                              </div>
+                              {isAdmin && (
+                                <div className="opacity-0 group-hover:opacity-100 flex gap-0.5">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-5 w-5 p-0"
+                                    onClick={() => {
+                                      setEditingChecklistId(item.id);
+                                      setEditingChecklistText(item.item);
+                                    }}
+                                  >
+                                    <Pencil className="h-2.5 w-2.5" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                    onClick={() => deleteChecklistMutation.mutate(item.id)}
+                                  >
+                                    <Trash2 className="h-2.5 w-2.5" />
+                                  </Button>
+                                </div>
+                              )}
                             </>
                           )}
                         </div>
