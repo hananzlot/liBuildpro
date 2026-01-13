@@ -361,6 +361,7 @@ export function CashFlowTab({
         onOpenChange={setScheduleDialogOpen}
         payable={schedulingPayable}
         onSave={handleSaveSchedule}
+        onDelete={(billId) => onClearSchedule?.(billId)}
       />
 
       <ProjectAmountDetailSheet
