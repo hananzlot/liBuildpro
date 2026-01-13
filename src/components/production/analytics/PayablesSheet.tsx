@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Sheet,
   SheetContent,
@@ -15,16 +15,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X } from "lucide-react";
+import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X, Trash2 } from "lucide-react";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface PayablesSheetProps {
   open: boolean;
@@ -93,6 +105,9 @@ export function PayablesSheet({
   onSchedulePayment,
   onMarkAsPaid,
 }: PayablesSheetProps) {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  
   const [activeTab, setActiveTab] = useState<"outstanding" | "history">("outstanding");
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>('amount_due');
@@ -108,6 +123,10 @@ export function PayablesSheet({
   const [historyStartPickerOpen, setHistoryStartPickerOpen] = useState(false);
   const [historyEndPickerOpen, setHistoryEndPickerOpen] = useState(false);
   const [historySearch, setHistorySearch] = useState("");
+  
+  // Delete confirmation state
+  const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Fetch bill payments for history tab
   const { data: billPayments = [], isLoading: loadingPayments } = useQuery({
@@ -150,6 +169,39 @@ export function PayablesSheet({
     },
     enabled: open && activeTab === "history",
   });
+
+  // Delete bill payment mutation
+  const deletePaymentMutation = useMutation({
+    mutationFn: async (paymentId: string) => {
+      const { error } = await supabase
+        .from("bill_payments")
+        .delete()
+        .eq("id", paymentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bill-payments-history"] });
+      queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
+      toast.success("Payment deleted successfully");
+      setDeleteDialogOpen(false);
+      setDeletePaymentId(null);
+    },
+    onError: (error: any) => {
+      toast.error("Failed to delete payment: " + error.message);
+    },
+  });
+
+  const handleDeletePayment = (paymentId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeletePaymentId(paymentId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeletePayment = () => {
+    if (deletePaymentId) {
+      deletePaymentMutation.mutate(deletePaymentId);
+    }
+  };
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -387,7 +439,7 @@ export function PayablesSheet({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              Paid History
+              Paid History ({billPayments.length})
             </button>
           </div>
 
@@ -828,18 +880,19 @@ export function PayablesSheet({
                       <TableHead>Method</TableHead>
                       <TableHead>Reference</TableHead>
                       <TableHead>Bank</TableHead>
+                      {isAdmin && <TableHead className="w-[50px] no-print"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {loadingPayments ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">
                           Loading...
                         </TableCell>
                       </TableRow>
                     ) : filteredBillPayments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">
                           No payments found in this date range
                         </TableCell>
                       </TableRow>
@@ -875,6 +928,18 @@ export function PayablesSheet({
                             <TableCell className="text-sm">{bp.payment_method || "-"}</TableCell>
                             <TableCell className="text-sm">{bp.payment_reference || "-"}</TableCell>
                             <TableCell className="text-sm">{bp.bank_name || "-"}</TableCell>
+                            {isAdmin && (
+                              <TableCell className="no-print">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => handleDeletePayment(bp.id, e)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })
@@ -886,6 +951,27 @@ export function PayablesSheet({
           )}
         </div>
       </SheetContent>
+
+      {/* Delete Payment Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this payment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeletePayment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
