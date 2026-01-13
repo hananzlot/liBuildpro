@@ -697,6 +697,24 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           }}
                         />
                       </div>
+                      {fullProject?.project_status === "Completed" && (
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Project End Date</Label>
+                          <Input
+                            className={cn("h-8 text-xs", !fullProject?.completion_date && "border-destructive")}
+                            type="date"
+                            defaultValue={fullProject?.completion_date ? fullProject.completion_date.split('T')[0] : ""} 
+                            key={fullProject?.completion_date}
+                            onBlur={(e) => {
+                              const newValue = e.target.value || null;
+                              const oldValue = fullProject?.completion_date ? fullProject.completion_date.split('T')[0] : null;
+                              if (newValue !== oldValue) {
+                                updateProjectMutation.mutate({ completion_date: newValue });
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[11px] text-muted-foreground">Project Address</Label>
