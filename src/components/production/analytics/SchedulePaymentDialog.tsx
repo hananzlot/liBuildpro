@@ -22,6 +22,7 @@ interface SchedulePaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   payable: PayableWithCashImpact | null;
+  allPayables?: PayableWithCashImpact[];
   onSave: (billId: string, date: Date, amount: number) => void;
   onDelete?: (billId: string) => void;
 }
@@ -30,6 +31,7 @@ export function SchedulePaymentDialog({
   open,
   onOpenChange,
   payable,
+  allPayables = [],
   onSave,
   onDelete,
 }: SchedulePaymentDialogProps) {
@@ -52,7 +54,17 @@ export function SchedulePaymentDialog({
   if (!payable) return null;
 
   const paymentAmount = parseFloat(amount) || 0;
-  const projectedCash = payable.project_current_cash - paymentAmount;
+  
+  // Calculate other scheduled payments for the same project (excluding this bill)
+  const otherScheduledPayments = allPayables
+    .filter(p => 
+      p.project_id === payable.project_id && 
+      p.id !== payable.id && 
+      p.scheduled_payment_date
+    )
+    .reduce((sum, p) => sum + (p.scheduled_payment_amount || p.amount_due), 0);
+  
+  const projectedCash = payable.project_current_cash - paymentAmount - otherScheduledPayments;
   const isNegative = projectedCash < 0;
 
   const handleSave = () => {
@@ -152,8 +164,18 @@ export function SchedulePaymentDialog({
               )}>
                 {formatCurrency(payable.project_current_cash)}
               </div>
+              {otherScheduledPayments > 0 && (
+                <>
+                  <div>
+                    <span className="text-muted-foreground">Other Scheduled Payments:</span>
+                  </div>
+                  <div className="text-right font-medium text-red-600">
+                    -{formatCurrency(otherScheduledPayments)}
+                  </div>
+                </>
+              )}
               <div>
-                <span className="text-muted-foreground">Payment Amount:</span>
+                <span className="text-muted-foreground">This Payment:</span>
               </div>
               <div className="text-right font-medium text-red-600">
                 -{formatCurrency(paymentAmount)}
