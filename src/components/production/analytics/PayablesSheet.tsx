@@ -29,8 +29,15 @@ interface PayablesSheetProps {
   onSchedulePayment?: (payable: PayableWithCashImpact) => void;
 }
 
-type SortField = 'project_number' | 'vendor' | 'amount_due' | 'project_current_cash' | 'cash_if_this_paid' | 'scheduled_payment_date';
+type SortField = 'project_number' | 'vendor' | 'amount_due' | 'project_current_cash' | 'cash_after_payment' | 'scheduled_payment_date';
 type SortDir = 'asc' | 'desc';
+
+// Helper to calculate cash after scheduled payment
+const getCashAfterPayment = (payable: PayableWithCashImpact): number | null => {
+  if (!payable.scheduled_payment_date) return null;
+  const scheduledAmount = payable.scheduled_payment_amount || payable.amount_due;
+  return payable.project_current_cash - scheduledAmount;
+};
 
 export function PayablesSheet({
   open,
@@ -96,8 +103,13 @@ export function PayablesSheet({
         case 'project_current_cash':
           cmp = a.project_current_cash - b.project_current_cash;
           break;
-        case 'cash_if_this_paid':
-          cmp = a.cash_if_this_paid - b.cash_if_this_paid;
+        case 'cash_after_payment':
+          const cashA = getCashAfterPayment(a);
+          const cashB = getCashAfterPayment(b);
+          if (cashA === null && cashB === null) cmp = 0;
+          else if (cashA === null) cmp = 1;
+          else if (cashB === null) cmp = -1;
+          else cmp = cashA - cashB;
           break;
         case 'scheduled_payment_date':
           if (!a.scheduled_payment_date && !b.scheduled_payment_date) cmp = 0;
@@ -269,11 +281,10 @@ export function PayablesSheet({
                   <TableHead className="text-center whitespace-nowrap">
                     <SortButton field="project_current_cash">Project<br/>Cash</SortButton>
                   </TableHead>
-                  <TableHead className="text-center whitespace-nowrap">
-                    <SortButton field="cash_if_this_paid">If<br/>Paid</SortButton>
-                  </TableHead>
                   <TableHead className="text-center whitespace-nowrap">Total<br/>AP</TableHead>
-                  <TableHead className="text-center whitespace-nowrap">If All<br/>Paid</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">
+                    <SortButton field="cash_after_payment">Cash After<br/>Payment</SortButton>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -306,7 +317,6 @@ export function PayablesSheet({
                         )}>
                           {formatCurrency(group.project_current_cash)}
                         </TableCell>
-                        <TableCell />
                         <TableCell className="text-center font-semibold text-muted-foreground">
                           {formatCurrency(group.total_ap)}
                         </TableCell>
@@ -318,7 +328,9 @@ export function PayablesSheet({
                         </TableCell>
                       </TableRow>
                       {/* Bill rows */}
-                      {group.bills.map((payable) => (
+                      {group.bills.map((payable) => {
+                        const cashAfterPayment = getCashAfterPayment(payable);
+                        return (
                         <TableRow
                           key={payable.id}
                           className="cursor-pointer hover:bg-muted/50"
@@ -355,88 +367,89 @@ export function PayablesSheet({
                             {formatCurrency(payable.amount_due)}
                           </TableCell>
                           <TableCell className="text-center text-muted-foreground">-</TableCell>
+                          <TableCell className="text-center text-muted-foreground">-</TableCell>
                           <TableCell className={cn(
                             "text-center",
-                            payable.cash_if_this_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
+                            cashAfterPayment !== null 
+                              ? (cashAfterPayment >= 0 ? 'text-emerald-600' : 'text-red-600')
+                              : 'text-muted-foreground'
                           )}>
-                            {formatCurrency(payable.cash_if_this_paid)}
+                            {cashAfterPayment !== null ? formatCurrency(cashAfterPayment) : '-'}
                           </TableCell>
-                          <TableCell className="text-center text-muted-foreground">-</TableCell>
-                          <TableCell className="text-center text-muted-foreground">-</TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </>
                   ))
                 ) : (
                   // Flat view
-                  filteredPayables.map((payable) => (
-                    <TableRow
-                      key={payable.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => onProjectClick?.(payable.project_id)}
-                    >
-                      <TableCell className="no-print">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSchedulePayment?.(payable);
-                          }}
-                        >
-                          <Calendar className="h-4 w-4 mr-1" />
-                          Schedule
-                        </Button>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {payable.scheduled_payment_date ? (
-                          <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            {new Date(payable.scheduled_payment_date).toLocaleDateString()}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <div className="flex flex-col">
-                          <span className="truncate">{payable.project_address || payable.project_name}</span>
-                          {payable.project_address && (
-                            <span className="text-xs text-muted-foreground truncate">{payable.project_name}</span>
+                  filteredPayables.map((payable) => {
+                    const cashAfterPayment = getCashAfterPayment(payable);
+                    return (
+                      <TableRow
+                        key={payable.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => onProjectClick?.(payable.project_id)}
+                      >
+                        <TableCell className="no-print">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSchedulePayment?.(payable);
+                            }}
+                          >
+                            <Calendar className="h-4 w-4 mr-1" />
+                            Schedule
+                          </Button>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {payable.scheduled_payment_date ? (
+                            <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {new Date(payable.scheduled_payment_date).toLocaleDateString()}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{payable.vendor || '-'}</TableCell>
-                      <TableCell className="text-center font-medium">
-                        {formatCurrency(payable.amount_due)}
-                      </TableCell>
-                      <TableCell className={cn(
-                        "text-center",
-                        payable.project_current_cash >= 0 ? 'text-emerald-600' : 'text-red-600'
-                      )}>
-                        {formatCurrency(payable.project_current_cash)}
-                      </TableCell>
-                      <TableCell className={cn(
-                        "text-center",
-                        payable.cash_if_this_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
-                      )}>
-                        {formatCurrency(payable.cash_if_this_paid)}
-                      </TableCell>
-                      <TableCell className="text-center text-muted-foreground">
-                        {formatCurrency(payable.total_project_payables)}
-                      </TableCell>
-                      <TableCell className={cn(
-                        "text-center",
-                        payable.cash_if_all_project_payables_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
-                      )}>
-                        {formatCurrency(payable.cash_if_all_project_payables_paid)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell className="max-w-[200px]">
+                          <div className="flex flex-col">
+                            <span className="truncate">{payable.project_address || payable.project_name}</span>
+                            {payable.project_address && (
+                              <span className="text-xs text-muted-foreground truncate">{payable.project_name}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{payable.vendor || '-'}</TableCell>
+                        <TableCell className="text-center font-medium">
+                          {formatCurrency(payable.amount_due)}
+                        </TableCell>
+                        <TableCell className={cn(
+                          "text-center",
+                          payable.project_current_cash >= 0 ? 'text-emerald-600' : 'text-red-600'
+                        )}>
+                          {formatCurrency(payable.project_current_cash)}
+                        </TableCell>
+                        <TableCell className="text-center text-muted-foreground">
+                          {formatCurrency(payable.total_project_payables)}
+                        </TableCell>
+                        <TableCell className={cn(
+                          "text-center",
+                          cashAfterPayment !== null 
+                            ? (cashAfterPayment >= 0 ? 'text-emerald-600' : 'text-red-600')
+                            : 'text-muted-foreground'
+                        )}>
+                          {cashAfterPayment !== null ? formatCurrency(cashAfterPayment) : '-'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
                 {filteredPayables.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No payables found
                     </TableCell>
                   </TableRow>
