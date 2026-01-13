@@ -66,6 +66,7 @@ export interface BankTransaction {
   type: 'in' | 'out';
   project_id: string | null;
   project_name: string;
+  project_address: string | null;
   description: string;
   amount: number;
   bank_or_method: string | null;
@@ -401,6 +402,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
           type: 'in',
           project_id: p.project_id,
           project_name: project?.project_name || 'Unknown',
+          project_address: project?.project_address || null,
           description: p.payment_schedule || 'Payment received',
           amount: p.payment_amount || 0,
           bank_or_method: p.bank_name,
@@ -419,6 +421,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         type: 'out',
         project_id: bill.project_id,
         project_name: project?.project_name || 'Unknown',
+        project_address: project?.project_address || null,
         description: `${bill.installer_company || 'Vendor'} - ${bill.bill_ref || 'Bill'}`,
         amount: bp.payment_amount || 0,
         bank_or_method: bp.payment_method,
