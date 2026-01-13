@@ -173,17 +173,69 @@ export function PayablesSheet({
   // Delete bill payment mutation
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const { error } = await supabase
+      // Fetch payment + associated bill so we can reverse the "amount_paid" rollup
+      const { data: payment, error: paymentFetchError } = await supabase
+        .from("bill_payments")
+        .select("id, bill_id, payment_amount")
+        .eq("id", paymentId)
+        .single();
+
+      if (paymentFetchError) throw paymentFetchError;
+
+      const { data: bill, error: billFetchError } = await supabase
+        .from("project_bills")
+        .select("id, bill_amount, amount_paid, balance")
+        .eq("id", payment.bill_id)
+        .single();
+
+      if (billFetchError) throw billFetchError;
+
+      const paymentAmount = payment.payment_amount || 0;
+      const originalAmountPaid = bill.amount_paid || 0;
+      const originalBalance = bill.balance;
+
+      const newAmountPaid = Math.max(0, originalAmountPaid - paymentAmount);
+      const newBalance =
+        bill.bill_amount != null
+          ? Math.max(0, (bill.bill_amount || 0) - newAmountPaid)
+          : (bill.balance || 0) + paymentAmount;
+
+      // Update bill first, then delete payment; rollback bill update if delete fails.
+      const { error: updateError } = await supabase
+        .from("project_bills")
+        .update({
+          amount_paid: newAmountPaid,
+          balance: newBalance,
+        })
+        .eq("id", bill.id);
+
+      if (updateError) throw updateError;
+
+      const { error: deleteError } = await supabase
         .from("bill_payments")
         .delete()
         .eq("id", paymentId);
-      if (error) throw error;
+
+      if (deleteError) {
+        // Best-effort rollback
+        await supabase
+          .from("project_bills")
+          .update({
+            amount_paid: originalAmountPaid,
+            balance: originalBalance,
+          })
+          .eq("id", bill.id);
+
+        throw deleteError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bill-payments-history"] });
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
       queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
       queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["all-bill-payments"] });
       toast.success("Payment deleted successfully");
       setDeleteDialogOpen(false);
       setDeletePaymentId(null);
