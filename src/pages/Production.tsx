@@ -800,8 +800,9 @@ export default function Production() {
   };
 
   // Helper to check if a date falls within the KPI filter range
-  const isWithinKpiRange = useCallback((dateStr: string | null) => {
-    if (!kpiDateRange?.from || !kpiDateRange?.to || !dateStr) return true;
+  const isWithinKpiRange = useCallback((dateStr: string | null): boolean => {
+    if (!dateStr) return false; // No date means not in range
+    if (!kpiDateRange?.from || !kpiDateRange?.to) return true; // No filter set
     try {
       const date = parseISO(dateStr);
       return isWithinInterval(date, { 
@@ -809,7 +810,7 @@ export default function Production() {
         end: endOfDay(kpiDateRange.to) 
       });
     } catch {
-      return true;
+      return false;
     }
   }, [kpiDateRange]);
 
@@ -824,7 +825,10 @@ export default function Production() {
     
     // Apply date range filter (using agreement_signed_date)
     if (kpiDateRange?.from && kpiDateRange?.to) {
-      filtered = filtered.filter(p => isWithinKpiRange(p.agreement_signed_date));
+      filtered = filtered.filter(p => {
+        if (!p.agreement_signed_date) return false; // Exclude projects without date
+        return isWithinKpiRange(p.agreement_signed_date);
+      });
     }
     
     return filtered;
