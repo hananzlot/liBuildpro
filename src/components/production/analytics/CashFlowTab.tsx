@@ -18,6 +18,7 @@ import { CashFlowKPISheet, CashFlowKPIType } from "./CashFlowKPISheet";
 import { PayablesSheet } from "./PayablesSheet";
 import { PaymentScheduleSheet } from "./PaymentScheduleSheet";
 import { SchedulePaymentDialog } from "./SchedulePaymentDialog";
+import { ProjectAmountDetailSheet, AmountType } from "./ProjectAmountDetailSheet";
 
 interface CashFlowTabProps {
   projects: ProjectWithFinancials[];
@@ -87,6 +88,18 @@ export function CashFlowTab({
   const [scheduleSheetOpen, setScheduleSheetOpen] = useState(false);
   const [schedulingPayable, setSchedulingPayable] = useState<PayableWithCashImpact | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  
+  // Project amount detail states
+  const [amountDetailOpen, setAmountDetailOpen] = useState(false);
+  const [selectedAmountProject, setSelectedAmountProject] = useState<ProjectWithFinancials | null>(null);
+  const [selectedAmountType, setSelectedAmountType] = useState<AmountType | null>(null);
+
+  const handleAmountClick = (e: React.MouseEvent, project: ProjectWithFinancials, amountType: AmountType) => {
+    e.stopPropagation();
+    setSelectedAmountProject(project);
+    setSelectedAmountType(amountType);
+    setAmountDetailOpen(true);
+  };
 
   // Summary counts
   const statusCounts = useMemo(() => {
@@ -263,19 +276,40 @@ export function CashFlowTab({
                       {project.project_address || project.project_name}
                     </TableCell>
                     <TableCell>{project.primary_salesperson || '-'}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(project.contractsTotal)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(project.invoicesCollected)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(project.totalBillsPaid)}</TableCell>
-                    <TableCell className={cn(
-                      "text-right font-medium",
-                      project.cashPosition >= 0 ? 'text-emerald-600' : 'text-red-600'
-                    )}>
+                    <TableCell 
+                      className="text-right hover:underline hover:text-primary cursor-pointer"
+                      onClick={(e) => handleAmountClick(e, project, 'contract')}
+                    >
+                      {formatCurrency(project.contractsTotal)}
+                    </TableCell>
+                    <TableCell 
+                      className="text-right hover:underline hover:text-primary cursor-pointer"
+                      onClick={(e) => handleAmountClick(e, project, 'collected')}
+                    >
+                      {formatCurrency(project.invoicesCollected)}
+                    </TableCell>
+                    <TableCell 
+                      className="text-right hover:underline hover:text-primary cursor-pointer"
+                      onClick={(e) => handleAmountClick(e, project, 'billsPaid')}
+                    >
+                      {formatCurrency(project.totalBillsPaid)}
+                    </TableCell>
+                    <TableCell 
+                      className={cn(
+                        "text-right font-medium hover:underline cursor-pointer",
+                        project.cashPosition >= 0 ? 'text-emerald-600 hover:text-emerald-700' : 'text-red-600 hover:text-red-700'
+                      )}
+                      onClick={(e) => handleAmountClick(e, project, 'cashPosition')}
+                    >
                       {formatCurrency(project.cashPosition)}
                     </TableCell>
-                    <TableCell className={cn(
-                      "text-right",
-                      project.invoiceBalanceDue > 0 ? 'text-amber-600' : ''
-                    )}>
+                    <TableCell 
+                      className={cn(
+                        "text-right hover:underline cursor-pointer",
+                        project.invoiceBalanceDue > 0 ? 'text-amber-600 hover:text-amber-700' : ''
+                      )}
+                      onClick={(e) => handleAmountClick(e, project, 'arBalance')}
+                    >
                       {formatCurrency(project.invoiceBalanceDue)}
                     </TableCell>
                     <TableCell>
@@ -327,6 +361,15 @@ export function CashFlowTab({
         onOpenChange={setScheduleDialogOpen}
         payable={schedulingPayable}
         onSave={handleSaveSchedule}
+      />
+
+      <ProjectAmountDetailSheet
+        open={amountDetailOpen}
+        onOpenChange={setAmountDetailOpen}
+        projectId={selectedAmountProject?.id || null}
+        projectNumber={selectedAmountProject?.project_number || 0}
+        projectName={selectedAmountProject?.project_address || selectedAmountProject?.project_name || ''}
+        amountType={selectedAmountType}
       />
     </div>
   );
