@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ interface CashFlowTabProps {
   payablesWithCashImpact: PayableWithCashImpact[];
   cashFlowTimeline: CashFlowTimelinePoint[];
   scheduledPayments: PayableWithCashImpact[];
-  onProjectClick?: (projectId: string, initialTab?: string) => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables') => void;
   onSchedulePayment?: (billId: string, date: Date, amount: number) => void;
   onClearSchedule?: (billId: string) => void;
   onMarkAsPaid?: (billId: string, data: {
@@ -45,6 +45,8 @@ interface CashFlowTabProps {
     paymentMethod: string | null;
     paymentReference: string | null;
   }) => void;
+  reopenPayablesSheet?: boolean;
+  onPayablesSheetOpened?: () => void;
 }
 
 const getCashStatusColor = (status: string) => {
@@ -89,6 +91,8 @@ export function CashFlowTab({
   onSchedulePayment,
   onClearSchedule,
   onMarkAsPaid,
+  reopenPayablesSheet,
+  onPayablesSheetOpened,
 }: CashFlowTabProps) {
   // Sheet states
   const [selectedKPI, setSelectedKPI] = useState<CashFlowKPIType | null>(null);
@@ -100,6 +104,14 @@ export function CashFlowTab({
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [markingAsPaidPayable, setMarkingAsPaidPayable] = useState<PayableWithCashImpact | null>(null);
   const [markAsPaidDialogOpen, setMarkAsPaidDialogOpen] = useState(false);
+  
+  // Reopen payables sheet when flag is set
+  useEffect(() => {
+    if (reopenPayablesSheet) {
+      setPayablesSheetOpen(true);
+      onPayablesSheetOpened?.();
+    }
+  }, [reopenPayablesSheet, onPayablesSheetOpened]);
   
   // Project amount detail states
   const [amountDetailOpen, setAmountDetailOpen] = useState(false);
@@ -376,7 +388,7 @@ export function CashFlowTab({
         onProjectClick={onProjectClick}
         onBillClick={(projectId, billId) => {
           setPayablesSheetOpen(false);
-          onProjectClick?.(projectId, "finance");
+          onProjectClick?.(projectId, "finance", "payables");
         }}
         onSchedulePayment={handleSchedulePayment}
         onMarkAsPaid={handleMarkAsPaid}

@@ -158,6 +158,8 @@ export default function Production() {
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [projectInitialTab, setProjectInitialTab] = useState<string | undefined>(undefined);
+  const [returnToAfterProjectClose, setReturnToAfterProjectClose] = useState<'payables' | null>(null);
+  const [reopenPayablesSheet, setReopenPayablesSheet] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [profitSheetOpen, setProfitSheetOpen] = useState(false);
   const [profitSheetType, setProfitSheetType] = useState<'expected' | 'realized' | null>(null);
@@ -795,8 +797,9 @@ export default function Production() {
     return toTitleCase(fullName);
   };
 
-  const handleOpenProject = (project: Project, initialTab?: string) => {
+  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables') => {
     setProjectInitialTab(initialTab);
+    setReturnToAfterProjectClose(returnTo || null);
     setSelectedProject(project);
     setDetailSheetOpen(true);
   };
@@ -1657,12 +1660,14 @@ export default function Production() {
 
           {activeView === 'analytics' && (
             <AnalyticsSection 
-              onProjectClick={(projectId, initialTab) => {
+              onProjectClick={(projectId, initialTab, returnTo) => {
                 const project = projects.find(p => p.id === projectId);
                 if (project) {
-                  handleOpenProject(project, initialTab);
+                  handleOpenProject(project, initialTab, returnTo);
                 }
               }}
+              reopenPayablesSheet={reopenPayablesSheet}
+              onPayablesSheetOpened={() => setReopenPayablesSheet(false)}
             />
           )}
 
@@ -1692,7 +1697,14 @@ export default function Production() {
           open={detailSheetOpen}
           onOpenChange={(open) => {
             setDetailSheetOpen(open);
-            if (!open) setProjectInitialTab(undefined);
+            if (!open) {
+              // Handle return-to behavior
+              if (returnToAfterProjectClose === 'payables') {
+                setReopenPayablesSheet(true);
+              }
+              setProjectInitialTab(undefined);
+              setReturnToAfterProjectClose(null);
+            }
           }}
           onUpdate={refetch}
           autoOpenBillDialog={pendingBillDialogOpen}
