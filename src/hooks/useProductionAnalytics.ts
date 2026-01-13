@@ -68,6 +68,8 @@ export interface BankTransaction {
   description: string;
   amount: number;
   bank_or_method: string | null;
+  vendor_name?: string | null;
+  vendor_type?: string | null;
 }
 
 export interface SalespersonCommission {
@@ -413,6 +415,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         description: `${bill.installer_company || 'Vendor'} - ${bill.bill_ref || 'Bill'}`,
         amount: bp.payment_amount || 0,
         bank_or_method: bp.payment_method,
+        vendor_name: bill.installer_company || null,
+        vendor_type: bill.category || null,
       });
     });
 
