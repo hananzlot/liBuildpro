@@ -1466,17 +1466,10 @@ export default function Production() {
                                   <span className={financials?.isCompleted ? 'text-blue-600' : ''}>
                                     {formatCurrency(financials?.displayCost)}
                                   </span>
-                                  {financials?.isCompleted && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Badge variant="outline" className="h-5 px-1 text-[9px] bg-blue-500/10 text-blue-600 border-blue-500/20">
-                                          A
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Actual costs from bills (project completed)</p>
-                                      </TooltipContent>
-                                    </Tooltip>
+                                  {financials?.isCompleted ? (
+                                    <span className="text-[9px] text-blue-600 font-medium">act.</span>
+                                  ) : (
+                                    <span className="text-[9px] text-muted-foreground">est.</span>
                                   )}
                                   {!financials?.isCompleted && financials?.exceededExpectedCosts && (
                                     <Tooltip>
