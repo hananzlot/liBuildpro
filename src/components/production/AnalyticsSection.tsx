@@ -150,6 +150,10 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
       queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
       queryClient.invalidateQueries({ queryKey: ["production-analytics"] });
       queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
+      // Refresh Projects main table calculations
+      queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
+      queryClient.invalidateQueries({ queryKey: ["all-bill-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     } catch (error: any) {
       toast.error(`Failed to record payment: ${error.message}`);
     }
