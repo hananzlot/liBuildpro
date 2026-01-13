@@ -57,6 +57,7 @@ export interface InvoiceWithAging {
   open_balance: number | null;
   daysOutstanding: number;
   agingBucket: '0-30' | '31-60' | '61-90' | '90+';
+  phase_description: string | null;
 }
 
 export interface BankTransaction {
@@ -145,7 +146,10 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_invoices")
-        .select("id, project_id, invoice_number, invoice_date, amount, payments_received, open_balance");
+        .select(`
+          id, project_id, invoice_number, invoice_date, amount, payments_received, open_balance,
+          payment_phase:project_payment_phases(phase_name, description)
+        `);
       if (error) throw error;
       return data;
     },
@@ -361,6 +365,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         else if (daysOutstanding > 60) agingBucket = '61-90';
         else if (daysOutstanding > 30) agingBucket = '31-60';
 
+        const paymentPhase = inv.payment_phase as { phase_name: string; description: string } | null;
+
         return {
           id: inv.id,
           project_id: inv.project_id,
@@ -373,6 +379,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
           open_balance: inv.open_balance,
           daysOutstanding,
           agingBucket,
+          phase_description: paymentPhase?.description || paymentPhase?.phase_name || null,
         };
       })
       .sort((a, b) => b.daysOutstanding - a.daysOutstanding);

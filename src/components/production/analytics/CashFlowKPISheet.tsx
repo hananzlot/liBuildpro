@@ -409,7 +409,7 @@ function ARContent({
     return invoices.filter(i =>
       !search ||
       i.project_name.toLowerCase().includes(lower) ||
-      i.invoice_number?.toLowerCase().includes(lower) ||
+      i.phase_description?.toLowerCase().includes(lower) ||
       String(i.project_number).includes(lower)
     );
   }, [invoices, search]);
@@ -429,7 +429,7 @@ function ARContent({
             <TableRow>
               <TableHead className="w-[60px]">#</TableHead>
               <TableHead>Project</TableHead>
-              <TableHead>Invoice #</TableHead>
+              <TableHead>Phase Description</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Amount</TableHead>
               <TableHead className="text-right">Paid</TableHead>
@@ -447,7 +447,7 @@ function ARContent({
               >
                 <TableCell className="font-medium">{inv.project_number}</TableCell>
                 <TableCell className="max-w-[150px] truncate">{inv.project_name}</TableCell>
-                <TableCell>{inv.invoice_number || '-'}</TableCell>
+                <TableCell>{inv.phase_description || '-'}</TableCell>
                 <TableCell>
                   {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : '-'}
                 </TableCell>
