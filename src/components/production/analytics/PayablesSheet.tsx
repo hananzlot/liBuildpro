@@ -206,9 +206,6 @@ export function PayablesSheet({
             <Table className="print-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[60px]">
-                    <SortButton field="project_number">#</SortButton>
-                  </TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>
                     <SortButton field="vendor">Vendor</SortButton>
@@ -226,7 +223,7 @@ export function PayablesSheet({
                   <TableHead className="text-right">Total AP</TableHead>
                   <TableHead className="text-right">If All Paid</TableHead>
                   <TableHead>
-                    <SortButton field="scheduled_payment_date">Scheduled</SortButton>
+                    <SortButton field="scheduled_payment_date">Scheduled Date</SortButton>
                   </TableHead>
                   <TableHead className="no-print">Action</TableHead>
                 </TableRow>
@@ -238,7 +235,6 @@ export function PayablesSheet({
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => onProjectClick?.(payable.project_id)}
                   >
-                    <TableCell className="font-medium">{payable.project_number}</TableCell>
                     <TableCell className="max-w-[150px] truncate">
                       {payable.project_address || payable.project_name}
                     </TableCell>
@@ -295,7 +291,7 @@ export function PayablesSheet({
                 ))}
                 {filteredPayables.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No payables found
                     </TableCell>
                   </TableRow>
