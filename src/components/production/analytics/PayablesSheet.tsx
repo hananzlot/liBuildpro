@@ -165,7 +165,54 @@ export function PayablesSheet({
       
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      
+      // Get unique project IDs to fetch their cash positions
+      const projectIds = [...new Set((data || []).map((bp: any) => bp.project_bills?.projects?.id).filter(Boolean))];
+      
+      if (projectIds.length === 0) return data || [];
+      
+      // Fetch payments received per project
+      const { data: projectPayments, error: paymentsError } = await supabase
+        .from("project_payments")
+        .select("project_id, payment_amount")
+        .in("project_id", projectIds)
+        .eq("is_voided", false);
+      
+      if (paymentsError) throw paymentsError;
+      
+      // Fetch bills paid per project (sum of bill_payments)
+      const { data: billPaymentsTotals, error: billPaymentsError } = await supabase
+        .from("bill_payments")
+        .select(`
+          payment_amount,
+          project_bills!inner (project_id)
+        `);
+      
+      if (billPaymentsError) throw billPaymentsError;
+      
+      // Calculate cash position per project: payments received - bills paid
+      const projectCashMap = new Map<string, number>();
+      
+      // Sum payments received
+      (projectPayments || []).forEach((p: any) => {
+        const current = projectCashMap.get(p.project_id) || 0;
+        projectCashMap.set(p.project_id, current + (p.payment_amount || 0));
+      });
+      
+      // Subtract bills paid
+      (billPaymentsTotals || []).forEach((bp: any) => {
+        const projectId = bp.project_bills?.project_id;
+        if (projectId) {
+          const current = projectCashMap.get(projectId) || 0;
+          projectCashMap.set(projectId, current - (bp.payment_amount || 0));
+        }
+      });
+      
+      // Attach cash position to each bill payment
+      return (data || []).map((bp: any) => ({
+        ...bp,
+        projectCashLeft: projectCashMap.get(bp.project_bills?.projects?.id) ?? null
+      }));
     },
     enabled: open && activeTab === "history",
   });
@@ -937,8 +984,10 @@ export function PayablesSheet({
                       <TableHead>Date</TableHead>
                       <TableHead>Project</TableHead>
                       <TableHead>Vendor</TableHead>
-                      <TableHead>Bill Ref</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Memo</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Cash Left</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead>Reference</TableHead>
                       <TableHead>Bank</TableHead>
@@ -948,13 +997,13 @@ export function PayablesSheet({
                   <TableBody>
                     {loadingPayments ? (
                       <TableRow>
-                        <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={isAdmin ? 11 : 10} className="text-center py-8 text-muted-foreground">
                           Loading...
                         </TableCell>
                       </TableRow>
                     ) : filteredBillPayments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={isAdmin ? 11 : 10} className="text-center py-8 text-muted-foreground">
                           No payments found in this date range
                         </TableCell>
                       </TableRow>
@@ -962,6 +1011,7 @@ export function PayablesSheet({
                       filteredBillPayments.map((bp: any) => {
                         const project = bp.project_bills?.projects;
                         const bill = bp.project_bills;
+                        const cashLeft = bp.projectCashLeft;
                         return (
                           <TableRow
                             key={bp.id}
@@ -983,9 +1033,18 @@ export function PayablesSheet({
                               </div>
                             </TableCell>
                             <TableCell className="text-sm">{bill?.installer_company || "-"}</TableCell>
-                            <TableCell className="text-sm">{bill?.bill_ref || "-"}</TableCell>
+                            <TableCell className="text-sm">{bill?.category || "-"}</TableCell>
+                            <TableCell className="text-sm max-w-[150px] truncate" title={bill?.memo || ""}>
+                              {bill?.memo || "-"}
+                            </TableCell>
                             <TableCell className="text-right font-medium text-emerald-600">
                               {formatCurrency(bp.payment_amount)}
+                            </TableCell>
+                            <TableCell className={cn(
+                              "text-right text-sm font-medium",
+                              cashLeft !== undefined && cashLeft !== null && cashLeft < 0 && "text-destructive"
+                            )}>
+                              {cashLeft !== undefined && cashLeft !== null ? formatCurrency(cashLeft) : "-"}
                             </TableCell>
                             <TableCell className="text-sm">{bp.payment_method || "-"}</TableCell>
                             <TableCell className="text-sm">{bp.payment_reference || "-"}</TableCell>
