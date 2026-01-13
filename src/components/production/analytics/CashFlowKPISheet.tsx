@@ -17,8 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Toggle } from "@/components/ui/toggle";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Printer, Search } from "lucide-react";
+import { Printer, Search, Layers } from "lucide-react";
 import { ProjectWithFinancials, InvoiceWithAging, BankTransaction } from "@/hooks/useProductionAnalytics";
 
 export type CashFlowKPIType = 'cashPosition' | 'totalCollected' | 'billsPaid' | 'outstandingAR' | 'outstandingAP' | 'projectsAtRisk';
@@ -230,67 +231,165 @@ function TransactionsContent({
   onProjectClick?: (projectId: string) => void;
   type: 'in' | 'out';
 }) {
+  const [groupByVendor, setGroupByVendor] = useState(false);
+
   const filtered = useMemo(() => {
     const lower = search.toLowerCase();
     return transactions.filter(t =>
       !search ||
       t.project_name.toLowerCase().includes(lower) ||
       t.description.toLowerCase().includes(lower) ||
-      t.bank_or_method?.toLowerCase().includes(lower)
+      t.bank_or_method?.toLowerCase().includes(lower) ||
+      t.vendor_name?.toLowerCase().includes(lower)
     );
   }, [transactions, search]);
 
   const total = filtered.reduce((sum, t) => sum + t.amount, 0);
 
+  // Group by vendor for bill payments
+  const groupedByVendor = useMemo(() => {
+    if (!groupByVendor || type !== 'out') return null;
+    
+    const groups: Record<string, { vendor: string; vendorType: string | null; transactions: BankTransaction[]; total: number }> = {};
+    
+    filtered.forEach(t => {
+      const vendor = t.vendor_name || 'Unknown Vendor';
+      if (!groups[vendor]) {
+        groups[vendor] = {
+          vendor,
+          vendorType: t.vendor_type || null,
+          transactions: [],
+          total: 0,
+        };
+      }
+      groups[vendor].transactions.push(t);
+      groups[vendor].total += t.amount;
+    });
+    
+    return Object.values(groups).sort((a, b) => b.total - a.total);
+  }, [filtered, groupByVendor, type]);
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between">
+        {type === 'out' && (
+          <Toggle 
+            pressed={groupByVendor} 
+            onPressedChange={setGroupByVendor}
+            size="sm"
+            className="gap-2"
+          >
+            <Layers className="h-4 w-4" />
+            Group by Vendor
+          </Toggle>
+        )}
+        {type === 'in' && <div />}
         <Badge variant="outline" className={type === 'in' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}>
           Total: {formatCurrency(total)}
         </Badge>
       </div>
-      <div className="border rounded-lg overflow-x-auto">
-        <Table className="print-table">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Bank/Method</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((t) => (
-              <TableRow
-                key={t.id}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => t.project_id && onProjectClick?.(t.project_id)}
-              >
-                <TableCell>
-                  {t.date ? new Date(t.date).toLocaleDateString() : '-'}
-                </TableCell>
-                <TableCell className="max-w-[200px] truncate">{t.project_name}</TableCell>
-                <TableCell>{t.description}</TableCell>
-                <TableCell className={cn(
-                  "text-right font-medium",
-                  type === 'in' ? 'text-emerald-600' : 'text-red-600'
-                )}>
-                  {formatCurrency(t.amount)}
-                </TableCell>
-                <TableCell>{t.bank_or_method || '-'}</TableCell>
-              </TableRow>
-            ))}
-            {filtered.length === 0 && (
+
+      {groupByVendor && groupedByVendor ? (
+        <div className="space-y-4">
+          {groupedByVendor.map((group) => (
+            <div key={group.vendor} className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/50 px-4 py-2 flex items-center justify-between">
+                <div>
+                  <span className="font-medium">{group.vendor}</span>
+                  {group.vendorType && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {group.vendorType}
+                    </Badge>
+                  )}
+                </div>
+                <span className="font-medium text-red-600">{formatCurrency(group.total)}</span>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Bank/Method</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {group.transactions.map((t) => (
+                    <TableRow
+                      key={t.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => t.project_id && onProjectClick?.(t.project_id)}
+                    >
+                      <TableCell>
+                        {t.date ? new Date(t.date).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell className="max-w-[150px] truncate">{t.project_name}</TableCell>
+                      <TableCell>{t.description}</TableCell>
+                      <TableCell className="text-right font-medium text-red-600">
+                        {formatCurrency(t.amount)}
+                      </TableCell>
+                      <TableCell>{t.bank_or_method || '-'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ))}
+          {groupedByVendor.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground border rounded-lg">
+              No transactions found
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-x-auto">
+          <Table className="print-table">
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No transactions found
-                </TableCell>
+                <TableHead>Date</TableHead>
+                {type === 'out' && <TableHead>Vendor Name</TableHead>}
+                <TableHead>Project</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Bank/Method</TableHead>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((t) => (
+                <TableRow
+                  key={t.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => t.project_id && onProjectClick?.(t.project_id)}
+                >
+                  <TableCell>
+                    {t.date ? new Date(t.date).toLocaleDateString() : '-'}
+                  </TableCell>
+                  {type === 'out' && (
+                    <TableCell>{t.vendor_name || '-'}</TableCell>
+                  )}
+                  <TableCell className="max-w-[200px] truncate">{t.project_name}</TableCell>
+                  <TableCell>{t.description}</TableCell>
+                  <TableCell className={cn(
+                    "text-right font-medium",
+                    type === 'in' ? 'text-emerald-600' : 'text-red-600'
+                  )}>
+                    {formatCurrency(t.amount)}
+                  </TableCell>
+                  <TableCell>{t.bank_or_method || '-'}</TableCell>
+                </TableRow>
+              ))}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={type === 'out' ? 6 : 5} className="text-center py-8 text-muted-foreground">
+                    No transactions found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }
