@@ -549,8 +549,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     <CardTitle className="text-xs font-medium">Project Information</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3 px-4 pb-4">
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="space-y-1">
+                    <div className="flex gap-3">
+                      <div className="space-y-1 flex-1">
                         <Label className="text-[11px] text-muted-foreground">Project Name</Label>
                         <DebouncedInput
                           className="h-8 text-xs"
@@ -558,7 +558,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           onSave={(value) => updateProjectMutation.mutate({ project_name: value })}
                         />
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1 w-[120px]">
                         <Label className="text-[11px] text-muted-foreground">Status</Label>
                         <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
                           <PopoverTrigger asChild>
@@ -681,8 +681,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Project Start Date</Label>
+                      <div className="space-y-1 w-[110px]">
+                        <Label className="text-[11px] text-muted-foreground">Start Date</Label>
                         <Input
                           className="h-8 text-xs"
                           type="date"
@@ -698,8 +698,8 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                         />
                       </div>
                       {fullProject?.project_status === "Completed" && (
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-muted-foreground">Project End Date</Label>
+                        <div className="space-y-1 w-[110px]">
+                          <Label className="text-[11px] text-muted-foreground">End Date</Label>
                           <Input
                             className={cn("h-8 text-xs", !fullProject?.completion_date && "border-destructive")}
                             type="date"
