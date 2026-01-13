@@ -680,8 +680,10 @@ export function PayablesSheet({
                   <TableHead>
                     <SortButton field="vendor">Vendor</SortButton>
                   </TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Total<br/>Bill</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Paid to<br/>Date</TableHead>
                   <TableHead className="text-center whitespace-nowrap">
-                    <SortButton field="amount_due">Amount<br/>Due</SortButton>
+                    <SortButton field="amount_due">Balance<br/>Due</SortButton>
                   </TableHead>
                   <TableHead className="text-center whitespace-nowrap">
                     <SortButton field="project_current_cash">Project<br/>Cash</SortButton>
@@ -716,6 +718,12 @@ export function PayablesSheet({
                               <span className="text-xs text-muted-foreground">{group.project_name}</span>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-center font-semibold">
+                          {formatCurrency(group.bills.reduce((sum, b) => sum + b.total_bill, 0))}
+                        </TableCell>
+                        <TableCell className="text-center font-semibold">
+                          {formatCurrency(group.bills.reduce((sum, b) => sum + b.amount_paid, 0))}
                         </TableCell>
                         <TableCell className="text-center font-semibold">
                           {formatCurrency(group.bills.reduce((sum, b) => sum + b.amount_due, 0))}
@@ -798,6 +806,12 @@ export function PayablesSheet({
                             └ Bill
                           </TableCell>
                           <TableCell>{payable.vendor || '-'}</TableCell>
+                          <TableCell className="text-center text-muted-foreground">
+                            {formatCurrency(payable.total_bill)}
+                          </TableCell>
+                          <TableCell className="text-center text-muted-foreground">
+                            {payable.amount_paid > 0 ? formatCurrency(payable.amount_paid) : '-'}
+                          </TableCell>
                           <TableCell className="text-center font-medium">
                             {formatCurrency(payable.amount_due)}
                           </TableCell>
@@ -882,6 +896,12 @@ export function PayablesSheet({
                           </div>
                         </TableCell>
                         <TableCell>{payable.vendor || '-'}</TableCell>
+                        <TableCell className="text-center text-muted-foreground">
+                          {formatCurrency(payable.total_bill)}
+                        </TableCell>
+                        <TableCell className="text-center text-muted-foreground">
+                          {payable.amount_paid > 0 ? formatCurrency(payable.amount_paid) : '-'}
+                        </TableCell>
                         <TableCell className="text-center font-medium">
                           {formatCurrency(payable.amount_due)}
                         </TableCell>
@@ -900,7 +920,7 @@ export function PayablesSheet({
                 )}
                 {filteredPayables.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       No payables found
                     </TableCell>
                   </TableRow>
