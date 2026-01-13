@@ -1369,7 +1369,7 @@ export default function Production() {
                             className="cursor-pointer hover:bg-muted/50"
                             onClick={() => handleOpenProject(project)}
                           >
-                            <TableCell className="font-medium">
+                            <TableCell className="font-medium pr-1">
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-1">
                                   {project.project_number}
@@ -1427,7 +1427,7 @@ export default function Production() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="font-medium max-w-[180px]" title={project.project_address || project.project_name}>
+                            <TableCell className="font-medium max-w-[180px] pl-1" title={project.project_address || project.project_name}>
                               <div className="flex flex-col">
                                 {getCustomerName(project) && (
                                   <span className="text-xs text-muted-foreground truncate">
