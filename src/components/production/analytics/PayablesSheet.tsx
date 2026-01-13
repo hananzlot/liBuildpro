@@ -236,6 +236,7 @@ export function PayablesSheet({
       queryClient.invalidateQueries({ queryKey: ["analytics-bill-payments"] });
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       queryClient.invalidateQueries({ queryKey: ["all-bill-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
       toast.success("Payment deleted successfully");
       setDeleteDialogOpen(false);
       setDeletePaymentId(null);
