@@ -437,7 +437,7 @@ function ARContent({
         <Table className="print-table">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[60px]">#</TableHead>
+              <TableHead>Salesperson</TableHead>
               <TableHead>Project</TableHead>
               <TableHead>Phase Description</TableHead>
               <TableHead>Date</TableHead>
@@ -455,7 +455,7 @@ function ARContent({
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => inv.project_id && onProjectClick?.(inv.project_id)}
               >
-                <TableCell className="font-medium">{inv.project_number}</TableCell>
+                <TableCell className="font-medium">{inv.primary_salesperson || '-'}</TableCell>
                 <TableCell className="max-w-[200px]">
                   <div className="truncate font-medium">{inv.project_name}</div>
                   {inv.project_address && (
