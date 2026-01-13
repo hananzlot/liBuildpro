@@ -799,22 +799,6 @@ export default function Production() {
     setDetailSheetOpen(true);
   };
 
-  // Calculate KPIs based on status filter
-  const filteredByStatus = useMemo(() => {
-    if (statusFilter === "all") return projects;
-    return projects.filter(p => p.project_status === statusFilter);
-  }, [projects, statusFilter]);
-
-  const totalProjects = filteredByStatus.length;
-  const inProgressProjects = filteredByStatus.filter(p => p.project_status === "In-Progress").length;
-  const completedProjects = filteredByStatus.filter(p => p.project_status === "Completed").length;
-  const totalEstimatedCost = filteredByStatus.reduce((sum, p) => sum + (p.estimated_cost || 0), 0);
-
-  // Calculate filtered financials for KPIs
-  const filteredFinancialsTotal = useMemo(() => {
-    return filteredByStatus.reduce((sum, p) => sum + (projectFinancials[p.id]?.contractsTotal || 0), 0);
-  }, [filteredByStatus, projectFinancials]);
-
   // Helper to check if a date falls within the KPI filter range
   const isWithinKpiRange = useCallback((dateStr: string | null) => {
     if (!kpiDateRange?.from || !kpiDateRange?.to || !dateStr) return true;
@@ -829,21 +813,41 @@ export default function Production() {
     }
   }, [kpiDateRange]);
 
-  // Calculate profit KPIs (admin only) - respects date filter
+  // Calculate KPIs based on status filter AND date range
+  const filteredByStatus = useMemo(() => {
+    let filtered = projects;
+    
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(p => p.project_status === statusFilter);
+    }
+    
+    // Apply date range filter (using agreement_signed_date)
+    if (kpiDateRange?.from && kpiDateRange?.to) {
+      filtered = filtered.filter(p => isWithinKpiRange(p.agreement_signed_date));
+    }
+    
+    return filtered;
+  }, [projects, statusFilter, kpiDateRange, isWithinKpiRange]);
+
+  const totalProjects = filteredByStatus.length;
+  const inProgressProjects = filteredByStatus.filter(p => p.project_status === "In-Progress").length;
+  const completedProjects = filteredByStatus.filter(p => p.project_status === "Completed").length;
+  const totalEstimatedCost = filteredByStatus.reduce((sum, p) => sum + (p.estimated_cost || 0), 0);
+
+  // Calculate filtered financials for KPIs
+  const filteredFinancialsTotal = useMemo(() => {
+    return filteredByStatus.reduce((sum, p) => sum + (projectFinancials[p.id]?.contractsTotal || 0), 0);
+  }, [filteredByStatus, projectFinancials]);
+
+  // Calculate profit KPIs (admin only) - uses filteredByStatus which already respects date filter
   const profitKPIs = useMemo(() => {
     let expectedProfit = 0;
     let realizedProfit = 0;
     const expectedProfitProjects: string[] = [];
     const realizedProfitProjects: string[] = [];
 
-    projects.forEach((p) => {
-      // Filter by agreement signed date if date range is set
-      if (kpiDateRange?.from && kpiDateRange?.to) {
-        if (!p.agreement_signed_date || !isWithinKpiRange(p.agreement_signed_date)) {
-          return;
-        }
-      }
-      
+    filteredByStatus.forEach((p) => {
       const financials = projectFinancials[p.id];
       if (!financials || financials.contractsTotal === 0) return;
       
@@ -859,7 +863,7 @@ export default function Production() {
     });
 
     return { expectedProfit, realizedProfit, expectedProfitProjects, realizedProfitProjects };
-  }, [projects, projectFinancials, kpiDateRange, isWithinKpiRange]);
+  }, [filteredByStatus, projectFinancials]);
 
   // Calculate cash flow KPI (admin only) - respects date filter
   const cashFlowKPI = useMemo(() => {
@@ -1000,6 +1004,12 @@ export default function Production() {
         <div className="py-4 px-4 lg:px-6 space-y-4">
           {activeView === 'projects' && (
             <div className="space-y-4">
+              {/* Date Range Filter for KPIs */}
+              <AdminKPIFilters
+                dateRange={kpiDateRange}
+                onDateRangeChange={setKpiDateRange}
+              />
+
               <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card className="p-0">
                   <CardHeader className="pb-1 pt-3 px-4">
@@ -1038,11 +1048,6 @@ export default function Production() {
               {/* Admin-only KPI Section */}
               {isAdmin && (
                 <div className="space-y-3">
-                  {/* Date Range Filter */}
-                  <AdminKPIFilters
-                    dateRange={kpiDateRange}
-                    onDateRangeChange={setKpiDateRange}
-                  />
                   
                   {/* Profit and Cash Flow KPIs */}
                   <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
