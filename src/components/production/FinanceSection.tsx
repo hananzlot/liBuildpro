@@ -2323,7 +2323,7 @@ function PaymentDialog({
   };
 
   const filteredBanks = existingBanks.filter(bank => 
-    bank.toLowerCase().includes(bankSearch.toLowerCase())
+    bank && typeof bank === 'string' && bank.toLowerCase().includes(bankSearch.toLowerCase())
   );
 
   // Initialize form data when dialog opens or payment changes
