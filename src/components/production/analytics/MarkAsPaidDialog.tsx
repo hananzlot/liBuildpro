@@ -78,15 +78,22 @@ export function MarkAsPaidDialog({
 
   if (!payable) return null;
 
+  const isFormValid = 
+    paymentDate && 
+    parseFloat(amount) > 0 && 
+    bankName && 
+    paymentMethod && 
+    paymentReference.trim();
+
   const handleSave = () => {
     const paymentAmount = parseFloat(amount) || 0;
-    if (paymentAmount > 0) {
+    if (paymentAmount > 0 && bankName && paymentMethod && paymentReference.trim()) {
       onSave(payable.id, {
         paymentDate,
         amount: paymentAmount,
-        bankName: bankName || null,
-        paymentMethod: paymentMethod || null,
-        paymentReference: paymentReference || null,
+        bankName,
+        paymentMethod,
+        paymentReference: paymentReference.trim(),
       });
       onOpenChange(false);
     }
@@ -94,7 +101,7 @@ export function MarkAsPaidDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
           <DialogDescription>
@@ -174,9 +181,9 @@ export function MarkAsPaidDialog({
 
           {/* Bank Account */}
           <div className="space-y-2">
-            <Label>Bank Account</Label>
+            <Label>Bank Account <span className="text-destructive">*</span></Label>
             <Select value={bankName} onValueChange={setBankName}>
-              <SelectTrigger>
+              <SelectTrigger className={cn(!bankName && "border-destructive/50")}>
                 <SelectValue placeholder="Select bank account..." />
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
@@ -193,32 +200,34 @@ export function MarkAsPaidDialog({
             </Select>
           </div>
 
-          {/* Payment Method */}
-          <div className="space-y-2">
-            <Label>Method</Label>
-            <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select method..." />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                <SelectItem value="Check">Check</SelectItem>
-                <SelectItem value="ACH">ACH</SelectItem>
-                <SelectItem value="Wire">Wire</SelectItem>
-                <SelectItem value="Credit Card">Credit Card</SelectItem>
-                <SelectItem value="Cash">Cash</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Payment Method & Reference - same row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Method <span className="text-destructive">*</span></Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger className={cn(!paymentMethod && "border-destructive/50")}>
+                  <SelectValue placeholder="Select method..." />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="Check">Check</SelectItem>
+                  <SelectItem value="ACH">ACH</SelectItem>
+                  <SelectItem value="Wire">Wire</SelectItem>
+                  <SelectItem value="Credit Card">Credit Card</SelectItem>
+                  <SelectItem value="Cash">Cash</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Payment Reference */}
-          <div className="space-y-2">
-            <Label>Reference</Label>
-            <Input
-              value={paymentReference}
-              onChange={(e) => setPaymentReference(e.target.value)}
-              placeholder="Check number, confirmation, etc."
-            />
+            <div className="space-y-2">
+              <Label>Reference <span className="text-destructive">*</span></Label>
+              <Input
+                value={paymentReference}
+                onChange={(e) => setPaymentReference(e.target.value)}
+                placeholder="Check #, confirmation..."
+                className={cn(!paymentReference.trim() && "border-destructive/50")}
+              />
+            </div>
           </div>
         </div>
 
@@ -226,7 +235,7 @@ export function MarkAsPaidDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!paymentDate || parseFloat(amount) <= 0}>
+          <Button onClick={handleSave} disabled={!isFormValid}>
             Record Payment
           </Button>
         </DialogFooter>
