@@ -1532,31 +1532,26 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                             <>
                               <span className={cn("flex-1 text-xs", item.completed && "line-through text-muted-foreground")}>
                                 {item.item}
-                                {item.due_date && (
-                                  <span className={cn(
-                                    "ml-2 text-[10px]",
-                                    isOverdue ? "text-destructive font-medium" : "text-muted-foreground"
-                                  )}>
-                                    (Due: {new Date(item.due_date).toLocaleDateString()})
-                                  </span>
-                                )}
                               </span>
+                              <Input
+                                type="date"
+                                className={cn(
+                                  "h-5 w-[110px] text-[10px] px-1",
+                                  isOverdue && "border-destructive text-destructive"
+                                )}
+                                value={item.due_date || ""}
+                                onChange={(e) => {
+                                  const newDate = e.target.value || null;
+                                  supabase
+                                    .from("project_checklists")
+                                    .update({ due_date: newDate })
+                                    .eq("id", item.id)
+                                    .then(() => {
+                                      queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
+                                    });
+                                }}
+                              />
                               <div className="opacity-0 group-hover:opacity-100 flex gap-0.5">
-                                <Input
-                                  type="date"
-                                  className="h-5 w-[100px] text-[10px] px-1"
-                                  value={item.due_date || ""}
-                                  onChange={(e) => {
-                                    const newDate = e.target.value || null;
-                                    supabase
-                                      .from("project_checklists")
-                                      .update({ due_date: newDate })
-                                      .eq("id", item.id)
-                                      .then(() => {
-                                        queryClient.invalidateQueries({ queryKey: ["project-checklists", project?.id] });
-                                      });
-                                  }}
-                                />
                                 <Button
                                   size="sm"
                                   variant="ghost"
