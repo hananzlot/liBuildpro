@@ -324,7 +324,12 @@ function TransactionsContent({
                       <TableCell>
                         {t.date ? new Date(t.date).toLocaleDateString() : '-'}
                       </TableCell>
-                      <TableCell className="max-w-[150px] truncate">{t.project_name}</TableCell>
+                      <TableCell className="max-w-[200px]">
+                        <div className="truncate font-medium">{t.project_name}</div>
+                        {t.project_address && (
+                          <div className="truncate text-xs text-muted-foreground">{t.project_address}</div>
+                        )}
+                      </TableCell>
                       <TableCell>{t.description}</TableCell>
                       <TableCell className="text-right font-medium text-red-600">
                         {formatCurrency(t.amount)}
@@ -368,7 +373,12 @@ function TransactionsContent({
                   {type === 'out' && (
                     <TableCell>{t.vendor_name || '-'}</TableCell>
                   )}
-                  <TableCell className="max-w-[200px] truncate">{t.project_name}</TableCell>
+                  <TableCell className="max-w-[200px]">
+                    <div className="truncate font-medium">{t.project_name}</div>
+                    {type === 'out' && t.project_address && (
+                      <div className="truncate text-xs text-muted-foreground">{t.project_address}</div>
+                    )}
+                  </TableCell>
                   <TableCell>{t.description}</TableCell>
                   <TableCell className={cn(
                     "text-right font-medium",
