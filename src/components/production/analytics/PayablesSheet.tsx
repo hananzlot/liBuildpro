@@ -17,9 +17,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle } from "lucide-react";
+import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle, CalendarIcon, X } from "lucide-react";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
+import { format, nextFriday, isSameDay, parseISO } from "date-fns";
 
 interface PayablesSheetProps {
   open: boolean;
@@ -50,6 +53,15 @@ const getCashAfterAllScheduledPayments = (
   return payable.project_current_cash - totalScheduled;
 };
 
+// Get the next Friday from today (or today if it's Friday)
+const getNextFriday = (): Date => {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  // If today is Friday (5), return today, otherwise get next Friday
+  if (dayOfWeek === 5) return today;
+  return nextFriday(today);
+};
+
 export function PayablesSheet({
   open,
   onOpenChange,
@@ -63,6 +75,8 @@ export function PayablesSheet({
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [scheduleFilter, setScheduleFilter] = useState<'all' | 'scheduled' | 'unscheduled'>('all');
   const [groupByProject, setGroupByProject] = useState(false);
+  const [scheduledDateFilter, setScheduledDateFilter] = useState<Date | undefined>(getNextFriday());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -79,6 +93,22 @@ export function PayablesSheet({
 
   const filteredPayables = useMemo(() => {
     let result = payables;
+    
+    // Schedule filter
+    if (scheduleFilter === 'scheduled') {
+      result = result.filter(p => p.scheduled_payment_date);
+    } else if (scheduleFilter === 'unscheduled') {
+      result = result.filter(p => !p.scheduled_payment_date);
+    }
+    
+    // Scheduled date filter - show payables scheduled on or before this date
+    if (scheduledDateFilter && scheduleFilter !== 'unscheduled') {
+      result = result.filter(p => {
+        if (!p.scheduled_payment_date) return scheduleFilter !== 'scheduled';
+        const scheduledDate = parseISO(p.scheduled_payment_date);
+        return scheduledDate <= scheduledDateFilter;
+      });
+    }
     
     // Schedule filter
     if (scheduleFilter === 'scheduled') {
@@ -134,7 +164,7 @@ export function PayablesSheet({
     });
 
     return result;
-  }, [payables, search, sortField, sortDir, scheduleFilter]);
+  }, [payables, search, sortField, sortDir, scheduleFilter, scheduledDateFilter]);
 
   const totals = useMemo(() => ({
     totalDue: payables.reduce((sum, p) => sum + p.amount_due, 0),
@@ -221,33 +251,33 @@ export function PayablesSheet({
 
         <div className="mt-6 space-y-4">
           {/* Controls row */}
-          <div className="flex items-center justify-between gap-4 no-print">
+          <div className="flex items-center justify-between gap-4 no-print flex-wrap">
             {/* Summary badges - clickable filters */}
-            <div className="flex gap-2 flex-wrap">
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "cursor-pointer transition-colors",
-                scheduleFilter === 'scheduled' 
-                  ? "bg-primary text-primary-foreground border-primary" 
-                  : "bg-muted/50 hover:bg-muted"
-              )}
-              onClick={() => toggleScheduleFilter('scheduled')}
-            >
-              {totals.scheduled} Scheduled
-            </Badge>
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "cursor-pointer transition-colors",
-                scheduleFilter === 'unscheduled' 
-                  ? "bg-amber-500 text-white border-amber-500" 
-                  : "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"
-              )}
-              onClick={() => toggleScheduleFilter('unscheduled')}
-            >
-              {totals.unscheduled} Unscheduled
-            </Badge>
+            <div className="flex gap-2 flex-wrap items-center">
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "cursor-pointer transition-colors",
+                  scheduleFilter === 'scheduled' 
+                    ? "bg-primary text-primary-foreground border-primary" 
+                    : "bg-muted/50 hover:bg-muted"
+                )}
+                onClick={() => toggleScheduleFilter('scheduled')}
+              >
+                {totals.scheduled} Scheduled
+              </Badge>
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "cursor-pointer transition-colors",
+                  scheduleFilter === 'unscheduled' 
+                    ? "bg-amber-500 text-white border-amber-500" 
+                    : "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20"
+                )}
+                onClick={() => toggleScheduleFilter('unscheduled')}
+              >
+                {totals.unscheduled} Unscheduled
+              </Badge>
               {scheduleFilter !== 'all' && (
                 <Badge 
                   variant="outline" 
@@ -259,16 +289,63 @@ export function PayablesSheet({
               )}
             </div>
 
-            {/* Group by toggle */}
-            <Button
-              variant={groupByProject ? "default" : "outline"}
-              size="sm"
-              onClick={() => setGroupByProject(!groupByProject)}
-              className="shrink-0"
-            >
-              {groupByProject ? <List className="h-4 w-4 mr-1" /> : <Layers className="h-4 w-4 mr-1" />}
-              {groupByProject ? "Flat View" : "Group by Project"}
-            </Button>
+            {/* Date filter and Group by toggle */}
+            <div className="flex gap-2 items-center">
+              {/* Scheduled Date Filter */}
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "justify-start text-left font-normal",
+                      !scheduledDateFilter && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4 mr-1" />
+                    {scheduledDateFilter ? (
+                      <>Due by {format(scheduledDateFilter, "MMM d")}</>
+                    ) : (
+                      "Filter by date"
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <CalendarComponent
+                    mode="single"
+                    selected={scheduledDateFilter}
+                    onSelect={(date) => {
+                      setScheduledDateFilter(date);
+                      setDatePickerOpen(false);
+                    }}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              {scheduledDateFilter && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setScheduledDateFilter(undefined)}
+                  title="Clear date filter"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+
+              {/* Group by toggle */}
+              <Button
+                variant={groupByProject ? "default" : "outline"}
+                size="sm"
+                onClick={() => setGroupByProject(!groupByProject)}
+                className="shrink-0"
+              >
+                {groupByProject ? <List className="h-4 w-4 mr-1" /> : <Layers className="h-4 w-4 mr-1" />}
+                {groupByProject ? "Flat View" : "Group by Project"}
+              </Button>
+            </div>
           </div>
 
           {/* Search */}
