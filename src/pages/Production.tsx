@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DateRange } from "react-day-picker";
+import { parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit } from "@/hooks/useAuditLog";
@@ -20,7 +22,8 @@ import {
   Upload,
   Archive,
   RotateCcw,
-  TrendingUp
+  TrendingUp,
+  DollarSign
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -62,6 +65,8 @@ import { MissingProjectsSection } from "@/components/production/MissingProjectsS
 import { SubcontractorsManagement } from "@/components/production/SubcontractorsManagement";
 import { SubcontractorWarningsCard } from "@/components/production/SubcontractorWarningsCard";
 import { ProjectImportDialog } from "@/components/production/ProjectImportDialog";
+import { AdminKPIFilters } from "@/components/production/AdminKPIFilters";
+import { CashFlowChart } from "@/components/production/CashFlowChart";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -85,6 +90,7 @@ interface Project {
   location_id: string;
   legacy_project_number: string | null;
   deleted_at: string | null;
+  agreement_signed_date: string | null;
 }
 
 interface ProjectFinancials {
@@ -152,12 +158,14 @@ export default function Production() {
   const [showArchived, setShowArchived] = useState(false);
   const [profitSheetOpen, setProfitSheetOpen] = useState(false);
   const [profitSheetType, setProfitSheetType] = useState<'expected' | 'realized' | null>(null);
+  const [kpiDateRange, setKpiDateRange] = useState<DateRange | undefined>(undefined);
+  const [cashFlowSheetOpen, setCashFlowSheetOpen] = useState(false);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number")
+        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number, agreement_signed_date")
         .is("deleted_at", null) // Only show non-deleted projects
         .order("project_number", { ascending: false });
       
@@ -172,6 +180,7 @@ export default function Production() {
         deleted_at: string | null;
         estimated_project_cost: number | null;
         sold_dispatch_value: number | null;
+        agreement_signed_date: string | null;
       })[];
     },
   });
@@ -241,7 +250,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payments")
-        .select("id, project_id, payment_amount, payment_status");
+        .select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided");
       if (error) throw error;
       return data;
     },
@@ -252,7 +261,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_bills")
-        .select("id, project_id, bill_amount, amount_paid");
+        .select("id, project_id, bill_amount, amount_paid, is_voided");
       if (error) throw error;
       return data;
     },
@@ -263,7 +272,18 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bill_payments")
-        .select("id, bill_id, payment_amount");
+        .select("id, bill_id, payment_amount, payment_date");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: allCommissionPayments = [] } = useQuery({
+    queryKey: ["all-commission-payments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("commission_payments")
+        .select("id, project_id, payment_amount, payment_date");
       if (error) throw error;
       return data;
     },
@@ -791,7 +811,21 @@ export default function Production() {
     return filteredByStatus.reduce((sum, p) => sum + (projectFinancials[p.id]?.contractsTotal || 0), 0);
   }, [filteredByStatus, projectFinancials]);
 
-  // Calculate profit KPIs (admin only)
+  // Helper to check if a date falls within the KPI filter range
+  const isWithinKpiRange = useCallback((dateStr: string | null) => {
+    if (!kpiDateRange?.from || !kpiDateRange?.to || !dateStr) return true;
+    try {
+      const date = parseISO(dateStr);
+      return isWithinInterval(date, { 
+        start: startOfDay(kpiDateRange.from), 
+        end: endOfDay(kpiDateRange.to) 
+      });
+    } catch {
+      return true;
+    }
+  }, [kpiDateRange]);
+
+  // Calculate profit KPIs (admin only) - respects date filter
   const profitKPIs = useMemo(() => {
     let expectedProfit = 0;
     let realizedProfit = 0;
@@ -799,6 +833,13 @@ export default function Production() {
     const realizedProfitProjects: string[] = [];
 
     projects.forEach((p) => {
+      // Filter by agreement signed date if date range is set
+      if (kpiDateRange?.from && kpiDateRange?.to) {
+        if (!p.agreement_signed_date || !isWithinKpiRange(p.agreement_signed_date)) {
+          return;
+        }
+      }
+      
       const financials = projectFinancials[p.id];
       if (!financials || financials.contractsTotal === 0) return;
       
@@ -814,7 +855,65 @@ export default function Production() {
     });
 
     return { expectedProfit, realizedProfit, expectedProfitProjects, realizedProfitProjects };
-  }, [projects, projectFinancials]);
+  }, [projects, projectFinancials, kpiDateRange, isWithinKpiRange]);
+
+  // Calculate cash flow KPI (admin only) - respects date filter
+  const cashFlowKPI = useMemo(() => {
+    // Get invoice payments with dates (only received payments)
+    const invoicePaymentsData = allPayments
+      .filter(p => p.payment_status === 'Received' && !p.is_voided)
+      .map(p => ({
+        date: p.projected_received_date,
+        amount: p.payment_amount || 0,
+      }));
+
+    // Get bill payments with dates
+    const billPaymentsData = allBillPayments.map(p => ({
+      date: p.payment_date,
+      amount: p.payment_amount || 0,
+    }));
+
+    // Get commission payments with dates
+    const commissionPaymentsData = allCommissionPayments.map(p => ({
+      date: p.payment_date,
+      amount: p.payment_amount || 0,
+    }));
+
+    // Calculate totals within date range
+    let invoicesReceived = 0;
+    let billsPaid = 0;
+    let commissionsPaid = 0;
+
+    invoicePaymentsData.forEach(p => {
+      if (isWithinKpiRange(p.date)) {
+        invoicesReceived += p.amount;
+      }
+    });
+
+    billPaymentsData.forEach(p => {
+      if (isWithinKpiRange(p.date)) {
+        billsPaid += p.amount;
+      }
+    });
+
+    commissionPaymentsData.forEach(p => {
+      if (isWithinKpiRange(p.date)) {
+        commissionsPaid += p.amount;
+      }
+    });
+
+    const netCashFlow = invoicesReceived - billsPaid - commissionsPaid;
+
+    return {
+      invoicesReceived,
+      billsPaid,
+      commissionsPaid,
+      netCashFlow,
+      invoicePaymentsData,
+      billPaymentsData,
+      commissionPaymentsData,
+    };
+  }, [allPayments, allBillPayments, allCommissionPayments, isWithinKpiRange]);
 
   // Calculate warning counts
   const warningCounts = useMemo(() => {
@@ -932,54 +1031,82 @@ export default function Production() {
                 </Card>
               </section>
 
-              {/* Admin-only Profit KPIs */}
+              {/* Admin-only KPI Section */}
               {isAdmin && (
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Card 
-                    className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-emerald-500/30 bg-emerald-500/5"
-                    onClick={() => {
-                      setProfitSheetType('expected');
-                      setProfitSheetOpen(true);
-                    }}
-                  >
-                    <CardHeader className="pb-1 pt-3 px-4">
-                      <CardDescription className="text-xs flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" />
-                        Expected Profit (In-Progress)
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-3 px-4">
-                      <p className={`text-2xl font-bold ${profitKPIs.expectedProfit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                        {formatCurrency(profitKPIs.expectedProfit)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {profitKPIs.expectedProfitProjects.length} project{profitKPIs.expectedProfitProjects.length !== 1 ? 's' : ''}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  <Card 
-                    className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-blue-500/30 bg-blue-500/5"
-                    onClick={() => {
-                      setProfitSheetType('realized');
-                      setProfitSheetOpen(true);
-                    }}
-                  >
-                    <CardHeader className="pb-1 pt-3 px-4">
-                      <CardDescription className="text-xs flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" />
-                        Realized Profit (Completed)
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-3 px-4">
-                      <p className={`text-2xl font-bold ${profitKPIs.realizedProfit >= 0 ? 'text-blue-600' : 'text-destructive'}`}>
-                        {formatCurrency(profitKPIs.realizedProfit)}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {profitKPIs.realizedProfitProjects.length} project{profitKPIs.realizedProfitProjects.length !== 1 ? 's' : ''}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </section>
+                <div className="space-y-3">
+                  {/* Date Range Filter */}
+                  <AdminKPIFilters
+                    dateRange={kpiDateRange}
+                    onDateRangeChange={setKpiDateRange}
+                  />
+                  
+                  {/* Profit and Cash Flow KPIs */}
+                  <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Card 
+                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-emerald-500/30 bg-emerald-500/5"
+                      onClick={() => {
+                        setProfitSheetType('expected');
+                        setProfitSheetOpen(true);
+                      }}
+                    >
+                      <CardHeader className="pb-1 pt-3 px-4">
+                        <CardDescription className="text-xs flex items-center gap-1">
+                          <TrendingUp className="h-3 w-3" />
+                          Expected Profit (In-Progress)
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-3 px-4">
+                        <p className={`text-2xl font-bold ${profitKPIs.expectedProfit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {formatCurrency(profitKPIs.expectedProfit)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {profitKPIs.expectedProfitProjects.length} project{profitKPIs.expectedProfitProjects.length !== 1 ? 's' : ''}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card 
+                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-blue-500/30 bg-blue-500/5"
+                      onClick={() => {
+                        setProfitSheetType('realized');
+                        setProfitSheetOpen(true);
+                      }}
+                    >
+                      <CardHeader className="pb-1 pt-3 px-4">
+                        <CardDescription className="text-xs flex items-center gap-1">
+                          <TrendingUp className="h-3 w-3" />
+                          Realized Profit (Completed)
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-3 px-4">
+                        <p className={`text-2xl font-bold ${profitKPIs.realizedProfit >= 0 ? 'text-blue-600' : 'text-destructive'}`}>
+                          {formatCurrency(profitKPIs.realizedProfit)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {profitKPIs.realizedProfitProjects.length} project{profitKPIs.realizedProfitProjects.length !== 1 ? 's' : ''}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card 
+                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-primary/30 bg-primary/5"
+                      onClick={() => setCashFlowSheetOpen(true)}
+                    >
+                      <CardHeader className="pb-1 pt-3 px-4">
+                        <CardDescription className="text-xs flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          Cash Flow from Projects
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-3 px-4">
+                        <p className={`text-2xl font-bold ${cashFlowKPI.netCashFlow >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {formatCurrency(cashFlowKPI.netCashFlow)}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          In: {formatCurrency(cashFlowKPI.invoicesReceived)} • Out: {formatCurrency(cashFlowKPI.billsPaid + cashFlowKPI.commissionsPaid)}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </section>
+                </div>
               )}
 
           {/* Warnings Section - Two Columns */}
@@ -1770,6 +1897,34 @@ export default function Production() {
                 })}
               </div>
             </ScrollArea>
+          </SheetContent>
+        </Sheet>
+
+        {/* Cash Flow Sheet (Admin only) */}
+        <Sheet open={cashFlowSheetOpen} onOpenChange={setCashFlowSheetOpen}>
+          <SheetContent className="w-full sm:max-w-3xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Cash Flow from Projects
+              </SheetTitle>
+              <SheetDescription>
+                Invoice payments received minus bill payments and commission payments
+                {kpiDateRange?.from && kpiDateRange?.to && (
+                  <span className="block mt-1">
+                    Filtered: {kpiDateRange.from.toLocaleDateString()} - {kpiDateRange.to.toLocaleDateString()}
+                  </span>
+                )}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="mt-4">
+              <CashFlowChart
+                invoicePayments={cashFlowKPI.invoicePaymentsData}
+                billPayments={cashFlowKPI.billPaymentsData}
+                commissionPayments={cashFlowKPI.commissionPaymentsData}
+                dateRange={kpiDateRange}
+              />
+            </div>
           </SheetContent>
         </Sheet>
       </TooltipProvider>
