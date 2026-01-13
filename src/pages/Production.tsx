@@ -158,6 +158,7 @@ export default function Production() {
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [projectInitialTab, setProjectInitialTab] = useState<string | undefined>(undefined);
+  const [projectInitialFinanceSubTab, setProjectInitialFinanceSubTab] = useState<'bills' | 'history' | undefined>(undefined);
   const [returnToAfterProjectClose, setReturnToAfterProjectClose] = useState<'payables' | null>(null);
   const [reopenPayablesSheet, setReopenPayablesSheet] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -797,8 +798,9 @@ export default function Production() {
     return toTitleCase(fullName);
   };
 
-  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables') => {
+  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history') => {
     setProjectInitialTab(initialTab);
+    setProjectInitialFinanceSubTab(financeSubTab);
     setReturnToAfterProjectClose(returnTo || null);
     setSelectedProject(project);
     setDetailSheetOpen(true);
@@ -1660,10 +1662,10 @@ export default function Production() {
 
           {activeView === 'analytics' && (
             <AnalyticsSection 
-              onProjectClick={(projectId, initialTab, returnTo) => {
+              onProjectClick={(projectId, initialTab, returnTo, financeSubTab) => {
                 const project = projects.find(p => p.id === projectId);
                 if (project) {
-                  handleOpenProject(project, initialTab, returnTo);
+                  handleOpenProject(project, initialTab, returnTo, financeSubTab);
                 }
               }}
               reopenPayablesSheet={reopenPayablesSheet}
@@ -1703,6 +1705,7 @@ export default function Production() {
                 setReopenPayablesSheet(true);
               }
               setProjectInitialTab(undefined);
+              setProjectInitialFinanceSubTab(undefined);
               setReturnToAfterProjectClose(null);
             }
           }}
@@ -1710,6 +1713,7 @@ export default function Production() {
           autoOpenBillDialog={pendingBillDialogOpen}
           onBillDialogOpened={() => setPendingBillDialogOpen(false)}
           initialTab={projectInitialTab}
+          initialFinanceSubTab={projectInitialFinanceSubTab}
         />
 
         {/* New Project Dialog */}

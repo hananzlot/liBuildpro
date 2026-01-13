@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface AnalyticsSectionProps {
-  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables') => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history') => void;
   reopenPayablesSheet?: boolean;
   onPayablesSheetOpened?: () => void;
 }

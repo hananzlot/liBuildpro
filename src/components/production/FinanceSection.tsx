@@ -82,6 +82,7 @@ interface FinanceSectionProps {
   onUpdateProject: (updates: Record<string, unknown>) => void;
   onNavigateToSubcontractors?: () => void;
   autoOpenBillDialog?: boolean;
+  initialBillsSubTab?: 'bills' | 'history';
 }
 
 interface Invoice {
@@ -169,11 +170,11 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialBillsSubTab }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState("agreements");
-  const [activeBillsSubTab, setActiveBillsSubTab] = useState<"bills" | "history">("bills");
+  const [activeSubTab, setActiveSubTab] = useState(initialBillsSubTab ? "bills" : "agreements");
+  const [activeBillsSubTab, setActiveBillsSubTab] = useState<"bills" | "history">(initialBillsSubTab || "bills");
   const [activeInvoicesSubTab, setActiveInvoicesSubTab] = useState<"invoices" | "payments">("invoices");
   const [selectedAgreementFilter, setSelectedAgreementFilter] = useState<string | null>(null);
   const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
@@ -202,6 +203,14 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       setHasAutoOpenedBill(true);
     }
   }, [autoOpenBillDialog, hasAutoOpenedBill]);
+
+  // Set bills sub-tab when initialBillsSubTab changes
+  useEffect(() => {
+    if (initialBillsSubTab) {
+      setActiveSubTab("bills");
+      setActiveBillsSubTab(initialBillsSubTab);
+    }
+  }, [initialBillsSubTab]);
   
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [prePopulatedInvoice, setPrePopulatedInvoice] = useState<Partial<Invoice> | null>(null);
