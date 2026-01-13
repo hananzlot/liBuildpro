@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Calendar, Printer, Search, ArrowUpDown, Layers, List } from "lucide-react";
+import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil } from "lucide-react";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 
 interface PayablesSheetProps {
@@ -128,6 +128,9 @@ export function PayablesSheet({
     totalDue: payables.reduce((sum, p) => sum + p.amount_due, 0),
     scheduled: payables.filter(p => p.scheduled_payment_date).length,
     unscheduled: payables.filter(p => !p.scheduled_payment_date).length,
+    totalScheduledAmount: payables
+      .filter(p => p.scheduled_payment_date)
+      .reduce((sum, p) => sum + (p.scheduled_payment_amount || p.amount_due), 0),
   }), [payables]);
 
   // Group payables by project
@@ -182,9 +185,14 @@ export function PayablesSheet({
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>
-              <SheetTitle>Outstanding Payables (AP)</SheetTitle>
+            <SheetTitle>Outstanding Payables (AP)</SheetTitle>
               <SheetDescription>
                 {payables.length} unpaid bills totaling {formatCurrency(totals.totalDue)}
+                {totals.totalScheduledAmount > 0 && (
+                  <span className="ml-2 text-primary font-medium">
+                    • {formatCurrency(totals.totalScheduledAmount)} scheduled
+                  </span>
+                )}
               </SheetDescription>
             </div>
             <Button
@@ -267,10 +275,11 @@ export function PayablesSheet({
             <Table className="print-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="no-print w-[80px]">Action</TableHead>
+                  <TableHead className="no-print w-[50px]"></TableHead>
                   <TableHead className="whitespace-nowrap text-center">
                     <SortButton field="scheduled_payment_date">Scheduled<br/>Date</SortButton>
                   </TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Scheduled<br/>Amount</TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>
                     <SortButton field="vendor">Vendor</SortButton>
@@ -299,6 +308,7 @@ export function PayablesSheet({
                         onClick={() => onProjectClick?.(group.project_id)}
                       >
                         <TableCell className="no-print" />
+                        <TableCell />
                         <TableCell />
                         <TableCell className="font-semibold" colSpan={2}>
                           <div className="flex flex-col">
@@ -339,22 +349,32 @@ export function PayablesSheet({
                           <TableCell className="no-print">
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon"
+                              className="h-8 w-8"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onSchedulePayment?.(payable);
                               }}
                             >
-                              <Calendar className="h-4 w-4 mr-1" />
-                              Schedule
+                              {payable.scheduled_payment_date ? (
+                                <Pencil className="h-4 w-4" />
+                              ) : (
+                                <Calendar className="h-4 w-4" />
+                              )}
                             </Button>
                           </TableCell>
                           <TableCell className="text-center">
                             {payable.scheduled_payment_date ? (
                               <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
-                                <Calendar className="h-3 w-3 mr-1" />
                                 {new Date(payable.scheduled_payment_date).toLocaleDateString()}
                               </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {payable.scheduled_payment_amount ? (
+                              <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
                             ) : (
                               <span className="text-muted-foreground text-sm">-</span>
                             )}
@@ -394,22 +414,32 @@ export function PayablesSheet({
                         <TableCell className="no-print">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={(e) => {
                               e.stopPropagation();
                               onSchedulePayment?.(payable);
                             }}
                           >
-                            <Calendar className="h-4 w-4 mr-1" />
-                            Schedule
+                            {payable.scheduled_payment_date ? (
+                              <Pencil className="h-4 w-4" />
+                            ) : (
+                              <Calendar className="h-4 w-4" />
+                            )}
                           </Button>
                         </TableCell>
                         <TableCell className="text-center">
                           {payable.scheduled_payment_date ? (
                             <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
-                              <Calendar className="h-3 w-3 mr-1" />
                               {new Date(payable.scheduled_payment_date).toLocaleDateString()}
                             </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {payable.scheduled_payment_amount ? (
+                            <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
@@ -449,7 +479,7 @@ export function PayablesSheet({
                 )}
                 {filteredPayables.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No payables found
                     </TableCell>
                   </TableRow>
