@@ -174,6 +174,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
   const [activeBillsSubTab, setActiveBillsSubTab] = useState<"bills" | "history">("bills");
+  const [activeInvoicesSubTab, setActiveInvoicesSubTab] = useState<"invoices" | "payments">("invoices");
   const [selectedAgreementFilter, setSelectedAgreementFilter] = useState<string | null>(null);
   const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
   
@@ -1027,7 +1028,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
 
       {/* Sub-tabs for Agreements, Phases, Invoices, Payments, Bills, Commission */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="agreements" className="text-xs">
             Contracts
           </TabsTrigger>
@@ -1036,9 +1037,6 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           </TabsTrigger>
           <TabsTrigger value="invoices" className="text-xs">
             Invoices
-          </TabsTrigger>
-          <TabsTrigger value="payments" className="text-xs">
-            Pmts Rcvd
           </TabsTrigger>
           <TabsTrigger value="bills" className="text-xs">
             Bills
@@ -1053,145 +1051,171 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Invoices</CardTitle>
-                <Button size="sm" onClick={() => { setEditingInvoice(null); setInvoiceDialogOpen(true); }}>
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add
-                </Button>
+                <CardTitle className="text-sm">Invoices & Payments</CardTitle>
+                {activeInvoicesSubTab === "invoices" ? (
+                  <Button size="sm" onClick={() => { setEditingInvoice(null); setInvoiceDialogOpen(true); }}>
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Invoice
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={() => { setEditingPayment(null); setPaymentDialogOpen(true); }}>
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Payment
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              {loadingInvoices ? (
-                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
-              ) : invoices.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No invoices yet</p>
+              {/* Sub-tabs for Invoices */}
+              <div className="flex gap-2 mb-4 border-b">
+                <button
+                  onClick={() => setActiveInvoicesSubTab("invoices")}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium transition-colors",
+                    activeInvoicesSubTab === "invoices"
+                      ? "border-b-2 border-primary text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Invoices ({invoices.length})
+                </button>
+                <button
+                  onClick={() => setActiveInvoicesSubTab("payments")}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium transition-colors",
+                    activeInvoicesSubTab === "payments"
+                      ? "border-b-2 border-primary text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Pmts Rcvd ({payments.length})
+                </button>
+              </div>
+
+              {activeInvoicesSubTab === "invoices" ? (
+                // Invoices list
+                <>
+                  {loadingInvoices ? (
+                    <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                  ) : invoices.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No invoices yet</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Invoice #</TableHead>
+                          <TableHead className="text-xs">Date</TableHead>
+                          <TableHead className="text-xs text-right">Amount</TableHead>
+                          <TableHead className="text-xs text-right">Balance</TableHead>
+                          <TableHead className="text-xs w-20"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoices.map((inv) => (
+                          <TableRow key={inv.id}>
+                            <TableCell className="text-xs">{inv.invoice_number || "-"}</TableCell>
+                            <TableCell className="text-xs">{formatDate(inv.invoice_date)}</TableCell>
+                            <TableCell className="text-xs text-right">{formatCurrency(inv.amount)}</TableCell>
+                            <TableCell className="text-xs text-right">{formatCurrency(inv.open_balance)}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("invoice", inv.id)}>
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Invoice #</TableHead>
-                      <TableHead className="text-xs">Date</TableHead>
-                      <TableHead className="text-xs text-right">Amount</TableHead>
-                      <TableHead className="text-xs text-right">Balance</TableHead>
-                      <TableHead className="text-xs w-20"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invoices.map((inv) => (
-                      <TableRow key={inv.id}>
-                        <TableCell className="text-xs">{inv.invoice_number || "-"}</TableCell>
-                        <TableCell className="text-xs">{formatDate(inv.invoice_date)}</TableCell>
-                        <TableCell className="text-xs text-right">{formatCurrency(inv.amount)}</TableCell>
-                        <TableCell className="text-xs text-right">{formatCurrency(inv.open_balance)}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingInvoice(inv); setInvoiceDialogOpen(true); }}>
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("invoice", inv.id)}>
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                // Payments list
+                <>
+                  {loadingPayments ? (
+                    <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                  ) : payments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No payments yet</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs">Bank</TableHead>
+                          <TableHead className="text-xs">Date</TableHead>
+                          <TableHead className="text-xs">Payment Status</TableHead>
+                          <TableHead className="text-xs text-right">Amount</TableHead>
+                          <TableHead className="text-xs w-24"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payments.map((pmt) => (
+                          <TableRow key={pmt.id} className={pmt.is_voided ? "opacity-50 bg-muted/30" : ""}>
+                            <TableCell className="text-xs">
+                              {pmt.is_voided ? (
+                                <div>
+                                  <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    {formatDate(pmt.voided_at)}
+                                  </p>
+                                </div>
+                              ) : (
+                                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">Active</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs">{pmt.bank_name || "-"}</TableCell>
+                            <TableCell className="text-xs">{formatDate(pmt.projected_received_date)}</TableCell>
+                            <TableCell className="text-xs">
+                              <Badge variant="outline" className={
+                                pmt.payment_status === "Received" ? "bg-emerald-500/10 text-emerald-500" :
+                                pmt.payment_status === "Pending" ? "bg-amber-500/10 text-amber-500" :
+                                "bg-muted"
+                              }>
+                                {pmt.payment_status || "Pending"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className={cn("text-xs text-right", pmt.is_voided && "line-through")}>{formatCurrency(pmt.payment_amount)}</TableCell>
+                            <TableCell>
+                              {pmt.is_voided ? (
+                                <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={pmt.void_reason || ""}>
+                                  {pmt.void_reason || "No reason"}
+                                </p>
+                              ) : (
+                                <div className="flex gap-1">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPayment(pmt); setPaymentDialogOpen(true); }}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
+                                    onClick={() => { setVoidingPayment(pmt); setVoidPaymentDialogOpen(true); }}
+                                  >
+                                    Void
+                                  </Button>
+                                  {(isAdmin || isSuperAdmin) && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("payment", pmt.id)}>
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Payments Tab */}
-        <TabsContent value="payments" className="mt-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Payments</CardTitle>
-                <Button size="sm" onClick={() => { setEditingPayment(null); setPaymentDialogOpen(true); }}>
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loadingPayments ? (
-                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
-              ) : payments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No payments yet</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs">Bank</TableHead>
-                      <TableHead className="text-xs">Date</TableHead>
-                      <TableHead className="text-xs">Payment Status</TableHead>
-                      <TableHead className="text-xs text-right">Amount</TableHead>
-                      <TableHead className="text-xs w-24"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payments.map((pmt) => (
-                      <TableRow key={pmt.id} className={pmt.is_voided ? "opacity-50 bg-muted/30" : ""}>
-                        <TableCell className="text-xs">
-                          {pmt.is_voided ? (
-                            <div>
-                              <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
-                              <p className="text-[10px] text-muted-foreground mt-1">
-                                {formatDate(pmt.voided_at)}
-                              </p>
-                            </div>
-                          ) : (
-                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 text-[10px]">Active</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs">{pmt.bank_name || "-"}</TableCell>
-                        <TableCell className="text-xs">{formatDate(pmt.projected_received_date)}</TableCell>
-                        <TableCell className="text-xs">
-                          <Badge variant="outline" className={
-                            pmt.payment_status === "Received" ? "bg-emerald-500/10 text-emerald-500" :
-                            pmt.payment_status === "Pending" ? "bg-amber-500/10 text-amber-500" :
-                            "bg-muted"
-                          }>
-                            {pmt.payment_status || "Pending"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className={cn("text-xs text-right", pmt.is_voided && "line-through")}>{formatCurrency(pmt.payment_amount)}</TableCell>
-                        <TableCell>
-                          {pmt.is_voided ? (
-                            <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={pmt.void_reason || ""}>
-                              {pmt.void_reason || "No reason"}
-                            </p>
-                          ) : (
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPayment(pmt); setPaymentDialogOpen(true); }}>
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
-                                onClick={() => { setVoidingPayment(pmt); setVoidPaymentDialogOpen(true); }}
-                              >
-                                Void
-                              </Button>
-                              {(isAdmin || isSuperAdmin) && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("payment", pmt.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Bills Tab */}
         <TabsContent value="bills" className="mt-4">
