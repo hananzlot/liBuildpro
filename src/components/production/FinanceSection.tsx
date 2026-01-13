@@ -173,6 +173,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState("agreements");
+  const [activeBillsSubTab, setActiveBillsSubTab] = useState<"bills" | "history">("bills");
   const [selectedAgreementFilter, setSelectedAgreementFilter] = useState<string | null>(null);
   const [hasAutoOpenedBill, setHasAutoOpenedBill] = useState(false);
   
@@ -251,6 +252,35 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Bill[];
+    },
+  });
+
+  // Fetch bill payments for all bills in this project
+  const { data: allBillPayments = [], isLoading: loadingBillPayments } = useQuery({
+    queryKey: ["project-bill-payments", projectId],
+    queryFn: async () => {
+      // First get all bill IDs for this project
+      const { data: projectBills, error: billsError } = await supabase
+        .from("project_bills")
+        .select("id, installer_company, bill_ref")
+        .eq("project_id", projectId);
+      if (billsError) throw billsError;
+      
+      if (projectBills.length === 0) return [];
+      
+      const billIds = projectBills.map(b => b.id);
+      const { data, error } = await supabase
+        .from("bill_payments")
+        .select("*")
+        .in("bill_id", billIds)
+        .order("payment_date", { ascending: false });
+      if (error) throw error;
+      
+      // Attach bill info to each payment
+      return data.map(payment => ({
+        ...payment,
+        bill: projectBills.find(b => b.id === payment.bill_id),
+      }));
     },
   });
 
@@ -1168,119 +1198,200 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm">Bills</CardTitle>
-                <Button size="sm" onClick={() => { setEditingBill(null); setBillDialogOpen(true); }}>
-                  <Plus className="h-3 w-3 mr-1" />
-                  Add
-                </Button>
+                <CardTitle className="text-sm">Bills & Payments</CardTitle>
+                {activeBillsSubTab === "bills" && (
+                  <Button size="sm" onClick={() => { setEditingBill(null); setBillDialogOpen(true); }}>
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Bill
+                  </Button>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              {loadingBills ? (
-                <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
-              ) : bills.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No bills yet</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs">Company</TableHead>
-                      <TableHead className="text-xs">Category</TableHead>
-                      <TableHead className="text-xs text-right">Amount</TableHead>
-                      <TableHead className="text-xs text-right">Paid</TableHead>
-                      <TableHead className="text-xs text-right">Balance</TableHead>
-                      <TableHead className="text-xs w-10"></TableHead>
-                      <TableHead className="text-xs w-40"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bills.map((bill) => (
-                      <TableRow key={bill.id} className={bill.is_voided ? "opacity-50 bg-muted/30" : ""}>
-                        <TableCell className="text-xs">
-                          {bill.is_voided ? (
-                            <div>
-                              <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
-                              <p className="text-[10px] text-muted-foreground mt-1">
-                                {bill.voided_at ? formatDate(bill.voided_at) : ""}
-                              </p>
-                            </div>
-                          ) : (bill.balance || 0) <= 0 ? (
-                            <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px]">Open</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs">{bill.installer_company || "-"}</TableCell>
-                        <TableCell className="text-xs">{bill.category || "-"}</TableCell>
-                        <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.bill_amount)}</TableCell>
-                        <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency(bill.amount_paid)}</TableCell>
-                        <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.balance)}</TableCell>
-                        <TableCell>
-                          {bill.attachment_url && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => {
-                                setSelectedAttachment({ url: bill.attachment_url!, name: bill.installer_company ? `Bill - ${bill.installer_company}` : "Bill Attachment" });
-                                setPdfViewerOpen(true);
-                              }}
-                            >
-                              <Paperclip className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {bill.is_voided ? (
-                            <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={bill.void_reason || ""}>
-                              {bill.void_reason || "No reason"}
-                            </p>
-                          ) : (
-                            <div className="flex gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-7 text-xs px-2"
-                                onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}
-                              >
-                                <History className="h-3 w-3 mr-1" />
-                                History
-                              </Button>
-                              {(bill.balance || 0) > 0 && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="h-7 text-xs px-2"
-                                  onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}
+              {/* Sub-tabs for Bills */}
+              <div className="flex gap-2 mb-4 border-b">
+                <button
+                  onClick={() => setActiveBillsSubTab("bills")}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium transition-colors",
+                    activeBillsSubTab === "bills"
+                      ? "border-b-2 border-primary text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Bills ({bills.length})
+                </button>
+                <button
+                  onClick={() => setActiveBillsSubTab("history")}
+                  className={cn(
+                    "px-3 py-2 text-sm font-medium transition-colors",
+                    activeBillsSubTab === "history"
+                      ? "border-b-2 border-primary text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Payment History ({allBillPayments.length})
+                </button>
+              </div>
+
+              {activeBillsSubTab === "bills" ? (
+                // Bills list
+                <>
+                  {loadingBills ? (
+                    <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                  ) : bills.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No bills yet</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs">Company</TableHead>
+                          <TableHead className="text-xs">Category</TableHead>
+                          <TableHead className="text-xs text-right">Amount</TableHead>
+                          <TableHead className="text-xs text-right">Paid</TableHead>
+                          <TableHead className="text-xs text-right">Balance</TableHead>
+                          <TableHead className="text-xs w-10"></TableHead>
+                          <TableHead className="text-xs w-40"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {bills.map((bill) => (
+                          <TableRow key={bill.id} className={bill.is_voided ? "opacity-50 bg-muted/30" : ""}>
+                            <TableCell className="text-xs">
+                              {bill.is_voided ? (
+                                <div>
+                                  <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
+                                  <p className="text-[10px] text-muted-foreground mt-1">
+                                    {bill.voided_at ? formatDate(bill.voided_at) : ""}
+                                  </p>
+                                </div>
+                              ) : (bill.balance || 0) <= 0 ? (
+                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px]">Open</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs">{bill.installer_company || "-"}</TableCell>
+                            <TableCell className="text-xs">{bill.category || "-"}</TableCell>
+                            <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.bill_amount)}</TableCell>
+                            <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency(bill.amount_paid)}</TableCell>
+                            <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.balance)}</TableCell>
+                            <TableCell>
+                              {bill.attachment_url && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => {
+                                    setSelectedAttachment({ url: bill.attachment_url!, name: bill.installer_company ? `Bill - ${bill.installer_company}` : "Bill Attachment" });
+                                    setPdfViewerOpen(true);
+                                  }}
                                 >
-                                  <CreditCard className="h-3 w-3 mr-1" />
-                                  Pay
+                                  <Paperclip className="h-3 w-3" />
                                 </Button>
                               )}
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditBillClick(bill)}>
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
-                                onClick={() => { setVoidingBill(bill); setVoidDialogOpen(true); }}
-                              >
-                                Void
-                              </Button>
-                              {(isAdmin || isSuperAdmin) && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
+                            </TableCell>
+                            <TableCell>
+                              {bill.is_voided ? (
+                                <p className="text-[10px] text-muted-foreground italic max-w-[120px] truncate" title={bill.void_reason || ""}>
+                                  {bill.void_reason || "No reason"}
+                                </p>
+                              ) : (
+                                <div className="flex gap-1">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-7 text-xs px-2"
+                                    onClick={() => { setHistoryBill(bill); setHistoryDialogOpen(true); }}
+                                  >
+                                    <History className="h-3 w-3 mr-1" />
+                                    History
+                                  </Button>
+                                  {(bill.balance || 0) > 0 && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-7 text-xs px-2"
+                                      onClick={() => { setPayingBill(bill); setQuickPayDialogOpen(true); }}
+                                    >
+                                      <CreditCard className="h-3 w-3 mr-1" />
+                                      Pay
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditBillClick(bill)}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-7 text-xs px-2 text-amber-600 hover:text-amber-700"
+                                    onClick={() => { setVoidingBill(bill); setVoidDialogOpen(true); }}
+                                  >
+                                    Void
+                                  </Button>
+                                  {(isAdmin || isSuperAdmin) && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("bill", bill.id)}>
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
                               )}
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </>
+              ) : (
+                // Payment History
+                <>
+                  {loadingBillPayments ? (
+                    <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                  ) : allBillPayments.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No payment history yet</p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-xs">Date</TableHead>
+                          <TableHead className="text-xs">Company</TableHead>
+                          <TableHead className="text-xs">Bill Ref</TableHead>
+                          <TableHead className="text-xs text-right">Amount</TableHead>
+                          <TableHead className="text-xs">Method</TableHead>
+                          <TableHead className="text-xs">Reference</TableHead>
+                          <TableHead className="text-xs">Bank</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {allBillPayments.map((payment: any) => (
+                          <TableRow key={payment.id}>
+                            <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
+                            <TableCell className="text-xs">{payment.bill?.installer_company || "-"}</TableCell>
+                            <TableCell className="text-xs">{payment.bill?.bill_ref || "-"}</TableCell>
+                            <TableCell className="text-xs text-right text-emerald-600 font-medium">
+                              {formatCurrency(payment.payment_amount)}
+                            </TableCell>
+                            <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
+                            <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
+                            <TableCell className="text-xs">{payment.bank_name || "-"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                  {allBillPayments.length > 0 && (
+                    <div className="mt-4 pt-3 border-t flex justify-end">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Total Paid: </span>
+                        <span className="font-medium text-emerald-600">
+                          {formatCurrency(allBillPayments.reduce((sum: number, p: any) => sum + (p.payment_amount || 0), 0))}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
