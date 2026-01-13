@@ -93,6 +93,8 @@ export interface PayableWithCashImpact {
   vendor: string | null;
   bill_ref: string | null;
   category: string | null;
+  total_bill: number;
+  amount_paid: number;
   amount_due: number;
   scheduled_payment_date: string | null;
   scheduled_payment_amount: number | null;
@@ -553,6 +555,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         vendor: bill.installer_company,
         bill_ref: bill.bill_ref,
         category: bill.category,
+        total_bill: bill.bill_amount || 0,
+        amount_paid: bill.amount_paid || 0,
         amount_due: bill.balance || 0,
         scheduled_payment_date: bill.scheduled_payment_date,
         scheduled_payment_amount: bill.scheduled_payment_amount,
