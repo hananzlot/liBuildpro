@@ -1491,8 +1491,8 @@ export default function Production() {
                                 {project.install_start_date && (
                                   <span className="text-[10px] text-muted-foreground">
                                     {format(parseISO(project.install_start_date), "M/d/yy")}
-                                    {project.completion_date && (
-                                      <> - {format(parseISO(project.completion_date), "M/d/yy")}</>
+                                    {project.project_status === "Completed" && (
+                                      <> - {project.completion_date ? format(parseISO(project.completion_date), "M/d/yy") : <span className="text-destructive">Missing</span>}</>
                                     )}
                                     {" "}
                                     ({(() => {
