@@ -306,13 +306,15 @@ export default function Production() {
     const projectBills = allBills.filter(b => b.project_id === project.id);
 
     const totalBillsReceived = projectBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
-    const totalBillsPaid = projectBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
     
-    // Calculate actual bill payments from bill_payments table
+    // Calculate actual bill payments from bill_payments table (source of truth)
     const projectBillIds = projectBills.map(b => b.id);
     const totalBillPayments = allBillPayments
       .filter(bp => projectBillIds.includes(bp.bill_id))
       .reduce((sum, bp) => sum + (bp.payment_amount || 0), 0);
+
+    // Use bill_payments total for "Bills Paid" to avoid stale/incorrect rollups
+    const totalBillsPaid = totalBillPayments;
     
     const totalInvoiced = projectInvoices.reduce((sum, i) => sum + (i.amount || 0), 0);
     const invoicesCollected = projectPayments

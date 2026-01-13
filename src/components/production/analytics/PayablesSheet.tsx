@@ -173,7 +173,7 @@ export function PayablesSheet({
   // Delete bill payment mutation
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      // Fetch payment + associated bill so we can reverse the "amount_paid" rollup
+      // Fetch payment + associated bill so we can recompute rollups from bill_payments (source of truth)
       const { data: payment, error: paymentFetchError } = await supabase
         .from("bill_payments")
         .select("id, bill_id, payment_amount")
@@ -182,29 +182,36 @@ export function PayablesSheet({
 
       if (paymentFetchError) throw paymentFetchError;
 
+      const billId = payment.bill_id;
+      const paymentAmount = payment.payment_amount || 0;
+
+      // Get bill amount for balance calc
       const { data: bill, error: billFetchError } = await supabase
         .from("project_bills")
-        .select("id, bill_amount, amount_paid, balance")
-        .eq("id", payment.bill_id)
+        .select("id, bill_amount")
+        .eq("id", billId)
         .single();
 
       if (billFetchError) throw billFetchError;
 
-      const paymentAmount = payment.payment_amount || 0;
-      const originalAmountPaid = bill.amount_paid || 0;
-      const originalBalance = bill.balance;
+      // Compute totals from bill_payments table (pre-delete), so we can rollback safely
+      const { data: allPayments, error: paymentsError } = await supabase
+        .from("bill_payments")
+        .select("payment_amount")
+        .eq("bill_id", billId);
 
-      const newAmountPaid = Math.max(0, originalAmountPaid - paymentAmount);
-      const newBalance =
-        bill.bill_amount != null
-          ? Math.max(0, (bill.bill_amount || 0) - newAmountPaid)
-          : (bill.balance || 0) + paymentAmount;
+      if (paymentsError) throw paymentsError;
 
-      // Update bill first, then delete payment; rollback bill update if delete fails.
+      const totalPaidBefore = (allPayments ?? []).reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+      const newTotalPaid = Math.max(0, totalPaidBefore - paymentAmount);
+      const billAmount = bill?.bill_amount || 0;
+      const newBalance = billAmount - newTotalPaid;
+
+      // Update bill rollup first; rollback if delete fails
       const { error: updateError } = await supabase
         .from("project_bills")
         .update({
-          amount_paid: newAmountPaid,
+          amount_paid: newTotalPaid,
           balance: newBalance,
         })
         .eq("id", bill.id);
@@ -221,8 +228,8 @@ export function PayablesSheet({
         await supabase
           .from("project_bills")
           .update({
-            amount_paid: originalAmountPaid,
-            balance: originalBalance,
+            amount_paid: totalPaidBefore,
+            balance: billAmount - totalPaidBefore,
           })
           .eq("id", bill.id);
 

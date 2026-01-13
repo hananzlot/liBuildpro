@@ -107,10 +107,10 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
     paymentReference: string | null;
   }) => {
     try {
-      // Get current bill data
+      // Get bill amount for accurate rollups
       const { data: bill, error: fetchError } = await supabase
         .from("project_bills")
-        .select("amount_paid, balance, scheduled_payment_date")
+        .select("bill_amount")
         .eq("id", billId)
         .single();
 
@@ -122,7 +122,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
         .insert({
           bill_id: billId,
           payment_amount: data.amount,
-          payment_date: data.paymentDate.toISOString().split('T')[0],
+          payment_date: data.paymentDate.toISOString().split("T")[0],
           bank_name: data.bankName,
           payment_method: data.paymentMethod,
           payment_reference: data.paymentReference,
@@ -130,14 +130,22 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
 
       if (paymentError) throw paymentError;
 
-      // Update bill's amount_paid and balance
-      const newAmountPaid = (bill.amount_paid || 0) + data.amount;
-      const newBalance = (bill.balance || 0) - data.amount;
+      // Recalculate rollups from bill_payments to prevent drift
+      const { data: allPayments, error: paymentsError } = await supabase
+        .from("bill_payments")
+        .select("payment_amount")
+        .eq("bill_id", billId);
+
+      if (paymentsError) throw paymentsError;
+
+      const totalPaid = (allPayments ?? []).reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+      const billAmount = bill?.bill_amount || 0;
+      const newBalance = billAmount - totalPaid;
 
       const { error: updateError } = await supabase
         .from("project_bills")
         .update({
-          amount_paid: newAmountPaid,
+          amount_paid: totalPaid,
           balance: newBalance,
           scheduled_payment_date: null,
           scheduled_payment_amount: null,
