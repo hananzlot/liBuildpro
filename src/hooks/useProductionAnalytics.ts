@@ -426,7 +426,9 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         project_id: bill.project_id,
         project_name: project?.project_name || 'Unknown',
         project_address: project?.project_address || null,
-        description: `${bill.category || 'Category'} - ${bill.memo || 'Memo'}`,
+        description: bill.category && bill.memo 
+          ? `${bill.category} - ${bill.memo}` 
+          : (bill.category || bill.memo || '-'),
         amount: bp.payment_amount || 0,
         bank_or_method: bp.payment_method,
         vendor_name: bill.installer_company || null,
