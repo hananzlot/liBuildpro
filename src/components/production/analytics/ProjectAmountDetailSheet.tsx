@@ -548,6 +548,7 @@ function CashPositionContent({
             <TableHeader>
               <TableRow>
                 <TableHead>Vendor</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
               </TableRow>
@@ -556,6 +557,11 @@ function CashPositionContent({
               {bills.filter(b => (b.amount_paid || 0) > 0).map((b) => (
                 <TableRow key={b.id}>
                   <TableCell>{b.installer_company || '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="text-xs">
+                      {b.category || '-'}
+                    </Badge>
+                  </TableCell>
                   <TableCell>{b.memo || '-'}</TableCell>
                   <TableCell className="text-right font-medium text-red-600">
                     -{formatCurrency(b.amount_paid || 0)}
@@ -564,7 +570,7 @@ function CashPositionContent({
               ))}
               {bills.filter(b => (b.amount_paid || 0) > 0).length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center py-4 text-muted-foreground">
+                  <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
                     No bills paid
                   </TableCell>
                 </TableRow>
