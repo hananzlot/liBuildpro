@@ -548,7 +548,7 @@ function CashPositionContent({
             <TableHeader>
               <TableRow>
                 <TableHead>Vendor</TableHead>
-                <TableHead>Bill Ref</TableHead>
+                <TableHead>Description</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
               </TableRow>
             </TableHeader>
@@ -556,7 +556,7 @@ function CashPositionContent({
               {bills.filter(b => (b.amount_paid || 0) > 0).map((b) => (
                 <TableRow key={b.id}>
                   <TableCell>{b.installer_company || '-'}</TableCell>
-                  <TableCell>{b.bill_ref || '-'}</TableCell>
+                  <TableCell>{b.memo || '-'}</TableCell>
                   <TableCell className="text-right font-medium text-red-600">
                     -{formatCurrency(b.amount_paid || 0)}
                   </TableCell>
