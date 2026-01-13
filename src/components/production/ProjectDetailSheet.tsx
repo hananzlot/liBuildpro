@@ -79,6 +79,7 @@ interface ProjectDetailSheetProps {
   onUpdate: () => void;
   autoOpenBillDialog?: boolean;
   onBillDialogOpened?: () => void;
+  initialTab?: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -89,11 +90,11 @@ const statusColors: Record<string, string> = {
   "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, autoOpenBillDialog, onBillDialogOpened }: ProjectDetailSheetProps) {
+export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab }: ProjectDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isSuperAdmin, user } = useAuth();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(initialTab || "overview");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
   const [editingChecklistText, setEditingChecklistText] = useState("");
@@ -114,6 +115,13 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
       onBillDialogOpened?.();
     }
   }, [open, autoOpenBillDialog, project, onBillDialogOpened]);
+
+  // Set active tab when initialTab prop changes
+  useEffect(() => {
+    if (open && initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [open, initialTab]);
 
   const handleNavigateToSubcontractors = useCallback(() => {
     onOpenChange(false); // Close the sheet first

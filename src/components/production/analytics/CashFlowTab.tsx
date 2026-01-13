@@ -35,7 +35,7 @@ interface CashFlowTabProps {
   payablesWithCashImpact: PayableWithCashImpact[];
   cashFlowTimeline: CashFlowTimelinePoint[];
   scheduledPayments: PayableWithCashImpact[];
-  onProjectClick?: (projectId: string) => void;
+  onProjectClick?: (projectId: string, initialTab?: string) => void;
   onSchedulePayment?: (billId: string, date: Date, amount: number) => void;
   onClearSchedule?: (billId: string) => void;
   onMarkAsPaid?: (billId: string, data: {
@@ -374,6 +374,10 @@ export function CashFlowTab({
         onOpenChange={setPayablesSheetOpen}
         payables={payablesWithCashImpact}
         onProjectClick={onProjectClick}
+        onBillClick={(projectId, billId) => {
+          setPayablesSheetOpen(false);
+          onProjectClick?.(projectId, "finance");
+        }}
         onSchedulePayment={handleSchedulePayment}
         onMarkAsPaid={handleMarkAsPaid}
       />

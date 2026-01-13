@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface AnalyticsSectionProps {
-  onProjectClick?: (projectId: string) => void;
+  onProjectClick?: (projectId: string, initialTab?: string) => void;
 }
 
 export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {

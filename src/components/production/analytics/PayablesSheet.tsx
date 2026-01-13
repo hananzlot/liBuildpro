@@ -31,6 +31,7 @@ interface PayablesSheetProps {
   onOpenChange: (open: boolean) => void;
   payables: PayableWithCashImpact[];
   onProjectClick?: (projectId: string) => void;
+  onBillClick?: (projectId: string, billId: string) => void;
   onSchedulePayment?: (payable: PayableWithCashImpact, scheduledDateFilter?: Date) => void;
   onMarkAsPaid?: (payable: PayableWithCashImpact) => void;
 }
@@ -88,6 +89,7 @@ export function PayablesSheet({
   onOpenChange,
   payables,
   onProjectClick,
+  onBillClick,
   onSchedulePayment,
   onMarkAsPaid,
 }: PayablesSheetProps) {
@@ -837,7 +839,11 @@ export function PayablesSheet({
                           <TableRow
                             key={bp.id}
                             className="cursor-pointer hover:bg-muted/50"
-                            onClick={() => project?.id && onProjectClick?.(project.id)}
+                            onClick={() => {
+                              if (project?.id && bill?.id) {
+                                onBillClick?.(project.id, bill.id);
+                              }
+                            }}
                           >
                             <TableCell className="text-sm">
                               {bp.payment_date ? format(parseISO(bp.payment_date), "MMM d, yyyy") : "-"}
