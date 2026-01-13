@@ -17,7 +17,9 @@ import {
   ArrowUp,
   ArrowDown,
   Building2,
-  Upload
+  Upload,
+  Archive,
+  RotateCcw
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -81,6 +83,7 @@ interface Project {
   opportunity_id: string | null;
   location_id: string;
   legacy_project_number: string | null;
+  deleted_at: string | null;
 }
 
 interface ProjectFinancials {
@@ -145,7 +148,7 @@ export default function Production() {
   const [warningSheetType, setWarningSheetType] = useState<'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | null>(null);
   const [pendingBillDialogOpen, setPendingBillDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-
+  const [showArchived, setShowArchived] = useState(false);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
@@ -168,6 +171,32 @@ export default function Production() {
         sold_dispatch_value: number | null;
       })[];
     },
+  });
+
+  // Fetch archived projects (for admins)
+  const { data: archivedProjects = [], refetch: refetchArchived } = useQuery({
+    queryKey: ["archived-projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number")
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: false });
+      
+      if (error) throw error;
+      return data as (Project & { 
+        lead_cost_percent: number | null; 
+        commission_split_pct: number | null;
+        primary_commission_pct: number | null;
+        secondary_commission_pct: number | null;
+        tertiary_commission_pct: number | null;
+        quaternary_commission_pct: number | null;
+        deleted_at: string | null;
+        estimated_project_cost: number | null;
+        sold_dispatch_value: number | null;
+      })[];
+    },
+    enabled: isAdmin && showArchived,
   });
 
   // Fetch all financial data for projects
@@ -668,6 +697,32 @@ export default function Production() {
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
+  // Restore archived project mutation
+  const restoreProjectMutation = useMutation({
+    mutationFn: async (project: Project) => {
+      await logAudit({
+        tableName: 'projects',
+        recordId: project.id,
+        action: 'UPDATE',
+        oldValues: { deleted_at: project.deleted_at },
+        newValues: { deleted_at: null },
+        description: `Restored archived project #${project.project_number} - ${project.project_name}`,
+      });
+
+      const { error } = await supabase
+        .from("projects")
+        .update({ deleted_at: null })
+        .eq("id", project.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Project restored successfully");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["archived-projects"] });
+    },
+    onError: (error) => toast.error(`Failed to restore: ${error.message}`),
+  });
+
   // Helper to check if project is a test project
   const isTestProject = (project: Project): boolean => {
     const name = project.project_name?.toLowerCase() || "";
@@ -1010,11 +1065,29 @@ export default function Production() {
 
           {/* Projects Table */}
           <Card>
-            <CardHeader>
-              <CardTitle>Projects</CardTitle>
-              <CardDescription>
-                {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? "s" : ""} found
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle>Projects</CardTitle>
+                <CardDescription>
+                  {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? "s" : ""} found
+                </CardDescription>
+              </div>
+              {isAdmin && (
+                <Button
+                  variant={showArchived ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setShowArchived(!showArchived)}
+                  className="gap-2"
+                >
+                  <Archive className="h-4 w-4" />
+                  {showArchived ? "Hide Archived" : "Show Archived"}
+                  {archivedProjects.length > 0 && (
+                    <Badge variant="secondary" className="ml-1">
+                      {archivedProjects.length}
+                    </Badge>
+                  )}
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -1261,6 +1334,93 @@ export default function Production() {
               )}
             </CardContent>
           </Card>
+
+          {/* Archived Projects Section */}
+          {isAdmin && showArchived && (
+            <Card className="border-muted bg-muted/20">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Archive className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-muted-foreground">Archived Projects</CardTitle>
+                </div>
+                <CardDescription>
+                  {archivedProjects.length} archived project{archivedProjects.length !== 1 ? "s" : ""}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {archivedProjects.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Archive className="h-10 w-10 mx-auto mb-3 opacity-50" />
+                    <p>No archived projects</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16">#</TableHead>
+                          <TableHead>Project Name</TableHead>
+                          <TableHead>Address</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Archived</TableHead>
+                          <TableHead className="w-24">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {archivedProjects.map((project) => (
+                          <TableRow key={project.id} className="opacity-70 hover:opacity-100">
+                            <TableCell className="font-medium">
+                              {project.project_number}
+                            </TableCell>
+                            <TableCell>{project.project_name}</TableCell>
+                            <TableCell className="text-xs max-w-[200px] truncate">
+                              {project.project_address || "-"}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-[10px]">
+                                {project.project_status || "Unknown"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {project.deleted_at 
+                                ? new Date(project.deleted_at).toLocaleDateString()
+                                : "-"}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 gap-1 text-xs"
+                                  onClick={() => restoreProjectMutation.mutate(project)}
+                                  disabled={restoreProjectMutation.isPending}
+                                >
+                                  {restoreProjectMutation.isPending ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="h-3 w-3" />
+                                  )}
+                                  Restore
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive"
+                                  onClick={() => handleDeleteTestProject(project)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
             </div>
           )}
 
