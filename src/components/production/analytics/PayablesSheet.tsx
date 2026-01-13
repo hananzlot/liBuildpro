@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, CheckCircle2 } from "lucide-react";
+import { Calendar, Printer, Search, ArrowUpDown, Layers, List, Pencil, Circle } from "lucide-react";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 
 interface PayablesSheetProps {
@@ -292,7 +292,6 @@ export function PayablesSheet({
                     <SortButton field="scheduled_payment_date">Scheduled<br/>Date</SortButton>
                   </TableHead>
                   <TableHead className="text-center whitespace-nowrap">Scheduled<br/>Amount</TableHead>
-                  <TableHead className="no-print w-[50px]"></TableHead>
                   <TableHead className="text-center whitespace-nowrap">
                     <SortButton field="cash_after_payment">Cash After<br/>Payment</SortButton>
                   </TableHead>
@@ -323,7 +322,6 @@ export function PayablesSheet({
                         <TableCell className="no-print" />
                         <TableCell />
                         <TableCell />
-                        <TableCell className="no-print" />
                         <TableCell className={cn(
                           "text-center font-semibold",
                           group.cash_if_all_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
@@ -388,25 +386,23 @@ export function PayablesSheet({
                           </TableCell>
                           <TableCell className="text-center">
                             {payable.scheduled_payment_amount ? (
-                              <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
+                              <div className="flex flex-col items-center gap-1">
+                                <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 no-print"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onMarkAsPaid?.(payable);
+                                  }}
+                                  title="Mark as Paid"
+                                >
+                                  <Circle className="h-4 w-4" />
+                                </Button>
+                              </div>
                             ) : (
                               <span className="text-muted-foreground text-sm">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="no-print">
-                            {payable.scheduled_payment_date && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onMarkAsPaid?.(payable);
-                                }}
-                                title="Mark as Paid"
-                              >
-                                <CheckCircle2 className="h-4 w-4" />
-                              </Button>
                             )}
                           </TableCell>
                           <TableCell className={cn(
@@ -469,25 +465,23 @@ export function PayablesSheet({
                         </TableCell>
                         <TableCell className="text-center">
                           {payable.scheduled_payment_amount ? (
-                            <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="font-medium text-primary">{formatCurrency(payable.scheduled_payment_amount)}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-50 no-print"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onMarkAsPaid?.(payable);
+                                }}
+                                title="Mark as Paid"
+                              >
+                                <Circle className="h-4 w-4" />
+                              </Button>
+                            </div>
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="no-print">
-                          {payable.scheduled_payment_date && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onMarkAsPaid?.(payable);
-                              }}
-                              title="Mark as Paid"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                            </Button>
                           )}
                         </TableCell>
                         <TableCell className={cn(
@@ -525,7 +519,7 @@ export function PayablesSheet({
                 )}
                 {filteredPayables.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No payables found
                     </TableCell>
                   </TableRow>
