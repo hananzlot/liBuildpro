@@ -37,6 +37,7 @@ interface CashFlowTabProps {
   onProjectClick?: (projectId: string) => void;
   onSchedulePayment?: (billId: string, date: Date, amount: number) => void;
   onClearSchedule?: (billId: string) => void;
+  onMarkAsPaid?: (billId: string, amount: number) => void;
 }
 
 const getCashStatusColor = (status: string) => {
@@ -80,6 +81,7 @@ export function CashFlowTab({
   onProjectClick,
   onSchedulePayment,
   onClearSchedule,
+  onMarkAsPaid,
 }: CashFlowTabProps) {
   // Sheet states
   const [selectedKPI, setSelectedKPI] = useState<CashFlowKPIType | null>(null);
@@ -142,6 +144,11 @@ export function CashFlowTab({
     onSchedulePayment?.(billId, date, amount);
     setScheduleDialogOpen(false);
     setSchedulingPayable(null);
+  };
+
+  const handleMarkAsPaid = (payable: PayableWithCashImpact) => {
+    const amount = payable.scheduled_payment_amount || payable.amount_due;
+    onMarkAsPaid?.(payable.id, amount);
   };
 
   return (
@@ -345,6 +352,7 @@ export function CashFlowTab({
         payables={payablesWithCashImpact}
         onProjectClick={onProjectClick}
         onSchedulePayment={handleSchedulePayment}
+        onMarkAsPaid={handleMarkAsPaid}
       />
 
       <PaymentScheduleSheet

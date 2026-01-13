@@ -92,6 +92,52 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
     }
   }, [queryClient]);
 
+  // Mark as paid handler - creates bill_payment record and updates bill
+  const handleMarkAsPaid = useCallback(async (billId: string, amount: number) => {
+    try {
+      // Get current bill data
+      const { data: bill, error: fetchError } = await supabase
+        .from("project_bills")
+        .select("amount_paid, balance, scheduled_payment_date")
+        .eq("id", billId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Create bill payment record
+      const { error: paymentError } = await supabase
+        .from("bill_payments")
+        .insert({
+          bill_id: billId,
+          payment_amount: amount,
+          payment_date: bill.scheduled_payment_date || new Date().toISOString().split('T')[0],
+        });
+
+      if (paymentError) throw paymentError;
+
+      // Update bill's amount_paid and balance
+      const newAmountPaid = (bill.amount_paid || 0) + amount;
+      const newBalance = (bill.balance || 0) - amount;
+
+      const { error: updateError } = await supabase
+        .from("project_bills")
+        .update({
+          amount_paid: newAmountPaid,
+          balance: newBalance,
+          scheduled_payment_date: null,
+          scheduled_payment_amount: null,
+        })
+        .eq("id", billId);
+
+      if (updateError) throw updateError;
+
+      toast.success("Payment recorded successfully");
+      queryClient.invalidateQueries({ queryKey: ["analytics-bills"] });
+    } catch (error: any) {
+      toast.error(`Failed to record payment: ${error.message}`);
+    }
+  }, [queryClient]);
+
   // Prepare filter options
   const projectOptions = useMemo(() => {
     return allProjects.map(p => ({
@@ -224,6 +270,7 @@ export function AnalyticsSection({ onProjectClick }: AnalyticsSectionProps) {
             onProjectClick={onProjectClick}
             onSchedulePayment={handleSchedulePayment}
             onClearSchedule={handleClearSchedule}
+            onMarkAsPaid={handleMarkAsPaid}
           />
         </TabsContent>
 
