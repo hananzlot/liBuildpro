@@ -131,7 +131,7 @@ export function PayablesSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-5xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-7xl overflow-y-auto">
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>
@@ -206,26 +206,25 @@ export function PayablesSheet({
             <Table className="print-table">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="no-print w-[80px]">Action</TableHead>
+                  <TableHead className="whitespace-nowrap text-center">
+                    <SortButton field="scheduled_payment_date">Scheduled<br/>Date</SortButton>
+                  </TableHead>
                   <TableHead>Project</TableHead>
                   <TableHead>
                     <SortButton field="vendor">Vendor</SortButton>
                   </TableHead>
-                  <TableHead>Bill Ref</TableHead>
-                  <TableHead className="text-right">
-                    <SortButton field="amount_due">Amount Due</SortButton>
+                  <TableHead className="text-center whitespace-nowrap">
+                    <SortButton field="amount_due">Amount<br/>Due</SortButton>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <SortButton field="project_current_cash">Project Cash</SortButton>
+                  <TableHead className="text-center whitespace-nowrap">
+                    <SortButton field="project_current_cash">Project<br/>Cash</SortButton>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <SortButton field="cash_if_this_paid">If Paid</SortButton>
+                  <TableHead className="text-center whitespace-nowrap">
+                    <SortButton field="cash_if_this_paid">If<br/>Paid</SortButton>
                   </TableHead>
-                  <TableHead className="text-right">Total AP</TableHead>
-                  <TableHead className="text-right">If All Paid</TableHead>
-                  <TableHead>
-                    <SortButton field="scheduled_payment_date">Scheduled Date</SortButton>
-                  </TableHead>
-                  <TableHead className="no-print">Action</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Total<br/>AP</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">If All<br/>Paid</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -235,45 +234,6 @@ export function PayablesSheet({
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => onProjectClick?.(payable.project_id)}
                   >
-                    <TableCell className="max-w-[150px] truncate">
-                      {payable.project_address || payable.project_name}
-                    </TableCell>
-                    <TableCell>{payable.vendor || '-'}</TableCell>
-                    <TableCell>{payable.bill_ref || '-'}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(payable.amount_due)}
-                    </TableCell>
-                    <TableCell className={cn(
-                      "text-right",
-                      payable.project_current_cash >= 0 ? 'text-emerald-600' : 'text-red-600'
-                    )}>
-                      {formatCurrency(payable.project_current_cash)}
-                    </TableCell>
-                    <TableCell className={cn(
-                      "text-right",
-                      payable.cash_if_this_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
-                    )}>
-                      {formatCurrency(payable.cash_if_this_paid)}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {formatCurrency(payable.total_project_payables)}
-                    </TableCell>
-                    <TableCell className={cn(
-                      "text-right",
-                      payable.cash_if_all_project_payables_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
-                    )}>
-                      {formatCurrency(payable.cash_if_all_project_payables_paid)}
-                    </TableCell>
-                    <TableCell>
-                      {payable.scheduled_payment_date ? (
-                        <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {new Date(payable.scheduled_payment_date).toLocaleDateString()}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
                     <TableCell className="no-print">
                       <Button
                         variant="ghost"
@@ -287,11 +247,49 @@ export function PayablesSheet({
                         Schedule
                       </Button>
                     </TableCell>
+                    <TableCell className="text-center">
+                      {payable.scheduled_payment_date ? (
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/20">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {new Date(payable.scheduled_payment_date).toLocaleDateString()}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {payable.project_address || payable.project_name}
+                    </TableCell>
+                    <TableCell>{payable.vendor || '-'}</TableCell>
+                    <TableCell className="text-center font-medium">
+                      {formatCurrency(payable.amount_due)}
+                    </TableCell>
+                    <TableCell className={cn(
+                      "text-center",
+                      payable.project_current_cash >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    )}>
+                      {formatCurrency(payable.project_current_cash)}
+                    </TableCell>
+                    <TableCell className={cn(
+                      "text-center",
+                      payable.cash_if_this_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    )}>
+                      {formatCurrency(payable.cash_if_this_paid)}
+                    </TableCell>
+                    <TableCell className="text-center text-muted-foreground">
+                      {formatCurrency(payable.total_project_payables)}
+                    </TableCell>
+                    <TableCell className={cn(
+                      "text-center",
+                      payable.cash_if_all_project_payables_paid >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    )}>
+                      {formatCurrency(payable.cash_if_all_project_payables_paid)}
+                    </TableCell>
                   </TableRow>
                 ))}
                 {filteredPayables.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No payables found
                     </TableCell>
                   </TableRow>
