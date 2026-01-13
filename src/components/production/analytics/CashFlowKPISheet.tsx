@@ -456,7 +456,12 @@ function ARContent({
                 onClick={() => inv.project_id && onProjectClick?.(inv.project_id)}
               >
                 <TableCell className="font-medium">{inv.project_number}</TableCell>
-                <TableCell className="max-w-[150px] truncate">{inv.project_name}</TableCell>
+                <TableCell className="max-w-[200px]">
+                  <div className="truncate font-medium">{inv.project_name}</div>
+                  {inv.project_address && (
+                    <div className="truncate text-xs text-muted-foreground">{inv.project_address}</div>
+                  )}
+                </TableCell>
                 <TableCell>{inv.phase_description || '-'}</TableCell>
                 <TableCell>
                   {inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : '-'}
