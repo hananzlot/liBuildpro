@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DateRange } from "react-day-picker";
-import { parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { parseISO, isWithinInterval, startOfDay, endOfDay, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAudit } from "@/hooks/useAuditLog";
@@ -86,11 +86,13 @@ interface Project {
   estimated_cost: number | null;
   total_pl: number | null;
   created_at: string;
+  updated_at: string | null;
   opportunity_id: string | null;
   location_id: string;
   legacy_project_number: string | null;
   deleted_at: string | null;
   agreement_signed_date: string | null;
+  install_start_date: string | null;
 }
 
 interface ProjectFinancials {
@@ -1458,12 +1460,28 @@ export default function Production() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge 
-                                variant="outline" 
-                                className={statusColors[project.project_status || "New Job"] || ""}
-                              >
-                                {project.project_status || "New Job"}
-                              </Badge>
+                              <div className="flex flex-col gap-0.5">
+                                <Badge 
+                                  variant="outline" 
+                                  className={statusColors[project.project_status || "New Job"] || ""}
+                                >
+                                  {project.project_status || "New Job"}
+                                </Badge>
+                                {project.install_start_date && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {format(parseISO(project.install_start_date), "M/d/yy")}
+                                    {" "}
+                                    ({(() => {
+                                      const startDate = parseISO(project.install_start_date!);
+                                      const endDate = project.project_status === "Completed" && project.updated_at
+                                        ? parseISO(project.updated_at)
+                                        : new Date();
+                                      const diffDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                                      return `${diffDays}d`;
+                                    })()})
+                                  </span>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className="text-xs">
                               {project.primary_salesperson || "-"} / {project.project_manager || "-"}
