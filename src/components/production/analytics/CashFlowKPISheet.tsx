@@ -67,7 +67,7 @@ export function CashFlowKPISheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-5xl overflow-y-auto">
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>
