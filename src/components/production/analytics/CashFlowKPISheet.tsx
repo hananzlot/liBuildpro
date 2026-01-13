@@ -21,7 +21,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 import { Printer, Search } from "lucide-react";
 import { ProjectWithFinancials, InvoiceWithAging, BankTransaction } from "@/hooks/useProductionAnalytics";
 
-export type CashFlowKPIType = 'cashPosition' | 'totalCollected' | 'billsPaid' | 'outstandingAR' | 'projectsAtRisk';
+export type CashFlowKPIType = 'cashPosition' | 'totalCollected' | 'billsPaid' | 'outstandingAR' | 'outstandingAP' | 'projectsAtRisk';
 
 interface CashFlowKPISheetProps {
   open: boolean;
@@ -38,6 +38,7 @@ const KPI_TITLES: Record<CashFlowKPIType, string> = {
   totalCollected: 'Payment Transactions Received',
   billsPaid: 'Bill Payments Made',
   outstandingAR: 'Outstanding Receivables (AR)',
+  outstandingAP: 'Outstanding Payables (AP)',
   projectsAtRisk: 'Projects At Risk',
 };
 
@@ -46,6 +47,7 @@ const KPI_DESCRIPTIONS: Record<CashFlowKPIType, string> = {
   totalCollected: 'All payment transactions received from customers',
   billsPaid: 'All payments made to vendors and subcontractors',
   outstandingAR: 'Unpaid invoices with aging analysis',
+  outstandingAP: 'All unpaid bills with cash impact projections',
   projectsAtRisk: 'Projects with negative cash, low collection, or overdue AR',
 };
 
