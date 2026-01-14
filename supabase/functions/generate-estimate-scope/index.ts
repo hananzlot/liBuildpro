@@ -40,9 +40,9 @@ serve(async (req) => {
   }
 
   try {
-    const { projectType, projectDescription, workScopeDescription, jobAddress, existingGroups } = await req.json();
+    const { projectType, projectDescription, workScopeDescription, jobAddress, existingGroups, defaultMarkupPercent } = await req.json();
 
-    console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress });
+    console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -56,6 +56,8 @@ serve(async (req) => {
     const systemPrompt = `You are an expert construction estimator for a home improvement contractor in California. 
 You create detailed, accurate estimates for residential construction projects including kitchens, bathrooms, roofing, windows, siding, HVAC, and general remodeling.
 
+IMPORTANT: You are calculating COSTS (what the contractor pays), not selling prices. Markup will be applied separately by the system.
+
 IMPORTANT LOCATION-BASED PRICING:
 - Job Location: ${jobAddress || 'California'}
 - ZIP Code: ${zipCode || 'Not specified'}
@@ -66,19 +68,28 @@ IMPORTANT LOCATION-BASED PRICING:
 Apply the ${regionInfo.costMultiplier}x multiplier to all labor and material costs for accurate regional pricing.
 
 When generating estimates:
+- Return COST values (what YOU pay for labor and materials), not selling prices
 - Use realistic California market rates for labor and materials (2024-2025 pricing) ADJUSTED for the specific region
 - Parse the work scope description carefully for exact measurements and quantities
 - Include all necessary line items: demolition, materials, labor, permits, cleanup
 - Group items logically by work area (e.g., Kitchen, Bathroom, Electrical, Plumbing)
 - Use appropriate units (sqft, linear ft, hours, each, set)
 - Include common permit fees for the type of work (adjusted for local jurisdiction)
+- Include suggested markup percentage for each item type
 - Be thorough but not excessive
 - Use the EXACT measurements provided by the user when available
 
-Labor rates reference (BASE - multiply by ${regionInfo.costMultiplier} for ${regionInfo.region}):
-- General labor: $45-65/hour
-- Skilled trades (electrical, plumbing): $85-125/hour
-- Specialty (tile, cabinet): $75-95/hour
+Labor COST rates reference (BASE - multiply by ${regionInfo.costMultiplier} for ${regionInfo.region}):
+- General labor: $35-50/hour (cost)
+- Skilled trades (electrical, plumbing): $65-95/hour (cost)
+- Specialty (tile, cabinet): $55-75/hour (cost)
+
+Suggested markup percentages by item type:
+- Labor: 40-50% markup
+- Materials: 25-35% markup
+- Equipment: 30-40% markup
+- Permits: 10-15% markup (or pass-through)
+- Assembly: 35-45% markup
 
 Material cost considerations for ${regionInfo.region}:
 - Account for delivery costs to this area
@@ -91,6 +102,7 @@ Always return valid JSON matching the exact schema requested.`;
 Project Type: ${projectType || 'Home Improvement'}
 Job Location: ${jobAddress || 'California'}
 ${zipCode ? `ZIP Code: ${zipCode} (${regionInfo.region})` : ''}
+Default Markup: ${defaultMarkupPercent || 35}%
 
 DETAILED WORK SCOPE FROM CUSTOMER:
 ${workScopeDescription || projectDescription || 'General home improvement project'}
@@ -100,9 +112,11 @@ ${existingGroups?.length > 0 ? `\nExisting scope areas (already added, enhance o
 INSTRUCTIONS:
 1. Parse the work scope description carefully - extract ALL measurements, quantities, and specifications mentioned
 2. Apply ${regionInfo.region} pricing (${regionInfo.costMultiplier}x multiplier on base rates)
-3. Include realistic material costs from major suppliers in the area
-4. Add appropriate permit fees for ${regionInfo.region}
-5. Group items logically by work area
+3. Return COST values (what you pay), not selling prices - the system will apply markup
+4. Include realistic material costs from major suppliers in the area
+5. Add appropriate permit fees for ${regionInfo.region}
+6. Group items logically by work area
+7. Include suggested markup percentages for each item based on type
 
 Return a JSON object with this exact structure:
 {
@@ -116,7 +130,8 @@ Return a JSON object with this exact structure:
           "description": "Detailed item description with specs",
           "quantity": number (use exact quantities from scope when provided),
           "unit": "hours|sqft|linear ft|each|set|unit",
-          "unit_price": number (adjusted for ${regionInfo.region}),
+          "cost": number (YOUR COST, adjusted for ${regionInfo.region} - what you pay),
+          "markup_percent": number (suggested markup: labor 45%, materials 30%, equipment 35%, permits 12%),
           "is_taxable": boolean (materials taxable, labor not taxable in CA)
         }
       ]
