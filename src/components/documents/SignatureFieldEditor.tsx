@@ -70,7 +70,8 @@ export function SignatureFieldEditor({
 }: SignatureFieldEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [fabricCanvas, setFabricCanvas] = useState<fabric.Canvas | null>(null);
+  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const [canvasReady, setCanvasReady] = useState(false);
   const [fields, setFields] = useState<SignatureField[]>(initialFields);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -81,6 +82,15 @@ export function SignatureFieldEditor({
   const [selectedFieldType, setSelectedFieldType] = useState<"signature" | "date" | "name" | "email">("signature");
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
   const fieldDataMap = useRef<Map<string, FieldData>>(new Map());
+  const isMountedRef = useRef(true);
+
+  // Track mount state
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Load PDF
   useEffect(() => {
@@ -157,9 +167,9 @@ export function SignatureFieldEditor({
     renderPage();
   }, [pdfDoc, currentPage, pageImages]);
 
-  // Initialize Fabric canvas
+  // Initialize Fabric canvas once
   useEffect(() => {
-    if (!canvasRef.current || !pageImages.has(currentPage)) return;
+    if (!canvasRef.current) return;
 
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: 816,
@@ -168,26 +178,40 @@ export function SignatureFieldEditor({
       selection: true,
     });
 
-    setFabricCanvas(canvas);
+    fabricCanvasRef.current = canvas;
+    setCanvasReady(true);
 
     return () => {
-      canvas.dispose();
+      if (fabricCanvasRef.current) {
+        try {
+          fabricCanvasRef.current.dispose();
+        } catch (e) {
+          // Ignore disposal errors
+        }
+        fabricCanvasRef.current = null;
+      }
+      setCanvasReady(false);
     };
-  }, [currentPage, pageImages]);
+  }, []);
 
-  // Load background image and fields when canvas is ready
+  // Load background image and fields when page changes
   useEffect(() => {
-    if (!fabricCanvas || !pageImages.has(currentPage)) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !canvasReady || !pageImages.has(currentPage)) return;
 
     const loadBackground = async () => {
+      if (!isMountedRef.current) return;
+      
       try {
         const img = await fabric.FabricImage.fromURL(pageImages.get(currentPage)!);
-        fabricCanvas.setDimensions({
+        if (!isMountedRef.current || !fabricCanvasRef.current) return;
+        
+        fabricCanvasRef.current.setDimensions({
           width: img.width || 816,
           height: img.height || 1056,
         });
-        fabricCanvas.backgroundImage = img;
-        fabricCanvas.requestRenderAll();
+        fabricCanvasRef.current.backgroundImage = img;
+        fabricCanvasRef.current.requestRenderAll();
         loadFieldsOnCanvas();
       } catch (error) {
         console.error("Error loading background:", error);
@@ -195,15 +219,16 @@ export function SignatureFieldEditor({
     };
 
     loadBackground();
-  }, [fabricCanvas, pageImages, currentPage]);
+  }, [canvasReady, pageImages, currentPage]);
 
   // Load fields onto canvas
   const loadFieldsOnCanvas = useCallback(() => {
-    if (!fabricCanvas) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
 
     // Clear existing objects
-    fabricCanvas.getObjects().forEach((obj) => {
-      fabricCanvas.remove(obj);
+    canvas.getObjects().forEach((obj) => {
+      canvas.remove(obj);
     });
 
     // Add fields for current page
@@ -242,16 +267,17 @@ export function SignatureFieldEditor({
       (text as any).__fieldId = field.id;
       (text as any).__isLabel = true;
 
-      fabricCanvas.add(rect);
-      fabricCanvas.add(text);
+      canvas.add(rect);
+      canvas.add(text);
     });
 
-    fabricCanvas.requestRenderAll();
-  }, [fabricCanvas, fields, currentPage, signers]);
+    canvas.requestRenderAll();
+  }, [fields, currentPage, signers]);
 
   // Handle object modification
   useEffect(() => {
-    if (!fabricCanvas) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !canvasReady) return;
 
     const handleModified = (e: any) => {
       const obj = e.target;
@@ -273,12 +299,12 @@ export function SignatureFieldEditor({
       );
     };
 
-    fabricCanvas.on("object:modified", handleModified);
+    canvas.on("object:modified", handleModified);
 
     return () => {
-      fabricCanvas.off("object:modified", handleModified);
+      canvas.off("object:modified", handleModified);
     };
-  }, [fabricCanvas]);
+  }, [canvasReady]);
 
   // Update parent when fields change
   useEffect(() => {
@@ -322,9 +348,10 @@ export function SignatureFieldEditor({
   };
 
   const deleteSelectedObject = () => {
-    if (!fabricCanvas) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
 
-    const activeObj = fabricCanvas.getActiveObject();
+    const activeObj = canvas.getActiveObject();
     const fieldId = (activeObj as any)?.__fieldId;
     if (!fieldId) return;
 
@@ -522,8 +549,8 @@ export function SignatureFieldEditor({
           <CardContent>
             <div
               ref={containerRef}
-              className="border rounded-lg overflow-auto bg-muted/30"
-              style={{ maxHeight: "70vh" }}
+              className="border rounded-lg overflow-auto bg-muted/30 relative"
+              style={{ maxHeight: "70vh", minHeight: "400px" }}
             >
               {pdfError ? (
                 <div className="flex flex-col items-center justify-center h-96 gap-3 px-6 text-center">
@@ -543,12 +570,15 @@ export function SignatureFieldEditor({
                     </Button>
                   </div>
                 </div>
-              ) : !pageImages.has(currentPage) ? (
-                <div className="flex items-center justify-center h-96">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                </div>
               ) : (
-                <canvas ref={canvasRef} />
+                <>
+                  {!pageImages.has(currentPage) && (
+                    <div className="flex items-center justify-center h-96 absolute inset-0 bg-background/80 z-10">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                    </div>
+                  )}
+                  <canvas ref={canvasRef} className={!pageImages.has(currentPage) ? "opacity-0" : ""} />
+                </>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
