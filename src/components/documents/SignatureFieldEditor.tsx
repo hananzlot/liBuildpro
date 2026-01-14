@@ -129,7 +129,10 @@ export function SignatureFieldEditor({
 
       try {
         const page = await pdfDoc.getPage(currentPage);
-        const scale = 1.5;
+        // Scale to fit a reasonable canvas width (around 816px for letter size)
+        const baseViewport = page.getViewport({ scale: 1 });
+        const targetWidth = 816;
+        const scale = targetWidth / baseViewport.width;
         const viewport = page.getViewport({ scale });
 
         const canvas = document.createElement("canvas");
@@ -383,12 +386,13 @@ export function SignatureFieldEditor({
               </Select>
             </div>
 
-            <Button onClick={addField} className="w-full" size="sm">
+            <Button type="button" onClick={addField} className="w-full" size="sm">
               <Plus className="h-4 w-4 mr-1" />
               Add Field
             </Button>
 
             <Button
+              type="button"
               onClick={deleteSelectedObject}
               variant="outline"
               className="w-full text-destructive hover:text-destructive"
@@ -427,6 +431,7 @@ export function SignatureFieldEditor({
                         <span className="truncate max-w-[80px]">{field.signerName}</span>
                       </div>
                       <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-destructive hover:text-destructive"
@@ -481,10 +486,15 @@ export function SignatureFieldEditor({
               </CardTitle>
               <div className="flex items-center gap-2">
                 <Button
+                  type="button"
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCurrentPage((p) => Math.max(1, p - 1));
+                  }}
                   disabled={currentPage <= 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -493,10 +503,15 @@ export function SignatureFieldEditor({
                   {currentPage} / {totalPages}
                 </span>
                 <Button
+                  type="button"
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCurrentPage((p) => Math.min(totalPages, p + 1));
+                  }}
                   disabled={currentPage >= totalPages}
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -515,10 +530,11 @@ export function SignatureFieldEditor({
                   <p className="text-sm font-medium">PDF failed to load</p>
                   <p className="text-xs text-muted-foreground break-all">{pdfError}</p>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => setReloadToken((v) => v + 1)}>
+                    <Button type="button" size="sm" onClick={() => setReloadToken((v) => v + 1)}>
                       Retry
                     </Button>
                     <Button
+                      type="button"
                       size="sm"
                       variant="outline"
                       onClick={() => window.open(documentUrl, "_blank")}
