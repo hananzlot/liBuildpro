@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "npm:resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -148,18 +147,31 @@ serve(async (req) => {
       </html>
     `;
 
-    const resend = new Resend(RESEND_API_KEY);
-
-    const res = await resend.emails.send({
-      from: `${fromName} <${fromEmail}>`,
-      to: [to],
-      subject: subject,
-      html: htmlContent,
+    // Use Resend API directly via fetch
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: `${fromName} <${fromEmail}>`,
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      }),
     });
 
-    console.log("Email sent successfully:", res);
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Failed to send email: ${errorText}`);
+    }
 
-    return new Response(JSON.stringify({ success: true, data: res }), {
+    const resData = await res.json();
+
+    console.log("Email sent successfully:", resData);
+
+    return new Response(JSON.stringify({ success: true, data: resData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
