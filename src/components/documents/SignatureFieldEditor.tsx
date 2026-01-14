@@ -139,9 +139,9 @@ export function SignatureFieldEditor({
 
       try {
         const page = await pdfDoc.getPage(currentPage);
-        // Scale to fit a reasonable canvas width (around 816px for letter size)
+        // Scale to fit container - use smaller width for better fit
         const baseViewport = page.getViewport({ scale: 1 });
-        const targetWidth = 816;
+        const targetWidth = 600; // Smaller width to fit container better
         const scale = targetWidth / baseViewport.width;
         const viewport = page.getViewport({ scale });
 
@@ -166,6 +166,14 @@ export function SignatureFieldEditor({
 
     renderPage();
   }, [pdfDoc, currentPage, pageImages]);
+
+  // Reset scroll position when page changes
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
+      containerRef.current.scrollLeft = 0;
+    }
+  }, [currentPage]);
 
   // Initialize Fabric canvas once - imperatively create canvas element
   useEffect(() => {
@@ -220,12 +228,18 @@ export function SignatureFieldEditor({
         if (!isMountedRef.current || !fabricCanvasRef.current) return;
         
         fabricCanvasRef.current.setDimensions({
-          width: img.width || 816,
-          height: img.height || 1056,
+          width: img.width || 600,
+          height: img.height || 776,
         });
         fabricCanvasRef.current.backgroundImage = img;
         fabricCanvasRef.current.requestRenderAll();
         loadFieldsOnCanvas();
+        
+        // Reset scroll after loading
+        if (containerRef.current) {
+          containerRef.current.scrollTop = 0;
+          containerRef.current.scrollLeft = 0;
+        }
       } catch (error) {
         console.error("Error loading background:", error);
       }
