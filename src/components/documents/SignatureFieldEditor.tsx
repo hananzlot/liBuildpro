@@ -9,8 +9,8 @@ import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight 
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Set PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
+// Set PDF.js worker - use unpkg with exact version match
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
 
 interface Signer {
   id: string;
