@@ -17,7 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Plus, Trash2, Save, Wand2, Loader2, GripVertical, 
   User, MapPin, Calendar, DollarSign, Percent, FileText,
-  ChevronDown, ChevronRight, FolderPlus
+  ChevronDown, ChevronRight, FolderPlus, TrendingUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -75,6 +75,7 @@ interface EstimateFormData {
   deposit_required: boolean;
   deposit_percent: number;
   tax_rate: number;
+  default_markup_percent: number;
   discount_type: string;
   discount_value: number;
   notes: string;
@@ -117,6 +118,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     deposit_required: true,
     deposit_percent: 30,
     tax_rate: 9.5,
+    default_markup_percent: 35,
     discount_type: "percent",
     discount_value: 0,
     notes: "",
@@ -129,10 +131,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [isGeneratingScope, setIsGeneratingScope] = useState(false);
   const [activeTab, setActiveTab] = useState("customer");
 
-  // Calculate totals
+  // Calculate totals including cost and profit
   const calculateTotals = useCallback(() => {
     const subtotal = groups.reduce((sum, group) => 
       sum + group.items.reduce((itemSum, item) => itemSum + item.line_total, 0), 0
+    );
+    
+    const totalCost = groups.reduce((sum, group) => 
+      sum + group.items.reduce((itemSum, item) => itemSum + (item.quantity * item.cost), 0), 0
     );
     
     const taxableAmount = groups.reduce((sum, group) => 
@@ -150,8 +156,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     
     const total = subtotal + taxAmount - discountAmount;
     const depositAmount = (total * formData.deposit_percent) / 100;
+    const grossProfit = subtotal - totalCost;
+    const marginPercent = subtotal > 0 ? (grossProfit / subtotal) * 100 : 0;
     
-    return { subtotal, taxAmount, discountAmount, total, depositAmount };
+    return { subtotal, totalCost, grossProfit, marginPercent, taxAmount, discountAmount, total, depositAmount };
   }, [groups, formData.tax_rate, formData.discount_type, formData.discount_value, formData.deposit_percent]);
 
   const totals = calculateTotals();
@@ -196,6 +204,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         deposit_required: est.deposit_required || false,
         deposit_percent: est.deposit_percent || 30,
         tax_rate: est.tax_rate || 9.5,
+        default_markup_percent: 35, // Default, not stored in DB yet
         discount_type: est.discount_type || "percent",
         discount_value: est.discount_value || 0,
         notes: est.notes || "",
@@ -233,6 +242,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         deposit_required: true,
         deposit_percent: 30,
         tax_rate: 9.5,
+        default_markup_percent: 35,
         discount_type: "percent",
         discount_value: 0,
         notes: "",
@@ -266,6 +276,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           workScopeDescription: formData.work_scope_description,
           jobAddress: formData.job_address,
           existingGroups: groups.map(g => g.group_name),
+          defaultMarkupPercent: formData.default_markup_percent,
         },
       });
 
@@ -274,26 +285,33 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       const scope = data.scope;
       
-      // Add generated groups and items
+      // Add generated groups and items - now with cost and markup from AI
       const newGroups: Group[] = scope.groups.map((g: any, gIdx: number) => ({
         id: generateId(),
         group_name: g.group_name,
         description: g.description || "",
         sort_order: groups.length + gIdx,
         isOpen: true,
-        items: g.items.map((item: any, iIdx: number) => ({
-          id: generateId(),
-          item_type: item.item_type || "material",
-          description: item.description,
-          quantity: item.quantity || 1,
-          unit: item.unit || "each",
-          unit_price: item.unit_price || 0,
-          cost: item.cost || 0,
-          markup_percent: item.markup_percent || 0,
-          line_total: (item.quantity || 1) * (item.unit_price || 0),
-          is_taxable: item.is_taxable !== false,
-          sort_order: iIdx,
-        })),
+        items: g.items.map((item: any, iIdx: number) => {
+          const itemCost = item.cost || 0;
+          const itemMarkup = item.markup_percent ?? formData.default_markup_percent;
+          const itemUnitPrice = itemCost * (1 + itemMarkup / 100);
+          const itemQuantity = item.quantity || 1;
+          
+          return {
+            id: generateId(),
+            item_type: item.item_type || "material",
+            description: item.description,
+            quantity: itemQuantity,
+            unit: item.unit || "each",
+            cost: itemCost,
+            markup_percent: itemMarkup,
+            unit_price: itemUnitPrice,
+            line_total: itemQuantity * itemUnitPrice,
+            is_taxable: item.is_taxable !== false,
+            sort_order: iIdx,
+          };
+        }),
       }));
 
       setGroups(prev => [...prev, ...newGroups]);
@@ -359,7 +377,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     setGroups(groups.map(g => g.id === groupId ? { ...g, isOpen: !g.isOpen } : g));
   };
 
-  // Line item management
+  // Line item management - with cost/markup recalculation
   const addLineItem = (groupId: string) => {
     const newItem: LineItem = {
       id: generateId(),
@@ -367,9 +385,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       description: "",
       quantity: 1,
       unit: "each",
-      unit_price: 0,
       cost: 0,
-      markup_percent: 0,
+      markup_percent: formData.default_markup_percent,
+      unit_price: 0,
       line_total: 0,
       is_taxable: true,
       sort_order: groups.find(g => g.id === groupId)?.items.length || 0,
@@ -387,6 +405,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         items: g.items.map(item => {
           if (item.id !== itemId) return item;
           const updated = { ...item, ...updates };
+          
+          // If cost or markup changed, recalculate unit_price
+          if ('cost' in updates || 'markup_percent' in updates) {
+            updated.unit_price = updated.cost * (1 + updated.markup_percent / 100);
+          }
+          
+          // If unit_price was directly edited, back-calculate markup (optional behavior)
+          // For now, just allow direct price edits
+          
           // Recalculate line total
           updated.line_total = updated.quantity * updated.unit_price;
           return updated;
@@ -597,7 +624,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-7xl h-[90vh] flex flex-col p-0">
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl">
@@ -843,18 +870,20 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   </p>
                                 ) : (
                                   <div className="space-y-2">
-                                    {/* Header row */}
-                                    <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-2">
+                                    {/* Header row - Updated with Cost, Markup, Price columns */}
+                                    <div className="grid grid-cols-16 gap-2 text-xs font-medium text-muted-foreground px-2">
                                       <div className="col-span-1">Type</div>
-                                      <div className="col-span-4">Description</div>
+                                      <div className="col-span-3">Description</div>
                                       <div className="col-span-1">Qty</div>
                                       <div className="col-span-1">Unit</div>
+                                      <div className="col-span-2">Cost</div>
+                                      <div className="col-span-2">Markup %</div>
                                       <div className="col-span-2">Price</div>
                                       <div className="col-span-2">Total</div>
-                                      <div className="col-span-1"></div>
+                                      <div className="col-span-2"></div>
                                     </div>
                                     {group.items.map((item) => (
-                                      <div key={item.id} className="grid grid-cols-12 gap-2 items-center">
+                                      <div key={item.id} className="grid grid-cols-16 gap-2 items-center">
                                         <Select
                                           value={item.item_type}
                                           onValueChange={(v) => updateLineItem(group.id, item.id, { item_type: v })}
@@ -873,7 +902,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                         <Input
                                           value={item.description}
                                           onChange={(e) => updateLineItem(group.id, item.id, { description: e.target.value })}
-                                          className="col-span-4 h-8 text-sm"
+                                          className="col-span-3 h-8 text-sm"
                                           placeholder="Item description"
                                         />
                                         <Input
@@ -897,6 +926,27 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                             ))}
                                           </SelectContent>
                                         </Select>
+                                        {/* Cost field */}
+                                        <Input
+                                          type="number"
+                                          value={item.cost}
+                                          onChange={(e) => updateLineItem(group.id, item.id, { cost: parseFloat(e.target.value) || 0 })}
+                                          className="col-span-2 h-8 text-sm"
+                                          step="0.01"
+                                          placeholder="0.00"
+                                        />
+                                        {/* Markup % field */}
+                                        <div className="col-span-2 flex items-center gap-1">
+                                          <Input
+                                            type="number"
+                                            value={item.markup_percent}
+                                            onChange={(e) => updateLineItem(group.id, item.id, { markup_percent: parseFloat(e.target.value) || 0 })}
+                                            className="h-8 text-sm"
+                                            step="1"
+                                          />
+                                          <span className="text-xs text-muted-foreground">%</span>
+                                        </div>
+                                        {/* Price field (calculated from cost + markup) */}
                                         <Input
                                           type="number"
                                           value={item.unit_price}
@@ -911,7 +961,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           variant="ghost"
                                           size="sm"
                                           onClick={() => deleteLineItem(group.id, item.id)}
-                                          className="col-span-1 h-8 w-8 p-0 text-destructive"
+                                          className="col-span-2 h-8 w-8 p-0 text-destructive"
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -931,9 +981,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 <TabsContent value="payments" className="mt-0 space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Deposit & Tax Settings</CardTitle>
+                      <CardTitle className="text-base">Deposit, Markup & Tax Settings</CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-3">
+                    <CardContent className="grid gap-4 md:grid-cols-4">
                       <div className="flex items-center gap-4">
                         <Switch
                           id="deposit_required"
@@ -951,6 +1001,20 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
                           disabled={!formData.deposit_required}
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="default_markup_percent" className="flex items-center gap-1">
+                          Default Markup %
+                          <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                        </Label>
+                        <Input
+                          id="default_markup_percent"
+                          type="number"
+                          value={formData.default_markup_percent}
+                          onChange={(e) => setFormData({ ...formData, default_markup_percent: parseFloat(e.target.value) || 0 })}
+                          step="1"
+                        />
+                        <p className="text-xs text-muted-foreground">Applied to new items & AI generation</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="tax_rate">Tax Rate %</Label>
@@ -1103,13 +1167,33 @@ The more detail you provide, the more accurate the AI-generated estimate will be
             </Tabs>
           </div>
 
-          {/* Right Sidebar - Totals */}
-          <div className="w-72 border-l bg-muted/30 p-4 overflow-y-auto">
+          {/* Right Sidebar - Totals with Profit Metrics */}
+          <div className="w-80 border-l bg-muted/30 p-4 overflow-y-auto">
             <h3 className="font-semibold mb-4">Estimate Summary</h3>
             
             <div className="space-y-3 text-sm">
+              {/* Cost & Profit Section */}
+              <div className="p-3 bg-background rounded-lg border space-y-2">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Total Cost</span>
+                  <span>{formatCurrency(totals.totalCost)}</span>
+                </div>
+                <div className="flex justify-between text-green-600">
+                  <span>Gross Profit</span>
+                  <span className="font-medium">{formatCurrency(totals.grossProfit)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Margin</span>
+                  <span className={`font-medium ${totals.marginPercent >= 30 ? 'text-green-600' : totals.marginPercent >= 20 ? 'text-amber-500' : 'text-red-500'}`}>
+                    {totals.marginPercent.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-muted-foreground">Subtotal (Selling)</span>
                 <span className="font-medium">{formatCurrency(totals.subtotal)}</span>
               </div>
               
@@ -1145,6 +1229,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
             <Separator className="my-4" />
 
             <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Default Markup</span>
+                <span>{formData.default_markup_percent}%</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Areas</span>
                 <span>{groups.length}</span>
