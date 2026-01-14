@@ -79,6 +79,7 @@ interface EstimateFormData {
   discount_value: number;
   notes: string;
   terms_and_conditions: string;
+  work_scope_description: string;
 }
 
 const itemTypes = [
@@ -120,6 +121,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     discount_value: 0,
     notes: "",
     terms_and_conditions: "",
+    work_scope_description: "",
   });
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -198,6 +200,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_value: est.discount_value || 0,
         notes: est.notes || "",
         terms_and_conditions: est.terms_and_conditions || "",
+        work_scope_description: "",
       });
 
       // Populate groups with items
@@ -234,6 +237,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_value: 0,
         notes: "",
         terms_and_conditions: "",
+        work_scope_description: "",
       });
       setGroups([]);
       setPaymentSchedule([]);
@@ -243,8 +247,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   // AI Scope Generation
   const generateScope = async () => {
-    if (!formData.estimate_title && !formData.job_address) {
-      toast.error("Please enter a project title or address first");
+    if (!formData.job_address?.trim()) {
+      toast.error("Please enter the job site address first (required for accurate pricing)");
+      return;
+    }
+    if (!formData.work_scope_description?.trim()) {
+      toast.error("Please describe the work scope with measurements before generating");
+      setActiveTab("scope");
       return;
     }
 
@@ -254,6 +263,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         body: {
           projectType: formData.estimate_title,
           projectDescription: formData.notes,
+          workScopeDescription: formData.work_scope_description,
           jobAddress: formData.job_address,
           existingGroups: groups.map(g => g.group_name),
         },
@@ -417,8 +427,32 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   };
 
   // Save estimate
+  // Validation before save
+  const validateEstimate = (): boolean => {
+    if (!formData.customer_name?.trim()) {
+      toast.error("Customer name is required");
+      setActiveTab("customer");
+      return false;
+    }
+    if (!formData.job_address?.trim()) {
+      toast.error("Job site address is required");
+      setActiveTab("customer");
+      return false;
+    }
+    if (!formData.estimate_title?.trim()) {
+      toast.error("Project title is required");
+      setActiveTab("customer");
+      return false;
+    }
+    return true;
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (!validateEstimate()) {
+        throw new Error("Validation failed");
+      }
+
       const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
       
       // Prepare estimate data
@@ -426,7 +460,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         customer_name: formData.customer_name,
         customer_email: formData.customer_email || null,
         customer_phone: formData.customer_phone || null,
-        job_address: formData.job_address || null,
+        job_address: formData.job_address,
         billing_address: formData.billing_address || null,
         estimate_title: formData.estimate_title,
         estimate_date: formData.estimate_date,
@@ -662,13 +696,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         />
                       </div>
                       <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="job_address">Job Site Address</Label>
+                        <Label htmlFor="job_address">Job Site Address *</Label>
                         <Input
                           id="job_address"
                           value={formData.job_address}
                           onChange={(e) => setFormData({ ...formData, job_address: e.target.value })}
                           placeholder="123 Main St, Los Angeles, CA 90001"
+                          required
                         />
+                        <p className="text-xs text-muted-foreground">Include full address with city, state, and ZIP code for accurate pricing</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="estimate_date">Estimate Date</Label>
@@ -693,8 +729,40 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 </TabsContent>
 
                 <TabsContent value="scope" className="mt-0 space-y-4">
+                  {/* Work Scope Description - Required for AI Generation */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Describe the Work Scope *
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Textarea
+                        value={formData.work_scope_description}
+                        onChange={(e) => setFormData({ ...formData, work_scope_description: e.target.value })}
+                        placeholder="Describe the work in detail. Include all measurements, quantities, and specifications. Example:
+
+Kitchen remodel:
+- Remove existing cabinets (12 linear ft upper, 15 linear ft lower)
+- Install new shaker-style cabinets
+- Granite countertop: 45 sqft with 4 inch backsplash
+- New sink and faucet installation
+- Electrical: add 3 outlets, relocate 1 switch
+- Flooring: 150 sqft luxury vinyl plank
+
+The more detail you provide, the more accurate the AI-generated estimate will be."
+                        className="min-h-[150px]"
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Include measurements (sqft, linear ft, quantities) and specific materials for accurate cost estimates. 
+                        The AI uses this description along with the job site ZIP code for location-based pricing.
+                      </p>
+                    </CardContent>
+                  </Card>
+
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Work Scope</h3>
+                    <h3 className="font-semibold">Line Items</h3>
                     <Button onClick={addGroup} size="sm">
                       <FolderPlus className="mr-2 h-4 w-4" />
                       Add Area
