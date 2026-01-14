@@ -220,7 +220,8 @@ export default function Production() {
   const [kpiDateRange, setKpiDateRange] = useState<DateRange | undefined>(undefined);
   const [cashFlowSheetOpen, setCashFlowSheetOpen] = useState(false);
   const [totalSoldSheetOpen, setTotalSoldSheetOpen] = useState(false);
-  const [totalSoldGroupBy, setTotalSoldGroupBy] = useState<'none' | 'month' | 'salesperson'>('none');
+  const [totalSoldGroupBy, setTotalSoldGroupBy] = useState<'none' | 'month' | 'salesperson'>('month');
+  const [totalSoldFilterSalesperson, setTotalSoldFilterSalesperson] = useState<string | null>(null);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
@@ -2156,7 +2157,19 @@ export default function Production() {
             
             {/* Summary by Salesperson */}
             <div className="mt-4 mb-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Summary by Salesperson</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-medium text-muted-foreground">Summary by Salesperson (click to filter)</p>
+                {totalSoldFilterSalesperson && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 text-xs px-2"
+                    onClick={() => setTotalSoldFilterSalesperson(null)}
+                  >
+                    Clear filter
+                  </Button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {(() => {
                   const salespersonStats: Record<string, { count: number; total: number }> = {};
@@ -2172,7 +2185,14 @@ export default function Production() {
                   return Object.entries(salespersonStats)
                     .sort((a, b) => b[1].total - a[1].total)
                     .map(([name, stats]) => (
-                      <Badge key={name} variant="outline" className="text-xs py-1 px-2">
+                      <Badge 
+                        key={name} 
+                        variant={totalSoldFilterSalesperson === name ? "default" : "outline"} 
+                        className={`text-xs py-1 px-2 cursor-pointer hover:bg-primary/20 transition-colors ${
+                          totalSoldFilterSalesperson === name ? 'bg-primary text-primary-foreground' : ''
+                        }`}
+                        onClick={() => setTotalSoldFilterSalesperson(totalSoldFilterSalesperson === name ? null : name)}
+                      >
                         {name}: {stats.count} ({formatCurrency(stats.total)})
                       </Badge>
                     ));
@@ -2195,11 +2215,18 @@ export default function Production() {
               </Select>
             </div>
 
-            <ScrollArea className="h-[calc(100vh-300px)]">
+            <ScrollArea className="h-[calc(100vh-340px)]">
               <div className="space-y-2 pr-4">
                 {(() => {
+                  // Apply salesperson filter
+                  const filteredProjects = totalSoldFilterSalesperson
+                    ? sortedAndFilteredProjects.filter(p => 
+                        (p.primary_salesperson || 'Unassigned') === totalSoldFilterSalesperson
+                      )
+                    : sortedAndFilteredProjects;
+
                   if (totalSoldGroupBy === 'none') {
-                    return sortedAndFilteredProjects.map((project) => {
+                    return filteredProjects.map((project) => {
                       const financials = projectFinancials[project.id];
                       const soldAmount = financials?.contractsTotal || 0;
                       return (
@@ -2217,8 +2244,8 @@ export default function Production() {
                   }
 
                   // Group projects
-                  const groups: Record<string, typeof sortedAndFilteredProjects> = {};
-                  sortedAndFilteredProjects.forEach((project) => {
+                  const groups: Record<string, typeof filteredProjects> = {};
+                  filteredProjects.forEach((project) => {
                     let groupKey: string;
                     if (totalSoldGroupBy === 'month') {
                       if (project.install_start_date) {
