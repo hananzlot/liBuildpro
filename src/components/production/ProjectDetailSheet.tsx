@@ -878,6 +878,14 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </div>
                         </div>
                       )}
+                      {fullProject?.lead_source && (
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-muted-foreground">Lead Source</Label>
+                          <div className="px-3 py-2 text-xs rounded-md border bg-muted/50 text-muted-foreground h-8 flex items-center">
+                            {fullProject.lead_source}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
