@@ -172,6 +172,12 @@ export function DateRangeAppointmentsSheet({
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [localAddressState, setLocalAddressState] = useState<Record<string, string>>({});
   
+  // Created date editing state
+  const [editingCreatedDateId, setEditingCreatedDateId] = useState<string | null>(null);
+  const [editCreatedDateValue, setEditCreatedDateValue] = useState("");
+  const [isSavingCreatedDate, setIsSavingCreatedDate] = useState(false);
+  const [localCreatedDateState, setLocalCreatedDateState] = useState<Record<string, string>>({});
+  
   // Opportunity detail sheet state
   const [selectedOpportunity, setSelectedOpportunity] = useState<DBOpportunity | null>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
@@ -608,6 +614,56 @@ export function DateRangeAppointmentsSheet({
     }
   };
 
+  // Created date editing functions
+  const startEditingCreatedDate = (apt: DBAppointment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentDate = localCreatedDateState[apt.ghl_id] ?? apt.ghl_date_added ?? apt.created_at;
+    // Format as datetime-local input value
+    const dateValue = currentDate ? format(new Date(currentDate), "yyyy-MM-dd'T'HH:mm") : "";
+    setEditingCreatedDateId(apt.ghl_id);
+    setEditCreatedDateValue(dateValue);
+  };
+
+  const cancelEditingCreatedDate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingCreatedDateId(null);
+    setEditCreatedDateValue("");
+  };
+
+  const saveCreatedDate = async (apt: DBAppointment, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!apt.ghl_id || !editCreatedDateValue) return;
+
+    setIsSavingCreatedDate(true);
+    try {
+      const newDate = new Date(editCreatedDateValue).toISOString();
+      
+      // Update in database
+      const { error } = await supabase
+        .from("appointments")
+        .update({ ghl_date_added: newDate, updated_at: new Date().toISOString() })
+        .eq("ghl_id", apt.ghl_id);
+
+      if (error) throw error;
+
+      // Update local state for immediate feedback
+      setLocalCreatedDateState((prev) => ({ ...prev, [apt.ghl_id]: newDate }));
+      
+      // Refresh data
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-contacts"] });
+      
+      toast.success("Created date updated");
+      setEditingCreatedDateId(null);
+      setEditCreatedDateValue("");
+    } catch (error) {
+      console.error("Error updating created date:", error);
+      toast.error("Failed to update created date");
+    } finally {
+      setIsSavingCreatedDate(false);
+    }
+  };
+
   return (
     <>
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -986,13 +1042,61 @@ export function DateRangeAppointmentsSheet({
                         )}
                         {defaultStatusFilter !== "showed" && (
                           <>
-                            <TableCell className="text-xs">
-                              {(() => {
-                                const createdDate = apt.ghl_date_added || apt.created_at;
-                                return createdDate 
-                                  ? format(new Date(createdDate), "MMM d, yyyy h:mma")
-                                  : "-";
-                              })()}
+                            <TableCell className="text-xs" onClick={(e) => e.stopPropagation()}>
+                              {editingCreatedDateId === apt.ghl_id ? (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="datetime-local"
+                                    value={editCreatedDateValue}
+                                    onChange={(e) => setEditCreatedDateValue(e.target.value)}
+                                    className="h-7 text-xs w-[160px]"
+                                    autoFocus
+                                  />
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6"
+                                    onClick={(e) => saveCreatedDate(apt, e)}
+                                    disabled={isSavingCreatedDate}
+                                  >
+                                    {isSavingCreatedDate ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Check className="h-3 w-3 text-green-500" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6"
+                                    onClick={cancelEditingCreatedDate}
+                                    disabled={isSavingCreatedDate}
+                                  >
+                                    <X className="h-3 w-3 text-red-500" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1 group">
+                                  <span>
+                                    {(() => {
+                                      const createdDate = localCreatedDateState[apt.ghl_id] ?? apt.ghl_date_added ?? apt.created_at;
+                                      return createdDate 
+                                        ? format(new Date(createdDate), "MMM d, yyyy h:mma")
+                                        : "-";
+                                    })()}
+                                  </span>
+                                  {isAdmin && (
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={(e) => startEditingCreatedDate(apt, e)}
+                                    >
+                                      <Pencil className="h-2.5 w-2.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell className="text-xs">
                               <span className="line-clamp-2">{contact?.source || "-"}</span>
