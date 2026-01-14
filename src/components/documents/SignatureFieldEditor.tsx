@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -81,8 +81,10 @@ export function SignatureFieldEditor({
   const [selectedSigner, setSelectedSigner] = useState<string>(signers[0]?.id || "");
   const [selectedFieldType, setSelectedFieldType] = useState<"signature" | "date" | "name" | "email">("signature");
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
+  const [zoom, setZoom] = useState(1);
   const fieldDataMap = useRef<Map<string, FieldData>>(new Map());
   const isMountedRef = useRef(true);
+  const pageBaseSizeRef = useRef<{ w: number; h: number } | null>(null);
   
   // Drag-to-pan refs
   const isPanningRef = useRef(false);
@@ -179,6 +181,50 @@ export function SignatureFieldEditor({
       });
     });
   }, []);
+
+  // Apply zoom helper - uses CSS-only resize so canvas stays inside container
+  const applyZoom = useCallback((nextZoom: number) => {
+    const canvas = fabricCanvasRef.current;
+    const base = pageBaseSizeRef.current;
+
+    if (!canvas || !base) return;
+
+    const clamped = Math.max(0.25, Math.min(nextZoom, 3)); // 25%–300%
+
+    // Zoom the rendering
+    canvas.setZoom(clamped);
+
+    // Resize the CSS size of the canvas element so it fits the container
+    canvas.setDimensions(
+      { width: base.w * clamped, height: base.h * clamped },
+      { cssOnly: true }
+    );
+
+    canvas.calcOffset();
+    canvas.requestRenderAll();
+
+    setZoom(clamped);
+  }, []);
+
+  // Fit to container helper
+  const fitToContainer = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    const base = pageBaseSizeRef.current;
+    const container = containerRef.current;
+
+    if (!canvas || !base || !container) return;
+
+    const padding = 16; // small buffer so it doesn't touch edges
+    const maxW = container.clientWidth - padding;
+    const maxH = container.clientHeight - padding;
+
+    const fitZoom = Math.min(maxW / base.w, maxH / base.h, 1); // never auto-zoom above 100%
+
+    applyZoom(fitZoom);
+
+    // Always start at top-left after fitting
+    resetScrollPosition();
+  }, [applyZoom, resetScrollPosition]);
 
 
   // Initialize Fabric canvas once - imperatively create canvas element
@@ -289,22 +335,27 @@ export function SignatureFieldEditor({
         const w = img.width || 816;
         const h = img.height || 1056;
 
-        // Set canvas to natural image size (no zoom shrinking)
-        fabricCanvasRef.current.setDimensions({ width: w, height: h });
+        // Store the base size for this page
+        pageBaseSizeRef.current = { w, h };
+
+        // Set the "real" canvas coordinate space to natural size
+        fabricCanvasRef.current.setDimensions({ width: w, height: h }, { cssOnly: false });
         fabricCanvasRef.current.backgroundImage = img;
+
+        // Fit the page into the container
+        fitToContainer();
         
         fabricCanvasRef.current.calcOffset();
         fabricCanvasRef.current.requestRenderAll();
         
         loadFieldsOnCanvas();
-        resetScrollPosition();
       } catch (error) {
         console.error("Error loading background:", error);
       }
     };
 
     loadBackground();
-  }, [canvasReady, pageImages, currentPage, loadFieldsOnCanvas, resetScrollPosition]);
+  }, [canvasReady, pageImages, currentPage, loadFieldsOnCanvas, fitToContainer]);
 
   // Drag-to-pan functionality
   useEffect(() => {
@@ -354,6 +405,19 @@ export function SignatureFieldEditor({
       canvas.off('mouse:up', handleMouseUp);
     };
   }, [canvasReady]);
+
+  // Responsive resize observer - auto-fit when container resizes
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver(() => {
+      fitToContainer();
+    });
+
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fitToContainer]);
 
   // Handle object modification
   useEffect(() => {
@@ -593,6 +657,55 @@ export function SignatureFieldEditor({
                 Document Preview - Page {currentPage} of {totalPages}
               </CardTitle>
               <div className="flex items-center gap-2">
+                {/* Zoom controls */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    applyZoom(zoom - 0.1);
+                  }}
+                  disabled={zoom <= 0.25}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+                <span className="text-xs min-w-[50px] text-center">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    applyZoom(zoom + 0.1);
+                  }}
+                  disabled={zoom >= 3}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fitToContainer();
+                  }}
+                  title="Fit to view"
+                >
+                  <Maximize className="h-4 w-4" />
+                </Button>
+
+                {/* Page navigation */}
+                <div className="w-px h-6 bg-border mx-1" />
                 <Button
                   type="button"
                   variant="outline"
