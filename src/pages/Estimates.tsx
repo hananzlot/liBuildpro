@@ -10,12 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, DollarSign, ExternalLink } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, DollarSign, ExternalLink, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
 import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
+import { ContractPrintDialog } from "@/components/estimates/ContractPrintDialog";
 
 type ViewType = "list" | "proposals" | "contracts" | "declined";
 
@@ -64,6 +65,7 @@ export default function Estimates() {
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingEstimateId, setEditingEstimateId] = useState<string | null>(null);
   const [sendDialogEstimate, setSendDialogEstimate] = useState<Estimate | null>(null);
+  const [printEstimateId, setPrintEstimateId] = useState<string | null>(null);
 
   const handleViewChange = (view: string) => {
     setSearchParams({ view });
@@ -242,8 +244,15 @@ export default function Estimates() {
                       <Plus className="h-4 w-4" />
                     </Button>
                   ) : estimate.status === 'accepted' ? (
-                    // No edit or send buttons for signed contracts
-                    null
+                    // Print button for signed contracts
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setPrintEstimateId(estimate.id)}
+                      title="Print Contract"
+                    >
+                      <Printer className="h-4 w-4" />
+                    </Button>
                   ) : (
                     <>
                       <Button
@@ -488,6 +497,13 @@ export default function Estimates() {
           customerEmail={sendDialogEstimate.customer_email}
         />
       )}
+
+      {/* Print Contract Dialog */}
+      <ContractPrintDialog
+        estimateId={printEstimateId}
+        open={!!printEstimateId}
+        onOpenChange={(open) => !open && setPrintEstimateId(null)}
+      />
     </AppLayout>
   );
 }
