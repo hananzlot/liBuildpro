@@ -38,6 +38,7 @@ import {
 import { format } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
@@ -184,6 +185,8 @@ export function DateRangeAppointmentsSheet({
   const [notesMap, setNotesMap] = useState<Map<string, DBNote>>(new Map());
   const [tasksMap, setTasksMap] = useState<Map<string, DBTask>>(new Map());
   const [isLoadingExtra, setIsLoadingExtra] = useState(false);
+
+  const { isAdmin } = useAuth();
 
   // Reset status filter when defaultStatusFilter changes or sheet opens
   useEffect(() => {
@@ -1132,14 +1135,16 @@ export function DateRangeAppointmentsSheet({
                               <span className="text-foreground flex-1">
                                 {displayAddress || <span className="text-muted-foreground italic">No address</span>}
                               </span>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={(e) => startEditingAddress(apt, fallbackAddress, e)}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
+                              {isAdmin && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => startEditingAddress(apt, fallbackAddress, e)}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
