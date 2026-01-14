@@ -164,7 +164,7 @@ const navSections: NavSection[] = [
         roles: ['super_admin', 'admin', 'contract_manager']
       },
       { 
-        title: "E-Sign Docs", 
+        title: "E-Sign Misc Docs", 
         url: "/documents", 
         icon: FileText,
         roles: ['super_admin', 'admin', 'contract_manager']
