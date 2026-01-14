@@ -878,6 +878,12 @@ export default function Production() {
     setDetailSheetOpen(true);
   };
 
+  // Helper to get the best available date for a project (for filtering)
+  const getProjectFilterDate = useCallback((project: typeof projects[0]): string | null => {
+    // Priority: agreement_signed_date > install_start_date > created_at
+    return project.agreement_signed_date || project.install_start_date || project.created_at;
+  }, []);
+
   // Helper to check if a date falls within the KPI filter range
   const isWithinKpiRange = useCallback((dateStr: string | null): boolean => {
     if (!dateStr) return false; // No date means not in range
@@ -902,16 +908,16 @@ export default function Production() {
       filtered = filtered.filter(p => p.project_status === statusFilter);
     }
     
-    // Apply date range filter (using agreement_signed_date)
+    // Apply date range filter (using best available date: agreement_signed_date > install_start_date > created_at)
     if (kpiDateRange?.from && kpiDateRange?.to) {
       filtered = filtered.filter(p => {
-        if (!p.agreement_signed_date) return false; // Exclude projects without date
-        return isWithinKpiRange(p.agreement_signed_date);
+        const dateToUse = getProjectFilterDate(p);
+        return isWithinKpiRange(dateToUse);
       });
     }
     
     return filtered;
-  }, [projects, statusFilter, kpiDateRange, isWithinKpiRange]);
+  }, [projects, statusFilter, kpiDateRange, isWithinKpiRange, getProjectFilterDate]);
 
   const totalProjects = filteredByStatus.length;
   const inProgressProjects = filteredByStatus.filter(p => p.project_status === "In-Progress").length;
