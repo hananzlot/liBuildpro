@@ -182,23 +182,23 @@ export function SignatureFieldEditor({
     });
   }, []);
 
-  // Apply zoom helper - uses CSS-only resize so canvas stays inside container
+  // Apply zoom helper
   const applyZoom = useCallback((nextZoom: number) => {
     const canvas = fabricCanvasRef.current;
     const base = pageBaseSizeRef.current;
 
     if (!canvas || !base) return;
 
-    const clamped = Math.max(0.25, Math.min(nextZoom, 3)); // 25%–300%
+    const clamped = Math.max(0.5, Math.min(nextZoom, 3)); // 50%–300%
 
-    // Zoom the rendering
+    // Set zoom on canvas
     canvas.setZoom(clamped);
 
-    // Resize the CSS size of the canvas element so it fits the container
-    canvas.setDimensions(
-      { width: base.w * clamped, height: base.h * clamped },
-      { cssOnly: true }
-    );
+    // Resize canvas dimensions to match zoom
+    canvas.setDimensions({
+      width: base.w * clamped,
+      height: base.h * clamped,
+    });
 
     canvas.calcOffset();
     canvas.requestRenderAll();
@@ -206,23 +206,10 @@ export function SignatureFieldEditor({
     setZoom(clamped);
   }, []);
 
-  // Fit to container helper
+  // Fit to container helper - reloads the page at fit size
   const fitToContainer = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    const base = pageBaseSizeRef.current;
-    const container = containerRef.current;
-
-    if (!canvas || !base || !container) return;
-
-    const padding = 16; // small buffer so it doesn't touch edges
-    const maxW = container.clientWidth - padding;
-    const maxH = container.clientHeight - padding;
-
-    const fitZoom = Math.min(maxW / base.w, maxH / base.h, 1); // never auto-zoom above 100%
-
-    applyZoom(fitZoom);
-
-    // Always start at top-left after fitting
+    // Just reset zoom to 1 (the page is already fitted on load)
+    applyZoom(1);
     resetScrollPosition();
   }, [applyZoom, resetScrollPosition]);
 
@@ -329,7 +316,8 @@ export function SignatureFieldEditor({
   // Load background image and fields when page changes
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
-    if (!canvas || !canvasReady || !pageImages.has(currentPage)) return;
+    const container = containerRef.current;
+    if (!canvas || !canvasReady || !pageImages.has(currentPage) || !container) return;
 
     const loadBackground = async () => {
       if (!isMountedRef.current) return;
@@ -338,30 +326,48 @@ export function SignatureFieldEditor({
         const img = await fabric.FabricImage.fromURL(pageImages.get(currentPage)!);
         if (!isMountedRef.current || !fabricCanvasRef.current) return;
         
-        const w = img.width || 816;
-        const h = img.height || 1056;
+        const imgW = img.width || 816;
+        const imgH = img.height || 1056;
 
-        // Store the base size for this page
-        pageBaseSizeRef.current = { w, h };
+        // Calculate scale to fit image in container while preserving aspect ratio
+        const containerWidth = container.clientWidth - 40;
+        const containerHeight = container.clientHeight - 40;
+        const scale = Math.min(
+          containerWidth / imgW,
+          containerHeight / imgH,
+          1 // Don't upscale beyond 100%
+        );
 
-        // Set the "real" canvas coordinate space to natural size
-        fabricCanvasRef.current.setDimensions({ width: w, height: h }, { cssOnly: false });
+        // Calculate new canvas dimensions based on scaled image
+        const canvasWidth = Math.round(imgW * scale);
+        const canvasHeight = Math.round(imgH * scale);
+
+        // Store the base (canvas) size for zoom calculations
+        pageBaseSizeRef.current = { w: canvasWidth, h: canvasHeight };
+
+        // Set canvas to the scaled size
+        fabricCanvasRef.current.setDimensions({ width: canvasWidth, height: canvasHeight });
+
+        // Scale background image to fit canvas
+        img.scaleToWidth(canvasWidth);
         fabricCanvasRef.current.backgroundImage = img;
-
-        // Fit the page into the container
-        fitToContainer();
+        
+        // Reset zoom to 100% (relative to the fitted size)
+        setZoom(1);
+        fabricCanvasRef.current.setZoom(1);
         
         fabricCanvasRef.current.calcOffset();
         fabricCanvasRef.current.requestRenderAll();
         
         loadFieldsOnCanvas();
+        resetScrollPosition();
       } catch (error) {
         console.error("Error loading background:", error);
       }
     };
 
     loadBackground();
-  }, [canvasReady, pageImages, currentPage, loadFieldsOnCanvas, fitToContainer]);
+  }, [canvasReady, pageImages, currentPage, loadFieldsOnCanvas, resetScrollPosition]);
 
   // Drag-to-pan functionality
   useEffect(() => {
@@ -435,18 +441,7 @@ export function SignatureFieldEditor({
     };
   }, [canvasReady, zoom, applyZoom]);
 
-  // Responsive resize observer - auto-fit when container resizes
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const ro = new ResizeObserver(() => {
-      fitToContainer();
-    });
-
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [fitToContainer]);
+  // Note: Removed auto-fit on resize to prevent zoom from resetting when user zooms manually
 
   // Handle object modification
   useEffect(() => {
