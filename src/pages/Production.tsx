@@ -1660,21 +1660,20 @@ export default function Production() {
                                     {formatCurrency(financials?.displayCost)}
                                   </span>
                                   {(financials?.isCompleted || financials?.exceededExpectedCosts) ? (
-                                    <span className="text-[9px] text-blue-600 font-medium">act.</span>
+                                    <>
+                                      <span className="text-[9px] text-blue-600 font-medium">act.</span>
+                                      {(() => {
+                                        const costPct = (financials.displayCost / financials.contractsTotal) * 100;
+                                        const isOver50 = costPct > 50;
+                                        return (
+                                          <span className={`text-[9px] font-medium ${isOver50 ? 'text-destructive' : 'text-emerald-600'}`}>
+                                            ({costPct.toFixed(0)}%)
+                                          </span>
+                                        );
+                                      })()}
+                                    </>
                                   ) : (
                                     <span className="text-[9px] text-muted-foreground">est.</span>
-                                  )}
-                                  {!financials?.isCompleted && financials?.exceededExpectedCosts && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Badge variant="outline" className="h-5 px-1 text-[9px] bg-destructive/10 text-destructive border-destructive/20">
-                                          !
-                                        </Badge>
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Bills ({formatCurrency(financials.totalBillsReceived)}) exceed estimated costs ({formatCurrency(financials.effectiveEstimatedCost)})</p>
-                                      </TooltipContent>
-                                    </Tooltip>
                                   )}
                                 </div>
                               ) : (
