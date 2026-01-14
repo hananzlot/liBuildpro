@@ -11,6 +11,7 @@ interface DocumentSignatureRequest {
   documentName: string;
   recipientName: string;
   recipientEmail: string;
+  signerId?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -24,9 +25,9 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
-    const { documentId, documentName, recipientName, recipientEmail }: DocumentSignatureRequest = await req.json();
+    const { documentId, documentName, recipientName, recipientEmail, signerId }: DocumentSignatureRequest = await req.json();
 
-    console.log("Processing document signature request:", { documentId, documentName, recipientName, recipientEmail });
+    console.log("Processing document signature request:", { documentId, documentName, recipientName, recipientEmail, signerId });
 
     // Create portal token
     const { data: tokenData, error: tokenError } = await supabase
@@ -38,7 +39,12 @@ const handler = async (req: Request): Promise<Response> => {
       .select()
       .single();
 
-    if (tokenError) throw tokenError;
+    if (tokenError) {
+      console.error("Error creating token:", tokenError);
+      throw tokenError;
+    }
+
+    console.log("Created portal token:", tokenData.token);
 
     // Get company settings
     const { data: settings } = await supabase
@@ -50,7 +56,13 @@ const handler = async (req: Request): Promise<Response> => {
     const fromEmail = settings?.find((s) => s.setting_key === "resend_from_email")?.setting_value || "onboarding@resend.dev";
     const fromName = settings?.find((s) => s.setting_key === "resend_from_name")?.setting_value || companyName;
 
-    const portalUrl = `https://crm-caprobuilders.lovable.app/document-portal?token=${tokenData.token}`;
+    // Build portal URL with signer info if provided
+    let portalUrl = `https://crm-caprobuilders.lovable.app/document-portal?token=${tokenData.token}`;
+    if (signerId) {
+      portalUrl += `&signer=${signerId}`;
+    }
+
+    console.log("Portal URL:", portalUrl);
 
     // Send email via Resend API
     const emailResponse = await fetch("https://api.resend.com/emails", {
@@ -76,6 +88,10 @@ const handler = async (req: Request): Promise<Response> => {
                 <a href="${portalUrl}" style="background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">Review & Sign Document</a>
               </div>
               <p style="color: #666; font-size: 14px;">This link expires in 30 days.</p>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+              <p style="color: #666; font-size: 12px;">
+                By signing this document, your signature, name, email, date, and IP address will be recorded for verification purposes.
+              </p>
             </div>
           </div>
         `,
@@ -83,8 +99,12 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (!emailResponse.ok) {
-      throw new Error(`Email failed: ${await emailResponse.text()}`);
+      const errorText = await emailResponse.text();
+      console.error("Email failed:", errorText);
+      throw new Error(`Email failed: ${errorText}`);
     }
+
+    console.log("Email sent successfully");
 
     // Update document status
     await supabase
@@ -92,7 +112,17 @@ const handler = async (req: Request): Promise<Response> => {
       .update({ status: "sent", sent_at: new Date().toISOString() })
       .eq("id", documentId);
 
-    return new Response(JSON.stringify({ success: true }), {
+    // Update signer status if signerId provided
+    if (signerId) {
+      await supabase
+        .from("document_signers")
+        .update({ status: "sent", sent_at: new Date().toISOString() })
+        .eq("id", signerId);
+      
+      console.log("Updated signer status:", signerId);
+    }
+
+    return new Response(JSON.stringify({ success: true, token: tokenData.token }), {
       status: 200,
       headers: { "Content-Type": "application/json", ...corsHeaders },
     });
