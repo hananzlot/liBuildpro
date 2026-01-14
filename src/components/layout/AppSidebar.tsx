@@ -170,9 +170,10 @@ const adminMenuItems: AdminMenuItem[] = [
 interface AppSidebarProps {
   onAdminAction?: (action: string) => void;
   onChangePassword?: () => void;
+  searchContent?: React.ReactNode;
 }
 
-export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps) {
+export function AppSidebar({ onAdminAction, onChangePassword, searchContent }: AppSidebarProps) {
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
@@ -470,6 +471,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                 <SidebarMenu>
                   {visibleItems.map(renderNavItem)}
                 </SidebarMenu>
+                {/* Search under Dispatch section */}
+                {section.label === "Dispatch" && searchContent && !collapsed && (
+                  <div className="px-2 pt-2">
+                    {searchContent}
+                  </div>
+                )}
               </SidebarGroupContent>
             </SidebarGroup>
           );
