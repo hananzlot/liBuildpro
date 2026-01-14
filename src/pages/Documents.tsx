@@ -278,22 +278,28 @@ export default function Documents() {
         ? dbSigners 
         : [{ signer_name: doc.recipient_name, signer_email: doc.recipient_email, id: null }];
 
-      // Send to all signers (parallel)
-      const results = await Promise.all(
-        signersToNotify.map(async (signer) => {
-          const { data, error } = await supabase.functions.invoke("send-document-signature", {
-            body: {
-              documentId: doc.id,
-              documentName: doc.document_name,
-              recipientName: signer.signer_name,
-              recipientEmail: signer.signer_email,
-              signerId: signer.id,
-            },
-          });
-          if (error) throw error;
-          return data;
-        })
-      );
+      // Send to all signers sequentially with delay to avoid rate limits
+      const results = [];
+      for (let i = 0; i < signersToNotify.length; i++) {
+        const signer = signersToNotify[i];
+        
+        // Add delay between emails to respect Resend's rate limit (2 req/sec)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 600));
+        }
+        
+        const { data, error } = await supabase.functions.invoke("send-document-signature", {
+          body: {
+            documentId: doc.id,
+            documentName: doc.document_name,
+            recipientName: signer.signer_name,
+            recipientEmail: signer.signer_email,
+            signerId: signer.id,
+          },
+        });
+        if (error) throw error;
+        results.push(data);
+      }
 
       return results;
     },
