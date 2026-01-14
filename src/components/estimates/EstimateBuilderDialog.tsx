@@ -97,7 +97,11 @@ const generateId = () => crypto.randomUUID();
 export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess }: EstimateBuilderDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const isEditing = !!estimateId;
+  
+  // Handle clone mode (creating new estimate from declined one)
+  const isCloneMode = estimateId?.startsWith("clone:");
+  const sourceEstimateId = isCloneMode ? estimateId.replace("clone:", "") : estimateId;
+  const isEditing = !!estimateId && !isCloneMode;
 
   // Form state
   const [formData, setFormData] = useState<EstimateFormData>({
@@ -150,17 +154,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   const totals = calculateTotals();
 
-  // Fetch existing estimate if editing
+  // Fetch existing estimate if editing or cloning
   const { data: existingEstimate, isLoading: loadingEstimate } = useQuery({
-    queryKey: ["estimate-edit", estimateId],
+    queryKey: ["estimate-edit", sourceEstimateId],
     queryFn: async () => {
-      if (!estimateId) return null;
+      if (!sourceEstimateId) return null;
       
       const [estimateRes, groupsRes, itemsRes, scheduleRes] = await Promise.all([
-        supabase.from("estimates").select("*").eq("id", estimateId).single(),
-        supabase.from("estimate_groups").select("*").eq("estimate_id", estimateId).order("sort_order"),
-        supabase.from("estimate_line_items").select("*").eq("estimate_id", estimateId).order("sort_order"),
-        supabase.from("estimate_payment_schedule").select("*").eq("estimate_id", estimateId).order("sort_order"),
+        supabase.from("estimates").select("*").eq("id", sourceEstimateId).single(),
+        supabase.from("estimate_groups").select("*").eq("estimate_id", sourceEstimateId).order("sort_order"),
+        supabase.from("estimate_line_items").select("*").eq("estimate_id", sourceEstimateId).order("sort_order"),
+        supabase.from("estimate_payment_schedule").select("*").eq("estimate_id", sourceEstimateId).order("sort_order"),
       ]);
       
       return {
@@ -168,9 +172,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         groups: groupsRes.data || [],
         items: itemsRes.data || [],
         schedule: scheduleRes.data || [],
+        isClone: isCloneMode,
       };
     },
-    enabled: !!estimateId && open,
+    enabled: !!sourceEstimateId && open,
   });
 
   // Populate form when editing
@@ -441,21 +446,21 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         created_by: user?.id || null,
       };
 
-      let savedEstimateId = estimateId;
+      let savedEstimateId = sourceEstimateId;
 
-      if (isEditing && estimateId) {
+      if (isEditing && sourceEstimateId) {
         // Update existing estimate
         const { error: updateError } = await supabase
           .from("estimates")
           .update(estimateData)
-          .eq("id", estimateId);
+          .eq("id", sourceEstimateId);
         if (updateError) throw updateError;
 
         // Delete existing groups, items, and schedule (cascade will handle items)
-        await supabase.from("estimate_groups").delete().eq("estimate_id", estimateId);
-        await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", estimateId);
+        await supabase.from("estimate_groups").delete().eq("estimate_id", sourceEstimateId);
+        await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", sourceEstimateId);
       } else {
-        // Create new estimate
+        // Create new estimate (including clone mode - creates a brand new estimate with new number)
         const { data: newEstimate, error: insertError } = await supabase
           .from("estimates")
           .insert(estimateData)
@@ -562,7 +567,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl">
-              {isEditing ? "Edit Estimate" : "New Estimate"}
+              {isEditing ? "Edit Estimate" : isCloneMode ? "New Estimate (from Declined)" : "New Estimate"}
             </DialogTitle>
             <div className="flex items-center gap-2">
               <Button

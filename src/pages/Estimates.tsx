@@ -117,7 +117,24 @@ export default function Estimates() {
     }).format(amount);
   };
 
-  const renderEstimateTable = (estimateList: Estimate[], emptyMessage: string, emptyIcon: React.ReactNode) => {
+  // Format estimate number with appropriate prefix based on status
+  const formatEstimateNumber = (estimate: Estimate) => {
+    const num = estimate.estimate_number;
+    if (estimate.status === "accepted") {
+      return `CNT-${num}`;
+    }
+    // CO- prefix would be for change orders - can be added when that feature exists
+    return `EST-${num}`;
+  };
+
+  // Handle creating a new estimate from a declined one
+  const handleCreateNewFromDeclined = (estimate: Estimate) => {
+    // We'll pass the source estimate ID to the builder via a special prop
+    setEditingEstimateId(`clone:${estimate.id}`);
+    setBuilderOpen(true);
+  };
+
+  const renderEstimateTable = (estimateList: Estimate[], emptyMessage: string, emptyIcon: React.ReactNode, isDeclinedTab = false) => {
     if (isLoading) {
       return (
         <div className="flex items-center justify-center py-12">
@@ -154,20 +171,20 @@ export default function Estimates() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[80px]">#</TableHead>
+            <TableHead className="w-[100px]">#</TableHead>
             <TableHead>Customer</TableHead>
             <TableHead>Title</TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Total</TableHead>
-            <TableHead className="w-[120px]">Actions</TableHead>
+            <TableHead className="w-[140px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {estimateList.map((estimate) => (
             <TableRow key={estimate.id}>
-              <TableCell className="font-mono text-muted-foreground">
-                {estimate.estimate_number}
+              <TableCell className="font-mono text-muted-foreground font-medium">
+                {formatEstimateNumber(estimate)}
               </TableCell>
               <TableCell>
                 <div className="flex flex-col">
@@ -211,24 +228,39 @@ export default function Estimates() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setSelectedEstimateId(estimate.id)}
+                    title="View Details"
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => { setEditingEstimateId(estimate.id); setBuilderOpen(true); }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSendDialogEstimate(estimate)}
-                    title="Send Proposal"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+                  {isDeclinedTab ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleCreateNewFromDeclined(estimate)}
+                      title="Create New Estimate"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { setEditingEstimateId(estimate.id); setBuilderOpen(true); }}
+                        title="Edit"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSendDialogEstimate(estimate)}
+                        title="Send Proposal"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                   {isAdmin && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -240,7 +272,7 @@ export default function Estimates() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Estimate</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete estimate #{estimate.estimate_number} for {estimate.customer_name}? This action cannot be undone.
+                            Are you sure you want to delete estimate {formatEstimateNumber(estimate)} for {estimate.customer_name}? This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -419,7 +451,8 @@ export default function Estimates() {
                 {renderEstimateTable(
                   declinedEstimates,
                   "No Declined Proposals",
-                  <Trash2 className="h-12 w-12 text-muted-foreground mb-4" />
+                  <Trash2 className="h-12 w-12 text-muted-foreground mb-4" />,
+                  true // isDeclinedTab
                 )}
               </CardContent>
             </Card>
