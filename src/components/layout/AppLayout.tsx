@@ -14,15 +14,13 @@ interface AppLayoutProps {
   onAdminAction?: (action: string) => void;
   showNotifications?: boolean;
   headerContent?: React.ReactNode;
-  sidebarSearchContent?: React.ReactNode;
 }
 
 export function AppLayout({ 
   children, 
   onAdminAction, 
   showNotifications = true,
-  headerContent,
-  sidebarSearchContent
+  headerContent 
 }: AppLayoutProps) {
   const { updatePassword } = useAuth();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -61,7 +59,6 @@ export function AppLayout({
         <AppSidebar 
           onAdminAction={onAdminAction} 
           onChangePassword={() => setChangePasswordOpen(true)}
-          searchContent={sidebarSearchContent}
         />
         
         <div className="flex-1 min-w-0 flex flex-col">

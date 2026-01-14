@@ -181,16 +181,18 @@ const Index = () => {
   return (
     <AppLayout 
       onAdminAction={handleAdminAction}
-      sidebarSearchContent={
-        !isLoading ? (
-          <OpportunitySearch 
-            opportunities={metrics?.allOpportunities || []} 
-            appointments={metrics?.allAppointments || []} 
-            contacts={metrics?.allContacts || []} 
-            users={metrics?.users || []} 
-            conversations={metrics?.conversations || []} 
-          />
-        ) : undefined
+      headerContent={
+        <div className="flex items-center gap-4">
+          {!isLoading && (
+            <OpportunitySearch 
+              opportunities={metrics?.allOpportunities || []} 
+              appointments={metrics?.allAppointments || []} 
+              contacts={metrics?.allContacts || []} 
+              users={metrics?.users || []} 
+              conversations={metrics?.conversations || []} 
+            />
+          )}
+        </div>
       }
     >
       <div className="px-6 py-6 space-y-6">
