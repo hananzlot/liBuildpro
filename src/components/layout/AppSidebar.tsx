@@ -163,6 +163,12 @@ const navSections: NavSection[] = [
         icon: FileSignature,
         roles: ['super_admin', 'admin', 'contract_manager']
       },
+      { 
+        title: "Documents", 
+        url: "/documents", 
+        icon: FileText,
+        roles: ['super_admin', 'admin', 'contract_manager']
+      },
     ],
   },
   {
