@@ -4,6 +4,7 @@ import { useGHLMetrics, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
+import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -45,9 +46,17 @@ const FollowUp = () => {
   return (
     <AppLayout onAdminAction={(isAdmin || isSimulating) ? handleAdminAction : undefined}>
       <div className="px-6 py-6 space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground mb-1">Follow-up Management</h2>
-          <p className="text-sm text-muted-foreground">Track appointments and opportunities that need attention</p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground mb-1">Follow-up Management</h2>
+            <p className="text-sm text-muted-foreground">Track appointments and opportunities that need attention</p>
+          </div>
+          <OpportunitySearch
+            opportunities={metrics?.allOpportunities || []}
+            appointments={metrics?.allAppointments || []}
+            contacts={metrics?.allContacts || []}
+            users={metrics?.users || []}
+          />
         </div>
         
         {isLoading ? (
