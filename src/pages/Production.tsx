@@ -1482,7 +1482,7 @@ export default function Production() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader className="[&_tr]:border-b">
-                      <TableRow className="[&_th]:sticky [&_th]:top-0 [&_th]:bg-card [&_th]:z-20 bg-card hover:bg-card">
+                      <TableRow className="[&_th]:sticky [&_th]:top-14 [&_th]:bg-card [&_th]:z-10 bg-card hover:bg-card">
                         <TableHead className="w-16 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('project_number')}>
                           <div className="flex items-center"># <SortIcon column="project_number" /></div>
                         </TableHead>
