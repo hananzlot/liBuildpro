@@ -136,6 +136,56 @@ const statusColors: Record<string, string> = {
   "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
+// Helper component for project sold cards
+function ProjectSoldCard({ 
+  project, 
+  soldAmount, 
+  onOpen 
+}: { 
+  project: Project & { lead_source?: string | null; project_scope_dispatch?: string | null; install_start_date?: string | null }; 
+  soldAmount: number; 
+  onOpen: () => void;
+}) {
+  return (
+    <div
+      className="p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+      onClick={onOpen}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">#{project.project_number} - {project.project_name}</p>
+          <p className="text-sm text-muted-foreground truncate">
+            {project.project_address || 'No address'}
+          </p>
+          <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-muted-foreground">
+            <span>
+              <strong>Source:</strong> {project.lead_source || 'Unknown'}
+            </span>
+            {project.install_start_date && (
+              <span>
+                <strong>Start:</strong> {format(parseISO(project.install_start_date), 'MMM d, yyyy')}
+              </span>
+            )}
+          </div>
+          {project.project_scope_dispatch && (
+            <p className="text-xs text-muted-foreground mt-1 truncate" title={project.project_scope_dispatch}>
+              <strong>Scope:</strong> {project.project_scope_dispatch}
+            </p>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-lg font-bold text-primary">
+            {formatCurrency(soldAmount)}
+          </p>
+          <Badge variant="outline" className={`text-[10px] ${statusColors[project.project_status || 'New Job'] || ''}`}>
+            {project.project_status || 'New Job'}
+          </Badge>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Production() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -170,6 +220,7 @@ export default function Production() {
   const [kpiDateRange, setKpiDateRange] = useState<DateRange | undefined>(undefined);
   const [cashFlowSheetOpen, setCashFlowSheetOpen] = useState(false);
   const [totalSoldSheetOpen, setTotalSoldSheetOpen] = useState(false);
+  const [totalSoldGroupBy, setTotalSoldGroupBy] = useState<'none' | 'month' | 'salesperson'>('none');
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
@@ -2102,55 +2153,138 @@ export default function Production() {
                 )}
               </SheetDescription>
             </SheetHeader>
-            <ScrollArea className="h-[calc(100vh-140px)] mt-4">
+            
+            {/* Summary by Salesperson */}
+            <div className="mt-4 mb-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Summary by Salesperson</p>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  const salespersonStats: Record<string, { count: number; total: number }> = {};
+                  sortedAndFilteredProjects.forEach((project) => {
+                    const sp = project.primary_salesperson || 'Unassigned';
+                    const financials = projectFinancials[project.id];
+                    if (!salespersonStats[sp]) {
+                      salespersonStats[sp] = { count: 0, total: 0 };
+                    }
+                    salespersonStats[sp].count++;
+                    salespersonStats[sp].total += financials?.contractsTotal || 0;
+                  });
+                  return Object.entries(salespersonStats)
+                    .sort((a, b) => b[1].total - a[1].total)
+                    .map(([name, stats]) => (
+                      <Badge key={name} variant="outline" className="text-xs py-1 px-2">
+                        {name}: {stats.count} ({formatCurrency(stats.total)})
+                      </Badge>
+                    ));
+                })()}
+              </div>
+            </div>
+
+            {/* Group By Controls */}
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs text-muted-foreground">Group by:</span>
+              <Select value={totalSoldGroupBy} onValueChange={(v) => setTotalSoldGroupBy(v as 'none' | 'month' | 'salesperson')}>
+                <SelectTrigger className="w-[160px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Grouping</SelectItem>
+                  <SelectItem value="month">Month/Year (Start Date)</SelectItem>
+                  <SelectItem value="salesperson">Salesperson</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <ScrollArea className="h-[calc(100vh-300px)]">
               <div className="space-y-2 pr-4">
-                {sortedAndFilteredProjects.map((project) => {
-                  const financials = projectFinancials[project.id];
-                  const soldAmount = financials?.contractsTotal || 0;
-                  
-                  return (
-                    <div
-                      key={project.id}
-                      className="p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
-                      onClick={() => {
-                        setTotalSoldSheetOpen(false);
-                        handleOpenProject(project);
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium">#{project.project_number} - {project.project_name}</p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {project.project_address || 'No address'}
-                          </p>
-                          <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-muted-foreground">
-                            <span>
-                              <strong>Source:</strong> {project.lead_source || 'Unknown'}
-                            </span>
-                            {project.install_start_date && (
-                              <span>
-                                <strong>Start:</strong> {format(parseISO(project.install_start_date), 'MMM d, yyyy')}
-                              </span>
-                            )}
+                {(() => {
+                  if (totalSoldGroupBy === 'none') {
+                    return sortedAndFilteredProjects.map((project) => {
+                      const financials = projectFinancials[project.id];
+                      const soldAmount = financials?.contractsTotal || 0;
+                      return (
+                        <ProjectSoldCard 
+                          key={project.id} 
+                          project={project} 
+                          soldAmount={soldAmount}
+                          onOpen={() => {
+                            setTotalSoldSheetOpen(false);
+                            handleOpenProject(project);
+                          }}
+                        />
+                      );
+                    });
+                  }
+
+                  // Group projects
+                  const groups: Record<string, typeof sortedAndFilteredProjects> = {};
+                  sortedAndFilteredProjects.forEach((project) => {
+                    let groupKey: string;
+                    if (totalSoldGroupBy === 'month') {
+                      if (project.install_start_date) {
+                        const date = parseISO(project.install_start_date);
+                        groupKey = format(date, 'MMMM yyyy');
+                      } else {
+                        groupKey = 'No Start Date';
+                      }
+                    } else {
+                      groupKey = project.primary_salesperson || 'Unassigned';
+                    }
+                    if (!groups[groupKey]) {
+                      groups[groupKey] = [];
+                    }
+                    groups[groupKey].push(project);
+                  });
+
+                  // Sort groups
+                  const sortedGroups = Object.entries(groups).sort((a, b) => {
+                    if (totalSoldGroupBy === 'month') {
+                      // Sort by date descending (most recent first)
+                      if (a[0] === 'No Start Date') return 1;
+                      if (b[0] === 'No Start Date') return -1;
+                      const dateA = new Date(a[1][0]?.install_start_date || 0);
+                      const dateB = new Date(b[1][0]?.install_start_date || 0);
+                      return dateB.getTime() - dateA.getTime();
+                    } else {
+                      // Sort by total sold descending
+                      const totalA = a[1].reduce((sum, p) => sum + (projectFinancials[p.id]?.contractsTotal || 0), 0);
+                      const totalB = b[1].reduce((sum, p) => sum + (projectFinancials[p.id]?.contractsTotal || 0), 0);
+                      return totalB - totalA;
+                    }
+                  });
+
+                  return sortedGroups.map(([groupName, groupProjects]) => {
+                    const groupTotal = groupProjects.reduce((sum, p) => sum + (projectFinancials[p.id]?.contractsTotal || 0), 0);
+                    return (
+                      <div key={groupName} className="mb-4">
+                        <div className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 mb-2">
+                          <span className="font-medium text-sm">{groupName}</span>
+                          <div className="text-right">
+                            <span className="text-xs text-muted-foreground">{groupProjects.length} project{groupProjects.length !== 1 ? 's' : ''}</span>
+                            <span className="text-sm font-semibold ml-2">{formatCurrency(groupTotal)}</span>
                           </div>
-                          {project.project_scope_dispatch && (
-                            <p className="text-xs text-muted-foreground mt-1 truncate" title={project.project_scope_dispatch}>
-                              <strong>Scope:</strong> {project.project_scope_dispatch}
-                            </p>
-                          )}
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-lg font-bold text-primary">
-                            {formatCurrency(soldAmount)}
-                          </p>
-                          <Badge variant="outline" className={`text-[10px] ${statusColors[project.project_status || 'New Job'] || ''}`}>
-                            {project.project_status || 'New Job'}
-                          </Badge>
+                        <div className="space-y-2 pl-2">
+                          {groupProjects.map((project) => {
+                            const financials = projectFinancials[project.id];
+                            const soldAmount = financials?.contractsTotal || 0;
+                            return (
+                              <ProjectSoldCard 
+                                key={project.id} 
+                                project={project} 
+                                soldAmount={soldAmount}
+                                onOpen={() => {
+                                  setTotalSoldSheetOpen(false);
+                                  handleOpenProject(project);
+                                }}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </ScrollArea>
           </SheetContent>
