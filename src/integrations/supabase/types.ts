@@ -362,6 +362,154 @@ export type Database = {
         }
         Relationships: []
       }
+      client_comments: {
+        Row: {
+          comment_text: string
+          commenter_email: string | null
+          commenter_name: string
+          created_at: string
+          created_by: string | null
+          estimate_id: string | null
+          id: string
+          is_internal: boolean | null
+          parent_comment_id: string | null
+          portal_token_id: string | null
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          comment_text: string
+          commenter_email?: string | null
+          commenter_name: string
+          created_at?: string
+          created_by?: string | null
+          estimate_id?: string | null
+          id?: string
+          is_internal?: boolean | null
+          parent_comment_id?: string | null
+          portal_token_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          comment_text?: string
+          commenter_email?: string | null
+          commenter_name?: string
+          created_at?: string
+          created_by?: string | null
+          estimate_id?: string | null
+          id?: string
+          is_internal?: boolean | null
+          parent_comment_id?: string | null
+          portal_token_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_comments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_comments_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "client_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_comments_portal_token_id_fkey"
+            columns: ["portal_token_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_comments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_tokens: {
+        Row: {
+          access_count: number | null
+          client_email: string | null
+          client_name: string | null
+          created_at: string
+          created_by: string | null
+          estimate_id: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          last_accessed_at: string | null
+          project_id: string | null
+          token: string
+        }
+        Insert: {
+          access_count?: number | null
+          client_email?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          estimate_id?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_accessed_at?: string | null
+          project_id?: string | null
+          token?: string
+        }
+        Update: {
+          access_count?: number | null
+          client_email?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          estimate_id?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_accessed_at?: string | null
+          project_id?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_tokens_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_tokens_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_tokens_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_payments: {
         Row: {
           bank_name: string | null
@@ -806,6 +954,63 @@ export type Database = {
           },
         ]
       }
+      estimate_signatures: {
+        Row: {
+          estimate_id: string
+          id: string
+          ip_address: string | null
+          portal_token_id: string | null
+          signature_data: string
+          signature_font: string | null
+          signature_type: string
+          signed_at: string
+          signer_email: string | null
+          signer_name: string
+          user_agent: string | null
+        }
+        Insert: {
+          estimate_id: string
+          id?: string
+          ip_address?: string | null
+          portal_token_id?: string | null
+          signature_data: string
+          signature_font?: string | null
+          signature_type: string
+          signed_at?: string
+          signer_email?: string | null
+          signer_name: string
+          user_agent?: string | null
+        }
+        Update: {
+          estimate_id?: string
+          id?: string
+          ip_address?: string | null
+          portal_token_id?: string | null
+          signature_data?: string
+          signature_font?: string | null
+          signature_type?: string
+          signed_at?: string
+          signer_email?: string | null
+          signer_name?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_signatures_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_signatures_portal_token_id_fkey"
+            columns: ["portal_token_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estimates: {
         Row: {
           billing_address: string | null
@@ -815,6 +1020,8 @@ export type Database = {
           customer_email: string | null
           customer_name: string
           customer_phone: string | null
+          decline_reason: string | null
+          declined_at: string | null
           deposit_amount: number | null
           deposit_due_rule: string | null
           deposit_percent: number | null
@@ -830,6 +1037,8 @@ export type Database = {
           job_address: string | null
           notes: string | null
           opportunity_id: string | null
+          sent_at: string | null
+          signed_at: string | null
           status: Database["public"]["Enums"]["estimate_status"]
           subtotal: number | null
           tax_amount: number | null
@@ -837,6 +1046,7 @@ export type Database = {
           terms_and_conditions: string | null
           total: number | null
           updated_at: string
+          viewed_at: string | null
         }
         Insert: {
           billing_address?: string | null
@@ -846,6 +1056,8 @@ export type Database = {
           customer_email?: string | null
           customer_name: string
           customer_phone?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
           deposit_amount?: number | null
           deposit_due_rule?: string | null
           deposit_percent?: number | null
@@ -861,6 +1073,8 @@ export type Database = {
           job_address?: string | null
           notes?: string | null
           opportunity_id?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
           subtotal?: number | null
           tax_amount?: number | null
@@ -868,6 +1082,7 @@ export type Database = {
           terms_and_conditions?: string | null
           total?: number | null
           updated_at?: string
+          viewed_at?: string | null
         }
         Update: {
           billing_address?: string | null
@@ -877,6 +1092,8 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string
           customer_phone?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
           deposit_amount?: number | null
           deposit_due_rule?: string | null
           deposit_percent?: number | null
@@ -892,6 +1109,8 @@ export type Database = {
           job_address?: string | null
           notes?: string | null
           opportunity_id?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
           subtotal?: number | null
           tax_amount?: number | null
@@ -899,6 +1118,7 @@ export type Database = {
           terms_and_conditions?: string | null
           total?: number | null
           updated_at?: string
+          viewed_at?: string | null
         }
         Relationships: [
           {
@@ -1479,6 +1699,61 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      portal_view_logs: {
+        Row: {
+          estimate_id: string | null
+          id: string
+          ip_address: string | null
+          page_viewed: string | null
+          portal_token_id: string
+          project_id: string | null
+          user_agent: string | null
+          viewed_at: string
+        }
+        Insert: {
+          estimate_id?: string | null
+          id?: string
+          ip_address?: string | null
+          page_viewed?: string | null
+          portal_token_id: string
+          project_id?: string | null
+          user_agent?: string | null
+          viewed_at?: string
+        }
+        Update: {
+          estimate_id?: string | null
+          id?: string
+          ip_address?: string | null
+          page_viewed?: string | null
+          portal_token_id?: string
+          project_id?: string | null
+          user_agent?: string | null
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_view_logs_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_view_logs_portal_token_id_fkey"
+            columns: ["portal_token_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_view_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
