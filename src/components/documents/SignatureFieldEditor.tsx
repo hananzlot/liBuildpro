@@ -84,7 +84,7 @@ export function SignatureFieldEditor({
   const [zoom, setZoom] = useState(1);
   const fieldDataMap = useRef<Map<string, FieldData>>(new Map());
   const isMountedRef = useRef(true);
-  const pageBaseSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const initialZoomRef = useRef<number>(1); // Store the initial fit zoom level
   
   // Drag-to-pan refs
   const isPanningRef = useRef(false);
@@ -182,36 +182,33 @@ export function SignatureFieldEditor({
     });
   }, []);
 
-  // Apply zoom helper
+  // Apply zoom helper - uses Fabric's native zoom
   const applyZoom = useCallback((nextZoom: number) => {
     const canvas = fabricCanvasRef.current;
-    const base = pageBaseSizeRef.current;
+    if (!canvas) return;
 
-    if (!canvas || !base) return;
+    const clamped = Math.max(0.3, Math.min(nextZoom, 4)); // 30%–400%
 
-    const clamped = Math.max(0.5, Math.min(nextZoom, 3)); // 50%–300%
-
-    // Set zoom on canvas
-    canvas.setZoom(clamped);
-
-    // Resize canvas dimensions to match zoom
-    canvas.setDimensions({
-      width: base.w * clamped,
-      height: base.h * clamped,
-    });
-
-    canvas.calcOffset();
+    // Get canvas center for zoom target
+    const center = new fabric.Point(canvas.getWidth() / 2, canvas.getHeight() / 2);
+    canvas.zoomToPoint(center, clamped);
     canvas.requestRenderAll();
 
     setZoom(clamped);
   }, []);
 
-  // Fit to container helper - reloads the page at fit size
+  // Fit to container helper - reset to initial fitted zoom
   const fitToContainer = useCallback(() => {
-    // Just reset zoom to 1 (the page is already fitted on load)
-    applyZoom(1);
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    
+    // Reset to the initial zoom that was calculated to fit the page
+    const initialZoom = initialZoomRef.current;
+    canvas.setViewportTransform([initialZoom, 0, 0, initialZoom, 0, 0]);
+    setZoom(initialZoom);
+    canvas.requestRenderAll();
     resetScrollPosition();
-  }, [applyZoom, resetScrollPosition]);
+  }, [resetScrollPosition]);
 
 
   // Initialize Fabric canvas once - imperatively create canvas element
@@ -323,57 +320,60 @@ export function SignatureFieldEditor({
       if (!isMountedRef.current) return;
       
       try {
-        const img = await fabric.FabricImage.fromURL(pageImages.get(currentPage)!);
+        const imgUrl = pageImages.get(currentPage)!;
+        const img = await fabric.FabricImage.fromURL(imgUrl, {}, { crossOrigin: 'anonymous' });
         if (!isMountedRef.current || !fabricCanvasRef.current) return;
         
         const imgW = img.width || 816;
         const imgH = img.height || 1056;
 
-        // Calculate scale to fit image in container while preserving aspect ratio
-        const containerWidth = container.clientWidth - 40;
-        const containerHeight = container.clientHeight - 40;
-        const scale = Math.min(
-          containerWidth / imgW,
-          containerHeight / imgH,
-          1 // Don't upscale beyond 100%
+        // Get available container space (with some padding)
+        const containerW = container.clientWidth - 40;
+        const containerH = container.clientHeight - 40;
+
+        // Calculate the zoom level needed to fit the full page in view
+        const fitZoom = Math.min(
+          containerW / imgW,
+          containerH / imgH,
+          1.5 // Cap so we don't upscale too much on large screens
         );
 
-        // Calculate new canvas dimensions based on scaled image
-        const canvasWidth = Math.round(imgW * scale);
-        const canvasHeight = Math.round(imgH * scale);
+        // Store initial zoom for "Fit" button
+        initialZoomRef.current = fitZoom;
 
-        // Store the base (canvas) size for zoom calculations
-        pageBaseSizeRef.current = { w: canvasWidth, h: canvasHeight };
+        // Set canvas to container size (viewport approach)
+        const canvasW = Math.max(containerW, 400);
+        const canvasH = Math.max(containerH, 400);
+        fabricCanvasRef.current.setDimensions({ width: canvasW, height: canvasH });
 
-        // Set canvas to the scaled size
-        fabricCanvasRef.current.setDimensions({ width: canvasWidth, height: canvasHeight });
-
-        // Scale background image to fit canvas
-        img.scaleToWidth(canvasWidth);
+        // Set the image as background at its natural size (positioned at origin)
+        img.set({ left: 0, top: 0, originX: 'left', originY: 'top' });
         fabricCanvasRef.current.backgroundImage = img;
         
-        // Reset zoom to 100% (relative to the fitted size)
-        setZoom(1);
-        fabricCanvasRef.current.setZoom(1);
+        // Apply the fit zoom using viewportTransform
+        // This zooms to fit and centers the page
+        const offsetX = (canvasW - imgW * fitZoom) / 2;
+        const offsetY = (canvasH - imgH * fitZoom) / 2;
+        fabricCanvasRef.current.setViewportTransform([fitZoom, 0, 0, fitZoom, offsetX, offsetY]);
+        
+        setZoom(fitZoom);
         
         fabricCanvasRef.current.calcOffset();
         fabricCanvasRef.current.requestRenderAll();
         
         loadFieldsOnCanvas();
-        resetScrollPosition();
       } catch (error) {
         console.error("Error loading background:", error);
       }
     };
 
     loadBackground();
-  }, [canvasReady, pageImages, currentPage, loadFieldsOnCanvas, resetScrollPosition]);
+  }, [canvasReady, pageImages, currentPage, loadFieldsOnCanvas]);
 
-  // Drag-to-pan functionality
+  // Drag-to-pan functionality using Fabric's relativePan (works with zoom)
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container || !canvasReady) return;
+    if (!canvas || !canvasReady) return;
 
     const handleMouseDown = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
       // Only pan if clicking on empty canvas (not on an object)
@@ -390,12 +390,13 @@ export function SignatureFieldEditor({
       if (!isPanningRef.current || !lastPanPointRef.current) return;
       
       const e = opt.e as MouseEvent;
-      const deltaX = e.clientX - lastPanPointRef.current.x;
-      const deltaY = e.clientY - lastPanPointRef.current.y;
+      const delta = new fabric.Point(
+        e.clientX - lastPanPointRef.current.x,
+        e.clientY - lastPanPointRef.current.y
+      );
       
-      container.scrollLeft -= deltaX;
-      container.scrollTop -= deltaY;
-      
+      // Use Fabric's relativePan for smooth panning that works with zoom
+      canvas.relativePan(delta);
       lastPanPointRef.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -418,7 +419,7 @@ export function SignatureFieldEditor({
     };
   }, [canvasReady]);
 
-  // Mouse wheel zoom
+  // Mouse wheel zoom - zooms toward cursor position
   useEffect(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !canvasReady) return;
@@ -428,10 +429,18 @@ export function SignatureFieldEditor({
       e.preventDefault();
       e.stopPropagation();
 
-      const delta = e.deltaY > 0 ? -0.05 : 0.05;
-      const newZoom = zoom + delta;
+      const delta = e.deltaY > 0 ? -0.075 : 0.075;
+      let newZoom = canvas.getZoom() + delta;
+      newZoom = Math.max(0.3, Math.min(newZoom, 4)); // 30% - 400%
+
+      // Zoom toward mouse cursor position
+      canvas.zoomToPoint(
+        new fabric.Point(e.offsetX, e.offsetY),
+        newZoom
+      );
       
-      applyZoom(newZoom);
+      canvas.requestRenderAll();
+      setZoom(newZoom);
     };
 
     canvas.on('mouse:wheel', handleWheel);
@@ -439,7 +448,7 @@ export function SignatureFieldEditor({
     return () => {
       canvas.off('mouse:wheel', handleWheel);
     };
-  }, [canvasReady, zoom, applyZoom]);
+  }, [canvasReady]);
 
   // Note: Removed auto-fit on resize to prevent zoom from resetting when user zooms manually
 
@@ -767,7 +776,8 @@ export function SignatureFieldEditor({
           <CardContent>
             <div
               ref={containerRef}
-              className="border rounded-lg bg-muted/30 relative overflow-auto max-h-[70vh] min-h-[400px]"
+              className="border rounded-lg bg-muted/30 relative overflow-hidden max-h-[70vh] min-h-[400px] flex items-center justify-center"
+              style={{ touchAction: 'none' }}
             >
               {pdfError ? (
                 <div className="flex flex-col items-center justify-center h-96 gap-3 px-6 text-center">
@@ -797,8 +807,6 @@ export function SignatureFieldEditor({
                   <div 
                     ref={canvasWrapperRef} 
                     className={[
-                      "inline-block",
-                      "min-w-0",
                       !pageImages.has(currentPage) ? "opacity-0" : "",
                     ].join(" ")}
                   />
