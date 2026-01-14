@@ -870,20 +870,20 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   </p>
                                 ) : (
                                   <div className="space-y-2">
-                                    {/* Header row - Updated with Cost, Markup, Price columns */}
-                                    <div className="grid grid-cols-16 gap-2 text-xs font-medium text-muted-foreground px-2">
+                                    {/* Header row - Compact layout with Cost, Markup, Price */}
+                                    <div className="grid grid-cols-12 gap-1 text-xs font-medium text-muted-foreground px-1">
                                       <div className="col-span-1">Type</div>
-                                      <div className="col-span-3">Description</div>
+                                      <div className="col-span-2">Description</div>
                                       <div className="col-span-1">Qty</div>
                                       <div className="col-span-1">Unit</div>
-                                      <div className="col-span-2">Cost</div>
-                                      <div className="col-span-2">Markup %</div>
+                                      <div className="col-span-1">Cost</div>
+                                      <div className="col-span-1">Markup</div>
                                       <div className="col-span-2">Price</div>
                                       <div className="col-span-2">Total</div>
-                                      <div className="col-span-2"></div>
+                                      <div className="col-span-1"></div>
                                     </div>
                                     {group.items.map((item) => (
-                                      <div key={item.id} className="grid grid-cols-16 gap-2 items-center">
+                                      <div key={item.id} className="grid grid-cols-12 gap-1 items-center">
                                         <Select
                                           value={item.item_type}
                                           onValueChange={(v) => updateLineItem(group.id, item.id, { item_type: v })}
@@ -902,14 +902,14 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                         <Input
                                           value={item.description}
                                           onChange={(e) => updateLineItem(group.id, item.id, { description: e.target.value })}
-                                          className="col-span-3 h-8 text-sm"
-                                          placeholder="Item description"
+                                          className="col-span-2 h-8 text-xs"
+                                          placeholder="Description"
                                         />
                                         <Input
                                           type="number"
                                           value={item.quantity}
                                           onChange={(e) => updateLineItem(group.id, item.id, { quantity: parseFloat(e.target.value) || 0 })}
-                                          className="col-span-1 h-8 text-sm"
+                                          className="col-span-1 h-8 text-xs"
                                         />
                                         <Select
                                           value={item.unit}
@@ -931,37 +931,35 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           type="number"
                                           value={item.cost}
                                           onChange={(e) => updateLineItem(group.id, item.id, { cost: parseFloat(e.target.value) || 0 })}
-                                          className="col-span-2 h-8 text-sm"
+                                          className="col-span-1 h-8 text-xs"
                                           step="0.01"
-                                          placeholder="0.00"
+                                          placeholder="0"
                                         />
                                         {/* Markup % field */}
-                                        <div className="col-span-2 flex items-center gap-1">
-                                          <Input
-                                            type="number"
-                                            value={item.markup_percent}
-                                            onChange={(e) => updateLineItem(group.id, item.id, { markup_percent: parseFloat(e.target.value) || 0 })}
-                                            className="h-8 text-sm"
-                                            step="1"
-                                          />
-                                          <span className="text-xs text-muted-foreground">%</span>
-                                        </div>
+                                        <Input
+                                          type="number"
+                                          value={item.markup_percent}
+                                          onChange={(e) => updateLineItem(group.id, item.id, { markup_percent: parseFloat(e.target.value) || 0 })}
+                                          className="col-span-1 h-8 text-xs"
+                                          step="1"
+                                          placeholder="35"
+                                        />
                                         {/* Price field (calculated from cost + markup) */}
                                         <Input
                                           type="number"
                                           value={item.unit_price}
                                           onChange={(e) => updateLineItem(group.id, item.id, { unit_price: parseFloat(e.target.value) || 0 })}
-                                          className="col-span-2 h-8 text-sm"
+                                          className="col-span-2 h-8 text-xs"
                                           step="0.01"
                                         />
-                                        <div className="col-span-2 text-sm font-medium">
+                                        <div className="col-span-2 text-xs font-medium">
                                           {formatCurrency(item.line_total)}
                                         </div>
                                         <Button
                                           variant="ghost"
                                           size="sm"
                                           onClick={() => deleteLineItem(group.id, item.id)}
-                                          className="col-span-2 h-8 w-8 p-0 text-destructive"
+                                          className="col-span-1 h-8 w-8 p-0 text-destructive"
                                         >
                                           <Trash2 className="h-4 w-4" />
                                         </Button>
