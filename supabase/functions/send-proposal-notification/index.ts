@@ -28,9 +28,21 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let body: NotificationRequest;
+  
   try {
-    // Parse request body ONCE at the start
-    const body: NotificationRequest = await req.json();
+    // Clone request before reading body to avoid "Body is unusable" error
+    const clonedReq = req.clone();
+    body = await clonedReq.json();
+  } catch (parseError) {
+    console.error("Failed to parse request body:", parseError);
+    return new Response(
+      JSON.stringify({ success: false, error: "Invalid request body" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
     const { 
       estimateId, 
       documentId,
