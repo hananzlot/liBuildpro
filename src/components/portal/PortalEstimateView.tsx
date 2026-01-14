@@ -203,6 +203,15 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
         .eq('id', portalData!.estimate.id);
 
       if (updateError) throw updateError;
+
+      // Send notification email to admin (don't await - fire and forget)
+      supabase.functions.invoke('send-proposal-notification', {
+        body: {
+          estimateId: portalData!.estimate.id,
+          action: 'accepted',
+          customerName: signerName,
+        },
+      }).catch((err) => console.error('Failed to send notification:', err));
     },
     onSuccess: () => {
       toast.success('Proposal signed successfully!');
@@ -226,6 +235,16 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
         .eq('id', portalData!.estimate.id);
 
       if (error) throw error;
+
+      // Send notification email to admin (don't await - fire and forget)
+      supabase.functions.invoke('send-proposal-notification', {
+        body: {
+          estimateId: portalData!.estimate.id,
+          action: 'declined',
+          customerName: portalData!.estimate.customer_name,
+          declineReason: declineReason,
+        },
+      }).catch((err) => console.error('Failed to send notification:', err));
     },
     onSuccess: () => {
       toast.success('Response submitted');

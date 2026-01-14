@@ -241,6 +241,9 @@ export default function Estimates() {
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
+                  ) : estimate.status === 'accepted' ? (
+                    // No edit or send buttons for signed contracts
+                    null
                   ) : (
                     <>
                       <Button
