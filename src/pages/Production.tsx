@@ -169,12 +169,13 @@ export default function Production() {
   const [profitSheetType, setProfitSheetType] = useState<'expected' | 'realized' | null>(null);
   const [kpiDateRange, setKpiDateRange] = useState<DateRange | undefined>(undefined);
   const [cashFlowSheetOpen, setCashFlowSheetOpen] = useState(false);
+  const [totalSoldSheetOpen, setTotalSoldSheetOpen] = useState(false);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number, agreement_signed_date")
+        .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number, agreement_signed_date, lead_source")
         .is("deleted_at", null) // Only show non-deleted projects
         .order("project_number", { ascending: false });
       
@@ -190,6 +191,8 @@ export default function Production() {
         estimated_project_cost: number | null;
         sold_dispatch_value: number | null;
         agreement_signed_date: string | null;
+        lead_source: string | null;
+        project_scope_dispatch: string | null;
       })[];
     },
   });
@@ -1101,12 +1104,18 @@ export default function Production() {
                     <p className="text-2xl font-bold text-emerald-500">{completedProjects}</p>
                   </CardContent>
                 </Card>
-                <Card className="p-0">
+                <Card 
+                  className="p-0 cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => setTotalSoldSheetOpen(true)}
+                >
                   <CardHeader className="pb-1 pt-3 px-4">
                     <CardDescription className="text-xs">Total Sold</CardDescription>
                   </CardHeader>
                   <CardContent className="pb-3 px-4">
                     <p className="text-2xl font-bold">{formatCurrency(filteredFinancialsTotal)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Click to view details
+                    </p>
                   </CardContent>
                 </Card>
               </section>
@@ -1425,6 +1434,9 @@ export default function Production() {
                         <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('salesperson')}>
                           <div className="flex items-center">Sales/PM <SortIcon column="salesperson" /></div>
                         </TableHead>
+                        <TableHead className="max-w-[100px]">
+                          <div className="flex items-center">Source</div>
+                        </TableHead>
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50" onClick={() => handleSort('sold_amount')}>
                           <div className="flex items-center justify-end">Sold Amt <SortIcon column="sold_amount" /></div>
                         </TableHead>
@@ -1565,6 +1577,9 @@ export default function Production() {
                             </TableCell>
                             <TableCell className="text-xs">
                               {project.primary_salesperson || "-"} / {project.project_manager || "-"}
+                            </TableCell>
+                            <TableCell className="text-xs max-w-[100px] truncate" title={project.lead_source || "-"}>
+                              {project.lead_source || "-"}
                             </TableCell>
                             <TableCell className="text-right text-xs font-medium">
                               <div>
@@ -2067,6 +2082,77 @@ export default function Production() {
                 dateRange={kpiDateRange}
               />
             </div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Total Sold Projects Sheet */}
+        <Sheet open={totalSoldSheetOpen} onOpenChange={setTotalSoldSheetOpen}>
+          <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5" />
+                Total Sold Projects
+              </SheetTitle>
+              <SheetDescription>
+                {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? 's' : ''} totaling {formatCurrency(filteredFinancialsTotal)}
+                {kpiDateRange?.from && kpiDateRange?.to && (
+                  <span className="block mt-1">
+                    Filtered: {kpiDateRange.from.toLocaleDateString()} - {kpiDateRange.to.toLocaleDateString()}
+                  </span>
+                )}
+              </SheetDescription>
+            </SheetHeader>
+            <ScrollArea className="h-[calc(100vh-140px)] mt-4">
+              <div className="space-y-2 pr-4">
+                {sortedAndFilteredProjects.map((project) => {
+                  const financials = projectFinancials[project.id];
+                  const soldAmount = financials?.contractsTotal || 0;
+                  
+                  return (
+                    <div
+                      key={project.id}
+                      className="p-3 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setTotalSoldSheetOpen(false);
+                        handleOpenProject(project);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium">#{project.project_number} - {project.project_name}</p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {project.project_address || 'No address'}
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-muted-foreground">
+                            <span>
+                              <strong>Source:</strong> {project.lead_source || 'Unknown'}
+                            </span>
+                            {project.install_start_date && (
+                              <span>
+                                <strong>Start:</strong> {format(parseISO(project.install_start_date), 'MMM d, yyyy')}
+                              </span>
+                            )}
+                          </div>
+                          {project.project_scope_dispatch && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate" title={project.project_scope_dispatch}>
+                              <strong>Scope:</strong> {project.project_scope_dispatch}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-lg font-bold text-primary">
+                            {formatCurrency(soldAmount)}
+                          </p>
+                          <Badge variant="outline" className={`text-[10px] ${statusColors[project.project_status || 'New Job'] || ''}`}>
+                            {project.project_status || 'New Job'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
           </SheetContent>
         </Sheet>
       </TooltipProvider>
