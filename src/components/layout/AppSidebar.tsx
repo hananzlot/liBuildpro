@@ -21,7 +21,10 @@ import {
   FolderKanban,
   HardHat,
   Eye,
-  EyeOff
+  EyeOff,
+  Calculator,
+  FileSignature,
+  Send
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -139,6 +142,30 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    label: "Estimates & Contracts",
+    roles: ['super_admin', 'admin', 'contract_manager'],
+    items: [
+      { 
+        title: "Estimates", 
+        url: "/estimates?view=list", 
+        icon: Calculator,
+        roles: ['super_admin', 'admin', 'contract_manager']
+      },
+      { 
+        title: "Proposals", 
+        url: "/estimates?view=proposals", 
+        icon: Send,
+        roles: ['super_admin', 'admin', 'contract_manager']
+      },
+      { 
+        title: "Contracts", 
+        url: "/estimates?view=contracts", 
+        icon: FileSignature,
+        roles: ['super_admin', 'admin', 'contract_manager']
+      },
+    ],
+  },
+  {
     label: "Magazines",
     roles: ['super_admin', 'admin', 'magazine'],
     items: [
@@ -176,7 +203,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, isAdmin, isMagazine, isProduction, isDispatch, isSales, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
+  const { user, profile, isAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
   const { versionString, version } = useAppVersion();
   const collapsed = state === "collapsed";
 
@@ -230,6 +257,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           case 'production': return isProduction;
           case 'dispatch': return isDispatch;
           case 'sales': return isSales;
+          case 'contract_manager': return isContractManager;
           default: return false;
         }
       });
@@ -285,6 +313,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         case 'production': return isProduction;
         case 'dispatch': return isDispatch;
         case 'sales': return isSales;
+        case 'contract_manager': return isContractManager;
         default: return false;
       }
     });
