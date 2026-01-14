@@ -214,6 +214,26 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
             </CardContent>
           </Card>
 
+          {/* Decline Reason */}
+          {estimate.status === 'declined' && estimate.decline_reason && (
+            <Card className="border-destructive bg-destructive/5">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2 text-destructive">
+                  <FileText className="h-4 w-4" />
+                  Decline Reason
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">{estimate.decline_reason}</p>
+                {estimate.declined_at && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Declined on {format(new Date(estimate.declined_at), "MMMM d, yyyy 'at' h:mm a")}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Dates */}
           <Card>
             <CardHeader className="pb-3">
