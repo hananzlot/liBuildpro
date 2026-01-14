@@ -603,6 +603,320 @@ export type Database = {
         }
         Relationships: []
       }
+      estimate_attachments: {
+        Row: {
+          created_at: string
+          estimate_id: string
+          file_name: string
+          file_type: string | null
+          file_url: string
+          group_id: string | null
+          id: string
+          line_item_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          estimate_id: string
+          file_name: string
+          file_type?: string | null
+          file_url: string
+          group_id?: string | null
+          id?: string
+          line_item_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          estimate_id?: string
+          file_name?: string
+          file_type?: string | null
+          file_url?: string
+          group_id?: string | null
+          id?: string
+          line_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_attachments_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_attachments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_attachments_line_item_id_fkey"
+            columns: ["line_item_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_line_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimate_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          estimate_id: string
+          group_name: string
+          id: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          estimate_id: string
+          group_name: string
+          id?: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          estimate_id?: string
+          group_name?: string
+          id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_groups_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimate_line_items: {
+        Row: {
+          cost: number | null
+          created_at: string
+          description: string
+          estimate_id: string
+          group_id: string | null
+          id: string
+          is_taxable: boolean | null
+          item_type: Database["public"]["Enums"]["estimate_line_item_type"]
+          line_total: number | null
+          markup_percent: number | null
+          quantity: number | null
+          sort_order: number | null
+          unit: string | null
+          unit_price: number | null
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          description: string
+          estimate_id: string
+          group_id?: string | null
+          id?: string
+          is_taxable?: boolean | null
+          item_type?: Database["public"]["Enums"]["estimate_line_item_type"]
+          line_total?: number | null
+          markup_percent?: number | null
+          quantity?: number | null
+          sort_order?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          description?: string
+          estimate_id?: string
+          group_id?: string | null
+          id?: string
+          is_taxable?: boolean | null
+          item_type?: Database["public"]["Enums"]["estimate_line_item_type"]
+          line_total?: number | null
+          markup_percent?: number | null
+          quantity?: number | null
+          sort_order?: number | null
+          unit?: string | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_line_items_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_line_items_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimate_payment_schedule: {
+        Row: {
+          amount: number | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          due_type: string | null
+          estimate_id: string
+          id: string
+          percent: number | null
+          phase_name: string
+          sort_order: number | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          due_type?: string | null
+          estimate_id: string
+          id?: string
+          percent?: number | null
+          phase_name: string
+          sort_order?: number | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          due_type?: string | null
+          estimate_id?: string
+          id?: string
+          percent?: number | null
+          phase_name?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_payment_schedule_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimates: {
+        Row: {
+          billing_address: string | null
+          contact_id: string | null
+          created_at: string
+          created_by: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          deposit_amount: number | null
+          deposit_due_rule: string | null
+          deposit_percent: number | null
+          deposit_required: boolean | null
+          discount_amount: number | null
+          discount_type: string | null
+          discount_value: number | null
+          estimate_date: string
+          estimate_number: number
+          estimate_title: string
+          expiration_date: string | null
+          id: string
+          job_address: string | null
+          notes: string | null
+          opportunity_id: string | null
+          status: Database["public"]["Enums"]["estimate_status"]
+          subtotal: number | null
+          tax_amount: number | null
+          tax_rate: number | null
+          terms_and_conditions: string | null
+          total: number | null
+          updated_at: string
+        }
+        Insert: {
+          billing_address?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          deposit_amount?: number | null
+          deposit_due_rule?: string | null
+          deposit_percent?: number | null
+          deposit_required?: boolean | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
+          estimate_date?: string
+          estimate_number?: number
+          estimate_title: string
+          expiration_date?: string | null
+          id?: string
+          job_address?: string | null
+          notes?: string | null
+          opportunity_id?: string | null
+          status?: Database["public"]["Enums"]["estimate_status"]
+          subtotal?: number | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          terms_and_conditions?: string | null
+          total?: number | null
+          updated_at?: string
+        }
+        Update: {
+          billing_address?: string | null
+          contact_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          deposit_amount?: number | null
+          deposit_due_rule?: string | null
+          deposit_percent?: number | null
+          deposit_required?: boolean | null
+          discount_amount?: number | null
+          discount_type?: string | null
+          discount_value?: number | null
+          estimate_date?: string
+          estimate_number?: number
+          estimate_title?: string
+          expiration_date?: string | null
+          id?: string
+          job_address?: string | null
+          notes?: string | null
+          opportunity_id?: string | null
+          status?: Database["public"]["Enums"]["estimate_status"]
+          subtotal?: number | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          terms_and_conditions?: string | null
+          total?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["ghl_id"]
+          },
+        ]
+      }
       ghl_calendars: {
         Row: {
           created_at: string
@@ -2540,6 +2854,21 @@ export type Database = {
         | "dispatch"
         | "sales"
         | "contract_manager"
+      estimate_line_item_type:
+        | "labor"
+        | "material"
+        | "equipment"
+        | "permit"
+        | "assembly"
+        | "note"
+      estimate_status:
+        | "draft"
+        | "sent"
+        | "viewed"
+        | "needs_changes"
+        | "accepted"
+        | "declined"
+        | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2675,6 +3004,23 @@ export const Constants = {
         "dispatch",
         "sales",
         "contract_manager",
+      ],
+      estimate_line_item_type: [
+        "labor",
+        "material",
+        "equipment",
+        "permit",
+        "assembly",
+        "note",
+      ],
+      estimate_status: [
+        "draft",
+        "sent",
+        "viewed",
+        "needs_changes",
+        "accepted",
+        "declined",
+        "expired",
       ],
     },
   },
