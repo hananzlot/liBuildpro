@@ -608,8 +608,8 @@ function processMetrics(
     }
   });
 
-  // Calculate metrics per rep - opportunities using hybrid attribution
-  const salesRepPerformance: SalesRepPerformance[] = Array.from(repAppointmentsMap.entries())
+  // Calculate metrics per rep - opportunities using hybrid attribution (appointment-based)
+  const appointmentBasedPerformance: SalesRepPerformance[] = Array.from(repAppointmentsMap.entries())
     .map(([assignedTo, { userGhlId, uniqueContactIds }]) => {
       const uniqueAppointments = uniqueContactIds.size;
 
@@ -633,8 +633,82 @@ function processMetrics(
         totalOpportunities,
         wonValue,
         conversionRate,
+        source: 'appointments' as const,
       };
-    })
+    });
+
+  // Get won opportunities based on won_at date within the date range
+  const wonAtBasedPerformance: SalesRepPerformance[] = (() => {
+    if (!dateRange?.from) return [];
+
+    const startDate = new Date(dateRange.from);
+    const endDate = dateRange.to ? new Date(dateRange.to) : new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    // Find won opportunities where won_at is within the date range
+    const wonInRange = opportunities.filter((o) => {
+      if (o.status?.toLowerCase() !== "won" || !o.won_at) return false;
+      const wonDate = new Date(o.won_at);
+      return wonDate >= startDate && wonDate <= endDate;
+    });
+
+    // Group by assigned rep
+    const repWonMap = new Map<string, { userGhlId: string; opportunities: typeof wonInRange }>();
+    wonInRange.forEach((o) => {
+      const effectiveAssignment = getEffectiveAssignment(o);
+      if (!effectiveAssignment) return;
+      
+      const repName = userMap.get(effectiveAssignment) || effectiveAssignment;
+      if (!repWonMap.has(repName)) {
+        repWonMap.set(repName, { userGhlId: effectiveAssignment, opportunities: [] });
+      }
+      repWonMap.get(repName)!.opportunities.push(o);
+    });
+
+    return Array.from(repWonMap.entries()).map(([assignedTo, { opportunities: repOpps }]) => {
+      const wonValue = repOpps.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
+      return {
+        assignedTo,
+        uniqueAppointments: 0,
+        wonOpportunities: repOpps.length,
+        totalOpportunities: repOpps.length,
+        wonValue,
+        conversionRate: 0,
+        source: 'won_at' as const,
+      };
+    });
+  })();
+
+  // Union both sources - merge reps that appear in both, add unique reps from won_at
+  const mergedPerformanceMap = new Map<string, SalesRepPerformance>();
+  
+  // Add appointment-based first
+  appointmentBasedPerformance.forEach((rep) => {
+    mergedPerformanceMap.set(rep.assignedTo, rep);
+  });
+
+  // Merge or add won_at-based
+  wonAtBasedPerformance.forEach((wonAtRep) => {
+    const existing = mergedPerformanceMap.get(wonAtRep.assignedTo);
+    if (existing) {
+      // Rep exists from appointments - check if won_at adds more value
+      // Only add if won_at value is higher (means some wins weren't counted via appointments)
+      if (wonAtRep.wonValue > existing.wonValue) {
+        mergedPerformanceMap.set(wonAtRep.assignedTo, {
+          ...existing,
+          wonOpportunities: wonAtRep.wonOpportunities,
+          wonValue: wonAtRep.wonValue,
+          source: 'won_at', // Mark as won_at since that's where the value came from
+        });
+      }
+    } else {
+      // Rep only has won opportunities (no appointments in range)
+      mergedPerformanceMap.set(wonAtRep.assignedTo, wonAtRep);
+    }
+  });
+
+  // Convert to array and sort by wonValue descending
+  const salesRepPerformance: SalesRepPerformance[] = Array.from(mergedPerformanceMap.values())
     .sort((a, b) => b.wonValue - a.wonValue);
 
   // Recent leads with resolved names

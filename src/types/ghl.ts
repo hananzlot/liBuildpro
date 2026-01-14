@@ -43,6 +43,7 @@ export interface SalesRepPerformance {
   totalOpportunities: number;
   wonValue: number;
   conversionRate: number;
+  source?: 'appointments' | 'won_at';  // identifies data source
 }
 
 export interface DashboardMetrics {
