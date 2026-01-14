@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, DollarSign, Calendar, User } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
+import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
 
 type ViewType = "list" | "proposals" | "contracts";
 
@@ -59,6 +60,8 @@ export default function Estimates() {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [editingEstimateId, setEditingEstimateId] = useState<string | null>(null);
 
   const handleViewChange = (view: string) => {
     setSearchParams({ view });
@@ -131,7 +134,10 @@ export default function Estimates() {
             {currentView === "contracts" && "Contracts will appear here once proposals are approved and signed."}
           </p>
           {currentView === "list" && (
-            <Button>
+            <Button onClick={() => {
+              setEditingEstimateId(null);
+              setBuilderOpen(true);
+            }}>
               <Plus className="mr-2 h-4 w-4" />
               Create Estimate
             </Button>
@@ -204,7 +210,14 @@ export default function Estimates() {
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditingEstimateId(estimate.id);
+                      setBuilderOpen(true);
+                    }}
+                  >
                     <Edit className="h-4 w-4" />
                   </Button>
                   {isAdmin && (
@@ -258,7 +271,10 @@ export default function Estimates() {
               Create estimates, send proposals, and manage contracts
             </p>
           </div>
-          <Button>
+          <Button onClick={() => {
+            setEditingEstimateId(null);
+            setBuilderOpen(true);
+          }}>
             <Plus className="mr-2 h-4 w-4" />
             New Estimate
           </Button>
@@ -385,6 +401,14 @@ export default function Estimates() {
         estimateId={selectedEstimateId}
         open={!!selectedEstimateId}
         onOpenChange={(open) => !open && setSelectedEstimateId(null)}
+      />
+
+      {/* Estimate Builder Dialog */}
+      <EstimateBuilderDialog
+        open={builderOpen}
+        onOpenChange={setBuilderOpen}
+        estimateId={editingEstimateId}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["estimates"] })}
       />
     </AppLayout>
   );
