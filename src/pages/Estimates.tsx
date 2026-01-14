@@ -17,7 +17,7 @@ import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet"
 import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 
-type ViewType = "list" | "proposals" | "contracts";
+type ViewType = "list" | "proposals" | "contracts" | "declined";
 
 interface Estimate {
   id: string;
@@ -105,7 +105,8 @@ export default function Estimates() {
   // Filter estimates by status for different views
   const draftEstimates = estimates?.filter((e) => e.status === "draft") || [];
   const proposalEstimates = estimates?.filter((e) => ["sent", "viewed", "needs_changes"].includes(e.status)) || [];
-  const contractEstimates = estimates?.filter((e) => ["accepted", "declined", "expired"].includes(e.status)) || [];
+  const contractEstimates = estimates?.filter((e) => ["accepted", "expired"].includes(e.status)) || [];
+  const declinedEstimates = estimates?.filter((e) => e.status === "declined") || [];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -134,6 +135,7 @@ export default function Estimates() {
             {currentView === "list" && "Get started by creating your first estimate."}
             {currentView === "proposals" && "Send an estimate as a proposal to see it here."}
             {currentView === "contracts" && "Contracts will appear here once proposals are approved and signed."}
+            {currentView === "declined" && "Declined proposals will appear here."}
           </p>
           {currentView === "list" && (
             <Button onClick={() => {
@@ -332,7 +334,7 @@ export default function Estimates() {
         </div>
 
         <Tabs value={currentView} onValueChange={handleViewChange} className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-xl grid-cols-4">
             <TabsTrigger value="list" className="flex items-center gap-2">
               <Calculator className="h-4 w-4" />
               Estimates ({draftEstimates.length})
@@ -344,6 +346,10 @@ export default function Estimates() {
             <TabsTrigger value="contracts" className="flex items-center gap-2">
               <FileSignature className="h-4 w-4" />
               Contracts ({contractEstimates.length})
+            </TabsTrigger>
+            <TabsTrigger value="declined" className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4" />
+              Declined ({declinedEstimates.length})
             </TabsTrigger>
           </TabsList>
 
@@ -388,7 +394,7 @@ export default function Estimates() {
               <CardHeader>
                 <CardTitle>Contracts</CardTitle>
                 <CardDescription>
-                  Manage signed contracts and pending signatures. View contract status and audit trails.
+                  Manage signed contracts. View contract status and audit trails.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -396,6 +402,24 @@ export default function Estimates() {
                   contractEstimates,
                   "No Contracts Yet",
                   <FileSignature className="h-12 w-12 text-muted-foreground mb-4" />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="declined" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Declined Proposals</CardTitle>
+                <CardDescription>
+                  View proposals that were declined by clients. You can edit and resend as new estimates.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderEstimateTable(
+                  declinedEstimates,
+                  "No Declined Proposals",
+                  <Trash2 className="h-12 w-12 text-muted-foreground mb-4" />
                 )}
               </CardContent>
             </Card>
