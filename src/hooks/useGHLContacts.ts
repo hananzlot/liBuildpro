@@ -60,6 +60,7 @@ interface DBAppointment {
   salesperson_confirmed?: boolean;
   ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
+  created_at?: string;
   updated_at?: string;
   entered_by?: string | null;
   edited_by?: string | null;
@@ -530,11 +531,13 @@ function processMetrics(
       })
     : appointments;
 
-  // Filter appointments by CREATION date (ghl_date_added) - for "Total Appointments in Date Range" KPI
+  // Filter appointments by CREATION date (ghl_date_added or created_at fallback) - for "Total Appointments in Date Range" KPI
   const appointmentsByCreationDate = dateRange?.from
     ? appointments.filter((a) => {
-        if (!a.ghl_date_added) return false;
-        const createdDate = new Date(a.ghl_date_added);
+        // Use ghl_date_added if available, otherwise fall back to created_at
+        const dateAdded = a.ghl_date_added || a.created_at;
+        if (!dateAdded) return false;
+        const createdDate = new Date(dateAdded);
         const startDate = dateRange.from!;
         const endDate = dateRange.to || new Date();
         endDate.setHours(23, 59, 59, 999);
