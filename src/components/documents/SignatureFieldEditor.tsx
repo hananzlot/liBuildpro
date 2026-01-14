@@ -7,11 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import * as pdfjsLib from "pdfjs-dist/webpack.mjs";
 
-// Set PDF.js worker using Vite's ?url import
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface Signer {
   id: string;
