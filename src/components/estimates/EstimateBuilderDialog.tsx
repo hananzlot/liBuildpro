@@ -935,15 +935,17 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           step="0.01"
                                           placeholder="0.00"
                                         />
-                                        {/* Markup % field */}
-                                        <Input
-                                          type="number"
-                                          value={item.markup_percent}
-                                          onChange={(e) => updateLineItem(group.id, item.id, { markup_percent: parseFloat(e.target.value) || 0 })}
-                                          className="w-20 h-8 text-sm"
-                                          step="1"
-                                          placeholder="35"
-                                        />
+                                        {/* Markup % field - aligned */}
+                                        <div className="w-20 flex items-center">
+                                          <Input
+                                            type="number"
+                                            value={item.markup_percent}
+                                            onChange={(e) => updateLineItem(group.id, item.id, { markup_percent: parseFloat(e.target.value) || 0 })}
+                                            className="w-full h-8 text-sm"
+                                            step="1"
+                                            placeholder="35"
+                                          />
+                                        </div>
                                         {/* Price field - 2 decimal display */}
                                         <Input
                                           type="number"
@@ -1009,10 +1011,26 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           id="default_markup_percent"
                           type="number"
                           value={formData.default_markup_percent}
-                          onChange={(e) => setFormData({ ...formData, default_markup_percent: parseFloat(e.target.value) || 0 })}
+                          onChange={(e) => {
+                            const newMarkup = parseFloat(e.target.value) || 0;
+                            setFormData({ ...formData, default_markup_percent: newMarkup });
+                            // Apply retroactively to all line items
+                            setGroups(prevGroups => prevGroups.map(g => ({
+                              ...g,
+                              items: g.items.map(item => {
+                                const newUnitPrice = item.cost * (1 + newMarkup / 100);
+                                return {
+                                  ...item,
+                                  markup_percent: newMarkup,
+                                  unit_price: newUnitPrice,
+                                  line_total: item.quantity * newUnitPrice,
+                                };
+                              }),
+                            })));
+                          }}
                           step="1"
                         />
-                        <p className="text-xs text-muted-foreground">Applied to new items & AI generation</p>
+                        <p className="text-xs text-muted-foreground">Applied to all items when changed</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="tax_rate">Tax Rate %</Label>
