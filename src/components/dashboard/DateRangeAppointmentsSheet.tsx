@@ -40,6 +40,7 @@ import { getAddressFromContact } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
 interface DBAppointment {
   id: string;
@@ -80,7 +81,17 @@ interface DBOpportunity {
   status: string | null;
   stage_name: string | null;
   pipeline_name: string | null;
+  pipeline_id?: string | null;
+  pipeline_stage_id?: string | null;
   monetary_value: number | null;
+  name?: string | null;
+  assigned_to?: string | null;
+  ghl_date_added?: string | null;
+  ghl_date_updated?: string | null;
+  location_id?: string;
+  won_at?: string | null;
+  scope_of_work?: string | null;
+  address?: string | null;
 }
 
 interface DBNote {
@@ -149,6 +160,10 @@ export function DateRangeAppointmentsSheet({
   const [editAddressValue, setEditAddressValue] = useState("");
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [localAddressState, setLocalAddressState] = useState<Record<string, string>>({});
+  
+  // Opportunity detail sheet state
+  const [selectedOpportunity, setSelectedOpportunity] = useState<DBOpportunity | null>(null);
+  const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   
   // Sorting state
   type SortColumn = "contact" | "title" | "status" | "scheduled" | "assigned" | "oppStatus" | "stage" | "value" | "noteDate" | "taskDate";
@@ -549,6 +564,7 @@ export function DateRangeAppointmentsSheet({
   };
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-[95vw] p-0 flex flex-col">
         <div className="p-4 border-b">
@@ -767,11 +783,20 @@ export function DateRangeAppointmentsSheet({
                       .filter(a => a.start_time)
                       .sort((a, b) => new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime());
 
+                    const handleRowClick = () => {
+                      if (opp) {
+                        setSelectedOpportunity(opp);
+                        setOppDetailSheetOpen(true);
+                      } else {
+                        onAppointmentClick?.(apt);
+                      }
+                    };
+
                     return (
                       <TableRow 
                         key={group.contact_id}
-                        className={onAppointmentClick ? "cursor-pointer hover:bg-muted/50" : ""}
-                        onClick={() => onAppointmentClick?.(apt)}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={handleRowClick}
                       >
                         <TableCell>
                           <div className="flex flex-col">
@@ -1123,5 +1148,16 @@ export function DateRangeAppointmentsSheet({
         </div>
       </SheetContent>
     </Sheet>
+
+    <OpportunityDetailSheet
+      opportunity={selectedOpportunity as any}
+      appointments={appointments as any}
+      contacts={contacts as any}
+      users={users as any}
+      open={oppDetailSheetOpen}
+      onOpenChange={setOppDetailSheetOpen}
+      allOpportunities={opportunities as any}
+    />
+    </>
   );
 }
