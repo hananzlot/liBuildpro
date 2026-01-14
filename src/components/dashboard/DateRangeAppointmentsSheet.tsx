@@ -821,7 +821,7 @@ export function DateRangeAppointmentsSheet({
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          <div className="flex flex-col gap-0.5">
+                          <div className="flex flex-col">
                             {sortedDates.map((a, idx) => (
                               <span key={a.id} className={`whitespace-nowrap ${idx === 0 ? "font-medium text-foreground" : ""}`}>
                                 {format(new Date(a.start_time!), "MMM d, h:mma")}
@@ -852,7 +852,7 @@ export function DateRangeAppointmentsSheet({
                             </TableCell>
                             <TableCell className="max-w-[180px]">
                               {note ? (
-                                <div className="flex flex-col gap-0.5">
+                              <div className="flex flex-col">
                                   <span className="text-xs text-muted-foreground font-medium">
                                     {note.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d, yyyy") : ""}
                                   </span>
@@ -866,7 +866,7 @@ export function DateRangeAppointmentsSheet({
                             </TableCell>
                             <TableCell className="max-w-[180px]">
                               {task ? (
-                                <div className="flex flex-col gap-0.5">
+                              <div className="flex flex-col">
                                   <span className="text-xs text-muted-foreground font-medium">
                                     {task.created_at ? format(new Date(task.created_at), "MMM d, yyyy") : ""}
                                   </span>
