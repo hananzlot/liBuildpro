@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.send-proposal-notification]
 verify_jwt = false
+
+[functions.send-customer-confirmation]
+verify_jwt = false

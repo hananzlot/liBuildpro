@@ -204,14 +204,24 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
 
       if (updateError) throw updateError;
 
-      // Send notification email to admin (don't await - fire and forget)
+      // Send notification email to admin
       supabase.functions.invoke('send-proposal-notification', {
         body: {
           estimateId: portalData!.estimate.id,
           action: 'accepted',
           customerName: signerName,
         },
-      }).catch((err) => console.error('Failed to send notification:', err));
+      }).catch((err) => console.error('Failed to send admin notification:', err));
+
+      // Send confirmation email to customer
+      supabase.functions.invoke('send-customer-confirmation', {
+        body: {
+          estimateId: portalData!.estimate.id,
+          action: 'accepted',
+          customerEmail: signerEmail || portalData!.estimate.customer_email,
+          customerName: signerName,
+        },
+      }).catch((err) => console.error('Failed to send customer confirmation:', err));
     },
     onSuccess: () => {
       toast.success('Proposal signed successfully!');
@@ -236,7 +246,7 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
 
       if (error) throw error;
 
-      // Send notification email to admin (don't await - fire and forget)
+      // Send notification email to admin
       supabase.functions.invoke('send-proposal-notification', {
         body: {
           estimateId: portalData!.estimate.id,
@@ -244,7 +254,19 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
           customerName: portalData!.estimate.customer_name,
           declineReason: declineReason,
         },
-      }).catch((err) => console.error('Failed to send notification:', err));
+      }).catch((err) => console.error('Failed to send admin notification:', err));
+
+      // Send confirmation email to customer
+      if (portalData!.estimate.customer_email) {
+        supabase.functions.invoke('send-customer-confirmation', {
+          body: {
+            estimateId: portalData!.estimate.id,
+            action: 'declined',
+            customerEmail: portalData!.estimate.customer_email,
+            customerName: portalData!.estimate.customer_name,
+          },
+        }).catch((err) => console.error('Failed to send customer confirmation:', err));
+      }
     },
     onSuccess: () => {
       toast.success('Response submitted');

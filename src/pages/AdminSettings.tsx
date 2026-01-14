@@ -15,6 +15,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
 import { UserManagement } from "@/components/dashboard/UserManagement";
+import { EmailTemplatesManager } from "@/components/admin/EmailTemplatesManager";
 import { format } from "date-fns";
 import {
   Table,
@@ -351,14 +352,18 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
             </TabsTrigger>
+            <TabsTrigger value="emails" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              <span className="hidden sm:inline">Emails</span>
+            </TabsTrigger>
             <TabsTrigger value="cleanup" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
-              <span className="hidden sm:inline">Data Cleanup</span>
+              <span className="hidden sm:inline">Data</span>
             </TabsTrigger>
             <TabsTrigger value="sources" className="flex items-center gap-2">
               <Pencil className="h-4 w-4" />
@@ -370,7 +375,7 @@ export default function AdminSettings() {
             </TabsTrigger>
             <TabsTrigger value="audit" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Audit Log</span>
+              <span className="hidden sm:inline">Audit</span>
             </TabsTrigger>
           </TabsList>
 
@@ -453,6 +458,11 @@ export default function AdminSettings() {
                 </Card>
               </div>
             )}
+          </TabsContent>
+
+          {/* Email Templates Tab */}
+          <TabsContent value="emails" className="mt-6">
+            <EmailTemplatesManager />
           </TabsContent>
 
           {/* Data Cleanup Tab */}
