@@ -789,6 +789,104 @@ export type Database = {
         }
         Relationships: []
       }
+      document_portal_tokens: {
+        Row: {
+          access_count: number | null
+          created_at: string
+          created_by: string | null
+          document_id: string
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          last_accessed_at: string | null
+          token: string
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string
+          created_by?: string | null
+          document_id: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_accessed_at?: string | null
+          token?: string
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_accessed_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_portal_tokens_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_portal_tokens_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "signature_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_signatures: {
+        Row: {
+          document_id: string
+          id: string
+          ip_address: string | null
+          signature_data: string
+          signature_font: string | null
+          signature_type: string
+          signed_at: string
+          signer_email: string | null
+          signer_name: string
+          user_agent: string | null
+        }
+        Insert: {
+          document_id: string
+          id?: string
+          ip_address?: string | null
+          signature_data: string
+          signature_font?: string | null
+          signature_type: string
+          signed_at?: string
+          signer_email?: string | null
+          signer_name: string
+          user_agent?: string | null
+        }
+        Update: {
+          document_id?: string
+          id?: string
+          ip_address?: string | null
+          signature_data?: string
+          signature_font?: string | null
+          signature_type?: string
+          signed_at?: string
+          signer_email?: string | null
+          signer_name?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_signatures_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "signature_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estimate_attachments: {
         Row: {
           created_at: string
@@ -2910,6 +3008,68 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signature_documents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          decline_reason: string | null
+          declined_at: string | null
+          document_name: string
+          document_url: string
+          id: string
+          notes: string | null
+          recipient_email: string
+          recipient_name: string
+          sent_at: string | null
+          signed_at: string | null
+          status: string
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          document_name: string
+          document_url: string
+          id?: string
+          notes?: string | null
+          recipient_email: string
+          recipient_name: string
+          sent_at?: string | null
+          signed_at?: string | null
+          status?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          decline_reason?: string | null
+          declined_at?: string | null
+          document_name?: string
+          document_url?: string
+          id?: string
+          notes?: string | null
+          recipient_email?: string
+          recipient_name?: string
+          sent_at?: string | null
+          signed_at?: string | null
+          status?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_documents_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
