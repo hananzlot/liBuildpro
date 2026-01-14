@@ -550,7 +550,7 @@ export function DateRangeAppointmentsSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-7xl p-0 flex flex-col">
+      <SheetContent className="w-full sm:max-w-[95vw] p-0 flex flex-col">
         <div className="p-4 border-b">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
@@ -624,11 +624,11 @@ export function DateRangeAppointmentsSheet({
                   Loading notes & tasks...
                 </div>
               )}
-              <Table className="min-w-[1800px]">
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow>
                     <TableHead 
-                      className="min-w-[140px] cursor-pointer hover:bg-muted/50 select-none"
+                      className="w-[12%] cursor-pointer hover:bg-muted/50 select-none"
                       onClick={() => handleSort("contact")}
                     >
                       <div className="flex items-center gap-1">
@@ -637,7 +637,7 @@ export function DateRangeAppointmentsSheet({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="min-w-[120px] cursor-pointer hover:bg-muted/50 select-none"
+                      className="w-[10%] cursor-pointer hover:bg-muted/50 select-none"
                       onClick={() => handleSort("title")}
                     >
                       <div className="flex items-center gap-1">
@@ -646,16 +646,16 @@ export function DateRangeAppointmentsSheet({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="min-w-[70px] cursor-pointer hover:bg-muted/50 select-none"
+                      className="w-[7%] cursor-pointer hover:bg-muted/50 select-none"
                       onClick={() => handleSort("status")}
                     >
                       <div className="flex items-center gap-1">
-                        Appt Status
+                        Status
                         {sortColumn === "status" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="min-w-[80px] cursor-pointer hover:bg-muted/50 select-none"
+                      className="w-[9%] cursor-pointer hover:bg-muted/50 select-none"
                       onClick={() => handleSort("scheduled")}
                     >
                       <div className="flex items-center gap-1">
@@ -664,7 +664,7 @@ export function DateRangeAppointmentsSheet({
                       </div>
                     </TableHead>
                     <TableHead 
-                      className="min-w-[80px] cursor-pointer hover:bg-muted/50 select-none"
+                      className="w-[8%] cursor-pointer hover:bg-muted/50 select-none"
                       onClick={() => handleSort("assigned")}
                     >
                       <div className="flex items-center gap-1">
@@ -675,25 +675,25 @@ export function DateRangeAppointmentsSheet({
                     {defaultStatusFilter === "showed" && (
                       <>
                         <TableHead 
-                          className="min-w-[70px] cursor-pointer hover:bg-muted/50 select-none"
+                          className="w-[6%] cursor-pointer hover:bg-muted/50 select-none"
                           onClick={() => handleSort("oppStatus")}
                         >
                           <div className="flex items-center gap-1">
-                            Opp Status
+                            Opp
                             {sortColumn === "oppStatus" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="min-w-[100px] cursor-pointer hover:bg-muted/50 select-none"
+                          className="w-[10%] cursor-pointer hover:bg-muted/50 select-none"
                           onClick={() => handleSort("stage")}
                         >
                           <div className="flex items-center gap-1">
-                            Pipeline Stage
+                            Stage
                             {sortColumn === "stage" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="min-w-[90px] cursor-pointer hover:bg-muted/50 select-none"
+                          className="w-[7%] cursor-pointer hover:bg-muted/50 select-none"
                           onClick={() => handleSort("value")}
                         >
                           <div className="flex items-center gap-1">
@@ -702,7 +702,7 @@ export function DateRangeAppointmentsSheet({
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="min-w-[180px] cursor-pointer hover:bg-muted/50 select-none"
+                          className="w-[16%] cursor-pointer hover:bg-muted/50 select-none"
                           onClick={() => handleSort("noteDate")}
                         >
                           <div className="flex items-center gap-1">
@@ -711,7 +711,7 @@ export function DateRangeAppointmentsSheet({
                           </div>
                         </TableHead>
                         <TableHead 
-                          className="min-w-[180px] cursor-pointer hover:bg-muted/50 select-none"
+                          className="w-[15%] cursor-pointer hover:bg-muted/50 select-none"
                           onClick={() => handleSort("taskDate")}
                         >
                           <div className="flex items-center gap-1">
@@ -773,14 +773,14 @@ export function DateRangeAppointmentsSheet({
                         className={onAppointmentClick ? "cursor-pointer hover:bg-muted/50" : ""}
                         onClick={() => onAppointmentClick?.(apt)}
                       >
-                        <TableCell className="max-w-[160px]">
+                        <TableCell>
                           <div className="flex flex-col">
-                            <span className="font-medium truncate">{contactName}</span>
+                            <span className="font-medium text-sm line-clamp-2">{contactName}</span>
                             {contact?.phone && (
                               <div className="flex items-center gap-1">
                                 <a
                                   href={`tel:${contact.phone}`}
-                                  className="text-xs text-primary hover:underline truncate"
+                                  className="text-xs text-primary hover:underline"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     e.preventDefault();
@@ -807,70 +807,73 @@ export function DateRangeAppointmentsSheet({
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[120px]">
+                        <TableCell>
                           <div className="flex flex-col">
-                            <span className="truncate text-xs">{apt.title || "No title"}</span>
+                            <span className="text-xs line-clamp-2">{apt.title || "No title"}</span>
                             {scopeOfWork && (
-                              <span className="text-xs text-muted-foreground truncate">{scopeOfWork}</span>
+                              <span className="text-xs text-muted-foreground line-clamp-1">{scopeOfWork}</span>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge className={`${statusColor} text-xs whitespace-nowrap`}>
-                            {apt.appointment_status || "Unknown"}
+                          <Badge className={`${statusColor} text-[10px] px-1.5 py-0.5`}>
+                            {apt.appointment_status || "?"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           <div className="flex flex-col">
-                            {sortedDates.map((a, idx) => (
-                              <span key={a.id} className={`whitespace-nowrap ${idx === 0 ? "font-medium text-foreground" : ""}`}>
+                            {sortedDates.slice(0, 2).map((a, idx) => (
+                              <span key={a.id} className={`${idx === 0 ? "font-medium text-foreground" : ""}`}>
                                 {format(new Date(a.start_time!), "MMM d, h:mma")}
                               </span>
                             ))}
+                            {sortedDates.length > 2 && (
+                              <span className="text-muted-foreground">+{sortedDates.length - 2} more</span>
+                            )}
                             {sortedDates.length === 0 && "-"}
                           </div>
                         </TableCell>
-                        <TableCell className="text-xs truncate max-w-[80px]">
-                          {salesPerson || "-"}
+                        <TableCell className="text-xs">
+                          <span className="line-clamp-2">{salesPerson || "-"}</span>
                         </TableCell>
                         {defaultStatusFilter === "showed" && (
                           <>
                             <TableCell>
                               {opp?.status ? (
-                                <Badge className={`${oppStatusColor} text-xs capitalize`}>
+                                <Badge className={`${oppStatusColor} text-[10px] px-1.5 py-0.5 capitalize`}>
                                   {opp.status}
                                 </Badge>
                               ) : (
                                 <span className="text-xs text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-xs truncate max-w-[100px]">
-                              {opp?.stage_name || "-"}
+                            <TableCell className="text-xs">
+                              <span className="line-clamp-2">{opp?.stage_name || "-"}</span>
                             </TableCell>
                             <TableCell className="text-xs font-medium">
                               {formatCurrency(opp?.monetary_value)}
                             </TableCell>
-                            <TableCell className="max-w-[180px]">
+                            <TableCell>
                               {note ? (
-                              <div className="flex flex-col">
-                                  <span className="text-xs text-muted-foreground font-medium">
-                                    {note.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d, yyyy") : ""}
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    {note.ghl_date_added ? format(new Date(note.ghl_date_added), "MMM d") : ""}
                                   </span>
-                                  <span className="text-xs whitespace-pre-wrap break-words">
-                                    {note.body || "-"}
+                                  <span className="text-xs line-clamp-2">
+                                    {stripHtmlTags(note.body || "-")}
                                   </span>
                                 </div>
                               ) : (
                                 <span className="text-xs text-muted-foreground">-</span>
                               )}
                             </TableCell>
-                            <TableCell className="max-w-[180px]">
+                            <TableCell>
                               {task ? (
-                              <div className="flex flex-col">
-                                  <span className="text-xs text-muted-foreground font-medium">
-                                    {task.created_at ? format(new Date(task.created_at), "MMM d, yyyy") : ""}
+                                <div className="flex flex-col">
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    {task.created_at ? format(new Date(task.created_at), "MMM d") : ""}
                                   </span>
-                                  <span className="text-xs whitespace-pre-wrap break-words">
+                                  <span className="text-xs line-clamp-2">
                                     {task.title || "-"}
                                   </span>
                                 </div>
