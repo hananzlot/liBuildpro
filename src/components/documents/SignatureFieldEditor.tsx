@@ -71,6 +71,7 @@ export function SignatureFieldEditor({
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const pageSizeRef = useRef<{ width: number; height: number } | null>(null);
   const [canvasReady, setCanvasReady] = useState(false);
   const [fields, setFields] = useState<SignatureField[]>(initialFields);
   const [currentPage, setCurrentPage] = useState(1);
@@ -129,7 +130,7 @@ export function SignatureFieldEditor({
     };
   }, [documentUrl, reloadToken]);
 
-  // Render PDF page to image at high resolution
+  // Render PDF page to image at high resolution (scale: 2 for quality)
   useEffect(() => {
     const renderPage = async () => {
       if (!pdfDoc) return;
@@ -139,20 +140,13 @@ export function SignatureFieldEditor({
 
       try {
         const page = await pdfDoc.getPage(currentPage);
-        const baseViewport = page.getViewport({ scale: 1 });
-        
-        // Use higher resolution for sharpness (letter size at ~96 DPI = 816px width)
-        // Multiply by devicePixelRatio for retina displays
-        const dpr = window.devicePixelRatio || 1;
-        const targetWidth = 816;
-        const scale = (targetWidth / baseViewport.width) * dpr;
-        const viewport = page.getViewport({ scale });
+        // Render at scale 2 for high quality (keeps real proportions)
+        const viewport = page.getViewport({ scale: 2 });
 
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
         if (!context) return;
 
-        // Set canvas size to high-res
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
@@ -181,6 +175,27 @@ export function SignatureFieldEditor({
         }
       });
     });
+  }, []);
+
+  // Apply fit zoom that shrinks only when needed
+  const applyFitZoom = useCallback(() => {
+    const canvas = fabricCanvasRef.current;
+    const container = containerRef.current;
+    const pageSize = pageSizeRef.current;
+
+    if (!canvas || !container || !pageSize) return;
+
+    const containerWidth = container.clientWidth - 16; // small padding safety
+    const zoom = Math.min(1, containerWidth / pageSize.width); // shrink only if needed
+
+    canvas.setZoom(zoom);
+    canvas.setDimensions({
+      width: pageSize.width * zoom,
+      height: pageSize.height * zoom,
+    });
+
+    canvas.calcOffset();
+    canvas.requestRenderAll();
   }, []);
 
   // Initialize Fabric canvas once - imperatively create canvas element
@@ -222,44 +237,6 @@ export function SignatureFieldEditor({
       }
     };
   }, []);
-
-  // Load background image and fields when page changes
-  useEffect(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas || !canvasReady || !pageImages.has(currentPage)) return;
-
-    const loadBackground = async () => {
-      if (!isMountedRef.current) return;
-      
-      try {
-        const img = await fabric.FabricImage.fromURL(pageImages.get(currentPage)!);
-        if (!isMountedRef.current || !fabricCanvasRef.current) return;
-        
-        // Scale down the image to display size (undo DPR scaling)
-        const dpr = window.devicePixelRatio || 1;
-        const displayWidth = (img.width || 816) / dpr;
-        const displayHeight = (img.height || 1056) / dpr;
-        
-        fabricCanvasRef.current.setDimensions({
-          width: displayWidth,
-          height: displayHeight,
-        });
-        
-        // Scale the image to fit the canvas
-        img.scaleToWidth(displayWidth);
-        fabricCanvasRef.current.backgroundImage = img;
-        fabricCanvasRef.current.requestRenderAll();
-        loadFieldsOnCanvas();
-        
-        // Reset scroll after loading with delay for DOM update
-        resetScrollPosition();
-      } catch (error) {
-        console.error("Error loading background:", error);
-      }
-    };
-
-    loadBackground();
-  }, [canvasReady, pageImages, currentPage]);
 
   // Load fields onto canvas
   const loadFieldsOnCanvas = useCallback(() => {
@@ -313,6 +290,69 @@ export function SignatureFieldEditor({
 
     canvas.requestRenderAll();
   }, [fields, currentPage, signers]);
+
+  // Load background image and fields when page changes
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !canvasReady || !pageImages.has(currentPage)) return;
+
+    const loadBackground = async () => {
+      if (!isMountedRef.current) return;
+      
+      try {
+        const img = await fabric.FabricImage.fromURL(pageImages.get(currentPage)!);
+        if (!isMountedRef.current || !fabricCanvasRef.current) return;
+        
+        const w = img.width || 600;
+        const h = img.height || 776;
+
+        // Store original page size for zoom calculations
+        pageSizeRef.current = { width: w, height: h };
+
+        fabricCanvasRef.current.setDimensions({ width: w, height: h });
+        fabricCanvasRef.current.backgroundImage = img;
+        
+        // Apply responsive fit zoom after background is set
+        applyFitZoom();
+        
+        loadFieldsOnCanvas();
+        resetScrollPosition();
+      } catch (error) {
+        console.error("Error loading background:", error);
+      }
+    };
+
+    loadBackground();
+  }, [canvasReady, pageImages, currentPage, applyFitZoom, loadFieldsOnCanvas, resetScrollPosition]);
+
+  // Responsive resize observer
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        const canvas = fabricCanvasRef.current;
+        const pageSize = pageSizeRef.current;
+        if (!canvas || !pageSize) return;
+
+        const containerWidth = el.clientWidth - 16;
+        const zoom = Math.min(1, containerWidth / pageSize.width);
+
+        canvas.setZoom(zoom);
+        canvas.setDimensions({
+          width: pageSize.width * zoom,
+          height: pageSize.height * zoom,
+        });
+
+        canvas.calcOffset();
+        canvas.requestRenderAll();
+      });
+    });
+
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Handle object modification
   useEffect(() => {
@@ -589,13 +629,7 @@ export function SignatureFieldEditor({
           <CardContent>
             <div
               ref={containerRef}
-              className="border rounded-lg bg-muted/30 relative scrollbar-styled"
-              style={{ 
-                maxHeight: "70vh", 
-                minHeight: "400px",
-                overflowX: "auto",
-                overflowY: "auto"
-              }}
+              className="border rounded-lg bg-muted/30 relative overflow-auto max-h-[70vh] min-h-[400px]"
             >
               {pdfError ? (
                 <div className="flex flex-col items-center justify-center h-96 gap-3 px-6 text-center">
@@ -624,8 +658,11 @@ export function SignatureFieldEditor({
                   )}
                   <div 
                     ref={canvasWrapperRef} 
-                    className={`inline-block ${!pageImages.has(currentPage) ? "opacity-0" : ""}`}
-                    style={{ minWidth: "fit-content" }}
+                    className={[
+                      "inline-block",
+                      "min-w-max",
+                      !pageImages.has(currentPage) ? "opacity-0" : "",
+                    ].join(" ")}
                   />
                 </>
               )}
