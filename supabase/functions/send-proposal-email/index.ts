@@ -147,25 +147,43 @@ serve(async (req) => {
       </html>
     `;
 
-    // Use Resend API directly via fetch
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: `${fromName} <${fromEmail}>`,
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      }),
-    });
+    // Helper function to send email with retry logic for rate limits
+    const sendEmailWithRetry = async (maxRetries = 3, baseDelay = 1000): Promise<Response> => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${RESEND_API_KEY}`,
+          },
+          body: JSON.stringify({
+            from: `${fromName} <${fromEmail}>`,
+            to: [to],
+            subject: subject,
+            html: htmlContent,
+          }),
+        });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`Failed to send email: ${errorText}`);
-    }
+        if (res.ok) {
+          return res;
+        }
+
+        // Check if rate limited (429)
+        if (res.status === 429 && attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+          console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        // For non-rate-limit errors or final attempt, throw
+        const errorText = await res.text();
+        throw new Error(`Failed to send email: ${errorText}`);
+      }
+      throw new Error("Max retries exceeded");
+    };
+
+    const res = await sendEmailWithRetry();
 
     const resData = await res.json();
 
