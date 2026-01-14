@@ -71,7 +71,6 @@ export function SignatureFieldEditor({
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
-  const pageSizeRef = useRef<{ width: number; height: number } | null>(null);
   const [canvasReady, setCanvasReady] = useState(false);
   const [fields, setFields] = useState<SignatureField[]>(initialFields);
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,6 +83,10 @@ export function SignatureFieldEditor({
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
   const fieldDataMap = useRef<Map<string, FieldData>>(new Map());
   const isMountedRef = useRef(true);
+  
+  // Drag-to-pan refs
+  const isPanningRef = useRef(false);
+  const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
 
   // Track mount state
   useEffect(() => {
@@ -177,26 +180,6 @@ export function SignatureFieldEditor({
     });
   }, []);
 
-  // Apply fit zoom that shrinks only when needed
-  const applyFitZoom = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    const container = containerRef.current;
-    const pageSize = pageSizeRef.current;
-
-    if (!canvas || !container || !pageSize) return;
-
-    const containerWidth = container.clientWidth - 16; // small padding safety
-    const zoom = Math.min(1, containerWidth / pageSize.width); // shrink only if needed
-
-    canvas.setZoom(zoom);
-    canvas.setDimensions({
-      width: pageSize.width * zoom,
-      height: pageSize.height * zoom,
-    });
-
-    canvas.calcOffset();
-    canvas.requestRenderAll();
-  }, []);
 
   // Initialize Fabric canvas once - imperatively create canvas element
   useEffect(() => {
@@ -303,17 +286,15 @@ export function SignatureFieldEditor({
         const img = await fabric.FabricImage.fromURL(pageImages.get(currentPage)!);
         if (!isMountedRef.current || !fabricCanvasRef.current) return;
         
-        const w = img.width || 600;
-        const h = img.height || 776;
+        const w = img.width || 816;
+        const h = img.height || 1056;
 
-        // Store original page size for zoom calculations
-        pageSizeRef.current = { width: w, height: h };
-
+        // Set canvas to natural image size (no zoom shrinking)
         fabricCanvasRef.current.setDimensions({ width: w, height: h });
         fabricCanvasRef.current.backgroundImage = img;
         
-        // Apply responsive fit zoom after background is set
-        applyFitZoom();
+        fabricCanvasRef.current.calcOffset();
+        fabricCanvasRef.current.requestRenderAll();
         
         loadFieldsOnCanvas();
         resetScrollPosition();
@@ -323,36 +304,56 @@ export function SignatureFieldEditor({
     };
 
     loadBackground();
-  }, [canvasReady, pageImages, currentPage, applyFitZoom, loadFieldsOnCanvas, resetScrollPosition]);
+  }, [canvasReady, pageImages, currentPage, loadFieldsOnCanvas, resetScrollPosition]);
 
-  // Responsive resize observer
+  // Drag-to-pan functionality
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
+    const canvas = fabricCanvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container || !canvasReady) return;
 
-    const ro = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        const canvas = fabricCanvasRef.current;
-        const pageSize = pageSizeRef.current;
-        if (!canvas || !pageSize) return;
+    const handleMouseDown = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
+      // Only pan if clicking on empty canvas (not on an object)
+      if (opt.target) return;
+      
+      const e = opt.e as MouseEvent;
+      isPanningRef.current = true;
+      lastPanPointRef.current = { x: e.clientX, y: e.clientY };
+      canvas.defaultCursor = 'grabbing';
+      canvas.selection = false;
+    };
 
-        const containerWidth = el.clientWidth - 16;
-        const zoom = Math.min(1, containerWidth / pageSize.width);
+    const handleMouseMove = (opt: fabric.TPointerEventInfo<fabric.TPointerEvent>) => {
+      if (!isPanningRef.current || !lastPanPointRef.current) return;
+      
+      const e = opt.e as MouseEvent;
+      const deltaX = e.clientX - lastPanPointRef.current.x;
+      const deltaY = e.clientY - lastPanPointRef.current.y;
+      
+      container.scrollLeft -= deltaX;
+      container.scrollTop -= deltaY;
+      
+      lastPanPointRef.current = { x: e.clientX, y: e.clientY };
+    };
 
-        canvas.setZoom(zoom);
-        canvas.setDimensions({
-          width: pageSize.width * zoom,
-          height: pageSize.height * zoom,
-        });
+    const handleMouseUp = () => {
+      isPanningRef.current = false;
+      lastPanPointRef.current = null;
+      canvas.defaultCursor = 'grab';
+      canvas.selection = true;
+    };
 
-        canvas.calcOffset();
-        canvas.requestRenderAll();
-      });
-    });
+    canvas.defaultCursor = 'grab';
+    canvas.on('mouse:down', handleMouseDown);
+    canvas.on('mouse:move', handleMouseMove);
+    canvas.on('mouse:up', handleMouseUp);
 
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    return () => {
+      canvas.off('mouse:down', handleMouseDown);
+      canvas.off('mouse:move', handleMouseMove);
+      canvas.off('mouse:up', handleMouseUp);
+    };
+  }, [canvasReady]);
 
   // Handle object modification
   useEffect(() => {
@@ -668,7 +669,7 @@ export function SignatureFieldEditor({
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Drag fields to position them. Resize by dragging corners.
+              Drag fields to position them. Resize by dragging corners. Click and drag empty areas to pan the document.
             </p>
           </CardContent>
         </Card>
