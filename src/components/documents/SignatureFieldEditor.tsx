@@ -167,13 +167,13 @@ export function SignatureFieldEditor({
     renderPage();
   }, [pdfDoc, currentPage, pageImages]);
 
-  // Reset scroll position when page changes
+  // Reset scroll position when page changes or canvas becomes ready
   useEffect(() => {
-    if (containerRef.current) {
+    if (containerRef.current && (canvasReady || pageImages.has(currentPage))) {
       containerRef.current.scrollTop = 0;
       containerRef.current.scrollLeft = 0;
     }
-  }, [currentPage]);
+  }, [currentPage, canvasReady, pageImages]);
 
   // Initialize Fabric canvas once - imperatively create canvas element
   useEffect(() => {
