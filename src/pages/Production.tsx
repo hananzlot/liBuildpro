@@ -1742,7 +1742,7 @@ export default function Production() {
                         );
                       })}
                     </TableBody>
-                  </Table>
+                  </table>
                 </div>
               )}
             </CardContent>
