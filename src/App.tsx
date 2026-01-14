@@ -12,6 +12,7 @@ import FollowUp from "./pages/FollowUp";
 import MagazineSales from "./pages/MagazineSales";
 import Estimates from "./pages/Estimates";
 import ClientPortal from "./pages/ClientPortal";
+import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -134,6 +135,15 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['admin', 'contract_manager']}>
                   <Estimates />
+                </ProtectedRoute>
+              }
+            />
+            {/* Admin settings - admin only */}
+            <Route
+              path="/admin/settings"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminSettings />
                 </ProtectedRoute>
               }
             />

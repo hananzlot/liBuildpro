@@ -1,6 +1,10 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from "npm:resend@2.0.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,11 +31,31 @@ serve(async (req) => {
       throw new Error("RESEND_API_KEY not configured");
     }
 
+    // Initialize Supabase client to fetch settings
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Fetch email settings from database
+    const { data: settings } = await supabase
+      .from("app_settings")
+      .select("setting_key, setting_value")
+      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
+
+    const settingsMap = (settings || []).reduce((acc: Record<string, string>, s: any) => {
+      acc[s.setting_key] = s.setting_value;
+      return acc;
+    }, {});
+
+    const fromEmail = settingsMap.resend_from_email || "proposals@caprobuilders.com";
+    const fromName = settingsMap.resend_from_name || "Capro Builders";
+    const companyName = settingsMap.company_name || "Capro Builders";
+
     const { to, subject, message, portalLink, customerName }: EmailRequest = await req.json();
 
     if (!to || !portalLink) {
       throw new Error("Missing required fields");
     }
+
+    console.log(`Sending email to ${to} from ${fromName} <${fromEmail}>`);
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -98,7 +122,7 @@ serve(async (req) => {
         </head>
         <body>
           <div class="header">
-            <h1>Capro Builders</h1>
+            <h1>${companyName}</h1>
           </div>
           
           <div class="content">
@@ -117,35 +141,25 @@ serve(async (req) => {
           </div>
           
           <div class="footer">
-            <p>This email was sent by Capro Builders</p>
+            <p>This email was sent by ${companyName}</p>
             <p>If you have any questions, please contact us directly.</p>
           </div>
         </body>
       </html>
     `;
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: "Capro Builders <proposals@resend.dev>",
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      }),
+    const resend = new Resend(RESEND_API_KEY);
+
+    const res = await resend.emails.send({
+      from: `${fromName} <${fromEmail}>`,
+      to: [to],
+      subject: subject,
+      html: htmlContent,
     });
 
-    if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`Failed to send email: ${error}`);
-    }
+    console.log("Email sent successfully:", res);
 
-    const data = await res.json();
-
-    return new Response(JSON.stringify({ success: true, data }), {
+    return new Response(JSON.stringify({ success: true, data: res }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
