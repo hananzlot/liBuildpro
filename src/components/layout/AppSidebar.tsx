@@ -503,7 +503,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
 
 
         {/* Admin Tools - always show for actual admins (even when simulating) */}
-        {(isAdmin || isSimulating) && onAdminAction && (
+        {(isAdmin || isSimulating) && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
