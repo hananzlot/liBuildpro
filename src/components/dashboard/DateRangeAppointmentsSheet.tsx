@@ -53,6 +53,8 @@ interface DBAppointment {
   assigned_user_id: string | null;
   address?: string | null;
   ghl_date_added?: string | null;
+  created_at?: string | null;
+  entered_by?: string | null;
 }
 
 interface DBContact {
@@ -117,6 +119,12 @@ interface GroupedContactAppointments {
   latestAppointment: DBAppointment;
 }
 
+interface DBProfile {
+  id: string;
+  email: string;
+  full_name: string | null;
+}
+
 interface DateRangeAppointmentsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -124,6 +132,7 @@ interface DateRangeAppointmentsSheetProps {
   contacts: DBContact[];
   users: DBUser[];
   opportunities?: DBOpportunity[];
+  profiles?: DBProfile[];
   onAppointmentClick?: (appointment: DBAppointment) => void;
   defaultStatusFilter?: string; // e.g., "showed" to filter only showed appointments
 }
@@ -150,6 +159,7 @@ export function DateRangeAppointmentsSheet({
   contacts,
   users,
   opportunities = [],
+  profiles = [],
   onAppointmentClick,
   defaultStatusFilter,
 }: DateRangeAppointmentsSheetProps) {
@@ -166,8 +176,8 @@ export function DateRangeAppointmentsSheet({
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   
   // Sorting state
-  type SortColumn = "contact" | "title" | "status" | "scheduled" | "assigned" | "oppStatus" | "stage" | "value" | "noteDate" | "taskDate";
-  const [sortColumn, setSortColumn] = useState<SortColumn>("scheduled");
+  type SortColumn = "contact" | "title" | "status" | "scheduled" | "assigned" | "oppStatus" | "stage" | "value" | "noteDate" | "taskDate" | "createdOn" | "source" | "createdBy";
+  const [sortColumn, setSortColumn] = useState<SortColumn>(defaultStatusFilter === "showed" ? "scheduled" : "createdOn");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   
   // Notes and tasks data
@@ -192,6 +202,13 @@ export function DateRangeAppointmentsSheet({
 
   const contactMap = new Map<string, DBContact>();
   contacts.forEach((c) => contactMap.set(c.ghl_id, c));
+
+  // Create profile map (id -> profile)
+  const profileMap = useMemo(() => {
+    const map = new Map<string, DBProfile>();
+    profiles.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [profiles]);
 
   // Create opportunity map (contact_id -> first opportunity for that contact)
   const opportunityMap = useMemo(() => {
@@ -511,11 +528,36 @@ export function DateRangeAppointmentsSheet({
           comparison = dateA - dateB;
           break;
         }
+        case "createdOn": {
+          const dateA = a.latestAppointment.ghl_date_added || a.latestAppointment.created_at;
+          const dateB = b.latestAppointment.ghl_date_added || b.latestAppointment.created_at;
+          const timeA = dateA ? new Date(dateA).getTime() : 0;
+          const timeB = dateB ? new Date(dateB).getTime() : 0;
+          comparison = timeA - timeB;
+          break;
+        }
+        case "source": {
+          const sourceA = a.contact?.source || "";
+          const sourceB = b.contact?.source || "";
+          comparison = sourceA.localeCompare(sourceB);
+          break;
+        }
+        case "createdBy": {
+          const getCreatorName = (apt: DBAppointment) => {
+            if (!apt.entered_by) return "";
+            const profile = profileMap.get(apt.entered_by);
+            return profile?.full_name || profile?.email || "";
+          };
+          const creatorA = getCreatorName(a.latestAppointment);
+          const creatorB = getCreatorName(b.latestAppointment);
+          comparison = creatorA.localeCompare(creatorB);
+          break;
+        }
       }
 
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [groupedContacts, sortColumn, sortDirection, userMap]);
+  }, [groupedContacts, sortColumn, sortDirection, userMap, profileMap]);
 
   const startEditingAddress = (apt: DBAppointment, currentAddress: string | null, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -737,6 +779,37 @@ export function DateRangeAppointmentsSheet({
                         </TableHead>
                       </>
                     )}
+                    {defaultStatusFilter !== "showed" && (
+                      <>
+                        <TableHead 
+                          className="w-[10%] cursor-pointer hover:bg-muted/50 select-none"
+                          onClick={() => handleSort("createdOn")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Created On
+                            {sortColumn === "createdOn" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="w-[10%] cursor-pointer hover:bg-muted/50 select-none"
+                          onClick={() => handleSort("source")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Lead Source
+                            {sortColumn === "source" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="w-[10%] cursor-pointer hover:bg-muted/50 select-none"
+                          onClick={() => handleSort("createdBy")}
+                        >
+                          <div className="flex items-center gap-1">
+                            Created By
+                            {sortColumn === "createdBy" && (sortDirection === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />)}
+                          </div>
+                        </TableHead>
+                      </>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -905,6 +978,28 @@ export function DateRangeAppointmentsSheet({
                               ) : (
                                 <span className="text-xs text-muted-foreground">-</span>
                               )}
+                            </TableCell>
+                          </>
+                        )}
+                        {defaultStatusFilter !== "showed" && (
+                          <>
+                            <TableCell className="text-xs">
+                              {(() => {
+                                const createdDate = apt.ghl_date_added || apt.created_at;
+                                return createdDate 
+                                  ? format(new Date(createdDate), "MMM d, yyyy h:mma")
+                                  : "-";
+                              })()}
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              <span className="line-clamp-2">{contact?.source || "-"}</span>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {(() => {
+                                if (!apt.entered_by) return "-";
+                                const profile = profileMap.get(apt.entered_by);
+                                return profile?.full_name || profile?.email?.split("@")[0] || "-";
+                              })()}
                             </TableCell>
                           </>
                         )}

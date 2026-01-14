@@ -602,6 +602,7 @@ const Index = () => {
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []} 
         opportunities={metrics?.allOpportunities || []} 
+        profiles={metrics?.profiles || []}
         onAppointmentClick={appt => {
           setSelectedAppointment(appt);
           setDateRangeAppointmentsSheetOpen(false);
