@@ -1,10 +1,6 @@
-import { useRef } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
-import { Loader2, Printer } from "lucide-react";
 import { format } from "date-fns";
 
 interface ContractPrintDialogProps {
@@ -50,7 +46,7 @@ interface Signature {
 }
 
 export function ContractPrintDialog({ estimateId, open, onOpenChange }: ContractPrintDialogProps) {
-  const printRef = useRef<HTMLDivElement>(null);
+  const [hasPrinted, setHasPrinted] = useState(false);
 
   // Fetch all contract data
   const { data, isLoading } = useQuery({
@@ -79,13 +75,173 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
     enabled: !!estimateId && open,
   });
 
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null || amount === undefined) return "$0.00";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const buildPrintContent = () => {
+    if (!data?.estimate) return "";
+
+    const groupsHtml = data.groups?.map((group) => {
+      const items = data.lineItems?.filter((item) => item.group_id === group.id) || [];
+      const itemsHtml = items.map((item) => `
+        <div class="line-item">
+          <div class="line-item-desc">
+            <div>${item.description}</div>
+            <div class="line-item-detail">
+              ${item.quantity} ${item.unit} × ${formatCurrency(item.unit_price)}
+            </div>
+          </div>
+          <div class="line-item-total">${formatCurrency(item.line_total)}</div>
+        </div>
+      `).join("");
+      
+      return `
+        <div class="scope-group">
+          <div class="scope-group-title">${group.group_name}</div>
+          ${itemsHtml}
+        </div>
+      `;
+    }).join("") || "";
+
+    const paymentHtml = data.paymentSchedule?.map((phase) => `
+      <div class="payment-item">
+        <span>${phase.phase_name}</span>
+        <span>${phase.percent}% (${formatCurrency((data.estimate.total * phase.percent) / 100)})</span>
+      </div>
+    `).join("") || "";
+
+    const signatureHtml = data.signature ? `
+      <div class="signature-section">
+        <div class="signature-title">✓ Customer Signature</div>
+        ${data.signature.signature_type === "drawn" 
+          ? `<img src="${data.signature.signature_data}" alt="Customer signature" class="signature-image" />`
+          : `<div class="signature-typed" style="font-family: ${data.signature.signature_font || 'cursive'}">${data.signature.signature_data}</div>`
+        }
+        <div class="signature-info">
+          <div>Signed by: ${data.signature.signer_name}</div>
+          ${data.signature.signer_email ? `<div>Email: ${data.signature.signer_email}</div>` : ""}
+          <div>Date: ${format(new Date(data.signature.signed_at), "MMMM d, yyyy 'at' h:mm a")}</div>
+        </div>
+      </div>
+    ` : "";
+
+    return `
+      <div class="header">
+        <h1>${data.companyName}</h1>
+        <p class="contract-number">
+          Contract #${data.estimate.status === "accepted" ? "CNT" : "EST"}-${data.estimate.estimate_number}
+        </p>
+      </div>
+
+      <div class="section">
+        <div class="info-grid">
+          <div>
+            <div class="section-title">Customer Information</div>
+            <div class="info-item">
+              <div class="info-label">Name</div>
+              <div class="info-value">${data.estimate.customer_name}</div>
+            </div>
+            ${data.estimate.customer_email ? `
+              <div class="info-item">
+                <div class="info-label">Email</div>
+                <div class="info-value">${data.estimate.customer_email}</div>
+              </div>
+            ` : ""}
+            ${data.estimate.customer_phone ? `
+              <div class="info-item">
+                <div class="info-label">Phone</div>
+                <div class="info-value">${data.estimate.customer_phone}</div>
+              </div>
+            ` : ""}
+          </div>
+          <div>
+            <div class="section-title">Project Details</div>
+            <div class="info-item">
+              <div class="info-label">Project</div>
+              <div class="info-value">${data.estimate.estimate_title}</div>
+            </div>
+            ${data.estimate.job_address ? `
+              <div class="info-item">
+                <div class="info-label">Job Address</div>
+                <div class="info-value">${data.estimate.job_address}</div>
+              </div>
+            ` : ""}
+            <div class="info-item">
+              <div class="info-label">Date</div>
+              <div class="info-value">${format(new Date(data.estimate.estimate_date), "MMMM d, yyyy")}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Scope of Work</div>
+        ${groupsHtml}
+      </div>
+
+      <div class="totals">
+        <div class="total-row">
+          <span>Subtotal</span>
+          <span>${formatCurrency(data.estimate.subtotal)}</span>
+        </div>
+        ${(data.estimate.tax_amount || 0) > 0 ? `
+          <div class="total-row">
+            <span>Tax (${data.estimate.tax_rate}%)</span>
+            <span>${formatCurrency(data.estimate.tax_amount)}</span>
+          </div>
+        ` : ""}
+        ${(data.estimate.discount_amount || 0) > 0 ? `
+          <div class="total-row">
+            <span>Discount</span>
+            <span>-${formatCurrency(data.estimate.discount_amount)}</span>
+          </div>
+        ` : ""}
+        <div class="total-row grand-total">
+          <span>Total Contract Amount</span>
+          <span>${formatCurrency(data.estimate.total)}</span>
+        </div>
+      </div>
+
+      ${data.paymentSchedule && data.paymentSchedule.length > 0 ? `
+        <div class="section payment-schedule">
+          <div class="section-title">Payment Schedule</div>
+          ${paymentHtml}
+        </div>
+      ` : ""}
+
+      ${data.estimate.terms_and_conditions ? `
+        <div class="terms">
+          <div class="terms-title">Terms and Conditions</div>
+          <div style="white-space: pre-wrap">${data.estimate.terms_and_conditions}</div>
+        </div>
+      ` : ""}
+
+      ${signatureHtml}
+
+      ${data.estimate.notes ? `
+        <div class="section" style="margin-top: 30px">
+          <div class="section-title">Notes</div>
+          <p style="white-space: pre-wrap; font-size: 14px">${data.estimate.notes}</p>
+        </div>
+      ` : ""}
+    `;
+  };
+
   const handlePrint = () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
+    if (!data?.estimate) return;
+
+    const printContent = buildPrintContent();
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       alert("Please allow popups to print the contract");
+      onOpenChange(false);
       return;
     }
 
@@ -93,7 +249,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Contract - ${data?.estimate?.estimate_title || "Contract"}</title>
+          <title>Contract - ${data.estimate.estimate_title}</title>
           <style>
             * {
               box-sizing: border-box;
@@ -228,7 +384,6 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
               margin: 10px 0;
             }
             .signature-typed {
-              font-family: 'Brush Script MT', cursive;
               font-size: 32px;
               margin: 10px 0;
             }
@@ -254,14 +409,11 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
               body {
                 padding: 20px;
               }
-              .no-print {
-                display: none;
-              }
             }
           </style>
         </head>
         <body>
-          ${printContent.innerHTML}
+          ${printContent}
         </body>
       </html>
     `);
@@ -270,198 +422,25 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
+      onOpenChange(false);
     }, 250);
   };
 
-  const formatCurrency = (amount: number | null) => {
-    if (amount === null || amount === undefined) return "$0.00";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
+  // Auto-print when data is ready
+  useEffect(() => {
+    if (open && data?.estimate && !isLoading && !hasPrinted) {
+      setHasPrinted(true);
+      handlePrint();
+    }
+  }, [open, data, isLoading, hasPrinted]);
 
-  if (!open) return null;
+  // Reset hasPrinted when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setHasPrinted(false);
+    }
+  }, [open]);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Print Contract</span>
-            <Button onClick={handlePrint} disabled={isLoading}>
-              <Printer className="h-4 w-4 mr-2" />
-              Print / Save PDF
-            </Button>
-          </DialogTitle>
-        </DialogHeader>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : data?.estimate ? (
-          <div ref={printRef} className="bg-white p-8">
-            {/* Header */}
-            <div className="header">
-              <h1>{data.companyName}</h1>
-              <p className="contract-number">
-                Contract #{data.estimate.status === "accepted" ? "CNT" : "EST"}-{data.estimate.estimate_number}
-              </p>
-            </div>
-
-            {/* Customer & Project Info */}
-            <div className="section">
-              <div className="info-grid">
-                <div>
-                  <div className="section-title">Customer Information</div>
-                  <div className="info-item">
-                    <div className="info-label">Name</div>
-                    <div className="info-value">{data.estimate.customer_name}</div>
-                  </div>
-                  {data.estimate.customer_email && (
-                    <div className="info-item">
-                      <div className="info-label">Email</div>
-                      <div className="info-value">{data.estimate.customer_email}</div>
-                    </div>
-                  )}
-                  {data.estimate.customer_phone && (
-                    <div className="info-item">
-                      <div className="info-label">Phone</div>
-                      <div className="info-value">{data.estimate.customer_phone}</div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <div className="section-title">Project Details</div>
-                  <div className="info-item">
-                    <div className="info-label">Project</div>
-                    <div className="info-value">{data.estimate.estimate_title}</div>
-                  </div>
-                  {data.estimate.job_address && (
-                    <div className="info-item">
-                      <div className="info-label">Job Address</div>
-                      <div className="info-value">{data.estimate.job_address}</div>
-                    </div>
-                  )}
-                  <div className="info-item">
-                    <div className="info-label">Date</div>
-                    <div className="info-value">{format(new Date(data.estimate.estimate_date), "MMMM d, yyyy")}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Scope of Work */}
-            <div className="section">
-              <div className="section-title">Scope of Work</div>
-              {data.groups?.map((group) => {
-                const items = data.lineItems?.filter((item) => item.group_id === group.id) || [];
-                return (
-                  <div key={group.id} className="scope-group">
-                    <div className="scope-group-title">{group.group_name}</div>
-                    {items.map((item) => (
-                      <div key={item.id} className="line-item">
-                        <div className="line-item-desc">
-                          <div>{item.description}</div>
-                          <div className="line-item-detail">
-                            {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
-                          </div>
-                        </div>
-                        <div className="line-item-total">{formatCurrency(item.line_total)}</div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Totals */}
-            <div className="totals">
-              <div className="total-row">
-                <span>Subtotal</span>
-                <span>{formatCurrency(data.estimate.subtotal)}</span>
-              </div>
-              {(data.estimate.tax_amount || 0) > 0 && (
-                <div className="total-row">
-                  <span>Tax ({data.estimate.tax_rate}%)</span>
-                  <span>{formatCurrency(data.estimate.tax_amount)}</span>
-                </div>
-              )}
-              {(data.estimate.discount_amount || 0) > 0 && (
-                <div className="total-row">
-                  <span>Discount</span>
-                  <span>-{formatCurrency(data.estimate.discount_amount)}</span>
-                </div>
-              )}
-              <div className="total-row grand-total">
-                <span>Total Contract Amount</span>
-                <span>{formatCurrency(data.estimate.total)}</span>
-              </div>
-            </div>
-
-            {/* Payment Schedule */}
-            {data.paymentSchedule && data.paymentSchedule.length > 0 && (
-              <div className="section payment-schedule">
-                <div className="section-title">Payment Schedule</div>
-                {data.paymentSchedule.map((phase) => (
-                  <div key={phase.id} className="payment-item">
-                    <span>{phase.phase_name}</span>
-                    <span>
-                      {phase.percent}% ({formatCurrency((data.estimate.total * phase.percent) / 100)})
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Terms and Conditions */}
-            {data.estimate.terms_and_conditions && (
-              <div className="terms">
-                <div className="terms-title">Terms and Conditions</div>
-                <div style={{ whiteSpace: "pre-wrap" }}>{data.estimate.terms_and_conditions}</div>
-              </div>
-            )}
-
-            {/* Signature */}
-            {data.signature && (
-              <div className="signature-section">
-                <div className="signature-title">✓ Customer Signature</div>
-                {data.signature.signature_type === "drawn" ? (
-                  <img
-                    src={data.signature.signature_data}
-                    alt="Customer signature"
-                    className="signature-image"
-                  />
-                ) : (
-                  <div
-                    className="signature-typed"
-                    style={{ fontFamily: data.signature.signature_font || "cursive" }}
-                  >
-                    {data.signature.signature_data}
-                  </div>
-                )}
-                <div className="signature-info">
-                  <div>Signed by: {data.signature.signer_name}</div>
-                  {data.signature.signer_email && <div>Email: {data.signature.signer_email}</div>}
-                  <div>Date: {format(new Date(data.signature.signed_at), "MMMM d, yyyy 'at' h:mm a")}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Notes */}
-            {data.estimate.notes && (
-              <div className="section" style={{ marginTop: "30px" }}>
-                <div className="section-title">Notes</div>
-                <p style={{ whiteSpace: "pre-wrap", fontSize: "14px" }}>{data.estimate.notes}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-center text-muted-foreground py-8">Contract not found</p>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
+  // This component doesn't render anything visible - it just triggers print
+  return null;
 }
