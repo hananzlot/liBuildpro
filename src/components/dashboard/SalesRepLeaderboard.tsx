@@ -158,7 +158,7 @@ export function SalesRepLeaderboard({
                       <span className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
                         {rep.assignedTo}
                       </span>
-                      {rep.source === 'won_at' && rep.uniqueAppointments === 0 && (
+                      {rep.wonOpportunitiesFromWonAt > 0 && rep.uniqueAppointments === 0 && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-600 font-medium shrink-0 cursor-help">
@@ -183,11 +183,12 @@ export function SalesRepLeaderboard({
                             </div>
                           </TooltipTrigger>
                           <TooltipContent side="top" className="bg-popover border-border">
-                            <p className="text-xs">Unique contacts with appointments</p>
+                            <p className="text-xs">Unique contacts with appointments in range</p>
                           </TooltipContent>
                         </Tooltip>
                       )}
 
+                      {/* Won from appointments */}
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-0.5 cursor-help">
@@ -200,22 +201,38 @@ export function SalesRepLeaderboard({
                         <TooltipContent side="top" className="bg-popover border-border">
                           <p className="text-xs">
                             {rep.uniqueAppointments > 0 
-                              ? `Won / Unique (${rep.conversionRate.toFixed(1)}%)` 
-                              : 'Won opportunities (via won_at date)'}
+                              ? `Won from appts in range / Unique (${rep.conversionRate.toFixed(1)}%)` 
+                              : 'No appointments in range'}
                           </p>
                         </TooltipContent>
                       </Tooltip>
 
+                      {/* Additional won from won_at */}
+                      {rep.wonOpportunitiesFromWonAt > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-0.5 cursor-help">
+                              <span className="text-amber-500 font-medium">+{rep.wonOpportunitiesFromWonAt}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="bg-popover border-border">
+                            <p className="text-xs">Additional wins (won_at in range, appt outside range)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+
+                      {/* Total value */}
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className={`font-semibold min-w-[40px] text-right cursor-help ${rep.source === 'won_at' && rep.uniqueAppointments === 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                            {formatCurrency(rep.wonValue)}
+                          <span className="font-semibold min-w-[40px] text-right cursor-help text-emerald-500">
+                            {formatCurrency(rep.wonValue + rep.wonValueFromWonAt)}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="bg-popover border-border">
-                          <p className="text-xs">
-                            Won value {rep.source === 'won_at' && rep.uniqueAppointments === 0 ? '(by won_at date)' : ''}
-                          </p>
+                          <div className="text-xs space-y-0.5">
+                            {rep.wonValue > 0 && <p>From appts: {formatCurrency(rep.wonValue)}</p>}
+                            {rep.wonValueFromWonAt > 0 && <p className="text-amber-500">From won_at: {formatCurrency(rep.wonValueFromWonAt)}</p>}
+                          </div>
                         </TooltipContent>
                       </Tooltip>
                     </div>

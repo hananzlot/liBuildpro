@@ -39,11 +39,12 @@ export interface LeadsBySource {
 export interface SalesRepPerformance {
   assignedTo: string;
   uniqueAppointments: number;
-  wonOpportunities: number;
+  wonOpportunities: number;          // wins from appointments in range
+  wonOpportunitiesFromWonAt: number; // additional wins from won_at date
   totalOpportunities: number;
-  wonValue: number;
+  wonValue: number;                  // value from appointments in range
+  wonValueFromWonAt: number;         // additional value from won_at date
   conversionRate: number;
-  source?: 'appointments' | 'won_at';  // identifies data source
 }
 
 export interface DashboardMetrics {
