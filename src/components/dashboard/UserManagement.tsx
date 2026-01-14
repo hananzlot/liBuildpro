@@ -37,6 +37,7 @@ const ROLE_CONFIG: { role: AppRole; label: string; color: string }[] = [
   { role: 'production', label: 'Production', color: 'bg-emerald-500/10 text-emerald-500' },
   { role: 'dispatch', label: 'Dispatch', color: 'bg-blue-500/10 text-blue-500' },
   { role: 'sales', label: 'Sales', color: 'bg-purple-500/10 text-purple-500' },
+  { role: 'contract_manager', label: 'Contract Manager', color: 'bg-cyan-500/10 text-cyan-500' },
 ];
 
 const PROFILES_QUERY_KEY = ["user-management", "profiles"] as const;
