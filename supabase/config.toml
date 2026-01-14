@@ -101,3 +101,6 @@ verify_jwt = false
 
 [functions.send-customer-confirmation]
 verify_jwt = false
+
+[functions.send-document-signature]
+verify_jwt = false

@@ -11,7 +11,9 @@ import AuditLog from "./pages/AuditLog";
 import FollowUp from "./pages/FollowUp";
 import MagazineSales from "./pages/MagazineSales";
 import Estimates from "./pages/Estimates";
+import Documents from "./pages/Documents";
 import ClientPortal from "./pages/ClientPortal";
+import DocumentPortal from "./pages/DocumentPortal";
 import AdminSettings from "./pages/AdminSettings";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -147,8 +149,19 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* Documents - admin and contract_manager */}
+            <Route
+              path="/documents"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'contract_manager']}>
+                  <Documents />
+                </ProtectedRoute>
+              }
+            />
             {/* Public client portal - no auth required */}
             <Route path="/portal" element={<ClientPortal />} />
+            {/* Public document portal - no auth required */}
+            <Route path="/document-portal" element={<DocumentPortal />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
