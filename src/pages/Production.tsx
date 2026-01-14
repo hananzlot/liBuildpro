@@ -157,9 +157,12 @@ function ProjectSoldCard({
           <p className="text-sm text-muted-foreground truncate">
             {project.project_address || 'No address'}
           </p>
-          <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
             <span>
               <strong>Source:</strong> {project.lead_source || 'Unknown'}
+            </span>
+            <span>
+              <strong>Status:</strong> {project.project_status || 'New Job'}
             </span>
             {project.install_start_date && (
               <span>
