@@ -85,7 +85,7 @@ export function SignatureFieldEditor({
   const fieldDataMap = useRef<Map<string, FieldData>>(new Map());
   const isMountedRef = useRef(true);
   const initialZoomRef = useRef<number>(1); // Stores the initial fit zoom level
-  const initialVptRef = useRef<number[] | null>(null); // Stores the initial fit viewportTransform
+  const initialVptRef = useRef<fabric.TMat2D | null>(null); // Stores the initial fit viewportTransform
   
   // Drag-to-pan refs
   const isPanningRef = useRef(false);
@@ -205,7 +205,7 @@ export function SignatureFieldEditor({
 
     const vpt = initialVptRef.current;
     if (vpt) {
-      canvas.setViewportTransform([...vpt]);
+      canvas.setViewportTransform(vpt);
       setZoom(vpt[0] ?? 1);
     } else {
       canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
@@ -373,9 +373,9 @@ export function SignatureFieldEditor({
          // Apply the fit zoom using viewportTransform and center the page
          const offsetX = (canvasW - imgW * fitZoom) / 2;
          const offsetY = (canvasH - imgH * fitZoom) / 2;
-         const vpt = [fitZoom, 0, 0, fitZoom, offsetX, offsetY];
+         const vpt: fabric.TMat2D = [fitZoom, 0, 0, fitZoom, offsetX, offsetY];
          fabricCanvasRef.current.setViewportTransform(vpt);
-         initialVptRef.current = [...vpt];
+         initialVptRef.current = vpt;
 
          setZoom(fitZoom);
 
