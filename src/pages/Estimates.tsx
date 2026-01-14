@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, DollarSign, ExternalLink, Printer } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, ExternalLink, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
@@ -107,8 +107,14 @@ export default function Estimates() {
   // Filter estimates by status for different views
   const draftEstimates = estimates?.filter((e) => e.status === "draft") || [];
   const proposalEstimates = estimates?.filter((e) => ["sent", "viewed", "needs_changes"].includes(e.status)) || [];
-  const contractEstimates = estimates?.filter((e) => ["accepted", "expired"].includes(e.status)) || [];
+  const contractEstimates = estimates?.filter((e) => e.status === "accepted") || [];
   const declinedEstimates = estimates?.filter((e) => e.status === "declined") || [];
+
+  // Calculate totals for each tab
+  const draftTotal = draftEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
+  const proposalTotal = proposalEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
+  const contractTotal = contractEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
+  const declinedTotal = declinedEstimates.reduce((sum, e) => sum + (e.total || 0), 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -308,12 +314,6 @@ export default function Estimates() {
     );
   };
 
-  // Summary stats
-  const totalEstimates = estimates?.length || 0;
-  const totalValue = estimates?.reduce((sum, e) => sum + (e.total || 0), 0) || 0;
-  const pendingProposals = proposalEstimates.length;
-  const acceptedContracts = contractEstimates.filter((e) => e.status === "accepted").length;
-
   return (
     <AppLayout>
       <div className="flex flex-col gap-6 p-6">
@@ -337,22 +337,12 @@ export default function Estimates() {
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Estimates</CardTitle>
+              <CardTitle className="text-sm font-medium">Estimates</CardTitle>
               <Calculator className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalEstimates}</div>
-              <p className="text-xs text-muted-foreground">All time</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalValue)}</div>
-              <p className="text-xs text-muted-foreground">Combined estimate value</p>
+              <div className="text-2xl font-bold">{draftEstimates.length}</div>
+              <p className="text-xs text-muted-foreground">{formatCurrency(draftTotal)}</p>
             </CardContent>
           </Card>
           <Card>
@@ -361,18 +351,28 @@ export default function Estimates() {
               <Send className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{pendingProposals}</div>
-              <p className="text-xs text-muted-foreground">Awaiting response</p>
+              <div className="text-2xl font-bold">{proposalEstimates.length}</div>
+              <p className="text-xs text-muted-foreground">{formatCurrency(proposalTotal)}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Accepted</CardTitle>
+              <CardTitle className="text-sm font-medium">Contracts Accepted</CardTitle>
               <FileSignature className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{acceptedContracts}</div>
-              <p className="text-xs text-muted-foreground">Signed contracts</p>
+              <div className="text-2xl font-bold">{contractEstimates.length}</div>
+              <p className="text-xs text-muted-foreground">{formatCurrency(contractTotal)}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Declined</CardTitle>
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{declinedEstimates.length}</div>
+              <p className="text-xs text-muted-foreground">{formatCurrency(declinedTotal)}</p>
             </CardContent>
           </Card>
         </div>
