@@ -154,44 +154,68 @@ export function SalesRepLeaderboard({
                     </Avatar>
 
                     {/* Name */}
-                    <span className="flex-1 text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
-                      {rep.assignedTo}
-                    </span>
+                    <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">
+                        {rep.assignedTo}
+                      </span>
+                      {rep.source === 'won_at' && rep.uniqueAppointments === 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-600 font-medium shrink-0 cursor-help">
+                              won
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="bg-popover border-border">
+                            <p className="text-xs">Based on won_at date (no appointments in range)</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
 
                     {/* Stats - Compact Inline */}
                     <div className="flex items-center gap-1.5 text-[11px] shrink-0">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-0.5 text-muted-foreground cursor-help">
-                            <Calendar className="h-3 w-3" />
-                            <span className="font-medium text-foreground">{rep.uniqueAppointments}</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="bg-popover border-border">
-                          <p className="text-xs">Unique contacts with appointments</p>
-                        </TooltipContent>
-                      </Tooltip>
+                      {rep.uniqueAppointments > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-0.5 text-muted-foreground cursor-help">
+                              <Calendar className="h-3 w-3" />
+                              <span className="font-medium text-foreground">{rep.uniqueAppointments}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="bg-popover border-border">
+                            <p className="text-xs">Unique contacts with appointments</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
 
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-0.5 cursor-help">
                             <Trophy className="h-3 w-3 text-emerald-500" />
-                            <span className="font-medium text-foreground">{rep.wonOpportunities}/{rep.uniqueAppointments}</span>
+                            <span className="font-medium text-foreground">
+                              {rep.wonOpportunities}{rep.uniqueAppointments > 0 ? `/${rep.uniqueAppointments}` : ''}
+                            </span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="bg-popover border-border">
-                          <p className="text-xs">Won / Unique ({rep.conversionRate.toFixed(1)}%)</p>
+                          <p className="text-xs">
+                            {rep.uniqueAppointments > 0 
+                              ? `Won / Unique (${rep.conversionRate.toFixed(1)}%)` 
+                              : 'Won opportunities (via won_at date)'}
+                          </p>
                         </TooltipContent>
                       </Tooltip>
 
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="font-semibold text-emerald-500 min-w-[40px] text-right cursor-help">
+                          <span className={`font-semibold min-w-[40px] text-right cursor-help ${rep.source === 'won_at' && rep.uniqueAppointments === 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
                             {formatCurrency(rep.wonValue)}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="bg-popover border-border">
-                          <p className="text-xs">Won value</p>
+                          <p className="text-xs">
+                            Won value {rep.source === 'won_at' && rep.uniqueAppointments === 0 ? '(by won_at date)' : ''}
+                          </p>
                         </TooltipContent>
                       </Tooltip>
                     </div>
