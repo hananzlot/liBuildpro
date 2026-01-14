@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, User, MapPin, Mail, Phone, Calendar, DollarSign, FileText, Percent } from "lucide-react";
+import { Loader2, User, MapPin, Mail, Phone, Calendar, DollarSign, FileText, Percent, PenTool } from "lucide-react";
 import { format } from "date-fns";
 
 interface EstimateDetailSheetProps {
@@ -41,6 +41,16 @@ interface PaymentSchedule {
   due_date: string | null;
   description: string | null;
   sort_order: number;
+}
+
+interface Signature {
+  id: string;
+  signer_name: string;
+  signer_email: string | null;
+  signature_type: string;
+  signature_data: string;
+  signature_font: string | null;
+  signed_at: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -133,6 +143,22 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
         .order("sort_order");
       if (error) throw error;
       return data as PaymentSchedule[];
+    },
+    enabled: !!estimateId,
+  });
+
+  // Fetch signature if exists
+  const { data: signature } = useQuery({
+    queryKey: ["estimate-signature", estimateId],
+    queryFn: async () => {
+      if (!estimateId) return null;
+      const { data, error } = await supabase
+        .from("estimate_signatures")
+        .select("*")
+        .eq("estimate_id", estimateId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as Signature | null;
     },
     enabled: !!estimateId,
   });
@@ -230,6 +256,41 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
                     Declined on {format(new Date(estimate.declined_at), "MMMM d, yyyy 'at' h:mm a")}
                   </p>
                 )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Signature - for accepted contracts */}
+          {estimate.status === 'accepted' && signature && (
+            <Card className="border-green-200 bg-green-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2 text-green-800">
+                  <PenTool className="h-4 w-4" />
+                  Customer Signature
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="bg-white rounded-lg p-4 border">
+                  {signature.signature_type === 'drawn' ? (
+                    <img 
+                      src={signature.signature_data} 
+                      alt="Customer signature" 
+                      className="max-h-24 mx-auto"
+                    />
+                  ) : (
+                    <p 
+                      className="text-2xl text-center"
+                      style={{ fontFamily: signature.signature_font || 'cursive' }}
+                    >
+                      {signature.signature_data}
+                    </p>
+                  )}
+                </div>
+                <div className="text-sm text-green-700">
+                  <p><strong>Signed by:</strong> {signature.signer_name}</p>
+                  {signature.signer_email && <p><strong>Email:</strong> {signature.signer_email}</p>}
+                  <p><strong>Signed on:</strong> {format(new Date(signature.signed_at), "MMMM d, yyyy 'at' h:mm a")}</p>
+                </div>
               </CardContent>
             </Card>
           )}
