@@ -189,10 +189,6 @@ interface AdminMenuItem {
 
 const adminMenuItems: AdminMenuItem[] = [
   { title: "Admin Settings", icon: Settings, action: "settings" },
-  { title: "Data Cleanup", icon: Wrench, action: "cleanup" },
-  { title: "Manage Sources", icon: Pencil, action: "sources" },
-  { title: "User Management", icon: Users, action: "users" },
-  { title: "Audit Log", icon: FileText, action: "audit" },
 ];
 
 interface AppSidebarProps {
@@ -570,13 +566,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                         tooltip={item.title}
                         onClick={() => {
                           closeSidebar();
-                          if (item.action === 'audit') {
-                            navigate('/audit-log');
-                          } else if (item.action === 'settings') {
-                            navigate('/admin/settings');
-                          } else {
-                            onAdminAction(item.action);
-                          }
+                          navigate('/admin/settings');
                         }}
                       >
                         <item.icon className="h-4 w-4" />
