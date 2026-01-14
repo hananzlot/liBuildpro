@@ -129,7 +129,7 @@ export function SignatureFieldEditor({
     };
   }, [documentUrl, reloadToken]);
 
-  // Render PDF page to image
+  // Render PDF page to image at high resolution
   useEffect(() => {
     const renderPage = async () => {
       if (!pdfDoc) return;
@@ -139,16 +139,20 @@ export function SignatureFieldEditor({
 
       try {
         const page = await pdfDoc.getPage(currentPage);
-        // Scale to fit container - use smaller width for better fit
         const baseViewport = page.getViewport({ scale: 1 });
-        const targetWidth = 600; // Smaller width to fit container better
-        const scale = targetWidth / baseViewport.width;
+        
+        // Use higher resolution for sharpness (letter size at ~96 DPI = 816px width)
+        // Multiply by devicePixelRatio for retina displays
+        const dpr = window.devicePixelRatio || 1;
+        const targetWidth = 816;
+        const scale = (targetWidth / baseViewport.width) * dpr;
         const viewport = page.getViewport({ scale });
 
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d");
         if (!context) return;
 
+        // Set canvas size to high-res
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
@@ -167,17 +171,16 @@ export function SignatureFieldEditor({
     renderPage();
   }, [pdfDoc, currentPage, pageImages]);
 
-  // Reset scroll position helper
+  // Reset scroll position helper - double RAF to ensure DOM is fully updated
   const resetScrollPosition = useCallback(() => {
-    if (containerRef.current) {
-      // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (containerRef.current) {
           containerRef.current.scrollTop = 0;
           containerRef.current.scrollLeft = 0;
         }
       });
-    }
+    });
   }, []);
 
   // Initialize Fabric canvas once - imperatively create canvas element
@@ -232,10 +235,18 @@ export function SignatureFieldEditor({
         const img = await fabric.FabricImage.fromURL(pageImages.get(currentPage)!);
         if (!isMountedRef.current || !fabricCanvasRef.current) return;
         
+        // Scale down the image to display size (undo DPR scaling)
+        const dpr = window.devicePixelRatio || 1;
+        const displayWidth = (img.width || 816) / dpr;
+        const displayHeight = (img.height || 1056) / dpr;
+        
         fabricCanvasRef.current.setDimensions({
-          width: img.width || 600,
-          height: img.height || 776,
+          width: displayWidth,
+          height: displayHeight,
         });
+        
+        // Scale the image to fit the canvas
+        img.scaleToWidth(displayWidth);
         fabricCanvasRef.current.backgroundImage = img;
         fabricCanvasRef.current.requestRenderAll();
         loadFieldsOnCanvas();
@@ -578,7 +589,7 @@ export function SignatureFieldEditor({
           <CardContent>
             <div
               ref={containerRef}
-              className="border rounded-lg bg-muted/30 relative"
+              className="border rounded-lg bg-muted/30 relative scrollbar-styled"
               style={{ 
                 maxHeight: "70vh", 
                 minHeight: "400px",
@@ -613,7 +624,8 @@ export function SignatureFieldEditor({
                   )}
                   <div 
                     ref={canvasWrapperRef} 
-                    className={!pageImages.has(currentPage) ? "opacity-0" : ""}
+                    className={`inline-block ${!pageImages.has(currentPage) ? "opacity-0" : ""}`}
+                    style={{ minWidth: "fit-content" }}
                   />
                 </>
               )}
