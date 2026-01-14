@@ -691,14 +691,22 @@ async function syncLocationData(
       }
       
       // Determine status value:
-      // If won_at is set (manually marked as won), ALWAYS preserve 'won' status
-      // This prevents GHL sync from overwriting the status back to 'open'
+      // 1. If won_at is set (manually marked as won), ALWAYS preserve 'won' status
+      // 2. If local status differs from GHL status, preserve local status (manual edit)
+      // 3. Otherwise use GHL status
       let finalStatus = o.status || null;
+      
       if (wonAt) {
+        // Won opportunities always stay won
         finalStatus = 'won';
         if (o.status !== 'won') {
           console.log(`Preserving 'won' status for ${o.id} (has won_at: ${wonAt}) despite GHL status: ${o.status}`);
         }
+      } else if (existing?.status && existing.status !== o.status) {
+        // Local status differs from GHL - preserve local status (manual edit)
+        // This prevents sync from reverting manually changed statuses
+        finalStatus = existing.status;
+        console.log(`Preserving local status '${existing.status}' for ${o.id} (GHL has: ${o.status})`);
       }
       
       // Extract scope_of_work and address from contact's custom_fields
