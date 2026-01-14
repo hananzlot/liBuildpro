@@ -840,6 +840,60 @@ export type Database = {
           },
         ]
       }
+      document_signature_fields: {
+        Row: {
+          created_at: string
+          document_id: string
+          field_type: string
+          height: number
+          id: string
+          page_number: number
+          signer_id: string | null
+          width: number
+          x_position: number
+          y_position: number
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          field_type?: string
+          height?: number
+          id?: string
+          page_number?: number
+          signer_id?: string | null
+          width?: number
+          x_position: number
+          y_position: number
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          field_type?: string
+          height?: number
+          id?: string
+          page_number?: number
+          signer_id?: string | null
+          width?: number
+          x_position?: number
+          y_position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_signature_fields_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "signature_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_signature_fields_signer_id_fkey"
+            columns: ["signer_id"]
+            isOneToOne: false
+            referencedRelation: "document_signers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_signatures: {
         Row: {
           document_id: string
@@ -850,6 +904,7 @@ export type Database = {
           signature_type: string
           signed_at: string
           signer_email: string | null
+          signer_id: string | null
           signer_name: string
           user_agent: string | null
         }
@@ -862,6 +917,7 @@ export type Database = {
           signature_type: string
           signed_at?: string
           signer_email?: string | null
+          signer_id?: string | null
           signer_name: string
           user_agent?: string | null
         }
@@ -874,6 +930,7 @@ export type Database = {
           signature_type?: string
           signed_at?: string
           signer_email?: string | null
+          signer_id?: string | null
           signer_name?: string
           user_agent?: string | null
         }
@@ -883,6 +940,79 @@ export type Database = {
             columns: ["document_id"]
             isOneToOne: false
             referencedRelation: "signature_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_signatures_signer_id_fkey"
+            columns: ["signer_id"]
+            isOneToOne: false
+            referencedRelation: "document_signers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_signers: {
+        Row: {
+          created_at: string
+          decline_reason: string | null
+          declined_at: string | null
+          document_id: string
+          id: string
+          sent_at: string | null
+          signature_id: string | null
+          signed_at: string | null
+          signer_email: string
+          signer_name: string
+          signer_order: number
+          status: string
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          decline_reason?: string | null
+          declined_at?: string | null
+          document_id: string
+          id?: string
+          sent_at?: string | null
+          signature_id?: string | null
+          signed_at?: string | null
+          signer_email: string
+          signer_name: string
+          signer_order?: number
+          status?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          decline_reason?: string | null
+          declined_at?: string | null
+          document_id?: string
+          id?: string
+          sent_at?: string | null
+          signature_id?: string | null
+          signed_at?: string | null
+          signer_email?: string
+          signer_name?: string
+          signer_order?: number
+          status?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_signers_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "signature_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_signers_signature_id_fkey"
+            columns: ["signature_id"]
+            isOneToOne: false
+            referencedRelation: "document_signatures"
             referencedColumns: ["id"]
           },
         ]
