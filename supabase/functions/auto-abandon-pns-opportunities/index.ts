@@ -61,26 +61,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('Starting auto-abandon PNS/Never Answered opportunities job...');
+    console.log('Starting auto-abandon Never Answered opportunities job...');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find all opportunities with stage_name containing "PNS" and status not already "abandoned"
-    const { data: pnsOpportunities, error: pnsFetchError } = await supabase
-      .from('opportunities')
-      .select('id, ghl_id, name, stage_name, status, contact_id, location_id')
-      .ilike('stage_name', '%PNS%')
-      .neq('status', 'abandoned');
-
-    if (pnsFetchError) {
-      console.error('Error fetching PNS opportunities:', pnsFetchError);
-      throw pnsFetchError;
-    }
-
-    console.log(`Found ${pnsOpportunities?.length || 0} PNS opportunities to update`);
+    // NOTE: PNS opportunities are NO LONGER auto-abandoned as of Jan 2026
+    // Only process "Never Answer" opportunities now
 
     // Find all opportunities with stage_name containing "Never Answer" (matches "Never Answers" and "Never Answered")
     const { data: neverAnsweredOpportunities, error: naFetchError } = await supabase
@@ -96,17 +85,14 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${neverAnsweredOpportunities?.length || 0} Never Answered opportunities to update`);
 
-    // Combine both sets of opportunities (using a Set to avoid duplicates)
-    const allOpportunities = [...(pnsOpportunities || []), ...(neverAnsweredOpportunities || [])];
-    const uniqueOpportunities = Array.from(
-      new Map(allOpportunities.map(o => [o.id, o])).values()
-    );
+    // Only Never Answered opportunities are processed now (PNS removed)
+    const uniqueOpportunities = neverAnsweredOpportunities || [];
 
     if (uniqueOpportunities.length === 0) {
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'No PNS or Never Answered opportunities to update',
+          message: 'No Never Answered opportunities to update',
           updated: 0 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -152,12 +138,11 @@ Deno.serve(async (req) => {
     const notesToInsert = uniqueOpportunities
       .filter(opp => opp.contact_id && opp.location_id)
       .map(opp => {
-        const reason = opp.stage_name?.toLowerCase().includes('pns') ? 'PNS' : 'Never Answered';
         return {
           ghl_id: `auto-abandon-${opp.ghl_id}-${Date.now()}`,
           contact_id: opp.contact_id,
           location_id: opp.location_id,
-          body: `[SYSTEM] This opportunity "${opp.name}" was automatically moved to Abandoned status because it is marked as ${reason}.`,
+          body: `[SYSTEM] This opportunity "${opp.name}" was automatically moved to Abandoned status because it is marked as Never Answered.`,
           ghl_date_added: new Date().toISOString(),
         };
       });
@@ -183,7 +168,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Updated ${uniqueOpportunities.length} PNS/Never Answered opportunities to Abandoned`,
+        message: `Updated ${uniqueOpportunities.length} Never Answered opportunities to Abandoned`,
         updated: uniqueOpportunities.length,
         ghlUpdated,
         ghlFailed,
