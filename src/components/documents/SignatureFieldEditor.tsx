@@ -229,20 +229,26 @@ export function SignatureFieldEditor({
 
   // Initialize Fabric canvas once - imperatively create canvas element
   useEffect(() => {
-    if (!canvasWrapperRef.current) return;
+    if (!canvasWrapperRef.current || !containerRef.current) return;
     
     // Clear any previous content
     canvasWrapperRef.current.innerHTML = '';
     
+    // Get container dimensions for initial canvas size
+    const containerWidth = containerRef.current.clientWidth - 20;
+    const containerHeight = containerRef.current.clientHeight - 20;
+    const initialWidth = Math.max(containerWidth, 400);
+    const initialHeight = Math.max(containerHeight, 300);
+    
     // Create canvas element imperatively (Fabric will wrap it)
     const canvasEl = document.createElement('canvas');
-    canvasEl.width = 816;
-    canvasEl.height = 1056;
+    canvasEl.width = initialWidth;
+    canvasEl.height = initialHeight;
     canvasWrapperRef.current.appendChild(canvasEl);
 
     const canvas = new fabric.Canvas(canvasEl, {
-      width: 816,
-      height: 1056,
+      width: initialWidth,
+      height: initialHeight,
       backgroundColor: "#ffffff",
       selection: true,
     });
@@ -405,6 +411,29 @@ export function SignatureFieldEditor({
       canvas.off('mouse:up', handleMouseUp);
     };
   }, [canvasReady]);
+
+  // Mouse wheel zoom
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !canvasReady) return;
+
+    const handleWheel = (opt: fabric.TPointerEventInfo<WheelEvent>) => {
+      const e = opt.e;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      const newZoom = zoom + delta;
+      
+      applyZoom(newZoom);
+    };
+
+    canvas.on('mouse:wheel', handleWheel);
+
+    return () => {
+      canvas.off('mouse:wheel', handleWheel);
+    };
+  }, [canvasReady, zoom, applyZoom]);
 
   // Responsive resize observer - auto-fit when container resizes
   useEffect(() => {
@@ -774,7 +803,7 @@ export function SignatureFieldEditor({
                     ref={canvasWrapperRef} 
                     className={[
                       "inline-block",
-                      "min-w-max",
+                      "min-w-0",
                       !pageImages.has(currentPage) ? "opacity-0" : "",
                     ].join(" ")}
                   />
@@ -782,7 +811,7 @@ export function SignatureFieldEditor({
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Drag fields to position them. Resize by dragging corners. Click and drag empty areas to pan the document.
+              Drag fields to position them. Resize by dragging corners. Click and drag empty areas to pan. Use mouse wheel to zoom.
             </p>
           </CardContent>
         </Card>
