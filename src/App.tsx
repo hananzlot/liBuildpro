@@ -10,6 +10,7 @@ import Production from "./pages/Production";
 import AuditLog from "./pages/AuditLog";
 import FollowUp from "./pages/FollowUp";
 import MagazineSales from "./pages/MagazineSales";
+import Estimates from "./pages/Estimates";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -22,10 +23,10 @@ function ProtectedRoute({
   allowedRoles 
 }: { 
   children: React.ReactNode; 
-  requiredRole?: 'admin' | 'production';
-  allowedRoles?: ('admin' | 'magazine')[];
+  requiredRole?: 'admin' | 'production' | 'contract_manager';
+  allowedRoles?: ('admin' | 'magazine' | 'contract_manager')[];
 }) {
-  const { user, isLoading, isAdmin, isProduction, isMagazine } = useAuth();
+  const { user, isLoading, isAdmin, isProduction, isMagazine, isContractManager } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -56,12 +57,17 @@ function ProtectedRoute({
     return <Navigate to="/" replace />;
   }
 
+  if (requiredRole === 'contract_manager' && !isContractManager && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
   // Check allowed roles
   if (allowedRoles && allowedRoles.length > 0) {
     const hasAccess = allowedRoles.some(role => {
       switch (role) {
         case 'admin': return isAdmin;
         case 'magazine': return isMagazine;
+        case 'contract_manager': return isContractManager;
         default: return false;
       }
     });
@@ -119,6 +125,14 @@ const App = () => (
               element={
                 <ProtectedRoute requiredRole="production">
                   <AuditLog />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/estimates"
+              element={
+                <ProtectedRoute allowedRoles={['admin', 'contract_manager']}>
+                  <Estimates />
                 </ProtectedRoute>
               }
             />

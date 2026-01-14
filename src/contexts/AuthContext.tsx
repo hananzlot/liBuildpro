@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = 'super_admin' | 'admin' | 'magazine' | 'production' | 'dispatch' | 'sales';
+export type AppRole = 'super_admin' | 'admin' | 'magazine' | 'production' | 'dispatch' | 'sales' | 'contract_manager';
 
 interface Profile {
   id: string;
@@ -22,6 +22,7 @@ interface AuthContextType {
   isProduction: boolean;
   isDispatch: boolean;
   isSales: boolean;
+  isContractManager: boolean;
   userRoles: AppRole[];
   isLoading: boolean;
   // Role simulation for admins
@@ -38,7 +39,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ALL_ROLES: AppRole[] = ['super_admin', 'admin', 'magazine', 'production', 'dispatch', 'sales'];
+const ALL_ROLES: AppRole[] = ['super_admin', 'admin', 'magazine', 'production', 'dispatch', 'sales', 'contract_manager'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const actualIsProduction = actualRoles.includes('production');
   const actualIsDispatch = actualRoles.includes('dispatch');
   const actualIsSales = actualRoles.includes('sales');
+  const actualIsContractManager = actualRoles.includes('contract_manager');
 
   // Calculate effective roles based on simulation
   const isSimulating = actualIsAdmin && simulatedRole !== null;
@@ -82,6 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isSales = isSimulating 
     ? simulatedRole === 'sales' 
     : actualIsSales;
+
+  const isContractManager = isSimulating 
+    ? simulatedRole === 'contract_manager' 
+    : actualIsContractManager;
 
   const userRoles = isSimulating 
     ? [simulatedRole!] 
@@ -216,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isProduction,
       isDispatch,
       isSales,
+      isContractManager,
       userRoles,
       isLoading,
       // Role simulation
