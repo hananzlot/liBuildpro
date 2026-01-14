@@ -84,7 +84,8 @@ export function SignatureFieldEditor({
   const [zoom, setZoom] = useState(1);
   const fieldDataMap = useRef<Map<string, FieldData>>(new Map());
   const isMountedRef = useRef(true);
-  const initialZoomRef = useRef<number>(1); // Store the initial fit zoom level
+  const initialZoomRef = useRef<number>(1); // Stores the initial fit zoom level
+  const initialVptRef = useRef<number[] | null>(null); // Stores the initial fit viewportTransform
   
   // Drag-to-pan refs
   const isPanningRef = useRef(false);
@@ -197,15 +198,20 @@ export function SignatureFieldEditor({
     setZoom(clamped);
   }, []);
 
-  // Fit to container helper - reset to initial fitted zoom
+  // Fit to container helper - restore the initial fitted viewport
   const fitToContainer = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
-    
-    // Reset to the initial zoom that was calculated to fit the page
-    const initialZoom = initialZoomRef.current;
-    canvas.setViewportTransform([initialZoom, 0, 0, initialZoom, 0, 0]);
-    setZoom(initialZoom);
+
+    const vpt = initialVptRef.current;
+    if (vpt) {
+      canvas.setViewportTransform([...vpt]);
+      setZoom(vpt[0] ?? 1);
+    } else {
+      canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+      setZoom(1);
+    }
+
     canvas.requestRenderAll();
     resetScrollPosition();
   }, [resetScrollPosition]);
@@ -316,56 +322,71 @@ export function SignatureFieldEditor({
     const container = containerRef.current;
     if (!canvas || !canvasReady || !pageImages.has(currentPage) || !container) return;
 
-    const loadBackground = async () => {
-      if (!isMountedRef.current) return;
-      
-      try {
-        const imgUrl = pageImages.get(currentPage)!;
-        const img = await fabric.FabricImage.fromURL(imgUrl, {}, { crossOrigin: 'anonymous' });
-        if (!isMountedRef.current || !fabricCanvasRef.current) return;
-        
-        const imgW = img.width || 816;
-        const imgH = img.height || 1056;
+     const loadBackground = async () => {
+       if (!isMountedRef.current) return;
+       
+       try {
+         const imgUrl = pageImages.get(currentPage)!;
+         const img = await fabric.FabricImage.fromURL(imgUrl);
+         if (!isMountedRef.current || !fabricCanvasRef.current) return;
 
-        // Get available container space (with some padding)
-        const containerW = container.clientWidth - 40;
-        const containerH = container.clientHeight - 40;
+         const originalSize = typeof (img as any).getOriginalSize === "function"
+           ? (img as any).getOriginalSize()
+           : { width: img.width, height: img.height };
 
-        // Calculate the zoom level needed to fit the full page in view
-        const fitZoom = Math.min(
-          containerW / imgW,
-          containerH / imgH,
-          1.5 // Cap so we don't upscale too much on large screens
-        );
+         const imgW = Number(originalSize?.width ?? img.width ?? 0) || 816;
+         const imgH = Number(originalSize?.height ?? img.height ?? 0) || 1056;
 
-        // Store initial zoom for "Fit" button
-        initialZoomRef.current = fitZoom;
+         // Get available container space (with some padding)
+         const containerW = Math.max(container.clientWidth - 40, 200);
+         const containerH = Math.max(container.clientHeight - 40, 200);
 
-        // Set canvas to container size (viewport approach)
-        const canvasW = Math.max(containerW, 400);
-        const canvasH = Math.max(containerH, 400);
-        fabricCanvasRef.current.setDimensions({ width: canvasW, height: canvasH });
+         // Calculate the zoom level needed to fit the full page in view
+         const fitZoom = Math.min(
+           containerW / imgW,
+           containerH / imgH,
+           1.5 // Cap so we don't upscale too much on large screens
+         );
 
-        // Set the image as background at its natural size (positioned at origin)
-        img.set({ left: 0, top: 0, originX: 'left', originY: 'top' });
-        fabricCanvasRef.current.backgroundImage = img;
-        
-        // Apply the fit zoom using viewportTransform
-        // This zooms to fit and centers the page
-        const offsetX = (canvasW - imgW * fitZoom) / 2;
-        const offsetY = (canvasH - imgH * fitZoom) / 2;
-        fabricCanvasRef.current.setViewportTransform([fitZoom, 0, 0, fitZoom, offsetX, offsetY]);
-        
-        setZoom(fitZoom);
-        
-        fabricCanvasRef.current.calcOffset();
-        fabricCanvasRef.current.requestRenderAll();
-        
-        loadFieldsOnCanvas();
-      } catch (error) {
-        console.error("Error loading background:", error);
-      }
-    };
+         // Store initial zoom for "Fit" button
+         initialZoomRef.current = fitZoom;
+
+         // Set canvas to container size (viewport approach)
+         const canvasW = Math.max(containerW, 400);
+         const canvasH = Math.max(containerH, 400);
+         fabricCanvasRef.current.setDimensions({ width: canvasW, height: canvasH });
+
+         // Ensure background image is anchored to top-left of document space
+         img.set({
+           left: 0,
+           top: 0,
+           originX: "left",
+           originY: "top",
+           selectable: false,
+           evented: false,
+         });
+         fabricCanvasRef.current.backgroundImage = img;
+
+         // CRITICAL: reset any previous pan/zoom before applying the new fit transform
+         fabricCanvasRef.current.setViewportTransform([1, 0, 0, 1, 0, 0]);
+
+         // Apply the fit zoom using viewportTransform and center the page
+         const offsetX = (canvasW - imgW * fitZoom) / 2;
+         const offsetY = (canvasH - imgH * fitZoom) / 2;
+         const vpt = [fitZoom, 0, 0, fitZoom, offsetX, offsetY];
+         fabricCanvasRef.current.setViewportTransform(vpt);
+         initialVptRef.current = [...vpt];
+
+         setZoom(fitZoom);
+
+         fabricCanvasRef.current.calcOffset();
+         fabricCanvasRef.current.requestRenderAll();
+
+         loadFieldsOnCanvas();
+       } catch (error) {
+         console.error("Error loading background:", error);
+       }
+     };
 
     loadBackground();
   }, [canvasReady, pageImages, currentPage, loadFieldsOnCanvas]);
@@ -701,7 +722,7 @@ export function SignatureFieldEditor({
                     e.stopPropagation();
                     applyZoom(zoom - 0.1);
                   }}
-                  disabled={zoom <= 0.25}
+                  disabled={zoom <= 0.3}
                 >
                   <ZoomOut className="h-4 w-4" />
                 </Button>
@@ -718,7 +739,7 @@ export function SignatureFieldEditor({
                     e.stopPropagation();
                     applyZoom(zoom + 0.1);
                   }}
-                  disabled={zoom >= 3}
+                  disabled={zoom >= 4}
                 >
                   <ZoomIn className="h-4 w-4" />
                 </Button>
