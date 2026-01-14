@@ -34,6 +34,8 @@ interface Estimate {
   total: number;
   created_at: string;
   notes: string | null;
+  signed_at: string | null;
+  declined_at: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -142,7 +144,7 @@ export default function Estimates() {
     setBuilderOpen(true);
   };
 
-  const renderEstimateTable = (estimateList: Estimate[], emptyMessage: string, emptyIcon: React.ReactNode, isDeclinedTab = false) => {
+  const renderEstimateTable = (estimateList: Estimate[], emptyMessage: string, emptyIcon: React.ReactNode, tableType: 'list' | 'proposals' | 'contracts' | 'declined' = 'list') => {
     if (isLoading) {
       return (
         <div className="flex items-center justify-center py-12">
@@ -157,12 +159,12 @@ export default function Estimates() {
           {emptyIcon}
           <h3 className="text-lg font-semibold">{emptyMessage}</h3>
           <p className="text-muted-foreground mb-4">
-            {currentView === "list" && "Get started by creating your first estimate."}
-            {currentView === "proposals" && "Send an estimate as a proposal to see it here."}
-            {currentView === "contracts" && "Contracts will appear here once proposals are approved and signed."}
-            {currentView === "declined" && "Declined proposals will appear here."}
+            {tableType === "list" && "Get started by creating your first estimate."}
+            {tableType === "proposals" && "Send an estimate as a proposal to see it here."}
+            {tableType === "contracts" && "Contracts will appear here once proposals are approved and signed."}
+            {tableType === "declined" && "Declined proposals will appear here."}
           </p>
-          {currentView === "list" && (
+          {tableType === "list" && (
             <Button onClick={() => {
               setEditingEstimateId(null);
               setBuilderOpen(true);
@@ -175,6 +177,9 @@ export default function Estimates() {
       );
     }
 
+    const isDeclinedTab = tableType === 'declined';
+    const isContractsTab = tableType === 'contracts';
+
     return (
       <Table>
         <TableHeader>
@@ -183,7 +188,9 @@ export default function Estimates() {
             <TableHead>Customer</TableHead>
             <TableHead>Title</TableHead>
             <TableHead>Date</TableHead>
-            <TableHead>Status</TableHead>
+            {isContractsTab && <TableHead>Date Accepted</TableHead>}
+            {isDeclinedTab && <TableHead>Date Declined</TableHead>}
+            {!isContractsTab && !isDeclinedTab && <TableHead>Status</TableHead>}
             <TableHead className="text-right">Total</TableHead>
             <TableHead className="w-[140px]">Actions</TableHead>
           </TableRow>
@@ -215,18 +222,42 @@ export default function Estimates() {
               <TableCell>
                 <div className="flex flex-col">
                   <span>{format(new Date(estimate.estimate_date), "MMM d, yyyy")}</span>
-                  {estimate.expiration_date && (
+                  {estimate.expiration_date && !isContractsTab && !isDeclinedTab && (
                     <span className="text-xs text-muted-foreground">
                       Exp: {format(new Date(estimate.expiration_date), "MMM d")}
                     </span>
                   )}
                 </div>
               </TableCell>
-              <TableCell>
-                <Badge className={`${statusColors[estimate.status]} text-white`}>
-                  {statusLabels[estimate.status]}
-                </Badge>
-              </TableCell>
+              {isContractsTab && (
+                <TableCell>
+                  {estimate.signed_at ? (
+                    <span className="text-green-600 font-medium">
+                      {format(new Date(estimate.signed_at), "MMM d, yyyy")}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+              )}
+              {isDeclinedTab && (
+                <TableCell>
+                  {estimate.declined_at ? (
+                    <span className="text-red-600 font-medium">
+                      {format(new Date(estimate.declined_at), "MMM d, yyyy")}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+              )}
+              {!isContractsTab && !isDeclinedTab && (
+                <TableCell>
+                  <Badge className={`${statusColors[estimate.status]} text-white`}>
+                    {statusLabels[estimate.status]}
+                  </Badge>
+                </TableCell>
+              )}
               <TableCell className="text-right font-semibold">
                 {formatCurrency(estimate.total)}
               </TableCell>
@@ -250,7 +281,6 @@ export default function Estimates() {
                       <Plus className="h-4 w-4" />
                     </Button>
                   ) : estimate.status === 'accepted' ? (
-                    // Print button for signed contracts
                     <Button
                       variant="ghost"
                       size="icon"
@@ -409,7 +439,8 @@ export default function Estimates() {
                 {renderEstimateTable(
                   draftEstimates,
                   "No Draft Estimates",
-                  <Calculator className="h-12 w-12 text-muted-foreground mb-4" />
+                  <Calculator className="h-12 w-12 text-muted-foreground mb-4" />,
+                  'list'
                 )}
               </CardContent>
             </Card>
@@ -427,7 +458,8 @@ export default function Estimates() {
                 {renderEstimateTable(
                   proposalEstimates,
                   "No Proposals Sent",
-                  <Send className="h-12 w-12 text-muted-foreground mb-4" />
+                  <Send className="h-12 w-12 text-muted-foreground mb-4" />,
+                  'proposals'
                 )}
               </CardContent>
             </Card>
@@ -445,7 +477,8 @@ export default function Estimates() {
                 {renderEstimateTable(
                   contractEstimates,
                   "No Contracts Yet",
-                  <FileSignature className="h-12 w-12 text-muted-foreground mb-4" />
+                  <FileSignature className="h-12 w-12 text-muted-foreground mb-4" />,
+                  'contracts'
                 )}
               </CardContent>
             </Card>
@@ -464,7 +497,7 @@ export default function Estimates() {
                   declinedEstimates,
                   "No Declined Proposals",
                   <Trash2 className="h-12 w-12 text-muted-foreground mb-4" />,
-                  true // isDeclinedTab
+                  'declined'
                 )}
               </CardContent>
             </Card>
