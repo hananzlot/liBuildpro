@@ -167,13 +167,18 @@ export function SignatureFieldEditor({
     renderPage();
   }, [pdfDoc, currentPage, pageImages]);
 
-  // Reset scroll position when page changes or canvas becomes ready
-  useEffect(() => {
-    if (containerRef.current && (canvasReady || pageImages.has(currentPage))) {
-      containerRef.current.scrollTop = 0;
-      containerRef.current.scrollLeft = 0;
+  // Reset scroll position helper
+  const resetScrollPosition = useCallback(() => {
+    if (containerRef.current) {
+      // Use requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollTop = 0;
+          containerRef.current.scrollLeft = 0;
+        }
+      });
     }
-  }, [currentPage, canvasReady, pageImages]);
+  }, []);
 
   // Initialize Fabric canvas once - imperatively create canvas element
   useEffect(() => {
@@ -235,11 +240,8 @@ export function SignatureFieldEditor({
         fabricCanvasRef.current.requestRenderAll();
         loadFieldsOnCanvas();
         
-        // Reset scroll after loading
-        if (containerRef.current) {
-          containerRef.current.scrollTop = 0;
-          containerRef.current.scrollLeft = 0;
-        }
+        // Reset scroll after loading with delay for DOM update
+        resetScrollPosition();
       } catch (error) {
         console.error("Error loading background:", error);
       }
@@ -576,8 +578,13 @@ export function SignatureFieldEditor({
           <CardContent>
             <div
               ref={containerRef}
-              className="border rounded-lg overflow-auto bg-muted/30 relative"
-              style={{ maxHeight: "70vh", minHeight: "400px" }}
+              className="border rounded-lg bg-muted/30 relative"
+              style={{ 
+                maxHeight: "70vh", 
+                minHeight: "400px",
+                overflowX: "auto",
+                overflowY: "auto"
+              }}
             >
               {pdfError ? (
                 <div className="flex flex-col items-center justify-center h-96 gap-3 px-6 text-center">
