@@ -443,9 +443,10 @@ export default function Production() {
     const exceededExpectedCosts = effectiveEstimatedCost > 0 && totalBillsReceived > effectiveEstimatedCost;
 
     // For completed projects, use only real bills - no estimates
-    // For other projects, use max of actual bills or estimated project costs
+    // For other projects: if bills exceed estimate, use actual bills (exceededExpectedCosts); otherwise use max of actual bills or estimated
     const isCompleted = project.project_status === 'Completed';
-    const costForProfit = isCompleted ? totalBillsReceived : Math.max(totalBillsReceived, effectiveEstimatedCost);
+    const useActualCosts = isCompleted || exceededExpectedCosts;
+    const costForProfit = useActualCosts ? totalBillsReceived : Math.max(totalBillsReceived, effectiveEstimatedCost);
 
     // Commission per project: (Total Sold - Lead Fee - Max(Bills, Est)) * Commission Split%
     const leadCostPercent = project.lead_cost_percent ?? 18;
@@ -1655,10 +1656,10 @@ export default function Production() {
                             <TableCell className="text-right text-xs">
                               {financials?.contractsTotal > 0 ? (
                                 <div className="flex items-center justify-end gap-1">
-                                  <span className={financials?.isCompleted ? 'text-blue-600' : ''}>
+                                  <span className={(financials?.isCompleted || financials?.exceededExpectedCosts) ? 'text-blue-600' : ''}>
                                     {formatCurrency(financials?.displayCost)}
                                   </span>
-                                  {financials?.isCompleted ? (
+                                  {(financials?.isCompleted || financials?.exceededExpectedCosts) ? (
                                     <span className="text-[9px] text-blue-600 font-medium">act.</span>
                                   ) : (
                                     <span className="text-[9px] text-muted-foreground">est.</span>
