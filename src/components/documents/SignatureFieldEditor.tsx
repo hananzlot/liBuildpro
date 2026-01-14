@@ -7,8 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-import * as pdfjsLib from "pdfjs-dist/webpack.mjs";
+import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
+import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
+// Force PDF.js to load its worker from our own origin (avoids CSP/CDN issues)
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerSrc;
 
 interface Signer {
   id: string;
@@ -72,6 +75,8 @@ export function SignatureFieldEditor({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [selectedSigner, setSelectedSigner] = useState<string>(signers[0]?.id || "");
   const [selectedFieldType, setSelectedFieldType] = useState<"signature" | "date" | "name" | "email">("signature");
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
@@ -79,13 +84,28 @@ export function SignatureFieldEditor({
 
   // Load PDF
   useEffect(() => {
+    let cancelled = false;
+
     const loadPdf = async () => {
       try {
-        const pdf = await pdfjsLib.getDocument(documentUrl).promise;
+        setPdfError(null);
+        setPdfDoc(null);
+        setPageImages(new Map());
+        setCurrentPage(1);
+        setTotalPages(1);
+
+        const task = pdfjsLib.getDocument({ url: documentUrl });
+        const pdf = await task.promise;
+
+        if (cancelled) return;
+
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
       } catch (error) {
         console.error("Error loading PDF:", error);
+        if (!cancelled) {
+          setPdfError(error instanceof Error ? error.message : "Unknown PDF load error");
+        }
         toast.error("Failed to load PDF document");
       }
     };
@@ -93,7 +113,11 @@ export function SignatureFieldEditor({
     if (documentUrl) {
       loadPdf();
     }
-  }, [documentUrl]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [documentUrl, reloadToken]);
 
   // Render PDF page to image
   useEffect(() => {
@@ -486,7 +510,24 @@ export function SignatureFieldEditor({
               className="border rounded-lg overflow-auto bg-muted/30"
               style={{ maxHeight: "70vh" }}
             >
-              {!pageImages.has(currentPage) ? (
+              {pdfError ? (
+                <div className="flex flex-col items-center justify-center h-96 gap-3 px-6 text-center">
+                  <p className="text-sm font-medium">PDF failed to load</p>
+                  <p className="text-xs text-muted-foreground break-all">{pdfError}</p>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={() => setReloadToken((v) => v + 1)}>
+                      Retry
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(documentUrl, "_blank")}
+                    >
+                      Open PDF
+                    </Button>
+                  </div>
+                </div>
+              ) : !pageImages.has(currentPage) ? (
                 <div className="flex items-center justify-center h-96">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                 </div>
