@@ -68,7 +68,7 @@ export function SignatureFieldEditor({
   onFieldsChange,
   initialFields = [],
 }: SignatureFieldEditorProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const [canvasReady, setCanvasReady] = useState(false);
@@ -167,11 +167,20 @@ export function SignatureFieldEditor({
     renderPage();
   }, [pdfDoc, currentPage, pageImages]);
 
-  // Initialize Fabric canvas once
+  // Initialize Fabric canvas once - imperatively create canvas element
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasWrapperRef.current) return;
+    
+    // Clear any previous content
+    canvasWrapperRef.current.innerHTML = '';
+    
+    // Create canvas element imperatively (Fabric will wrap it)
+    const canvasEl = document.createElement('canvas');
+    canvasEl.width = 816;
+    canvasEl.height = 1056;
+    canvasWrapperRef.current.appendChild(canvasEl);
 
-    const canvas = new fabric.Canvas(canvasRef.current, {
+    const canvas = new fabric.Canvas(canvasEl, {
       width: 816,
       height: 1056,
       backgroundColor: "#ffffff",
@@ -182,6 +191,7 @@ export function SignatureFieldEditor({
     setCanvasReady(true);
 
     return () => {
+      setCanvasReady(false);
       if (fabricCanvasRef.current) {
         try {
           fabricCanvasRef.current.dispose();
@@ -190,7 +200,10 @@ export function SignatureFieldEditor({
         }
         fabricCanvasRef.current = null;
       }
-      setCanvasReady(false);
+      // Clear wrapper content
+      if (canvasWrapperRef.current) {
+        canvasWrapperRef.current.innerHTML = '';
+      }
     };
   }, []);
 
@@ -577,7 +590,10 @@ export function SignatureFieldEditor({
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                     </div>
                   )}
-                  <canvas ref={canvasRef} className={!pageImages.has(currentPage) ? "opacity-0" : ""} />
+                  <div 
+                    ref={canvasWrapperRef} 
+                    className={!pageImages.has(currentPage) ? "opacity-0" : ""}
+                  />
                 </>
               )}
             </div>
