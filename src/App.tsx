@@ -11,6 +11,7 @@ import AuditLog from "./pages/AuditLog";
 import FollowUp from "./pages/FollowUp";
 import MagazineSales from "./pages/MagazineSales";
 import Estimates from "./pages/Estimates";
+import ClientPortal from "./pages/ClientPortal";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -136,6 +137,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* Public client portal - no auth required */}
+            <Route path="/portal" element={<ClientPortal />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

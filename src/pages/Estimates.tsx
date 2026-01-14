@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, DollarSign } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, DollarSign, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
 import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
+import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 
 type ViewType = "list" | "proposals" | "contracts";
 
@@ -62,6 +63,7 @@ export default function Estimates() {
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingEstimateId, setEditingEstimateId] = useState<string | null>(null);
+  const [sendDialogEstimate, setSendDialogEstimate] = useState<Estimate | null>(null);
 
   const handleViewChange = (view: string) => {
     setSearchParams({ view });
@@ -213,12 +215,17 @@ export default function Estimates() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => {
-                      setEditingEstimateId(estimate.id);
-                      setBuilderOpen(true);
-                    }}
+                    onClick={() => { setEditingEstimateId(estimate.id); setBuilderOpen(true); }}
                   >
                     <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSendDialogEstimate(estimate)}
+                    title="Send Proposal"
+                  >
+                    <ExternalLink className="h-4 w-4" />
                   </Button>
                   {isAdmin && (
                     <AlertDialog>
@@ -410,6 +417,17 @@ export default function Estimates() {
         estimateId={editingEstimateId}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ["estimates"] })}
       />
+
+      {/* Send Proposal Dialog */}
+      {sendDialogEstimate && (
+        <SendProposalDialog
+          open={!!sendDialogEstimate}
+          onOpenChange={(open) => !open && setSendDialogEstimate(null)}
+          estimateId={sendDialogEstimate.id}
+          customerName={sendDialogEstimate.customer_name}
+          customerEmail={sendDialogEstimate.customer_email}
+        />
+      )}
     </AppLayout>
   );
 }
