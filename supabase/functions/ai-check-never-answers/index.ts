@@ -262,6 +262,21 @@ Respond with ONLY a JSON object in this exact format:
         if (analysis.neverAnswers && (analysis.confidence === 'high' || analysis.confidence === 'medium')) {
           console.log(`Opportunity ${opp.name} identified as Never Answers (${analysis.confidence} confidence): ${analysis.reason}`);
 
+          // Check if we already created an AI note for this contact in the last 24 hours
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          const { data: existingNote } = await supabase
+            .from('contact_notes')
+            .select('id')
+            .eq('contact_id', opp.contact_id)
+            .ilike('body', '%[SYSTEM - AI Analysis]%')
+            .gte('created_at', oneDayAgo)
+            .limit(1);
+
+          if (existingNote && existingNote.length > 0) {
+            console.log(`Skipping ${opp.name} - AI note already created in last 24 hours`);
+            continue;
+          }
+
           // Find the "Never Answered" stage in the pipeline
           const { data: pipeline } = await supabase
             .from('ghl_pipelines')
