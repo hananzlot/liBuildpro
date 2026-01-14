@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,9 +12,21 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, Plus, Trash2, Eye, Send, Loader2, Upload, ExternalLink, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, Plus, Trash2, Eye, Send, Loader2, Upload, ExternalLink, CheckCircle, XCircle, Clock, Users, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { MultiSignerInput, SignerData } from "@/components/documents/MultiSignerInput";
+import { SignatureFieldEditor } from "@/components/documents/SignatureFieldEditor";
+
+interface DocumentSigner {
+  id: string;
+  signer_name: string;
+  signer_email: string;
+  signer_order: number;
+  status: string;
+  signed_at: string | null;
+}
 
 interface SignatureDocument {
   id: string;
@@ -30,6 +42,19 @@ interface SignatureDocument {
   decline_reason: string | null;
   notes: string | null;
   created_at: string;
+  document_signers?: DocumentSigner[];
+}
+
+interface SignatureField {
+  id: string;
+  signerId: string;
+  signerName: string;
+  pageNumber: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fieldType: "signature" | "date" | "name" | "email";
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -38,7 +63,12 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   viewed: { label: "Viewed", color: "bg-purple-500", icon: Eye },
   signed: { label: "Signed", color: "bg-green-500", icon: CheckCircle },
   declined: { label: "Declined", color: "bg-red-500", icon: XCircle },
+  partial: { label: "Partially Signed", color: "bg-amber-500", icon: Users },
 };
+
+const SIGNER_COLORS = [
+  "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"
+];
 
 export default function Documents() {
   const { isAdmin, user } = useAuth();
@@ -47,21 +77,26 @@ export default function Documents() {
   const [uploading, setUploading] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<SignatureDocument | null>(null);
+  const [currentStep, setCurrentStep] = useState<"upload" | "signers" | "fields">("upload");
+  const [uploadedDocUrl, setUploadedDocUrl] = useState<string>("");
+  const [uploadedDocId, setUploadedDocId] = useState<string>("");
   
   // Form state
   const [documentName, setDocumentName] = useState("");
-  const [recipientName, setRecipientName] = useState("");
-  const [recipientEmail, setRecipientEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [signers, setSigners] = useState<SignerData[]>([
+    { id: crypto.randomUUID(), name: "", email: "", order: 1, color: SIGNER_COLORS[0] }
+  ]);
+  const [signatureFields, setSignatureFields] = useState<SignatureField[]>([]);
 
-  // Fetch documents
+  // Fetch documents with signers
   const { data: documents, isLoading } = useQuery({
     queryKey: ["signature-documents"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("signature_documents")
-        .select("*")
+        .select("*, document_signers(*)")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -69,8 +104,8 @@ export default function Documents() {
     },
   });
 
-  // Upload and create document
-  const createMutation = useMutation({
+  // Upload document and move to signers step
+  const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!selectedFile) throw new Error("No file selected");
 
@@ -91,14 +126,14 @@ export default function Documents() {
         .from("signature-documents")
         .getPublicUrl(fileName);
 
-      // Create document record
+      // Create document record (with first signer as legacy recipient)
       const { data, error } = await supabase
         .from("signature_documents")
         .insert({
           document_name: documentName || selectedFile.name,
           document_url: urlData.publicUrl,
-          recipient_name: recipientName,
-          recipient_email: recipientEmail,
+          recipient_name: signers[0]?.name || "Pending",
+          recipient_email: signers[0]?.email || "pending@setup.com",
           notes: notes || null,
           created_by: user?.id,
         })
@@ -106,13 +141,14 @@ export default function Documents() {
         .single();
 
       if (error) throw error;
-      return data;
+      
+      return { docId: data.id, docUrl: urlData.publicUrl };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
-      toast.success("Document uploaded successfully");
-      resetForm();
-      setUploadDialogOpen(false);
+    onSuccess: (result) => {
+      setUploadedDocId(result.docId);
+      setUploadedDocUrl(result.docUrl);
+      setCurrentStep("signers");
+      toast.success("Document uploaded! Now add recipients.");
     },
     onError: (error) => {
       toast.error(`Failed to upload: ${error.message}`);
@@ -122,24 +158,148 @@ export default function Documents() {
     },
   });
 
-  // Send document for signature
-  const sendMutation = useMutation({
-    mutationFn: async (doc: SignatureDocument) => {
-      const { data, error } = await supabase.functions.invoke("send-document-signature", {
-        body: {
-          documentId: doc.id,
-          documentName: doc.document_name,
-          recipientName: doc.recipient_name,
-          recipientEmail: doc.recipient_email,
-        },
-      });
+  // Save signers and move to field placement
+  const saveSignersMutation = useMutation({
+    mutationFn: async () => {
+      if (!uploadedDocId) throw new Error("No document");
+      if (signers.some(s => !s.name || !s.email)) {
+        throw new Error("All recipients must have name and email");
+      }
+
+      // Update main document with primary signer info
+      await supabase
+        .from("signature_documents")
+        .update({
+          recipient_name: signers[0]?.name,
+          recipient_email: signers[0]?.email,
+        })
+        .eq("id", uploadedDocId);
+
+      // Delete existing signers
+      await supabase
+        .from("document_signers")
+        .delete()
+        .eq("document_id", uploadedDocId);
+
+      // Insert new signers
+      const signersToInsert = signers.map((s, idx) => ({
+        document_id: uploadedDocId,
+        signer_name: s.name,
+        signer_email: s.email,
+        signer_order: idx + 1,
+      }));
+
+      const { error } = await supabase
+        .from("document_signers")
+        .insert(signersToInsert);
 
       if (error) throw error;
-      return data;
+    },
+    onSuccess: () => {
+      setCurrentStep("fields");
+      toast.success("Recipients saved! Now place signature fields.");
+    },
+    onError: (error) => {
+      toast.error(`Failed to save: ${error.message}`);
+    },
+  });
+
+  // Save signature fields and finish
+  const saveFieldsMutation = useMutation({
+    mutationFn: async () => {
+      if (!uploadedDocId) throw new Error("No document");
+
+      // Get signer IDs from database
+      const { data: dbSigners } = await supabase
+        .from("document_signers")
+        .select("id, signer_name, signer_order")
+        .eq("document_id", uploadedDocId)
+        .order("signer_order");
+
+      if (!dbSigners) throw new Error("No signers found");
+
+      // Map client signers to db signers by order
+      const signerIdMap = new Map<string, string>();
+      signers.forEach((clientSigner, idx) => {
+        const dbSigner = dbSigners.find(d => d.signer_order === idx + 1);
+        if (dbSigner) {
+          signerIdMap.set(clientSigner.id, dbSigner.id);
+        }
+      });
+
+      // Delete existing fields
+      await supabase
+        .from("document_signature_fields")
+        .delete()
+        .eq("document_id", uploadedDocId);
+
+      // Insert new fields
+      if (signatureFields.length > 0) {
+        const fieldsToInsert = signatureFields.map(f => ({
+          document_id: uploadedDocId,
+          signer_id: signerIdMap.get(f.signerId) || null,
+          page_number: f.pageNumber,
+          x_position: f.x,
+          y_position: f.y,
+          width: f.width,
+          height: f.height,
+          field_type: f.fieldType,
+        }));
+
+        const { error } = await supabase
+          .from("document_signature_fields")
+          .insert(fieldsToInsert);
+
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
-      toast.success("Document sent for signature");
+      toast.success("Document setup complete!");
+      resetForm();
+      setUploadDialogOpen(false);
+    },
+    onError: (error) => {
+      toast.error(`Failed to save fields: ${error.message}`);
+    },
+  });
+
+  // Send document for signature to all signers
+  const sendMutation = useMutation({
+    mutationFn: async (doc: SignatureDocument) => {
+      // Get all signers for this document
+      const { data: dbSigners } = await supabase
+        .from("document_signers")
+        .select("*")
+        .eq("document_id", doc.id)
+        .order("signer_order");
+
+      const signersToNotify = dbSigners && dbSigners.length > 0 
+        ? dbSigners 
+        : [{ signer_name: doc.recipient_name, signer_email: doc.recipient_email, id: null }];
+
+      // Send to all signers (parallel)
+      const results = await Promise.all(
+        signersToNotify.map(async (signer) => {
+          const { data, error } = await supabase.functions.invoke("send-document-signature", {
+            body: {
+              documentId: doc.id,
+              documentName: doc.document_name,
+              recipientName: signer.signer_name,
+              recipientEmail: signer.signer_email,
+              signerId: signer.id,
+            },
+          });
+          if (error) throw error;
+          return data;
+        })
+      );
+
+      return results;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
+      toast.success("Document sent to all recipients!");
       setSendDialogOpen(false);
       setSelectedDocument(null);
     },
@@ -169,10 +329,13 @@ export default function Documents() {
 
   const resetForm = () => {
     setDocumentName("");
-    setRecipientName("");
-    setRecipientEmail("");
     setNotes("");
     setSelectedFile(null);
+    setSigners([{ id: crypto.randomUUID(), name: "", email: "", order: 1, color: SIGNER_COLORS[0] }]);
+    setSignatureFields([]);
+    setCurrentStep("upload");
+    setUploadedDocId("");
+    setUploadedDocUrl("");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,9 +353,29 @@ export default function Documents() {
     setSendDialogOpen(true);
   };
 
-  const pendingCount = documents?.filter(d => d.status === 'pending').length || 0;
-  const sentCount = documents?.filter(d => ['sent', 'viewed'].includes(d.status)).length || 0;
-  const signedCount = documents?.filter(d => d.status === 'signed').length || 0;
+  const handleFieldsChange = useCallback((fields: SignatureField[]) => {
+    setSignatureFields(fields);
+  }, []);
+
+  const getDocumentStatus = (doc: SignatureDocument): string => {
+    if (!doc.document_signers || doc.document_signers.length === 0) {
+      return doc.status;
+    }
+    
+    const signedCount = doc.document_signers.filter(s => s.status === 'signed').length;
+    const totalSigners = doc.document_signers.length;
+    
+    if (signedCount === totalSigners && totalSigners > 0) return 'signed';
+    if (signedCount > 0) return 'partial';
+    if (doc.document_signers.some(s => s.status === 'declined')) return 'declined';
+    if (doc.document_signers.some(s => s.status === 'viewed')) return 'viewed';
+    if (doc.document_signers.some(s => s.status === 'sent')) return 'sent';
+    return 'pending';
+  };
+
+  const pendingCount = documents?.filter(d => getDocumentStatus(d) === 'pending').length || 0;
+  const sentCount = documents?.filter(d => ['sent', 'viewed', 'partial'].includes(getDocumentStatus(d))).length || 0;
+  const signedCount = documents?.filter(d => getDocumentStatus(d) === 'signed').length || 0;
 
   return (
     <AppLayout>
@@ -274,7 +457,7 @@ export default function Documents() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Document</TableHead>
-                    <TableHead>Recipient</TableHead>
+                    <TableHead>Recipients</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="w-[140px]">Actions</TableHead>
@@ -282,8 +465,11 @@ export default function Documents() {
                 </TableHeader>
                 <TableBody>
                   {documents?.map((doc) => {
-                    const status = statusConfig[doc.status] || statusConfig.pending;
+                    const docStatus = getDocumentStatus(doc);
+                    const status = statusConfig[docStatus] || statusConfig.pending;
                     const StatusIcon = status.icon;
+                    const signerCount = doc.document_signers?.length || 1;
+                    const signedSigners = doc.document_signers?.filter(s => s.status === 'signed').length || 0;
                     
                     return (
                       <TableRow key={doc.id}>
@@ -298,21 +484,43 @@ export default function Documents() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="flex flex-col">
-                            <span className="font-medium">{doc.recipient_name}</span>
-                            <span className="text-xs text-muted-foreground">{doc.recipient_email}</span>
-                          </div>
+                          {doc.document_signers && doc.document_signers.length > 0 ? (
+                            <div className="flex flex-col gap-1">
+                              {doc.document_signers.map((signer) => (
+                                <div key={signer.id} className="flex items-center gap-2 text-sm">
+                                  {signer.status === 'signed' ? (
+                                    <CheckCircle className="h-3 w-3 text-green-500" />
+                                  ) : (
+                                    <Clock className="h-3 w-3 text-muted-foreground" />
+                                  )}
+                                  <span className="truncate max-w-[150px]">{signer.signer_name}</span>
+                                  {signer.signed_at && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(signer.signed_at), "M/d/yy")}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col">
+                              <span className="font-medium">{doc.recipient_name}</span>
+                              <span className="text-xs text-muted-foreground">{doc.recipient_email}</span>
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <Badge className={`${status.color} text-white`}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            {status.label}
-                          </Badge>
-                          {doc.signed_at && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {format(new Date(doc.signed_at), "MMM d, yyyy")}
-                            </p>
-                          )}
+                          <div className="flex flex-col gap-1">
+                            <Badge className={`${status.color} text-white w-fit`}>
+                              <StatusIcon className="h-3 w-3 mr-1" />
+                              {status.label}
+                            </Badge>
+                            {signerCount > 1 && (
+                              <span className="text-xs text-muted-foreground">
+                                {signedSigners}/{signerCount} signed
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {format(new Date(doc.created_at), "MMM d, yyyy")}
@@ -327,7 +535,7 @@ export default function Documents() {
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
-                            {doc.status === "pending" && (
+                            {docStatus === "pending" && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -375,92 +583,160 @@ export default function Documents() {
         </Card>
       </div>
 
-      {/* Upload Dialog */}
-      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* Multi-step Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => { 
+        if (!open) { resetForm(); }
+        setUploadDialogOpen(open);
+      }}>
+        <DialogContent className={currentStep === "fields" ? "max-w-[95vw] max-h-[95vh]" : "sm:max-w-lg"}>
           <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
+            <DialogTitle>
+              {currentStep === "upload" && "Upload Document"}
+              {currentStep === "signers" && "Add Recipients"}
+              {currentStep === "fields" && "Place Signature Fields"}
+            </DialogTitle>
             <DialogDescription>
-              Upload a document and enter recipient details
+              {currentStep === "upload" && "Upload a PDF document to send for signature"}
+              {currentStep === "signers" && "Add the people who need to sign this document"}
+              {currentStep === "fields" && "Drag and drop signature fields onto the document"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="file">Document File</Label>
-              <div className="flex items-center gap-2">
+
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 py-2">
+            {["upload", "signers", "fields"].map((step, idx) => (
+              <div key={step} className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  currentStep === step 
+                    ? "bg-primary text-primary-foreground" 
+                    : ["upload", "signers", "fields"].indexOf(currentStep) > idx
+                      ? "bg-green-500 text-white"
+                      : "bg-muted text-muted-foreground"
+                }`}>
+                  {idx + 1}
+                </div>
+                {idx < 2 && <div className="w-8 h-0.5 bg-muted" />}
+              </div>
+            ))}
+          </div>
+
+          {currentStep === "upload" && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="file">Document File (PDF)</Label>
                 <Input
                   id="file"
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf"
                   onChange={handleFileChange}
-                  className="flex-1"
+                />
+                {selectedFile && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {selectedFile.name}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="docName">Document Name</Label>
+                <Input
+                  id="docName"
+                  value={documentName}
+                  onChange={(e) => setDocumentName(e.target.value)}
+                  placeholder="Enter document name"
                 />
               </div>
-              {selectedFile && (
-                <p className="text-xs text-muted-foreground">
-                  Selected: {selectedFile.name}
-                </p>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (optional)</Label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add any notes..."
+                  rows={2}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="docName">Document Name</Label>
-              <Input
-                id="docName"
-                value={documentName}
-                onChange={(e) => setDocumentName(e.target.value)}
-                placeholder="Enter document name"
+          )}
+
+          {currentStep === "signers" && (
+            <div className="py-4">
+              <MultiSignerInput signers={signers} onChange={setSigners} />
+            </div>
+          )}
+
+          {currentStep === "fields" && (
+            <div className="py-4 overflow-auto" style={{ maxHeight: "calc(95vh - 200px)" }}>
+              <SignatureFieldEditor
+                documentUrl={uploadedDocUrl}
+                signers={signers}
+                onFieldsChange={handleFieldsChange}
+                initialFields={signatureFields}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="recipientName">Recipient Name *</Label>
-              <Input
-                id="recipientName"
-                value={recipientName}
-                onChange={(e) => setRecipientName(e.target.value)}
-                placeholder="John Doe"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="recipientEmail">Recipient Email *</Label>
-              <Input
-                id="recipientEmail"
-                type="email"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder="john@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add any notes..."
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
+          )}
+
+          <DialogFooter className="gap-2">
+            {currentStep !== "upload" && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (currentStep === "signers") setCurrentStep("upload");
+                  if (currentStep === "fields") setCurrentStep("signers");
+                }}
+              >
+                Back
+              </Button>
+            )}
             <Button variant="outline" onClick={() => { setUploadDialogOpen(false); resetForm(); }}>
               Cancel
             </Button>
-            <Button
-              onClick={() => createMutation.mutate()}
-              disabled={!selectedFile || !recipientName || !recipientEmail || uploading}
-            >
-              {uploading ? (
-                <>
+            
+            {currentStep === "upload" && (
+              <Button
+                onClick={() => uploadMutation.mutate()}
+                disabled={!selectedFile || uploading}
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload & Continue
+                  </>
+                )}
+              </Button>
+            )}
+
+            {currentStep === "signers" && (
+              <Button
+                onClick={() => saveSignersMutation.mutate()}
+                disabled={signers.some(s => !s.name || !s.email) || saveSignersMutation.isPending}
+              >
+                {saveSignersMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload
-                </>
-              )}
-            </Button>
+                ) : (
+                  <Users className="mr-2 h-4 w-4" />
+                )}
+                Save & Continue
+              </Button>
+            )}
+
+            {currentStep === "fields" && (
+              <Button
+                onClick={() => saveFieldsMutation.mutate()}
+                disabled={saveFieldsMutation.isPending}
+              >
+                {saveFieldsMutation.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                )}
+                Complete Setup
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -471,9 +747,25 @@ export default function Documents() {
           <DialogHeader>
             <DialogTitle>Send for Signature</DialogTitle>
             <DialogDescription>
-              Send "{selectedDocument?.document_name}" to {selectedDocument?.recipient_name} ({selectedDocument?.recipient_email}) for signature?
+              Send "{selectedDocument?.document_name}" to {
+                selectedDocument?.document_signers && selectedDocument.document_signers.length > 0
+                  ? `${selectedDocument.document_signers.length} recipient(s)`
+                  : selectedDocument?.recipient_name
+              } for signature?
             </DialogDescription>
           </DialogHeader>
+          {selectedDocument?.document_signers && selectedDocument.document_signers.length > 0 && (
+            <div className="py-4 space-y-2">
+              <Label>Recipients:</Label>
+              {selectedDocument.document_signers.map((signer) => (
+                <div key={signer.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span>{signer.signer_name}</span>
+                  <span className="text-muted-foreground">({signer.signer_email})</span>
+                </div>
+              ))}
+            </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setSendDialogOpen(false)}>
               Cancel
@@ -490,7 +782,7 @@ export default function Documents() {
               ) : (
                 <>
                   <Send className="mr-2 h-4 w-4" />
-                  Send
+                  Send to All
                 </>
               )}
             </Button>

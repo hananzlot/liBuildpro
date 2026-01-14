@@ -212,11 +212,11 @@ export default function DocumentPortal() {
 
   const doc = data.document;
 
-  // Already signed
+  // Already signed - show full audit info
   if (doc.status === "signed") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full">
+        <Card className="max-w-lg w-full">
           <CardHeader className="text-center">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <CardTitle>Document Signed</CardTitle>
@@ -224,11 +224,26 @@ export default function DocumentPortal() {
               Thank you! This document has been signed successfully.
             </CardDescription>
           </CardHeader>
-          <CardContent className="text-center">
-            <Button variant="outline" onClick={() => window.open(doc.document_url, "_blank")}>
-              <Download className="mr-2 h-4 w-4" />
-              Download Document
-            </Button>
+          <CardContent className="space-y-4">
+            <div className="bg-muted/50 rounded-lg p-4 space-y-2 text-sm">
+              <h4 className="font-semibold text-base mb-3">Signature Details</h4>
+              <div className="grid grid-cols-2 gap-2">
+                <span className="text-muted-foreground">Signed By:</span>
+                <span className="font-medium">{signerName || doc.recipient_name}</span>
+                <span className="text-muted-foreground">Email:</span>
+                <span>{signerEmail || doc.recipient_email}</span>
+                <span className="text-muted-foreground">Date Signed:</span>
+                <span>{doc.signed_at ? new Date(doc.signed_at).toLocaleString() : 'N/A'}</span>
+                <span className="text-muted-foreground">Document:</span>
+                <span className="truncate">{doc.document_name}</span>
+              </div>
+            </div>
+            <div className="text-center">
+              <Button variant="outline" onClick={() => window.open(doc.document_url, "_blank")}>
+                <Download className="mr-2 h-4 w-4" />
+                Download Document
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -334,10 +349,13 @@ export default function DocumentPortal() {
 
               {signatureData && (
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400 mb-2">
                     <CheckCircle className="h-4 w-4" />
                     <span className="font-medium">Signature captured</span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    By signing, you agree that your signature, name, email, date, and IP address will be recorded for verification.
+                  </p>
                 </div>
               )}
 
