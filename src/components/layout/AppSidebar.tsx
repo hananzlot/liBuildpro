@@ -188,7 +188,8 @@ interface AdminMenuItem {
 }
 
 const adminMenuItems: AdminMenuItem[] = [
-  { title: "Data Cleanup", icon: Settings, action: "cleanup" },
+  { title: "Admin Settings", icon: Settings, action: "settings" },
+  { title: "Data Cleanup", icon: Wrench, action: "cleanup" },
   { title: "Manage Sources", icon: Pencil, action: "sources" },
   { title: "User Management", icon: Users, action: "users" },
   { title: "Audit Log", icon: FileText, action: "audit" },
@@ -571,6 +572,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                           closeSidebar();
                           if (item.action === 'audit') {
                             navigate('/audit-log');
+                          } else if (item.action === 'settings') {
+                            navigate('/admin/settings');
                           } else {
                             onAdminAction(item.action);
                           }
