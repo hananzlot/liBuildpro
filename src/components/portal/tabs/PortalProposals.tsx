@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
+import { SignatureCanvas } from '../SignatureCanvas';
 import { 
   FileText, 
   CheckCircle2, 
@@ -9,23 +18,67 @@ import {
   Clock, 
   Eye,
   Calendar,
-  Globe,
   ArrowLeft,
   DollarSign,
-  TrendingUp,
-  Shield
+  Shield,
+  MapPin,
+  Phone,
+  Mail,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface PortalProposalsProps {
   estimates: any[];
   projectId: string;
   token: string;
+  portalTokenId: string;
+  onRefresh?: () => void;
 }
 
-export function PortalProposals({ estimates, projectId, token }: PortalProposalsProps) {
+interface LineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  line_total: number;
+  item_type: string;
+  group_id: string | null;
+}
+
+interface Group {
+  id: string;
+  group_name: string;
+  description: string | null;
+  sort_order: number;
+}
+
+interface PaymentPhase {
+  id: string;
+  phase_name: string;
+  percent: number;
+  amount: number;
+  due_type: string;
+  description: string | null;
+}
+
+export function PortalProposals({ estimates, projectId, token, portalTokenId, onRefresh }: PortalProposalsProps) {
+  const queryClient = useQueryClient();
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [viewingProposal, setViewingProposal] = useState(false);
+  const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
+  const [signerName, setSignerName] = useState('');
+  const [signerEmail, setSignerEmail] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [signatureData, setSignatureData] = useState<{
+    type: 'typed' | 'drawn';
+    data: string;
+    font?: string;
+  } | null>(null);
 
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
@@ -89,50 +142,620 @@ export function PortalProposals({ estimates, projectId, token }: PortalProposals
     return config[status] || config.draft;
   };
 
-  // If viewing a specific proposal, show simple details instead of full view
+  // Fetch full estimate details when viewing
+  const { data: estimateDetails, isLoading: loadingDetails } = useQuery({
+    queryKey: ['estimate-details', selectedEstimateId],
+    queryFn: async () => {
+      if (!selectedEstimateId) return null;
+
+      const [groupsRes, itemsRes, scheduleRes, signaturesRes] = await Promise.all([
+        supabase.from('estimate_groups').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
+        supabase.from('estimate_line_items').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
+        supabase.from('estimate_payment_schedule').select('*').eq('estimate_id', selectedEstimateId).order('sort_order'),
+        supabase.from('estimate_signatures').select('*').eq('estimate_id', selectedEstimateId),
+      ]);
+
+      return {
+        groups: groupsRes.data || [],
+        lineItems: itemsRes.data || [],
+        paymentSchedule: scheduleRes.data || [],
+        signature: signaturesRes.data?.[0] || null,
+      };
+    },
+    enabled: !!selectedEstimateId && viewingProposal,
+  });
+
+  const signMutation = useMutation({
+    mutationFn: async () => {
+      if (!signatureData || !agreedToTerms || !selectedEstimateId) {
+        throw new Error('Please complete the signature and agree to terms');
+      }
+
+      const selectedEstimate = estimates.find(e => e.id === selectedEstimateId);
+
+      const { error: sigError } = await supabase.from('estimate_signatures').insert({
+        estimate_id: selectedEstimateId,
+        signer_name: signerName,
+        signer_email: signerEmail,
+        signature_type: signatureData.type,
+        signature_data: signatureData.data,
+        signature_font: signatureData.font,
+        portal_token_id: portalTokenId,
+      });
+
+      if (sigError) throw sigError;
+
+      const { error: updateError } = await supabase
+        .from('estimates')
+        .update({
+          status: 'accepted',
+          signed_at: new Date().toISOString(),
+        })
+        .eq('id', selectedEstimateId);
+
+      if (updateError) throw updateError;
+
+      // Send notifications
+      supabase.functions.invoke('send-proposal-notification', {
+        body: {
+          estimateId: selectedEstimateId,
+          action: 'accepted',
+          customerName: signerName,
+        },
+      }).catch(console.error);
+
+      if (signerEmail || selectedEstimate?.customer_email) {
+        supabase.functions.invoke('send-customer-confirmation', {
+          body: {
+            estimateId: selectedEstimateId,
+            action: 'accepted',
+            customerEmail: signerEmail || selectedEstimate?.customer_email,
+            customerName: signerName,
+          },
+        }).catch(console.error);
+      }
+    },
+    onSuccess: () => {
+      toast.success('Proposal signed successfully!');
+      setSignatureDialogOpen(false);
+      setSignatureData(null);
+      setAgreedToTerms(false);
+      queryClient.invalidateQueries({ queryKey: ['estimate-details'] });
+      onRefresh?.();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const declineMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedEstimateId) return;
+      
+      const selectedEstimate = estimates.find(e => e.id === selectedEstimateId);
+
+      const { error } = await supabase
+        .from('estimates')
+        .update({
+          status: 'declined',
+          declined_at: new Date().toISOString(),
+          decline_reason: declineReason,
+        })
+        .eq('id', selectedEstimateId);
+
+      if (error) throw error;
+
+      supabase.functions.invoke('send-proposal-notification', {
+        body: {
+          estimateId: selectedEstimateId,
+          action: 'declined',
+          customerName: selectedEstimate?.customer_name,
+          declineReason,
+        },
+      }).catch(console.error);
+
+      if (selectedEstimate?.customer_email) {
+        supabase.functions.invoke('send-customer-confirmation', {
+          body: {
+            estimateId: selectedEstimateId,
+            action: 'declined',
+            customerEmail: selectedEstimate.customer_email,
+            customerName: selectedEstimate.customer_name,
+          },
+        }).catch(console.error);
+      }
+    },
+    onSuccess: () => {
+      toast.success('Response submitted');
+      setDeclineDialogOpen(false);
+      setDeclineReason('');
+      queryClient.invalidateQueries({ queryKey: ['estimate-details'] });
+      onRefresh?.();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Viewing a specific proposal - show full details
   if (viewingProposal && selectedEstimateId) {
     const selectedEstimate = estimates.find(e => e.id === selectedEstimateId);
+    if (!selectedEstimate) return null;
+
+    const canSign = ['sent', 'viewed', 'needs_changes'].includes(selectedEstimate.status);
+    const isSigned = selectedEstimate.status === 'accepted';
+    const isDeclined = selectedEstimate.status === 'declined';
+    const statusConfig = getStatusConfig(selectedEstimate.status);
+
+    // Set signer info from estimate if not already set
+    if (!signerName && selectedEstimate.customer_name) {
+      setSignerName(selectedEstimate.customer_name);
+    }
+    if (!signerEmail && selectedEstimate.customer_email) {
+      setSignerEmail(selectedEstimate.customer_email);
+    }
+
+    const groups = estimateDetails?.groups || [];
+    const lineItems = estimateDetails?.lineItems || [];
+    const paymentSchedule = estimateDetails?.paymentSchedule || [];
+    const signature = estimateDetails?.signature;
+
+    const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
+      acc[group.id] = lineItems.filter((item: LineItem) => item.group_id === group.id);
+      return acc;
+    }, {});
+
+    const ungroupedItems = lineItems.filter((item: LineItem) => !item.group_id);
+
     return (
       <div className="space-y-6">
         <Button 
           variant="ghost" 
-          onClick={() => setViewingProposal(false)}
+          onClick={() => {
+            setViewingProposal(false);
+            setSignerName('');
+            setSignerEmail('');
+          }}
           className="gap-2 text-slate-600 hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Proposals
         </Button>
-        {selectedEstimate && (
-          <Card className="border-0 shadow-lg overflow-hidden">
-            <div className="h-1.5 bg-gradient-to-r from-primary to-primary/70" />
-            <CardContent className="p-8">
-              <div className="space-y-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-2xl font-bold text-slate-900">{selectedEstimate.estimate_title}</h3>
-                    <p className="text-slate-500 mt-1">Proposal #{selectedEstimate.estimate_number}</p>
-                  </div>
-                  {(() => {
-                    const statusConfig = getStatusConfig(selectedEstimate.status);
-                    return (
-                      <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor} border-0 gap-1.5`}>
-                        {statusConfig.icon}
-                        {statusConfig.label}
-                      </Badge>
-                    );
-                  })()}
-                </div>
-                
-                <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-2xl p-6 border border-primary/10">
-                  <p className="text-sm text-slate-500 mb-1">Total Amount</p>
-                  <p className="text-4xl font-bold text-primary">{formatCurrency(selectedEstimate.total)}</p>
-                </div>
-                
-                <p className="text-slate-500">Full proposal details available upon request.</p>
+
+        {/* Status Banner */}
+        {isSigned && signature && (
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="py-4 flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+              <div>
+                <p className="font-medium text-green-800">Proposal Accepted</p>
+                <p className="text-sm text-green-600">
+                  Signed by {signature.signer_name} on {format(new Date(signature.signed_at), 'MMM d, yyyy')}
+                </p>
               </div>
             </CardContent>
           </Card>
         )}
+
+        {isDeclined && (
+          <Card className="bg-red-50 border-red-200">
+            <CardContent className="py-4 flex items-center gap-3">
+              <XCircle className="h-6 w-6 text-red-600" />
+              <div>
+                <p className="font-medium text-red-800">Proposal Declined</p>
+                {selectedEstimate.decline_reason && (
+                  <p className="text-sm text-red-600">Reason: {selectedEstimate.decline_reason}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Proposal Header */}
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <div className="h-1.5 bg-gradient-to-r from-primary to-primary/70" />
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Proposal #{selectedEstimate.estimate_number}</p>
+                <h3 className="text-2xl font-bold text-slate-900 mt-1">{selectedEstimate.estimate_title}</h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge className={`${statusConfig.bgColor} ${statusConfig.textColor} border-0 gap-1.5`}>
+                  {statusConfig.icon}
+                  {statusConfig.label}
+                </Badge>
+              </div>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm text-muted-foreground">PREPARED FOR</h4>
+                <p className="font-medium text-lg">{selectedEstimate.customer_name}</p>
+                {selectedEstimate.customer_email && (
+                  <p className="text-sm flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    {selectedEstimate.customer_email}
+                  </p>
+                )}
+                {selectedEstimate.customer_phone && (
+                  <p className="text-sm flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    {selectedEstimate.customer_phone}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm text-muted-foreground">PROJECT LOCATION</h4>
+                {selectedEstimate.job_address && (
+                  <p className="text-sm flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    {selectedEstimate.job_address}
+                  </p>
+                )}
+                <div className="flex gap-4 text-sm">
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    {format(new Date(selectedEstimate.estimate_date), 'MMM d, yyyy')}
+                  </span>
+                  {selectedEstimate.expiration_date && (
+                    <span className="flex items-center gap-2 text-orange-600">
+                      <Clock className="h-4 w-4" />
+                      Expires: {format(new Date(selectedEstimate.expiration_date), 'MMM d, yyyy')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Scope of Work */}
+        {loadingDetails ? (
+          <Card className="border-0 shadow-lg">
+            <CardContent className="py-12 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Scope of Work
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Work Scope Description */}
+                {selectedEstimate.work_scope_description && (
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <p className="whitespace-pre-wrap text-sm">{selectedEstimate.work_scope_description}</p>
+                  </div>
+                )}
+
+                {groups.map((group: Group) => (
+                  <div key={group.id} className="space-y-3">
+                    <h4 className="font-semibold text-lg">{group.group_name}</h4>
+                    {group.description && (
+                      <p className="text-sm text-muted-foreground">{group.description}</p>
+                    )}
+                    <div className="space-y-2">
+                      {groupedItems[group.id]?.map((item: LineItem) => (
+                        <div
+                          key={item.id}
+                          className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium">{item.description}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                            </p>
+                          </div>
+                          <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {ungroupedItems.length > 0 && (
+                  <div className="space-y-2">
+                    {ungroupedItems.map((item: LineItem) => (
+                      <div
+                        key={item.id}
+                        className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{item.description}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                          </p>
+                        </div>
+                        <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Pricing Summary */}
+            <Card className="border-0 shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Pricing Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatCurrency(selectedEstimate.subtotal)}</span>
+                  </div>
+                  {selectedEstimate.tax_amount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Tax ({selectedEstimate.tax_rate}%)
+                      </span>
+                      <span>{formatCurrency(selectedEstimate.tax_amount)}</span>
+                    </div>
+                  )}
+                  {selectedEstimate.discount_amount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Discount</span>
+                      <span>-{formatCurrency(selectedEstimate.discount_amount)}</span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between text-xl font-bold">
+                    <span>Total</span>
+                    <span className="text-primary">{formatCurrency(selectedEstimate.total)}</span>
+                  </div>
+                  {selectedEstimate.deposit_required && selectedEstimate.deposit_percent > 0 && (
+                    <div className="flex justify-between text-sm bg-primary/10 p-3 rounded-lg">
+                      <span>Deposit Required ({selectedEstimate.deposit_percent}%)</span>
+                      <span className="font-medium">
+                        {formatCurrency((selectedEstimate.total || 0) * (selectedEstimate.deposit_percent / 100))}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment Schedule */}
+            {paymentSchedule.length > 0 && (
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Payment Schedule</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {paymentSchedule.map((phase: PaymentPhase, index: number) => (
+                      <div
+                        key={phase.id}
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium">{phase.phase_name}</p>
+                            {phase.description && (
+                              <p className="text-sm text-muted-foreground">{phase.description}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">{phase.percent}%</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatCurrency((selectedEstimate.total || 0) * (phase.percent / 100))}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Terms & Conditions */}
+            {selectedEstimate.terms_and_conditions && (
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle>Terms & Conditions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-sm max-w-none">
+                    <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                      {selectedEstimate.terms_and_conditions}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Signature Display */}
+            {signature && (
+              <Card className="border-0 shadow-lg bg-green-50 border-green-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-800">
+                    <Shield className="h-5 w-5" />
+                    Digital Signature
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {signature.signature_type === 'typed' ? (
+                      <p style={{ fontFamily: signature.signature_font, fontSize: '28px' }}>
+                        {signature.signature_data}
+                      </p>
+                    ) : (
+                      <img src={signature.signature_data} alt="Signature" className="max-h-20" />
+                    )}
+                    <p className="text-sm text-green-700">
+                      {signature.signer_name} • {signature.signer_email} • {format(new Date(signature.signed_at), 'MMM d, yyyy h:mm a')}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Action Buttons */}
+            {canSign && (
+              <Card className="border-2 border-primary bg-primary/5">
+                <CardContent className="py-6">
+                  <div className="text-center mb-4">
+                    <h3 className="font-semibold text-lg">Ready to proceed?</h3>
+                    <p className="text-sm text-muted-foreground">Review the proposal above and accept or request changes</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      size="lg"
+                      onClick={() => setDeclineDialogOpen(true)}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Request Changes / Decline
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      size="lg"
+                      onClick={() => setSignatureDialogOpen(true)}
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Accept & Sign Proposal
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+
+        {/* Signature Dialog */}
+        <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Sign & Accept Proposal</DialogTitle>
+              <DialogDescription>
+                By signing below, you agree to the terms and scope of work outlined in this proposal.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Full Name *</Label>
+                  <Input
+                    value={signerName}
+                    onChange={(e) => setSignerName(e.target.value)}
+                    placeholder="Your full legal name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email *</Label>
+                  <Input
+                    type="email"
+                    value={signerEmail}
+                    onChange={(e) => setSignerEmail(e.target.value)}
+                    placeholder="your@email.com"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <SignatureCanvas
+                signerName={signerName}
+                onSignatureComplete={(data) => setSignatureData(data)}
+              />
+
+              {signatureData && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <span className="text-sm text-green-700">Signature captured</span>
+                </div>
+              )}
+
+              <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                <Checkbox
+                  id="terms"
+                  checked={agreedToTerms}
+                  onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                />
+                <label htmlFor="terms" className="text-sm cursor-pointer">
+                  I have read and agree to the terms and conditions. I understand this constitutes a legally binding agreement.
+                </label>
+              </div>
+
+              <Button
+                onClick={() => signMutation.mutate()}
+                disabled={!signatureData || !agreedToTerms || !signerName || !signerEmail || signMutation.isPending}
+                className="w-full"
+                size="lg"
+              >
+                {signMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                )}
+                Submit Signature
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Decline Dialog */}
+        <Dialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Changes or Decline</DialogTitle>
+              <DialogDescription>
+                Let us know if you need any changes to the proposal or if you'd like to decline.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Feedback / Reason</Label>
+                <Textarea
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  placeholder="Please describe any changes you need or your reason for declining..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeclineDialogOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => declineMutation.mutate()}
+                  disabled={declineMutation.isPending}
+                  className="flex-1"
+                >
+                  {declineMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Submit Response
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
