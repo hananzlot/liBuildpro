@@ -617,6 +617,121 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     },
   });
 
+  // Save As New mutation - creates a new estimate with the current data
+  const saveAsNewMutation = useMutation({
+    mutationFn: async () => {
+      if (!validateEstimate()) {
+        throw new Error("Validation failed");
+      }
+
+      const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
+      
+      // Prepare estimate data for a new estimate
+      const estimateData = {
+        customer_name: formData.customer_name,
+        customer_email: formData.customer_email || null,
+        customer_phone: formData.customer_phone || null,
+        job_address: formData.job_address,
+        billing_address: formData.billing_address || null,
+        estimate_title: formData.estimate_title,
+        estimate_date: new Date().toISOString().split("T")[0], // Use today's date
+        expiration_date: formData.expiration_date || null,
+        deposit_required: formData.deposit_required,
+        deposit_percent: formData.deposit_percent,
+        tax_rate: formData.tax_rate,
+        discount_type: formData.discount_type,
+        discount_value: formData.discount_value,
+        subtotal,
+        tax_amount: taxAmount,
+        discount_amount: discountAmount,
+        total,
+        notes: formData.notes || null,
+        terms_and_conditions: formData.terms_and_conditions || null,
+        work_scope_description: formData.work_scope_description || null,
+        status: "draft" as const,
+        created_by: user?.id || null,
+      };
+
+      // Create new estimate
+      const { data: newEstimate, error: insertError } = await supabase
+        .from("estimates")
+        .insert(estimateData)
+        .select()
+        .single();
+      if (insertError) throw insertError;
+      const savedEstimateId = newEstimate.id;
+
+      // Insert groups
+      for (const group of groups) {
+        const { data: savedGroup, error: groupError } = await supabase
+          .from("estimate_groups")
+          .insert({
+            estimate_id: savedEstimateId,
+            group_name: group.group_name,
+            description: group.description || null,
+            sort_order: group.sort_order,
+          })
+          .select()
+          .single();
+        if (groupError) throw groupError;
+
+        // Insert line items for this group
+        if (group.items.length > 0) {
+          const itemsToInsert = group.items.map(item => ({
+            estimate_id: savedEstimateId,
+            group_id: savedGroup.id,
+            item_type: item.item_type as "assembly" | "equipment" | "labor" | "material" | "note" | "permit",
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unit_price: item.unit_price,
+            cost: item.cost,
+            markup_percent: item.markup_percent,
+            line_total: item.line_total,
+            is_taxable: item.is_taxable,
+            sort_order: item.sort_order,
+          }));
+          
+          const { error: itemsError } = await supabase
+            .from("estimate_line_items")
+            .insert(itemsToInsert);
+          if (itemsError) throw itemsError;
+        }
+      }
+
+      // Insert payment schedule
+      if (paymentSchedule.length > 0) {
+        const scheduleToInsert = paymentSchedule.map(phase => ({
+          estimate_id: savedEstimateId,
+          phase_name: phase.phase_name,
+          percent: phase.percent,
+          amount: (total * phase.percent) / 100,
+          due_type: phase.due_type,
+          due_date: phase.due_date || null,
+          description: phase.description || null,
+          sort_order: phase.sort_order,
+        }));
+        
+        const { error: scheduleError } = await supabase
+          .from("estimate_payment_schedule")
+          .insert(scheduleToInsert);
+        if (scheduleError) throw scheduleError;
+      }
+
+      return savedEstimateId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      toast.success("New estimate created from copy!");
+      onOpenChange(false);
+      onSuccess?.();
+    },
+    onError: (error) => {
+      console.error("Error saving estimate as new:", error);
+      toast.error("Failed to create new estimate. Please try again.");
+    },
+  });
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -658,6 +773,20 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 )}
                 AI Generate Scope
               </Button>
+              {isEditing && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => saveAsNewMutation.mutate()} 
+                  disabled={saveAsNewMutation.isPending}
+                >
+                  {saveAsNewMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="mr-2 h-4 w-4" />
+                  )}
+                  Save As New
+                </Button>
+              )}
               <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
                 {saveMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
