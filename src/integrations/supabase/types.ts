@@ -1320,6 +1320,7 @@ export type Database = {
           total: number | null
           updated_at: string
           viewed_at: string | null
+          work_scope_description: string | null
         }
         Insert: {
           billing_address?: string | null
@@ -1357,6 +1358,7 @@ export type Database = {
           total?: number | null
           updated_at?: string
           viewed_at?: string | null
+          work_scope_description?: string | null
         }
         Update: {
           billing_address?: string | null
@@ -1394,6 +1396,7 @@ export type Database = {
           total?: number | null
           updated_at?: string
           viewed_at?: string | null
+          work_scope_description?: string | null
         }
         Relationships: [
           {
