@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { cn, formatCurrency, formatCurrencyWithDecimals } from "@/lib/utils";
 import { 
@@ -814,6 +815,16 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   });
 
   const handleDeleteClick = (type: string, id: string) => {
+    // If deleting a phase, check for associated payments first
+    if (type === "phase") {
+      const paymentsForPhase = activePayments.filter(p => p.payment_phase_id === id);
+      if (paymentsForPhase.length > 0) {
+        const totalReceived = paymentsForPhase.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+        toast.error(`Cannot delete phase: ${formatCurrency(totalReceived)} in payments have been recorded. Please void or remove payments first.`);
+        return;
+      }
+    }
+    
     // If deleting an invoice, check for associated payments
     if (type === "invoice") {
       const associatedPayments = payments.filter(p => p.invoice_id === id);
@@ -1727,9 +1738,39 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingPhase(phase); setPhaseDialogOpen(true); }}>
                                               <Pencil className="h-3 w-3" />
                                             </Button>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteClick("phase", phase.id)}>
-                                              <Trash2 className="h-3 w-3" />
-                                            </Button>
+                                            {(() => {
+                                              const phasePayments = activePayments.filter(p => p.payment_phase_id === phase.id);
+                                              const hasPayments = phasePayments.length > 0;
+                                              const paymentTotal = phasePayments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+                                              return hasPayments ? (
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <span className="inline-flex">
+                                                      <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-7 w-7 text-muted-foreground cursor-not-allowed opacity-50" 
+                                                        disabled
+                                                      >
+                                                        <Trash2 className="h-3 w-3" />
+                                                      </Button>
+                                                    </span>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p className="text-xs">Cannot delete: {formatCurrency(paymentTotal)} in payments recorded</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              ) : (
+                                                <Button 
+                                                  variant="ghost" 
+                                                  size="icon" 
+                                                  className="h-7 w-7 text-destructive" 
+                                                  onClick={() => handleDeleteClick("phase", phase.id)}
+                                                >
+                                                  <Trash2 className="h-3 w-3" />
+                                                </Button>
+                                              );
+                                            })()}
                                           </div>
                                         </TableCell>
                                       </TableRow>
