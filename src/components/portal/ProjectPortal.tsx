@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Building, AlertCircle, Loader2 } from 'lucide-react';
+import { Building, AlertCircle, Loader2, MapPin, Phone } from 'lucide-react';
 import { PortalProjectInfo } from './tabs/PortalProjectInfo';
 import { PortalProposals } from './tabs/PortalProposals';
 import { PortalAgreement } from './tabs/PortalAgreement';
@@ -17,6 +17,23 @@ interface ProjectPortalProps {
 
 export function ProjectPortal({ token }: ProjectPortalProps) {
   const [activeTab, setActiveTab] = useState('project');
+
+  // Fetch company settings
+  const { data: companySettings } = useQuery({
+    queryKey: ['portal-company-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('setting_key, setting_value')
+        .in('setting_key', ['company_name', 'company_address', 'company_phone']);
+      if (error) throw error;
+      const settings: Record<string, string> = {};
+      data?.forEach(s => {
+        settings[s.setting_key] = s.setting_value || '';
+      });
+      return settings;
+    },
+  });
 
   // Fetch portal token and project data
   const { data: portalData, isLoading, error } = useQuery({
@@ -181,6 +198,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
             <PortalProjectInfo 
               project={project} 
               acceptedEstimate={acceptedEstimate}
+              agreements={agreements}
             />
           </TabsContent>
 
@@ -224,6 +242,31 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Footer with company info */}
+      {companySettings && (companySettings.company_name || companySettings.company_address || companySettings.company_phone) && (
+        <footer className="border-t bg-background mt-8">
+          <div className="max-w-6xl mx-auto px-4 py-6">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-sm text-muted-foreground">
+              {companySettings.company_name && (
+                <span className="font-semibold text-foreground">{companySettings.company_name}</span>
+              )}
+              {companySettings.company_address && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {companySettings.company_address}
+                </span>
+              )}
+              {companySettings.company_phone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-4 w-4" />
+                  {companySettings.company_phone}
+                </span>
+              )}
+            </div>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }
