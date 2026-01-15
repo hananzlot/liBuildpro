@@ -149,10 +149,11 @@ export function ChatManagement() {
   // Clear all current chats
   const clearCurrentChatsMutation = useMutation({
     mutationFn: async () => {
+      // Delete all chat messages by selecting and deleting in batches if needed
       const { error } = await supabase
         .from('portal_chat_messages')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+        .gte('created_at', '1970-01-01'); // This matches all records
       if (error) throw error;
     },
     onSuccess: () => {
@@ -160,7 +161,7 @@ export function ChatManagement() {
       queryClient.invalidateQueries({ queryKey: ['admin-current-chats'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      toast.error(`Failed to clear messages: ${error.message}`);
     },
   });
 
@@ -170,7 +171,7 @@ export function ChatManagement() {
       const { error } = await supabase
         .from('portal_chat_messages_archived')
         .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+        .gte('archived_at', '1970-01-01'); // This matches all records
       if (error) throw error;
     },
     onSuccess: () => {
@@ -178,7 +179,7 @@ export function ChatManagement() {
       queryClient.invalidateQueries({ queryKey: ['admin-archived-chats'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      toast.error(`Failed to clear archived messages: ${error.message}`);
     },
   });
 
