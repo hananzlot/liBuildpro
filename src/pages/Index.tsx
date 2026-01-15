@@ -44,6 +44,31 @@ const Index = () => {
     isSimulating,
   } = useAuth();
   
+  // Show welcome screen state - persisted in sessionStorage
+  const [showWelcome, setShowWelcome] = useState(() => {
+    const dismissed = sessionStorage.getItem('crm-welcome-dismissed');
+    return !dismissed;
+  });
+
+  // Fetch company name from app_settings
+  const { data: companyName } = useQuery({
+    queryKey: ["company-name"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", "company_name")
+        .maybeSingle();
+      if (error) throw error;
+      return data?.setting_value || "Your Company";
+    },
+  });
+
+  const handleEnterDashboard = () => {
+    sessionStorage.setItem('crm-welcome-dismissed', 'true');
+    setShowWelcome(false);
+  };
+  
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -175,6 +200,31 @@ const Index = () => {
           </div>
         </div>
       </AppLayout>
+    );
+  }
+
+  // Welcome screen for admins
+  if (showWelcome && isAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center">
+        <div className="text-center space-y-8 p-8">
+          <div className="space-y-4">
+            <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-foreground">
+              {companyName || "Your Company"}
+            </h1>
+            <p className="text-2xl md:text-3xl font-light text-muted-foreground">
+              CRM App
+            </p>
+          </div>
+          <Button 
+            size="lg" 
+            onClick={handleEnterDashboard}
+            className="px-8 py-6 text-lg"
+          >
+            Enter Dashboard
+          </Button>
+        </div>
+      </div>
     );
   }
 
