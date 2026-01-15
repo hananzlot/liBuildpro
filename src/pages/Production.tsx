@@ -124,6 +124,7 @@ interface ProjectFinancials {
   totalCommission: number;
   expectedFinalProfit: number;
   totalCash: number;
+  earliestSignedDate: string | null;
 }
 
 type SortColumn = 'project_number' | 'address' | 'status' | 'salesperson' | 'project_manager' | 'sold_amount' | 'est_proj_cost' | 'bills_received' | 'bills_paid' | 'inv_collected' | 'inv_balance' | 'proj_balance' | 'commission' | 'expected_profit' | 'total_cash';
@@ -140,11 +141,13 @@ const statusColors: Record<string, string> = {
 // Helper component for project sold cards
 function ProjectSoldCard({ 
   project, 
-  soldAmount, 
+  soldAmount,
+  signedDate,
   onOpen 
 }: { 
-  project: Project & { lead_source?: string | null; project_scope_dispatch?: string | null; install_start_date?: string | null; agreement_signed_date?: string | null }; 
-  soldAmount: number; 
+  project: Project & { lead_source?: string | null; project_scope_dispatch?: string | null; install_start_date?: string | null }; 
+  soldAmount: number;
+  signedDate?: string | null;
   onOpen: () => void;
 }) {
   return (
@@ -165,9 +168,9 @@ function ProjectSoldCard({
             <span>
               <strong>Status:</strong> {project.project_status || 'New Job'}
             </span>
-            {project.agreement_signed_date && (
+            {signedDate && (
               <span>
-                <strong>Signed:</strong> {format(parseISO(project.agreement_signed_date), 'MMM d, yyyy')}
+                <strong>Signed:</strong> {format(parseISO(signedDate), 'MMM d, yyyy')}
               </span>
             )}
             {project.install_start_date && (
@@ -292,7 +295,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_agreements")
-        .select("id, project_id, total_price, agreement_type, agreement_number, description_of_work");
+        .select("id, project_id, total_price, agreement_type, agreement_number, description_of_work, agreement_signed_date");
       if (error) throw error;
       return data;
     },
@@ -441,6 +444,13 @@ export default function Production() {
     const projectBalanceDue = contractsTotal - invoicesCollected;
     const profitToDate = invoicesCollected - totalBillsPaid;
     
+    // Get earliest signed date from agreements
+    const signedDates = projectAgreements
+      .map(a => a.agreement_signed_date)
+      .filter((d): d is string => d !== null && d !== undefined)
+      .sort();
+    const earliestSignedDate = signedDates.length > 0 ? signedDates[0] : null;
+    
     // Get estimated project cost - if null, default to 50% of estimated_cost (from dispatch)
     const estimatedProjectCostRaw = project.estimated_project_cost;
     const effectiveEstimatedCost = estimatedProjectCostRaw !== null 
@@ -496,6 +506,7 @@ export default function Production() {
       totalCommission,
       expectedFinalProfit,
       totalCash,
+      earliestSignedDate,
     };
   });
 
@@ -2519,6 +2530,7 @@ export default function Production() {
                           key={project.id} 
                           project={project} 
                           soldAmount={soldAmount}
+                          signedDate={financials?.earliestSignedDate}
                           onOpen={() => {
                             setTotalSoldSheetOpen(false);
                             handleOpenProject(project);
@@ -2585,6 +2597,7 @@ export default function Production() {
                                 key={project.id} 
                                 project={project} 
                                 soldAmount={soldAmount}
+                                signedDate={financials?.earliestSignedDate}
                                 onOpen={() => {
                                   setTotalSoldSheetOpen(false);
                                   handleOpenProject(project);
