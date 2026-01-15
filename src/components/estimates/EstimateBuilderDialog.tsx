@@ -639,7 +639,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       onOpenChange(false);
       onSuccess?.();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      // Don't show generic error for validation failures - the specific validation toast already showed
+      if (error.message === "Validation failed") {
+        return;
+      }
       console.error("Error saving estimate:", error);
       toast.error("Failed to save estimate. Please try again.");
     },
@@ -754,7 +758,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       onOpenChange(false);
       onSuccess?.();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      // Don't show generic error for validation failures - the specific validation toast already showed
+      if (error.message === "Validation failed") {
+        return;
+      }
       console.error("Error saving estimate as new:", error);
       toast.error("Failed to create new estimate. Please try again.");
     },
