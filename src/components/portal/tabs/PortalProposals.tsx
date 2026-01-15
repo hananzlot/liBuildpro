@@ -195,6 +195,31 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
 
       if (updateError) throw updateError;
 
+      // AUTO-CREATE AGREEMENT AND UPDATE PROJECT
+      if (projectId && selectedEstimate) {
+        const signedDate = new Date().toISOString().split('T')[0];
+        
+        // Create project agreement with the contract details
+        await supabase.from('project_agreements').insert({
+          project_id: projectId,
+          agreement_number: `CNT-${selectedEstimate.estimate_number}`,
+          agreement_signed_date: signedDate,
+          agreement_type: 'Contract',
+          total_price: selectedEstimate.total || 0,
+          description_of_work: selectedEstimate.work_scope_description || selectedEstimate.estimate_title,
+        }).then(result => {
+          if (result.error) console.error('Failed to create agreement:', result.error);
+        });
+
+        // Update project status to "New Job" and set agreement signed date
+        await supabase.from('projects').update({
+          project_status: 'New Job',
+          agreement_signed_date: signedDate,
+        }).eq('id', projectId).then(result => {
+          if (result.error) console.error('Failed to update project:', result.error);
+        });
+      }
+
       // Send notifications
       supabase.functions.invoke('send-proposal-notification', {
         body: {
