@@ -2122,6 +2122,7 @@ export type Database = {
           is_voided: boolean
           memo: string | null
           not_affecting_payment: boolean | null
+          offset_bill_id: string | null
           payment_method: string | null
           payment_reference: string | null
           project_id: string | null
@@ -2146,6 +2147,7 @@ export type Database = {
           is_voided?: boolean
           memo?: string | null
           not_affecting_payment?: boolean | null
+          offset_bill_id?: string | null
           payment_method?: string | null
           payment_reference?: string | null
           project_id?: string | null
@@ -2170,6 +2172,7 @@ export type Database = {
           is_voided?: boolean
           memo?: string | null
           not_affecting_payment?: boolean | null
+          offset_bill_id?: string | null
           payment_method?: string | null
           payment_reference?: string | null
           project_id?: string | null
@@ -2186,6 +2189,13 @@ export type Database = {
             columns: ["agreement_id"]
             isOneToOne: false
             referencedRelation: "project_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_bills_offset_bill_id_fkey"
+            columns: ["offset_bill_id"]
+            isOneToOne: false
+            referencedRelation: "project_bills"
             referencedColumns: ["id"]
           },
           {

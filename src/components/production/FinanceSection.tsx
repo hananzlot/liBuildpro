@@ -153,6 +153,7 @@ interface Bill {
   voided_at: string | null;
   voided_by: string | null;
   void_reason: string | null;
+  offset_bill_id: string | null;
 }
 
 interface Agreement {
@@ -890,6 +891,29 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   const unassignedBillsTotal = unassignedBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
   const unassignedBillsPaid = unassignedBills.reduce((sum, b) => sum + (b.amount_paid || 0), 0);
 
+  // Calculate offsets for each bill (material/equipment bills that offset subcontractor invoices)
+  const billOffsets = useMemo(() => {
+    const offsetMap: Record<string, { offsetBills: Bill[]; totalOffset: number }> = {};
+    
+    bills.forEach((bill) => {
+      if (bill.offset_bill_id && !bill.is_voided) {
+        if (!offsetMap[bill.offset_bill_id]) {
+          offsetMap[bill.offset_bill_id] = { offsetBills: [], totalOffset: 0 };
+        }
+        offsetMap[bill.offset_bill_id].offsetBills.push(bill);
+        offsetMap[bill.offset_bill_id].totalOffset += bill.bill_amount || 0;
+      }
+    });
+    
+    return offsetMap;
+  }, [bills]);
+
+  // Get which bill this offset bill is applied to
+  const getOffsetTargetBill = (offsetBillId: string | null) => {
+    if (!offsetBillId) return null;
+    return bills.find(b => b.id === offsetBillId);
+  };
+
   return (
     <div className="space-y-4">
       {/* Profitability by Agreement - Collapsible */}
@@ -1300,8 +1324,13 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {bills.map((bill) => (
-                          <TableRow key={bill.id} className={bill.is_voided ? "opacity-50 bg-muted/30" : ""}>
+                        {bills.map((bill) => {
+                          const offsets = billOffsets[bill.id];
+                          const offsetTarget = getOffsetTargetBill(bill.offset_bill_id);
+                          const adjustedBalance = (bill.balance || 0) - (offsets?.totalOffset || 0);
+                          
+                          return (
+                          <TableRow key={bill.id} className={cn(bill.is_voided && "opacity-50 bg-muted/30", bill.offset_bill_id && "bg-primary/5")}>
                             <TableCell className="text-xs">
                               {bill.is_voided ? (
                                 <div>
@@ -1310,17 +1339,42 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                     {bill.voided_at ? formatDate(bill.voided_at) : ""}
                                   </p>
                                 </div>
-                              ) : (bill.balance || 0) <= 0 ? (
+                              ) : bill.offset_bill_id ? (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px]">Offset</Badge>
+                              ) : adjustedBalance <= 0 ? (
                                 <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
                               ) : (
                                 <Badge variant="outline" className="text-[10px]">Open</Badge>
                               )}
                             </TableCell>
-                            <TableCell className="text-xs">{bill.installer_company || "-"}</TableCell>
+                            <TableCell className="text-xs">
+                              <div>
+                                {bill.installer_company || "-"}
+                                {offsetTarget && (
+                                  <p className="text-[10px] text-blue-600">
+                                    → Offsets: {offsetTarget.installer_company}
+                                  </p>
+                                )}
+                                {offsets && offsets.offsetBills.length > 0 && (
+                                  <p className="text-[10px] text-amber-600">
+                                    Materials offset: -{formatCurrency(offsets.totalOffset)}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
                             <TableCell className="text-xs">{bill.category || "-"}</TableCell>
                             <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.bill_amount)}</TableCell>
                             <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency(bill.amount_paid)}</TableCell>
-                            <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.balance)}</TableCell>
+                            <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
+                              {offsets ? (
+                                <div>
+                                  <span className="line-through text-muted-foreground">{formatCurrency(bill.balance)}</span>
+                                  <span className="ml-1 font-medium">{formatCurrency(adjustedBalance)}</span>
+                                </div>
+                              ) : (
+                                formatCurrency(bill.balance)
+                              )}
+                            </TableCell>
                             <TableCell>
                               {bill.attachment_url && (
                                 <Button
@@ -1383,7 +1437,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                               )}
                             </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   )}
@@ -1843,6 +1898,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         isPending={saveBillMutation.isPending}
         projectId={projectId}
         agreements={agreements}
+        allBills={bills}
         onAddSubcontractor={onNavigateToSubcontractors}
       />
 
@@ -2580,6 +2636,7 @@ function BillDialog({
   isPending,
   projectId,
   agreements,
+  allBills,
   onAddSubcontractor,
 }: { 
   open: boolean; 
@@ -2589,6 +2646,7 @@ function BillDialog({
   isPending: boolean;
   projectId: string;
   agreements: Agreement[];
+  allBills: Bill[];
   onAddSubcontractor?: () => void;
 }) {
   const [formData, setFormData] = useState({
@@ -2599,12 +2657,28 @@ function BillDialog({
     memo: "",
     attachment_url: null as string | null,
     agreement_id: "",
+    offset_bill_id: "",
   });
   const [categorySearch, setCategorySearch] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
 
   // Predefined categories
   const predefinedCategories = ["Materials", "Labor", "Permits", "Equipment", "Subcontractor"];
+
+  // Categories that can offset subcontractor bills
+  const offsetEligibleCategories = ["Materials", "Equipment"];
+  const isOffsetEligible = offsetEligibleCategories.includes(formData.category);
+
+  // Get subcontractor bills for the selected agreement (for offset dropdown)
+  const subcontractorBillsForOffset = useMemo(() => {
+    if (!formData.agreement_id || !isOffsetEligible) return [];
+    return allBills.filter(b => 
+      b.agreement_id === formData.agreement_id && 
+      b.installer_company && // Must have a subcontractor
+      !b.is_voided &&
+      b.id !== bill?.id // Can't offset itself
+    );
+  }, [allBills, formData.agreement_id, isOffsetEligible, bill?.id]);
 
   // Fetch active subcontractors from subcontractors table
   const { data: activeSubcontractors = [] } = useQuery({
@@ -2652,6 +2726,7 @@ function BillDialog({
           memo: bill.memo || "",
           attachment_url: bill.attachment_url || null,
           agreement_id: bill.agreement_id || "",
+          offset_bill_id: bill.offset_bill_id || "",
         });
       } else {
         setFormData({ 
@@ -2661,11 +2736,19 @@ function BillDialog({
           bill_amount: "", 
           memo: "", 
           attachment_url: null, 
-          agreement_id: "" 
+          agreement_id: "",
+          offset_bill_id: "",
         });
       }
     }
   }, [open, bill]);
+
+  // Clear offset_bill_id when category changes to non-eligible
+  useEffect(() => {
+    if (!isOffsetEligible && formData.offset_bill_id) {
+      setFormData(p => ({ ...p, offset_bill_id: "" }));
+    }
+  }, [isOffsetEligible, formData.offset_bill_id]);
 
   const billAmount = parseFloat(formData.bill_amount) || 0;
 
@@ -2679,6 +2762,7 @@ function BillDialog({
       memo: formData.memo || null,
       attachment_url: formData.attachment_url,
       agreement_id: formData.agreement_id || null,
+      offset_bill_id: formData.offset_bill_id || null,
     });
   };
 
@@ -2829,6 +2913,33 @@ function BillDialog({
               <Input value={formData.bill_ref} onChange={(e) => setFormData(p => ({ ...p, bill_ref: e.target.value }))} placeholder="Invoice/PO number" />
             </div>
           </div>
+          
+          {/* Offset Subcontractor Bill - only show for Materials/Equipment */}
+          {isOffsetEligible && subcontractorBillsForOffset.length > 0 && (
+            <div className="p-3 rounded-lg border border-primary/20 bg-primary/5">
+              <Label className="text-sm font-medium">Apply as Offset to Subcontractor Invoice</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                This {formData.category.toLowerCase()} cost will reduce what you owe the selected subcontractor
+              </p>
+              <Select 
+                value={formData.offset_bill_id} 
+                onValueChange={(v) => setFormData(p => ({ ...p, offset_bill_id: v === "__none__" ? "" : v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select subcontractor invoice to offset..." />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="__none__">No offset (standalone bill)</SelectItem>
+                  {subcontractorBillsForOffset.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.installer_company} - {b.bill_ref || 'No ref'} ({formatCurrency(b.bill_amount)}) - Balance: {formatCurrency(b.balance)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div>
             <Label>Memo/Description <span className="text-destructive">*</span></Label>
             <Input 
