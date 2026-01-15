@@ -59,18 +59,21 @@ export function PortalInvoices({ paymentSchedule, projectId, project }: PortalIn
   });
 
   // Fetch company name from settings
-  const { data: companyName } = useQuery({
-    queryKey: ['company-name-portal'],
+  const { data: companyNameData } = useQuery({
+    queryKey: ['app-settings', 'company_name'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_value')
         .eq('setting_key', 'company_name')
-        .maybeSingle();
+        .single();
       if (error) throw error;
-      return data?.setting_value || 'Company';
+      return data?.setting_value;
     },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
+  
+  const companyName = companyNameData || 'Company';
 
   // Fetch payments made against the project
   const { data: projectPayments } = useQuery({
