@@ -18,6 +18,7 @@ import { UserManagement } from "@/components/dashboard/UserManagement";
 import { EmailTemplatesManager } from "@/components/admin/EmailTemplatesManager";
 import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement";
 import { ChatManagement } from "@/components/admin/ChatManagement";
+import { LogoUpload } from "@/components/admin/LogoUpload";
 import { format } from "date-fns";
 import {
   Table,
@@ -429,6 +430,9 @@ export default function AdminSettings() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Company Logo */}
+                <LogoUpload />
 
                 {/* Company Settings */}
                 <Card>
