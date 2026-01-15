@@ -948,6 +948,15 @@ export default function Production() {
 
   // Admin: hard-delete project AND all related records (so the project delete never gets blocked)
   const deleteProjectCascade = async (projectId: string) => {
+    // Disconnect estimates (set project_id to null instead of deleting)
+    {
+      const { error } = await supabase
+        .from('estimates')
+        .update({ project_id: null })
+        .eq('project_id', projectId);
+      if (error) throw error;
+    }
+
     // bill_payments depend on project_bills
     const { data: bills, error: billsSelError } = await supabase
       .from('project_bills')
@@ -995,6 +1004,32 @@ export default function Production() {
     // Bills (after bill_payments)
     {
       const { error } = await supabase.from('project_bills').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+
+    // Portal-related records
+    {
+      const { error } = await supabase.from('portal_chat_messages').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('portal_chat_messages_archived').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('portal_view_logs').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('client_comments').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('client_portal_tokens').delete().eq('project_id', projectId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await supabase.from('project_notification_log').delete().eq('project_id', projectId);
       if (error) throw error;
     }
 
