@@ -1,19 +1,22 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   MapPin, 
   Phone, 
   Mail, 
   Calendar, 
   User, 
-  FileText,
   ClipboardList,
   Building2,
-  UserCircle
+  UserCircle,
+  CheckCircle2,
+  Clock,
+  FileText,
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -41,196 +44,345 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
     const person = salespeople.find(s => s.name.toLowerCase() === name.toLowerCase());
     return person?.phone || null;
   };
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-      Proposal: { label: 'Proposal Stage', variant: 'secondary' },
-      Pending: { label: 'Pending', variant: 'outline' },
-      'In Progress': { label: 'In Progress', variant: 'default' },
-      Completed: { label: 'Completed', variant: 'default' },
-      Cancelled: { label: 'Cancelled', variant: 'destructive' },
+
+  const getStatusConfig = (status: string) => {
+    const config: Record<string, { color: string; bgColor: string; icon: React.ReactNode }> = {
+      'Proposal': { color: 'text-amber-700', bgColor: 'bg-amber-50 border-amber-200', icon: <FileText className="h-4 w-4" /> },
+      'Pending': { color: 'text-blue-700', bgColor: 'bg-blue-50 border-blue-200', icon: <Clock className="h-4 w-4" /> },
+      'In Progress': { color: 'text-primary', bgColor: 'bg-primary/5 border-primary/20', icon: <Sparkles className="h-4 w-4" /> },
+      'Completed': { color: 'text-green-700', bgColor: 'bg-green-50 border-green-200', icon: <CheckCircle2 className="h-4 w-4" /> },
     };
-    const config = statusConfig[status] || { label: status, variant: 'outline' };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    return config[status] || { color: 'text-slate-700', bgColor: 'bg-slate-50 border-slate-200', icon: null };
   };
+
+  const statusConfig = getStatusConfig(project.project_status || 'Proposal');
+
+  // Timeline steps
+  const timelineSteps = [
+    { 
+      label: 'Proposal', 
+      completed: true, 
+      date: project.created_at ? format(new Date(project.created_at), 'MMM d, yyyy') : null,
+      active: project.project_status === 'Proposal'
+    },
+    { 
+      label: 'Agreement Signed', 
+      completed: !!project.agreement_signed_date, 
+      date: project.agreement_signed_date ? format(new Date(project.agreement_signed_date), 'MMM d, yyyy') : null,
+      active: project.project_status === 'Pending'
+    },
+    { 
+      label: 'In Progress', 
+      completed: project.project_status === 'In Progress' || project.project_status === 'Completed',
+      date: project.install_start_date ? format(new Date(project.install_start_date), 'MMM d, yyyy') : null,
+      active: project.project_status === 'In Progress'
+    },
+    { 
+      label: 'Completed', 
+      completed: project.project_status === 'Completed',
+      date: project.install_end_date ? format(new Date(project.install_end_date), 'MMM d, yyyy') : null,
+      active: project.project_status === 'Completed'
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Project Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Project #{project.project_number}</p>
-              <CardTitle className="text-2xl mt-1">{project.project_name}</CardTitle>
-            </div>
-            {getStatusBadge(project.project_status || 'Proposal')}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Customer & Location Info */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                <User className="h-4 w-4" />
-                CUSTOMER INFORMATION
-              </h4>
-              <p className="font-medium text-lg">
-                {project.customer_first_name} {project.customer_last_name}
-              </p>
-              {project.customer_email && (
-                <p className="text-sm flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  {project.customer_email}
-                </p>
-              )}
-              {project.cell_phone && (
-                <p className="text-sm flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  {project.cell_phone}
-                </p>
-              )}
-              {project.home_phone && (
-                <p className="text-sm flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  {project.home_phone} (Home)
-                </p>
-              )}
-            </div>
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                PROJECT DETAILS
-              </h4>
-              {project.project_address && (
-                <p className="text-sm flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  {project.project_address}
-                </p>
-              )}
-              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                {project.project_type && (
-                  <span className="text-muted-foreground">
-                    <span className="font-medium text-foreground">Type:</span> {project.project_type}
-                  </span>
-                )}
-                {project.lead_source && (
-                  <span className="text-muted-foreground">
-                    <span className="font-medium text-foreground">Source:</span> {project.lead_source}
-                  </span>
-                )}
+      {/* Status & Timeline Card */}
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <div className={`h-1.5 bg-gradient-to-r ${project.project_status === 'Completed' ? 'from-green-400 to-green-600' : 'from-primary to-primary/70'}`} />
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-2xl ${statusConfig.bgColor} border flex items-center justify-center`}>
+                <span className={statusConfig.color}>{statusConfig.icon}</span>
               </div>
-              <div className="flex flex-wrap gap-4 text-sm">
-                {project.agreement_signed_date && (
-                  <span className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    Signed: {format(new Date(project.agreement_signed_date), 'MMM d, yyyy')}
-                  </span>
-                )}
-                {project.install_start_date && (
-                  <span className="flex items-center gap-2 text-primary">
-                    <Calendar className="h-4 w-4" />
-                    Install: {format(new Date(project.install_start_date), 'MMM d, yyyy')}
-                  </span>
-                )}
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Project Status</h3>
+                <Badge className={`${statusConfig.bgColor} ${statusConfig.color} border-0 mt-1`}>
+                  {project.project_status || 'Proposal Stage'}
+                </Badge>
               </div>
             </div>
           </div>
 
-          {/* Your Team - Salesperson & Project Manager */}
-          {(project.primary_salesperson || project.project_manager) && (
-            <>
-              <Separator />
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
-                  <UserCircle className="h-4 w-4" />
-                  YOUR TEAM
-                </h4>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {(() => {
-                    const salesperson = project.primary_salesperson;
-                    const manager = project.project_manager;
-                    const isSamePerson = salesperson && manager && salesperson.toLowerCase() === manager.toLowerCase();
-                    
-                    if (isSamePerson) {
-                      // Same person - show once with combined role
-                      const phone = getSalespersonPhone(salesperson);
-                      return (
-                        <div className="space-y-1">
-                          <p className="font-medium">{salesperson}</p>
-                          <p className="text-xs text-muted-foreground">Salesperson & Project Manager</p>
-                          {phone && (
-                            <p className="text-sm flex items-center gap-2 text-primary">
-                              <Phone className="h-4 w-4" />
-                              {phone}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    }
-                    
-                    // Different people - show both
-                    return (
-                      <>
-                        {salesperson && (
-                          <div className="space-y-1">
-                            <p className="font-medium">{salesperson}</p>
-                            <p className="text-xs text-muted-foreground">Salesperson</p>
-                            {getSalespersonPhone(salesperson) && (
-                              <p className="text-sm flex items-center gap-2 text-primary">
-                                <Phone className="h-4 w-4" />
-                                {getSalespersonPhone(salesperson)}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                        {manager && (
-                          <div className="space-y-1">
-                            <p className="font-medium">{manager}</p>
-                            <p className="text-xs text-muted-foreground">Project Manager</p>
-                            {getSalespersonPhone(manager) && (
-                              <p className="text-sm flex items-center gap-2 text-primary">
-                                <Phone className="h-4 w-4" />
-                                {getSalespersonPhone(manager)}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+          {/* Visual Timeline */}
+          <div className="relative">
+            <div className="hidden sm:block absolute top-5 left-0 right-0 h-0.5 bg-slate-200" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {timelineSteps.map((step, index) => (
+                <div key={index} className="relative flex flex-col items-center text-center">
+                  <div className={`
+                    relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+                    ${step.completed 
+                      ? 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-lg shadow-primary/25' 
+                      : step.active
+                        ? 'bg-primary/20 text-primary border-2 border-primary'
+                        : 'bg-slate-100 text-slate-400 border-2 border-slate-200'}
+                  `}>
+                    {step.completed ? (
+                      <CheckCircle2 className="h-5 w-5" />
+                    ) : (
+                      <span className="text-sm font-bold">{index + 1}</span>
+                    )}
+                  </div>
+                  <p className={`mt-3 text-sm font-medium ${step.completed || step.active ? 'text-slate-900' : 'text-slate-400'}`}>
+                    {step.label}
+                  </p>
+                  {step.date && (
+                    <p className="text-xs text-slate-500 mt-1">{step.date}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Customer & Project Details */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Customer Information */}
+        <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <h4 className="font-bold text-slate-900">Customer Information</h4>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-14 w-14 ring-4 ring-slate-100">
+                  <AvatarFallback className="bg-gradient-to-br from-slate-700 to-slate-800 text-white font-bold">
+                    {project.customer_first_name?.charAt(0) || ''}{project.customer_last_name?.charAt(0) || ''}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-bold text-lg text-slate-900">
+                    {project.customer_first_name} {project.customer_last_name}
+                  </p>
+                  <p className="text-sm text-slate-500">Project Owner</p>
                 </div>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-    {/* Description of Work from Agreements */}
-    {agreements.length > 0 && agreements.some(a => a.description_of_work) && (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5" />
-            Description of Work
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {agreements
-            .filter(a => a.description_of_work)
-            .map((agreement: any) => (
-              <div key={agreement.id} className="space-y-2">
-                {agreement.agreement_number && (
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Agreement #{agreement.agreement_number}
-                  </p>
+              
+              <div className="space-y-3 pt-2">
+                {project.customer_email && (
+                  <a href={`mailto:${project.customer_email}`} className="flex items-center gap-3 text-slate-600 hover:text-primary transition-colors group/link">
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center group-hover/link:bg-primary/10 transition-colors">
+                      <Mail className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm">{project.customer_email}</span>
+                  </a>
                 )}
-                <p className="text-sm whitespace-pre-wrap">{agreement.description_of_work}</p>
+                {project.cell_phone && (
+                  <a href={`tel:${project.cell_phone}`} className="flex items-center gap-3 text-slate-600 hover:text-primary transition-colors group/link">
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center group-hover/link:bg-primary/10 transition-colors">
+                      <Phone className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm">{project.cell_phone}</span>
+                  </a>
+                )}
+                {project.home_phone && (
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center">
+                      <Phone className="h-4 w-4" />
+                    </div>
+                    <span className="text-sm">{project.home_phone} <span className="text-slate-400">(Home)</span></span>
+                  </div>
+                )}
               </div>
-            ))}
-        </CardContent>
-      </Card>
-    )}
+            </div>
+          </CardContent>
+        </Card>
 
+        {/* Project Details */}
+        <Card className="border-0 shadow-lg overflow-hidden group hover:shadow-xl transition-shadow duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                <Building2 className="h-5 w-5 text-white" />
+              </div>
+              <h4 className="font-bold text-slate-900">Project Details</h4>
+            </div>
+            
+            <div className="space-y-4">
+              {project.project_address && (
+                <a 
+                  href={`https://maps.google.com/?q=${encodeURIComponent(project.project_address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-3 text-slate-600 hover:text-primary transition-colors group/link"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 group-hover/link:bg-primary/10 transition-colors">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <span className="text-sm pt-2">{project.project_address}</span>
+                </a>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                {project.project_type && (
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Type</p>
+                    <p className="font-semibold text-slate-900">{project.project_type}</p>
+                  </div>
+                )}
+                {project.lead_source && (
+                  <div className="bg-slate-50 rounded-xl p-4">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Source</p>
+                    <p className="font-semibold text-slate-900">{project.lead_source}</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Key Dates */}
+              <div className="flex flex-wrap gap-3 pt-2">
+                {project.agreement_signed_date && (
+                  <div className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-2 rounded-lg">
+                    <Calendar className="h-4 w-4" />
+                    <span className="text-xs font-medium">Signed: {format(new Date(project.agreement_signed_date), 'MMM d, yyyy')}</span>
+                  </div>
+                )}
+                {project.install_start_date && (
+                  <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-2 rounded-lg">
+                    <Calendar className="h-4 w-4" />
+                    <span className="text-xs font-medium">Start: {format(new Date(project.install_start_date), 'MMM d, yyyy')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Your Team */}
+      {(project.primary_salesperson || project.project_manager) && (
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/25">
+                <UserCircle className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900">Your Team</h4>
+                <p className="text-sm text-slate-500">Your dedicated project contacts</p>
+              </div>
+            </div>
+            
+            <div className="grid sm:grid-cols-2 gap-4">
+              {(() => {
+                const salesperson = project.primary_salesperson;
+                const manager = project.project_manager;
+                const isSamePerson = salesperson && manager && salesperson.toLowerCase() === manager.toLowerCase();
+                
+                if (isSamePerson) {
+                  const phone = getSalespersonPhone(salesperson);
+                  return (
+                    <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-5 border border-slate-200">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-14 w-14 ring-4 ring-white shadow-md">
+                          <AvatarFallback className="bg-gradient-to-br from-purple-500 to-purple-600 text-white font-bold">
+                            {salesperson.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-bold text-slate-900">{salesperson}</p>
+                          <p className="text-sm text-slate-500">Salesperson & Project Manager</p>
+                          {phone && (
+                            <a href={`tel:${phone}`} className="inline-flex items-center gap-2 mt-2 text-primary hover:text-primary/80 transition-colors">
+                              <Phone className="h-4 w-4" />
+                              <span className="text-sm font-medium">{phone}</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <>
+                    {salesperson && (
+                      <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-5 border border-slate-200">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-14 w-14 ring-4 ring-white shadow-md">
+                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-600 text-white font-bold">
+                              {salesperson.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-bold text-slate-900">{salesperson}</p>
+                            <p className="text-sm text-slate-500">Salesperson</p>
+                            {getSalespersonPhone(salesperson) && (
+                              <a href={`tel:${getSalespersonPhone(salesperson)}`} className="inline-flex items-center gap-2 mt-2 text-primary hover:text-primary/80 transition-colors">
+                                <Phone className="h-4 w-4" />
+                                <span className="text-sm font-medium">{getSalespersonPhone(salesperson)}</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {manager && (
+                      <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl p-5 border border-slate-200">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-14 w-14 ring-4 ring-white shadow-md">
+                            <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white font-bold">
+                              {manager.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-bold text-slate-900">{manager}</p>
+                            <p className="text-sm text-slate-500">Project Manager</p>
+                            {getSalespersonPhone(manager) && (
+                              <a href={`tel:${getSalespersonPhone(manager)}`} className="inline-flex items-center gap-2 mt-2 text-primary hover:text-primary/80 transition-colors">
+                                <Phone className="h-4 w-4" />
+                                <span className="text-sm font-medium">{getSalespersonPhone(manager)}</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Description of Work from Agreements */}
+      {agreements.length > 0 && agreements.some(a => a.description_of_work) && (
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/25">
+                <ClipboardList className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900">Scope of Work</h4>
+                <p className="text-sm text-slate-500">Details of the work being performed</p>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {agreements
+                .filter(a => a.description_of_work)
+                .map((agreement: any) => (
+                  <div key={agreement.id} className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                    {agreement.agreement_number && (
+                      <Badge variant="outline" className="mb-3">
+                        Agreement #{agreement.agreement_number}
+                      </Badge>
+                    )}
+                    <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{agreement.description_of_work}</p>
+                  </div>
+                ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
