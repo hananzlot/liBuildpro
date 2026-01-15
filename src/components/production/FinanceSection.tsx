@@ -155,6 +155,7 @@ interface Bill {
   voided_by: string | null;
   void_reason: string | null;
   offset_bill_id: string | null;
+  created_at: string | null;
 }
 
 interface Agreement {
@@ -2072,6 +2073,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         open={quickPayDialogOpen}
         onOpenChange={setQuickPayDialogOpen}
         bill={payingBill}
+        offsetBills={payingBill ? billOffsets[payingBill.id]?.offsetBills || [] : []}
         onSave={(payment) => payingBill && quickPayMutation.mutate({ billId: payingBill.id, payment })}
         isPending={quickPayMutation.isPending}
       />
@@ -3592,12 +3594,14 @@ function QuickPayDialog({
   open, 
   onOpenChange, 
   bill,
+  offsetBills = [],
   onSave, 
   isPending,
 }: { 
   open: boolean; 
   onOpenChange: (open: boolean) => void; 
   bill: Bill | null;
+  offsetBills?: Bill[];
   onSave: (payment: Omit<BillPayment, 'id' | 'bill_id'>) => void;
   isPending: boolean;
 }) {
@@ -3652,24 +3656,57 @@ function QuickPayDialog({
   const isOverpaying = paymentAmount > balance;
 
   const hasBeenOffset = bill?.original_bill_amount !== null && bill?.original_bill_amount !== undefined && bill.original_bill_amount !== bill.bill_amount;
+  const totalOffset = offsetBills.reduce((sum, b) => sum + (b.bill_amount || 0), 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Record Payment</DialogTitle>
-          <DialogDescription>
-            {bill?.installer_company && <span className="font-medium">{bill.installer_company}</span>}
-            {bill?.installer_company && " • "}
-            {hasBeenOffset && (
-              <>
-                Original: <span className="line-through text-muted-foreground">{formatCurrency(bill?.original_bill_amount)}</span>
-                {" → "}
-                Net: <span className="font-medium">{formatCurrency(bill?.bill_amount)}</span>
-                {" • "}
-              </>
-            )}
-            Balance: <span className="font-semibold text-amber-600">{formatCurrency(balance)}</span>
+          <DialogDescription asChild>
+            <div className="space-y-2">
+              <div>
+                {bill?.installer_company && <span className="font-medium">{bill.installer_company}</span>}
+                {bill?.installer_company && " • "}
+                {hasBeenOffset && (
+                  <>
+                    Original: <span className="line-through text-muted-foreground">{formatCurrency(bill?.original_bill_amount)}</span>
+                    {" → "}
+                    Net: <span className="font-medium">{formatCurrency(bill?.bill_amount)}</span>
+                    {" • "}
+                  </>
+                )}
+                Balance: <span className="font-semibold text-amber-600">{formatCurrency(balance)}</span>
+              </div>
+              
+              {/* Offset Details */}
+              {offsetBills.length > 0 && (
+                <div className="mt-3 p-3 rounded-lg border border-blue-200 bg-blue-50/50">
+                  <p className="text-xs font-semibold text-blue-700 mb-2">
+                    Material/Equipment Offsets Applied ({formatCurrency(totalOffset)} total)
+                  </p>
+                  <div className="space-y-1.5">
+                    {offsetBills.map((offsetBill) => (
+                      <div key={offsetBill.id} className="text-xs text-blue-600 border-l-2 border-blue-300 pl-2">
+                        <div className="flex justify-between items-start">
+                          <span className="font-medium">{offsetBill.installer_company || "Unknown vendor"}</span>
+                          <span className="font-semibold text-blue-700">{formatCurrency(offsetBill.bill_amount)}</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {offsetBill.created_at && formatDate(offsetBill.created_at)}
+                          {offsetBill.bill_ref && ` • Ref: ${offsetBill.bill_ref}`}
+                        </div>
+                        {offsetBill.memo && (
+                          <p className="text-[10px] text-muted-foreground italic mt-0.5 line-clamp-2">
+                            {offsetBill.memo}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
