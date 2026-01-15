@@ -177,6 +177,22 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     enabled: !!project?.id && open,
   });
 
+  // Fetch portal chat messages for this project
+  const { data: portalChatMessages = [] } = useQuery({
+    queryKey: ["portal-chat-messages", project?.id],
+    queryFn: async () => {
+      if (!project?.id) return [];
+      const { data, error } = await supabase
+        .from("portal_chat_messages")
+        .select("*")
+        .eq("project_id", project.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!project?.id && open,
+  });
+
   const { data: feedback } = useQuery({
     queryKey: ["project-feedback", project?.id],
     queryFn: async () => {
@@ -1715,6 +1731,51 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                         <p className="text-[10px] text-muted-foreground mt-1">
                           {new Date(msg.created_at).toLocaleString()}
                         </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Portal Chat Messages */}
+            <Card>
+              <CardHeader className="py-3 px-4">
+                <CardTitle className="text-xs font-medium flex items-center gap-2">
+                  <MessageSquare className="h-3 w-3" />
+                  Customer Portal Chat
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                {portalChatMessages.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-3">
+                    No chat messages from the customer portal yet
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {portalChatMessages.map((msg) => (
+                      <div 
+                        key={msg.id} 
+                        className={`p-2 rounded ${
+                          msg.sender_type === 'customer' 
+                            ? 'bg-blue-50 border border-blue-200' 
+                            : 'bg-muted'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-medium text-xs">
+                            {msg.sender_name}
+                            {msg.sender_type === 'customer' && (
+                              <Badge variant="outline" className="ml-2 text-[9px] px-1 py-0">
+                                Customer
+                              </Badge>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {new Date(msg.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <p className="text-xs">{msg.message}</p>
                       </div>
                     ))}
                   </div>
