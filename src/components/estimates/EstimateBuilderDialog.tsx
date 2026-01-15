@@ -516,6 +516,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
       
+      // When editing, preserve existing status; for new estimates use draft
+      const currentStatus = isEditing && existingEstimate?.estimate?.status 
+        ? existingEstimate.estimate.status 
+        : "draft";
+      
       // Prepare estimate data
       const estimateData = {
         customer_name: formData.customer_name,
@@ -538,10 +543,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         notes: formData.notes || null,
         terms_and_conditions: formData.terms_and_conditions || null,
         work_scope_description: formData.work_scope_description || null,
-        status: "draft" as const,
         created_by: user?.id || null,
         project_id: linkedProjectId || null,
       };
+      
+      // Only set status for new estimates (not when editing)
+      const insertData = isEditing ? estimateData : { ...estimateData, status: "draft" as const };
 
       let savedEstimateId = sourceEstimateId;
 
@@ -560,7 +567,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         // Create new estimate (including clone mode - creates a brand new estimate with new number)
         const { data: newEstimate, error: insertError } = await supabase
           .from("estimates")
-          .insert(estimateData)
+          .insert(insertData)
           .select()
           .single();
         if (insertError) throw insertError;
