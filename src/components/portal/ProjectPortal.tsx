@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,6 +35,7 @@ interface ProjectPortalProps {
 }
 
 export function ProjectPortal({ token }: ProjectPortalProps) {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('project');
 
   // Fetch company settings
@@ -381,6 +382,8 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               estimates={estimates}
               projectId={project.id}
               token={token}
+              portalTokenId={portalData.token.id}
+              onRefresh={() => queryClient.invalidateQueries({ queryKey: ['project-portal', token] })}
             />
           </TabsContent>
 
