@@ -192,26 +192,17 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     enabled: !!project?.id && open,
   });
 
-  // Fetch unique salespeople names from all projects
+  // Fetch salespeople from the salespeople table
   const { data: existingSalespeople = [] } = useQuery({
-    queryKey: ["project-salespeople"],
+    queryKey: ["salespeople-names"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("projects")
-        .select("primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson, project_manager");
+        .from("salespeople")
+        .select("name")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
-      
-      // Extract unique non-null names
-      const names = new Set<string>();
-      data.forEach((p) => {
-        if (p.primary_salesperson) names.add(p.primary_salesperson);
-        if (p.secondary_salesperson) names.add(p.secondary_salesperson);
-        if (p.tertiary_salesperson) names.add(p.tertiary_salesperson);
-        if (p.quaternary_salesperson) names.add(p.quaternary_salesperson);
-        if (p.project_manager) names.add(p.project_manager);
-      });
-      
-      return Array.from(names).sort();
+      return data.map(s => s.name);
     },
     enabled: open,
   });
