@@ -87,56 +87,6 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
 
   return (
     <div className="space-y-6">
-      {/* Status & Timeline Card */}
-      <Card className="border-0 shadow-lg overflow-hidden max-w-md mx-auto">
-        <div className={`h-1.5 bg-gradient-to-r ${project.project_status === 'Completed' ? 'from-green-400 to-green-600' : 'from-primary to-primary/70'}`} />
-        <CardContent className="p-6 sm:p-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 rounded-2xl ${statusConfig.bgColor} border flex items-center justify-center`}>
-                <span className={statusConfig.color}>{statusConfig.icon}</span>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-slate-900">Project Status</h3>
-                <Badge className={`${statusConfig.bgColor} ${statusConfig.color} border-0 mt-1`}>
-                  {project.project_status || 'Proposal Stage'}
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          {/* Visual Timeline */}
-          <div className="relative">
-            <div className="hidden sm:block absolute top-5 left-0 right-0 h-0.5 bg-slate-200" />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {timelineSteps.map((step, index) => (
-                <div key={index} className="relative flex flex-col items-center text-center">
-                  <div className={`
-                    relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
-                    ${step.completed 
-                      ? 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-lg shadow-primary/25' 
-                      : step.active
-                        ? 'bg-primary/20 text-primary border-2 border-primary'
-                        : 'bg-slate-100 text-slate-400 border-2 border-slate-200'}
-                  `}>
-                    {step.completed ? (
-                      <CheckCircle2 className="h-5 w-5" />
-                    ) : (
-                      <span className="text-sm font-bold">{index + 1}</span>
-                    )}
-                  </div>
-                  <p className={`mt-3 text-sm font-medium ${step.completed || step.active ? 'text-slate-900' : 'text-slate-400'}`}>
-                    {step.label}
-                  </p>
-                  {step.date && (
-                    <p className="text-xs text-slate-500 mt-1">{step.date}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Customer & Project Details */}
       <div className="grid lg:grid-cols-2 gap-6">

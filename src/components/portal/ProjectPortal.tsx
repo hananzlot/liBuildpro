@@ -307,7 +307,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           
           {/* Project Hero Section */}
           <div className="py-8 sm:py-10">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
               <div className="space-y-4">
                 <span className="text-white/60 text-sm font-mono">#{project.project_number}</span>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
@@ -319,6 +319,68 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                     {project.project_address}
                   </p>
                 )}
+              </div>
+              
+              {/* Project Status Card */}
+              <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-5 shadow-xl w-full lg:w-auto lg:min-w-[400px]">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    project.project_status === 'Completed' ? 'bg-green-100' :
+                    project.project_status === 'In Progress' ? 'bg-primary/10' :
+                    project.project_status === 'Pending' ? 'bg-blue-100' :
+                    'bg-amber-100'
+                  }`}>
+                    {project.project_status === 'Completed' ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                    ) : project.project_status === 'In Progress' ? (
+                      <Briefcase className="h-6 w-6 text-primary" />
+                    ) : (
+                      <FileText className="h-6 w-6 text-amber-600" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Project Status</h3>
+                    <span className={`text-sm font-medium ${
+                      project.project_status === 'Completed' ? 'text-green-600' :
+                      project.project_status === 'In Progress' ? 'text-primary' :
+                      project.project_status === 'Pending' ? 'text-blue-600' :
+                      'text-amber-600'
+                    }`}>
+                      {project.project_status || 'Proposal'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Timeline Stepper */}
+                <div className="relative">
+                  <div className="hidden sm:block absolute top-5 left-0 right-0 h-0.5 bg-slate-200" />
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { label: 'Proposal', step: 1, completed: true },
+                      { label: 'Agreement Signed', step: 2, completed: !!project.agreement_signed_date },
+                      { label: 'In Progress', step: 3, completed: project.project_status === 'In Progress' || project.project_status === 'Completed' },
+                      { label: 'Completed', step: 4, completed: project.project_status === 'Completed' },
+                    ].map((item, index) => (
+                      <div key={index} className="relative flex flex-col items-center text-center">
+                        <div className={`
+                          relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300
+                          ${item.completed 
+                            ? 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-md' 
+                            : 'bg-slate-100 text-slate-400 border-2 border-slate-200'}
+                        `}>
+                          {item.completed ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <span>{item.step}</span>
+                          )}
+                        </div>
+                        <p className={`mt-2 text-xs font-medium ${item.completed ? 'text-slate-900' : 'text-slate-400'}`}>
+                          {item.label}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
