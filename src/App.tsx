@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { PortalChatProvider } from "@/contexts/PortalChatContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Production from "./pages/Production";
@@ -152,12 +153,13 @@ function DefaultPageRedirect() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
+      <PortalChatProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
             <Route
               path="/"
               element={<DefaultPageRedirect />}
@@ -233,11 +235,12 @@ const App = () => (
             <Route path="/portal" element={<ClientPortal />} />
             {/* Public document portal - no auth required */}
             <Route path="/document-portal" element={<DocumentPortal />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </PortalChatProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
