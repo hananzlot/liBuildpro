@@ -848,6 +848,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       } else if (deleteTarget?.type === "payment") {
         queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       } else if (deleteTarget?.type === "bill") {
+        queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
         queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       }
       setDeleteDialogOpen(false);
