@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Plus, Trash2, Eye, Send, Loader2, Upload, ExternalLink, CheckCircle, XCircle, Clock, Users, Settings } from "lucide-react";
+import { FileText, Plus, Trash2, Eye, Send, Loader2, Upload, ExternalLink, CheckCircle, XCircle, Clock, Users, Settings, Pencil, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MultiSignerInput, SignerData } from "@/components/documents/MultiSignerInput";
@@ -40,6 +40,8 @@ interface SignatureDocument {
   signed_at: string | null;
   declined_at: string | null;
   decline_reason: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
   notes: string | null;
   created_at: string;
   document_signers?: DocumentSigner[];
@@ -66,6 +68,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.E
   signed: { label: "Signed", color: "bg-green-500", icon: CheckCircle },
   declined: { label: "Declined", color: "bg-red-500", icon: XCircle },
   partial: { label: "Partially Signed", color: "bg-amber-500", icon: Users },
+  cancelled: { label: "Cancelled", color: "bg-red-700", icon: Ban },
 };
 
 const SIGNER_COLORS = [
@@ -82,6 +85,9 @@ export default function Documents() {
   const [currentStep, setCurrentStep] = useState<"upload" | "signers" | "fields">("upload");
   const [uploadedDocUrl, setUploadedDocUrl] = useState<string>("");
   const [uploadedDocId, setUploadedDocId] = useState<string>("");
+  const [editingDocument, setEditingDocument] = useState<SignatureDocument | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState("");
   
   // Form state
   const [documentName, setDocumentName] = useState("");
@@ -337,6 +343,30 @@ export default function Documents() {
     },
   });
 
+  // Cancel document
+  const cancelMutation = useMutation({
+    mutationFn: async ({ docId, reason }: { docId: string; reason: string }) => {
+      const { data, error } = await supabase.functions.invoke("cancel-document-signature", {
+        body: {
+          documentId: docId,
+          cancellationReason: reason,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
+      toast.success("Document cancelled and signers notified");
+      setCancelDialogOpen(false);
+      setSelectedDocument(null);
+      setCancellationReason("");
+    },
+    onError: (error) => {
+      toast.error(`Failed to cancel: ${error.message}`);
+    },
+  });
+
   const resetForm = () => {
     setDocumentName("");
     setNotes("");
@@ -346,6 +376,7 @@ export default function Documents() {
     setCurrentStep("upload");
     setUploadedDocId("");
     setUploadedDocUrl("");
+    setEditingDocument(null);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -361,6 +392,71 @@ export default function Documents() {
   const handleSendClick = (doc: SignatureDocument) => {
     setSelectedDocument(doc);
     setSendDialogOpen(true);
+  };
+
+  const handleEditClick = async (doc: SignatureDocument) => {
+    setEditingDocument(doc);
+    setUploadedDocId(doc.id);
+    setUploadedDocUrl(doc.document_url);
+    setDocumentName(doc.document_name);
+    setNotes(doc.notes || "");
+    
+    // Load signers
+    const { data: dbSigners } = await supabase
+      .from("document_signers")
+      .select("*")
+      .eq("document_id", doc.id)
+      .order("signer_order");
+    
+    if (dbSigners && dbSigners.length > 0) {
+      setSigners(dbSigners.map((s, idx) => ({
+        id: s.id,
+        name: s.signer_name,
+        email: s.signer_email,
+        order: s.signer_order,
+        color: SIGNER_COLORS[idx % SIGNER_COLORS.length],
+      })));
+    } else {
+      setSigners([{
+        id: crypto.randomUUID(),
+        name: doc.recipient_name,
+        email: doc.recipient_email,
+        order: 1,
+        color: SIGNER_COLORS[0],
+      }]);
+    }
+    
+    // Load existing fields
+    const { data: dbFields } = await supabase
+      .from("document_signature_fields")
+      .select("*, document_signers(signer_name)")
+      .eq("document_id", doc.id);
+    
+    if (dbFields && dbFields.length > 0) {
+      setSignatureFields(dbFields.map(f => ({
+        id: f.id,
+        signerId: f.signer_id || "",
+        signerName: f.document_signers?.signer_name || "Unknown",
+        pageNumber: f.page_number,
+        x: f.x_position,
+        y: f.y_position,
+        width: f.width,
+        height: f.height,
+        fieldType: f.field_type as any,
+        isRequired: f.is_required,
+        fieldLabel: f.field_label || undefined,
+      })));
+    } else {
+      setSignatureFields([]);
+    }
+    
+    setCurrentStep("signers");
+    setUploadDialogOpen(true);
+  };
+
+  const handleCancelClick = (doc: SignatureDocument) => {
+    setSelectedDocument(doc);
+    setCancelDialogOpen(true);
   };
 
   const handleFieldsChange = useCallback((fields: SignatureField[]) => {
@@ -470,7 +566,8 @@ export default function Documents() {
                     <TableHead>Recipients</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
-                    <TableHead className="w-[140px]">Actions</TableHead>
+                    <TableHead>Date Emailed</TableHead>
+                    <TableHead className="w-[180px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -480,6 +577,8 @@ export default function Documents() {
                     const StatusIcon = status.icon;
                     const signerCount = doc.document_signers?.length || 1;
                     const signedSigners = doc.document_signers?.filter(s => s.status === 'signed').length || 0;
+                    const canEdit = docStatus === "pending" && !doc.sent_at;
+                    const canCancel = doc.sent_at && docStatus !== "signed" && docStatus !== "cancelled" && docStatus !== "declined";
                     
                     return (
                       <TableRow key={doc.id}>
@@ -489,6 +588,11 @@ export default function Documents() {
                             {doc.notes && (
                               <span className="text-xs text-muted-foreground truncate max-w-[200px]">
                                 {doc.notes}
+                              </span>
+                            )}
+                            {doc.cancellation_reason && (
+                              <span className="text-xs text-red-500 truncate max-w-[200px]">
+                                Cancelled: {doc.cancellation_reason}
                               </span>
                             )}
                           </div>
@@ -525,7 +629,7 @@ export default function Documents() {
                               <StatusIcon className="h-3 w-3 mr-1" />
                               {status.label}
                             </Badge>
-                            {signerCount > 1 && (
+                            {signerCount > 1 && docStatus !== "cancelled" && (
                               <span className="text-xs text-muted-foreground">
                                 {signedSigners}/{signerCount} signed
                               </span>
@@ -534,6 +638,13 @@ export default function Documents() {
                         </TableCell>
                         <TableCell>
                           {format(new Date(doc.created_at), "MMM d, yyyy")}
+                        </TableCell>
+                        <TableCell>
+                          {doc.sent_at ? (
+                            format(new Date(doc.sent_at), "MMM d, yyyy")
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -545,6 +656,16 @@ export default function Documents() {
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
+                            {canEdit && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditClick(doc)}
+                                title="Edit Document"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
                             {docStatus === "pending" && (
                               <Button
                                 variant="ghost"
@@ -553,6 +674,17 @@ export default function Documents() {
                                 title="Send for Signature"
                               >
                                 <Send className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canCancel && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleCancelClick(doc)}
+                                title="Cancel Document"
+                                className="text-amber-600 hover:text-amber-700"
+                              >
+                                <Ban className="h-4 w-4" />
                               </Button>
                             )}
                             {isAdmin && (
@@ -593,7 +725,7 @@ export default function Documents() {
         </Card>
       </div>
 
-      {/* Multi-step Upload Dialog */}
+      {/* Multi-step Upload/Edit Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={(open) => { 
         if (!open) { resetForm(); }
         setUploadDialogOpen(open);
@@ -601,31 +733,49 @@ export default function Documents() {
         <DialogContent className={currentStep === "fields" ? "max-w-[95vw] max-h-[95vh]" : "sm:max-w-lg"}>
           <DialogHeader>
             <DialogTitle>
-              {currentStep === "upload" && "Upload Document"}
-              {currentStep === "signers" && "Add Recipients"}
-              {currentStep === "fields" && "Place Signature Fields"}
+              {editingDocument ? (
+                <>
+                  {currentStep === "signers" && "Edit Recipients"}
+                  {currentStep === "fields" && "Edit Signature Fields"}
+                </>
+              ) : (
+                <>
+                  {currentStep === "upload" && "Upload Document"}
+                  {currentStep === "signers" && "Add Recipients"}
+                  {currentStep === "fields" && "Place Signature Fields"}
+                </>
+              )}
             </DialogTitle>
             <DialogDescription>
-              {currentStep === "upload" && "Upload a PDF document to send for signature"}
-              {currentStep === "signers" && "Add the people who need to sign this document"}
-              {currentStep === "fields" && "Drag and drop signature fields onto the document"}
+              {editingDocument ? (
+                <>
+                  {currentStep === "signers" && `Editing "${editingDocument.document_name}" - Update recipients`}
+                  {currentStep === "fields" && "Update signature fields on the document"}
+                </>
+              ) : (
+                <>
+                  {currentStep === "upload" && "Upload a PDF document to send for signature"}
+                  {currentStep === "signers" && "Add the people who need to sign this document"}
+                  {currentStep === "fields" && "Drag and drop signature fields onto the document"}
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           {/* Step indicator */}
           <div className="flex items-center gap-2 py-2">
-            {["upload", "signers", "fields"].map((step, idx) => (
+            {(editingDocument ? ["signers", "fields"] : ["upload", "signers", "fields"]).map((step, idx) => (
               <div key={step} className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   currentStep === step 
                     ? "bg-primary text-primary-foreground" 
-                    : ["upload", "signers", "fields"].indexOf(currentStep) > idx
+                    : (editingDocument ? ["signers", "fields"] : ["upload", "signers", "fields"]).indexOf(currentStep) > idx
                       ? "bg-green-500 text-white"
                       : "bg-muted text-muted-foreground"
                 }`}>
                   {idx + 1}
                 </div>
-                {idx < 2 && <div className="w-8 h-0.5 bg-muted" />}
+                {idx < (editingDocument ? 1 : 2) && <div className="w-8 h-0.5 bg-muted" />}
               </div>
             ))}
           </div>
@@ -709,7 +859,7 @@ export default function Documents() {
           )}
 
           <DialogFooter className="gap-2">
-            {currentStep !== "upload" && (
+            {currentStep !== "upload" && !editingDocument && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -720,11 +870,19 @@ export default function Documents() {
                 Back
               </Button>
             )}
+            {editingDocument && currentStep === "fields" && (
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep("signers")}
+              >
+                Back
+              </Button>
+            )}
             <Button variant="outline" onClick={() => { setUploadDialogOpen(false); resetForm(); }}>
               Cancel
             </Button>
             
-            {currentStep === "upload" && (
+            {currentStep === "upload" && !editingDocument && (
               <Button
                 onClick={() => uploadMutation.mutate()}
                 disabled={!selectedFile || uploading}
@@ -767,7 +925,7 @@ export default function Documents() {
                 ) : (
                   <CheckCircle className="mr-2 h-4 w-4" />
                 )}
-                Complete Setup
+                {editingDocument ? "Save Changes" : "Complete Setup"}
               </Button>
             )}
           </DialogFooter>
@@ -816,6 +974,76 @@ export default function Documents() {
                 <>
                   <Send className="mr-2 h-4 w-4" />
                   Send to All
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Document Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setCancellationReason("");
+          setSelectedDocument(null);
+        }
+        setCancelDialogOpen(open);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Document Request</DialogTitle>
+            <DialogDescription>
+              Cancel the signature request for "{selectedDocument?.document_name}"? 
+              All recipients who have been sent the document will be notified.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cancellationReason">Reason for Cancellation</Label>
+              <Textarea
+                id="cancellationReason"
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                placeholder="Enter the reason for cancelling this document request..."
+                rows={3}
+              />
+            </div>
+            {selectedDocument?.document_signers && selectedDocument.document_signers.length > 0 && (
+              <div className="space-y-2">
+                <Label>Recipients to be notified:</Label>
+                {selectedDocument.document_signers
+                  .filter(s => s.status !== 'pending' && s.status !== 'signed')
+                  .map((signer) => (
+                    <div key={signer.id} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>{signer.signer_name}</span>
+                      <span className="text-muted-foreground">({signer.signer_email})</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+              Keep Document
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => selectedDocument && cancelMutation.mutate({ 
+                docId: selectedDocument.id, 
+                reason: cancellationReason 
+              })}
+              disabled={cancelMutation.isPending}
+            >
+              {cancelMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                <>
+                  <Ban className="mr-2 h-4 w-4" />
+                  Cancel Document
                 </>
               )}
             </Button>

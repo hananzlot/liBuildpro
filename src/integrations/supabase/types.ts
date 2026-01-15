@@ -3153,6 +3153,8 @@ export type Database = {
       }
       signature_documents: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_at: string | null
           created_at: string
           created_by: string | null
           decline_reason: string | null
@@ -3170,6 +3172,8 @@ export type Database = {
           viewed_at: string | null
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
           decline_reason?: string | null
@@ -3187,6 +3191,8 @@ export type Database = {
           viewed_at?: string | null
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           created_at?: string
           created_by?: string | null
           decline_reason?: string | null
