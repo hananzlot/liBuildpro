@@ -1118,46 +1118,48 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         </Collapsible>
       )}
 
-      {/* Sold Amount & Estimated Costs - Compact inline */}
-      <div className="flex gap-2 flex-wrap">
-        <SoldAmountOriginalCard 
-          estimatedCost={estimatedCost} 
-          contractsTotal={totalAgreementsValue}
-          onSave={(value) => onUpdateProject({ estimated_cost: value })}
-        />
-        <EstimatedProjectCostsCard
-          estimatedProjectCost={estimatedProjectCost}
-          estimatedCost={estimatedCost}
-          onSave={(value) => onUpdateProject({ estimated_project_cost: value })}
-        />
-      </div>
-
-      {/* Summary Cards - Compact single row */}
-      <div className="flex gap-2 flex-wrap items-center">
-        <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
-          <DollarSign className="h-3 w-3 text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground">Sold:</span>
-          <span className="text-xs font-semibold">{formatCurrency(totalAgreementsValue)}</span>
+      {/* Sold Amount, Estimated Costs & Summary Badges - Single row */}
+      <div className="flex gap-2 flex-wrap items-center justify-between">
+        <div className="flex gap-2 flex-wrap items-center">
+          <SoldAmountOriginalCard 
+            estimatedCost={estimatedCost} 
+            contractsTotal={totalAgreementsValue}
+            onSave={(value) => onUpdateProject({ estimated_cost: value })}
+          />
+          <EstimatedProjectCostsCard
+            estimatedProjectCost={estimatedProjectCost}
+            estimatedCost={estimatedCost}
+            onSave={(value) => onUpdateProject({ estimated_project_cost: value })}
+          />
         </div>
-        <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
-          <FileText className="h-3 w-3 text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground">Invoiced:</span>
-          <span className="text-xs font-semibold">{formatCurrency(totalInvoiced)}</span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1.5 border border-emerald-200">
-          <CreditCard className="h-3 w-3 text-emerald-600" />
-          <span className="text-[10px] text-muted-foreground">Received:</span>
-          <span className="text-xs font-semibold text-emerald-600">{formatCurrency(totalPaymentsReceived)}</span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
-          <Receipt className="h-3 w-3 text-muted-foreground" />
-          <span className="text-[10px] text-muted-foreground">Bills:</span>
-          <span className="text-xs font-semibold">{formatCurrency(totalBills)}</span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-amber-500/10 rounded-md px-2 py-1.5 border border-amber-200">
-          <AlertCircle className="h-3 w-3 text-amber-600" />
-          <span className="text-[10px] text-muted-foreground">Outstanding:</span>
-          <span className="text-xs font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</span>
+        
+        {/* Summary Cards - Right aligned */}
+        <div className="flex gap-2 flex-wrap items-center">
+          <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
+            <DollarSign className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">Sold:</span>
+            <span className="text-xs font-semibold">{formatCurrency(totalAgreementsValue)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
+            <FileText className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">Invoiced:</span>
+            <span className="text-xs font-semibold">{formatCurrency(totalInvoiced)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 rounded-md px-2 py-1.5 border border-emerald-200">
+            <CreditCard className="h-3 w-3 text-emerald-600" />
+            <span className="text-[10px] text-muted-foreground">Received:</span>
+            <span className="text-xs font-semibold text-emerald-600">{formatCurrency(totalPaymentsReceived)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-muted/50 rounded-md px-2 py-1.5 border">
+            <Receipt className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">Bills:</span>
+            <span className="text-xs font-semibold">{formatCurrency(totalBills)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-amber-500/10 rounded-md px-2 py-1.5 border border-amber-200">
+            <AlertCircle className="h-3 w-3 text-amber-600" />
+            <span className="text-[10px] text-muted-foreground">Outstanding:</span>
+            <span className="text-xs font-semibold text-amber-600">{formatCurrency(totalBills - totalBillsPaid)}</span>
+          </div>
         </div>
       </div>
 
