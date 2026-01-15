@@ -12,7 +12,8 @@ import {
   Loader2, 
   Link as LinkIcon,
   Eye,
-  Calendar
+  Calendar,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -69,6 +70,40 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
     },
     onSuccess: () => {
       toast.success('Customer portal created!');
+      queryClient.invalidateQueries({ queryKey: ['project-portal-token', projectId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const recreatePortalMutation = useMutation({
+    mutationFn: async () => {
+      const { data: user } = await supabase.auth.getUser();
+
+      // Deactivate existing tokens for this project
+      await supabase
+        .from('client_portal_tokens')
+        .update({ is_active: false })
+        .eq('project_id', projectId);
+
+      // Create new token
+      const { data, error } = await supabase
+        .from('client_portal_tokens')
+        .insert({
+          project_id: projectId,
+          client_name: customerName,
+          client_email: customerEmail || null,
+          created_by: user.user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success('Portal link regenerated!');
       queryClient.invalidateQueries({ queryKey: ['project-portal-token', projectId] });
     },
     onError: (error: Error) => {
@@ -157,6 +192,20 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
               >
                 <ExternalLink className="h-3 w-3 mr-1" />
                 Open Portal
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => recreatePortalMutation.mutate()}
+                disabled={recreatePortalMutation.isPending}
+                title="Regenerate portal link"
+              >
+                {recreatePortalMutation.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
               </Button>
             </div>
 
