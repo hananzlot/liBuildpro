@@ -630,17 +630,40 @@ export default function Documents() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="file">Document File (PDF)</Label>
-                <Input
-                  id="file"
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileChange}
-                />
-                {selectedFile && (
-                  <p className="text-xs text-muted-foreground">
-                    Selected: {selectedFile.name}
-                  </p>
-                )}
+                <label 
+                  htmlFor="file" 
+                  className={`
+                    flex flex-col items-center justify-center w-full h-32 px-4 
+                    border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200
+                    ${selectedFile 
+                      ? 'border-primary bg-primary/10 ring-2 ring-primary ring-offset-2' 
+                      : 'border-muted-foreground/25 hover:border-primary hover:bg-accent/50'
+                    }
+                    focus-within:border-primary focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2
+                  `}
+                >
+                  <div className="flex flex-col items-center justify-center pt-2 pb-3">
+                    <Upload className={`h-8 w-8 mb-2 ${selectedFile ? 'text-primary' : 'text-muted-foreground'}`} />
+                    {selectedFile ? (
+                      <>
+                        <p className="text-sm font-medium text-primary">{selectedFile.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Click to change file</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium">Click to upload PDF</p>
+                        <p className="text-xs text-muted-foreground mt-1">or drag and drop</p>
+                      </>
+                    )}
+                  </div>
+                  <Input
+                    id="file"
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileChange}
+                    className="sr-only"
+                  />
+                </label>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="docName">Document Name</Label>
