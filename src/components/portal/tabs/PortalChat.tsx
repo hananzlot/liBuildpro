@@ -120,7 +120,7 @@ export function PortalChat({ projectId, tokenId, customerName, customerEmail }: 
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-200px)] min-h-[400px] max-h-[700px] bg-background rounded-lg border">
+    <div className="flex flex-col h-[350px] sm:h-[400px] bg-background rounded-lg border">
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b bg-muted/30">
         <MessageSquare className="h-5 w-5 text-primary" />
