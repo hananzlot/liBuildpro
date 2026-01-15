@@ -281,14 +281,9 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                 </div>
               )}
               <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="font-bold text-white text-xl sm:text-2xl tracking-tight">
-                    {companySettings?.company_name || 'Customer Portal'}
-                  </h1>
-                  <Badge className={`${getStatusColor(project.project_status || 'Proposal')} text-white border-0 px-2 py-0.5 text-xs`}>
-                    {project.project_status || 'Proposal'}
-                  </Badge>
-                </div>
+                <h1 className="font-bold text-white text-xl sm:text-2xl tracking-tight">
+                  {companySettings?.company_name || 'Customer Portal'}
+                </h1>
                 <p className="text-white/60 text-sm">Client Portal</p>
               </div>
             </div>
@@ -305,12 +300,18 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
             </div>
           </div>
           
-          {/* Project Hero Section */}
-          <div className="py-8 sm:py-10">
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-              <div className="space-y-4">
-                <span className="text-white/60 text-sm font-mono">#{project.project_number}</span>
-                <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+          {/* Project Hero Section - Compact with Status Card */}
+          <div className="py-4 sm:py-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              {/* Left: Project Info */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge className={`${getStatusColor(project.project_status || 'Proposal')} text-white border-0 px-2 py-0.5 text-xs`}>
+                    {project.project_status || 'Proposal'}
+                  </Badge>
+                  <span className="text-white/60 text-sm font-mono">#{project.project_number}</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                   {project.project_name || 'Your Project'}
                 </h2>
                 {project.project_address && (
@@ -321,26 +322,26 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                 )}
               </div>
               
-              {/* Project Status Card */}
-              <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-5 shadow-xl w-full lg:w-auto lg:min-w-[400px]">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+              {/* Right: Project Status Card - Compact */}
+              <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-xl lg:max-w-[320px]">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                     project.project_status === 'Completed' ? 'bg-green-100' :
                     project.project_status === 'In Progress' ? 'bg-primary/10' :
                     project.project_status === 'Pending' ? 'bg-blue-100' :
                     'bg-amber-100'
                   }`}>
                     {project.project_status === 'Completed' ? (
-                      <CheckCircle2 className="h-6 w-6 text-green-600" />
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
                     ) : project.project_status === 'In Progress' ? (
-                      <Briefcase className="h-6 w-6 text-primary" />
+                      <Briefcase className="h-5 w-5 text-primary" />
                     ) : (
-                      <FileText className="h-6 w-6 text-amber-600" />
+                      <FileText className="h-5 w-5 text-amber-600" />
                     )}
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-slate-900">Project Status</h3>
-                    <span className={`text-sm font-medium ${
+                    <h3 className="text-sm font-bold text-slate-900">Project Status</h3>
+                    <span className={`text-xs font-medium ${
                       project.project_status === 'Completed' ? 'text-green-600' :
                       project.project_status === 'In Progress' ? 'text-primary' :
                       project.project_status === 'Pending' ? 'text-blue-600' :
@@ -351,30 +352,30 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                   </div>
                 </div>
                 
-                {/* Timeline Stepper */}
+                {/* Compact Timeline Stepper */}
                 <div className="relative">
-                  <div className="hidden sm:block absolute top-5 left-0 right-0 h-0.5 bg-slate-200" />
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="hidden sm:block absolute top-3 left-4 right-4 h-0.5 bg-slate-200" />
+                  <div className="grid grid-cols-4 gap-1">
                     {[
-                      { label: 'Proposal', step: 1, completed: true },
-                      { label: 'Agreement Signed', step: 2, completed: !!project.agreement_signed_date },
+                      { label: 'Proposal', step: 1, completed: true, date: project.created_at },
+                      { label: 'Agreement Signed', step: 2, completed: !!project.agreement_signed_date, date: project.agreement_signed_date },
                       { label: 'In Progress', step: 3, completed: project.project_status === 'In Progress' || project.project_status === 'Completed' },
                       { label: 'Completed', step: 4, completed: project.project_status === 'Completed' },
                     ].map((item, index) => (
                       <div key={index} className="relative flex flex-col items-center text-center">
                         <div className={`
-                          relative z-10 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300
+                          relative z-10 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-300
                           ${item.completed 
-                            ? 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-md' 
-                            : 'bg-slate-100 text-slate-400 border-2 border-slate-200'}
+                            ? 'bg-gradient-to-br from-primary to-primary/80 text-white shadow-sm' 
+                            : 'bg-slate-100 text-slate-400 border border-slate-200'}
                         `}>
                           {item.completed ? (
-                            <CheckCircle2 className="h-4 w-4" />
+                            <CheckCircle2 className="h-3 w-3" />
                           ) : (
                             <span>{item.step}</span>
                           )}
                         </div>
-                        <p className={`mt-2 text-xs font-medium ${item.completed ? 'text-slate-900' : 'text-slate-400'}`}>
+                        <p className={`mt-1 text-[9px] font-medium leading-tight ${item.completed ? 'text-slate-700' : 'text-slate-400'}`}>
                           {item.label}
                         </p>
                       </div>
