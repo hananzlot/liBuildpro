@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { 
   MessageSquare, 
@@ -34,7 +32,7 @@ interface ChatMessage {
 
 export function PortalChat({ projectId, tokenId, customerName, customerEmail }: PortalChatProps) {
   const [newMessage, setNewMessage] = useState('');
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   // Fetch messages
@@ -82,9 +80,7 @@ export function PortalChat({ projectId, tokenId, customerName, customerEmail }: 
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // Send message mutation
@@ -124,93 +120,88 @@ export function PortalChat({ projectId, tokenId, customerName, customerEmail }: 
   };
 
   return (
-    <Card className="flex flex-col h-[600px]">
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
-          Chat with Us
-        </CardTitle>
-      </CardHeader>
+    <div className="flex flex-col h-[calc(100vh-200px)] min-h-[400px] max-h-[700px] bg-background rounded-lg border">
+      {/* Header */}
+      <div className="flex items-center gap-2 p-3 border-b bg-muted/30">
+        <MessageSquare className="h-5 w-5 text-primary" />
+        <span className="font-medium">Chat with Us</span>
+      </div>
       
-      <CardContent className="flex-1 flex flex-col p-0">
-        {/* Messages Area */}
-        <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : messages && messages.length > 0 ? (
-            <div className="space-y-4">
-              {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} isCustomer={msg.sender_type === 'customer'} />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-semibold">Start a Conversation</h3>
-              <p className="text-sm text-muted-foreground">
-                Send us a message and we'll get back to you as soon as possible.
-              </p>
-            </div>
-          )}
-        </ScrollArea>
-
-        {/* Message Input */}
-        <div className="border-t p-4">
-          <div className="flex gap-2">
-            <Textarea
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Type your message..."
-              className="resize-none"
-              rows={2}
-            />
-            <Button 
-              onClick={handleSendMessage}
-              disabled={!newMessage.trim() || sendMessageMutation.isPending}
-              className="self-end"
-            >
-              {sendMessageMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Press Enter to send, Shift+Enter for new line
-          </p>
+        ) : messages && messages.length > 0 ? (
+          <>
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} isCustomer={msg.sender_type === 'customer'} />
+            ))}
+            <div ref={messagesEndRef} />
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center p-4">
+            <MessageSquare className="h-10 w-10 text-muted-foreground mb-3" />
+            <h3 className="font-semibold text-sm">Start a Conversation</h3>
+            <p className="text-xs text-muted-foreground">
+              Send us a message and we'll respond as soon as possible.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Message Input - Fixed at bottom */}
+      <div className="border-t p-2 bg-background">
+        <div className="flex gap-2 items-center">
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={handleKeyPress}
+            placeholder="Type a message..."
+            className="flex-1 h-10"
+          />
+          <Button 
+            onClick={handleSendMessage}
+            disabled={!newMessage.trim() || sendMessageMutation.isPending}
+            size="icon"
+            className="h-10 w-10 shrink-0"
+          >
+            {sendMessageMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 function MessageBubble({ message, isCustomer }: { message: ChatMessage; isCustomer: boolean }) {
   return (
-    <div className={`flex gap-3 ${isCustomer ? 'flex-row-reverse' : ''}`}>
-      <Avatar className="h-8 w-8">
+    <div className={`flex gap-2 ${isCustomer ? 'flex-row-reverse' : ''}`}>
+      <Avatar className="h-7 w-7 shrink-0">
         <AvatarFallback className={isCustomer ? 'bg-primary text-primary-foreground' : 'bg-muted'}>
-          {isCustomer ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+          {isCustomer ? <User className="h-3 w-3" /> : <Building2 className="h-3 w-3" />}
         </AvatarFallback>
       </Avatar>
-      <div className={`flex flex-col ${isCustomer ? 'items-end' : 'items-start'} max-w-[70%]`}>
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-medium">{message.sender_name}</span>
-          <span className="text-xs text-muted-foreground">
+      <div className={`flex flex-col ${isCustomer ? 'items-end' : 'items-start'} max-w-[75%]`}>
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <span className="text-[10px] font-medium">{message.sender_name}</span>
+          <span className="text-[10px] text-muted-foreground">
             {format(new Date(message.created_at), 'h:mm a')}
           </span>
         </div>
         <div 
-          className={`rounded-lg px-4 py-2 ${
+          className={`rounded-2xl px-3 py-2 ${
             isCustomer 
-              ? 'bg-primary text-primary-foreground' 
-              : 'bg-muted'
+              ? 'bg-primary text-primary-foreground rounded-tr-sm' 
+              : 'bg-muted rounded-tl-sm'
           }`}
         >
-          <p className="text-sm whitespace-pre-wrap">{message.message}</p>
+          <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
         </div>
       </div>
     </div>
