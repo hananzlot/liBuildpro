@@ -86,6 +86,11 @@ const getFileIcon = (fileType: string | null, fileName: string) => {
   return <File className="h-4 w-4" />;
 };
 
+const isImageFile = (fileType: string | null, fileName: string): boolean => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext) || (fileType?.startsWith('image') ?? false);
+};
+
 export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -333,64 +338,80 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
             </div>
           ) : (
             <div className="space-y-1">
-              {allDocuments.map((doc) => (
-                <div 
-                  key={`${doc.source}-${doc.id}`}
-                  className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 transition-colors"
-                >
-                  <div className="shrink-0 p-1.5 rounded bg-muted">
-                    {doc.source === "bill" ? (
-                      <Receipt className="h-3 w-3 text-orange-500" />
-                    ) : doc.source === "agreement" ? (
-                      <FileSignature className="h-3 w-3 text-indigo-500" />
+              {allDocuments.map((doc) => {
+                const showImagePreview = isImageFile(doc.file_type, doc.file_name);
+                
+                return (
+                  <div 
+                    key={`${doc.source}-${doc.id}`}
+                    className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 transition-colors"
+                  >
+                    {/* Image preview or icon */}
+                    {showImagePreview ? (
+                      <div className="shrink-0 w-10 h-10 rounded overflow-hidden bg-muted">
+                        <img 
+                          src={doc.file_url} 
+                          alt={doc.file_name}
+                          className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => handleDocumentClick(doc)}
+                        />
+                      </div>
                     ) : (
-                      getFileIcon(doc.file_type, doc.file_name)
+                      <div className="shrink-0 p-1.5 rounded bg-muted">
+                        {doc.source === "bill" ? (
+                          <Receipt className="h-3 w-3 text-orange-500" />
+                        ) : doc.source === "agreement" ? (
+                          <FileSignature className="h-3 w-3 text-indigo-500" />
+                        ) : (
+                          getFileIcon(doc.file_type, doc.file_name)
+                        )}
+                      </div>
                     )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{doc.file_name}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Badge variant="outline" className={`text-[10px] px-1 py-0 ${categoryColors[doc.category || "General"] || ""}`}>
-                        {doc.category || "General"}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatDate(doc.created_at)}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{doc.file_name}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Badge variant="outline" className={`text-[10px] px-1 py-0 ${categoryColors[doc.category || "General"] || ""}`}>
+                          {doc.category || "General"}
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatDate(doc.created_at)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-0.5 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => handleDocumentClick(doc)}
-                      title="View"
-                    >
-                      <Eye className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => window.open(doc.file_url, "_blank")}
-                      title="Open in new tab"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                    {doc.source === "document" && isAdmin && (
+                    <div className="flex gap-0.5 shrink-0">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-destructive"
-                        onClick={() => handleDeleteClick(doc)}
-                        title="Delete"
+                        className="h-6 w-6"
+                        onClick={() => handleDocumentClick(doc)}
+                        title="View"
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Eye className="h-3 w-3" />
                       </Button>
-                    )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => window.open(doc.file_url, "_blank")}
+                        title="Open in new tab"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                      {doc.source === "document" && isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive"
+                          onClick={() => handleDeleteClick(doc)}
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
