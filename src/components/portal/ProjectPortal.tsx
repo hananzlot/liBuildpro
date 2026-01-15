@@ -262,7 +262,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           <div className="py-4 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center gap-4">
               {companySettings?.company_logo_url && companySettings.company_logo_url.length > 0 ? (
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-white flex items-center justify-center shadow-lg overflow-hidden p-1.5">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-white flex items-center justify-center shadow-xl overflow-hidden p-2 ring-2 ring-white/20">
                   <img 
                     src={companySettings.company_logo_url} 
                     alt={companySettings?.company_name || 'Company Logo'} 
@@ -273,8 +273,8 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                   />
                 </div>
               ) : (
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30 shadow-lg">
-                  <span className="text-white font-bold text-xl sm:text-2xl">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30 shadow-xl">
+                  <span className="text-white font-bold text-2xl sm:text-3xl">
                     {companySettings?.company_name?.charAt(0) || 'C'}
                   </span>
                 </div>
