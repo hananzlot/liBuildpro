@@ -98,49 +98,111 @@ export function SendProposalDialog({
       
       let projectId = estimateData?.project_id;
       
-      // If no project exists, create one with status "Proposal"
+      // If no project exists, try to find an existing project by customer info or create one
       if (!projectId) {
         // Parse customer name into first/last
         const nameParts = customerName.trim().split(' ');
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || '';
+        const jobAddr = estimateData?.job_address || jobAddress || null;
+        const customerEmailToCheck = email || customerEmail || null;
 
-        // Get the next project number
-        const { data: maxProject } = await supabase
-          .from('projects')
-          .select('project_number')
-          .order('project_number', { ascending: false })
-          .limit(1)
-          .single();
+        // First, try to find an existing project by job address (most reliable match)
+        let existingProject = null;
         
-        const nextProjectNumber = (maxProject?.project_number || 0) + 1;
+        if (jobAddr) {
+          const { data: projectByAddress } = await supabase
+            .from('projects')
+            .select('id, project_name, project_number')
+            .eq('project_address', jobAddr)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (projectByAddress) {
+            existingProject = projectByAddress;
+          }
+        }
 
-        // Create the project with status "Proposal"
-        const { data: newProject, error: projectError } = await supabase
-          .from('projects')
-          .insert({
-            project_number: nextProjectNumber,
-            project_name: estimateData?.estimate_title || `Proposal - ${customerName}`,
-            project_status: 'Proposal',
-            customer_first_name: firstName,
-            customer_last_name: lastName,
-            customer_email: email || customerEmail || null,
-            cell_phone: estimateData?.customer_phone || customerPhone || null,
-            project_address: estimateData?.job_address || jobAddress || null,
-            location_id: 'default', // Will need to be set properly based on context
-            created_by: user.user?.id,
-          })
-          .select()
-          .single();
+        // If no match by address, try by customer email
+        if (!existingProject && customerEmailToCheck) {
+          const { data: projectByEmail } = await supabase
+            .from('projects')
+            .select('id, project_name, project_number')
+            .eq('customer_email', customerEmailToCheck)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (projectByEmail) {
+            existingProject = projectByEmail;
+          }
+        }
 
-        if (projectError) throw projectError;
-        projectId = newProject.id;
+        // If no match by email, try by customer name
+        if (!existingProject && firstName) {
+          const { data: projectByName } = await supabase
+            .from('projects')
+            .select('id, project_name, project_number')
+            .eq('customer_first_name', firstName)
+            .eq('customer_last_name', lastName)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (projectByName) {
+            existingProject = projectByName;
+          }
+        }
 
-        // Link the estimate to the project
-        await supabase
-          .from('estimates')
-          .update({ project_id: projectId })
-          .eq('id', estimateId);
+        if (existingProject) {
+          // Use the existing project
+          projectId = existingProject.id;
+          
+          // Link the estimate to this existing project
+          await supabase
+            .from('estimates')
+            .update({ project_id: projectId })
+            .eq('id', estimateId);
+        } else {
+          // No existing project found - create a new one
+          // Get the next project number
+          const { data: maxProject } = await supabase
+            .from('projects')
+            .select('project_number')
+            .order('project_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          const nextProjectNumber = (maxProject?.project_number || 0) + 1;
+
+          // Create the project with status "Proposal"
+          const { data: newProject, error: projectError } = await supabase
+            .from('projects')
+            .insert({
+              project_number: nextProjectNumber,
+              project_name: estimateData?.estimate_title || `Proposal - ${customerName}`,
+              project_status: 'Proposal',
+              customer_first_name: firstName,
+              customer_last_name: lastName,
+              customer_email: customerEmailToCheck,
+              cell_phone: estimateData?.customer_phone || customerPhone || null,
+              project_address: jobAddr,
+              location_id: 'default',
+              created_by: user.user?.id,
+            })
+            .select()
+            .single();
+
+          if (projectError) throw projectError;
+          projectId = newProject.id;
+
+          // Link the estimate to the project
+          await supabase
+            .from('estimates')
+            .update({ project_id: projectId })
+            .eq('id', estimateId);
+        }
       }
 
       // Check if there's already an active token for this project

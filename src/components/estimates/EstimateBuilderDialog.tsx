@@ -130,6 +130,22 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [paymentSchedule, setPaymentSchedule] = useState<PaymentPhase[]>([]);
   const [isGeneratingScope, setIsGeneratingScope] = useState(false);
   const [activeTab, setActiveTab] = useState("customer");
+  const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
+
+  // Fetch projects for linking
+  const { data: projects = [] } = useQuery({
+    queryKey: ["projects-for-linking"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, project_number, project_name, customer_first_name, customer_last_name, project_address")
+        .order("project_number", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
 
   // Calculate totals including cost and profit
   const calculateTotals = useCallback(() => {
@@ -238,6 +254,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       
       // Populate payment schedule
       setPaymentSchedule(existingEstimate.schedule.map((s: any) => ({ ...s })));
+
+      // Set linked project
+      setLinkedProjectId(est.project_id || null);
     }
   }, [existingEstimate]);
 
@@ -266,6 +285,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setGroups([]);
       setPaymentSchedule([]);
       setActiveTab("customer");
+      setLinkedProjectId(null);
     }
   }, [open, estimateId, defaultTerms]);
 
@@ -520,6 +540,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         work_scope_description: formData.work_scope_description || null,
         status: "draft" as const,
         created_by: user?.id || null,
+        project_id: linkedProjectId || null,
       };
 
       let savedEstimateId = sourceEstimateId;
@@ -894,6 +915,37 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           value={formData.expiration_date}
                           onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
                         />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Link to Project */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Link to Project (Optional)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <Label htmlFor="linked_project">Project</Label>
+                        <Select
+                          value={linkedProjectId || "none"}
+                          onValueChange={(value) => setLinkedProjectId(value === "none" ? null : value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a project to link..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No project linked</SelectItem>
+                            {projects.map((project) => (
+                              <SelectItem key={project.id} value={project.id}>
+                                #{project.project_number} - {project.project_name || `${project.customer_first_name} ${project.customer_last_name}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Link this estimate to an existing project. Multiple proposals can be linked to the same project.
+                        </p>
                       </div>
                     </CardContent>
                   </Card>
