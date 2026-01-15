@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -21,6 +21,8 @@ interface SendProposalDialogProps {
   estimateId: string;
   customerName: string;
   customerEmail: string | null;
+  customerPhone?: string | null;
+  jobAddress?: string | null;
   isResend?: boolean;
 }
 
@@ -30,6 +32,8 @@ export function SendProposalDialog({
   estimateId,
   customerName,
   customerEmail,
+  customerPhone,
+  jobAddress,
   isResend = false,
 }: SendProposalDialogProps) {
   const queryClient = useQueryClient();
@@ -47,13 +51,127 @@ export function SendProposalDialog({
   const [portalLink, setPortalLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Check if estimate already has a project
+  const { data: estimateData } = useQuery({
+    queryKey: ['estimate-project-check', estimateId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('estimates')
+        .select('project_id, estimate_title, job_address, customer_phone')
+        .eq('id', estimateId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Check if there's an existing portal token for this project
+  const { data: existingToken } = useQuery({
+    queryKey: ['existing-portal-token', estimateData?.project_id],
+    queryFn: async () => {
+      if (!estimateData?.project_id) return null;
+      const { data } = await supabase
+        .from('client_portal_tokens')
+        .select('*')
+        .eq('project_id', estimateData.project_id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      return data;
+    },
+    enabled: !!estimateData?.project_id,
+  });
+
+  // Auto-set portal link if existing token found
+  useEffect(() => {
+    if (existingToken && !portalLink) {
+      const link = `${window.location.origin}/portal?token=${existingToken.token}`;
+      setPortalLink(link);
+    }
+  }, [existingToken, portalLink]);
+
   const generateLinkMutation = useMutation({
     mutationFn: async () => {
       const { data: user } = await supabase.auth.getUser();
       
+      let projectId = estimateData?.project_id;
+      
+      // If no project exists, create one with status "Proposal"
+      if (!projectId) {
+        // Parse customer name into first/last
+        const nameParts = customerName.trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        // Get the next project number
+        const { data: maxProject } = await supabase
+          .from('projects')
+          .select('project_number')
+          .order('project_number', { ascending: false })
+          .limit(1)
+          .single();
+        
+        const nextProjectNumber = (maxProject?.project_number || 0) + 1;
+
+        // Create the project with status "Proposal"
+        const { data: newProject, error: projectError } = await supabase
+          .from('projects')
+          .insert({
+            project_number: nextProjectNumber,
+            project_name: estimateData?.estimate_title || `Proposal - ${customerName}`,
+            project_status: 'Proposal',
+            customer_first_name: firstName,
+            customer_last_name: lastName,
+            customer_email: email || customerEmail || null,
+            cell_phone: estimateData?.customer_phone || customerPhone || null,
+            project_address: estimateData?.job_address || jobAddress || null,
+            location_id: 'default', // Will need to be set properly based on context
+            created_by: user.user?.id,
+          })
+          .select()
+          .single();
+
+        if (projectError) throw projectError;
+        projectId = newProject.id;
+
+        // Link the estimate to the project
+        await supabase
+          .from('estimates')
+          .update({ project_id: projectId })
+          .eq('id', estimateId);
+      }
+
+      // Check if there's already an active token for this project
+      const { data: existingProjectToken } = await supabase
+        .from('client_portal_tokens')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (existingProjectToken) {
+        // Update the token with the current estimate if needed
+        if (!existingProjectToken.estimate_id || existingProjectToken.estimate_id !== estimateId) {
+          await supabase
+            .from('client_portal_tokens')
+            .update({ 
+              estimate_id: estimateId,
+              client_email: email || null,
+            })
+            .eq('id', existingProjectToken.id);
+        }
+        return existingProjectToken;
+      }
+
+      // Create new portal token linked to project
       const { data, error } = await supabase
         .from('client_portal_tokens')
         .insert({
+          project_id: projectId,
           estimate_id: estimateId,
           client_email: email || null,
           client_name: customerName,
@@ -69,6 +187,8 @@ export function SendProposalDialog({
       const link = `${window.location.origin}/portal?token=${data.token}`;
       setPortalLink(link);
       toast.success('Portal link generated!');
+      queryClient.invalidateQueries({ queryKey: ['estimates'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -145,8 +265,13 @@ export function SendProposalDialog({
           <DialogTitle>{isResend ? 'Resend Proposal' : 'Send Proposal'}</DialogTitle>
           <DialogDescription>
             {isResend 
-              ? 'Send a reminder email with a new portal link to the client.'
-              : 'Generate a secure link for your client to view and sign the proposal.'}
+              ? 'Send a reminder email with the portal link to the client.'
+              : 'Generate a secure portal for your client to view and sign the proposal.'}
+            {estimateData?.project_id && (
+              <span className="block mt-1 text-xs text-primary">
+                Using existing project portal
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -174,7 +299,7 @@ export function SendProposalDialog({
                 ) : (
                   <Link className="h-4 w-4 mr-2" />
                 )}
-                Generate Portal Link
+                {estimateData?.project_id ? 'Get Portal Link' : 'Create Portal & Generate Link'}
               </Button>
             ) : (
               <div className="space-y-3">
@@ -200,7 +325,7 @@ export function SendProposalDialog({
                     }}
                     className="flex-1"
                   >
-                    Generate New Link
+                    Refresh Link
                   </Button>
                 </div>
               </div>

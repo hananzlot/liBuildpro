@@ -54,6 +54,7 @@ import { DocumentsSection } from "./DocumentsSection";
 import { NotesSection } from "./NotesSection";
 import { DebouncedInput, DebouncedTextarea, DebouncedNumberInput } from "@/components/ui/debounced-input";
 import { CustomLeadCostsDialog, WeightedAverageTooltip } from "./CustomLeadCostsDialog";
+import { CustomerPortalCard } from "./CustomerPortalCard";
 
 interface Project {
   id: string;
@@ -1007,6 +1008,15 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Customer Portal Card */}
+                {fullProject?.id && (
+                  <CustomerPortalCard
+                    projectId={fullProject.id}
+                    customerName={`${fullProject.customer_first_name || ''} ${fullProject.customer_last_name || ''}`.trim() || fullProject.project_name}
+                    customerEmail={fullProject.customer_email}
+                  />
+                )}
 
                 {/* Salesperson Info */}
                 <Card>
