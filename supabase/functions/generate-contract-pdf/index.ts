@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,196 +77,355 @@ serve(async (req) => {
       return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     };
 
-    // Build scope of work HTML
-    const groupsHtml = groups.map((group: any) => {
-      const items = lineItems.filter((item: any) => item.group_id === group.id);
-      const itemsHtml = items.map((item: any) => `
-        <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.description}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity} ${item.unit || ''}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.unit_price)}</td>
-          <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency(item.line_total)}</td>
-        </tr>
-      `).join('');
-      
-      return `
-        <div style="margin-bottom: 20px;">
-          <h4 style="background: #f5f5f5; padding: 10px; margin: 0 0 10px 0; border-radius: 4px;">${group.group_name}</h4>
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="background: #fafafa;">
-                <th style="padding: 8px; text-align: left; border-bottom: 2px solid #ddd;">Description</th>
-                <th style="padding: 8px; text-align: center; border-bottom: 2px solid #ddd;">Qty</th>
-                <th style="padding: 8px; text-align: right; border-bottom: 2px solid #ddd;">Unit Price</th>
-                <th style="padding: 8px; text-align: right; border-bottom: 2px solid #ddd;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }).join('');
-
-    // Payment schedule HTML
-    const paymentHtml = paymentSchedule.length > 0 ? `
-      <div style="margin-top: 30px;">
-        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Payment Schedule</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          ${paymentSchedule.map((phase: any) => `
-            <tr>
-              <td style="padding: 10px; border-bottom: 1px solid #eee;">${phase.phase_name}</td>
-              <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${phase.percent}%</td>
-              <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${formatCurrency((estimate.total * phase.percent) / 100)}</td>
-            </tr>
-          `).join('')}
-        </table>
-      </div>
-    ` : '';
-
-    // Signature HTML
-    const signatureHtml = signature ? `
-      <div style="margin-top: 40px; padding: 20px; border: 2px solid #22c55e; border-radius: 8px; background: #f0fdf4;">
-        <h4 style="color: #16a34a; margin: 0 0 15px 0;">✓ Customer Signature</h4>
-        ${signature.signature_type === 'drawn' 
-          ? `<img src="${signature.signature_data}" alt="Customer signature" style="max-height: 80px; margin: 10px 0;" />`
-          : `<div style="font-family: ${signature.signature_font || 'cursive'}; font-size: 32px; margin: 10px 0;">${signature.signature_data}</div>`
-        }
-        <div style="font-size: 12px; color: #666; margin-top: 10px;">
-          <div>Signed by: ${signature.signer_name}</div>
-          ${signature.signer_email ? `<div>Email: ${signature.signer_email}</div>` : ''}
-          <div>Date: ${formatDate(signature.signed_at)}</div>
-        </div>
-      </div>
-    ` : '';
-
-    // Build complete HTML
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Contract CNT-${estimate.estimate_number}</title>
-          <style>
-            body {
-              font-family: 'Helvetica Neue', Arial, sans-serif;
-              line-height: 1.5;
-              color: #333;
-              max-width: 800px;
-              margin: 0 auto;
-              padding: 40px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 40px;
-              padding-bottom: 20px;
-              border-bottom: 3px solid #1a1a2e;
-            }
-            .header h1 { font-size: 28px; color: #1a1a2e; margin: 0 0 5px 0; }
-            .header .subtitle { font-size: 14px; color: #666; }
-            .info-grid { display: flex; justify-content: space-between; margin-bottom: 30px; }
-            .info-box { width: 48%; }
-            .info-box h3 { font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-            .info-box p { margin: 5px 0; font-size: 14px; }
-            .totals { margin-top: 20px; padding: 20px; background: #f9f9f9; border-radius: 8px; }
-            .total-row { display: flex; justify-content: space-between; padding: 5px 0; }
-            .total-row.grand-total { font-size: 18px; font-weight: bold; border-top: 2px solid #1a1a2e; margin-top: 10px; padding-top: 15px; }
-            .terms { margin-top: 30px; padding: 20px; background: #f9f9f9; border-radius: 8px; font-size: 12px; color: #666; }
-            .terms h4 { color: #333; margin: 0 0 10px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${companyName}</h1>
-            ${companyAddress ? `<p class="subtitle">${companyAddress}</p>` : ''}
-            ${companyPhone ? `<p class="subtitle">${companyPhone}</p>` : ''}
-            <p class="subtitle" style="margin-top: 10px; font-weight: bold;">Contract #CNT-${estimate.estimate_number}</p>
-          </div>
-
-          <div class="info-grid">
-            <div class="info-box">
-              <h3>Customer Information</h3>
-              <p><strong>${estimate.customer_name}</strong></p>
-              ${estimate.customer_email ? `<p>${estimate.customer_email}</p>` : ''}
-              ${estimate.customer_phone ? `<p>${estimate.customer_phone}</p>` : ''}
-              ${estimate.billing_address ? `<p>${estimate.billing_address}</p>` : ''}
-            </div>
-            <div class="info-box">
-              <h3>Project Details</h3>
-              <p><strong>${estimate.estimate_title}</strong></p>
-              ${estimate.job_address ? `<p>${estimate.job_address}</p>` : ''}
-              <p>Date: ${formatDate(estimate.estimate_date)}</p>
-              ${estimate.signed_at ? `<p style="color: #16a34a;">Signed: ${formatDate(estimate.signed_at)}</p>` : ''}
-            </div>
-          </div>
-
-          <div>
-            <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Scope of Work</h3>
-            ${estimate.work_scope_description ? `<p style="margin-bottom: 20px; font-style: italic;">${estimate.work_scope_description}</p>` : ''}
-            ${groupsHtml}
-          </div>
-
-          <div class="totals">
-            <div class="total-row">
-              <span>Subtotal</span>
-              <span>${formatCurrency(estimate.subtotal)}</span>
-            </div>
-            ${(estimate.tax_amount || 0) > 0 ? `
-              <div class="total-row">
-                <span>Tax (${estimate.tax_rate}%)</span>
-                <span>${formatCurrency(estimate.tax_amount)}</span>
-              </div>
-            ` : ''}
-            ${(estimate.discount_amount || 0) > 0 ? `
-              <div class="total-row">
-                <span>Discount</span>
-                <span>-${formatCurrency(estimate.discount_amount)}</span>
-              </div>
-            ` : ''}
-            <div class="total-row grand-total">
-              <span>Total Contract Amount</span>
-              <span>${formatCurrency(estimate.total)}</span>
-            </div>
-          </div>
-
-          ${paymentHtml}
-
-          ${estimate.terms_and_conditions ? `
-            <div class="terms">
-              <h4>Terms and Conditions</h4>
-              <div style="white-space: pre-wrap;">${estimate.terms_and_conditions}</div>
-            </div>
-          ` : ''}
-
-          ${signatureHtml}
-
-          ${estimate.notes ? `
-            <div style="margin-top: 30px;">
-              <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">Notes</h3>
-              <p style="white-space: pre-wrap;">${estimate.notes}</p>
-            </div>
-          ` : ''}
-
-          <div style="margin-top: 50px; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #eee; padding-top: 20px;">
-            <p>This is a legally binding contract. Generated on ${formatDate(new Date().toISOString())}</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    // Convert HTML to PDF using external service or simple approach
-    // For now, we'll store the HTML as a file and let the browser render it
-    // In production, you'd use a PDF service like html-pdf-node, Puppeteer, or PDFShift
+    // Create PDF document
+    const pdfDoc = await PDFDocument.create();
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
     
-    const fileName = `CNT-${estimate.estimate_number}-${Date.now()}.html`;
+    let page = pdfDoc.addPage([612, 792]); // Letter size
+    const { width, height } = page.getSize();
+    
+    let yPos = height - 50;
+    const margin = 50;
+    const contentWidth = width - (margin * 2);
+    
+    const black = rgb(0, 0, 0);
+    const gray = rgb(0.4, 0.4, 0.4);
+    const green = rgb(0.13, 0.55, 0.13);
+    const lightGray = rgb(0.9, 0.9, 0.9);
+
+    // Helper function to add new page if needed
+    const checkNewPage = (neededSpace: number) => {
+      if (yPos - neededSpace < 50) {
+        page = pdfDoc.addPage([612, 792]);
+        yPos = height - 50;
+      }
+    };
+
+    // Helper to draw text with word wrap
+    const drawWrappedText = (text: string, x: number, maxWidth: number, fontSize: number, font: any, color = black) => {
+      const words = text.split(' ');
+      let line = '';
+      
+      for (const word of words) {
+        const testLine = line + (line ? ' ' : '') + word;
+        const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+        
+        if (testWidth > maxWidth && line) {
+          checkNewPage(fontSize + 4);
+          page.drawText(line, { x, y: yPos, size: fontSize, font, color });
+          yPos -= fontSize + 4;
+          line = word;
+        } else {
+          line = testLine;
+        }
+      }
+      
+      if (line) {
+        checkNewPage(fontSize + 4);
+        page.drawText(line, { x, y: yPos, size: fontSize, font, color });
+        yPos -= fontSize + 4;
+      }
+    };
+
+    // HEADER
+    page.drawText(companyName, {
+      x: margin,
+      y: yPos,
+      size: 24,
+      font: helveticaBold,
+      color: black,
+    });
+    yPos -= 20;
+
+    if (companyAddress) {
+      page.drawText(companyAddress, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      yPos -= 14;
+    }
+    if (companyPhone) {
+      page.drawText(companyPhone, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      yPos -= 14;
+    }
+    yPos -= 10;
+
+    // Contract number
+    page.drawText(`Contract #CNT-${estimate.estimate_number}`, {
+      x: margin,
+      y: yPos,
+      size: 14,
+      font: helveticaBold,
+      color: black,
+    });
+    yPos -= 30;
+
+    // Horizontal line
+    page.drawLine({
+      start: { x: margin, y: yPos + 15 },
+      end: { x: width - margin, y: yPos + 15 },
+      thickness: 2,
+      color: black,
+    });
+    yPos -= 10;
+
+    // CUSTOMER & PROJECT INFO (two columns)
+    const colWidth = contentWidth / 2 - 10;
+    
+    // Customer Info
+    page.drawText('CUSTOMER INFORMATION', { x: margin, y: yPos, size: 10, font: helveticaBold, color: gray });
+    yPos -= 16;
+    page.drawText(estimate.customer_name || '', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+    yPos -= 14;
+    if (estimate.customer_email) {
+      page.drawText(estimate.customer_email, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      yPos -= 12;
+    }
+    if (estimate.customer_phone) {
+      page.drawText(estimate.customer_phone, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      yPos -= 12;
+    }
+    if (estimate.billing_address) {
+      page.drawText(estimate.billing_address, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      yPos -= 12;
+    }
+    yPos -= 10;
+
+    // Project Details
+    page.drawText('PROJECT DETAILS', { x: margin, y: yPos, size: 10, font: helveticaBold, color: gray });
+    yPos -= 16;
+    page.drawText(estimate.estimate_title || '', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+    yPos -= 14;
+    if (estimate.job_address) {
+      page.drawText(`Address: ${estimate.job_address}`, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      yPos -= 12;
+    }
+    page.drawText(`Date: ${formatDate(estimate.estimate_date)}`, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+    yPos -= 12;
+    if (estimate.signed_at) {
+      page.drawText(`Signed: ${formatDate(estimate.signed_at)}`, { x: margin, y: yPos, size: 10, font: helvetica, color: green });
+      yPos -= 12;
+    }
+    yPos -= 20;
+
+    // SCOPE OF WORK
+    page.drawText('SCOPE OF WORK', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+    yPos -= 5;
+    page.drawLine({
+      start: { x: margin, y: yPos },
+      end: { x: width - margin, y: yPos },
+      thickness: 1,
+      color: lightGray,
+    });
+    yPos -= 15;
+
+    if (estimate.work_scope_description) {
+      drawWrappedText(estimate.work_scope_description, margin, contentWidth, 10, helvetica, gray);
+      yPos -= 10;
+    }
+
+    // Line items by group
+    for (const group of groups) {
+      checkNewPage(60);
+      
+      // Group header with background
+      page.drawRectangle({
+        x: margin,
+        y: yPos - 5,
+        width: contentWidth,
+        height: 20,
+        color: lightGray,
+      });
+      page.drawText(group.group_name, { x: margin + 5, y: yPos, size: 11, font: helveticaBold, color: black });
+      yPos -= 25;
+
+      const groupItems = lineItems.filter((item: any) => item.group_id === group.id);
+      
+      // Table header
+      page.drawText('Description', { x: margin + 5, y: yPos, size: 9, font: helveticaBold, color: gray });
+      page.drawText('Qty', { x: margin + 280, y: yPos, size: 9, font: helveticaBold, color: gray });
+      page.drawText('Unit Price', { x: margin + 340, y: yPos, size: 9, font: helveticaBold, color: gray });
+      page.drawText('Total', { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: gray });
+      yPos -= 5;
+      page.drawLine({
+        start: { x: margin, y: yPos },
+        end: { x: width - margin, y: yPos },
+        thickness: 0.5,
+        color: gray,
+      });
+      yPos -= 12;
+
+      for (const item of groupItems) {
+        checkNewPage(20);
+        
+        // Truncate description if too long
+        let desc = item.description || '';
+        if (desc.length > 45) desc = desc.substring(0, 42) + '...';
+        
+        page.drawText(desc, { x: margin + 5, y: yPos, size: 9, font: helvetica, color: black });
+        page.drawText(`${item.quantity} ${item.unit || ''}`, { x: margin + 280, y: yPos, size: 9, font: helvetica, color: black });
+        page.drawText(formatCurrency(item.unit_price), { x: margin + 340, y: yPos, size: 9, font: helvetica, color: black });
+        page.drawText(formatCurrency(item.line_total), { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: black });
+        yPos -= 14;
+      }
+      yPos -= 10;
+    }
+
+    // TOTALS
+    checkNewPage(100);
+    yPos -= 10;
+    
+    page.drawRectangle({
+      x: margin + 300,
+      y: yPos - 80,
+      width: contentWidth - 300,
+      height: 90,
+      color: lightGray,
+    });
+
+    const totalsX = margin + 310;
+    yPos -= 5;
+    
+    page.drawText('Subtotal:', { x: totalsX, y: yPos, size: 10, font: helvetica, color: black });
+    page.drawText(formatCurrency(estimate.subtotal), { x: totalsX + 130, y: yPos, size: 10, font: helvetica, color: black });
+    yPos -= 16;
+
+    if ((estimate.tax_amount || 0) > 0) {
+      page.drawText(`Tax (${estimate.tax_rate}%):`, { x: totalsX, y: yPos, size: 10, font: helvetica, color: black });
+      page.drawText(formatCurrency(estimate.tax_amount), { x: totalsX + 130, y: yPos, size: 10, font: helvetica, color: black });
+      yPos -= 16;
+    }
+
+    if ((estimate.discount_amount || 0) > 0) {
+      page.drawText('Discount:', { x: totalsX, y: yPos, size: 10, font: helvetica, color: black });
+      page.drawText(`-${formatCurrency(estimate.discount_amount)}`, { x: totalsX + 130, y: yPos, size: 10, font: helvetica, color: black });
+      yPos -= 16;
+    }
+
+    page.drawLine({
+      start: { x: totalsX, y: yPos + 5 },
+      end: { x: width - margin - 10, y: yPos + 5 },
+      thickness: 1,
+      color: black,
+    });
+    yPos -= 5;
+
+    page.drawText('TOTAL:', { x: totalsX, y: yPos, size: 14, font: helveticaBold, color: black });
+    page.drawText(formatCurrency(estimate.total), { x: totalsX + 130, y: yPos, size: 14, font: helveticaBold, color: black });
+    yPos -= 40;
+
+    // PAYMENT SCHEDULE
+    if (paymentSchedule.length > 0) {
+      checkNewPage(80);
+      
+      page.drawText('PAYMENT SCHEDULE', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({
+        start: { x: margin, y: yPos },
+        end: { x: width - margin, y: yPos },
+        thickness: 1,
+        color: lightGray,
+      });
+      yPos -= 15;
+
+      for (const phase of paymentSchedule) {
+        checkNewPage(20);
+        page.drawText(phase.phase_name, { x: margin + 5, y: yPos, size: 10, font: helvetica, color: black });
+        page.drawText(`${phase.percent}%`, { x: margin + 300, y: yPos, size: 10, font: helvetica, color: black });
+        page.drawText(formatCurrency((estimate.total * phase.percent) / 100), { x: margin + 400, y: yPos, size: 10, font: helveticaBold, color: black });
+        yPos -= 14;
+      }
+      yPos -= 20;
+    }
+
+    // TERMS AND CONDITIONS
+    if (estimate.terms_and_conditions) {
+      checkNewPage(60);
+      
+      page.drawText('TERMS AND CONDITIONS', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({
+        start: { x: margin, y: yPos },
+        end: { x: width - margin, y: yPos },
+        thickness: 1,
+        color: lightGray,
+      });
+      yPos -= 15;
+
+      const terms = estimate.terms_and_conditions.split('\n');
+      for (const line of terms) {
+        if (line.trim()) {
+          drawWrappedText(line, margin + 5, contentWidth - 10, 9, helvetica, gray);
+        } else {
+          yPos -= 6;
+        }
+      }
+      yPos -= 20;
+    }
+
+    // SIGNATURE SECTION
+    if (signature) {
+      checkNewPage(100);
+      
+      // Green border box for signature
+      page.drawRectangle({
+        x: margin,
+        y: yPos - 80,
+        width: contentWidth,
+        height: 90,
+        borderColor: green,
+        borderWidth: 2,
+        color: rgb(0.94, 0.99, 0.94),
+      });
+
+      yPos -= 10;
+      page.drawText('✓ CUSTOMER SIGNATURE', { x: margin + 10, y: yPos, size: 11, font: helveticaBold, color: green });
+      yPos -= 20;
+
+      if (signature.signature_type === 'typed') {
+        page.drawText(signature.signature_data, { x: margin + 10, y: yPos, size: 24, font: helveticaBold, color: black });
+        yPos -= 25;
+      } else {
+        // For drawn signatures, we can't easily embed the image in pdf-lib without more complex handling
+        page.drawText('[Drawn Signature on File]', { x: margin + 10, y: yPos, size: 12, font: helvetica, color: gray });
+        yPos -= 20;
+      }
+
+      page.drawText(`Signed by: ${signature.signer_name}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+      yPos -= 12;
+      if (signature.signer_email) {
+        page.drawText(`Email: ${signature.signer_email}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+        yPos -= 12;
+      }
+      page.drawText(`Date: ${formatDate(signature.signed_at)}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+      yPos -= 30;
+    }
+
+    // FOOTER
+    checkNewPage(30);
+    page.drawLine({
+      start: { x: margin, y: yPos + 10 },
+      end: { x: width - margin, y: yPos + 10 },
+      thickness: 0.5,
+      color: lightGray,
+    });
+    page.drawText(`This is a legally binding contract. Generated on ${formatDate(new Date().toISOString())}`, {
+      x: margin,
+      y: yPos - 5,
+      size: 8,
+      font: helvetica,
+      color: gray,
+    });
+
+    // Serialize PDF to bytes
+    const pdfBytes = await pdfDoc.save();
+    
+    const fileName = `CNT-${estimate.estimate_number}-${Date.now()}.pdf`;
     const filePath = `${projectId || 'general'}/${fileName}`;
     
     // Upload to storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('contracts')
-      .upload(filePath, html, {
-        contentType: 'text/html',
+      .upload(filePath, pdfBytes, {
+        contentType: 'application/pdf',
         upsert: true,
       });
 
@@ -281,7 +441,7 @@ serve(async (req) => {
 
     const publicUrl = urlData.publicUrl;
 
-    console.log('Contract uploaded successfully:', publicUrl);
+    console.log('Contract PDF uploaded successfully:', publicUrl);
 
     // If projectId provided, update the agreement with the attachment URL
     if (projectId) {
@@ -301,7 +461,7 @@ serve(async (req) => {
           .update({ attachment_url: publicUrl })
           .eq('id', existingAgreement.id);
         
-        console.log('Updated existing agreement with attachment');
+        console.log('Updated existing agreement with PDF attachment');
       } else {
         // Create new agreement with attachment
         await supabase.from('project_agreements').insert({
@@ -314,7 +474,7 @@ serve(async (req) => {
           attachment_url: publicUrl,
         });
         
-        console.log('Created new agreement with attachment');
+        console.log('Created new agreement with PDF attachment');
       }
     }
 
