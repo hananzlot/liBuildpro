@@ -488,7 +488,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-5xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-6xl overflow-y-auto">
         <SheetHeader>
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-primary/10 p-2">
