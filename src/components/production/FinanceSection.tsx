@@ -797,13 +797,15 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      if (!deleteTarget) return;
+      if (!deleteTarget) {
+        throw new Error("Nothing selected to delete");
+      }
       const table = deleteTarget.type === "invoice" ? "project_invoices" 
         : deleteTarget.type === "payment" ? "project_payments" 
         : deleteTarget.type === "agreement" ? "project_agreements"
         : deleteTarget.type === "phase" ? "project_payment_phases"
         : "project_bills";
-      
+
       // If deleting an invoice with associated payments, delete payments first
       if (deleteTarget.type === "invoice" && invoicePaymentsToDelete.length > 0) {
         for (const payment of invoicePaymentsToDelete) {
@@ -2021,10 +2023,6 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
         setDeleteDialogOpen(open);
-        if (!open) {
-          setDeleteTarget(null);
-          setInvoicePaymentsToDelete([]);
-        }
       }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -2054,7 +2052,11 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDialogOpen(false);
+              setDeleteTarget(null);
+              setInvoicePaymentsToDelete([]);
+            }}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => deleteMutation.mutate()} 
               className={invoicePaymentsToDelete.length > 0 ? "bg-amber-600 text-white hover:bg-amber-700" : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
