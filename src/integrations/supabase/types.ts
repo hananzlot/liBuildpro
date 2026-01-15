@@ -1309,6 +1309,7 @@ export type Database = {
           job_address: string | null
           notes: string | null
           opportunity_id: string | null
+          project_id: string | null
           sent_at: string | null
           signed_at: string | null
           status: Database["public"]["Enums"]["estimate_status"]
@@ -1345,6 +1346,7 @@ export type Database = {
           job_address?: string | null
           notes?: string | null
           opportunity_id?: string | null
+          project_id?: string | null
           sent_at?: string | null
           signed_at?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
@@ -1381,6 +1383,7 @@ export type Database = {
           job_address?: string | null
           notes?: string | null
           opportunity_id?: string | null
+          project_id?: string | null
           sent_at?: string | null
           signed_at?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
@@ -1406,6 +1409,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["ghl_id"]
+          },
+          {
+            foreignKeyName: "estimates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1971,6 +1981,70 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      portal_chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string
+          portal_token_id: string | null
+          project_id: string
+          sender_email: string | null
+          sender_name: string
+          sender_type: string
+          sender_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          portal_token_id?: string | null
+          project_id: string
+          sender_email?: string | null
+          sender_name: string
+          sender_type: string
+          sender_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          portal_token_id?: string | null
+          project_id?: string
+          sender_email?: string | null
+          sender_name?: string
+          sender_type?: string
+          sender_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_chat_messages_portal_token_id_fkey"
+            columns: ["portal_token_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_chat_messages_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_chat_messages_sender_user_id_fkey"
+            columns: ["sender_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       portal_view_logs: {
         Row: {
