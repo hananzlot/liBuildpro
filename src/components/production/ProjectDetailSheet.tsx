@@ -871,14 +871,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                           </PopoverContent>
                         </Popover>
                       </div>
-                      {fullProject?.project_scope_dispatch && (
-                        <div className="space-y-1 col-span-2">
-                          <Label className="text-[11px] text-muted-foreground">Project Scope (Dispatch)</Label>
-                          <div className="px-3 py-2 text-xs rounded-md border bg-muted/50 text-muted-foreground whitespace-pre-wrap break-words">
-                            {fullProject.project_scope_dispatch}
-                          </div>
-                        </div>
-                      )}
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Lead Source</Label>
                         {(isAdmin || isSuperAdmin) ? (
@@ -895,6 +887,23 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                         )}
                       </div>
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Scope of Work</Label>
+                      <DebouncedTextarea
+                        className="text-xs min-h-[60px]"
+                        value={fullProject?.scope_of_work || ""} 
+                        onSave={(value) => updateProjectMutation.mutate({ scope_of_work: value || null })}
+                        placeholder="Enter scope of work..."
+                      />
+                    </div>
+                    {fullProject?.project_scope_dispatch && (
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Project Scope (Dispatch)</Label>
+                        <div className="px-3 py-2 text-xs rounded-md border bg-muted/50 text-muted-foreground whitespace-pre-wrap break-words">
+                          {fullProject.project_scope_dispatch}
+                        </div>
+                      </div>
+                    )}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-[11px] text-muted-foreground">Project Manager</Label>

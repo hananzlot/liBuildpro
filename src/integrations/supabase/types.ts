@@ -3093,6 +3093,7 @@ export type Database = {
           quaternary_commission_pct: number | null
           quaternary_profit_split_pct: number | null
           quaternary_salesperson: string | null
+          scope_of_work: string | null
           secondary_commission_pct: number | null
           secondary_profit_split_pct: number | null
           secondary_salesperson: string | null
@@ -3156,6 +3157,7 @@ export type Database = {
           quaternary_commission_pct?: number | null
           quaternary_profit_split_pct?: number | null
           quaternary_salesperson?: string | null
+          scope_of_work?: string | null
           secondary_commission_pct?: number | null
           secondary_profit_split_pct?: number | null
           secondary_salesperson?: string | null
@@ -3219,6 +3221,7 @@ export type Database = {
           quaternary_commission_pct?: number | null
           quaternary_profit_split_pct?: number | null
           quaternary_salesperson?: string | null
+          scope_of_work?: string | null
           secondary_commission_pct?: number | null
           secondary_profit_split_pct?: number | null
           secondary_salesperson?: string | null
