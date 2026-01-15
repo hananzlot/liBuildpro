@@ -171,7 +171,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           <div className="flex items-center gap-3">
             <Building className="h-6 w-6 text-primary" />
             <div>
-              <span className="font-semibold text-lg">Project Portal</span>
+              <span className="font-semibold text-lg">Customer Portal</span>
               <p className="text-sm text-muted-foreground">
                 {project.customer_first_name} {project.customer_last_name}
               </p>
