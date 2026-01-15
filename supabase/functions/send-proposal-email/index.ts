@@ -150,7 +150,7 @@ serve(async (req) => {
     `;
 
     // Helper function to send email with retry logic for rate limits
-    const sendEmailWithRetry = async (maxRetries = 3, baseDelay = 1000): Promise<Response> => {
+    const sendEmailWithRetry = async (maxRetries = 5, baseDelay = 2000): Promise<Response> => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -172,7 +172,7 @@ serve(async (req) => {
 
         // Check if rate limited (429)
         if (res.status === 429 && attempt < maxRetries) {
-          const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+          const delay = baseDelay * attempt; // Linear backoff: 2s, 4s, 6s, 8s
           console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt}/${maxRetries})`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;
