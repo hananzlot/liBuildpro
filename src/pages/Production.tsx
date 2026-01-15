@@ -69,6 +69,7 @@ import { AdminKPIFilters } from "@/components/production/AdminKPIFilters";
 import { CashFlowChart } from "@/components/production/CashFlowChart";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { FinancialSearchResultsSheet } from "@/components/production/FinancialSearchResultsSheet";
 
 
 interface Project {
@@ -225,6 +226,8 @@ export default function Production() {
   const [totalSoldSheetOpen, setTotalSoldSheetOpen] = useState(false);
   const [totalSoldGroupBy, setTotalSoldGroupBy] = useState<'none' | 'month' | 'salesperson'>('month');
   const [totalSoldFilterSalesperson, setTotalSoldFilterSalesperson] = useState<string | null>(null);
+  const [financialSearchSheetOpen, setFinancialSearchSheetOpen] = useState(false);
+  const [financialSearchSection, setFinancialSearchSection] = useState<string>('');
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
@@ -284,7 +287,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_agreements")
-        .select("id, project_id, total_price, agreement_type");
+        .select("id, project_id, total_price, agreement_type, agreement_number, description_of_work");
       if (error) throw error;
       return data;
     },
@@ -295,7 +298,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payment_phases")
-        .select("id, project_id, agreement_id, amount");
+        .select("id, project_id, agreement_id, amount, phase_name, due_date");
       if (error) throw error;
       return data;
     },
@@ -306,7 +309,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_invoices")
-        .select("id, project_id, amount, payments_received, open_balance");
+        .select("id, project_id, amount, payments_received, open_balance, invoice_number, invoice_date");
       if (error) throw error;
       return data;
     },
@@ -317,7 +320,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payments")
-        .select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided");
+        .select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided, bank_name, check_number");
       if (error) throw error;
       return data;
     },
@@ -328,7 +331,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_bills")
-        .select("id, project_id, bill_amount, amount_paid, is_voided");
+        .select("id, project_id, bill_amount, amount_paid, is_voided, installer_company, bill_ref, category");
       if (error) throw error;
       return data;
     },
@@ -551,6 +554,171 @@ export default function Production() {
     
     return matched;
   }, [searchQuery, projects, projectFinancials]);
+
+  // Get matching financial records for the selected section
+  const getMatchingFinancialRecords = useCallback((sectionType: string) => {
+    const searchNumber = parseFloat(searchQuery.replace(/[,$]/g, ''));
+    const cleanQuery = searchQuery.replace(/[,$]/g, '');
+    const isNumberSearch = !isNaN(searchNumber) && searchNumber > 0;
+    
+    if (!isNumberSearch) return [];
+    
+    const records: { projectId: string; projectNumber: number; projectName: string; amount: number; description?: string; date?: string; reference?: string }[] = [];
+    const projectMap = new Map(projects.map(p => [p.id, p]));
+    
+    switch (sectionType) {
+      case 'Invoiced':
+        allInvoices.forEach(inv => {
+          const project = projectMap.get(inv.project_id);
+          if (!project) return;
+          const amount = inv.amount || 0;
+          if (amount === searchNumber || amount.toString().includes(cleanQuery)) {
+            records.push({
+              projectId: project.id,
+              projectNumber: project.project_number,
+              projectName: project.project_name,
+              amount,
+              description: `Invoice #${inv.invoice_number || 'N/A'}`,
+              date: inv.invoice_date || undefined,
+            });
+          }
+        });
+        break;
+      case 'Payments Received':
+        allPayments.filter(p => !p.is_voided && p.payment_status === 'Received').forEach(payment => {
+          const project = projectMap.get(payment.project_id);
+          if (!project) return;
+          const amount = payment.payment_amount || 0;
+          if (amount === searchNumber || amount.toString().includes(cleanQuery)) {
+            records.push({
+              projectId: project.id,
+              projectNumber: project.project_number,
+              projectName: project.project_name,
+              amount,
+              description: payment.bank_name || 'Payment',
+              date: payment.projected_received_date || undefined,
+              reference: payment.check_number || undefined,
+            });
+          }
+        });
+        break;
+      case 'Phases':
+        allPhases.forEach(phase => {
+          const project = projectMap.get(phase.project_id!);
+          if (!project) return;
+          const amount = phase.amount || 0;
+          if (amount === searchNumber || amount.toString().includes(cleanQuery)) {
+            records.push({
+              projectId: project.id,
+              projectNumber: project.project_number,
+              projectName: project.project_name,
+              amount,
+              description: phase.phase_name,
+              date: phase.due_date || undefined,
+            });
+          }
+        });
+        break;
+      case 'Contracts':
+        allAgreements.forEach(agreement => {
+          const project = projectMap.get(agreement.project_id!);
+          if (!project) return;
+          const amount = agreement.total_price || 0;
+          if (amount === searchNumber || amount.toString().includes(cleanQuery)) {
+            records.push({
+              projectId: project.id,
+              projectNumber: project.project_number,
+              projectName: project.project_name,
+              amount,
+              description: agreement.agreement_type || agreement.description_of_work || 'Contract',
+              reference: agreement.agreement_number || undefined,
+            });
+          }
+        });
+        break;
+      case 'Bills Received':
+        allBills.filter(b => !b.is_voided).forEach(bill => {
+          const project = projectMap.get(bill.project_id!);
+          if (!project) return;
+          const amount = bill.bill_amount || 0;
+          if (amount === searchNumber || amount.toString().includes(cleanQuery)) {
+            records.push({
+              projectId: project.id,
+              projectNumber: project.project_number,
+              projectName: project.project_name,
+              amount,
+              description: bill.installer_company || bill.category || 'Bill',
+              reference: bill.bill_ref || undefined,
+            });
+          }
+        });
+        break;
+      case 'Bills Paid':
+        allBills.filter(b => !b.is_voided).forEach(bill => {
+          const project = projectMap.get(bill.project_id!);
+          if (!project) return;
+          const amount = bill.amount_paid || 0;
+          if (amount === searchNumber || amount.toString().includes(cleanQuery)) {
+            records.push({
+              projectId: project.id,
+              projectNumber: project.project_number,
+              projectName: project.project_name,
+              amount,
+              description: bill.installer_company || bill.category || 'Bill',
+              reference: bill.bill_ref || undefined,
+            });
+          }
+        });
+        break;
+      case 'Project Balance':
+        projects.forEach(project => {
+          const financials = projectFinancials[project.id];
+          if (!financials) return;
+          if (financials.projectBalanceDue === searchNumber) {
+            records.push({
+              projectId: project.id,
+              projectNumber: project.project_number,
+              projectName: project.project_name,
+              amount: financials.projectBalanceDue,
+              description: 'Project Balance Due',
+            });
+          }
+        });
+        break;
+      case 'Invoice Balance':
+        projects.forEach(project => {
+          const financials = projectFinancials[project.id];
+          if (!financials) return;
+          if (financials.invoiceBalanceDue === searchNumber) {
+            records.push({
+              projectId: project.id,
+              projectNumber: project.project_number,
+              projectName: project.project_name,
+              amount: financials.invoiceBalanceDue,
+              description: 'Invoice Balance Due',
+            });
+          }
+        });
+        break;
+    }
+    
+    return records;
+  }, [searchQuery, projects, projectFinancials, allInvoices, allPayments, allPhases, allAgreements, allBills]);
+
+  // Handle navigating to a project from financial search results
+  const handleNavigateToProjectFromSearch = useCallback((projectId: string, tab: string, subTab?: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      setSelectedProject(project);
+      setProjectInitialTab(tab);
+      if (subTab === 'bills') {
+        setProjectInitialFinanceSubTab('bills');
+      } else {
+        setProjectInitialFinanceSubTab(undefined);
+      }
+      setDetailSheetOpen(true);
+    }
+  }, [projects]);
 
   const sortedAndFilteredProjects = useMemo(() => {
     const filtered = projects.filter((project) => {
@@ -1525,29 +1693,14 @@ export default function Production() {
               <div className="flex items-center gap-2 flex-wrap text-sm">
                 <span className="text-muted-foreground text-xs">Found in:</span>
                 {Array.from(matchedFinancialSections).map((section) => {
-                  // Map section names to sort columns
-                  const columnMap: Record<string, SortColumn> = {
-                    'Invoiced': 'sold_amount',
-                    'Payments Received': 'inv_collected',
-                    'Phases': 'sold_amount',
-                    'Contracts': 'sold_amount',
-                    'Bills Received': 'bills_received',
-                    'Bills Paid': 'bills_paid',
-                    'Project Balance': 'proj_balance',
-                    'Invoice Balance': 'inv_balance',
-                  };
-                  const targetColumn = columnMap[section];
-                  
                   return (
                     <Badge 
                       key={section} 
                       variant="secondary" 
                       className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
                       onClick={() => {
-                        if (targetColumn) {
-                          setSortColumn(targetColumn);
-                          setSortDirection('desc');
-                        }
+                        setFinancialSearchSection(section);
+                        setFinancialSearchSheetOpen(true);
                       }}
                     >
                       {section}
@@ -2443,6 +2596,16 @@ export default function Production() {
             </ScrollArea>
           </SheetContent>
         </Sheet>
+
+        {/* Financial Search Results Sheet */}
+        <FinancialSearchResultsSheet
+          open={financialSearchSheetOpen}
+          onOpenChange={setFinancialSearchSheetOpen}
+          sectionType={financialSearchSection}
+          searchQuery={searchQuery}
+          records={getMatchingFinancialRecords(financialSearchSection)}
+          onNavigateToProject={handleNavigateToProjectFromSearch}
+        />
       </TooltipProvider>
     </AppLayout>
   );
