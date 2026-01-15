@@ -29,11 +29,11 @@ serve(async (req: Request) => {
 
     console.log("Starting daily portal update check...");
 
-    // Get company settings
+    // Get company settings including the enable/disable setting
     const { data: settings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
+      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "daily_portal_email_enabled"]);
 
     const settingsMap: Record<string, string> = (settings || []).reduce((acc, s) => {
       acc[s.setting_key] = s.setting_value || "";
@@ -43,11 +43,26 @@ serve(async (req: Request) => {
     const fromEmail = settingsMap.resend_from_email || "portal@caprobuilders.com";
     const fromName = settingsMap.resend_from_name || "Capro Builders";
     const companyName = settingsMap.company_name || "Capro Builders";
+    const dailyEmailEnabled = settingsMap.daily_portal_email_enabled === "true";
+
+    // Check if daily emails are enabled (default is disabled)
+    if (!dailyEmailEnabled) {
+      console.log("Daily portal emails are disabled in settings");
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "Daily portal emails disabled in admin settings" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Calculate 24 hours ago
     const oneDayAgo = new Date();
     oneDayAgo.setHours(oneDayAgo.getHours() - 24);
     const oneDayAgoStr = oneDayAgo.toISOString();
+    
+    // Also get start of today for checking manual emails
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startOfTodayStr = startOfToday.toISOString();
 
     // Find projects with active portal tokens that have been updated in the last 24 hours
     // AND haven't been notified in the last 24 hours
@@ -123,6 +138,23 @@ serve(async (req: Request) => {
 
       if (recentNotification) {
         console.log(`Skipping project ${project.project_number}: already notified within 24 hours`);
+        skipped++;
+        continue;
+      }
+
+      // Check if a MANUAL email was sent today (production manager already sent)
+      const { data: manualEmailToday } = await supabase
+        .from("project_notification_log")
+        .select("id")
+        .eq("project_id", project.id)
+        .eq("notification_type", "portal_update")
+        .eq("is_automated", false)
+        .gte("sent_at", startOfTodayStr)
+        .limit(1)
+        .single();
+
+      if (manualEmailToday) {
+        console.log(`Skipping project ${project.project_number}: manual email already sent today`);
         skipped++;
         continue;
       }
@@ -243,12 +275,13 @@ serve(async (req: Request) => {
           continue;
         }
 
-        // Log the notification
+        // Log the notification (mark as automated)
         await supabase.from("project_notification_log").insert({
           project_id: project.id,
           notification_type: "portal_update",
           sent_to_email: customerEmail,
           sent_by: null, // Automated
+          is_automated: true,
         });
 
         console.log(`Email sent to ${customerEmail} for project ${project.project_number}`);

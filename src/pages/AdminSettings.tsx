@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
 import { UserManagement } from "@/components/dashboard/UserManagement";
 import { EmailTemplatesManager } from "@/components/admin/EmailTemplatesManager";
 import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement";
+import { ChatManagement } from "@/components/admin/ChatManagement";
 import { format } from "date-fns";
 import {
   Table,
@@ -353,7 +354,7 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
@@ -361,6 +362,10 @@ export default function AdminSettings() {
             <TabsTrigger value="emails" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
               <span className="hidden sm:inline">Emails</span>
+            </TabsTrigger>
+            <TabsTrigger value="chat" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">Chat</span>
             </TabsTrigger>
             <TabsTrigger value="cleanup" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
@@ -467,6 +472,11 @@ export default function AdminSettings() {
           {/* Email Templates Tab */}
           <TabsContent value="emails" className="mt-6">
             <EmailTemplatesManager />
+          </TabsContent>
+
+          {/* Chat Management Tab */}
+          <TabsContent value="chat" className="mt-6">
+            <ChatManagement />
           </TabsContent>
 
           {/* Data Cleanup Tab */}

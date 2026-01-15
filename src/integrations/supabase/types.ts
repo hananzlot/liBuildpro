@@ -2046,6 +2046,62 @@ export type Database = {
           },
         ]
       }
+      portal_chat_messages_archived: {
+        Row: {
+          archived_at: string
+          id: string
+          is_read: boolean | null
+          message: string
+          original_created_at: string
+          original_id: string
+          original_updated_at: string
+          portal_token_id: string | null
+          project_id: string
+          sender_email: string | null
+          sender_name: string
+          sender_type: string
+          sender_user_id: string | null
+        }
+        Insert: {
+          archived_at?: string
+          id?: string
+          is_read?: boolean | null
+          message: string
+          original_created_at: string
+          original_id: string
+          original_updated_at: string
+          portal_token_id?: string | null
+          project_id: string
+          sender_email?: string | null
+          sender_name: string
+          sender_type: string
+          sender_user_id?: string | null
+        }
+        Update: {
+          archived_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          original_created_at?: string
+          original_id?: string
+          original_updated_at?: string
+          portal_token_id?: string | null
+          project_id?: string
+          sender_email?: string | null
+          sender_name?: string
+          sender_type?: string
+          sender_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_chat_messages_archived_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_view_logs: {
         Row: {
           estimate_id: string | null
@@ -2829,6 +2885,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_automated: boolean | null
           notification_type: string
           project_id: string
           sent_at: string
@@ -2838,6 +2895,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_automated?: boolean | null
           notification_type?: string
           project_id: string
           sent_at?: string
@@ -2847,6 +2905,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_automated?: boolean | null
           notification_type?: string
           project_id?: string
           sent_at?: string

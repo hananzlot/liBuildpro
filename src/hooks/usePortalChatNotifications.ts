@@ -40,29 +40,18 @@ export function usePortalChatNotifications() {
       ? message.message.substring(0, 50) + '...' 
       : message.message;
 
-    // Show toast with action button
-    toast(
-      React.createElement('div', { className: 'flex flex-col gap-1' },
-        React.createElement('div', { className: 'flex items-center gap-2 font-semibold' },
-          React.createElement(MessageSquare, { className: 'h-4 w-4 text-primary' }),
-          `New message from ${message.sender_name}`
-        ),
-        React.createElement('p', { className: 'text-sm text-muted-foreground' },
-          `Project: ${projectName}`
-        ),
-        React.createElement('p', { className: 'text-sm' }, truncatedMessage)
-      ),
-      {
-        duration: 10000,
-        action: {
-          label: 'View & Reply',
-          onClick: () => {
-            // Navigate to production page and open project detail with feedback tab (where chat is)
-            navigate(`/production?view=projects&openProject=${message.project_id}&tab=feedback`);
-          },
+    // Show clickable toast notification
+    toast.message(`New message from ${message.sender_name}`, {
+      description: `Project: ${projectName} - "${truncatedMessage}"`,
+      duration: 10000,
+      icon: React.createElement(MessageSquare, { className: 'h-4 w-4 text-primary' }),
+      action: {
+        label: 'View & Reply',
+        onClick: () => {
+          navigate(`/production?view=projects&openProject=${message.project_id}&tab=feedback`);
         },
-      }
-    );
+      },
+    });
   }, [navigate]);
 
   useEffect(() => {
