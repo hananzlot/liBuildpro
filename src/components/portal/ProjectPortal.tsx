@@ -281,9 +281,14 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                 </div>
               )}
               <div>
-                <h1 className="font-bold text-white text-xl sm:text-2xl tracking-tight">
-                  {companySettings?.company_name || 'Customer Portal'}
-                </h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="font-bold text-white text-xl sm:text-2xl tracking-tight">
+                    {companySettings?.company_name || 'Customer Portal'}
+                  </h1>
+                  <Badge className={`${getStatusColor(project.project_status || 'Proposal')} text-white border-0 px-2 py-0.5 text-xs`}>
+                    {project.project_status || 'Proposal'}
+                  </Badge>
+                </div>
                 <p className="text-white/60 text-sm">Client Portal</p>
               </div>
             </div>
@@ -304,12 +309,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           <div className="py-8 sm:py-10">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <Badge className={`${getStatusColor(project.project_status || 'Proposal')} text-white border-0 px-3 py-1`}>
-                    {project.project_status || 'Proposal'}
-                  </Badge>
-                  <span className="text-white/60 text-sm font-mono">#{project.project_number}</span>
-                </div>
+                <span className="text-white/60 text-sm font-mono">#{project.project_number}</span>
                 <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                   {project.project_name || 'Your Project'}
                 </h2>
