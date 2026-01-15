@@ -10,13 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, ExternalLink, Printer, RefreshCw } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
 import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 import { ContractPrintDialog } from "@/components/estimates/ContractPrintDialog";
+import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 
 type ViewType = "list" | "proposals" | "contracts" | "declined";
 
@@ -69,6 +70,7 @@ export default function Estimates() {
   const [sendDialogEstimate, setSendDialogEstimate] = useState<Estimate | null>(null);
   const [isResendMode, setIsResendMode] = useState(false);
   const [printEstimateId, setPrintEstimateId] = useState<string | null>(null);
+  const [previewEstimateId, setPreviewEstimateId] = useState<string | null>(null);
 
   const handleViewChange = (view: string) => {
     setSearchParams({ view });
@@ -265,6 +267,14 @@ export default function Estimates() {
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPreviewEstimateId(estimate.id)}
+                    title="Preview as Customer"
+                  >
+                    <FileSearch className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -561,6 +571,13 @@ export default function Estimates() {
         estimateId={printEstimateId}
         open={!!printEstimateId}
         onOpenChange={(open) => !open && setPrintEstimateId(null)}
+      />
+
+      {/* Customer Preview Dialog */}
+      <EstimatePreviewDialog
+        estimateId={previewEstimateId}
+        open={!!previewEstimateId}
+        onOpenChange={(open) => !open && setPreviewEstimateId(null)}
       />
     </AppLayout>
   );
