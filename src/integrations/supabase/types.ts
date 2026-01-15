@@ -2123,6 +2123,7 @@ export type Database = {
           memo: string | null
           not_affecting_payment: boolean | null
           offset_bill_id: string | null
+          original_bill_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           project_id: string | null
@@ -2148,6 +2149,7 @@ export type Database = {
           memo?: string | null
           not_affecting_payment?: boolean | null
           offset_bill_id?: string | null
+          original_bill_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
           project_id?: string | null
@@ -2173,6 +2175,7 @@ export type Database = {
           memo?: string | null
           not_affecting_payment?: boolean | null
           offset_bill_id?: string | null
+          original_bill_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
           project_id?: string | null
