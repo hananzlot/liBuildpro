@@ -44,7 +44,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_key, setting_value')
-        .in('setting_key', ['company_name', 'company_address', 'company_phone', 'company_website', 'portal_upload_limit_mb']);
+        .in('setting_key', ['company_name', 'company_address', 'company_phone', 'company_website', 'portal_upload_limit_mb', 'company_logo_url']);
       if (error) throw error;
       const settings: Record<string, string> = {};
       data?.forEach(s => {
@@ -261,11 +261,21 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           {/* Top Bar */}
           <div className="py-4 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20">
-                <span className="text-white font-bold text-sm">
-                  {companySettings?.company_name?.charAt(0) || 'C'}
-                </span>
-              </div>
+              {companySettings?.company_logo_url ? (
+                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20 overflow-hidden">
+                  <img 
+                    src={companySettings.company_logo_url} 
+                    alt={companySettings?.company_name || 'Company Logo'} 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20">
+                  <span className="text-white font-bold text-sm">
+                    {companySettings?.company_name?.charAt(0) || 'C'}
+                  </span>
+                </div>
+              )}
               <div>
                 <h1 className="font-bold text-white text-lg tracking-tight">
                   {companySettings?.company_name || 'Customer Portal'}
