@@ -2767,15 +2767,19 @@ function BillDialog({
   const isOffsetEligible = offsetEligibleCategories.includes(formData.category);
 
   // Get subcontractor bills for the selected agreement (for offset dropdown)
+  // Only show subcontractor invoices, never if the new bill vendor matches the subcontractor
   const subcontractorBillsForOffset = useMemo(() => {
     if (!formData.agreement_id || !isOffsetEligible) return [];
     return allBills.filter(b => 
       b.agreement_id === formData.agreement_id && 
-      b.installer_company && // Must have a subcontractor
+      b.category === "Subcontractor" && // Must be a subcontractor invoice
+      b.installer_company && // Must have a subcontractor name
       !b.is_voided &&
-      b.id !== bill?.id // Can't offset itself
+      b.id !== bill?.id && // Can't offset itself
+      // Never show if the new bill's vendor is the same as the subcontractor
+      (!formData.installer_company || b.installer_company !== formData.installer_company)
     );
-  }, [allBills, formData.agreement_id, isOffsetEligible, bill?.id]);
+  }, [allBills, formData.agreement_id, isOffsetEligible, bill?.id, formData.installer_company]);
 
   // Fetch active subcontractors from subcontractors table
   const { data: activeSubcontractors = [] } = useQuery({
