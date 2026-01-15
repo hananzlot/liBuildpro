@@ -1058,29 +1058,77 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </Button>
                   </div>
 
-                  {groups.length === 0 ? (
-                    <Card>
-                      <CardContent className="py-8 text-center">
-                        <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground mb-4">No scope items yet.</p>
-                        <div className="flex items-center justify-center gap-2">
-                          <Button onClick={addGroup} variant="outline">
-                            <FolderPlus className="mr-2 h-4 w-4" />
-                            Add Area Manually
+                  {/* Check if mandatory fields are filled for AI generation */}
+                  {(() => {
+                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim();
+                    const missingFields = [];
+                    if (!formData.customer_name?.trim()) missingFields.push('Customer Name');
+                    if (!formData.job_address?.trim()) missingFields.push('Job Address');
+                    if (!formData.estimate_title?.trim()) missingFields.push('Project Title');
+                    
+                    return groups.length === 0 ? (
+                      <Card>
+                        <CardContent className="py-8 text-center">
+                          <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                          <p className="text-muted-foreground mb-4">No scope items yet.</p>
+                          <div className="flex items-center justify-center gap-2">
+                            <Button onClick={addGroup} variant="outline">
+                              <FolderPlus className="mr-2 h-4 w-4" />
+                              Add Area Manually
+                            </Button>
+                            <Button 
+                              onClick={generateScope} 
+                              disabled={isGeneratingScope || !canGenerateAI}
+                              title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Generate scope with AI'}
+                            >
+                              {isGeneratingScope ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Wand2 className="mr-2 h-4 w-4" />
+                              )}
+                              Generate with AI
+                            </Button>
+                          </div>
+                          {!canGenerateAI && (
+                            <p className="text-xs text-amber-600 mt-3">
+                              Fill in {missingFields.join(', ')} in Customer tab to enable AI generation
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Clear & Regenerate option when items exist */}
+                        <div className="flex items-center justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setGroups([]);
+                              setPaymentSchedule([]);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Clear All
                           </Button>
-                          <Button onClick={generateScope} disabled={isGeneratingScope}>
+                          <Button 
+                            size="sm"
+                            onClick={() => {
+                              setGroups([]);
+                              setPaymentSchedule([]);
+                              setTimeout(() => generateScope(), 100);
+                            }} 
+                            disabled={isGeneratingScope || !canGenerateAI}
+                            title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Clear and regenerate with AI'}
+                          >
                             {isGeneratingScope ? (
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : (
                               <Wand2 className="mr-2 h-4 w-4" />
                             )}
-                            Generate with AI
+                            Regenerate AI Scope
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <div className="space-y-4">
                       {groups.map((group) => (
                         <Card key={group.id}>
                           <Collapsible open={group.isOpen} onOpenChange={() => toggleGroup(group.id)}>
@@ -1237,7 +1285,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         </Card>
                       ))}
                     </div>
-                  )}
+                    );
+                  })()}
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-0 space-y-4">

@@ -358,7 +358,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                   <div className="grid grid-cols-4 gap-1">
                     {[
                       { label: 'Proposal', step: 1, completed: true, date: project.created_at },
-                      { label: 'Agreement Signed', step: 2, completed: !!project.agreement_signed_date, date: project.agreement_signed_date },
+                      { label: 'Agreement Signed', step: 2, completed: agreements.length > 0 || !!project.agreement_signed_date, date: project.agreement_signed_date },
                       { label: 'In Progress', step: 3, completed: project.project_status === 'In Progress' || project.project_status === 'Completed' },
                       { label: 'Completed', step: 4, completed: project.project_status === 'Completed' },
                     ].map((item, index) => (
