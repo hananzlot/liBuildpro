@@ -1,4 +1,6 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -10,7 +12,8 @@ import {
   User, 
   FileText,
   ClipboardList,
-  Building2
+  Building2,
+  UserCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -21,6 +24,23 @@ interface PortalProjectInfoProps {
 }
 
 export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }: PortalProjectInfoProps) {
+  // Fetch salespeople data to get phone numbers
+  const { data: salespeople = [] } = useQuery({
+    queryKey: ['portal-salespeople'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('salespeople')
+        .select('name, phone, email');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const getSalespersonPhone = (name: string | null) => {
+    if (!name) return null;
+    const person = salespeople.find(s => s.name.toLowerCase() === name.toLowerCase());
+    return person?.phone || null;
+  };
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       Proposal: { label: 'Proposal Stage', variant: 'secondary' },
@@ -115,10 +135,77 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
                   {project.project_subcategory && ` - ${project.project_subcategory}`}
                 </p>
               </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+            </>
+          )}
+
+          {/* Your Team - Salesperson & Project Manager */}
+          {(project.primary_salesperson || project.project_manager) && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                  <UserCircle className="h-4 w-4" />
+                  YOUR TEAM
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {(() => {
+                    const salesperson = project.primary_salesperson;
+                    const manager = project.project_manager;
+                    const isSamePerson = salesperson && manager && salesperson.toLowerCase() === manager.toLowerCase();
+                    
+                    if (isSamePerson) {
+                      // Same person - show once with combined role
+                      const phone = getSalespersonPhone(salesperson);
+                      return (
+                        <div className="space-y-1">
+                          <p className="font-medium">{salesperson}</p>
+                          <p className="text-xs text-muted-foreground">Salesperson & Project Manager</p>
+                          {phone && (
+                            <p className="text-sm flex items-center gap-2 text-primary">
+                              <Phone className="h-4 w-4" />
+                              {phone}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    }
+                    
+                    // Different people - show both
+                    return (
+                      <>
+                        {salesperson && (
+                          <div className="space-y-1">
+                            <p className="font-medium">{salesperson}</p>
+                            <p className="text-xs text-muted-foreground">Salesperson</p>
+                            {getSalespersonPhone(salesperson) && (
+                              <p className="text-sm flex items-center gap-2 text-primary">
+                                <Phone className="h-4 w-4" />
+                                {getSalespersonPhone(salesperson)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        {manager && (
+                          <div className="space-y-1">
+                            <p className="font-medium">{manager}</p>
+                            <p className="text-xs text-muted-foreground">Project Manager</p>
+                            {getSalespersonPhone(manager) && (
+                              <p className="text-sm flex items-center gap-2 text-primary">
+                                <Phone className="h-4 w-4" />
+                                {getSalespersonPhone(manager)}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
     {/* Description of Work from Agreements */}
     {agreements.length > 0 && agreements.some(a => a.description_of_work) && (

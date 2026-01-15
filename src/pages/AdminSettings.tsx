@@ -16,6 +16,7 @@ import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
 import { UserManagement } from "@/components/dashboard/UserManagement";
 import { EmailTemplatesManager } from "@/components/admin/EmailTemplatesManager";
+import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement";
 import { format } from "date-fns";
 import {
   Table,
@@ -298,7 +299,7 @@ export default function AdminSettings() {
   );
 
   const companySettings = settings?.filter((s) =>
-    ["company_name"].includes(s.setting_key)
+    ["company_name", "company_address", "company_phone"].includes(s.setting_key)
   );
 
   const formatLabel = (key: string) => {
@@ -435,6 +436,9 @@ export default function AdminSettings() {
                     {companySettings?.map(renderSettingField)}
                   </CardContent>
                 </Card>
+
+                {/* Salespeople Management */}
+                <SalespeopleManagement />
 
                 <Separator />
 
