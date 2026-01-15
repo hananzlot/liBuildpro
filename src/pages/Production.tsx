@@ -1141,9 +1141,10 @@ export default function Production() {
 
   // Helper to get the best available date for a project (for filtering)
   const getProjectFilterDate = useCallback((project: typeof projects[0]): string | null => {
-    // Priority: agreement_signed_date > install_start_date > created_at
-    return project.agreement_signed_date || project.install_start_date || project.created_at;
-  }, []);
+    // Priority: earliestSignedDate from agreements > install_start_date > created_at
+    const financials = projectFinancials[project.id];
+    return financials?.earliestSignedDate || project.install_start_date || project.created_at;
+  }, [projectFinancials]);
 
   // Helper to check if a date falls within the KPI filter range
   const isWithinKpiRange = useCallback((dateStr: string | null): boolean => {
