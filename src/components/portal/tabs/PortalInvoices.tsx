@@ -1,15 +1,15 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { 
   Receipt, 
   CheckCircle2, 
   Clock, 
   DollarSign,
   Calendar,
-  CreditCard
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -19,7 +19,7 @@ interface PortalInvoicesProps {
   projectId: string;
 }
 
-export function PortalInvoices({ paymentSchedule, invoices, projectId }: PortalInvoicesProps) {
+export function PortalInvoices({ paymentSchedule, projectId }: PortalInvoicesProps) {
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
     return new Intl.NumberFormat('en-US', {
@@ -28,14 +28,48 @@ export function PortalInvoices({ paymentSchedule, invoices, projectId }: PortalI
     }).format(amount);
   };
 
+  // Fetch actual invoices from project_invoices
+  const { data: projectInvoices } = useQuery({
+    queryKey: ['portal-invoices', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('project_invoices')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch payments made against the project
+  const { data: projectPayments } = useQuery({
+    queryKey: ['portal-payments', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('project_payments')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('is_voided', false)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const invoices = projectInvoices || [];
+  const payments = projectPayments || [];
+
   const hasContent = paymentSchedule.length > 0 || invoices.length > 0;
 
   // Calculate totals
   const totalScheduled = paymentSchedule.reduce((sum, p) => sum + (p.amount || 0), 0);
-  const totalPaid = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + (i.amount || 0), 0);
-  const paymentProgress = totalScheduled > 0 ? (totalPaid / totalScheduled) * 100 : 0;
+  const totalInvoiced = invoices.reduce((sum, i) => sum + (i.amount || 0), 0);
+  const totalPaid = payments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
+  const displayTotal = totalInvoiced > 0 ? totalInvoiced : totalScheduled;
+  const paymentProgress = displayTotal > 0 ? (totalPaid / displayTotal) * 100 : 0;
 
-  if (!hasContent) {
+  if (!hasContent && invoices.length === 0) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -52,7 +86,7 @@ export function PortalInvoices({ paymentSchedule, invoices, projectId }: PortalI
   return (
     <div className="space-y-6">
       {/* Payment Summary */}
-      {totalScheduled > 0 && (
+      {displayTotal > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -64,7 +98,7 @@ export function PortalInvoices({ paymentSchedule, invoices, projectId }: PortalI
             <div className="grid md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-muted/50 rounded-lg">
                 <p className="text-sm text-muted-foreground">Total Contract</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalScheduled)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(displayTotal)}</p>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
                 <p className="text-sm text-muted-foreground">Paid</p>
@@ -72,7 +106,7 @@ export function PortalInvoices({ paymentSchedule, invoices, projectId }: PortalI
               </div>
               <div className="text-center p-4 bg-amber-50 rounded-lg">
                 <p className="text-sm text-muted-foreground">Remaining</p>
-                <p className="text-2xl font-bold text-amber-600">{formatCurrency(totalScheduled - totalPaid)}</p>
+                <p className="text-2xl font-bold text-amber-600">{formatCurrency(displayTotal - totalPaid)}</p>
               </div>
             </div>
             <div className="space-y-2">
@@ -86,54 +120,7 @@ export function PortalInvoices({ paymentSchedule, invoices, projectId }: PortalI
         </Card>
       )}
 
-      {/* Payment Schedule */}
-      {paymentSchedule.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Payment Schedule
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {paymentSchedule.map((phase, index) => {
-                // Check if this phase has been paid (would need to match against invoices)
-                const isPaid = false; // TODO: Match against actual payments
-                
-                return (
-                  <div 
-                    key={phase.id} 
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      isPaid ? 'bg-green-50 border-green-200' : 'bg-muted/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        isPaid ? 'bg-green-600 text-white' : 'bg-muted text-muted-foreground'
-                      }`}>
-                        {isPaid ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
-                      </div>
-                      <div>
-                        <p className="font-medium">{phase.phase_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {phase.description || phase.due_type}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">{formatCurrency(phase.amount)}</p>
-                      <p className="text-sm text-muted-foreground">{phase.percent}%</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Invoices */}
+      {/* Invoices with payment status */}
       {invoices.length > 0 && (
         <Card>
           <CardHeader>
@@ -144,40 +131,129 @@ export function PortalInvoices({ paymentSchedule, invoices, projectId }: PortalI
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {invoices.map((invoice) => (
-                <div 
-                  key={invoice.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">Invoice #{invoice.invoice_number}</p>
-                      <Badge 
-                        variant={invoice.status === 'paid' ? 'default' : 'secondary'}
-                        className={invoice.status === 'paid' ? 'bg-green-600' : ''}
-                      >
-                        {invoice.status === 'paid' ? (
-                          <><CheckCircle2 className="h-3 w-3 mr-1" /> Paid</>
-                        ) : (
-                          <><Clock className="h-3 w-3 mr-1" /> {invoice.status}</>
+              {invoices.map((invoice: any) => {
+                const invoicePayments = payments.filter((p: any) => p.invoice_id === invoice.id);
+                const paidAmount = invoicePayments.reduce((sum: number, p: any) => sum + (p.payment_amount || 0), 0);
+                const isPaid = paidAmount >= (invoice.amount || 0);
+                const isPartial = paidAmount > 0 && paidAmount < (invoice.amount || 0);
+                
+                return (
+                  <div 
+                    key={invoice.id}
+                    className={`flex items-center justify-between p-4 border rounded-lg ${
+                      isPaid ? 'bg-green-50 border-green-200' : ''
+                    }`}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">Invoice #{invoice.invoice_number}</p>
+                        <Badge 
+                          variant={isPaid ? 'default' : isPartial ? 'secondary' : 'outline'}
+                          className={isPaid ? 'bg-green-600' : ''}
+                        >
+                          {isPaid ? (
+                            <><CheckCircle2 className="h-3 w-3 mr-1" /> Paid</>
+                          ) : isPartial ? (
+                            <><Clock className="h-3 w-3 mr-1" /> Partial</>
+                          ) : (
+                            <><Clock className="h-3 w-3 mr-1" /> Pending</>
+                          )}
+                        </Badge>
+                      </div>
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        {invoice.invoice_date && (
+                          <span>Issued: {format(new Date(invoice.invoice_date), 'MMM d, yyyy')}</span>
                         )}
-                      </Badge>
+                        {isPaid && invoicePayments.length > 0 && (
+                          <span className="text-green-600">
+                            Paid: {format(new Date(invoicePayments[invoicePayments.length - 1].created_at), 'MMM d, yyyy')}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {invoice.description}
-                    </p>
-                    <div className="flex gap-4 text-xs text-muted-foreground">
-                      <span>Issued: {format(new Date(invoice.created_at), 'MMM d, yyyy')}</span>
-                      {invoice.paid_at && (
-                        <span className="text-green-600">
-                          Paid: {format(new Date(invoice.paid_at), 'MMM d, yyyy')}
-                        </span>
+                    <div className="text-right">
+                      <p className="font-semibold text-lg">{formatCurrency(invoice.amount)}</p>
+                      {isPartial && (
+                        <p className="text-xs text-muted-foreground">
+                          Paid: {formatCurrency(paidAmount)}
+                        </p>
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-lg">{formatCurrency(invoice.amount)}</p>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payment Schedule (if no invoices yet, show schedule) */}
+      {paymentSchedule.length > 0 && invoices.length === 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Payment Schedule
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {paymentSchedule.map((phase: any, index: number) => (
+                <div 
+                  key={phase.id} 
+                  className="flex items-center justify-between p-4 rounded-lg border bg-muted/30"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium">{phase.phase_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {phase.description || phase.due_type}
+                      </p>
+                    </div>
                   </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{formatCurrency(phase.amount)}</p>
+                    <p className="text-sm text-muted-foreground">{phase.percent}%</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Payments History */}
+      {payments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              Payments Received
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {payments.map((payment: any) => (
+                <div 
+                  key={payment.id}
+                  className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg"
+                >
+                  <div className="space-y-1">
+                    <p className="font-medium text-green-800">
+                      Payment Received
+                    </p>
+                    <div className="flex gap-3 text-xs text-green-600">
+                      <span>{format(new Date(payment.created_at), 'MMM d, yyyy')}</span>
+                      {payment.bank_name && <span>• {payment.bank_name}</span>}
+                      {payment.check_number && <span>• Check #{payment.check_number}</span>}
+                    </div>
+                  </div>
+                  <p className="font-semibold text-lg text-green-700">
+                    {formatCurrency(payment.payment_amount)}
+                  </p>
                 </div>
               ))}
             </div>

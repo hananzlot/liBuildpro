@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -87,13 +87,6 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
         paymentSchedule = schedule || [];
       }
 
-      // Get project invoices (from project_invoices table if exists)
-      const { data: invoices } = await supabase
-        .from('project_invoices')
-        .select('*')
-        .eq('project_id', tokenData.project_id)
-        .order('created_at', { ascending: false });
-
       // Log view
       await supabase.from('portal_view_logs').insert({
         portal_token_id: tokenData.id,
@@ -117,7 +110,6 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
         agreements: agreements || [],
         documents: documents || [],
         paymentSchedule,
-        invoices: invoices || [],
       };
     },
   });
@@ -149,7 +141,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
 
   if (!portalData) return null;
 
-  const { project, estimates, agreements, documents, paymentSchedule, invoices, token: tokenData } = portalData;
+  const { project, estimates, agreements, documents, paymentSchedule, token: tokenData } = portalData;
 
   // Find the accepted estimate for scope of work
   const acceptedEstimate = estimates.find(e => e.status === 'accepted');
@@ -210,7 +202,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           <TabsContent value="invoices">
             <PortalInvoices 
               paymentSchedule={paymentSchedule}
-              invoices={invoices}
+              invoices={[]}
               projectId={project.id}
             />
           </TabsContent>
