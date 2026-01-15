@@ -491,7 +491,7 @@ export function PayablesSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-7xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-[85rem] overflow-y-auto">
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>
