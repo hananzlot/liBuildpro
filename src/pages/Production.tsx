@@ -1524,11 +1524,36 @@ export default function Production() {
             {matchedFinancialSections.size > 0 && (
               <div className="flex items-center gap-2 flex-wrap text-sm">
                 <span className="text-muted-foreground text-xs">Found in:</span>
-                {Array.from(matchedFinancialSections).map((section) => (
-                  <Badge key={section} variant="secondary" className="text-xs">
-                    {section}
-                  </Badge>
-                ))}
+                {Array.from(matchedFinancialSections).map((section) => {
+                  // Map section names to sort columns
+                  const columnMap: Record<string, SortColumn> = {
+                    'Invoiced': 'sold_amount',
+                    'Payments Received': 'inv_collected',
+                    'Phases': 'sold_amount',
+                    'Contracts': 'sold_amount',
+                    'Bills Received': 'bills_received',
+                    'Bills Paid': 'bills_paid',
+                    'Project Balance': 'proj_balance',
+                    'Invoice Balance': 'inv_balance',
+                  };
+                  const targetColumn = columnMap[section];
+                  
+                  return (
+                    <Badge 
+                      key={section} 
+                      variant="secondary" 
+                      className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                      onClick={() => {
+                        if (targetColumn) {
+                          setSortColumn(targetColumn);
+                          setSortDirection('desc');
+                        }
+                      }}
+                    >
+                      {section}
+                    </Badge>
+                  );
+                })}
               </div>
             )}
           </section>
