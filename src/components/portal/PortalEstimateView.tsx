@@ -634,25 +634,33 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
 
         {/* Action Buttons */}
         {canSign && (
-          <div className="sticky bottom-0 bg-background border-t p-4 -mx-4">
-            <div className="max-w-5xl mx-auto flex gap-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setDeclineDialogOpen(true)}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Request Changes / Decline
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => setSignatureDialogOpen(true)}
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Accept & Sign
-              </Button>
-            </div>
-          </div>
+          <Card className="border-2 border-primary bg-primary/5">
+            <CardContent className="py-6">
+              <div className="text-center mb-4">
+                <h3 className="font-semibold text-lg">Ready to proceed?</h3>
+                <p className="text-sm text-muted-foreground">Review the proposal above and accept or request changes</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  size="lg"
+                  onClick={() => setDeclineDialogOpen(true)}
+                >
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Request Changes / Decline
+                </Button>
+                <Button
+                  className="flex-1"
+                  size="lg"
+                  onClick={() => setSignatureDialogOpen(true)}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Accept & Sign Proposal
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
 
