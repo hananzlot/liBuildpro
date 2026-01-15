@@ -83,6 +83,57 @@ function ProtectedRoute({
   return <>{children}</>;
 }
 
+// Component to handle role-based default page routing
+function DefaultPageRedirect() {
+  const { user, isLoading, isAdmin, isDispatch, isProduction, isMagazine, isContractManager } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Handle recovery links
+  if (location.hash.includes("type=recovery") && location.pathname !== "/auth") {
+    return (
+      <Navigate
+        replace
+        to={{ pathname: "/auth", search: "?mode=reset", hash: location.hash }}
+      />
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Only admin and dispatch see the dashboard
+  if (isAdmin || isDispatch) {
+    return <Index />;
+  }
+
+  // Production role goes to production page
+  if (isProduction) {
+    return <Navigate to="/production" replace />;
+  }
+
+  // Magazine role goes to magazine sales
+  if (isMagazine) {
+    return <Navigate to="/magazine-sales" replace />;
+  }
+
+  // Contract manager goes to estimates
+  if (isContractManager) {
+    return <Navigate to="/estimates" replace />;
+  }
+
+  // Fallback to follow-up page for sales or any other role
+  return <Navigate to="/follow-up" replace />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -94,11 +145,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route
               path="/"
-              element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              }
+              element={<DefaultPageRedirect />}
             />
             <Route
               path="/follow-up"
