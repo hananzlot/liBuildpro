@@ -164,7 +164,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
   const acceptedEstimate = estimates.find(e => e.status === 'accepted');
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-muted/30 flex flex-col">
       {/* Header */}
       <div className="bg-background border-b sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -183,7 +183,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-6 flex-1">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="project">Project Info</TabsTrigger>
@@ -244,13 +244,11 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
       </div>
 
       {/* Footer with company info */}
-      {companySettings && (companySettings.company_name || companySettings.company_address || companySettings.company_phone) && (
-        <footer className="border-t bg-background mt-8">
+      {companySettings?.company_name && (
+        <footer className="border-t bg-background mt-auto">
           <div className="max-w-6xl mx-auto px-4 py-6">
             <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-sm text-muted-foreground">
-              {companySettings.company_name && (
-                <span className="font-semibold text-foreground">{companySettings.company_name}</span>
-              )}
+              <span className="font-semibold text-foreground">{companySettings.company_name}</span>
               {companySettings.company_address && (
                 <span className="flex items-center gap-1">
                   <MapPin className="h-4 w-4" />
