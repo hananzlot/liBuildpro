@@ -121,7 +121,10 @@ function DefaultPageRedirect() {
     return <Navigate to="/auth" replace />;
   }
 
-  // Only admin and dispatch see the dashboard
+  // Role-based routing - redirect to first authorized page
+  // Priority order: Admin/Dispatch → Dashboard, then role-specific pages
+  
+  // Admin and Dispatch see the main dashboard
   if (isAdmin || isDispatch) {
     return <Index />;
   }
@@ -146,8 +149,17 @@ function DefaultPageRedirect() {
     return <Navigate to="/sales-portal" replace />;
   }
 
-  // Fallback to follow-up page for any other role
-  return <Navigate to="/follow-up" replace />;
+  // User is logged in but has no recognized role - show access denied
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="text-center space-y-4 max-w-md">
+        <h1 className="text-2xl font-bold">No Access</h1>
+        <p className="text-muted-foreground">
+          Your account doesn't have any roles assigned. Please contact an administrator to get access to the system.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 const App = () => (
