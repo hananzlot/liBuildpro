@@ -34,17 +34,41 @@ export function PortalInvoices({ paymentSchedule, projectId, project }: PortalIn
     }).format(amount);
   };
 
-  // Fetch actual invoices from project_invoices
+  // Fetch actual invoices from project_invoices with agreement and phase info
   const { data: projectInvoices } = useQuery({
     queryKey: ['portal-invoices', projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('project_invoices')
-        .select('*')
+        .select(`
+          *,
+          project_agreements (
+            agreement_number,
+            description_of_work
+          ),
+          project_payment_phases (
+            phase_name,
+            description
+          )
+        `)
         .eq('project_id', projectId)
         .order('created_at', { ascending: true });
       if (error) throw error;
       return data || [];
+    },
+  });
+
+  // Fetch company name from settings
+  const { data: companyName } = useQuery({
+    queryKey: ['company-name-portal'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'company_name')
+        .maybeSingle();
+      if (error) throw error;
+      return data?.setting_value || 'Company';
     },
   });
 
@@ -288,6 +312,7 @@ export function PortalInvoices({ paymentSchedule, projectId, project }: PortalIn
         invoice={selectedInvoice}
         payments={selectedPayments}
         project={project}
+        companyName={companyName || 'Company'}
       />
     </div>
   );

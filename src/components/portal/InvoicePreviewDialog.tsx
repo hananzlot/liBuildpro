@@ -13,7 +13,8 @@ import {
   Calendar,
   Building2,
   FileText,
-  CreditCard
+  CreditCard,
+  ClipboardList
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -33,6 +34,14 @@ interface Invoice {
   invoice_date: string | null;
   open_balance?: number | null;
   payments_received?: number | null;
+  project_agreements?: {
+    agreement_number: string | null;
+    description_of_work: string | null;
+  } | null;
+  project_payment_phases?: {
+    phase_name: string | null;
+    description: string | null;
+  } | null;
 }
 
 interface Project {
@@ -50,6 +59,7 @@ interface InvoicePreviewDialogProps {
   invoice: Invoice | null;
   payments: Payment[];
   project?: Project | null;
+  companyName?: string;
 }
 
 export function InvoicePreviewDialog({ 
@@ -57,7 +67,8 @@ export function InvoicePreviewDialog({
   onOpenChange, 
   invoice, 
   payments,
-  project 
+  project,
+  companyName = 'Company'
 }: InvoicePreviewDialogProps) {
   if (!invoice) return null;
 
@@ -79,14 +90,25 @@ export function InvoicePreviewDialog({
     ? `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || project.project_name
     : 'Customer';
 
+  const agreementNumber = invoice.project_agreements?.agreement_number;
+  const workScope = invoice.project_agreements?.description_of_work;
+  const phaseName = invoice.project_payment_phases?.phase_name;
+  const phaseDescription = invoice.project_payment_phases?.description;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Invoice #{invoice.invoice_number}
-          </DialogTitle>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-lg font-semibold text-primary">
+              <Building2 className="h-5 w-5" />
+              {companyName}
+            </div>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Invoice #{invoice.invoice_number}
+            </DialogTitle>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -125,6 +147,36 @@ export function InvoicePreviewDialog({
               )}
               {project.customer_phone && (
                 <p className="text-sm text-muted-foreground">{project.customer_phone}</p>
+              )}
+            </div>
+          )}
+
+          {/* Agreement & Phase Details */}
+          {(agreementNumber || phaseName) && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+              <h3 className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                <ClipboardList className="h-4 w-4" />
+                Invoice Details
+              </h3>
+              {agreementNumber && (
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-blue-700">
+                    Agreement #{agreementNumber}
+                  </p>
+                  {workScope && (
+                    <p className="text-sm text-blue-600">{workScope}</p>
+                  )}
+                </div>
+              )}
+              {phaseName && (
+                <div className="space-y-1 pt-2 border-t border-blue-200">
+                  <p className="text-sm font-medium text-blue-700">
+                    Payment Phase: {phaseName}
+                  </p>
+                  {phaseDescription && (
+                    <p className="text-sm text-blue-600">{phaseDescription}</p>
+                  )}
+                </div>
               )}
             </div>
           )}
