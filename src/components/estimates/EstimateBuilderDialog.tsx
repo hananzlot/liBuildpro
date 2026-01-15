@@ -763,10 +763,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     </CardHeader>
                     <CardContent className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="default_markup_percent_customer">Default Markup %</Label>
+                        <Label htmlFor="default_markup_percent_customer">Default Markup</Label>
                         <Input
                           id="default_markup_percent_customer"
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           value={formData.default_markup_percent}
                           onChange={(e) => {
                             const newMarkup = parseFloat(e.target.value) || 0;
@@ -785,18 +786,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                               }),
                             })));
                           }}
-                          step="1"
+                          placeholder="35"
                         />
-                        <p className="text-xs text-muted-foreground">Default 35%. Applied to all line items when changed.</p>
+                        <p className="text-xs text-muted-foreground">Default 35. Applied to all line items when changed.</p>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="tax_rate_customer">Tax Rate %</Label>
+                        <Label htmlFor="tax_rate_customer">Tax Rate</Label>
                         <Input
                           id="tax_rate_customer"
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           value={formData.tax_rate}
                           onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
-                          step="0.01"
+                          placeholder="9.5"
                         />
                       </div>
                     </CardContent>
