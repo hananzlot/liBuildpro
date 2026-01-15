@@ -242,7 +242,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
 
   const tabs = [
     { value: 'project', label: 'Project', icon: ClipboardList },
-    { value: 'proposals', label: 'Proposals', icon: FileText, badge: estimates.filter(e => e.status === 'sent' || e.status === 'viewed').length },
+    { value: 'proposals', label: 'Proposals', icon: FileText, badge: estimates.length },
     { value: 'agreement', label: 'Agreement', icon: CheckCircle2 },
     { value: 'invoices', label: 'Invoices', icon: Receipt },
     { value: 'photos', label: 'Photos', icon: Camera, badge: documents.filter(d => d.file_type?.startsWith('image/')).length },
