@@ -12,7 +12,8 @@ import {
   FolderOpen,
   ExternalLink,
   FileCheck,
-  FilePlus
+  FilePlus,
+  FileSignature
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,6 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 interface PortalDocumentsProps {
   documents: any[];
+  agreements?: any[];
   projectId: string;
   uploadLimitMb?: number;
 }
@@ -37,7 +39,7 @@ const ALLOWED_TYPES = [
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv'];
 
-export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: PortalDocumentsProps) {
+export function PortalDocuments({ documents, agreements = [], projectId, uploadLimitMb = 15 }: PortalDocumentsProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -50,7 +52,33 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
     !/\.(jpg|jpeg|png|gif|webp)$/i.test(doc.file_name)
   );
 
-  const getFileConfig = (fileType: string | null, fileName: string) => {
+  // Convert agreements with attachments to document format
+  const agreementDocs = agreements
+    .filter(agreement => agreement.attachment_url)
+    .map(agreement => ({
+      id: `agreement-${agreement.id}`,
+      file_name: `Contract ${agreement.agreement_number || 'Agreement'}.pdf`,
+      file_url: agreement.attachment_url,
+      file_type: 'application/pdf',
+      created_at: agreement.created_at || agreement.agreement_signed_date,
+      category: 'Contract',
+      isAgreement: true,
+      agreementNumber: agreement.agreement_number,
+      totalPrice: agreement.total_price,
+    }));
+
+  // Combine all documents
+  const allDocs = [...agreementDocs, ...docs];
+
+  const getFileConfig = (fileType: string | null, fileName: string, isAgreement?: boolean) => {
+    if (isAgreement) {
+      return { 
+        icon: FileSignature, 
+        color: 'text-emerald-600', 
+        bg: 'bg-emerald-50',
+        label: 'Contract'
+      };
+    }
     if (fileType?.includes('pdf') || fileName.endsWith('.pdf')) {
       return { 
         icon: FileText, 
@@ -155,6 +183,16 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
     }
   };
 
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null || amount === undefined) return '';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
   return (
     <div className="space-y-6">
       {/* Premium Header */}
@@ -168,7 +206,7 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold">Project Documents</h2>
                 <p className="text-white/70 text-sm mt-1">
-                  {docs.length} document{docs.length !== 1 ? 's' : ''} • PDF, Word, Excel • Max {uploadLimitMb}MB
+                  {allDocs.length} document{allDocs.length !== 1 ? 's' : ''} • PDF, Word, Excel • Max {uploadLimitMb}MB
                 </p>
               </div>
             </div>
@@ -204,7 +242,7 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
         </div>
       </Card>
 
-      {docs.length === 0 ? (
+      {allDocs.length === 0 ? (
         <Card className="border-0 shadow-lg overflow-hidden">
           <CardContent className="py-20 text-center">
             <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-6">
@@ -229,8 +267,8 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
         <Card className="border-0 shadow-lg overflow-hidden">
           <CardContent className="p-0">
             <div className="divide-y divide-slate-100">
-              {docs.map((doc, index) => {
-                const fileConfig = getFileConfig(doc.file_type, doc.file_name);
+              {allDocs.map((doc, index) => {
+                const fileConfig = getFileConfig(doc.file_type, doc.file_name, doc.isAgreement);
                 const FileIcon = fileConfig.icon;
                 const isCustomerUpload = doc.category === 'Customer Upload';
                 
@@ -245,7 +283,7 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <p className="font-semibold text-slate-900 truncate">{doc.file_name}</p>
-                        <Badge variant="outline" className="text-xs font-normal">
+                        <Badge variant="outline" className={`text-xs font-normal ${doc.isAgreement ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : ''}`}>
                           {fileConfig.label}
                         </Badge>
                         {isCustomerUpload && (
@@ -253,9 +291,14 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
                             Your Upload
                           </Badge>
                         )}
+                        {doc.isAgreement && doc.totalPrice && (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">
+                            {formatCurrency(doc.totalPrice)}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-slate-500">
-                        {format(new Date(doc.created_at), 'MMM d, yyyy • h:mm a')}
+                        {doc.created_at ? format(new Date(doc.created_at), 'MMM d, yyyy • h:mm a') : 'No date'}
                         {doc.notes && doc.notes !== 'Document uploaded by customer via portal' && (
                           <span className="text-slate-400"> • {doc.notes}</span>
                         )}
@@ -268,9 +311,9 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
                         </a>
                       </Button>
                       <Button variant="outline" size="sm" asChild className="shadow-sm">
-                        <a href={doc.file_url} download={doc.file_name}>
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
                           <Download className="h-4 w-4 sm:mr-2" />
-                          <span className="hidden sm:inline">Download</span>
+                          <span className="hidden sm:inline">View</span>
                         </a>
                       </Button>
                     </div>

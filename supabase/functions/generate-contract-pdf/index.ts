@@ -102,9 +102,17 @@ serve(async (req) => {
       }
     };
 
+    // Helper to sanitize text for PDF (remove characters that can't be encoded)
+    const sanitizeText = (text: string): string => {
+      if (!text) return '';
+      // Replace newlines, tabs, and other control characters with spaces
+      return text.replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
+    };
+
     // Helper to draw text with word wrap
     const drawWrappedText = (text: string, x: number, maxWidth: number, fontSize: number, font: any, color = black) => {
-      const words = text.split(' ');
+      const sanitized = sanitizeText(text);
+      const words = sanitized.split(' ');
       let line = '';
       
       for (const word of words) {
@@ -350,14 +358,9 @@ serve(async (req) => {
       });
       yPos -= 15;
 
-      const terms = estimate.terms_and_conditions.split('\n');
-      for (const line of terms) {
-        if (line.trim()) {
-          drawWrappedText(line, margin + 5, contentWidth - 10, 9, helvetica, gray);
-        } else {
-          yPos -= 6;
-        }
-      }
+      // Handle terms - split by newlines and draw each paragraph
+      const termsText = sanitizeText(estimate.terms_and_conditions);
+      drawWrappedText(termsText, margin + 5, contentWidth - 10, 9, helvetica, gray);
       yPos -= 20;
     }
 
