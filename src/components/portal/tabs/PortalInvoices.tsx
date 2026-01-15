@@ -1,17 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
 import { 
   Receipt, 
   CheckCircle2, 
   Clock, 
   DollarSign,
   Calendar,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
 
 interface PortalInvoicesProps {
   paymentSchedule: any[];
@@ -20,6 +24,8 @@ interface PortalInvoicesProps {
 }
 
 export function PortalInvoices({ paymentSchedule, projectId }: PortalInvoicesProps) {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
     return new Intl.NumberFormat('en-US', {
@@ -144,7 +150,7 @@ export function PortalInvoices({ paymentSchedule, projectId }: PortalInvoicesPro
                       isPaid ? 'bg-green-50 border-green-200' : ''
                     }`}
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium">Invoice #{invoice.invoice_number}</p>
                         <Badge 
@@ -171,13 +177,32 @@ export function PortalInvoices({ paymentSchedule, projectId }: PortalInvoicesPro
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-lg">{formatCurrency(invoice.amount)}</p>
-                      {isPartial && (
-                        <p className="text-xs text-muted-foreground">
-                          Paid: {formatCurrency(paidAmount)}
-                        </p>
+                    <div className="flex items-center gap-4">
+                      {invoice.attachment_url && (
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={() => setPdfUrl(invoice.attachment_url)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
+                            <a href={invoice.attachment_url} target="_blank" rel="noopener noreferrer" download>
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        </div>
                       )}
+                      <div className="text-right">
+                        <p className="font-semibold text-lg">{formatCurrency(invoice.amount)}</p>
+                        {isPartial && (
+                          <p className="text-xs text-muted-foreground">
+                            Paid: {formatCurrency(paidAmount)}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -260,6 +285,14 @@ export function PortalInvoices({ paymentSchedule, projectId }: PortalInvoicesPro
           </CardContent>
         </Card>
       )}
+
+      {/* PDF Viewer Dialog */}
+      <PdfViewerDialog
+        open={!!pdfUrl}
+        onOpenChange={(open) => !open && setPdfUrl(null)}
+        fileUrl={pdfUrl || ''}
+        fileName="Invoice Document"
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,9 +7,11 @@ import {
   Download, 
   Calendar,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
 
 interface PortalAgreementProps {
   agreements: any[];
@@ -17,6 +19,8 @@ interface PortalAgreementProps {
 }
 
 export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreementProps) {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
     return new Intl.NumberFormat('en-US', {
@@ -132,12 +136,21 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                   </div>
                   
                   {agreement.attachment_url && (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={agreement.attachment_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        View Document
-                      </a>
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setPdfUrl(agreement.attachment_url)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View PDF
+                      </Button>
+                      <Button variant="ghost" size="sm" asChild>
+                        <a href={agreement.attachment_url} target="_blank" rel="noopener noreferrer" download>
+                          <Download className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -145,6 +158,14 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
           ))}
         </div>
       )}
+
+      {/* PDF Viewer Dialog */}
+      <PdfViewerDialog
+        open={!!pdfUrl}
+        onOpenChange={(open) => !open && setPdfUrl(null)}
+        fileUrl={pdfUrl || ''}
+        fileName="Agreement Document"
+      />
     </div>
   );
 }
