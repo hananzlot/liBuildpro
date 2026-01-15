@@ -1906,9 +1906,14 @@ export default function Production() {
                                 >
                                   {project.project_status || "New Job"}
                                 </Badge>
+                                {financials?.earliestSignedDate && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    <strong>Signed:</strong> {format(parseISO(financials.earliestSignedDate), "M/d/yy")}
+                                  </span>
+                                )}
                                 {project.install_start_date && (
                                   <span className="text-[10px] text-muted-foreground">
-                                    {format(parseISO(project.install_start_date), "M/d/yy")}
+                                    <strong>Start:</strong> {format(parseISO(project.install_start_date), "M/d/yy")}
                                     {project.project_status === "Completed" && (
                                       <> - {project.completion_date ? format(parseISO(project.completion_date), "M/d/yy") : <span className="text-destructive">Missing</span>}</>
                                     )}
