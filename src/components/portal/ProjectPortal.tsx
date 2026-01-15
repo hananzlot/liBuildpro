@@ -260,31 +260,30 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
         <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Top Bar */}
           <div className="py-4 flex items-center justify-between border-b border-white/10">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               {companySettings?.company_logo_url && companySettings.company_logo_url.length > 0 ? (
-                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center ring-1 ring-white/20 overflow-hidden p-1">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-white flex items-center justify-center shadow-lg overflow-hidden p-1.5">
                   <img 
                     src={companySettings.company_logo_url} 
                     alt={companySettings?.company_name || 'Company Logo'} 
                     className="w-full h-full object-contain"
                     onError={(e) => {
-                      // Hide image on error, will show initials instead
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20">
-                  <span className="text-white font-bold text-sm">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/30 shadow-lg">
+                  <span className="text-white font-bold text-xl sm:text-2xl">
                     {companySettings?.company_name?.charAt(0) || 'C'}
                   </span>
                 </div>
               )}
               <div>
-                <h1 className="font-bold text-white text-lg tracking-tight">
+                <h1 className="font-bold text-white text-xl sm:text-2xl tracking-tight">
                   {companySettings?.company_name || 'Customer Portal'}
                 </h1>
-                <p className="text-white/60 text-xs">Client Portal</p>
+                <p className="text-white/60 text-sm">Client Portal</p>
               </div>
             </div>
             
