@@ -116,6 +116,25 @@ This notification was sent by {{company_name}} CRM`,
 
 This notification was sent by {{company_name}} CRM`,
   },
+  daily_portal_update: {
+    subject: "Project Update Available - {{company_name}}",
+    body: `Hello {{customer_name}},
+
+There have been updates to your project in the last 24 hours.
+
+**Project Details:**
+- Project #: {{project_number}}
+- Address: {{project_address}}
+
+Please visit your customer portal to view the latest information, documents, invoices, and photos.
+
+Click the button in the email to access your portal directly.
+
+If you have any questions, please don't hesitate to contact us.
+
+Best regards,
+The {{company_name}} Team`,
+  },
 };
 
 const TEMPLATE_META: Record<string, { name: string; description: string; icon: React.ReactNode }> = {
@@ -143,6 +162,11 @@ const TEMPLATE_META: Record<string, { name: string; description: string; icon: R
     name: "Admin: Proposal Declined Notification",
     description: "Email sent to your team when a customer declines a proposal",
     icon: <XCircle className="h-5 w-5 text-red-500" />,
+  },
+  daily_portal_update: {
+    name: "Daily Portal Update Email",
+    description: "Automated/manual email sent to customers when their project has updates",
+    icon: <Mail className="h-5 w-5 text-primary" />,
   },
 };
 
@@ -272,6 +296,8 @@ export function EmailTemplatesManager() {
       job_address: "123 Main Street, Los Angeles, CA 90001",
       message: "We're pleased to present this proposal for your kitchen remodel project. This includes all materials, labor, and a 2-year warranty.",
       decline_reason: "The timeline doesn't work for us at this time.",
+      project_number: "2024-0125",
+      project_address: "123 Main Street, Los Angeles, CA 90001",
     };
 
     // Replace template variables
@@ -337,7 +363,7 @@ export function EmailTemplatesManager() {
           <div className="space-y-2 text-sm text-muted-foreground mb-4">
             <p><strong>Available variables:</strong></p>
             <div className="flex flex-wrap gap-2">
-              {["customer_name", "company_name", "estimate_title", "estimate_number", "total", "job_address", "message", "decline_reason"].map((v) => (
+              {["customer_name", "company_name", "estimate_title", "estimate_number", "total", "job_address", "message", "decline_reason", "project_number", "project_address"].map((v) => (
                 <code key={v} className="bg-muted px-2 py-0.5 rounded text-xs">{`{{${v}}}`}</code>
               ))}
             </div>

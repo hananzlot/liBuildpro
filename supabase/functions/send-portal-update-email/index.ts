@@ -103,11 +103,11 @@ serve(async (req: Request) => {
       portalToken = createdToken?.token;
     }
 
-    // Get company settings
+    // Get company settings and email template
     const { data: settings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
+      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "email_template_daily_portal_update"]);
 
     const settingsMap: Record<string, string> = (settings || []).reduce((acc, s) => {
       acc[s.setting_key] = s.setting_value || "";
@@ -118,13 +118,56 @@ serve(async (req: Request) => {
     const fromName = settingsMap.resend_from_name || "Capro Builders";
     const companyName = settingsMap.company_name || "Capro Builders";
 
+    // Parse email template if exists
+    let emailSubject = "Project Update Available - {{company_name}}";
+    let emailBody = `Hello {{customer_name}},
+
+There have been updates to your project.
+
+**Project Details:**
+- Project #: {{project_number}}
+- Address: {{project_address}}
+
+Please visit your customer portal to view the latest information.
+
+Best regards,
+The {{company_name}} Team`;
+
+    if (settingsMap.email_template_daily_portal_update) {
+      try {
+        const template = JSON.parse(settingsMap.email_template_daily_portal_update);
+        emailSubject = template.subject || emailSubject;
+        emailBody = template.body || emailBody;
+      } catch (e) {
+        console.log("Could not parse email template, using defaults");
+      }
+    }
+
     // Build portal URL
     const portalUrl = `https://crm-caprobuilders.lovable.app/portal/${portalToken}`;
 
     const customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || "Valued Customer";
 
-    const defaultMessage = "We wanted to let you know that there are updates available regarding your project.";
-    const messageText = customMessage || defaultMessage;
+    // Replace template variables
+    const templateVars: Record<string, string> = {
+      customer_name: customerName,
+      company_name: companyName,
+      project_number: String(project.project_number),
+      project_address: project.project_address || project.project_name || '',
+    };
+
+    let finalSubject = emailSubject;
+    let finalBody = emailBody;
+    
+    Object.entries(templateVars).forEach(([key, value]) => {
+      const regex = new RegExp(`{{${key}}}`, "g");
+      finalSubject = finalSubject.replace(regex, value);
+      finalBody = finalBody.replace(regex, value);
+    });
+
+    // Convert markdown-style bold to HTML
+    finalBody = finalBody.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    finalBody = finalBody.replace(/\n/g, '<br />');
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -137,7 +180,6 @@ serve(async (req: Request) => {
             .content { padding: 30px 20px; background-color: #f9fafb; }
             .button { display: inline-block; background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; }
             .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
-            .project-info { background-color: #e0e7ff; padding: 15px; border-radius: 8px; margin: 20px 0; }
           </style>
         </head>
         <body>
@@ -146,20 +188,13 @@ serve(async (req: Request) => {
               <h1>${companyName}</h1>
             </div>
             <div class="content">
-              <h2>Hello ${customerName},</h2>
-              <p>${messageText}</p>
-              <p>Please visit your customer portal to view the latest information about your project:</p>
+              ${finalBody}
               
-              <div class="project-info">
-                <strong>Project #${project.project_number}</strong><br>
-                ${project.project_address || project.project_name || ''}
+              <div style="text-align: center; margin-top: 20px;">
+                <a href="${portalUrl}" class="button">View Your Customer Portal</a>
               </div>
               
-              <div style="text-align: center;">
-                <a href="${portalUrl}" class="button">View Your Project Portal</a>
-              </div>
-              
-              <p style="font-size: 14px; color: #666;">
+              <p style="font-size: 14px; color: #666; margin-top: 20px;">
                 If the button doesn't work, copy and paste this link into your browser:<br>
                 <a href="${portalUrl}">${portalUrl}</a>
               </p>
@@ -183,7 +218,7 @@ serve(async (req: Request) => {
       body: JSON.stringify({
         from: `${fromName} <${fromEmail}>`,
         to: [project.customer_email],
-        subject: `Project Update - ${companyName}`,
+        subject: finalSubject,
         html: htmlContent,
       }),
     });
