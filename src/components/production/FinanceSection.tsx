@@ -142,6 +142,7 @@ interface Bill {
   category: string | null;
   bill_ref: string | null;
   bill_amount: number | null;
+  original_bill_amount: number | null;
   amount_paid: number | null;
   balance: number | null;
   memo: string | null;
@@ -505,6 +506,47 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
           newValues: newBill,
           description: `Created bill ${bill.bill_ref} - ${formatCurrency(bill.bill_amount)}`,
         });
+
+        // If this bill offsets a subcontractor bill, update the subcontractor bill
+        if (bill.offset_bill_id) {
+          const offsetAmount = bill.bill_amount || 0;
+          
+          // Get the target subcontractor bill
+          const { data: targetBill, error: fetchError } = await supabase
+            .from("project_bills")
+            .select("id, bill_amount, original_bill_amount, amount_paid, balance")
+            .eq("id", bill.offset_bill_id)
+            .single();
+          
+          if (fetchError) throw fetchError;
+          
+          if (targetBill) {
+            // Save original amount if not already saved
+            const originalAmount = targetBill.original_bill_amount ?? targetBill.bill_amount;
+            const newBillAmount = (targetBill.bill_amount || 0) - offsetAmount;
+            const newBalance = newBillAmount - (targetBill.amount_paid || 0);
+            
+            const { error: updateError } = await supabase
+              .from("project_bills")
+              .update({ 
+                original_bill_amount: originalAmount,
+                bill_amount: newBillAmount,
+                balance: newBalance
+              })
+              .eq("id", bill.offset_bill_id);
+            
+            if (updateError) throw updateError;
+            
+            await logAudit({
+              tableName: 'project_bills',
+              recordId: bill.offset_bill_id,
+              action: 'UPDATE',
+              oldValues: { bill_amount: targetBill.bill_amount, balance: targetBill.balance },
+              newValues: { bill_amount: newBillAmount, balance: newBalance, original_bill_amount: originalAmount },
+              description: `Applied ${formatCurrency(offsetAmount)} material offset - reduced bill from ${formatCurrency(targetBill.bill_amount)} to ${formatCurrency(newBillAmount)}`,
+            });
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -1327,7 +1369,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                         {bills.map((bill) => {
                           const offsets = billOffsets[bill.id];
                           const offsetTarget = getOffsetTargetBill(bill.offset_bill_id);
-                          const adjustedBalance = (bill.balance || 0) - (offsets?.totalOffset || 0);
+                          const hasBeenOffset = bill.original_bill_amount !== null && bill.original_bill_amount !== bill.bill_amount;
                           
                           return (
                           <TableRow key={bill.id} className={cn(bill.is_voided && "opacity-50 bg-muted/30", bill.offset_bill_id && "bg-primary/5")}>
@@ -1341,7 +1383,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                 </div>
                               ) : bill.offset_bill_id ? (
                                 <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px]">Offset</Badge>
-                              ) : adjustedBalance <= 0 ? (
+                              ) : (bill.balance || 0) <= 0 ? (
                                 <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
                               ) : (
                                 <Badge variant="outline" className="text-[10px]">Open</Badge>
@@ -1357,23 +1399,25 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                                 )}
                                 {offsets && offsets.offsetBills.length > 0 && (
                                   <p className="text-[10px] text-amber-600">
-                                    Materials offset: -{formatCurrency(offsets.totalOffset)}
+                                    Materials offset applied
                                   </p>
                                 )}
                               </div>
                             </TableCell>
                             <TableCell className="text-xs">{bill.category || "-"}</TableCell>
-                            <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>{formatCurrency(bill.bill_amount)}</TableCell>
-                            <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency(bill.amount_paid)}</TableCell>
                             <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
-                              {offsets ? (
+                              {hasBeenOffset ? (
                                 <div>
-                                  <span className="line-through text-muted-foreground">{formatCurrency(bill.balance)}</span>
-                                  <span className="ml-1 font-medium">{formatCurrency(adjustedBalance)}</span>
+                                  <span className="line-through text-muted-foreground">{formatCurrency(bill.original_bill_amount)}</span>
+                                  <span className="ml-1 font-medium">{formatCurrency(bill.bill_amount)}</span>
                                 </div>
                               ) : (
-                                formatCurrency(bill.balance)
+                                formatCurrency(bill.bill_amount)
                               )}
+                            </TableCell>
+                            <TableCell className={cn("text-xs text-right text-emerald-600", bill.is_voided && "line-through")}>{formatCurrency(bill.amount_paid)}</TableCell>
+                            <TableCell className={cn("text-xs text-right", bill.is_voided && "line-through")}>
+                              {formatCurrency(bill.balance)}
                             </TableCell>
                             <TableCell>
                               {bill.attachment_url && (
@@ -2930,11 +2974,14 @@ function BillDialog({
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-50">
                   <SelectItem value="__none__">No offset (standalone bill)</SelectItem>
-                  {subcontractorBillsForOffset.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.installer_company} - {b.bill_ref || 'No ref'} ({formatCurrency(b.bill_amount)}) - Balance: {formatCurrency(b.balance)}
-                    </SelectItem>
-                  ))}
+                  {subcontractorBillsForOffset.map((b) => {
+                    const displayAmount = b.original_bill_amount ?? b.bill_amount;
+                    return (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.installer_company} - {b.bill_ref || 'No ref'} ({formatCurrency(displayAmount)}) - Balance: {formatCurrency(b.balance)}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -3547,6 +3594,8 @@ function QuickPayDialog({
   const balance = bill?.balance || 0;
   const isOverpaying = paymentAmount > balance;
 
+  const hasBeenOffset = bill?.original_bill_amount !== null && bill?.original_bill_amount !== undefined && bill.original_bill_amount !== bill.bill_amount;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -3555,6 +3604,14 @@ function QuickPayDialog({
           <DialogDescription>
             {bill?.installer_company && <span className="font-medium">{bill.installer_company}</span>}
             {bill?.installer_company && " • "}
+            {hasBeenOffset && (
+              <>
+                Original: <span className="line-through text-muted-foreground">{formatCurrency(bill?.original_bill_amount)}</span>
+                {" → "}
+                Net: <span className="font-medium">{formatCurrency(bill?.bill_amount)}</span>
+                {" • "}
+              </>
+            )}
             Balance: <span className="font-semibold text-amber-600">{formatCurrency(balance)}</span>
           </DialogDescription>
         </DialogHeader>
