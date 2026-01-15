@@ -753,15 +753,60 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                       </div>
                     </CardContent>
                   </Card>
-                </TabsContent>
 
-                <TabsContent value="scope" className="mt-0 space-y-4">
-                  {/* Work Scope Description - Required for AI Generation */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <TrendingUp className="h-4 w-4" />
+                        Markup Settings
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="default_markup_percent_customer">Default Markup %</Label>
+                        <Input
+                          id="default_markup_percent_customer"
+                          type="number"
+                          value={formData.default_markup_percent}
+                          onChange={(e) => {
+                            const newMarkup = parseFloat(e.target.value) || 0;
+                            setFormData({ ...formData, default_markup_percent: newMarkup });
+                            // Apply retroactively to all line items
+                            setGroups(prevGroups => prevGroups.map(g => ({
+                              ...g,
+                              items: g.items.map(item => {
+                                const newUnitPrice = item.cost * (1 + newMarkup / 100);
+                                return {
+                                  ...item,
+                                  markup_percent: newMarkup,
+                                  unit_price: newUnitPrice,
+                                  line_total: item.quantity * newUnitPrice,
+                                };
+                              }),
+                            })));
+                          }}
+                          step="1"
+                        />
+                        <p className="text-xs text-muted-foreground">Default 35%. Applied to all line items when changed.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="tax_rate_customer">Tax Rate %</Label>
+                        <Input
+                          id="tax_rate_customer"
+                          type="number"
+                          value={formData.tax_rate}
+                          onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
+                          step="0.01"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         <FileText className="h-4 w-4" />
-                        Describe the Work Scope *
+                        Work Scope Description *
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -782,12 +827,14 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         className="min-h-[150px]"
                       />
                       <p className="text-xs text-muted-foreground mt-2">
-                        Include measurements (sqft, linear ft, quantities) and specific materials for accurate cost estimates. 
-                        The AI uses this description along with the job site ZIP code for location-based pricing.
+                        <strong>Required:</strong> Include measurements (sqft, linear ft, quantities) and specific materials. 
+                        The AI uses this + job site ZIP code for location-based pricing.
                       </p>
                     </CardContent>
                   </Card>
+                </TabsContent>
 
+                <TabsContent value="scope" className="mt-0 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">Line Items</h3>
                     <Button onClick={addGroup} size="sm">
@@ -981,9 +1028,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 <TabsContent value="payments" className="mt-0 space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Deposit, Markup & Tax Settings</CardTitle>
+                      <CardTitle className="text-base">Deposit Settings</CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-4">
+                    <CardContent className="grid gap-4 md:grid-cols-2">
                       <div className="flex items-center gap-4">
                         <Switch
                           id="deposit_required"
@@ -1002,49 +1049,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           disabled={!formData.deposit_required}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="default_markup_percent" className="flex items-center gap-1">
-                          Default Markup %
-                          <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                        </Label>
-                        <Input
-                          id="default_markup_percent"
-                          type="number"
-                          value={formData.default_markup_percent}
-                          onChange={(e) => {
-                            const newMarkup = parseFloat(e.target.value) || 0;
-                            setFormData({ ...formData, default_markup_percent: newMarkup });
-                            // Apply retroactively to all line items
-                            setGroups(prevGroups => prevGroups.map(g => ({
-                              ...g,
-                              items: g.items.map(item => {
-                                const newUnitPrice = item.cost * (1 + newMarkup / 100);
-                                return {
-                                  ...item,
-                                  markup_percent: newMarkup,
-                                  unit_price: newUnitPrice,
-                                  line_total: item.quantity * newUnitPrice,
-                                };
-                              }),
-                            })));
-                          }}
-                          step="1"
-                        />
-                        <p className="text-xs text-muted-foreground">Applied to all items when changed</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="tax_rate">Tax Rate %</Label>
-                        <Input
-                          id="tax_rate"
-                          type="number"
-                          value={formData.tax_rate}
-                          onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
-                          step="0.01"
-                        />
-                      </div>
                     </CardContent>
                   </Card>
-
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                       <CardTitle className="text-base">Payment Schedule</CardTitle>
