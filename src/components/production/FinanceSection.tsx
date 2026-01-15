@@ -2608,14 +2608,14 @@ function PaymentDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Bank Account</Label>
+              <Label>Bank Account <span className="text-destructive">*</span></Label>
               <Popover open={bankOpen} onOpenChange={setBankOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     role="combobox"
                     aria-expanded={bankOpen}
-                    className="w-full justify-between font-normal"
+                    className={cn("w-full justify-between font-normal", !formData.bank_name && "border-destructive")}
                   >
                     {formData.bank_name || "Select or add..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -2663,6 +2663,9 @@ function PaymentDialog({
                   </Command>
                 </PopoverContent>
               </Popover>
+              {!formData.bank_name && (
+                <p className="text-xs text-destructive mt-1">Bank account is required</p>
+              )}
             </div>
             <div>
               <Label>Date Received</Label>
@@ -2718,7 +2721,7 @@ function PaymentDialog({
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
+            <Button type="submit" disabled={isPending || !formData.bank_name}>{isPending ? "Saving..." : "Save"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
