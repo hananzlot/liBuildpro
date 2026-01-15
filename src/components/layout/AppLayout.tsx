@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { usePortalChatNotifications } from "@/hooks/usePortalChatNotifications";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -27,6 +28,9 @@ export function AppLayout({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Listen for customer portal chat messages
+  usePortalChatNotifications();
 
   const handleChangePassword = async () => {
     if (newPassword.length < 6) {

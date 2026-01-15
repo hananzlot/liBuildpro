@@ -47,7 +47,8 @@ import {
   Trash2,
   Pencil,
   X,
-  Settings2
+  Settings2,
+  Send
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
 import { DocumentsSection } from "./DocumentsSection";
@@ -109,7 +110,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [editingTypeName, setEditingTypeName] = useState("");
   const [customLeadCostsOpen, setCustomLeadCostsOpen] = useState(false);
-
+  const [portalChatReply, setPortalChatReply] = useState("");
   // Auto-switch to finance tab and signal bill dialog open when returning from subcontractor add
   useEffect(() => {
     if (open && autoOpenBillDialog && project) {
@@ -492,6 +493,35 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
       return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
     }
     return phone;
+  };
+
+  // Send portal chat reply mutation
+  const sendChatReplyMutation = useMutation({
+    mutationFn: async (message: string) => {
+      if (!project?.id) throw new Error("No project selected");
+      const { error } = await supabase
+        .from("portal_chat_messages")
+        .insert({
+          project_id: project.id,
+          sender_type: 'staff',
+          sender_name: user?.email?.split('@')[0] || 'Staff',
+          sender_email: user?.email,
+          sender_user_id: user?.id,
+          message: message.trim(),
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setPortalChatReply("");
+      queryClient.invalidateQueries({ queryKey: ["portal-chat-messages", project?.id] });
+      toast.success("Reply sent to customer portal");
+    },
+    onError: (error: Error) => toast.error(`Failed to send: ${error.message}`),
+  });
+
+  const handleSendChatReply = () => {
+    if (!portalChatReply.trim()) return;
+    sendChatReplyMutation.mutate(portalChatReply);
   };
 
   return (
@@ -1752,13 +1782,13 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                     No chat messages from the customer portal yet
                   </p>
                 ) : (
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                    {portalChatMessages.map((msg) => (
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto mb-3">
+                    {[...portalChatMessages].reverse().map((msg) => (
                       <div 
                         key={msg.id} 
                         className={`p-2 rounded ${
                           msg.sender_type === 'customer' 
-                            ? 'bg-blue-50 border border-blue-200' 
+                            ? 'bg-blue-50 border border-blue-200 dark:bg-blue-950/30 dark:border-blue-800' 
                             : 'bg-muted'
                         }`}
                       >
@@ -1770,16 +1800,48 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                 Customer
                               </Badge>
                             )}
+                            {msg.sender_type === 'staff' && (
+                              <Badge variant="secondary" className="ml-2 text-[9px] px-1 py-0">
+                                Staff
+                              </Badge>
+                            )}
                           </p>
                           <p className="text-[10px] text-muted-foreground">
                             {new Date(msg.created_at).toLocaleString()}
                           </p>
                         </div>
-                        <p className="text-xs">{msg.message}</p>
+                        <p className="text-xs whitespace-pre-wrap">{msg.message}</p>
                       </div>
                     ))}
                   </div>
                 )}
+                
+                {/* Reply Input */}
+                <div className="flex gap-2 pt-2 border-t">
+                  <Input
+                    value={portalChatReply}
+                    onChange={(e) => setPortalChatReply(e.target.value)}
+                    placeholder="Type a reply..."
+                    className="text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendChatReply();
+                      }
+                    }}
+                  />
+                  <Button 
+                    size="sm" 
+                    onClick={handleSendChatReply}
+                    disabled={!portalChatReply.trim() || sendChatReplyMutation.isPending}
+                  >
+                    {sendChatReplyMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Send className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

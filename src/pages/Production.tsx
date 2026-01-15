@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DateRange } from "react-day-picker";
@@ -512,6 +512,26 @@ export default function Production() {
       earliestSignedDate,
     };
   });
+
+  // Handle opening a project from URL parameters (e.g., from chat notification)
+  useEffect(() => {
+    const openProjectId = searchParams.get('openProject');
+    const initialTab = searchParams.get('tab');
+    
+    if (openProjectId && projects.length > 0) {
+      const project = projects.find(p => p.id === openProjectId);
+      if (project) {
+        setProjectInitialTab(initialTab || undefined);
+        setSelectedProject(project);
+        setDetailSheetOpen(true);
+        // Clear the URL params after opening
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('openProject');
+        newParams.delete('tab');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [projects, searchParams, setSearchParams]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
