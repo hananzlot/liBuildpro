@@ -2426,7 +2426,7 @@ export default function Production() {
                 Total Sold Projects
               </SheetTitle>
               <SheetDescription>
-                {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? 's' : ''} totaling {formatCurrency(filteredFinancialsTotal)}
+                {filteredByStatus.length} project{filteredByStatus.length !== 1 ? 's' : ''} totaling {formatCurrency(filteredFinancialsTotal)}
                 {kpiDateRange?.from && kpiDateRange?.to && (
                   <span className="block mt-1">
                     Filtered: {kpiDateRange.from.toLocaleDateString()} - {kpiDateRange.to.toLocaleDateString()}
@@ -2453,7 +2453,7 @@ export default function Production() {
               <div className="flex flex-wrap gap-2">
                 {(() => {
                   const salespersonStats: Record<string, { count: number; total: number }> = {};
-                  sortedAndFilteredProjects.forEach((project) => {
+                  filteredByStatus.forEach((project) => {
                     const sp = project.primary_salesperson || 'Unassigned';
                     const financials = projectFinancials[project.id];
                     if (!salespersonStats[sp]) {
@@ -2499,14 +2499,14 @@ export default function Production() {
               <div className="space-y-2 pr-4">
                 {(() => {
                   // Apply salesperson filter
-                  const filteredProjects = totalSoldFilterSalesperson
-                    ? sortedAndFilteredProjects.filter(p => 
+                  const projectsToShow = totalSoldFilterSalesperson
+                    ? filteredByStatus.filter(p => 
                         (p.primary_salesperson || 'Unassigned') === totalSoldFilterSalesperson
                       )
-                    : sortedAndFilteredProjects;
+                    : filteredByStatus;
 
                   if (totalSoldGroupBy === 'none') {
-                    return filteredProjects.map((project) => {
+                    return projectsToShow.map((project) => {
                       const financials = projectFinancials[project.id];
                       const soldAmount = financials?.contractsTotal || 0;
                       return (
@@ -2524,8 +2524,8 @@ export default function Production() {
                   }
 
                   // Group projects
-                  const groups: Record<string, typeof filteredProjects> = {};
-                  filteredProjects.forEach((project) => {
+                  const groups: Record<string, typeof projectsToShow> = {};
+                  projectsToShow.forEach((project) => {
                     let groupKey: string;
                     if (totalSoldGroupBy === 'month') {
                       if (project.install_start_date) {
