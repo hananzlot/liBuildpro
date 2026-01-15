@@ -464,6 +464,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           <TabsContent value="documents" className="mt-0 animate-fade-in">
             <PortalDocuments 
               documents={documents}
+              agreements={agreements}
               projectId={project.id}
               uploadLimitMb={uploadLimitMb}
             />
