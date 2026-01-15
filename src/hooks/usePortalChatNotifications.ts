@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { usePortalChat } from '@/contexts/PortalChatContext';
 import { MessageSquare } from 'lucide-react';
 import React from 'react';
 
@@ -18,13 +18,18 @@ interface ChatMessage {
 
 export function usePortalChatNotifications() {
   const { user, isAdmin, isSuperAdmin, isProduction } = useAuth();
-  const navigate = useNavigate();
+  const { openChatDialog, isDialogOpen, currentProjectId } = usePortalChat();
 
   const handleNewMessage = useCallback(async (payload: { new: unknown }) => {
     const message = payload.new as ChatMessage;
     
     // Only notify for customer messages
     if (message.sender_type !== 'customer') return;
+
+    // Don't show toast if chat dialog is already open for this project
+    if (isDialogOpen && currentProjectId === message.project_id) {
+      return;
+    }
 
     // Fetch project name for the notification
     const { data: project } = await supabase
@@ -40,7 +45,7 @@ export function usePortalChatNotifications() {
       ? message.message.substring(0, 50) + '...' 
       : message.message;
 
-    // Show clickable toast notification
+    // Show clickable toast notification that opens the chat dialog
     toast.message(`New message from ${message.sender_name}`, {
       description: `Project: ${projectName} - "${truncatedMessage}"`,
       duration: 10000,
@@ -48,11 +53,11 @@ export function usePortalChatNotifications() {
       action: {
         label: 'View & Reply',
         onClick: () => {
-          navigate(`/production?view=projects&openProject=${message.project_id}&tab=feedback`);
+          openChatDialog(message.project_id);
         },
       },
     });
-  }, [navigate]);
+  }, [openChatDialog, isDialogOpen, currentProjectId]);
 
   useEffect(() => {
     // Only subscribe for admins and production managers

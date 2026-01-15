@@ -1055,15 +1055,6 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                   </CardContent>
                 </Card>
 
-                {/* Customer Portal Card */}
-                {fullProject?.id && (
-                  <CustomerPortalCard
-                    projectId={fullProject.id}
-                    customerName={`${fullProject.customer_first_name || ''} ${fullProject.customer_last_name || ''}`.trim() || fullProject.project_name}
-                    customerEmail={fullProject.customer_email}
-                  />
-                )}
-
                 {/* Salesperson Info */}
                 <Card>
                   <CardHeader className="py-3 px-4">
@@ -1674,7 +1665,16 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
           {/* Feedback Tab */}
           <TabsContent value="feedback" className="space-y-3 mt-4">
-            {/* Notes Section - First */}
+            {/* Customer Portal Card - First */}
+            {fullProject?.id && (
+              <CustomerPortalCard
+                projectId={fullProject.id}
+                customerName={`${fullProject.customer_first_name || ''} ${fullProject.customer_last_name || ''}`.trim() || fullProject.project_name}
+                customerEmail={fullProject.customer_email}
+              />
+            )}
+
+            {/* Notes Section */}
             <NotesSection projectId={project.id} />
 
             <Card>
