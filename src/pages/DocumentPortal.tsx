@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +21,8 @@ interface SignatureField {
   height: number;
   field_type: string;
   signer_id: string | null;
+  is_required: boolean;
+  field_label: string | null;
 }
 
 export default function DocumentPortal() {
@@ -34,6 +36,8 @@ export default function DocumentPortal() {
   const [signatureData, setSignatureData] = useState<{ type: "typed" | "drawn"; data: string; font?: string } | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   const [showDeclineForm, setShowDeclineForm] = useState(false);
+  const [textFieldValues, setTextFieldValues] = useState<Record<string, string>>({});
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Fetch document data via token
   const { data, isLoading, error } = useQuery({
@@ -140,12 +144,47 @@ export default function DocumentPortal() {
     enabled: !!token,
   });
 
+  // Validate required fields
+  const validateRequiredFields = useCallback(() => {
+    const errors: string[] = [];
+    
+    if (!signerName) {
+      errors.push("Full Name is required");
+    }
+    
+    if (!signatureData) {
+      errors.push("Signature is required");
+    }
+    
+    // Check required text fields for current signer
+    const myFields = data?.fields?.filter(f => 
+      f.signer_id === data.currentSigner?.id && f.is_required
+    ) || [];
+    
+    myFields.forEach(field => {
+      if (field.field_type === "text") {
+        const value = textFieldValues[field.id];
+        if (!value || value.trim() === "") {
+          errors.push(`${field.field_label || "Text field"} is required`);
+        }
+      }
+    });
+    
+    return errors;
+  }, [data, signerName, signatureData, textFieldValues]);
+
   // Sign mutation
   const signMutation = useMutation({
     mutationFn: async () => {
       if (!data?.document) throw new Error("Document not found");
-      if (!signerName) throw new Error("Please enter your name");
-      if (!signatureData) throw new Error("Please provide your signature");
+      
+      // Validate all required fields
+      const errors = validateRequiredFields();
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        throw new Error(errors[0]);
+      }
+      setValidationErrors([]);
 
       const signedAt = new Date().toISOString();
 
@@ -468,6 +507,21 @@ export default function DocumentPortal() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Validation Errors */}
+              {validationErrors.length > 0 && (
+                <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/30">
+                  <div className="flex items-center gap-2 text-destructive mb-2">
+                    <XCircle className="h-4 w-4" />
+                    <span className="font-medium">Please complete all required fields</span>
+                  </div>
+                  <ul className="list-disc list-inside text-sm text-destructive">
+                    {validationErrors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name *</Label>
@@ -490,8 +544,42 @@ export default function DocumentPortal() {
                 </div>
               </div>
 
+              {/* Text Fields for this signer */}
+              {(() => {
+                const textFields = data.fields?.filter(f => 
+                  f.field_type === "text" && f.signer_id === data.currentSigner?.id
+                ) || [];
+                
+                if (textFields.length === 0) return null;
+                
+                return (
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Additional Information</h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {textFields.map((field) => (
+                        <div key={field.id} className="space-y-2">
+                          <Label htmlFor={`field-${field.id}`}>
+                            {field.field_label || "Text Field"}
+                            {field.is_required && <span className="text-destructive"> *</span>}
+                          </Label>
+                          <Input
+                            id={`field-${field.id}`}
+                            value={textFieldValues[field.id] || ""}
+                            onChange={(e) => setTextFieldValues(prev => ({
+                              ...prev,
+                              [field.id]: e.target.value
+                            }))}
+                            placeholder={`Enter ${field.field_label || "text"}`}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="space-y-2">
-                <Label>Your Signature</Label>
+                <Label>Your Signature *</Label>
                 <SignatureCanvas
                   onSignatureComplete={handleSignatureComplete}
                   signerName={signerName}
@@ -512,8 +600,17 @@ export default function DocumentPortal() {
 
               <div className="flex flex-wrap gap-3 pt-4">
                 <Button
-                  onClick={() => signMutation.mutate()}
-                  disabled={signMutation.isPending || !signerName || !signatureData}
+                  onClick={() => {
+                    const errors = validateRequiredFields();
+                    if (errors.length > 0) {
+                      setValidationErrors(errors);
+                      toast.error("Please complete all required fields before signing");
+                      return;
+                    }
+                    setValidationErrors([]);
+                    signMutation.mutate();
+                  }}
+                  disabled={signMutation.isPending}
                   className="bg-green-600 hover:bg-green-700"
                 >
                   {signMutation.isPending ? (

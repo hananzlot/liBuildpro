@@ -844,9 +844,11 @@ export type Database = {
         Row: {
           created_at: string
           document_id: string
+          field_label: string | null
           field_type: string
           height: number
           id: string
+          is_required: boolean
           page_number: number
           signer_id: string | null
           width: number
@@ -856,9 +858,11 @@ export type Database = {
         Insert: {
           created_at?: string
           document_id: string
+          field_label?: string | null
           field_type?: string
           height?: number
           id?: string
+          is_required?: boolean
           page_number?: number
           signer_id?: string | null
           width?: number
@@ -868,9 +872,11 @@ export type Database = {
         Update: {
           created_at?: string
           document_id?: string
+          field_label?: string | null
           field_type?: string
           height?: number
           id?: string
+          is_required?: boolean
           page_number?: number
           signer_id?: string | null
           width?: number
