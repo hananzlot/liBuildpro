@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.archive-portal-chats]
 verify_jwt = false
+
+[functions.generate-contract-pdf]
+verify_jwt = false

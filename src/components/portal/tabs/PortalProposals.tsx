@@ -220,6 +220,22 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         });
       }
 
+      // Generate contract PDF and attach to agreement
+      supabase.functions.invoke('generate-contract-pdf', {
+        body: {
+          estimateId: selectedEstimateId,
+          projectId: projectId,
+          signerName: signerName,
+          signedAt: new Date().toISOString(),
+        },
+      }).then(result => {
+        if (result.error) {
+          console.error('Failed to generate contract PDF:', result.error);
+        } else {
+          console.log('Contract PDF generated:', result.data);
+        }
+      }).catch(console.error);
+
       // Send notifications
       supabase.functions.invoke('send-proposal-notification', {
         body: {
