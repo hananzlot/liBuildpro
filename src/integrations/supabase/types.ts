@@ -2630,6 +2630,7 @@ export type Database = {
         Row: {
           agreement_id: string | null
           amount: number | null
+          attachment_url: string | null
           created_at: string | null
           id: string
           invoice_date: string | null
@@ -2644,6 +2645,7 @@ export type Database = {
         Insert: {
           agreement_id?: string | null
           amount?: number | null
+          attachment_url?: string | null
           created_at?: string | null
           id?: string
           invoice_date?: string | null
@@ -2658,6 +2660,7 @@ export type Database = {
         Update: {
           agreement_id?: string | null
           amount?: number | null
+          attachment_url?: string | null
           created_at?: string | null
           id?: string
           invoice_date?: string | null
