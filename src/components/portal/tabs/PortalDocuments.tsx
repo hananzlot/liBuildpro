@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -10,7 +10,9 @@ import {
   File,
   FileSpreadsheet,
   FolderOpen,
-  ExternalLink
+  ExternalLink,
+  FileCheck,
+  FilePlus
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,17 +50,37 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
     !/\.(jpg|jpeg|png|gif|webp)$/i.test(doc.file_name)
   );
 
-  const getFileIcon = (fileType: string | null, fileName: string) => {
+  const getFileConfig = (fileType: string | null, fileName: string) => {
     if (fileType?.includes('pdf') || fileName.endsWith('.pdf')) {
-      return <FileText className="h-6 w-6 text-red-500" />;
+      return { 
+        icon: FileText, 
+        color: 'text-red-500', 
+        bg: 'bg-red-50',
+        label: 'PDF'
+      };
     }
     if (fileType?.includes('excel') || fileType?.includes('spreadsheet') || fileName.match(/\.(xls|xlsx|csv)$/i)) {
-      return <FileSpreadsheet className="h-6 w-6 text-green-600" />;
+      return { 
+        icon: FileSpreadsheet, 
+        color: 'text-green-600', 
+        bg: 'bg-green-50',
+        label: 'Spreadsheet'
+      };
     }
     if (fileType?.includes('word') || fileName.match(/\.(doc|docx)$/i)) {
-      return <FileText className="h-6 w-6 text-blue-600" />;
+      return { 
+        icon: FileText, 
+        color: 'text-blue-600', 
+        bg: 'bg-blue-50',
+        label: 'Word'
+      };
     }
-    return <File className="h-6 w-6 text-slate-400" />;
+    return { 
+      icon: File, 
+      color: 'text-slate-500', 
+      bg: 'bg-slate-50',
+      label: 'File'
+    };
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,20 +92,17 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
 
     try {
       for (const file of Array.from(files)) {
-        // Validate file size
         if (file.size > maxFileSize) {
           toast.error(`${file.name} exceeds ${uploadLimitMb}MB limit`);
           continue;
         }
 
-        // Validate file type
         const ext = '.' + file.name.split('.').pop()?.toLowerCase();
         if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(ext)) {
           toast.error(`${file.name}: Only PDF, Word, Excel, TXT, and CSV files allowed`);
           continue;
         }
 
-        // Upload to storage
         const fileExt = file.name.split('.').pop();
         const fileName = `customer-uploads/${projectId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         
@@ -97,12 +116,10 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
           continue;
         }
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('project-attachments')
           .getPublicUrl(fileName);
 
-        // Insert document record
         const { error: dbError } = await supabase
           .from('project_documents')
           .insert({
@@ -140,17 +157,17 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
 
   return (
     <div className="space-y-6">
-      {/* Premium Header Card */}
-      <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
-        <CardContent className="p-6">
+      {/* Premium Header */}
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <div className="bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-500 p-6 sm:p-8 text-white">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                <FolderOpen className="h-6 w-6 text-blue-600" />
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <FolderOpen className="h-7 w-7" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Project Documents</h2>
-                <p className="text-sm text-slate-500">
+                <h2 className="text-xl sm:text-2xl font-bold">Project Documents</h2>
+                <p className="text-white/70 text-sm mt-1">
                   {docs.length} document{docs.length !== 1 ? 's' : ''} • PDF, Word, Excel • Max {uploadLimitMb}MB
                 </p>
               </div>
@@ -167,7 +184,8 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
               <Button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="w-full sm:w-auto shadow-md"
+                variant="secondary"
+                className="w-full sm:w-auto shadow-lg bg-white text-indigo-700 hover:bg-white/90"
               >
                 {isUploading ? (
                   <>
@@ -183,26 +201,26 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
               </Button>
             </div>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       {docs.length === 0 ? (
-        <Card className="border-0 shadow-lg">
-          <CardContent className="py-16 text-center">
-            <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-6">
-              <FileText className="h-10 w-10 text-slate-400" />
+        <Card className="border-0 shadow-lg overflow-hidden">
+          <CardContent className="py-20 text-center">
+            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center mx-auto mb-6">
+              <FileText className="h-12 w-12 text-slate-400" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">No Documents Yet</h3>
-            <p className="text-slate-500 mb-6 max-w-sm mx-auto">
-              Upload important documents related to your project here for easy access.
+            <h3 className="text-xl font-bold text-slate-900 mb-2">No Documents Yet</h3>
+            <p className="text-slate-500 mb-8 max-w-sm mx-auto">
+              Upload important documents related to your project here for easy access and sharing with the team.
             </p>
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
               size="lg"
-              className="shadow-md"
+              className="shadow-lg"
             >
-              <Upload className="h-4 w-4 mr-2" />
+              <FilePlus className="h-5 w-5 mr-2" />
               Upload Your First Document
             </Button>
           </CardContent>
@@ -211,45 +229,54 @@ export function PortalDocuments({ documents, projectId, uploadLimitMb = 15 }: Po
         <Card className="border-0 shadow-lg overflow-hidden">
           <CardContent className="p-0">
             <div className="divide-y divide-slate-100">
-              {docs.map((doc, index) => (
-                <div 
-                  key={doc.id} 
-                  className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors"
-                >
-                  <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                    {getFileIcon(doc.file_type, doc.file_name)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-medium text-slate-900 truncate">{doc.file_name}</p>
-                      {doc.category === 'Customer Upload' && (
-                        <Badge className="bg-primary/10 text-primary border-0 shrink-0 text-xs">
-                          Your Upload
-                        </Badge>
-                      )}
+              {docs.map((doc, index) => {
+                const fileConfig = getFileConfig(doc.file_type, doc.file_name);
+                const FileIcon = fileConfig.icon;
+                const isCustomerUpload = doc.category === 'Customer Upload';
+                
+                return (
+                  <div 
+                    key={doc.id} 
+                    className="flex items-center gap-4 p-5 hover:bg-slate-50/50 transition-colors"
+                  >
+                    <div className={`w-14 h-14 rounded-xl ${fileConfig.bg} flex items-center justify-center shrink-0 ring-1 ring-slate-200`}>
+                      <FileIcon className={`h-7 w-7 ${fileConfig.color}`} />
                     </div>
-                    <p className="text-sm text-slate-500">
-                      {format(new Date(doc.created_at), 'MMM d, yyyy')}
-                      {doc.notes && doc.notes !== 'Document uploaded by customer via portal' && (
-                        <> • {doc.notes}</>
-                      )}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <p className="font-semibold text-slate-900 truncate">{doc.file_name}</p>
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {fileConfig.label}
+                        </Badge>
+                        {isCustomerUpload && (
+                          <Badge className="bg-indigo-100 text-indigo-700 border-0 text-xs">
+                            Your Upload
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-500">
+                        {format(new Date(doc.created_at), 'MMM d, yyyy • h:mm a')}
+                        {doc.notes && doc.notes !== 'Document uploaded by customer via portal' && (
+                          <span className="text-slate-400"> • {doc.notes}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button variant="ghost" size="icon" asChild className="hidden sm:flex hover:bg-slate-100">
+                        <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                      <Button variant="outline" size="sm" asChild className="shadow-sm">
+                        <a href={doc.file_url} download={doc.file_name}>
+                          <Download className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Download</span>
+                        </a>
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
-                      <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={doc.file_url} download={doc.file_name}>
-                        <Download className="h-4 w-4 sm:mr-2" />
-                        <span className="hidden sm:inline">Download</span>
-                      </a>
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

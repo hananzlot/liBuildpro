@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
@@ -7,8 +7,11 @@ import {
   Download, 
   Calendar,
   CheckCircle2,
-  ExternalLink,
-  Eye
+  Eye,
+  Shield,
+  Award,
+  FileCheck,
+  Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
@@ -33,12 +36,14 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
 
   if (!hasAgreement) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold">No Agreement Yet</h3>
-          <p className="text-muted-foreground">
-            Your contract agreement will appear here once a proposal is accepted.
+      <Card className="border-0 shadow-lg overflow-hidden">
+        <CardContent className="py-16 text-center">
+          <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-6">
+            <FileText className="h-10 w-10 text-slate-400" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">No Agreement Yet</h3>
+          <p className="text-slate-500 max-w-sm mx-auto">
+            Your contract agreement will appear here once a proposal is accepted and signed.
           </p>
         </CardContent>
       </Card>
@@ -47,52 +52,85 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
 
   return (
     <div className="space-y-6">
-      {/* Accepted Estimate as Agreement */}
+      {/* Accepted Estimate as Main Agreement */}
       {acceptedEstimate && (
-        <Card className="border-green-200 bg-green-50/30">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
-                <div>
-                  <CardTitle>Signed Contract</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Contract #{acceptedEstimate.estimate_number}
-                  </p>
+        <Card className="border-0 shadow-xl overflow-hidden">
+          {/* Success Banner */}
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <Award className="h-7 w-7" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-bold">Signed Contract</h3>
+                  <Badge className="bg-white/20 text-white border-0">Active</Badge>
                 </div>
+                <p className="text-green-100 text-sm mt-1">
+                  Contract #{acceptedEstimate.estimate_number} • Digitally Signed
+                </p>
               </div>
-              <Badge variant="default" className="bg-green-600">Active</Badge>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Contract Title</p>
-                <p className="font-medium">{acceptedEstimate.estimate_title}</p>
+          </div>
+          
+          <CardContent className="p-6 sm:p-8 space-y-6">
+            {/* Contract Details Grid */}
+            <div className="grid sm:grid-cols-3 gap-6">
+              <div className="bg-slate-50 rounded-xl p-5">
+                <div className="flex items-center gap-2 text-slate-500 mb-2">
+                  <FileCheck className="h-4 w-4" />
+                  <span className="text-xs uppercase tracking-wider font-medium">Contract Title</span>
+                </div>
+                <p className="font-semibold text-slate-900">{acceptedEstimate.estimate_title}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Contract Value</p>
-                <p className="font-semibold text-lg text-primary">
+              
+              <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/10">
+                <div className="flex items-center gap-2 text-primary/70 mb-2">
+                  <span className="text-xs uppercase tracking-wider font-medium">Contract Value</span>
+                </div>
+                <p className="text-2xl font-bold text-primary">
                   {formatCurrency(acceptedEstimate.total)}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Signed Date</p>
-                <p className="font-medium flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+              
+              <div className="bg-slate-50 rounded-xl p-5">
+                <div className="flex items-center gap-2 text-slate-500 mb-2">
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-xs uppercase tracking-wider font-medium">Signed Date</span>
+                </div>
+                <p className="font-semibold text-slate-900">
                   {acceptedEstimate.signed_at 
-                    ? format(new Date(acceptedEstimate.signed_at), 'MMM d, yyyy')
+                    ? format(new Date(acceptedEstimate.signed_at), 'MMMM d, yyyy')
                     : 'N/A'}
                 </p>
               </div>
             </div>
 
-            {acceptedEstimate.terms_and_conditions && (
-              <div className="mt-4 p-4 bg-background rounded-lg border">
-                <h4 className="font-medium mb-2">Terms & Conditions</h4>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {acceptedEstimate.terms_and_conditions}
+            {/* Signature Verification Badge */}
+            <div className="flex items-center gap-4 bg-green-50 border border-green-100 rounded-xl p-4">
+              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                <Shield className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-green-800">Digitally Signed & Verified</p>
+                <p className="text-sm text-green-600">
+                  This contract has been electronically signed and is legally binding.
                 </p>
+              </div>
+              <CheckCircle2 className="h-6 w-6 text-green-500" />
+            </div>
+
+            {acceptedEstimate.terms_and_conditions && (
+              <div className="space-y-3">
+                <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-slate-400" />
+                  Terms & Conditions
+                </h4>
+                <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 max-h-64 overflow-y-auto">
+                  <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">
+                    {acceptedEstimate.terms_and_conditions}
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>
@@ -102,44 +140,62 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
       {/* Additional Project Agreements */}
       {agreements.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Additional Agreements</h3>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-slate-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900">Additional Agreements</h3>
+              <p className="text-sm text-slate-500">{agreements.length} document(s)</p>
+            </div>
+          </div>
+          
           {agreements.map((agreement) => (
-            <Card key={agreement.id}>
+            <Card key={agreement.id} className="border-0 shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
               <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                      <h4 className="font-medium">
-                        {agreement.agreement_type || 'Agreement'}
-                        {agreement.agreement_number && ` #${agreement.agreement_number}`}
-                      </h4>
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                      <FileText className="h-6 w-6 text-blue-600" />
                     </div>
-                    {agreement.description_of_work && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {agreement.description_of_work}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                      {agreement.agreement_signed_date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          Signed: {format(new Date(agreement.agreement_signed_date), 'MMM d, yyyy')}
-                        </span>
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="font-semibold text-slate-900">
+                          {agreement.agreement_type || 'Agreement'}
+                        </h4>
+                        {agreement.agreement_number && (
+                          <Badge variant="outline" className="font-mono">
+                            #{agreement.agreement_number}
+                          </Badge>
+                        )}
+                      </div>
+                      {agreement.description_of_work && (
+                        <p className="text-sm text-slate-500 line-clamp-2">
+                          {agreement.description_of_work}
+                        </p>
                       )}
-                      {agreement.total_price && (
-                        <span className="font-medium text-foreground">
-                          {formatCurrency(agreement.total_price)}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-4 text-sm">
+                        {agreement.agreement_signed_date && (
+                          <span className="flex items-center gap-1.5 text-slate-500">
+                            <Calendar className="h-4 w-4" />
+                            Signed {format(new Date(agreement.agreement_signed_date), 'MMM d, yyyy')}
+                          </span>
+                        )}
+                        {agreement.total_price && (
+                          <span className="font-semibold text-primary">
+                            {formatCurrency(agreement.total_price)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
                   {agreement.attachment_url && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <Button 
                         variant="outline" 
-                        size="sm" 
+                        size="sm"
+                        className="shadow-sm"
                         onClick={() => setPdfUrl(agreement.attachment_url)}
                       >
                         <Eye className="h-4 w-4 mr-2" />
