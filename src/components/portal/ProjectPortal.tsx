@@ -167,7 +167,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
     <div className="min-h-screen bg-muted/30 flex flex-col">
       {/* Header */}
       <div className="bg-background border-b sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-screen-xl mx-auto px-3 sm:px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Building className="h-6 w-6 text-primary" />
             <div>
@@ -183,15 +183,15 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 py-6 flex-1">
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-4 pt-6 pb-24 flex-1 w-full">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-6">
-            <TabsTrigger value="project">Project Info</TabsTrigger>
-            <TabsTrigger value="proposals">Proposals</TabsTrigger>
-            <TabsTrigger value="agreement">Agreement</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TabsTrigger value="photos">Photos</TabsTrigger>
-            <TabsTrigger value="chat">Chat</TabsTrigger>
+          <TabsList className="w-full flex flex-wrap gap-2 mb-6">
+            <TabsTrigger value="project" className="flex-1 min-w-[140px]">Project Info</TabsTrigger>
+            <TabsTrigger value="proposals" className="flex-1 min-w-[140px]">Proposals</TabsTrigger>
+            <TabsTrigger value="agreement" className="flex-1 min-w-[140px]">Agreement</TabsTrigger>
+            <TabsTrigger value="invoices" className="flex-1 min-w-[140px]">Invoices</TabsTrigger>
+            <TabsTrigger value="photos" className="flex-1 min-w-[140px]">Photos</TabsTrigger>
+            <TabsTrigger value="chat" className="flex-1 min-w-[140px]">Chat</TabsTrigger>
           </TabsList>
 
           <TabsContent value="project">
@@ -245,8 +245,8 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
 
       {/* Footer with company info */}
       {companySettings?.company_name && (
-        <footer className="border-t bg-background mt-auto">
-          <div className="max-w-6xl mx-auto px-4 py-6">
+        <footer className="border-t bg-background mt-auto sticky bottom-0 z-10">
+          <div className="max-w-screen-xl mx-auto px-3 sm:px-4 py-4">
             <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-sm text-muted-foreground">
               <span className="font-semibold text-foreground">{companySettings.company_name}</span>
               {companySettings.company_address && (
