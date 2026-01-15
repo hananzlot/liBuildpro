@@ -3050,8 +3050,18 @@ function AgreementDialog({
     }
   }, [open, agreement, nextAgreementNumber]);
 
+  const [dateError, setDateError] = useState("");
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required date for new agreements
+    if (!agreement && !formData.agreement_signed_date) {
+      setDateError("Date signed is required");
+      return;
+    }
+    setDateError("");
+    
     onSave({
       agreement_number: formData.agreement_number || null,
       agreement_type: formData.agreement_type || null,
@@ -3095,8 +3105,14 @@ function AgreementDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Date Signed</Label>
-              <Input type="date" value={formData.agreement_signed_date} onChange={(e) => setFormData(p => ({ ...p, agreement_signed_date: e.target.value }))} />
+              <Label>Date Signed <span className="text-destructive">*</span></Label>
+              <Input 
+                type="date" 
+                value={formData.agreement_signed_date} 
+                onChange={(e) => { setFormData(p => ({ ...p, agreement_signed_date: e.target.value })); setDateError(""); }} 
+                required 
+              />
+              {dateError && <p className="text-xs text-destructive mt-1">{dateError}</p>}
             </div>
             <div>
               <Label>Total Value ($)</Label>
