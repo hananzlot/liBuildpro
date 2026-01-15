@@ -509,13 +509,41 @@ export default function Production() {
 
   const sortedAndFilteredProjects = useMemo(() => {
     const filtered = projects.filter((project) => {
+      const financials = projectFinancials[project.id];
+      const query = searchQuery.toLowerCase().trim();
+      
+      // Check if search query is a number (for amount matching)
+      const searchNumber = parseFloat(searchQuery.replace(/[,$]/g, ''));
+      const isNumberSearch = !isNaN(searchNumber) && searchNumber > 0;
+      
       const matchesSearch =
         searchQuery === "" ||
-        project.project_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.project_address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.customer_first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.customer_last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.project_number?.toString().includes(searchQuery);
+        // Text-based searches
+        project.project_name?.toLowerCase().includes(query) ||
+        project.project_address?.toLowerCase().includes(query) ||
+        project.customer_first_name?.toLowerCase().includes(query) ||
+        project.customer_last_name?.toLowerCase().includes(query) ||
+        project.primary_salesperson?.toLowerCase().includes(query) ||
+        project.project_manager?.toLowerCase().includes(query) ||
+        project.project_number?.toString().includes(searchQuery) ||
+        // Amount-based searches (when searching for a number)
+        (isNumberSearch && financials && (
+          financials.totalInvoiced === searchNumber ||
+          financials.invoicesCollected === searchNumber ||
+          financials.phasesTotal === searchNumber ||
+          financials.contractsTotal === searchNumber ||
+          financials.totalBillsReceived === searchNumber ||
+          financials.totalBillsPaid === searchNumber ||
+          financials.projectBalanceDue === searchNumber ||
+          financials.invoiceBalanceDue === searchNumber ||
+          // Also check if amount contains the search (partial match for larger amounts)
+          financials.totalInvoiced.toString().includes(searchQuery.replace(/[,$]/g, '')) ||
+          financials.invoicesCollected.toString().includes(searchQuery.replace(/[,$]/g, '')) ||
+          financials.phasesTotal.toString().includes(searchQuery.replace(/[,$]/g, '')) ||
+          financials.contractsTotal.toString().includes(searchQuery.replace(/[,$]/g, '')) ||
+          financials.totalBillsReceived.toString().includes(searchQuery.replace(/[,$]/g, '')) ||
+          financials.totalBillsPaid.toString().includes(searchQuery.replace(/[,$]/g, ''))
+        ));
 
       const matchesStatus =
         statusFilter === "all" || project.project_status === statusFilter;
@@ -1390,15 +1418,22 @@ export default function Production() {
               {/* Filters & Search */}
           <section className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="flex gap-2 items-center flex-wrap">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search projects..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name, address, or amount..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 w-72"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="text-xs">Search by project name, address, customer, salesperson, project manager, or enter an amount to find matching invoices, phases, bills, and payments.</p>
+                </TooltipContent>
+              </Tooltip>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40">
                   <Filter className="h-4 w-4 mr-2" />
