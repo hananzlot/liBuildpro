@@ -202,8 +202,8 @@ serve(async (req: Request) => {
         continue;
       }
 
-      // Send the email
-      const portalUrl = `https://crm-caprobuilders.lovable.app/portal/${portal.token}`;
+      // Send the email - use query parameter format for portal URL
+      const portalUrl = `https://crm-caprobuilders.lovable.app/portal?token=${portal.token}`;
       const customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || portal.client_name || "Valued Customer";
 
       const htmlContent = `

@@ -143,8 +143,8 @@ The {{company_name}} Team`;
       }
     }
 
-    // Build portal URL
-    const portalUrl = `https://crm-caprobuilders.lovable.app/portal/${portalToken}`;
+    // Build portal URL - use query parameter format
+    const portalUrl = `https://crm-caprobuilders.lovable.app/portal?token=${portalToken}`;
 
     const customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || "Valued Customer";
 
