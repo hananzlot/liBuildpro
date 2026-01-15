@@ -23,7 +23,8 @@ import {
   Archive,
   RotateCcw,
   TrendingUp,
-  DollarSign
+  DollarSign,
+  Mail
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ interface Project {
   project_type: string | null;
   customer_first_name: string | null;
   customer_last_name: string | null;
+  customer_email: string | null;
   cell_phone: string | null;
   project_address: string | null;
   primary_salesperson: string | null;
@@ -262,6 +264,7 @@ export default function Production() {
         agreement_signed_date: string | null;
         lead_source: string | null;
         project_scope_dispatch: string | null;
+        customer_email: string | null;
       })[];
     },
   });
@@ -1110,6 +1113,24 @@ export default function Production() {
     onError: (error) => toast.error(`Failed to restore: ${error.message}`),
   });
 
+  // Send portal update email mutation
+  const sendPortalEmailMutation = useMutation({
+    mutationFn: async (projectId: string) => {
+      const { data, error } = await supabase.functions.invoke('send-portal-update-email', {
+        body: { projectId }
+      });
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Failed to send email');
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Email sent to customer!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   // Update project status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ projectId, oldStatus, newStatus }: { projectId: string; oldStatus: string | null; newStatus: string }) => {
@@ -1867,7 +1888,7 @@ export default function Production() {
                         <TableHead className="text-right cursor-pointer hover:bg-muted/50 bg-primary/10" onClick={() => handleSort('total_cash')}>
                           <div className="flex items-center justify-end font-semibold">Cash <SortIcon column="total_cash" /></div>
                         </TableHead>
-                        {isAdmin && <TableHead className="w-12"></TableHead>}
+                        <TableHead className="w-16"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2095,21 +2116,50 @@ export default function Production() {
                             })()}`}>
                               {formatCurrency(financials?.totalCash)}
                             </TableCell>
-                            {isAdmin && (
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-destructive hover:text-destructive"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteTestProject(project);
-                                  }}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </TableCell>
-                            )}
+                            <TableCell>
+                              <div className="flex gap-0.5">
+                                {/* Email button - visible to all if project has email */}
+                                {project.customer_email && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-primary hover:text-primary"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          sendPortalEmailMutation.mutate(project.id);
+                                        }}
+                                        disabled={sendPortalEmailMutation.isPending}
+                                      >
+                                        {sendPortalEmailMutation.isPending ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Mail className="h-3.5 w-3.5" />
+                                        )}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Send portal update email to {project.customer_email}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {/* Delete button - admin only */}
+                                {isAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteTestProject(project);
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
                           </TableRow>
                         );
                       })}
