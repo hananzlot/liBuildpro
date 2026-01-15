@@ -6,6 +6,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -308,6 +309,10 @@ export default function AdminSettings() {
     ["portal_upload_limit_mb"].includes(s.setting_key)
   );
 
+  const estimateSettings = settings?.filter((s) =>
+    ["default_terms_and_conditions"].includes(s.setting_key)
+  );
+
   const formatLabel = (key: string) => {
     return key
       .replace(/_/g, " ")
@@ -338,6 +343,39 @@ export default function AdminSettings() {
         value={getValue(setting)}
         onChange={(e) => handleChange(setting.setting_key, e.target.value)}
         placeholder={setting.description || ""}
+      />
+      {setting.description && (
+        <p className="text-xs text-muted-foreground">{setting.description}</p>
+      )}
+    </div>
+  );
+
+  const renderTextareaSettingField = (setting: AppSetting) => (
+    <div key={setting.id} className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label htmlFor={setting.setting_key}>{formatLabel(setting.setting_key)}</Label>
+        {hasChanges(setting.setting_key) && (
+          <Button
+            size="sm"
+            onClick={() => handleSave(setting.setting_key)}
+            disabled={updateSetting.isPending}
+          >
+            {updateSetting.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Save className="h-3 w-3 mr-1" />
+            )}
+            Save
+          </Button>
+        )}
+      </div>
+      <Textarea
+        id={setting.setting_key}
+        value={getValue(setting)}
+        onChange={(e) => handleChange(setting.setting_key, e.target.value)}
+        placeholder={setting.description || ""}
+        rows={12}
+        className="font-mono text-sm"
       />
       {setting.description && (
         <p className="text-xs text-muted-foreground">{setting.description}</p>
@@ -463,6 +501,22 @@ export default function AdminSettings() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {portalSettings?.map(renderSettingField)}
+                  </CardContent>
+                </Card>
+
+                {/* Estimate Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Estimate Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Default terms and conditions for new estimates
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {estimateSettings?.map(renderTextareaSettingField)}
                   </CardContent>
                 </Card>
 

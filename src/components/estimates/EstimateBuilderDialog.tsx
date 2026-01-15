@@ -164,6 +164,20 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   const totals = calculateTotals();
 
+  // Fetch default terms & conditions from admin settings
+  const { data: defaultTerms } = useQuery({
+    queryKey: ["default-terms-conditions"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", "default_terms_and_conditions")
+        .maybeSingle();
+      return data?.setting_value || "";
+    },
+    enabled: open && !estimateId, // Only fetch for new estimates
+  });
+
   // Fetch existing estimate if editing or cloning
   const { data: existingEstimate, isLoading: loadingEstimate } = useQuery({
     queryKey: ["estimate-edit", sourceEstimateId],
@@ -246,14 +260,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_type: "percent",
         discount_value: 0,
         notes: "",
-        terms_and_conditions: "",
+        terms_and_conditions: defaultTerms || "",
         work_scope_description: "",
       });
       setGroups([]);
       setPaymentSchedule([]);
       setActiveTab("customer");
     }
-  }, [open, estimateId]);
+  }, [open, estimateId, defaultTerms]);
 
   // AI Scope Generation
   const generateScope = async () => {
