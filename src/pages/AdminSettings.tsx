@@ -300,7 +300,11 @@ export default function AdminSettings() {
   );
 
   const companySettings = settings?.filter((s) =>
-    ["company_name", "company_address", "company_phone"].includes(s.setting_key)
+    ["company_name", "company_address", "company_phone", "company_website"].includes(s.setting_key)
+  );
+
+  const portalSettings = settings?.filter((s) =>
+    ["portal_upload_limit_mb"].includes(s.setting_key)
   );
 
   const formatLabel = (key: string) => {
@@ -439,6 +443,22 @@ export default function AdminSettings() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {companySettings?.map(renderSettingField)}
+                  </CardContent>
+                </Card>
+
+                {/* Portal Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-5 w-5" />
+                      Customer Portal Settings
+                    </CardTitle>
+                    <CardDescription>
+                      Configure settings for the customer portal experience
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {portalSettings?.map(renderSettingField)}
                   </CardContent>
                 </Card>
 
