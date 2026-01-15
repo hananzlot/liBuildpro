@@ -183,7 +183,7 @@ export function ChatManagement() {
     },
   });
 
-  // Manual archive trigger
+  // Manual archive trigger (older than 24h)
   const triggerArchiveMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('archive-portal-chats');
@@ -192,6 +192,25 @@ export function ChatManagement() {
     },
     onSuccess: (data) => {
       toast.success(data?.message || 'Archive completed');
+      queryClient.invalidateQueries({ queryKey: ['admin-current-chats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Archive ALL chats immediately
+  const archiveAllMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('archive-portal-chats', {
+        body: { archiveAll: true }
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(data?.message || 'All chats archived');
       queryClient.invalidateQueries({ queryKey: ['admin-current-chats'] });
       queryClient.invalidateQueries({ queryKey: ['admin-archived-chats'] });
     },
@@ -267,19 +286,52 @@ export function ChatManagement() {
                 <TabsTrigger value="current">Current Messages</TabsTrigger>
                 <TabsTrigger value="archived">Archived Messages</TabsTrigger>
               </TabsList>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => triggerArchiveMutation.mutate()}
-                disabled={triggerArchiveMutation.isPending}
-              >
-                {triggerArchiveMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Archive className="h-4 w-4 mr-2" />
-                )}
-                Archive Now
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => triggerArchiveMutation.mutate()}
+                  disabled={triggerArchiveMutation.isPending}
+                >
+                  {triggerArchiveMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Archive className="h-4 w-4 mr-2" />
+                  )}
+                  Archive Old
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={archiveAllMutation.isPending}
+                    >
+                      {archiveAllMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Archive className="h-4 w-4 mr-2" />
+                      )}
+                      Archive All
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Archive All Chats?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will archive ALL current chat messages immediately, regardless of age.
+                        Messages will be moved to the archive and can still be viewed there.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => archiveAllMutation.mutate()}>
+                        Archive All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
 
             <TabsContent value="settings" className="space-y-4">

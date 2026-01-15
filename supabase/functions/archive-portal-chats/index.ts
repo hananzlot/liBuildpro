@@ -18,18 +18,29 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    console.log("Starting daily chat archival process...");
+    // Parse request body to check for archiveAll flag
+    let archiveAll = false;
+    try {
+      const body = await req.json();
+      archiveAll = body?.archiveAll === true;
+    } catch {
+      // No body or invalid JSON, use default behavior
+    }
 
-    // Get messages older than 24 hours that haven't been archived
-    const oneDayAgo = new Date();
-    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
-    const cutoffDate = oneDayAgo.toISOString();
+    console.log(`Starting chat archival process... archiveAll: ${archiveAll}`);
+
+    // Build query - either all messages or just older than 24 hours
+    let query = supabase.from("portal_chat_messages").select("*");
+    
+    if (!archiveAll) {
+      const oneDayAgo = new Date();
+      oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+      const cutoffDate = oneDayAgo.toISOString();
+      query = query.lt("created_at", cutoffDate);
+    }
 
     // Fetch messages to archive
-    const { data: messagesToArchive, error: fetchError } = await supabase
-      .from("portal_chat_messages")
-      .select("*")
-      .lt("created_at", cutoffDate);
+    const { data: messagesToArchive, error: fetchError } = await query;
 
     if (fetchError) {
       console.error("Error fetching messages to archive:", fetchError);
@@ -42,7 +53,7 @@ serve(async (req: Request) => {
     if (!messagesToArchive || messagesToArchive.length === 0) {
       console.log("No messages to archive");
       return new Response(
-        JSON.stringify({ success: true, archived: 0, message: "No messages older than 24 hours to archive" }),
+        JSON.stringify({ success: true, archived: 0, message: archiveAll ? "No messages to archive" : "No messages older than 24 hours to archive" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
