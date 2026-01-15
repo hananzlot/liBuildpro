@@ -17,9 +17,10 @@ import { format } from 'date-fns';
 interface PortalProjectInfoProps {
   project: any;
   acceptedEstimate?: any;
+  agreements?: any[];
 }
 
-export function PortalProjectInfo({ project, acceptedEstimate }: PortalProjectInfoProps) {
+export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }: PortalProjectInfoProps) {
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
       Proposal: { label: 'Proposal Stage', variant: 'secondary' },
@@ -114,10 +115,36 @@ export function PortalProjectInfo({ project, acceptedEstimate }: PortalProjectIn
                   {project.project_subcategory && ` - ${project.project_subcategory}`}
                 </p>
               </div>
-            </>
-          )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+
+    {/* Description of Work from Agreements */}
+    {agreements.length > 0 && agreements.some(a => a.description_of_work) && (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ClipboardList className="h-5 w-5" />
+            Description of Work
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {agreements
+            .filter(a => a.description_of_work)
+            .map((agreement: any) => (
+              <div key={agreement.id} className="space-y-2">
+                {agreement.agreement_number && (
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Agreement #{agreement.agreement_number}
+                  </p>
+                )}
+                <p className="text-sm whitespace-pre-wrap">{agreement.description_of_work}</p>
+              </div>
+            ))}
         </CardContent>
       </Card>
+    )}
 
       {/* Scope of Work from Accepted Estimate */}
       {acceptedEstimate && (
