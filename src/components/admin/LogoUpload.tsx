@@ -82,14 +82,14 @@ export function LogoUpload() {
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from("project-documents")
+        .from("project-attachments")
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       // Get public URL
       const { data: urlData } = supabase.storage
-        .from("project-documents")
+        .from("project-attachments")
         .getPublicUrl(filePath);
 
       // Update the setting
