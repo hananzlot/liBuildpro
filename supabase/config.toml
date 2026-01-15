@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.send-daily-portal-updates]
 verify_jwt = false
+
+[functions.archive-portal-chats]
+verify_jwt = false

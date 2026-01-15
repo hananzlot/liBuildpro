@@ -213,6 +213,7 @@ serve(async (req: Request) => {
       notification_type: "portal_update",
       sent_to_email: project.customer_email,
       sent_by: userId,
+      is_automated: false, // Manual send
     });
 
     return new Response(
