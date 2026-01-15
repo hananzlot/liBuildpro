@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Plus, Trash2, Eye, Send, Loader2, Upload, ExternalLink, CheckCircle, XCircle, Clock, Users, Settings, Pencil, Ban } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { FileText, Plus, Trash2, Eye, Send, Loader2, Upload, ExternalLink, CheckCircle, XCircle, Clock, Users, Settings, Pencil, Ban, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MultiSignerInput, SignerData } from "@/components/documents/MultiSignerInput";
@@ -88,6 +89,9 @@ export default function Documents() {
   const [editingDocument, setEditingDocument] = useState<SignatureDocument | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancellationReason, setCancellationReason] = useState("");
+  const [resendDialogOpen, setResendDialogOpen] = useState(false);
+  const [resendSigner, setResendSigner] = useState<DocumentSigner | null>(null);
+  const [resendDocument, setResendDocument] = useState<SignatureDocument | null>(null);
   
   // Form state
   const [documentName, setDocumentName] = useState("");
@@ -324,6 +328,34 @@ export default function Documents() {
     },
   });
 
+  // Resend to individual signer
+  const resendMutation = useMutation({
+    mutationFn: async ({ doc, signer }: { doc: SignatureDocument; signer: DocumentSigner }) => {
+      const { data, error } = await supabase.functions.invoke("send-document-signature", {
+        body: {
+          documentId: doc.id,
+          documentName: doc.document_name,
+          recipientName: signer.signer_name,
+          recipientEmail: signer.signer_email,
+          signerId: signer.id,
+          isReminder: true,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
+      toast.success("Reminder sent successfully!");
+      setResendDialogOpen(false);
+      setResendSigner(null);
+      setResendDocument(null);
+    },
+    onError: (error) => {
+      toast.error(`Failed to send reminder: ${error.message}`);
+    },
+  });
+
   // Delete document
   const deleteMutation = useMutation({
     mutationFn: async (docId: string) => {
@@ -457,6 +489,12 @@ export default function Documents() {
   const handleCancelClick = (doc: SignatureDocument) => {
     setSelectedDocument(doc);
     setCancelDialogOpen(true);
+  };
+
+  const handleResendClick = (doc: SignatureDocument, signer: DocumentSigner) => {
+    setResendDocument(doc);
+    setResendSigner(signer);
+    setResendDialogOpen(true);
   };
 
   const handleFieldsChange = useCallback((fields: SignatureField[]) => {
@@ -600,21 +638,51 @@ export default function Documents() {
                         <TableCell>
                           {doc.document_signers && doc.document_signers.length > 0 ? (
                             <div className="flex flex-col gap-1">
-                              {doc.document_signers.map((signer) => (
-                                <div key={signer.id} className="flex items-center gap-2 text-sm">
-                                  {signer.status === 'signed' ? (
-                                    <CheckCircle className="h-3 w-3 text-green-500" />
-                                  ) : (
-                                    <Clock className="h-3 w-3 text-muted-foreground" />
-                                  )}
-                                  <span className="truncate max-w-[150px]">{signer.signer_name}</span>
-                                  {signer.signed_at && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {format(new Date(signer.signed_at), "M/d/yy")}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
+                              {doc.document_signers.map((signer) => {
+                                const canResend = doc.sent_at && 
+                                  signer.status !== 'signed' && 
+                                  signer.status !== 'declined' && 
+                                  docStatus !== 'cancelled' && 
+                                  docStatus !== 'signed';
+                                
+                                return (
+                                  <div key={signer.id} className="flex items-center gap-2 text-sm">
+                                    {signer.status === 'signed' ? (
+                                      <CheckCircle className="h-3 w-3 text-green-500" />
+                                    ) : signer.status === 'declined' ? (
+                                      <XCircle className="h-3 w-3 text-red-500" />
+                                    ) : (
+                                      <Clock className="h-3 w-3 text-muted-foreground" />
+                                    )}
+                                    <span className="truncate max-w-[120px]">{signer.signer_name}</span>
+                                    {signer.signed_at && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(signer.signed_at), "M/d/yy")}
+                                      </span>
+                                    )}
+                                    {canResend && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-5 w-5 text-muted-foreground hover:text-primary"
+                                              onClick={() => handleResendClick(doc, signer)}
+                                              disabled={resendMutation.isPending}
+                                            >
+                                              <RefreshCw className="h-3 w-3" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Resend signature request</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : (
                             <div className="flex flex-col">
@@ -1044,6 +1112,52 @@ export default function Documents() {
                 <>
                   <Ban className="mr-2 h-4 w-4" />
                   Cancel Document
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resend Confirmation Dialog */}
+      <Dialog open={resendDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setResendSigner(null);
+          setResendDocument(null);
+        }
+        setResendDialogOpen(open);
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resend Signature Request</DialogTitle>
+            <DialogDescription>
+              Send a reminder email to {resendSigner?.signer_name} for "{resendDocument?.document_name}"?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-center gap-2 text-sm p-3 bg-muted/50 rounded">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">{resendSigner?.signer_name}</span>
+              <span className="text-muted-foreground">({resendSigner?.signer_email})</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResendDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => resendDocument && resendSigner && resendMutation.mutate({ doc: resendDocument, signer: resendSigner })}
+              disabled={resendMutation.isPending}
+            >
+              {resendMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Send Reminder
                 </>
               )}
             </Button>

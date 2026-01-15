@@ -12,6 +12,7 @@ interface DocumentSignatureRequest {
   recipientName: string;
   recipientEmail: string;
   signerId?: string;
+  isReminder?: boolean;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -25,9 +26,9 @@ const handler = async (req: Request): Promise<Response> => {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
-    const { documentId, documentName, recipientName, recipientEmail, signerId }: DocumentSignatureRequest = await req.json();
+    const { documentId, documentName, recipientName, recipientEmail, signerId, isReminder }: DocumentSignatureRequest = await req.json();
 
-    console.log("Processing document signature request:", { documentId, documentName, recipientName, recipientEmail, signerId });
+    console.log("Processing document signature request:", { documentId, documentName, recipientName, recipientEmail, signerId, isReminder });
 
     // Create portal token
     const { data: tokenData, error: tokenError } = await supabase
@@ -64,6 +65,15 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Portal URL:", portalUrl);
 
+    // Build email content based on whether this is a reminder
+    const emailSubject = isReminder 
+      ? `Reminder: Document Signature Required - ${documentName}`
+      : `Document Signature Required: ${documentName}`;
+    
+    const emailIntro = isReminder
+      ? `<p>This is a friendly reminder that ${companyName} has sent you a document that still requires your signature.</p>`
+      : `<p>${companyName} has sent you a document that requires your signature.</p>`;
+
     // Send email via Resend API
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -74,15 +84,15 @@ const handler = async (req: Request): Promise<Response> => {
       body: JSON.stringify({
         from: `${fromName} <${fromEmail}>`,
         to: [recipientEmail],
-        subject: `Document Signature Required: ${documentName}`,
+        subject: emailSubject,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #1a1a2e; color: white; padding: 30px; text-align: center;">
-              <h1 style="margin: 0;">Document Signature Required</h1>
+              <h1 style="margin: 0;">${isReminder ? 'Reminder: ' : ''}Document Signature Required</h1>
             </div>
             <div style="padding: 30px; background: #f9fafb;">
               <p>Hello ${recipientName},</p>
-              <p>${companyName} has sent you a document that requires your signature.</p>
+              ${emailIntro}
               <p><strong>Document:</strong> ${documentName}</p>
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${portalUrl}" style="background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">Review & Sign Document</a>
