@@ -209,7 +209,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_value: est.discount_value || 0,
         notes: est.notes || "",
         terms_and_conditions: est.terms_and_conditions || "",
-        work_scope_description: "",
+        work_scope_description: est.work_scope_description || "",
       });
 
       // Populate groups with items
@@ -503,6 +503,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         total,
         notes: formData.notes || null,
         terms_and_conditions: formData.terms_and_conditions || null,
+        work_scope_description: formData.work_scope_description || null,
         status: "draft" as const,
         created_by: user?.id || null,
       };
@@ -804,11 +805,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     </CardContent>
                   </Card>
 
+                </TabsContent>
+
+                <TabsContent value="scope" className="mt-0 space-y-4">
+                  {/* Work Scope Description - First item in Scope tab */}
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         <FileText className="h-4 w-4" />
-                        Work Scope Description *
+                        Work Scope Description
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -829,14 +834,12 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         className="min-h-[150px]"
                       />
                       <p className="text-xs text-muted-foreground mt-2">
-                        <strong>Required:</strong> Include measurements (sqft, linear ft, quantities) and specific materials. 
+                        Include measurements (sqft, linear ft, quantities) and specific materials. 
                         The AI uses this + job site ZIP code for location-based pricing.
                       </p>
                     </CardContent>
                   </Card>
-                </TabsContent>
 
-                <TabsContent value="scope" className="mt-0 space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold">Line Items</h3>
                     <Button onClick={addGroup} size="sm">
