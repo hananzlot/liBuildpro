@@ -233,48 +233,6 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
       </Card>
     )}
 
-      {/* Scope of Work from Accepted Estimate */}
-      {acceptedEstimate && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5" />
-              Scope of Work
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScopeOfWorkDisplay estimateId={acceptedEstimate.id} />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* If no accepted estimate, show project scope dispatch if available */}
-      {!acceptedEstimate && project.project_scope_dispatch && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Project Description
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm whitespace-pre-wrap">{project.project_scope_dispatch}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Empty state if no scope at all */}
-      {!acceptedEstimate && !project.project_scope_dispatch && (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold">Scope of Work</h3>
-            <p className="text-muted-foreground">
-              The detailed scope of work will be available once a proposal is accepted.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
