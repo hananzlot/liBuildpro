@@ -73,6 +73,7 @@ export function SignatureFieldEditor({
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const [canvasReady, setCanvasReady] = useState(false);
   const [fields, setFields] = useState<SignatureField[]>(initialFields);
+  const fieldsRef = useRef<SignatureField[]>(initialFields);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -278,8 +279,8 @@ export function SignatureFieldEditor({
       canvas.remove(obj);
     });
 
-    // Add fields for current page
-    const pageFields = fields.filter((f) => f.pageNumber === currentPage);
+    // Add fields for current page (use ref so adding fields doesn't retrigger background fit)
+    const pageFields = fieldsRef.current.filter((f) => f.pageNumber === currentPage);
     pageFields.forEach((field) => {
       const signer = signers.find((s) => s.id === field.signerId);
       const color = signer?.color || FIELD_COLORS[0];
@@ -325,7 +326,12 @@ export function SignatureFieldEditor({
     }
 
     canvas.requestRenderAll();
-  }, [fields, currentPage, signers]);
+  }, [currentPage, signers]);
+
+  // Keep a ref to fields so loadFieldsOnCanvas doesn't change identity when fields changes
+  useEffect(() => {
+    fieldsRef.current = fields;
+  }, [fields]);
 
   // Load background image and fields when page changes
   useEffect(() => {
