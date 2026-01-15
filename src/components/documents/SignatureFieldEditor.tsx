@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Type, Asterisk } from "lucide-react";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -30,7 +32,9 @@ interface SignatureField {
   y: number;
   width: number;
   height: number;
-  fieldType: "signature" | "date" | "name" | "email";
+  fieldType: "signature" | "date" | "name" | "email" | "text";
+  isRequired: boolean;
+  fieldLabel?: string;
 }
 
 interface SignatureFieldEditorProps {
@@ -54,6 +58,7 @@ const FIELD_TYPE_CONFIG = {
   date: { label: "Date Signed", icon: Calendar, defaultWidth: 150, defaultHeight: 30 },
   name: { label: "Full Name", icon: User, defaultWidth: 180, defaultHeight: 30 },
   email: { label: "Email", icon: Mail, defaultWidth: 200, defaultHeight: 30 },
+  text: { label: "Text Field", icon: Type, defaultWidth: 200, defaultHeight: 30 },
 };
 
 // Extend Fabric objects to include custom data
@@ -80,7 +85,9 @@ export function SignatureFieldEditor({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedSigner, setSelectedSigner] = useState<string>(signers[0]?.id || "");
-  const [selectedFieldType, setSelectedFieldType] = useState<"signature" | "date" | "name" | "email">("signature");
+  const [selectedFieldType, setSelectedFieldType] = useState<"signature" | "date" | "name" | "email" | "text">("signature");
+  const [fieldIsRequired, setFieldIsRequired] = useState(true);
+  const [textFieldLabel, setTextFieldLabel] = useState("");
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
   const [zoom, setZoom] = useState(1);
   const fieldDataMap = useRef<Map<string, FieldData>>(new Map());
@@ -303,7 +310,11 @@ export function SignatureFieldEditor({
       fieldDataMap.current.set(rectId, { fieldId: field.id });
       (rect as any).__fieldId = field.id;
 
-      const text = new fabric.FabricText(`${config.label}\n${field.signerName}`, {
+      const labelText = field.fieldType === "text" 
+        ? `${field.fieldLabel || "Text"}\n${field.signerName}${field.isRequired ? " *" : ""}`
+        : `${config.label}\n${field.signerName}${field.isRequired ? " *" : ""}`;
+
+      const text = new fabric.FabricText(labelText, {
         left: field.x + 5,
         top: field.y + 5,
         fontSize: 12,
@@ -577,6 +588,8 @@ export function SignatureFieldEditor({
       width: config.defaultWidth,
       height: config.defaultHeight,
       fieldType,
+      isRequired: fieldIsRequired,
+      fieldLabel: fieldType === "text" ? (textFieldLabel || "Text Field") : undefined,
     };
 
     setFields((prev) => [...prev, newField]);
@@ -688,6 +701,31 @@ export function SignatureFieldEditor({
               <p className="text-xs text-muted-foreground">Drag onto document or click to select then click Add</p>
             </div>
 
+            {/* Text field label input */}
+            {selectedFieldType === "text" && (
+              <div className="space-y-2">
+                <Label className="text-xs">Field Label</Label>
+                <Input
+                  value={textFieldLabel}
+                  onChange={(e) => setTextFieldLabel(e.target.value)}
+                  placeholder="e.g. Company Name"
+                  className="h-8 text-sm"
+                />
+              </div>
+            )}
+
+            {/* Required toggle */}
+            <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
+              <div className="flex items-center gap-2">
+                <Asterisk className="h-3 w-3 text-destructive" />
+                <Label className="text-xs">Required field</Label>
+              </div>
+              <Switch
+                checked={fieldIsRequired}
+                onCheckedChange={setFieldIsRequired}
+              />
+            </div>
+
             <Button type="button" onClick={() => addField()} className="w-full" size="sm">
               <Plus className="h-4 w-4 mr-1" />
               Add Field at Center
@@ -730,7 +768,12 @@ export function SignatureFieldEditor({
                           style={{ backgroundColor: signer?.color }}
                         />
                         <Icon className="h-3 w-3" />
-                        <span className="truncate max-w-[80px]">{field.signerName}</span>
+                        <span className="truncate max-w-[60px]">
+                          {field.fieldType === "text" ? (field.fieldLabel || "Text") : field.signerName}
+                        </span>
+                        {field.isRequired && (
+                          <Asterisk className="h-3 w-3 text-destructive" />
+                        )}
                       </div>
                       <Button
                         type="button"

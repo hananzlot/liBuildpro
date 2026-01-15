@@ -54,7 +54,9 @@ interface SignatureField {
   y: number;
   width: number;
   height: number;
-  fieldType: "signature" | "date" | "name" | "email";
+  fieldType: "signature" | "date" | "name" | "email" | "text";
+  isRequired: boolean;
+  fieldLabel?: string;
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -244,6 +246,8 @@ export default function Documents() {
           width: f.width,
           height: f.height,
           field_type: f.fieldType,
+          is_required: f.isRequired,
+          field_label: f.fieldLabel || null,
         }));
 
         const { error } = await supabase
