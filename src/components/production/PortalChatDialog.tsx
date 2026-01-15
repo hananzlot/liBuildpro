@@ -87,14 +87,21 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      // ScrollArea uses a viewport element inside - find it
-      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
+    // Use requestAnimationFrame to ensure DOM has updated after messages change
+    const scrollToBottom = () => {
+      if (scrollRef.current) {
+        const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
       }
-    }
-  }, [messages]);
+    };
+    
+    // Double RAF to ensure content is fully rendered
+    requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToBottom);
+    });
+  }, [messages, messages.length]);
 
   // Send reply mutation
   const sendReplyMutation = useMutation({
