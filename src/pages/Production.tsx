@@ -507,6 +507,51 @@ export default function Production() {
       : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
+  // Track which financial sections match the search
+  const matchedFinancialSections = useMemo(() => {
+    const searchNumber = parseFloat(searchQuery.replace(/[,$]/g, ''));
+    const isNumberSearch = !isNaN(searchNumber) && searchNumber > 0;
+    
+    if (!isNumberSearch || searchQuery.trim() === '') {
+      return new Set<string>();
+    }
+    
+    const matched = new Set<string>();
+    const cleanQuery = searchQuery.replace(/[,$]/g, '');
+    
+    projects.forEach(project => {
+      const financials = projectFinancials[project.id];
+      if (!financials) return;
+      
+      if (financials.totalInvoiced === searchNumber || financials.totalInvoiced.toString().includes(cleanQuery)) {
+        matched.add('Invoiced');
+      }
+      if (financials.invoicesCollected === searchNumber || financials.invoicesCollected.toString().includes(cleanQuery)) {
+        matched.add('Payments Received');
+      }
+      if (financials.phasesTotal === searchNumber || financials.phasesTotal.toString().includes(cleanQuery)) {
+        matched.add('Phases');
+      }
+      if (financials.contractsTotal === searchNumber || financials.contractsTotal.toString().includes(cleanQuery)) {
+        matched.add('Contracts');
+      }
+      if (financials.totalBillsReceived === searchNumber || financials.totalBillsReceived.toString().includes(cleanQuery)) {
+        matched.add('Bills Received');
+      }
+      if (financials.totalBillsPaid === searchNumber || financials.totalBillsPaid.toString().includes(cleanQuery)) {
+        matched.add('Bills Paid');
+      }
+      if (financials.projectBalanceDue === searchNumber) {
+        matched.add('Project Balance');
+      }
+      if (financials.invoiceBalanceDue === searchNumber) {
+        matched.add('Invoice Balance');
+      }
+    });
+    
+    return matched;
+  }, [searchQuery, projects, projectFinancials]);
+
   const sortedAndFilteredProjects = useMemo(() => {
     const filtered = projects.filter((project) => {
       const financials = projectFinancials[project.id];
@@ -1416,63 +1461,76 @@ export default function Production() {
               <SubcontractorWarningsCard />
 
               {/* Filters & Search */}
-          <section className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-            <div className="flex gap-2 items-center flex-wrap">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by name, address, or amount..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 w-72"
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="text-xs">Search by project name, address, customer, salesperson, project manager, or enter an amount to find matching invoices, phases, bills, and payments.</p>
-                </TooltipContent>
-              </Tooltip>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="New Job">New Job</SelectItem>
-                  <SelectItem value="In-Progress">In-Progress</SelectItem>
-                  <SelectItem value="On-Hold">On-Hold</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2">
-              {isAdmin && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => createTestProjectMutation.mutate()}
-                  disabled={createTestProjectMutation.isPending}
-                >
-                  {createTestProjectMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <FlaskConical className="h-4 w-4 mr-2" />
-                  )}
-                  Add Test Project
+          <section className="flex flex-col gap-2">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="flex gap-2 items-center flex-wrap">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search by name, address, or amount..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 w-72"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="text-xs">Search by project name, address, customer, salesperson, project manager, or enter an amount to find matching invoices, phases, bills, and payments.</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="New Job">New Job</SelectItem>
+                    <SelectItem value="In-Progress">In-Progress</SelectItem>
+                    <SelectItem value="On-Hold">On-Hold</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                {isAdmin && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => createTestProjectMutation.mutate()}
+                    disabled={createTestProjectMutation.isPending}
+                  >
+                    {createTestProjectMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FlaskConical className="h-4 w-4 mr-2" />
+                    )}
+                    Add Test Project
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import
                 </Button>
-              )}
-              <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-                <Upload className="h-4 w-4 mr-2" />
-                Import
-              </Button>
-              <Button onClick={() => setNewProjectOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Project
-              </Button>
+                <Button onClick={() => setNewProjectOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Project
+                </Button>
+              </div>
             </div>
+            {/* Show matched financial sections when searching by amount */}
+            {matchedFinancialSections.size > 0 && (
+              <div className="flex items-center gap-2 flex-wrap text-sm">
+                <span className="text-muted-foreground text-xs">Found in:</span>
+                {Array.from(matchedFinancialSections).map((section) => (
+                  <Badge key={section} variant="secondary" className="text-xs">
+                    {section}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Projects Table */}
