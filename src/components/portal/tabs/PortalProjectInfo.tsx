@@ -1,0 +1,230 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { 
+  MapPin, 
+  Phone, 
+  Mail, 
+  Calendar, 
+  User, 
+  FileText,
+  ClipboardList,
+  Building2
+} from 'lucide-react';
+import { format } from 'date-fns';
+
+interface PortalProjectInfoProps {
+  project: any;
+  acceptedEstimate?: any;
+}
+
+export function PortalProjectInfo({ project, acceptedEstimate }: PortalProjectInfoProps) {
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+      Proposal: { label: 'Proposal Stage', variant: 'secondary' },
+      Pending: { label: 'Pending', variant: 'outline' },
+      'In Progress': { label: 'In Progress', variant: 'default' },
+      Completed: { label: 'Completed', variant: 'default' },
+      Cancelled: { label: 'Cancelled', variant: 'destructive' },
+    };
+    const config = statusConfig[status] || { label: status, variant: 'outline' };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Project Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Project #{project.project_number}</p>
+              <CardTitle className="text-2xl mt-1">{project.project_name}</CardTitle>
+            </div>
+            {getStatusBadge(project.project_status || 'Proposal')}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Customer & Location Info */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                <User className="h-4 w-4" />
+                CUSTOMER INFORMATION
+              </h4>
+              <p className="font-medium text-lg">
+                {project.customer_first_name} {project.customer_last_name}
+              </p>
+              {project.customer_email && (
+                <p className="text-sm flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  {project.customer_email}
+                </p>
+              )}
+              {project.cell_phone && (
+                <p className="text-sm flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  {project.cell_phone}
+                </p>
+              )}
+              {project.home_phone && (
+                <p className="text-sm flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  {project.home_phone} (Home)
+                </p>
+              )}
+            </div>
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                PROJECT LOCATION
+              </h4>
+              {project.project_address && (
+                <p className="text-sm flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  {project.project_address}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-4 text-sm">
+                {project.agreement_signed_date && (
+                  <span className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    Signed: {format(new Date(project.agreement_signed_date), 'MMM d, yyyy')}
+                  </span>
+                )}
+                {project.install_start_date && (
+                  <span className="flex items-center gap-2 text-primary">
+                    <Calendar className="h-4 w-4" />
+                    Install: {format(new Date(project.install_start_date), 'MMM d, yyyy')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Project Type */}
+          {project.project_type && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm text-muted-foreground">PROJECT TYPE</h4>
+                <p className="text-sm">
+                  {project.project_type}
+                  {project.project_subcategory && ` - ${project.project_subcategory}`}
+                </p>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Scope of Work from Accepted Estimate */}
+      {acceptedEstimate && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              Scope of Work
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScopeOfWorkDisplay estimateId={acceptedEstimate.id} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* If no accepted estimate, show project scope dispatch if available */}
+      {!acceptedEstimate && project.project_scope_dispatch && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Project Description
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap">{project.project_scope_dispatch}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Empty state if no scope at all */}
+      {!acceptedEstimate && !project.project_scope_dispatch && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold">Scope of Work</h3>
+            <p className="text-muted-foreground">
+              The detailed scope of work will be available once a proposal is accepted.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// Sub-component to fetch and display scope of work from estimate
+function ScopeOfWorkDisplay({ estimateId }: { estimateId: string }) {
+  const [groups, setGroups] = React.useState<any[]>([]);
+  const [items, setItems] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchScope = async () => {
+      const [groupsRes, itemsRes] = await Promise.all([
+        import('@/integrations/supabase/client').then(({ supabase }) =>
+          supabase.from('estimate_groups').select('*').eq('estimate_id', estimateId).order('sort_order')
+        ),
+        import('@/integrations/supabase/client').then(({ supabase }) =>
+          supabase.from('estimate_line_items').select('*').eq('estimate_id', estimateId).order('sort_order')
+        ),
+      ]);
+      setGroups(groupsRes.data || []);
+      setItems(itemsRes.data || []);
+      setLoading(false);
+    };
+    fetchScope();
+  }, [estimateId]);
+
+  if (loading) {
+    return <p className="text-sm text-muted-foreground">Loading scope...</p>;
+  }
+
+  const groupedItems = groups.reduce((acc: Record<string, any[]>, group: any) => {
+    acc[group.id] = items.filter((item: any) => item.group_id === group.id);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-6">
+      {groups.map((group: any) => (
+        <div key={group.id} className="space-y-3">
+          <h4 className="font-semibold text-lg">{group.group_name}</h4>
+          {group.description && (
+            <p className="text-sm text-muted-foreground">{group.description}</p>
+          )}
+          <div className="space-y-2">
+            {groupedItems[group.id]?.map((item: any) => (
+              <div
+                key={item.id}
+                className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
+              >
+                <div className="flex-1">
+                  <p className="font-medium">{item.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {item.quantity} {item.unit}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {groups.length === 0 && (
+        <p className="text-sm text-muted-foreground">No scope details available.</p>
+      )}
+    </div>
+  );
+}
