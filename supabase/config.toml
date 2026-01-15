@@ -104,3 +104,18 @@ verify_jwt = false
 
 [functions.send-document-signature]
 verify_jwt = false
+
+[functions.cancel-document-signature]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.update-user-password]
+verify_jwt = false
+
+[functions.send-portal-update-email]
+verify_jwt = false
+
+[functions.send-daily-portal-updates]
+verify_jwt = false

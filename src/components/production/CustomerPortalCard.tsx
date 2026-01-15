@@ -15,7 +15,8 @@ import {
   Link as LinkIcon,
   Eye,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  Mail
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -129,6 +130,24 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
     },
   });
 
+  // Send email mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('send-portal-update-email', {
+        body: { projectId }
+      });
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Failed to send email');
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || 'Email sent to customer!');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const copyLink = async () => {
     if (!portalLink) return;
     await navigator.clipboard.writeText(portalLink);
@@ -231,6 +250,21 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
                     Open Portal
                   </Button>
                   <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="flex-1 h-7 text-xs"
+                    onClick={() => sendEmailMutation.mutate()}
+                    disabled={sendEmailMutation.isPending || !customerEmail}
+                    title={customerEmail ? 'Send portal update email to customer' : 'No customer email available'}
+                  >
+                    {sendEmailMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <Mail className="h-3 w-3 mr-1" />
+                    )}
+                    Email Customer
+                  </Button>
+                  <Button 
                     variant="ghost" 
                     size="sm" 
                     className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
@@ -245,6 +279,11 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
                     )}
                   </Button>
                 </div>
+                {!customerEmail && (
+                  <p className="text-[10px] text-amber-600">
+                    ⚠️ No customer email on file. Add email to send notifications.
+                  </p>
+                )}
               </>
             )}
 

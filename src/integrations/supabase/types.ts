@@ -2825,6 +2825,51 @@ export type Database = {
           },
         ]
       }
+      project_notification_log: {
+        Row: {
+          created_at: string
+          id: string
+          notification_type: string
+          project_id: string
+          sent_at: string
+          sent_by: string | null
+          sent_to_email: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notification_type?: string
+          project_id: string
+          sent_at?: string
+          sent_by?: string | null
+          sent_to_email?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notification_type?: string
+          project_id?: string
+          sent_at?: string
+          sent_by?: string | null
+          sent_to_email?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_notification_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_notification_log_sent_by_fkey"
+            columns: ["sent_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_payment_phases: {
         Row: {
           agreement_id: string | null
