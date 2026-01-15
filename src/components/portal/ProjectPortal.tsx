@@ -261,12 +261,16 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           {/* Top Bar */}
           <div className="py-4 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center gap-3">
-              {companySettings?.company_logo_url ? (
-                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20 overflow-hidden">
+              {companySettings?.company_logo_url && companySettings.company_logo_url.length > 0 ? (
+                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center ring-1 ring-white/20 overflow-hidden p-1">
                   <img 
                     src={companySettings.company_logo_url} 
                     alt={companySettings?.company_name || 'Company Logo'} 
                     className="w-full h-full object-contain"
+                    onError={(e) => {
+                      // Hide image on error, will show initials instead
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
                   />
                 </div>
               ) : (
