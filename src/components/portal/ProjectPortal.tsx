@@ -320,19 +320,6 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                   </p>
                 )}
               </div>
-              
-              {/* Progress Card */}
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 ring-1 ring-white/10 w-full lg:w-72">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-white/70 text-sm">Project Progress</span>
-                  <span className="text-white font-bold">{getProjectProgress()}%</span>
-                </div>
-                <Progress value={getProjectProgress()} className="h-2 bg-white/10" />
-                <div className="flex justify-between mt-3 text-xs text-white/50">
-                  <span>Start</span>
-                  <span>Complete</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
