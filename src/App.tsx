@@ -15,6 +15,7 @@ import Documents from "./pages/Documents";
 import ClientPortal from "./pages/ClientPortal";
 import DocumentPortal from "./pages/DocumentPortal";
 import AdminSettings from "./pages/AdminSettings";
+import SalesPortal from "./pages/SalesPortal";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -24,13 +25,15 @@ const queryClient = new QueryClient();
 function ProtectedRoute({ 
   children, 
   requiredRole,
-  allowedRoles 
+  allowedRoles,
+  blockSalesOnly = false
 }: { 
   children: React.ReactNode; 
   requiredRole?: 'admin' | 'production' | 'contract_manager';
-  allowedRoles?: ('admin' | 'magazine' | 'contract_manager')[];
+  allowedRoles?: ('admin' | 'magazine' | 'contract_manager' | 'sales')[];
+  blockSalesOnly?: boolean;
 }) {
-  const { user, isLoading, isAdmin, isProduction, isMagazine, isContractManager } = useAuth();
+  const { user, isLoading, isAdmin, isProduction, isMagazine, isContractManager, isDispatch, isSales } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -56,6 +59,12 @@ function ProtectedRoute({
     return <Navigate to="/auth" replace />;
   }
 
+  // Sales-only users (no other roles) can only access sales-portal
+  const isSalesOnly = isSales && !isAdmin && !isDispatch && !isProduction && !isMagazine && !isContractManager;
+  if (isSalesOnly && blockSalesOnly) {
+    return <Navigate to="/sales-portal" replace />;
+  }
+
   // Check role-based access
   if (requiredRole === 'production' && !isProduction && !isAdmin) {
     return <Navigate to="/" replace />;
@@ -72,6 +81,7 @@ function ProtectedRoute({
         case 'admin': return isAdmin;
         case 'magazine': return isMagazine;
         case 'contract_manager': return isContractManager;
+        case 'sales': return isSales;
         default: return false;
       }
     });
@@ -85,7 +95,7 @@ function ProtectedRoute({
 
 // Component to handle role-based default page routing
 function DefaultPageRedirect() {
-  const { user, isLoading, isAdmin, isDispatch, isProduction, isMagazine, isContractManager } = useAuth();
+  const { user, isLoading, isAdmin, isDispatch, isProduction, isMagazine, isContractManager, isSales } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -130,7 +140,12 @@ function DefaultPageRedirect() {
     return <Navigate to="/estimates" replace />;
   }
 
-  // Fallback to follow-up page for sales or any other role
+  // Sales-only users go to sales portal
+  if (isSales) {
+    return <Navigate to="/sales-portal" replace />;
+  }
+
+  // Fallback to follow-up page for any other role
   return <Navigate to="/follow-up" replace />;
 }
 
@@ -147,10 +162,19 @@ const App = () => (
               path="/"
               element={<DefaultPageRedirect />}
             />
+            {/* Sales portal - sales only */}
+            <Route
+              path="/sales-portal"
+              element={
+                <ProtectedRoute allowedRoles={['sales', 'admin']}>
+                  <SalesPortal />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/follow-up"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute blockSalesOnly>
                   <FollowUp />
                 </ProtectedRoute>
               }
