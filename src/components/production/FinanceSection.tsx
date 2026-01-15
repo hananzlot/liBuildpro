@@ -818,6 +818,54 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         }
       }
       
+      // If deleting a bill, handle offset relationships
+      if (deleteTarget.type === "bill") {
+        // Check if this bill is an offset bill (has offset_bill_id) - need to reverse the offset
+        const billToDelete = bills.find(b => b.id === deleteTarget.id);
+        if (billToDelete?.offset_bill_id) {
+          // Get the target bill and reverse the offset
+          const targetBill = bills.find(b => b.id === billToDelete.offset_bill_id);
+          if (targetBill) {
+            const offsetAmount = billToDelete.bill_amount || 0;
+            const newBillAmount = (targetBill.bill_amount || 0) + offsetAmount;
+            const newBalance = newBillAmount - (targetBill.amount_paid || 0);
+            
+            const { error: updateError } = await supabase
+              .from("project_bills")
+              .update({ 
+                bill_amount: newBillAmount,
+                balance: newBalance
+              })
+              .eq("id", billToDelete.offset_bill_id);
+            
+            if (updateError) throw updateError;
+            
+            await logAudit({
+              tableName: 'project_bills',
+              recordId: billToDelete.offset_bill_id,
+              action: 'UPDATE',
+              description: `Reversed ${formatCurrency(offsetAmount)} material offset - restored bill from ${formatCurrency(targetBill.bill_amount)} to ${formatCurrency(newBillAmount)}`,
+            });
+          }
+        }
+        
+        // Check if any bills reference this one as offset_bill_id - clear those references first
+        const { data: referencingBills } = await supabase
+          .from("project_bills")
+          .select("id, bill_amount")
+          .eq("offset_bill_id", deleteTarget.id);
+        
+        if (referencingBills && referencingBills.length > 0) {
+          for (const refBill of referencingBills) {
+            const { error: clearError } = await supabase
+              .from("project_bills")
+              .update({ offset_bill_id: null })
+              .eq("id", refBill.id);
+            if (clearError) throw clearError;
+          }
+        }
+      }
+      
       // Log audit before delete
       await logAudit({
         tableName: table,
