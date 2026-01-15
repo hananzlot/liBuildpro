@@ -17,6 +17,7 @@ interface EmailRequest {
   portalLink: string;
   customerName: string;
   estimateId: string;
+  isReminder?: boolean;
 }
 
 serve(async (req) => {
@@ -48,13 +49,13 @@ serve(async (req) => {
     const fromName = settingsMap.resend_from_name || "Capro Builders";
     const companyName = settingsMap.company_name || "Capro Builders";
 
-    const { to, subject, message, portalLink, customerName }: EmailRequest = await req.json();
+    const { to, subject, message, portalLink, customerName, isReminder }: EmailRequest = await req.json();
 
     if (!to || !portalLink) {
       throw new Error("Missing required fields");
     }
 
-    console.log(`Sending email to ${to} from ${fromName} <${fromEmail}>`);
+    console.log(`Sending ${isReminder ? 'reminder ' : ''}email to ${to} from ${fromName} <${fromEmail}>`);
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -122,6 +123,7 @@ serve(async (req) => {
         <body>
           <div class="header">
             <h1>${companyName}</h1>
+            ${isReminder ? '<p style="margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;">Friendly Reminder</p>' : ''}
           </div>
           
           <div class="content">

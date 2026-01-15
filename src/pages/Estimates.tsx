@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, ExternalLink, Printer } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Eye, Edit, Loader2, ExternalLink, Printer, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
@@ -67,6 +67,7 @@ export default function Estimates() {
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingEstimateId, setEditingEstimateId] = useState<string | null>(null);
   const [sendDialogEstimate, setSendDialogEstimate] = useState<Estimate | null>(null);
+  const [isResendMode, setIsResendMode] = useState(false);
   const [printEstimateId, setPrintEstimateId] = useState<string | null>(null);
 
   const handleViewChange = (view: string) => {
@@ -179,6 +180,7 @@ export default function Estimates() {
 
     const isDeclinedTab = tableType === 'declined';
     const isContractsTab = tableType === 'contracts';
+    const isProposalsTab = tableType === 'proposals';
 
     return (
       <Table>
@@ -299,14 +301,31 @@ export default function Estimates() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSendDialogEstimate(estimate)}
-                        title="Send Proposal"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                      {isProposalsTab ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setIsResendMode(true);
+                            setSendDialogEstimate(estimate);
+                          }}
+                          title="Resend Proposal"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setIsResendMode(false);
+                            setSendDialogEstimate(estimate);
+                          }}
+                          title="Send Proposal"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
                     </>
                   )}
                   {isAdmin && (
@@ -524,10 +543,16 @@ export default function Estimates() {
       {sendDialogEstimate && (
         <SendProposalDialog
           open={!!sendDialogEstimate}
-          onOpenChange={(open) => !open && setSendDialogEstimate(null)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSendDialogEstimate(null);
+              setIsResendMode(false);
+            }
+          }}
           estimateId={sendDialogEstimate.id}
           customerName={sendDialogEstimate.customer_name}
           customerEmail={sendDialogEstimate.customer_email}
+          isResend={isResendMode}
         />
       )}
 

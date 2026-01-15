@@ -21,6 +21,7 @@ interface SendProposalDialogProps {
   estimateId: string;
   customerName: string;
   customerEmail: string | null;
+  isResend?: boolean;
 }
 
 export function SendProposalDialog({
@@ -29,12 +30,19 @@ export function SendProposalDialog({
   estimateId,
   customerName,
   customerEmail,
+  isResend = false,
 }: SendProposalDialogProps) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState(customerEmail || '');
-  const [subject, setSubject] = useState(`Your Proposal from Capro Builders`);
+  const [subject, setSubject] = useState(
+    isResend 
+      ? `Reminder: Your Proposal from Capro Builders`
+      : `Your Proposal from Capro Builders`
+  );
   const [message, setMessage] = useState(
-    `Hi ${customerName},\n\nPlease find your proposal attached. You can review, comment, and sign it directly through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
+    isResend
+      ? `Hi ${customerName},\n\nThis is a friendly reminder about your proposal. Please find it available for review through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
+      : `Hi ${customerName},\n\nPlease find your proposal attached. You can review, comment, and sign it directly through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
   );
   const [portalLink, setPortalLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -81,22 +89,25 @@ export function SendProposalDialog({
           portalLink,
           customerName,
           estimateId,
+          isReminder: isResend,
         },
       });
 
       if (error) throw error;
 
-      // Update estimate status to sent
-      await supabase
-        .from('estimates')
-        .update({
-          status: 'sent',
-          sent_at: new Date().toISOString(),
-        })
-        .eq('id', estimateId);
+      // Only update status if this is a first-time send (not a resend)
+      if (!isResend) {
+        await supabase
+          .from('estimates')
+          .update({
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          })
+          .eq('id', estimateId);
+      }
     },
     onSuccess: () => {
-      toast.success('Proposal sent successfully!');
+      toast.success(isResend ? 'Reminder sent successfully!' : 'Proposal sent successfully!');
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
       onOpenChange(false);
     },
@@ -131,9 +142,11 @@ export function SendProposalDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Send Proposal</DialogTitle>
+          <DialogTitle>{isResend ? 'Resend Proposal' : 'Send Proposal'}</DialogTitle>
           <DialogDescription>
-            Generate a secure link for your client to view and sign the proposal.
+            {isResend 
+              ? 'Send a reminder email with a new portal link to the client.'
+              : 'Generate a secure link for your client to view and sign the proposal.'}
           </DialogDescription>
         </DialogHeader>
 
