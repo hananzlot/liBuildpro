@@ -143,7 +143,7 @@ function ProjectSoldCard({
   soldAmount, 
   onOpen 
 }: { 
-  project: Project & { lead_source?: string | null; project_scope_dispatch?: string | null; install_start_date?: string | null }; 
+  project: Project & { lead_source?: string | null; project_scope_dispatch?: string | null; install_start_date?: string | null; agreement_signed_date?: string | null }; 
   soldAmount: number; 
   onOpen: () => void;
 }) {
@@ -165,6 +165,11 @@ function ProjectSoldCard({
             <span>
               <strong>Status:</strong> {project.project_status || 'New Job'}
             </span>
+            {project.agreement_signed_date && (
+              <span>
+                <strong>Signed:</strong> {format(parseISO(project.agreement_signed_date), 'MMM d, yyyy')}
+              </span>
+            )}
             {project.install_start_date && (
               <span>
                 <strong>Start:</strong> {format(parseISO(project.install_start_date), 'MMM d, yyyy')}
