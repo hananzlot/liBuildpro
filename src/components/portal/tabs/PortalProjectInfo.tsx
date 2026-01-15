@@ -99,7 +99,7 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
             <div className="space-y-3">
               <h4 className="font-medium text-sm text-muted-foreground flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                PROJECT LOCATION
+                PROJECT DETAILS
               </h4>
               {project.project_address && (
                 <p className="text-sm flex items-center gap-2">
@@ -107,6 +107,18 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
                   {project.project_address}
                 </p>
               )}
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                {project.project_type && (
+                  <span className="text-muted-foreground">
+                    <span className="font-medium text-foreground">Type:</span> {project.project_type}
+                  </span>
+                )}
+                {project.lead_source && (
+                  <span className="text-muted-foreground">
+                    <span className="font-medium text-foreground">Source:</span> {project.lead_source}
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-4 text-sm">
                 {project.agreement_signed_date && (
                   <span className="flex items-center gap-2">
@@ -124,20 +136,6 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
             </div>
           </div>
 
-          {/* Project Type */}
-          {project.project_type && (
-            <>
-              <Separator />
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-muted-foreground">PROJECT TYPE</h4>
-                <p className="text-sm">
-                  {project.project_type}
-                  {project.project_subcategory && ` - ${project.project_subcategory}`}
-                </p>
-              </div>
-            </>
-          )}
-
           {/* Your Team - Salesperson & Project Manager */}
           {(project.primary_salesperson || project.project_manager) && (
             <>
@@ -147,7 +145,7 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
                   <UserCircle className="h-4 w-4" />
                   YOUR TEAM
                 </h4>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-4">
                   {(() => {
                     const salesperson = project.primary_salesperson;
                     const manager = project.project_manager;

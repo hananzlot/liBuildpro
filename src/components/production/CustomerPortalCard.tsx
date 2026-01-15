@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   ExternalLink, 
   Copy, 
@@ -28,7 +30,7 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
 
-  // Check if portal token exists for this project
+  // Check if portal token exists for this project (including inactive ones)
   const { data: portalToken, isLoading } = useQuery({
     queryKey: ['project-portal-token', projectId],
     queryFn: async () => {
@@ -36,7 +38,6 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
         .from('client_portal_tokens')
         .select('*')
         .eq('project_id', projectId)
-        .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -111,6 +112,23 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
     },
   });
 
+  const toggleActiveMutation = useMutation({
+    mutationFn: async (isActive: boolean) => {
+      const { error } = await supabase
+        .from('client_portal_tokens')
+        .update({ is_active: isActive })
+        .eq('id', portalToken?.id);
+      if (error) throw error;
+    },
+    onSuccess: (_, isActive) => {
+      toast.success(isActive ? 'Portal activated' : 'Portal deactivated');
+      queryClient.invalidateQueries({ queryKey: ['project-portal-token', projectId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
   const copyLink = async () => {
     if (!portalLink) return;
     await navigator.clipboard.writeText(portalLink);
@@ -154,60 +172,81 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
       <CardContent className="px-4 pb-4 space-y-3">
         {portalToken ? (
           <>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-[10px]">
-                <Check className="h-2.5 w-2.5 mr-1" />
-                Portal Active
-              </Badge>
-              {portalToken.access_count > 0 && (
-                <Badge variant="outline" className="text-[10px]">
-                  <Eye className="h-2.5 w-2.5 mr-1" />
-                  {portalToken.access_count} views
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant={portalToken.is_active ? "secondary" : "outline"} className="text-[10px]">
+                  {portalToken.is_active ? (
+                    <><Check className="h-2.5 w-2.5 mr-1" />Active</>
+                  ) : (
+                    'Inactive'
+                  )}
                 </Badge>
-              )}
+                {portalToken.access_count > 0 && (
+                  <Badge variant="outline" className="text-[10px]">
+                    <Eye className="h-2.5 w-2.5 mr-1" />
+                    {portalToken.access_count} views
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="portal-active" className="text-[10px] text-muted-foreground">
+                  {portalToken.is_active ? 'On' : 'Off'}
+                </Label>
+                <Switch
+                  id="portal-active"
+                  checked={portalToken.is_active}
+                  onCheckedChange={(checked) => toggleActiveMutation.mutate(checked)}
+                  disabled={toggleActiveMutation.isPending}
+                  className="scale-75"
+                />
+              </div>
             </div>
             
-            <div className="flex gap-2">
-              <Input 
-                value={portalLink || ''} 
-                readOnly 
-                className="h-7 text-[10px] font-mono"
-              />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-7 px-2"
-                onClick={copyLink}
-              >
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              </Button>
-            </div>
+            {portalToken.is_active && (
+              <>
+                <div className="flex gap-2">
+                  <Input 
+                    value={portalLink || ''} 
+                    readOnly 
+                    className="h-7 text-[10px] font-mono"
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 px-2"
+                    onClick={copyLink}
+                  >
+                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </Button>
+                </div>
 
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex-1 h-7 text-xs"
-                onClick={openPortal}
-              >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                Open Portal
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => recreatePortalMutation.mutate()}
-                disabled={recreatePortalMutation.isPending}
-                title="Regenerate portal link"
-              >
-                {recreatePortalMutation.isPending ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-3 w-3" />
-                )}
-              </Button>
-            </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 h-7 text-xs"
+                    onClick={openPortal}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Open Portal
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => recreatePortalMutation.mutate()}
+                    disabled={recreatePortalMutation.isPending}
+                    title="Regenerate portal link"
+                  >
+                    {recreatePortalMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
 
             {portalToken.last_accessed_at && (
               <p className="text-[10px] text-muted-foreground flex items-center gap-1">
