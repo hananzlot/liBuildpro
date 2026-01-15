@@ -88,7 +88,7 @@ export function PortalProjectInfo({ project, acceptedEstimate, agreements = [] }
   return (
     <div className="space-y-6">
       {/* Status & Timeline Card */}
-      <Card className="border-0 shadow-lg overflow-hidden">
+      <Card className="border-0 shadow-lg overflow-hidden max-w-3xl mx-auto">
         <div className={`h-1.5 bg-gradient-to-r ${project.project_status === 'Completed' ? 'from-green-400 to-green-600' : 'from-primary to-primary/70'}`} />
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8">
