@@ -9,6 +9,7 @@ import { PortalProposals } from './tabs/PortalProposals';
 import { PortalAgreement } from './tabs/PortalAgreement';
 import { PortalInvoices } from './tabs/PortalInvoices';
 import { PortalPhotos } from './tabs/PortalPhotos';
+import { PortalDocuments } from './tabs/PortalDocuments';
 import { PortalChat } from './tabs/PortalChat';
 
 interface ProjectPortalProps {
@@ -185,12 +186,13 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
 
       <div className="w-full max-w-4xl mx-auto px-3 sm:px-6 pt-6 pb-24 flex-1">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-3 sm:grid-cols-6 mb-6 h-auto">
+          <TabsList className="w-full grid grid-cols-4 sm:grid-cols-7 mb-6 h-auto">
             <TabsTrigger value="project" className="text-xs sm:text-sm py-2">Project</TabsTrigger>
             <TabsTrigger value="proposals" className="text-xs sm:text-sm py-2">Proposals</TabsTrigger>
             <TabsTrigger value="agreement" className="text-xs sm:text-sm py-2">Agreement</TabsTrigger>
             <TabsTrigger value="invoices" className="text-xs sm:text-sm py-2">Invoices</TabsTrigger>
             <TabsTrigger value="photos" className="text-xs sm:text-sm py-2">Photos</TabsTrigger>
+            <TabsTrigger value="documents" className="text-xs sm:text-sm py-2">Documents</TabsTrigger>
             <TabsTrigger value="chat" className="text-xs sm:text-sm py-2">Chat</TabsTrigger>
           </TabsList>
 
@@ -229,6 +231,14 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           <TabsContent value="photos">
             <PortalPhotos 
               documents={documents}
+              projectId={project.id}
+            />
+          </TabsContent>
+
+          <TabsContent value="documents">
+            <PortalDocuments 
+              documents={documents}
+              projectId={project.id}
             />
           </TabsContent>
 
