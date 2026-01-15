@@ -204,6 +204,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               paymentSchedule={paymentSchedule}
               invoices={[]}
               projectId={project.id}
+              project={project}
             />
           </TabsContent>
 

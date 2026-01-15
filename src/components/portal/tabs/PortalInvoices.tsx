@@ -12,20 +12,20 @@ import {
   DollarSign,
   Calendar,
   Eye,
-  Download,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
+import { InvoicePreviewDialog } from '../InvoicePreviewDialog';
 
 interface PortalInvoicesProps {
   paymentSchedule: any[];
   invoices: any[];
   projectId: string;
+  project?: any;
 }
 
-export function PortalInvoices({ paymentSchedule, projectId }: PortalInvoicesProps) {
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  
+export function PortalInvoices({ paymentSchedule, projectId, project }: PortalInvoicesProps) {
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+  const [selectedPayments, setSelectedPayments] = useState<any[]>([]);
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
     return new Intl.NumberFormat('en-US', {
@@ -178,23 +178,18 @@ export function PortalInvoices({ paymentSchedule, projectId }: PortalInvoicesPro
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      {invoice.attachment_url && (
-                        <div className="flex gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={() => setPdfUrl(invoice.attachment_url)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
-                            <a href={invoice.attachment_url} target="_blank" rel="noopener noreferrer" download>
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                        </div>
-                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="h-8"
+                        onClick={() => {
+                          setSelectedInvoice(invoice);
+                          setSelectedPayments(invoicePayments);
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
                       <div className="text-right">
                         <p className="font-semibold text-lg">{formatCurrency(invoice.amount)}</p>
                         {isPartial && (
@@ -286,12 +281,13 @@ export function PortalInvoices({ paymentSchedule, projectId }: PortalInvoicesPro
         </Card>
       )}
 
-      {/* PDF Viewer Dialog */}
-      <PdfViewerDialog
-        open={!!pdfUrl}
-        onOpenChange={(open) => !open && setPdfUrl(null)}
-        fileUrl={pdfUrl || ''}
-        fileName="Invoice Document"
+      {/* Invoice Preview Dialog */}
+      <InvoicePreviewDialog
+        open={!!selectedInvoice}
+        onOpenChange={(open) => !open && setSelectedInvoice(null)}
+        invoice={selectedInvoice}
+        payments={selectedPayments}
+        project={project}
       />
     </div>
   );
