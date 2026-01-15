@@ -542,7 +542,11 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                           onValueChange={(value) => {
                             if (value === '') {
                               setSimulatedRole(null);
+                              // Reset welcome screen so admin sees it again
+                              sessionStorage.removeItem('crm-welcome-dismissed');
                               toast.info("Role simulation disabled");
+                              // Navigate to dashboard
+                              navigate('/');
                             } else {
                               setSimulatedRole(value as AppRole);
                               toast.info(`Now viewing as: ${value}`);
