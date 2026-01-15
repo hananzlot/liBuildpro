@@ -236,6 +236,9 @@ export default function Production() {
   const [totalSoldFilterSalesperson, setTotalSoldFilterSalesperson] = useState<string | null>(null);
   const [financialSearchSheetOpen, setFinancialSearchSheetOpen] = useState(false);
   const [financialSearchSection, setFinancialSearchSection] = useState<string>('');
+  const [statusChangeDialogOpen, setStatusChangeDialogOpen] = useState(false);
+  const [statusChangeProject, setStatusChangeProject] = useState<Project | null>(null);
+  const [statusChangeNewStatus, setStatusChangeNewStatus] = useState<string>("");
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects"],
     queryFn: async () => {
@@ -1087,6 +1090,34 @@ export default function Production() {
     onError: (error) => toast.error(`Failed to restore: ${error.message}`),
   });
 
+  // Update project status mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ projectId, oldStatus, newStatus }: { projectId: string; oldStatus: string | null; newStatus: string }) => {
+      await logAudit({
+        tableName: 'projects',
+        recordId: projectId,
+        action: 'UPDATE',
+        oldValues: { project_status: oldStatus },
+        newValues: { project_status: newStatus },
+        description: `Changed project status from "${oldStatus || 'New Job'}" to "${newStatus}"`,
+      });
+
+      const { error } = await supabase
+        .from("projects")
+        .update({ project_status: newStatus })
+        .eq("id", projectId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Project status updated");
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setStatusChangeDialogOpen(false);
+      setStatusChangeProject(null);
+      setStatusChangeNewStatus("");
+    },
+    onError: (error) => toast.error(`Failed to update status: ${error.message}`),
+  });
+
   // Helper to check if project is a test project
   const isTestProject = (project: Project): boolean => {
     const name = project.project_name?.toLowerCase() || "";
@@ -1898,14 +1929,34 @@ export default function Production() {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
                               <div className="flex flex-col gap-0.5">
-                                <Badge 
-                                  variant="outline" 
-                                  className={statusColors[project.project_status || "New Job"] || ""}
+                                <Select
+                                  value={project.project_status || "New Job"}
+                                  onValueChange={(newStatus) => {
+                                    if (newStatus !== project.project_status) {
+                                      setStatusChangeProject(project);
+                                      setStatusChangeNewStatus(newStatus);
+                                      setStatusChangeDialogOpen(true);
+                                    }
+                                  }}
                                 >
-                                  {project.project_status || "New Job"}
-                                </Badge>
+                                  <SelectTrigger className="h-auto p-0 border-0 bg-transparent hover:bg-transparent focus:ring-0 w-auto">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`cursor-pointer hover:opacity-80 ${statusColors[project.project_status || "New Job"] || ""}`}
+                                    >
+                                      {project.project_status || "New Job"}
+                                    </Badge>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="New Job">New Job</SelectItem>
+                                    <SelectItem value="In-Progress">In-Progress</SelectItem>
+                                    <SelectItem value="On-Hold">On-Hold</SelectItem>
+                                    <SelectItem value="Completed">Completed</SelectItem>
+                                    <SelectItem value="Cancelled">Cancelled</SelectItem>
+                                  </SelectContent>
+                                </Select>
                                 {financials?.earliestSignedDate && (
                                   <span className="text-[10px] text-muted-foreground">
                                     <strong>Signed:</strong> {format(parseISO(financials.earliestSignedDate), "M/d/yy")}
@@ -1931,7 +1982,16 @@ export default function Production() {
                               </div>
                             </TableCell>
                             <TableCell className="text-xs">
-                              {project.primary_salesperson || "-"} / {project.project_manager || "-"}
+                              {(() => {
+                                const salesperson = project.primary_salesperson?.trim();
+                                const pm = project.project_manager?.trim();
+                                if (!salesperson && !pm) return "-";
+                                if (!salesperson) return pm;
+                                if (!pm) return salesperson;
+                                // If same name, show once
+                                if (salesperson.toLowerCase() === pm.toLowerCase()) return salesperson;
+                                return `${salesperson} / ${pm}`;
+                              })()}
                             </TableCell>
                             <TableCell className="text-xs max-w-[100px] truncate" title={project.lead_source || "-"}>
                               {project.lead_source || "-"}
@@ -2282,6 +2342,57 @@ export default function Production() {
                   )}
                 </AlertDialogAction>
               )}
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Status Change Confirmation Dialog */}
+        <AlertDialog open={statusChangeDialogOpen} onOpenChange={(open) => {
+          setStatusChangeDialogOpen(open);
+          if (!open) {
+            setStatusChangeProject(null);
+            setStatusChangeNewStatus("");
+          }
+        }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Change Project Status?</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div>
+                  {statusChangeProject && (
+                    <p>
+                      Change status of <strong>#{statusChangeProject.project_number} - {statusChangeProject.project_name}</strong> from{" "}
+                      <Badge variant="outline" className={`inline ${statusColors[statusChangeProject.project_status || "New Job"] || ""}`}>
+                        {statusChangeProject.project_status || "New Job"}
+                      </Badge>{" "}
+                      to{" "}
+                      <Badge variant="outline" className={`inline ${statusColors[statusChangeNewStatus] || ""}`}>
+                        {statusChangeNewStatus}
+                      </Badge>?
+                    </p>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => statusChangeProject && updateStatusMutation.mutate({ 
+                  projectId: statusChangeProject.id, 
+                  oldStatus: statusChangeProject.project_status,
+                  newStatus: statusChangeNewStatus 
+                })}
+                disabled={updateStatusMutation.isPending}
+              >
+                {updateStatusMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Confirm"
+                )}
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
