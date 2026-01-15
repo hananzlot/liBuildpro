@@ -263,13 +263,18 @@ export function SignatureFieldEditor({
     };
   }, []);
 
-  // Load fields onto canvas
+  // Load fields onto canvas - preserve current zoom/pan
   const loadFieldsOnCanvas = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
-    // Clear existing objects
-    canvas.getObjects().forEach((obj) => {
+    // Save current viewport transform before clearing
+    const savedVpt = canvas.viewportTransform ? [...canvas.viewportTransform] as fabric.TMat2D : null;
+    const savedZoom = canvas.getZoom();
+
+    // Clear existing field objects (not background)
+    const objectsToRemove = canvas.getObjects().filter(obj => (obj as any).__fieldId);
+    objectsToRemove.forEach((obj) => {
       canvas.remove(obj);
     });
 
@@ -312,6 +317,12 @@ export function SignatureFieldEditor({
       canvas.add(rect);
       canvas.add(text);
     });
+
+    // Restore viewport transform after adding fields
+    if (savedVpt) {
+      canvas.setViewportTransform(savedVpt);
+      setZoom(savedZoom);
+    }
 
     canvas.requestRenderAll();
   }, [fields, currentPage, signers]);
@@ -515,7 +526,7 @@ export function SignatureFieldEditor({
     loadFieldsOnCanvas();
   }, [fields, loadFieldsOnCanvas]);
 
-  const addField = () => {
+  const addField = useCallback((dropX?: number, dropY?: number, overrideFieldType?: keyof typeof FIELD_TYPE_CONFIG) => {
     if (!selectedSigner) {
       toast.error("Please select a signer first");
       return;
@@ -524,22 +535,69 @@ export function SignatureFieldEditor({
     const signer = signers.find((s) => s.id === selectedSigner);
     if (!signer) return;
 
-    const config = FIELD_TYPE_CONFIG[selectedFieldType];
+    const canvas = fabricCanvasRef.current;
+    const fieldType = overrideFieldType || selectedFieldType;
+    const config = FIELD_TYPE_CONFIG[fieldType];
+    
+    // Calculate position - if dropped, convert screen coords to canvas coords
+    let x = 100;
+    let y = 100;
+    
+    if (canvas && dropX !== undefined && dropY !== undefined) {
+      // Convert drop coordinates to canvas coordinates accounting for zoom/pan
+      const vpt = canvas.viewportTransform;
+      if (vpt) {
+        x = (dropX - vpt[4]) / vpt[0];
+        y = (dropY - vpt[5]) / vpt[3];
+      }
+    } else if (canvas) {
+      // Place at center of current view
+      const vpt = canvas.viewportTransform;
+      if (vpt) {
+        const centerX = canvas.getWidth() / 2;
+        const centerY = canvas.getHeight() / 2;
+        x = (centerX - vpt[4]) / vpt[0];
+        y = (centerY - vpt[5]) / vpt[3];
+      }
+    }
+    
     const newField: SignatureField = {
       id: crypto.randomUUID(),
       signerId: selectedSigner,
       signerName: signer.name,
       pageNumber: currentPage,
-      x: 100,
-      y: 100,
+      x,
+      y,
       width: config.defaultWidth,
       height: config.defaultHeight,
-      fieldType: selectedFieldType,
+      fieldType,
     };
 
     setFields((prev) => [...prev, newField]);
     toast.success(`Added ${config.label} field for ${signer.name}`);
-  };
+  }, [selectedSigner, selectedFieldType, signers, currentPage]);
+
+  // Handle drop on canvas
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const fieldType = e.dataTransfer.getData("fieldType") as keyof typeof FIELD_TYPE_CONFIG;
+    if (!fieldType || !FIELD_TYPE_CONFIG[fieldType]) return;
+    
+    // Get drop position relative to canvas container
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    const dropX = e.clientX - rect.left;
+    const dropY = e.clientY - rect.top;
+    
+    // Pass the field type directly to addField
+    addField(dropX, dropY, fieldType);
+  }, [addField]);
+
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, []);
 
   const removeField = (fieldId: string) => {
     setFields((prev) => prev.filter((f) => f.id !== fieldId));
@@ -591,30 +649,42 @@ export function SignatureFieldEditor({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs">Field Type</Label>
-              <Select value={selectedFieldType} onValueChange={(v) => setSelectedFieldType(v as any)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(FIELD_TYPE_CONFIG).map(([key, config]) => {
-                    const Icon = config.icon;
-                    return (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-3 w-3" />
-                          {config.label}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Drag field to document</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(FIELD_TYPE_CONFIG).map(([key, config]) => {
+                  const Icon = config.icon;
+                  const signer = signers.find((s) => s.id === selectedSigner);
+                  return (
+                    <div
+                      key={key}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData("fieldType", key);
+                        e.dataTransfer.effectAllowed = "copy";
+                      }}
+                      className={`
+                        flex items-center gap-2 p-2 rounded border-2 border-dashed cursor-grab
+                        hover:border-primary hover:bg-accent/50 transition-colors
+                        ${selectedFieldType === key ? 'border-primary bg-accent/30' : 'border-muted-foreground/25'}
+                      `}
+                      style={{ 
+                        borderColor: selectedFieldType === key ? signer?.color : undefined,
+                        backgroundColor: selectedFieldType === key ? `${signer?.color}10` : undefined
+                      }}
+                      onClick={() => setSelectedFieldType(key as any)}
+                    >
+                      <Icon className="h-4 w-4" style={{ color: signer?.color }} />
+                      <span className="text-xs font-medium">{config.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">Drag onto document or click to select then click Add</p>
             </div>
 
-            <Button type="button" onClick={addField} className="w-full" size="sm">
+            <Button type="button" onClick={() => addField()} className="w-full" size="sm">
               <Plus className="h-4 w-4 mr-1" />
-              Add Field
+              Add Field at Center
             </Button>
 
             <Button
@@ -799,6 +869,8 @@ export function SignatureFieldEditor({
               ref={containerRef}
               className="border rounded-lg bg-muted/30 relative overflow-hidden max-h-[70vh] min-h-[400px] flex items-center justify-center"
               style={{ touchAction: 'none' }}
+              onDrop={handleCanvasDrop}
+              onDragOver={handleCanvasDragOver}
             >
               {pdfError ? (
                 <div className="flex flex-col items-center justify-center h-96 gap-3 px-6 text-center">
@@ -835,7 +907,7 @@ export function SignatureFieldEditor({
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              Drag fields to position them. Resize by dragging corners. Click and drag empty areas to pan. Use mouse wheel to zoom.
+              Drag fields from the left panel onto the document. Resize by dragging corners. Click and drag empty areas to pan. Use mouse wheel to zoom.
             </p>
           </CardContent>
         </Card>
