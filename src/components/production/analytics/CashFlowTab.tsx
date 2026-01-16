@@ -48,6 +48,7 @@ interface CashFlowTabProps {
   reopenPayablesSheet?: boolean;
   onPayablesSheetOpened?: () => void;
   hideCloseButton?: boolean;
+  openARKPIOnLoad?: boolean;
 }
 
 const getCashStatusColor = (status: string) => {
@@ -95,6 +96,7 @@ export function CashFlowTab({
   reopenPayablesSheet,
   onPayablesSheetOpened,
   hideCloseButton,
+  openARKPIOnLoad,
 }: CashFlowTabProps) {
   // Sheet states
   const [selectedKPI, setSelectedKPI] = useState<CashFlowKPIType | null>(null);
@@ -114,6 +116,14 @@ export function CashFlowTab({
       onPayablesSheetOpened?.();
     }
   }, [reopenPayablesSheet, onPayablesSheetOpened]);
+
+  // Open AR KPI sheet when openARKPIOnLoad is set
+  useEffect(() => {
+    if (openARKPIOnLoad) {
+      setSelectedKPI('outstandingAR');
+      setKpiSheetOpen(true);
+    }
+  }, [openARKPIOnLoad]);
   
   // Project amount detail states
   const [amountDetailOpen, setAmountDetailOpen] = useState(false);
@@ -381,6 +391,7 @@ export function CashFlowTab({
         invoicesWithAging={invoicesWithAging}
         bankTransactions={bankTransactions}
         onProjectClick={onProjectClick}
+        hideCloseButton={hideCloseButton}
       />
 
       <PayablesSheet
