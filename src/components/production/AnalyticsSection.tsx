@@ -327,7 +327,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             onMarkAsPaid={handleMarkAsPaid}
             reopenPayablesSheet={reopenPayablesSheet || openPayablesOnLoad}
             onPayablesSheetOpened={onPayablesSheetOpened}
-            hidePayablesCloseButton={!isAdmin}
+            hidePayablesCloseButton={false}
             openARKPIOnLoad={initialKPI === 'outstandingAR'}
             onARSheetClose={() => {
               // Redirect non-admin users to projects page when they close AR sheet opened from sidebar

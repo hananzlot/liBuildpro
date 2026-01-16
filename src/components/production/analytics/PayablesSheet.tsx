@@ -107,7 +107,7 @@ export function PayablesSheet({
   onMarkAsPaid,
   hideCloseButton,
 }: PayablesSheetProps) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isProduction } = useAuth();
   const queryClient = useQueryClient();
   
   const [activeTab, setActiveTab] = useState<"outstanding" | "history">("outstanding");
