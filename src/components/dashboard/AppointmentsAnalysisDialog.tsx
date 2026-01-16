@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft, MapPin, Briefcase, Mail, Phone as PhoneIcon, Download, ChevronRight } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft, MapPin, Briefcase, Mail, Phone as PhoneIcon, Download, ChevronRight, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
 import { toast } from "sonner";
@@ -60,6 +60,13 @@ type DetailView =
   | { type: "rep"; value: string }
   | null;
 
+interface ContactNote {
+  ghl_id: string;
+  contact_id: string;
+  body: string | null;
+  ghl_date_added: string | null;
+}
+
 interface AppointmentsAnalysisDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -67,6 +74,7 @@ interface AppointmentsAnalysisDialogProps {
   contacts: Contact[];
   opportunities: Opportunity[];
   users: User[];
+  notes?: ContactNote[];
   conversations?: Array<{
     ghl_id: string;
     contact_id: string | null;
@@ -104,6 +112,7 @@ export function AppointmentsAnalysisDialog({
   contacts,
   opportunities,
   users,
+  notes = [],
   conversations = [],
 }: AppointmentsAnalysisDialogProps) {
   const [detailView, setDetailView] = useState<DetailView>(null);
@@ -132,6 +141,29 @@ export function AppointmentsAnalysisDialog({
     contacts.forEach(c => map.set(c.ghl_id, c));
     return map;
   }, [contacts]);
+
+  // Build notes map for lookups - group by contact_id, sorted by date desc
+  const notesMap = useMemo(() => {
+    const map = new Map<string, ContactNote[]>();
+    // Sort all notes by date descending first
+    const sortedNotes = [...notes].sort((a, b) => {
+      const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
+      const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
+      return dateB - dateA;
+    });
+    // Group by contact_id
+    sortedNotes.forEach(note => {
+      if (!note.contact_id) return;
+      if (!map.has(note.contact_id)) {
+        map.set(note.contact_id, []);
+      }
+      const contactNotes = map.get(note.contact_id)!;
+      if (contactNotes.length < 2) {
+        contactNotes.push(note);
+      }
+    });
+    return map;
+  }, [notes]);
 
   // Build user map for lookups
   const userMap = useMemo(() => {
@@ -386,6 +418,12 @@ export function AppointmentsAnalysisDialog({
       const addressFromAppt = apt.address;
       const address = addressFromOpp || addressFromCustom || addressFromAppt || "-";
       
+      // Get notes for this contact
+      const contactNotes = apt.contact_id ? notesMap.get(apt.contact_id) || [] : [];
+      const notesText = contactNotes.length > 0 
+        ? contactNotes.map(n => `${n.ghl_date_added ? new Date(n.ghl_date_added).toLocaleDateString() : ''}: ${n.body || '(No content)'}`).join('<br/>')
+        : "-";
+      
       const name = capitalizeName(contact?.contact_name || apt.title || "Unknown");
       const phone = formatPhoneNumber(contact?.phone) || "-";
       const email = contact?.email || "-";
@@ -408,6 +446,7 @@ export function AppointmentsAnalysisDialog({
           <td style="border: 1px solid #ddd; padding: 8px;">${source}</td>
           <td style="border: 1px solid #ddd; padding: 8px;">${repName}</td>
           <td style="border: 1px solid #ddd; padding: 8px;">${date}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; font-size: 10px; max-width: 200px;">${notesText}</td>
         </tr>
       `;
     });
@@ -446,6 +485,7 @@ export function AppointmentsAnalysisDialog({
               <th>Source</th>
               <th>Rep</th>
               <th>Date</th>
+              <th>Recent Notes</th>
             </tr>
           </thead>
           <tbody>
@@ -469,7 +509,7 @@ export function AppointmentsAnalysisDialog({
     } else {
       toast.error("Please allow pop-ups to download PDF");
     }
-  }, [detailView, detailAppointments, nonCancelledAppointments, contactMap, getOpportunityForContact, userMap, totalValue]);
+  }, [detailView, detailAppointments, nonCancelledAppointments, contactMap, getOpportunityForContact, userMap, totalValue, notesMap]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -542,6 +582,9 @@ export function AppointmentsAnalysisDialog({
                   const addressFromCustom = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                   const addressFromAppt = apt.address;
                   const address = addressFromOpp || addressFromCustom || addressFromAppt;
+                  
+                  // Get last 2 notes for this contact
+                  const contactNotes = apt.contact_id ? notesMap.get(apt.contact_id) || [] : [];
 
                   const handleCardClick = () => {
                     if (opp) {
@@ -617,6 +660,26 @@ export function AppointmentsAnalysisDialog({
                               </Badge>
                             )}
                           </div>
+                          
+                          {/* Recent Notes */}
+                          {contactNotes.length > 0 && (
+                            <div className="mt-3 pt-2 border-t border-border/50 space-y-1.5">
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <StickyNote className="h-3 w-3" />
+                                <span className="font-medium">Recent Notes:</span>
+                              </div>
+                              {contactNotes.map((note, idx) => (
+                                <div key={note.ghl_id} className="text-xs text-muted-foreground bg-muted/30 rounded px-2 py-1.5">
+                                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                                    <span className="text-[10px] opacity-60">
+                                      {note.ghl_date_added ? new Date(note.ghl_date_added).toLocaleDateString() : ""}
+                                    </span>
+                                  </div>
+                                  <p className="line-clamp-2">{note.body || "(No content)"}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         
                         {/* Right side - rep, date, and chevron */}
