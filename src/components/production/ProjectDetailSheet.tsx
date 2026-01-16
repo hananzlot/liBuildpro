@@ -86,6 +86,7 @@ interface ProjectDetailSheetProps {
 }
 
 const statusColors: Record<string, string> = {
+  "Proposal": "bg-purple-500/10 text-purple-500 border-purple-500/20",
   "New Job": "bg-blue-500/10 text-blue-500 border-blue-500/20",
   "In-Progress": "bg-amber-500/10 text-amber-500 border-amber-500/20",
   "On-Hold": "bg-orange-500/10 text-orange-500 border-orange-500/20",
