@@ -118,51 +118,22 @@ export function SendProposalDialog({
         const jobAddr = estimateData?.job_address || jobAddress || null;
         const customerEmailToCheck = email || customerEmail || null;
 
-        // First, try to find an existing project by job address (most reliable match)
+        // Only match an existing project if BOTH email AND address match
+        // If either is different, we create a new project
         let existingProject = null;
         
-        if (jobAddr) {
-          const { data: projectByAddress } = await supabase
+        if (jobAddr && customerEmailToCheck) {
+          const { data: projectByBoth } = await supabase
             .from('projects')
             .select('id, project_name, project_number')
             .eq('project_address', jobAddr)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          
-          if (projectByAddress) {
-            existingProject = projectByAddress;
-          }
-        }
-
-        // If no match by address, try by customer email
-        if (!existingProject && customerEmailToCheck) {
-          const { data: projectByEmail } = await supabase
-            .from('projects')
-            .select('id, project_name, project_number')
             .eq('customer_email', customerEmailToCheck)
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
           
-          if (projectByEmail) {
-            existingProject = projectByEmail;
-          }
-        }
-
-        // If no match by email, try by customer name
-        if (!existingProject && firstName) {
-          const { data: projectByName } = await supabase
-            .from('projects')
-            .select('id, project_name, project_number')
-            .eq('customer_first_name', firstName)
-            .eq('customer_last_name', lastName)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          
-          if (projectByName) {
-            existingProject = projectByName;
+          if (projectByBoth) {
+            existingProject = projectByBoth;
           }
         }
 
