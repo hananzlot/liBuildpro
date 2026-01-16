@@ -100,6 +100,9 @@ export function SignatureFieldEditor({
   // Drag-to-pan refs
   const isPanningRef = useRef(false);
   const lastPanPointRef = useRef<{ x: number; y: number } | null>(null);
+  
+  // Ref to hold the addField function for native event listeners
+  const addFieldRef = useRef<(dropX?: number, dropY?: number, fieldType?: keyof typeof FIELD_TYPE_CONFIG) => void>(() => {});
 
   // Track mount state
   useEffect(() => {
@@ -254,6 +257,16 @@ export function SignatureFieldEditor({
     });
 
     fabricCanvasRef.current = canvas;
+    
+    // Enable drop events on the upper canvas element created by Fabric
+    const upperCanvas = canvas.getElement().parentElement?.querySelector('.upper-canvas');
+    if (upperCanvas) {
+      upperCanvas.addEventListener('dragover', (e: Event) => {
+        e.preventDefault();
+        (e as DragEvent).dataTransfer!.dropEffect = 'copy';
+      });
+    }
+    
     setCanvasReady(true);
 
     return () => {
@@ -596,9 +609,49 @@ export function SignatureFieldEditor({
 
     setFields((prev) => [...prev, newField]);
     toast.success(`Added ${config.label} field for ${signer.name}`);
-  }, [selectedSigner, selectedFieldType, signers, currentPage]);
+  }, [selectedSigner, selectedFieldType, signers, currentPage, fieldIsRequired, textFieldLabel]);
 
-  // Handle drop on canvas
+  // Keep ref updated for native event listeners
+  useEffect(() => {
+    addFieldRef.current = addField;
+  }, [addField]);
+
+  // Add native DOM drop event listeners to the container (more reliable than React events with Fabric)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const fieldType = e.dataTransfer?.getData("fieldType") as keyof typeof FIELD_TYPE_CONFIG;
+      if (!fieldType || !FIELD_TYPE_CONFIG[fieldType]) return;
+      
+      const rect = container.getBoundingClientRect();
+      const dropX = e.clientX - rect.left;
+      const dropY = e.clientY - rect.top;
+      
+      addFieldRef.current(dropX, dropY, fieldType);
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "copy";
+      }
+    };
+
+    container.addEventListener('drop', handleDrop, true); // Use capture phase
+    container.addEventListener('dragover', handleDragOver, true);
+
+    return () => {
+      container.removeEventListener('drop', handleDrop, true);
+      container.removeEventListener('dragover', handleDragOver, true);
+    };
+  }, []);
+
+  // Handle drop on canvas (React fallback)
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const fieldType = e.dataTransfer.getData("fieldType") as keyof typeof FIELD_TYPE_CONFIG;
@@ -974,6 +1027,9 @@ export function SignatureFieldEditor({
                     className={[
                       !pageImages.has(currentPage) ? "opacity-0" : "",
                     ].join(" ")}
+                    onDrop={handleCanvasDrop}
+                    onDragOver={handleCanvasDragOver}
+                    style={{ pointerEvents: 'auto' }}
                   />
                 </>
               )}
