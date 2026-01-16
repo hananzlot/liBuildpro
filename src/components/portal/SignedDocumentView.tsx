@@ -26,10 +26,12 @@ interface DocumentSignature {
   id: string;
   signer_id: string | null;
   signer_name: string;
+  signer_email: string | null;
   signature_type: string;
   signature_data: string;
   signature_font: string | null;
   signed_at: string;
+  field_values?: Record<string, string>;
 }
 
 interface SignedDocumentViewProps {
@@ -141,6 +143,7 @@ export function SignedDocumentView({
   // Get the rendered content for a field
   const getFieldContent = (field: SignatureField) => {
     const signature = signatureMap.get(field.signer_id);
+    const fieldValues = signature?.field_values || {};
     
     switch (field.field_type) {
       case "signature":
@@ -177,6 +180,7 @@ export function SignedDocumentView({
         return null;
       
       case "name":
+        // Use the stored signer name
         if (signature) {
           return (
             <span className="text-sm text-gray-700">{signature.signer_name}</span>
@@ -185,7 +189,22 @@ export function SignedDocumentView({
         return null;
       
       case "email":
-        // Email would need to be stored separately, for now show signer name
+        // Use the stored signer email
+        if (signature?.signer_email) {
+          return (
+            <span className="text-sm text-gray-700">{signature.signer_email}</span>
+          );
+        }
+        return null;
+      
+      case "text":
+        // Use the field_values for text fields
+        const textValue = fieldValues[field.id];
+        if (textValue) {
+          return (
+            <span className="text-sm text-gray-700">{textValue}</span>
+          );
+        }
         return null;
       
       default:
