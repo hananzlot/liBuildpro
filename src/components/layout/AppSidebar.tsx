@@ -442,17 +442,27 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     const hasQueryParams = item.url?.includes('?');
     
     // Build display title with dynamic suffix for AR/AP
-    const getDisplayTitle = () => {
+    const getDynamicAmount = () => {
       if (item.dynamicSuffix === 'ar' && arDueByFocusDay > 0) {
-        return `${item.title} (${formatCompactCurrency(arDueByFocusDay)})`;
+        return formatCompactCurrency(arDueByFocusDay);
       }
       if (item.dynamicSuffix === 'ap' && apDueByFocusDay > 0) {
-        return `${item.title} (${formatCompactCurrency(apDueByFocusDay)})`;
+        return formatCompactCurrency(apDueByFocusDay);
       }
-      return item.title;
+      return null;
     };
     
-    const displayTitle = getDisplayTitle();
+    const dynamicAmount = getDynamicAmount();
+    const displayTitle = dynamicAmount ? `${item.title} (${dynamicAmount})` : item.title;
+    
+    const renderTitleWithAmount = () => {
+      if (!dynamicAmount) return <span>{item.title}</span>;
+      return (
+        <span>
+          {item.title} <span className="text-orange-500">({dynamicAmount})</span>
+        </span>
+      );
+    };
     
     return (
       <SidebarMenuItem key={item.title}>
@@ -472,7 +482,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               className={`flex items-center gap-2 ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : ''}`}
             >
               <item.icon className="h-4 w-4" />
-              {!collapsed && <span>{displayTitle}</span>}
+              {!collapsed && renderTitleWithAmount()}
             </a>
           ) : (
             <NavLink 
@@ -482,7 +492,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             >
               <item.icon className="h-4 w-4" />
-              {!collapsed && <span>{displayTitle}</span>}
+              {!collapsed && renderTitleWithAmount()}
             </NavLink>
           )}
         </SidebarMenuButton>
