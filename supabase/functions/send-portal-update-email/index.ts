@@ -208,20 +208,34 @@ The {{company_name}} Team`;
       </html>
     `;
 
-    // Send email
-    const emailRes = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: `${fromName} <${fromEmail}>`,
-        to: [project.customer_email],
-        subject: finalSubject,
-        html: htmlContent,
-      }),
-    });
+    // Send email with retry logic for rate limiting
+    const sendEmailWithRetry = async (retries = 5): Promise<Response> => {
+      const emailRes = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${RESEND_API_KEY}`,
+        },
+        body: JSON.stringify({
+          from: `${fromName} <${fromEmail}>`,
+          to: [project.customer_email],
+          subject: finalSubject,
+          html: htmlContent,
+        }),
+      });
+
+      if (emailRes.status === 429 && retries > 0) {
+        // Rate limited - wait with linear backoff and retry
+        const waitTime = (6 - retries) * 2000; // 2s, 4s, 6s, 8s, 10s
+        console.log(`Rate limited, waiting ${waitTime}ms before retry. Retries left: ${retries - 1}`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return sendEmailWithRetry(retries - 1);
+      }
+
+      return emailRes;
+    };
+
+    const emailRes = await sendEmailWithRetry();
 
     if (!emailRes.ok) {
       const errorText = await emailRes.text();
