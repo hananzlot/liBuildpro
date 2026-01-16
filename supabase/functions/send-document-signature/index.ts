@@ -74,45 +74,63 @@ const handler = async (req: Request): Promise<Response> => {
       ? `<p>This is a friendly reminder that ${companyName} has sent you a document that still requires your signature.</p>`
       : `<p>${companyName} has sent you a document that requires your signature.</p>`;
 
-    // Send email via Resend API
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: `${fromName} <${fromEmail}>`,
-        to: [recipientEmail],
-        subject: emailSubject,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: #1a1a2e; color: white; padding: 30px; text-align: center;">
-              <h1 style="margin: 0;">${isReminder ? 'Reminder: ' : ''}Document Signature Required</h1>
-            </div>
-            <div style="padding: 30px; background: #f9fafb;">
-              <p>Hello ${recipientName},</p>
-              ${emailIntro}
-              <p><strong>Document:</strong> ${documentName}</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${portalUrl}" style="background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">Review & Sign Document</a>
+    // Send email with retry logic for rate limiting
+    const sendEmailWithRetry = async (maxRetries = 3): Promise<void> => {
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const emailResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: `${fromName} <${fromEmail}>`,
+            to: [recipientEmail],
+            subject: emailSubject,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: #1a1a2e; color: white; padding: 30px; text-align: center;">
+                  <h1 style="margin: 0;">${isReminder ? 'Reminder: ' : ''}Document Signature Required</h1>
+                </div>
+                <div style="padding: 30px; background: #f9fafb;">
+                  <p>Hello ${recipientName},</p>
+                  ${emailIntro}
+                  <p><strong>Document:</strong> ${documentName}</p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${portalUrl}" style="background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">Review & Sign Document</a>
+                  </div>
+                  <p style="color: #666; font-size: 14px;">This link expires in 30 days.</p>
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+                  <p style="color: #666; font-size: 12px;">
+                    By signing this document, your signature, name, email, date, and IP address will be recorded for verification purposes.
+                  </p>
+                </div>
               </div>
-              <p style="color: #666; font-size: 14px;">This link expires in 30 days.</p>
-              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-              <p style="color: #666; font-size: 12px;">
-                By signing this document, your signature, name, email, date, and IP address will be recorded for verification purposes.
-              </p>
-            </div>
-          </div>
-        `,
-      }),
-    });
+            `,
+          }),
+        });
 
-    if (!emailResponse.ok) {
-      const errorText = await emailResponse.text();
-      console.error("Email failed:", errorText);
-      throw new Error(`Email failed: ${errorText}`);
-    }
+        if (emailResponse.ok) {
+          console.log("Email sent successfully on attempt", attempt);
+          return;
+        }
+
+        const errorText = await emailResponse.text();
+        
+        // Check for rate limit error (429)
+        if (emailResponse.status === 429 && attempt < maxRetries) {
+          const waitTime = attempt * 1000; // 1s, 2s, 3s backoff
+          console.log(`Rate limited (attempt ${attempt}/${maxRetries}), waiting ${waitTime}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+
+        console.error("Email failed:", errorText);
+        throw new Error(`Email failed: ${errorText}`);
+      }
+    };
+
+    await sendEmailWithRetry();
 
     console.log("Email sent successfully");
 
