@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,7 +7,19 @@ import { ProjectPortal } from '@/components/portal/ProjectPortal';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
+// Set portal-specific browser tab title
+const usePortalTitle = () => {
+  useEffect(() => {
+    const originalTitle = document.title;
+    document.title = 'CA Pro Customer Portal';
+    return () => {
+      document.title = originalTitle;
+    };
+  }, []);
+};
+
 export default function ClientPortal() {
+  usePortalTitle();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
 
