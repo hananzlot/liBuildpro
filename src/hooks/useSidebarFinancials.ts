@@ -87,14 +87,15 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
     enabled: focusDaySetting !== undefined,
   });
 
-  // Fetch AP (bills with balance) due by focus day
+  // Fetch AP (bills with scheduled payments) due by focus day
   const { data: apData, isLoading: apLoading } = useQuery({
     queryKey: ["sidebar-ap-due", focusDateStr],
     queryFn: async () => {
-      // Get bills with balance that have scheduled_payment_date by focus day
+      // Get bills with scheduled_payment_date by focus day
+      // Use scheduled_payment_amount if set, otherwise fall back to balance
       const { data: bills, error } = await supabase
         .from("project_bills")
-        .select("id, balance, scheduled_payment_date")
+        .select("id, balance, scheduled_payment_date, scheduled_payment_amount")
         .gt("balance", 0)
         .eq("is_voided", false)
         .lte("scheduled_payment_date", focusDateStr);
@@ -104,7 +105,11 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
         return 0;
       }
 
-      return bills?.reduce((sum, bill) => sum + (Number(bill.balance) || 0), 0) || 0;
+      // Use scheduled_payment_amount (what's actually scheduled) not full balance
+      return bills?.reduce((sum, bill) => {
+        const amount = bill.scheduled_payment_amount ?? bill.balance ?? 0;
+        return sum + Number(amount);
+      }, 0) || 0;
     },
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
     enabled: focusDaySetting !== undefined,
