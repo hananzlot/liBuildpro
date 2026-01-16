@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAppVersion } from "@/hooks/useAppVersion";
+import { useSidebarFinancials } from "@/hooks/useSidebarFinancials";
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -77,6 +78,7 @@ interface NavItem {
   roles?: AppRole[];
   excludeRoles?: AppRole[];
   subItems?: NavSubItem[];
+  dynamicSuffix?: 'ar' | 'ap';
 }
 
 interface NavSection {
@@ -122,12 +124,14 @@ const navSections: NavSection[] = [
       },
       { 
         title: "Outstanding AR", 
+        dynamicSuffix: "ar",
         url: "/production?view=analytics&tab=receivables", 
         icon: FileText,
         roles: ['super_admin', 'admin', 'production']
       },
       { 
         title: "Outstanding AP", 
+        dynamicSuffix: "ap",
         url: "/production?view=analytics&tab=cashflow&section=payables", 
         icon: Briefcase,
         roles: ['super_admin', 'admin', 'production']
@@ -220,6 +224,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const navigate = useNavigate();
   const { user, profile, isAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
   const { versionString, version } = useAppVersion();
+  const { arDueByFocusDay, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
   const collapsed = state === "collapsed";
 
   const closeSidebar = () => {
@@ -436,12 +441,25 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     // Regular nav link - use custom active check for URLs with query params
     const hasQueryParams = item.url?.includes('?');
     
+    // Build display title with dynamic suffix for AR/AP
+    const getDisplayTitle = () => {
+      if (item.dynamicSuffix === 'ar' && arDueByFocusDay > 0) {
+        return `${item.title} (${formatCompactCurrency(arDueByFocusDay)})`;
+      }
+      if (item.dynamicSuffix === 'ap' && apDueByFocusDay > 0) {
+        return `${item.title} (${formatCompactCurrency(apDueByFocusDay)})`;
+      }
+      return item.title;
+    };
+    
+    const displayTitle = getDisplayTitle();
+    
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton 
           asChild 
           isActive={isActive}
-          tooltip={item.title}
+          tooltip={displayTitle}
           onClick={closeSidebar}
         >
           {hasQueryParams ? (
@@ -454,7 +472,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               className={`flex items-center gap-2 ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : ''}`}
             >
               <item.icon className="h-4 w-4" />
-              {!collapsed && <span>{item.title}</span>}
+              {!collapsed && <span>{displayTitle}</span>}
             </a>
           ) : (
             <NavLink 
@@ -464,7 +482,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium"
             >
               <item.icon className="h-4 w-4" />
-              {!collapsed && <span>{item.title}</span>}
+              {!collapsed && <span>{displayTitle}</span>}
             </NavLink>
           )}
         </SidebarMenuButton>
