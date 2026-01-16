@@ -13,6 +13,7 @@ import { SignatureCanvas } from "@/components/portal/SignatureCanvas";
 import { DocumentSigningView } from "@/components/portal/DocumentSigningView";
 import { SignedDocumentView } from "@/components/portal/SignedDocumentView";
 import { format } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface SignatureField {
   id: string;
@@ -38,8 +39,9 @@ export default function DocumentPortal() {
   const [signatureData, setSignatureData] = useState<{ type: "typed" | "drawn"; data: string; font?: string } | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   const [showDeclineForm, setShowDeclineForm] = useState(false);
-  const [textFieldValues, setTextFieldValues] = useState<Record<string, string>>({});
+const [textFieldValues, setTextFieldValues] = useState<Record<string, string>>({});
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showSignedPreview, setShowSignedPreview] = useState(false);
 
   // Fetch document data via token
   const { data, isLoading, error } = useQuery({
@@ -449,22 +451,33 @@ export default function DocumentPortal() {
                   <Download className="mr-2 h-4 w-4" />
                   Download Original
                 </Button>
+                {hasPositionedFields && (
+                  <Button onClick={() => setShowSignedPreview(true)}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Signed Document
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Signed Document View with Signature Overlays */}
-          {hasPositionedFields && (
-            <SignedDocumentView
-              documentUrl={doc.document_url}
-              documentName={doc.document_name}
-              fields={data.fields}
-              signatures={data.signatures.map(sig => ({
-                ...sig,
-                field_values: (sig.field_values as Record<string, string>) || {},
-              }))}
-            />
-          )}
+          {/* Signed Document Dialog */}
+          <Dialog open={showSignedPreview} onOpenChange={setShowSignedPreview}>
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto">
+              <DialogHeader>
+                <DialogTitle>Signed Document Preview</DialogTitle>
+              </DialogHeader>
+              <SignedDocumentView
+                documentUrl={doc.document_url}
+                documentName={doc.document_name}
+                fields={data.fields}
+                signatures={data.signatures.map(sig => ({
+                  ...sig,
+                  field_values: (sig.field_values as Record<string, string>) || {},
+                }))}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     );
