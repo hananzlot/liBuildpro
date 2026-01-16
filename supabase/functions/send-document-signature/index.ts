@@ -242,12 +242,15 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     // Use Resend batch endpoint when sending multiple signers (reduces rate limit pressure)
-    const resendUrl =
-      emailsToSend.length > 1
-        ? "https://api.resend.com/emails/batch"
-        : "https://api.resend.com/emails";
+    const useBatch = emailsToSend.length > 1;
+    const resendUrl = useBatch
+      ? "https://api.resend.com/emails/batch"
+      : "https://api.resend.com/emails";
 
-    const resendPayload = emailsToSend.length > 1 ? emailsToSend : emailsToSend[0];
+    // For single email, Resend expects `to` as a string, not array
+    const resendPayload = useBatch
+      ? emailsToSend
+      : { ...emailsToSend[0], to: emailsToSend[0].to[0] };
 
     const resendResult = await sendWithRetry(resendUrl, resendPayload);
 
