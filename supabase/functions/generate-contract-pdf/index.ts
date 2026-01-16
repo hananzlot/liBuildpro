@@ -380,7 +380,7 @@ serve(async (req) => {
       });
 
       yPos -= 10;
-      page.drawText('✓ CUSTOMER SIGNATURE', { x: margin + 10, y: yPos, size: 11, font: helveticaBold, color: green });
+      page.drawText('[X] CUSTOMER SIGNATURE', { x: margin + 10, y: yPos, size: 11, font: helveticaBold, color: green });
       yPos -= 20;
 
       if (signature.signature_type === 'typed') {

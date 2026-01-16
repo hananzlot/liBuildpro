@@ -204,6 +204,18 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
 
       if (updateError) throw updateError;
 
+      // Generate contract PDF if there's a linked project
+      if (portalData!.estimate.project_id) {
+        supabase.functions.invoke('generate-contract-pdf', {
+          body: {
+            estimateId: portalData!.estimate.id,
+            projectId: portalData!.estimate.project_id,
+            signerName: signerName,
+            signedAt: new Date().toISOString(),
+          },
+        }).catch((err) => console.error('Failed to generate contract PDF:', err));
+      }
+
       // Send notification email to admin
       supabase.functions.invoke('send-proposal-notification', {
         body: {
