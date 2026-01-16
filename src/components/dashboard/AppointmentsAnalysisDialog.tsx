@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,9 +8,10 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft, MapPin, Briefcase, Mail, Phone as PhoneIcon } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft, MapPin, Briefcase, Mail, Phone as PhoneIcon, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Appointment {
   ghl_id: string;
@@ -66,6 +67,30 @@ interface AppointmentsAnalysisDialogProps {
   opportunities: Opportunity[];
   users: User[];
 }
+
+// Helper to format phone numbers
+const formatPhoneNumber = (phone: string | null | undefined): string => {
+  if (!phone) return "";
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, "");
+  // Format as (XXX) XXX-XXXX for 10 digits, or +X (XXX) XXX-XXXX for 11+
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  } else if (digits.length === 11 && digits.startsWith("1")) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone; // Return original if format doesn't match
+};
+
+// Helper to capitalize names properly
+const capitalizeName = (name: string | null | undefined): string => {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
 
 export function AppointmentsAnalysisDialog({
   open,
@@ -330,33 +355,165 @@ export function AppointmentsAnalysisDialog({
     }
   };
 
+  // Generate PDF for download
+  const handleDownloadPDF = useCallback(() => {
+    const appointmentsToExport = detailView ? detailAppointments : nonCancelledAppointments;
+    const title = detailView ? getDetailTitle() : "Appointments Analysis";
+    
+    // Build HTML content for PDF
+    let tableRows = "";
+    appointmentsToExport.forEach(apt => {
+      const contact = contactMap.get(apt.contact_id || "");
+      const opp = getOpportunityForContact(apt.contact_id);
+      const repName = apt.assigned_user_id 
+        ? userMap.get(apt.assigned_user_id) || "Unknown"
+        : "Unassigned";
+      
+      const scopeFromOpp = opp?.scope_of_work;
+      const scopeFromCustom = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+      const scope = scopeFromOpp || scopeFromCustom || "-";
+      
+      const addressFromOpp = opp?.address;
+      const addressFromCustom = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+      const addressFromAppt = apt.address;
+      const address = addressFromOpp || addressFromCustom || addressFromAppt || "-";
+      
+      const name = capitalizeName(contact?.contact_name || apt.title || "Unknown");
+      const phone = formatPhoneNumber(contact?.phone) || "-";
+      const email = contact?.email || "-";
+      const status = apt.appointment_status || "Unknown";
+      const oppStatus = opp ? `${opp.status} - $${(opp.monetary_value || 0).toLocaleString()}` : "-";
+      const stage = opp?.stage_name || "-";
+      const source = contact?.source ? normalizeSourceName(contact.source) : "-";
+      const date = apt.start_time ? new Date(apt.start_time).toLocaleDateString() : "-";
+      
+      tableRows += `
+        <tr>
+          <td style="border: 1px solid #ddd; padding: 8px;">${name}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${phone}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; max-width: 150px; word-break: break-word;">${email}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${scope}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; max-width: 180px;">${address}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${status}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${oppStatus}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${stage}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${source}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${repName}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${date}</td>
+        </tr>
+      `;
+    });
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1 { color: #333; margin-bottom: 5px; }
+          .summary { color: #666; margin-bottom: 20px; }
+          table { border-collapse: collapse; width: 100%; font-size: 11px; }
+          th { background-color: #f4f4f4; border: 1px solid #ddd; padding: 10px; text-align: left; font-weight: bold; }
+          td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+          .total { margin-top: 20px; font-weight: bold; font-size: 14px; }
+          @media print { body { margin: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>${title}</h1>
+        <p class="summary">Generated on ${new Date().toLocaleDateString()} • ${appointmentsToExport.length} appointment(s) • Total Value: ${formatCurrency(totalValue)}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Scope of Work</th>
+              <th>Address</th>
+              <th>Appt Status</th>
+              <th>Opp Status</th>
+              <th>Stage</th>
+              <th>Source</th>
+              <th>Rep</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    // Open print dialog which allows saving as PDF
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+      toast.success("PDF ready - use your browser's Save as PDF option");
+    } else {
+      toast.error("Please allow pop-ups to download PDF");
+    }
+  }, [detailView, detailAppointments, nonCancelledAppointments, contactMap, getOpportunityForContact, userMap, totalValue]);
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh]">
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl">Appointments Analysis</DialogTitle>
+                <DialogDescription>Executive summary for the selected date range</DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-xl">Appointments Analysis</DialogTitle>
-              <DialogDescription>Executive summary for the selected date range</DialogDescription>
-            </div>
+            {!detailView && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDownloadPDF}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download PDF
+              </Button>
+            )}
           </div>
         </DialogHeader>
 
         <ScrollArea className="max-h-[65vh] pr-4">
           {detailView ? (
             <div className="space-y-4">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setDetailView(null)}
-                className="gap-2"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Back to Summary
-              </Button>
+              <div className="flex items-center justify-between">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setDetailView(null)}
+                  className="gap-2"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Back to Summary
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleDownloadPDF}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </Button>
+              </div>
               
               <h3 className="font-semibold text-lg">{getDetailTitle()}</h3>
               <p className="text-sm text-muted-foreground">{detailAppointments.length} appointment(s)</p>
@@ -386,7 +543,7 @@ export function AppointmentsAnalysisDialog({
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate text-base">
-                            {contact?.contact_name || apt.title || "Unknown Contact"}
+                            {capitalizeName(contact?.contact_name || apt.title || "Unknown Contact")}
                           </p>
                           
                           {/* Contact info row */}
@@ -394,7 +551,7 @@ export function AppointmentsAnalysisDialog({
                             {contact?.phone && (
                               <span className="flex items-center gap-1">
                                 <PhoneIcon className="h-3 w-3" />
-                                {contact.phone}
+                                {formatPhoneNumber(contact.phone)}
                               </span>
                             )}
                             {contact?.email && (
