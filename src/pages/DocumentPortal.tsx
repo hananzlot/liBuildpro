@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, FileText, CheckCircle, XCircle, Download, Calendar, Mail, User, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { SignatureCanvas } from "@/components/portal/SignatureCanvas";
+import { DocumentSigningView } from "@/components/portal/DocumentSigningView";
 import { format } from "date-fns";
 
 interface SignatureField {
@@ -173,18 +174,25 @@ export default function DocumentPortal() {
     return errors;
   }, [data, signerName, signatureData, textFieldValues]);
 
-  // Sign mutation
+  // Sign mutation - accepts signature data as parameter for the new signing view
   const signMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (params?: { 
+      sigData?: { type: "typed" | "drawn"; data: string; font?: string };
+      textValues?: Record<string, string>;
+    }) => {
       if (!data?.document) throw new Error("Document not found");
       
-      // Validate all required fields
-      const errors = validateRequiredFields();
-      if (errors.length > 0) {
-        setValidationErrors(errors);
-        throw new Error(errors[0]);
+      // Use passed signature data or the state
+      const sigToUse = params?.sigData || signatureData;
+      const textValuesToUse = params?.textValues || textFieldValues;
+      
+      if (!sigToUse) {
+        throw new Error("Signature is required");
       }
-      setValidationErrors([]);
+      
+      if (!signerName) {
+        throw new Error("Name is required");
+      }
 
       const signedAt = new Date().toISOString();
 
@@ -194,9 +202,9 @@ export default function DocumentPortal() {
         signer_id: data.currentSigner?.id || null,
         signer_name: signerName,
         signer_email: signerEmail || null,
-        signature_type: signatureData.type,
-        signature_data: signatureData.data,
-        signature_font: signatureData.font || null,
+        signature_type: sigToUse.type,
+        signature_data: sigToUse.data,
+        signature_font: sigToUse.font || null,
         ip_address: null, // Would need server-side to capture
         user_agent: navigator.userAgent,
         signed_at: signedAt,
@@ -452,6 +460,87 @@ export default function DocumentPortal() {
     );
   }
 
+  // Check if we should use the new overlay signing view (has positioned fields)
+  const hasPositionedFields = data.fields && data.fields.length > 0;
+
+  // Handler for the new signing view
+  const handleSignWithView = useCallback((
+    sigData: { type: "typed" | "drawn"; data: string; font?: string },
+    textValues: Record<string, string>
+  ) => {
+    setTextFieldValues(textValues);
+    signMutation.mutate({ sigData, textValues });
+  }, [signMutation]);
+
+  // Use new overlay signing view when fields are positioned on the document
+  if (hasPositionedFields) {
+    return (
+      <div className="min-h-screen bg-muted/30 py-8 px-4">
+        <div className="max-w-5xl mx-auto">
+          <DocumentSigningView
+            documentUrl={doc.document_url}
+            documentName={doc.document_name}
+            fields={data.fields}
+            currentSignerId={data.currentSigner?.id || null}
+            signerName={signerName}
+            signerEmail={signerEmail}
+            onSignerNameChange={setSignerName}
+            onSignerEmailChange={setSignerEmail}
+            onSign={handleSignWithView}
+            onDecline={() => setShowDeclineForm(true)}
+            isSubmitting={signMutation.isPending}
+          />
+          
+          {/* Decline Form Overlay */}
+          {showDeclineForm && (
+            <>
+              <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowDeclineForm(false)} />
+              <Card className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] z-50">
+                <CardHeader>
+                  <CardTitle>Decline Document</CardTitle>
+                  <CardDescription>
+                    Please let us know why you're declining this document
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reason">Reason (optional)</Label>
+                    <Input
+                      id="reason"
+                      value={declineReason}
+                      onChange={(e) => setDeclineReason(e.target.value)}
+                      placeholder="Enter reason for declining"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="destructive"
+                      onClick={() => declineMutation.mutate()}
+                      disabled={declineMutation.isPending}
+                    >
+                      {declineMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Declining...
+                        </>
+                      ) : (
+                        "Confirm Decline"
+                      )}
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowDeclineForm(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback: Original signing UI for documents without positioned fields
   return (
     <div className="min-h-screen bg-muted/30 py-8 px-4">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -608,7 +697,7 @@ export default function DocumentPortal() {
                       return;
                     }
                     setValidationErrors([]);
-                    signMutation.mutate();
+                    signMutation.mutate({});
                   }}
                   disabled={signMutation.isPending}
                   className="bg-green-600 hover:bg-green-700"
