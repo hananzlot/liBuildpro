@@ -47,6 +47,8 @@ interface CashFlowTabProps {
   }) => void;
   reopenPayablesSheet?: boolean;
   onPayablesSheetOpened?: () => void;
+  openPayablesOnLoad?: boolean;
+  onPayablesSheetClose?: () => void;
   hidePayablesCloseButton?: boolean;
   openARKPIOnLoad?: boolean;
   onARSheetClose?: () => void;
@@ -96,12 +98,16 @@ export function CashFlowTab({
   onMarkAsPaid,
   reopenPayablesSheet,
   onPayablesSheetOpened,
+  openPayablesOnLoad,
+  onPayablesSheetClose,
   hidePayablesCloseButton,
   openARKPIOnLoad,
   onARSheetClose,
 }: CashFlowTabProps) {
   // Track if AR sheet was opened from URL (sidebar navigation)
   const [arOpenedFromUrl, setArOpenedFromUrl] = useState(false);
+  // Track if payables sheet was opened from URL (sidebar navigation)
+  const [payablesOpenedFromUrl, setPayablesOpenedFromUrl] = useState(false);
   // Sheet states
   const [selectedKPI, setSelectedKPI] = useState<CashFlowKPIType | null>(null);
   const [kpiSheetOpen, setKpiSheetOpen] = useState(false);
@@ -113,13 +119,22 @@ export function CashFlowTab({
   const [markingAsPaidPayable, setMarkingAsPaidPayable] = useState<PayableWithCashImpact | null>(null);
   const [markAsPaidDialogOpen, setMarkAsPaidDialogOpen] = useState(false);
   
-  // Reopen payables sheet when flag is set
+  // Reopen payables sheet when returning from a project (payables → project → back)
   useEffect(() => {
     if (reopenPayablesSheet) {
       setPayablesSheetOpen(true);
       onPayablesSheetOpened?.();
     }
   }, [reopenPayablesSheet, onPayablesSheetOpened]);
+
+  // Open payables sheet when deep-linked via URL (?section=payables)
+  useEffect(() => {
+    if (openPayablesOnLoad) {
+      setPayablesSheetOpen(true);
+      setPayablesOpenedFromUrl(true);
+      onPayablesSheetOpened?.();
+    }
+  }, [openPayablesOnLoad, onPayablesSheetOpened]);
 
   // Open AR KPI sheet when openARKPIOnLoad is set
   useEffect(() => {
@@ -136,6 +151,14 @@ export function CashFlowTab({
     if (!open && arOpenedFromUrl && onARSheetClose) {
       onARSheetClose();
       setArOpenedFromUrl(false);
+    }
+  };
+
+  const handlePayablesSheetOpenChange = (open: boolean) => {
+    setPayablesSheetOpen(open);
+    if (!open && payablesOpenedFromUrl) {
+      onPayablesSheetClose?.();
+      setPayablesOpenedFromUrl(false);
     }
   };
   
@@ -417,7 +440,7 @@ export function CashFlowTab({
 
       <PayablesSheet
         open={payablesSheetOpen}
-        onOpenChange={setPayablesSheetOpen}
+        onOpenChange={handlePayablesSheetOpenChange}
         payables={payablesWithCashImpact}
         onProjectClick={onProjectClick}
         onBillClick={(projectId, billId) => {
