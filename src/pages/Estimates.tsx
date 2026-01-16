@@ -93,6 +93,77 @@ export default function Estimates() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (estimateId: string) => {
+      // First, get all client_portal_tokens for this estimate
+      const { data: tokens } = await supabase
+        .from("client_portal_tokens")
+        .select("id")
+        .eq("estimate_id", estimateId);
+
+      if (tokens && tokens.length > 0) {
+        const tokenIds = tokens.map(t => t.id);
+        
+        // Delete estimate_signatures that reference these tokens
+        await supabase
+          .from("estimate_signatures")
+          .delete()
+          .in("portal_token_id", tokenIds);
+        
+        // Delete portal_view_logs that reference these tokens
+        await supabase
+          .from("portal_view_logs")
+          .delete()
+          .in("portal_token_id", tokenIds);
+        
+        // Delete client_comments that reference these tokens
+        await supabase
+          .from("client_comments")
+          .delete()
+          .in("portal_token_id", tokenIds);
+        
+        // Now delete the client_portal_tokens
+        await supabase
+          .from("client_portal_tokens")
+          .delete()
+          .eq("estimate_id", estimateId);
+      }
+
+      // Delete estimate_signatures that directly reference this estimate
+      await supabase
+        .from("estimate_signatures")
+        .delete()
+        .eq("estimate_id", estimateId);
+
+      // Delete estimate_payment_schedule
+      await supabase
+        .from("estimate_payment_schedule")
+        .delete()
+        .eq("estimate_id", estimateId);
+
+      // Delete estimate_attachments
+      await supabase
+        .from("estimate_attachments")
+        .delete()
+        .eq("estimate_id", estimateId);
+
+      // Delete estimate_line_items (need to delete groups first due to FK)
+      await supabase
+        .from("estimate_line_items")
+        .delete()
+        .eq("estimate_id", estimateId);
+
+      // Delete estimate_groups
+      await supabase
+        .from("estimate_groups")
+        .delete()
+        .eq("estimate_id", estimateId);
+
+      // Delete client_comments directly on estimate
+      await supabase
+        .from("client_comments")
+        .delete()
+        .eq("estimate_id", estimateId);
+
+      // Finally delete the estimate
       const { error } = await supabase
         .from("estimates")
         .delete()
