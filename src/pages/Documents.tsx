@@ -278,7 +278,6 @@ export default function Documents() {
     },
   });
 
-  // Send document for signature to all signers
   const sendMutation = useMutation({
     mutationFn: async (doc: SignatureDocument) => {
       // Get all signers for this document
@@ -288,34 +287,29 @@ export default function Documents() {
         .eq("document_id", doc.id)
         .order("signer_order");
 
-      const signersToNotify = dbSigners && dbSigners.length > 0 
-        ? dbSigners 
+      const signersToNotify = dbSigners && dbSigners.length > 0
+        ? dbSigners
         : [{ signer_name: doc.recipient_name, signer_email: doc.recipient_email, id: null }];
 
-      // Send to all signers sequentially with delay to avoid rate limits
-      const results = [];
-      for (let i = 0; i < signersToNotify.length; i++) {
-        const signer = signersToNotify[i];
-        
-        // Add delay between emails to respect Resend's rate limit (2 req/sec)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 600));
-        }
-        
-        const { data, error } = await supabase.functions.invoke("send-document-signature", {
-          body: {
-            documentId: doc.id,
-            documentName: doc.document_name,
-            recipientName: signer.signer_name,
-            recipientEmail: signer.signer_email,
-            signerId: signer.id,
-          },
-        });
-        if (error) throw error;
-        results.push(data);
+      const { data, error } = await supabase.functions.invoke("send-document-signature", {
+        body: {
+          documentId: doc.id,
+          documentName: doc.document_name,
+          recipients: signersToNotify.map((s: any) => ({
+            recipientName: s.signer_name,
+            recipientEmail: s.signer_email,
+            signerId: s.id,
+          })),
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.success) {
+        const msg = typeof data?.error === "string" ? data.error : "Failed to send document";
+        throw new Error(msg);
       }
 
-      return results;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
@@ -323,8 +317,13 @@ export default function Documents() {
       setSendDialogOpen(false);
       setSelectedDocument(null);
     },
-    onError: (error) => {
-      toast.error(`Failed to send: ${error.message}`);
+    onError: (error: any) => {
+      const msg = typeof error?.message === "string" ? error.message : "Unknown error";
+      if (msg.includes("rate_limit_exceeded")) {
+        toast.error("Email provider rate limited. Please wait ~30 seconds and try again.");
+        return;
+      }
+      toast.error(`Failed to send: ${msg}`);
     },
   });
 
@@ -341,7 +340,13 @@ export default function Documents() {
           isReminder: true,
         },
       });
+
       if (error) throw error;
+      if (!data?.success) {
+        const msg = typeof data?.error === "string" ? data.error : "Failed to send reminder";
+        throw new Error(msg);
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -351,8 +356,13 @@ export default function Documents() {
       setResendSigner(null);
       setResendDocument(null);
     },
-    onError: (error) => {
-      toast.error(`Failed to send reminder: ${error.message}`);
+    onError: (error: any) => {
+      const msg = typeof error?.message === "string" ? error.message : "Unknown error";
+      if (msg.includes("rate_limit_exceeded")) {
+        toast.error("Email provider rate limited. Please wait ~30 seconds and try again.");
+        return;
+      }
+      toast.error(`Failed to send reminder: ${msg}`);
     },
   });
 
