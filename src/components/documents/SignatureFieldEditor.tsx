@@ -678,7 +678,7 @@ export function SignatureFieldEditor({
     toast.success("Field removed");
   };
 
-  const deleteSelectedObject = () => {
+  const deleteSelectedObject = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
 
@@ -687,7 +687,32 @@ export function SignatureFieldEditor({
     if (!fieldId) return;
 
     removeField(fieldId);
-  };
+  }, []);
+
+  // Keyboard shortcut: Delete/Backspace to remove selected field
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle Delete/Backspace when not typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const canvas = fabricCanvasRef.current;
+        if (!canvas) return;
+        
+        const activeObj = canvas.getActiveObject();
+        const fieldId = (activeObj as any)?.__fieldId;
+        if (!fieldId) return;
+        
+        e.preventDefault();
+        removeField(fieldId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const currentPageFields = fields.filter((f) => f.pageNumber === currentPage);
 
