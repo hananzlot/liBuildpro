@@ -8,8 +8,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft, MapPin, Briefcase, Mail, Phone as PhoneIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
 
 interface Appointment {
   ghl_id: string;
@@ -19,6 +20,8 @@ interface Appointment {
   salesperson_confirmed?: boolean;
   start_time?: string | null;
   title?: string | null;
+  address?: string | null;
+  notes?: string | null;
 }
 
 interface Contact {
@@ -26,6 +29,8 @@ interface Contact {
   source: string | null;
   contact_name?: string | null;
   phone?: string | null;
+  email?: string | null;
+  custom_fields?: unknown;
 }
 
 interface Opportunity {
@@ -34,6 +39,9 @@ interface Opportunity {
   status: string | null;
   monetary_value: number | null;
   name?: string | null;
+  stage_name?: string | null;
+  scope_of_work?: string | null;
+  address?: string | null;
 }
 
 interface User {
@@ -361,32 +369,86 @@ export function AppointmentsAnalysisDialog({
                     ? userMap.get(apt.assigned_user_id) || "Unknown"
                     : "Unassigned";
                   
+                  const scopeFromOpp = opp?.scope_of_work;
+                  const scopeFromCustom = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                  const scope = scopeFromOpp || scopeFromCustom;
+                  
+                  const addressFromOpp = opp?.address;
+                  const addressFromCustom = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+                  const addressFromAppt = apt.address;
+                  const address = addressFromOpp || addressFromCustom || addressFromAppt;
+
                   return (
                     <div 
                       key={apt.ghl_id} 
-                      className="p-3 rounded-lg border bg-card"
+                      className="p-4 rounded-lg border bg-card"
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
+                          <p className="font-medium truncate text-base">
                             {contact?.contact_name || apt.title || "Unknown Contact"}
                           </p>
-                          {contact?.phone && (
-                            <p className="text-sm text-muted-foreground">{contact.phone}</p>
+                          
+                          {/* Contact info row */}
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-1">
+                            {contact?.phone && (
+                              <span className="flex items-center gap-1">
+                                <PhoneIcon className="h-3 w-3" />
+                                {contact.phone}
+                              </span>
+                            )}
+                            {contact?.email && (
+                              <span className="flex items-center gap-1 truncate max-w-[200px]">
+                                <Mail className="h-3 w-3" />
+                                {contact.email}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Scope of Work */}
+                          {scope && (
+                            <div className="flex items-start gap-1.5 text-sm mt-2">
+                              <Briefcase className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                              <span className="text-primary font-medium">{scope}</span>
+                            </div>
                           )}
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          
+                          {/* Address */}
+                          {address && (
+                            <div className="flex items-start gap-1.5 text-xs text-muted-foreground mt-1">
+                              <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                              <span className="truncate">{address}</span>
+                            </div>
+                          )}
+                          
+                          {/* Badges row */}
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
                             <Badge variant="outline" className={`text-xs ${getStatusColor(apt.appointment_status?.toLowerCase() || "")}`}>
                               {apt.appointment_status || "Unknown"}
                             </Badge>
                             {opp && (
-                              <Badge variant="outline" className={`text-xs ${getOppStatusColor(opp.status?.toLowerCase() || "")}`}>
-                                {opp.status} - {formatCurrency(opp.monetary_value || 0)}
+                              <>
+                                <Badge variant="outline" className={`text-xs ${getOppStatusColor(opp.status?.toLowerCase() || "")}`}>
+                                  {opp.status} - {formatCurrency(opp.monetary_value || 0)}
+                                </Badge>
+                                {opp.stage_name && (
+                                  <Badge variant="outline" className="text-xs bg-slate-500/20 text-slate-400 border-slate-500/30">
+                                    {opp.stage_name}
+                                  </Badge>
+                                )}
+                              </>
+                            )}
+                            {contact?.source && (
+                              <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/30">
+                                {normalizeSourceName(contact.source)}
                               </Badge>
                             )}
                           </div>
                         </div>
-                        <div className="text-right text-sm">
-                          <p className="text-muted-foreground">{repName}</p>
+                        
+                        {/* Right side - rep and date */}
+                        <div className="text-right text-sm shrink-0">
+                          <p className="text-muted-foreground font-medium">{repName}</p>
                           {apt.start_time && (
                             <p className="text-xs text-muted-foreground">
                               {new Date(apt.start_time).toLocaleDateString()}
