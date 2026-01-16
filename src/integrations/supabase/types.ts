@@ -3449,6 +3449,94 @@ export type Database = {
           },
         ]
       }
+      signature_field_template_items: {
+        Row: {
+          created_at: string
+          field_label: string | null
+          field_type: string
+          height: number
+          id: string
+          is_required: boolean
+          page_number: number
+          signer_order: number
+          template_id: string
+          width: number
+          x_position: number
+          y_position: number
+        }
+        Insert: {
+          created_at?: string
+          field_label?: string | null
+          field_type?: string
+          height?: number
+          id?: string
+          is_required?: boolean
+          page_number?: number
+          signer_order?: number
+          template_id: string
+          width?: number
+          x_position: number
+          y_position: number
+        }
+        Update: {
+          created_at?: string
+          field_label?: string | null
+          field_type?: string
+          height?: number
+          id?: string
+          is_required?: boolean
+          page_number?: number
+          signer_order?: number
+          template_id?: string
+          width?: number
+          x_position?: number
+          y_position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_field_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "signature_field_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signature_field_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_field_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subcontractors: {
         Row: {
           address: string | null

@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Type, Asterisk } from "lucide-react";
+import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Type, Asterisk, FileStack } from "lucide-react";
+import { SignatureTemplateDialog } from "./SignatureTemplateDialog";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -89,6 +90,7 @@ export function SignatureFieldEditor({
   const [fieldIsRequired, setFieldIsRequired] = useState(true);
   const [textFieldLabel, setTextFieldLabel] = useState("");
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const fieldDataMap = useRef<Map<string, FieldData>>(new Map());
   const isMountedRef = useRef(true);
@@ -741,8 +743,29 @@ export function SignatureFieldEditor({
               <Trash2 className="h-4 w-4 mr-1" />
               Delete Selected
             </Button>
+
+            <div className="border-t pt-4 mt-4">
+              <Button
+                type="button"
+                onClick={() => setTemplateDialogOpen(true)}
+                variant="secondary"
+                className="w-full"
+                size="sm"
+              >
+                <FileStack className="h-4 w-4 mr-1" />
+                Templates
+              </Button>
+            </div>
           </CardContent>
         </Card>
+
+        <SignatureTemplateDialog
+          open={templateDialogOpen}
+          onOpenChange={setTemplateDialogOpen}
+          currentFields={fields}
+          signers={signers}
+          onApplyTemplate={(newFields) => setFields(newFields)}
+        />
 
         <Card>
           <CardHeader className="pb-3">
