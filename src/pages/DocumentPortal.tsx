@@ -463,14 +463,14 @@ export default function DocumentPortal() {
   // Check if we should use the new overlay signing view (has positioned fields)
   const hasPositionedFields = data.fields && data.fields.length > 0;
 
-  // Handler for the new signing view
-  const handleSignWithView = useCallback((
+  // Handler for the new signing view - uses the memoized callback
+  const handleSignWithView = (
     sigData: { type: "typed" | "drawn"; data: string; font?: string },
     textValues: Record<string, string>
   ) => {
     setTextFieldValues(textValues);
     signMutation.mutate({ sigData, textValues });
-  }, [signMutation]);
+  };
 
   // Use new overlay signing view when fields are positioned on the document
   if (hasPositionedFields) {
