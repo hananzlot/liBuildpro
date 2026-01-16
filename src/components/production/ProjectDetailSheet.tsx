@@ -83,6 +83,7 @@ interface ProjectDetailSheetProps {
   onBillDialogOpened?: () => void;
   initialTab?: string;
   initialFinanceSubTab?: 'bills' | 'history';
+  highlightInvoiceId?: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -94,7 +95,7 @@ const statusColors: Record<string, string> = {
   "Cancelled": "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
-export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSubTab }: ProjectDetailSheetProps) {
+export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, autoOpenBillDialog, onBillDialogOpened, initialTab, initialFinanceSubTab, highlightInvoiceId }: ProjectDetailSheetProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isSuperAdmin, user } = useAuth();
@@ -1475,6 +1476,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                 onNavigateToSubcontractors={handleNavigateToSubcontractors}
                 autoOpenBillDialog={autoOpenBillDialog}
                 initialBillsSubTab={initialFinanceSubTab}
+                highlightInvoiceId={highlightInvoiceId}
               />
             )}
           </TabsContent>

@@ -215,8 +215,8 @@ export default function Production() {
   // Admin can access full analytics, production users can only access AR/AP tabs directly
   useEffect(() => {
     if (!isAdmin && activeView === 'analytics') {
-      // Production users can only access receivables or cashflow tabs
-      const allowedTabs = ['receivables', 'cashflow'];
+      // Production users can only access receivables (AR), cashflow (AP), or payables tabs
+      const allowedTabs = ['receivables', 'cashflow', 'payables'];
       if (!currentTab || !allowedTabs.includes(currentTab)) {
         // Redirect to projects view
         setSearchParams({ view: 'projects' });
