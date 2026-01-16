@@ -457,9 +457,13 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     
     const renderTitleWithAmount = () => {
       if (!dynamicAmount) return <span>{item.title}</span>;
+      // AR in dark green, AP in orange
+      const colorClass = item.dynamicSuffix === 'ar' 
+        ? "text-green-700 dark:text-green-500" 
+        : "text-orange-500";
       return (
         <span>
-          {item.title} <span className="text-green-700 dark:text-green-500">({dynamicAmount})</span>
+          {item.title} <span className={colorClass}>({dynamicAmount})</span>
         </span>
       );
     };
