@@ -19,20 +19,34 @@ interface AnalyticsSectionProps {
   onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history') => void;
   reopenPayablesSheet?: boolean;
   onPayablesSheetOpened?: () => void;
+  initialTab?: string;
+  openPayablesOnLoad?: boolean;
 }
 
-export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened }: AnalyticsSectionProps) {
+export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, initialTab, openPayablesOnLoad }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
   const queryClient = useQueryClient();
   
   // Check if user can view profitability tab (admin only, not production-only users)
   const canViewProfitability = isAdmin || !isProduction;
   
+  // Determine initial tab - use prop if provided, otherwise default based on role
+  const getDefaultTab = () => {
+    if (initialTab && ['profitability', 'cashflow', 'receivables', 'bank', 'commission'].includes(initialTab)) {
+      // If profitability requested but user can't view it, fall back to cashflow
+      if (initialTab === 'profitability' && !canViewProfitability) {
+        return 'cashflow';
+      }
+      return initialTab;
+    }
+    return canViewProfitability ? "profitability" : "cashflow";
+  };
+  
   // Filter states - default to cashflow if profitability is not accessible
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedSalespeople, setSelectedSalespeople] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState(canViewProfitability ? "profitability" : "cashflow");
+  const [activeTab, setActiveTab] = useState(getDefaultTab());
 
   // Fetch analytics data with filters
   const {
@@ -300,7 +314,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             onSchedulePayment={handleSchedulePayment}
             onClearSchedule={handleClearSchedule}
             onMarkAsPaid={handleMarkAsPaid}
-            reopenPayablesSheet={reopenPayablesSheet}
+            reopenPayablesSheet={reopenPayablesSheet || openPayablesOnLoad}
             onPayablesSheetOpened={onPayablesSheetOpened}
           />
         </TabsContent>

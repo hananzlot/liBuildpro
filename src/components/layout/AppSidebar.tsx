@@ -121,6 +121,18 @@ const navSections: NavSection[] = [
         roles: ['super_admin', 'admin', 'production']
       },
       { 
+        title: "Outstanding AR", 
+        url: "/production?view=analytics&tab=receivables", 
+        icon: FileText,
+        roles: ['super_admin', 'admin', 'production']
+      },
+      { 
+        title: "Outstanding AP", 
+        url: "/production?view=analytics&tab=cashflow&section=payables", 
+        icon: Briefcase,
+        roles: ['super_admin', 'admin', 'production']
+      },
+      { 
         title: "Subcontractors", 
         url: "/production?view=subcontractors", 
         icon: HardHat,
