@@ -94,7 +94,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: settings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["company_name", "resend_from_email", "resend_from_name"]);
+      .in("setting_key", ["company_name", "resend_from_email", "resend_from_name", "app_base_url"]);
 
     const companyName =
       settings?.find((s) => s.setting_key === "company_name")?.setting_value ||
@@ -105,6 +105,9 @@ const handler = async (req: Request): Promise<Response> => {
     const fromName =
       settings?.find((s) => s.setting_key === "resend_from_name")?.setting_value ||
       companyName;
+    const appBaseUrl =
+      settings?.find((s) => s.setting_key === "app_base_url")?.setting_value ||
+      "https://crm.ca-probuilders.com";
 
     const emailSubject = isReminder
       ? `Reminder: Document Signature Required - ${documentName}`
@@ -147,7 +150,7 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Build portal URL with signer info if provided
       let portalUrl =
-        `https://crm-caprobuilders.lovable.app/document-portal?token=${tokenData.token}`;
+        `${appBaseUrl}/document-portal?token=${tokenData.token}`;
       if (r.signerId) {
         portalUrl += `&signer=${r.signerId}`;
       }

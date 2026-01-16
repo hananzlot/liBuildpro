@@ -33,7 +33,7 @@ serve(async (req: Request) => {
     const { data: settings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "daily_portal_email_enabled"]);
+      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "daily_portal_email_enabled", "app_base_url"]);
 
     const settingsMap: Record<string, string> = (settings || []).reduce((acc, s) => {
       acc[s.setting_key] = s.setting_value || "";
@@ -43,6 +43,7 @@ serve(async (req: Request) => {
     const fromEmail = settingsMap.resend_from_email || "portal@caprobuilders.com";
     const fromName = settingsMap.resend_from_name || "Capro Builders";
     const companyName = settingsMap.company_name || "Capro Builders";
+    const appBaseUrl = settingsMap.app_base_url || "https://crm.ca-probuilders.com";
     const dailyEmailEnabled = settingsMap.daily_portal_email_enabled === "true";
 
     // Check if daily emails are enabled (default is disabled)
@@ -203,7 +204,7 @@ serve(async (req: Request) => {
       }
 
       // Send the email - use query parameter format for portal URL
-      const portalUrl = `https://crm-caprobuilders.lovable.app/portal?token=${portal.token}`;
+      const portalUrl = `${appBaseUrl}/portal?token=${portal.token}`;
       const customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || portal.client_name || "Valued Customer";
 
       const htmlContent = `
