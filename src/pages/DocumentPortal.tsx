@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileText, CheckCircle, XCircle, Download, Calendar, Mail, User, Shield } from "lucide-react";
+import { Loader2, FileText, CheckCircle, XCircle, Download, Calendar, Mail, User, Shield, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { SignatureCanvas } from "@/components/portal/SignatureCanvas";
 import { DocumentSigningView } from "@/components/portal/DocumentSigningView";
+import { SignedDocumentView } from "@/components/portal/SignedDocumentView";
 import { format } from "date-fns";
 
 interface SignatureField {
@@ -365,80 +366,94 @@ export default function DocumentPortal() {
   // Check if current signer already signed
   if (currentSignerSigned || (doc.status === "signed" && !data.currentSigner)) {
     const signature = data.signatures.find(s => s.signer_id === data.currentSigner?.id) || data.signatures[0];
+    const hasPositionedFields = data.fields && data.fields.length > 0;
     
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-lg w-full">
-          <CardHeader className="text-center">
-            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <CardTitle>Document Signed</CardTitle>
-            <CardDescription>
-              Thank you! This document has been signed successfully.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-              <h4 className="font-semibold flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                Signature Audit Trail
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Signed By:</span>
-                  <span className="font-medium">{signature?.signer_name || signerName || doc.recipient_name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Email:</span>
-                  <span>{signature?.signer_email || signerEmail || doc.recipient_email}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Date Signed:</span>
-                  <span>{signature?.signed_at ? format(new Date(signature.signed_at), "PPpp") : 'N/A'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Document:</span>
-                  <span className="truncate">{doc.document_name}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Show all signers status if multiple */}
-            {data.signers.length > 1 && (
-              <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="font-semibold mb-3">All Signatures</h4>
-                <div className="space-y-2">
-                  {data.signers.map((signer) => {
-                    const sig = data.signatures.find(s => s.signer_id === signer.id);
-                    return (
-                      <div key={signer.id} className="flex items-center justify-between text-sm">
-                        <span>{signer.signer_name}</span>
-                        {signer.status === 'signed' ? (
-                          <Badge className="bg-green-500">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Signed {sig?.signed_at ? format(new Date(sig.signed_at), "M/d/yy") : ''}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">Pending</Badge>
-                        )}
-                      </div>
-                    );
-                  })}
+      <div className="min-h-screen bg-muted/30 py-8 px-4">
+        <div className="max-w-5xl mx-auto space-y-6">
+          {/* Success Header */}
+          <Card>
+            <CardHeader className="text-center pb-4">
+              <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <CardTitle>Document Signed</CardTitle>
+              <CardDescription>
+                Thank you! This document has been signed successfully.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Signature Audit Trail
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Signed By:</span>
+                    <span className="font-medium">{signature?.signer_name || signerName || doc.recipient_name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Email:</span>
+                    <span>{signature?.signer_email || signerEmail || doc.recipient_email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Date Signed:</span>
+                    <span>{signature?.signed_at ? format(new Date(signature.signed_at), "PPpp") : 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">Document:</span>
+                    <span className="truncate">{doc.document_name}</span>
+                  </div>
                 </div>
               </div>
-            )}
 
-            <div className="text-center pt-2">
-              <Button variant="outline" onClick={() => window.open(doc.document_url, "_blank")}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Document
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              {/* Show all signers status if multiple */}
+              {data.signers.length > 1 && (
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-3">All Signatures</h4>
+                  <div className="space-y-2">
+                    {data.signers.map((signer) => {
+                      const sig = data.signatures.find(s => s.signer_id === signer.id);
+                      return (
+                        <div key={signer.id} className="flex items-center justify-between text-sm">
+                          <span>{signer.signer_name}</span>
+                          {signer.status === 'signed' ? (
+                            <Badge className="bg-green-500">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Signed {sig?.signed_at ? format(new Date(sig.signed_at), "M/d/yy") : ''}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Pending</Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-center gap-3 pt-2">
+                <Button variant="outline" onClick={() => window.open(doc.document_url, "_blank")}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Original
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Signed Document View with Signature Overlays */}
+          {hasPositionedFields && (
+            <SignedDocumentView
+              documentUrl={doc.document_url}
+              documentName={doc.document_name}
+              fields={data.fields}
+              signatures={data.signatures}
+            />
+          )}
+        </div>
       </div>
     );
   }
