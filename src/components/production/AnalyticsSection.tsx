@@ -325,8 +325,14 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             onSchedulePayment={handleSchedulePayment}
             onClearSchedule={handleClearSchedule}
             onMarkAsPaid={handleMarkAsPaid}
-            reopenPayablesSheet={reopenPayablesSheet || openPayablesOnLoad}
+            reopenPayablesSheet={reopenPayablesSheet}
+            openPayablesOnLoad={openPayablesOnLoad}
             onPayablesSheetOpened={onPayablesSheetOpened}
+            onPayablesSheetClose={() => {
+              if (!isAdmin) {
+                navigate('/production?view=projects', { replace: true });
+              }
+            }}
             hidePayablesCloseButton={false}
             openARKPIOnLoad={initialKPI === 'outstandingAR'}
             onARSheetClose={() => {
