@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Type, Asterisk, FileStack } from "lucide-react";
+import { Trash2, Plus, PenTool, Calendar, User, Mail, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Maximize, Type, Asterisk, FileStack, Edit3 } from "lucide-react";
 import { SignatureTemplateDialog } from "./SignatureTemplateDialog";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
@@ -33,7 +33,7 @@ interface SignatureField {
   y: number;
   width: number;
   height: number;
-  fieldType: "signature" | "date" | "name" | "email" | "text";
+  fieldType: "signature" | "initials" | "date" | "name" | "email" | "text";
   isRequired: boolean;
   fieldLabel?: string;
 }
@@ -56,6 +56,7 @@ const FIELD_COLORS = [
 
 const FIELD_TYPE_CONFIG = {
   signature: { label: "Signature", icon: PenTool, defaultWidth: 200, defaultHeight: 60 },
+  initials: { label: "Initials", icon: Edit3, defaultWidth: 80, defaultHeight: 40 },
   date: { label: "Date Signed", icon: Calendar, defaultWidth: 150, defaultHeight: 30 },
   name: { label: "Full Name", icon: User, defaultWidth: 180, defaultHeight: 30 },
   email: { label: "Email", icon: Mail, defaultWidth: 200, defaultHeight: 30 },
@@ -86,7 +87,7 @@ export function SignatureFieldEditor({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedSigner, setSelectedSigner] = useState<string>(signers[0]?.id || "");
-  const [selectedFieldType, setSelectedFieldType] = useState<"signature" | "date" | "name" | "email" | "text">("signature");
+  const [selectedFieldType, setSelectedFieldType] = useState<"signature" | "initials" | "date" | "name" | "email" | "text">("signature");
   const [fieldIsRequired, setFieldIsRequired] = useState(true);
   const [textFieldLabel, setTextFieldLabel] = useState("");
   const [pageImages, setPageImages] = useState<Map<number, string>>(new Map());

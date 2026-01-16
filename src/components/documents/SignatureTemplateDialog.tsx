@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Save, FolderOpen, Trash2, PenTool, Calendar, User, Mail, Type, Loader2 } from "lucide-react";
+import { Save, FolderOpen, Trash2, PenTool, Calendar, User, Mail, Type, Loader2, Edit3 } from "lucide-react";
 import { toast } from "sonner";
 
 interface Signer {
@@ -30,7 +30,7 @@ interface SignatureField {
   y: number;
   width: number;
   height: number;
-  fieldType: "signature" | "date" | "name" | "email" | "text";
+  fieldType: "signature" | "initials" | "date" | "name" | "email" | "text";
   isRequired: boolean;
   fieldLabel?: string;
 }

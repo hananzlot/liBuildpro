@@ -103,8 +103,8 @@ serve(async (req) => {
 
       const fieldValues = signature.field_values || {};
 
-      if (field.field_type === 'signature') {
-        // Draw signature
+      if (field.field_type === 'signature' || field.field_type === 'initials') {
+        // Draw signature or initials
         if (signature.signature_type === 'drawn' && signature.signature_data) {
           try {
             // Embed the signature image
@@ -136,7 +136,10 @@ serve(async (req) => {
           } catch (imgError) {
             console.error('Error embedding signature image:', imgError);
             // Fallback to text
-            page.drawText(signature.signer_name || 'Signed', {
+            const displayText = field.field_type === 'initials' 
+              ? (signature.signer_name || 'Signed').split(' ').map((w: string) => w[0]).join('').toUpperCase()
+              : signature.signer_name || 'Signed';
+            page.drawText(displayText, {
               x: x + 5,
               y: y + fieldHeight / 2 - 6,
               size: 12,
@@ -145,9 +148,12 @@ serve(async (req) => {
             });
           }
         } else if (signature.signature_type === 'typed') {
-          // Draw typed signature
+          // Draw typed signature - for initials, just use first letters
           const fontSize = Math.min(fieldHeight * 0.6, 24);
-          page.drawText(signature.signature_data || signature.signer_name || '', {
+          const displayText = field.field_type === 'initials'
+            ? (signature.signature_data || signature.signer_name || '').split(' ').map((w: string) => w[0]).join('').toUpperCase()
+            : signature.signature_data || signature.signer_name || '';
+          page.drawText(displayText, {
             x: x + 5,
             y: y + fieldHeight / 2 - fontSize / 3,
             size: fontSize,
