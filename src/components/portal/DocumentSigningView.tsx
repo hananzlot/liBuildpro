@@ -524,8 +524,8 @@ export function DocumentSigningView({
                               {isComplete && <CheckCircle className="h-3 w-3 text-green-600 ml-auto" />}
                             </div>
 
-                            {/* Field value or input */}
-                            {isActive && !isComplete && field.field_type !== "signature" && field.field_type !== "date" ? (
+                            {/* Field value or input - show input when active for editable fields */}
+                            {isActive && field.field_type !== "signature" && field.field_type !== "date" ? (
                               <Input
                                 autoFocus
                                 value={
