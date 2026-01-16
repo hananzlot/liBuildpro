@@ -35,7 +35,7 @@ interface AccountsReceivableTabProps {
       days90Plus: number;
     };
   };
-  onProjectClick?: (projectId: string) => void;
+  onProjectClick?: (projectId: string, invoiceId: string) => void;
 }
 
 
@@ -239,7 +239,7 @@ export function AccountsReceivableTab({ invoices, totals, onProjectClick }: Acco
                     <TableRow 
                       key={invoice.id} 
                       className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => invoice.project_id && onProjectClick?.(invoice.project_id)}
+                      onClick={() => invoice.project_id && onProjectClick?.(invoice.project_id, invoice.id)}
                     >
                       <TableCell className="font-medium">{invoice.project_number}</TableCell>
                       <TableCell className="max-w-[200px] truncate">
