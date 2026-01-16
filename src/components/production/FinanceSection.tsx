@@ -3624,6 +3624,7 @@ function QuickPayDialog({
   onSave: (payment: Omit<BillPayment, 'id' | 'bill_id'>) => void;
   isPending: boolean;
 }) {
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     payment_date: new Date().toISOString().split('T')[0],
     payment_amount: "",
@@ -3631,6 +3632,8 @@ function QuickPayDialog({
     payment_reference: "",
     bank_name: "",
   });
+  const [bankSearch, setBankSearch] = useState("");
+  const [bankOpen, setBankOpen] = useState(false);
 
   // Fetch existing bank names
   const { data: existingBanks = [] } = useQuery({
@@ -3646,6 +3649,32 @@ function QuickPayDialog({
     enabled: open,
   });
 
+  // Mutation to add new bank
+  const addBankMutation = useMutation({
+    mutationFn: async (bankName: string) => {
+      const { error } = await supabase
+        .from("banks")
+        .insert({ name: bankName })
+        .select()
+        .single();
+      if (error && !error.message.includes('duplicate')) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["banks"] });
+    },
+  });
+
+  const handleAddBank = (bankName: string) => {
+    setFormData(p => ({ ...p, bank_name: bankName }));
+    addBankMutation.mutate(bankName);
+    setBankOpen(false);
+    setBankSearch("");
+  };
+
+  const filteredBanks = existingBanks.filter(bank => 
+    bank && typeof bank === 'string' && bank.toLowerCase().includes(bankSearch.toLowerCase())
+  );
+
   // Reset form when dialog opens
   useEffect(() => {
     if (open && bill) {
@@ -3656,6 +3685,7 @@ function QuickPayDialog({
         payment_reference: "",
         bank_name: "",
       });
+      setBankSearch("");
     }
   }, [open, bill]);
 
@@ -3729,23 +3759,63 @@ function QuickPayDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Bank Account - Required */}
+          {/* Bank Account - Required with add on the fly */}
           <div>
             <Label>Bank Account <span className="text-destructive">*</span></Label>
-            <Select value={formData.bank_name} onValueChange={(v) => setFormData(p => ({ ...p, bank_name: v }))}>
-              <SelectTrigger className={!formData.bank_name ? "border-destructive" : ""}>
-                <SelectValue placeholder="Select bank account (required)" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                {existingBanks.length === 0 ? (
-                  <SelectItem value="__no_banks__" disabled>No banks configured</SelectItem>
-                ) : (
-                  existingBanks.map((bank) => (
-                    <SelectItem key={bank} value={bank}>{bank}</SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <Popover open={bankOpen} onOpenChange={setBankOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={bankOpen}
+                  className={cn("w-full justify-between font-normal", !formData.bank_name && "border-destructive")}
+                >
+                  {formData.bank_name || "Select or add bank..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                <Command>
+                  <CommandInput 
+                    placeholder="Search or add new..." 
+                    value={bankSearch}
+                    onValueChange={setBankSearch}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {bankSearch ? `No bank found. Click below to add "${bankSearch}".` : "Type to search or add a bank."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {bankSearch && !filteredBanks.some(b => b.toLowerCase() === bankSearch.toLowerCase()) && (
+                        <CommandItem
+                          value={`add-${bankSearch}`}
+                          onSelect={() => handleAddBank(bankSearch)}
+                          className="cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3 mr-2" />
+                          Add "{bankSearch}"
+                        </CommandItem>
+                      )}
+                      {filteredBanks.map((bank) => (
+                        <CommandItem
+                          key={bank}
+                          value={bank}
+                          onSelect={() => {
+                            setFormData(p => ({ ...p, bank_name: bank }));
+                            setBankOpen(false);
+                            setBankSearch("");
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", formData.bank_name === bank ? "opacity-100" : "opacity-0")} />
+                          {bank}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             {!formData.bank_name && (
               <p className="text-xs text-destructive mt-1">Bank account is required</p>
             )}

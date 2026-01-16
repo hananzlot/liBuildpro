@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn, formatCurrency } from "@/lib/utils";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, Check, ChevronsUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,12 +46,15 @@ export function MarkAsPaidDialog({
   payable,
   onSave,
 }: MarkAsPaidDialogProps) {
+  const queryClient = useQueryClient();
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [amount, setAmount] = useState<string>("");
   const [bankName, setBankName] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [paymentReference, setPaymentReference] = useState<string>("");
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [bankSearch, setBankSearch] = useState("");
+  const [bankOpen, setBankOpen] = useState(false);
 
   // Fetch banks
   const { data: banks = [] } = useQuery({
@@ -65,6 +69,32 @@ export function MarkAsPaidDialog({
     },
   });
 
+  // Mutation to add new bank
+  const addBankMutation = useMutation({
+    mutationFn: async (newBankName: string) => {
+      const { error } = await supabase
+        .from("banks")
+        .insert({ name: newBankName })
+        .select()
+        .single();
+      if (error && !error.message.includes('duplicate')) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["banks"] });
+    },
+  });
+
+  const handleAddBank = (newBankName: string) => {
+    setBankName(newBankName);
+    addBankMutation.mutate(newBankName);
+    setBankOpen(false);
+    setBankSearch("");
+  };
+
+  const filteredBanks = banks.filter(bank => 
+    bank.name && bank.name.toLowerCase().includes(bankSearch.toLowerCase())
+  );
+
   // Reset form when payable changes
   useEffect(() => {
     if (payable) {
@@ -73,6 +103,7 @@ export function MarkAsPaidDialog({
       setBankName("");
       setPaymentMethod("");
       setPaymentReference("");
+      setBankSearch("");
     }
   }, [payable]);
 
@@ -179,25 +210,63 @@ export function MarkAsPaidDialog({
             />
           </div>
 
-          {/* Bank Account */}
+          {/* Bank Account with add on the fly */}
           <div className="space-y-2">
             <Label>Bank Account <span className="text-destructive">*</span></Label>
-            <Select value={bankName} onValueChange={setBankName}>
-              <SelectTrigger className={cn(!bankName && "border-destructive/50")}>
-                <SelectValue placeholder="Select bank account..." />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                {banks.length === 0 ? (
-                  <SelectItem value="__no_banks__" disabled>No banks configured</SelectItem>
-                ) : (
-                  banks.map((bank) => (
-                    <SelectItem key={bank.id} value={bank.name}>
-                      {bank.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
+            <Popover open={bankOpen} onOpenChange={setBankOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={bankOpen}
+                  className={cn("w-full justify-between font-normal", !bankName && "border-destructive/50")}
+                >
+                  {bankName || "Select or add bank..."}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-0 z-50" align="start">
+                <Command>
+                  <CommandInput 
+                    placeholder="Search or add new..." 
+                    value={bankSearch}
+                    onValueChange={setBankSearch}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {bankSearch ? `No bank found. Click below to add "${bankSearch}".` : "Type to search or add a bank."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {bankSearch && !filteredBanks.some(b => b.name?.toLowerCase() === bankSearch.toLowerCase()) && (
+                        <CommandItem
+                          value={`add-${bankSearch}`}
+                          onSelect={() => handleAddBank(bankSearch)}
+                          className="cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3 mr-2" />
+                          Add "{bankSearch}"
+                        </CommandItem>
+                      )}
+                      {filteredBanks.map((bank) => (
+                        <CommandItem
+                          key={bank.id}
+                          value={bank.name}
+                          onSelect={() => {
+                            setBankName(bank.name);
+                            setBankOpen(false);
+                            setBankSearch("");
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", bankName === bank.name ? "opacity-100" : "opacity-0")} />
+                          {bank.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           {/* Payment Method & Reference - same row */}
