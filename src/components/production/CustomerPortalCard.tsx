@@ -7,6 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { 
   ExternalLink, 
   Copy, 
@@ -16,7 +26,8 @@ import {
   Eye,
   Calendar,
   RefreshCw,
-  Mail
+  Mail,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -30,6 +41,22 @@ interface CustomerPortalCardProps {
 export function CustomerPortalCard({ projectId, customerName, customerEmail }: CustomerPortalCardProps) {
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  const [showRefreshWarning, setShowRefreshWarning] = useState(false);
+
+  // Fetch company name for display
+  const { data: companyName } = useQuery({
+    queryKey: ['company-name'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'company_name')
+        .single();
+      if (error) throw error;
+      return data?.setting_value || 'Company';
+    },
+    staleTime: 1000 * 60 * 5,
+  });
 
   // Check if portal token exists for this project (including inactive ones)
   const { data: portalToken, isLoading } = useQuery({
@@ -268,7 +295,7 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
                     variant="ghost" 
                     size="sm" 
                     className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => recreatePortalMutation.mutate()}
+                    onClick={() => setShowRefreshWarning(true)}
                     disabled={recreatePortalMutation.isPending}
                     title="Regenerate portal link"
                   >
@@ -315,6 +342,41 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
           </div>
         )}
       </CardContent>
+
+      {/* Refresh Link Warning Dialog */}
+      <AlertDialog open={showRefreshWarning} onOpenChange={setShowRefreshWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              Regenerate Portal Link?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>
+                <strong>Warning:</strong> This will deactivate the current portal link. The customer will no longer be able to access their portal using the existing link.
+              </p>
+              <p>
+                You will need to notify the customer of the new link before they can regain access to their {companyName || 'company'} portal.
+              </p>
+              <p className="text-amber-600 font-medium">
+                Make sure to send the new link to the customer after regenerating.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                recreatePortalMutation.mutate();
+                setShowRefreshWarning(false);
+              }}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              Regenerate Link
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
