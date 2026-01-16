@@ -35,7 +35,7 @@ interface CashFlowTabProps {
   payablesWithCashImpact: PayableWithCashImpact[];
   cashFlowTimeline: CashFlowTimelinePoint[];
   scheduledPayments: PayableWithCashImpact[];
-  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history') => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => void;
   onSchedulePayment?: (billId: string, date: Date, amount: number) => void;
   onClearSchedule?: (billId: string) => void;
   onMarkAsPaid?: (billId: string, data: {
@@ -404,7 +404,15 @@ export function CashFlowTab({
         projects={projects}
         invoicesWithAging={invoicesWithAging}
         bankTransactions={bankTransactions}
-        onProjectClick={onProjectClick}
+        onProjectClick={(projectId, invoiceId) => {
+          // For AR content, open finance tab with invoices sub-tab and highlight the invoice
+          if (selectedKPI === 'outstandingAR' && invoiceId) {
+            setKpiSheetOpen(false);
+            onProjectClick?.(projectId, 'finance', undefined, undefined, invoiceId);
+          } else {
+            onProjectClick?.(projectId);
+          }
+        }}
       />
 
       <PayablesSheet
