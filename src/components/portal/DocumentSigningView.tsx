@@ -58,6 +58,7 @@ interface DocumentSigningViewProps {
 
 const FIELD_TYPE_ICONS: Record<string, React.ElementType> = {
   signature: PenTool,
+  initials: PenTool,
   date: Calendar,
   name: User,
   email: Mail,
@@ -66,6 +67,7 @@ const FIELD_TYPE_ICONS: Record<string, React.ElementType> = {
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
   signature: "Signature",
+  initials: "Initials",
   date: "Date Signed",
   name: "Full Name",
   email: "Email Address",
@@ -119,7 +121,7 @@ export function DocumentSigningView({
   const completedFields = useMemo(() => {
     let count = 0;
     myFields.forEach(field => {
-      if (field.field_type === "signature" && signatureData) count++;
+      if ((field.field_type === "signature" || field.field_type === "initials") && signatureData) count++;
       else if (field.field_type === "name" && signerName) count++;
       else if (field.field_type === "email" && signerEmail) count++;
       else if (field.field_type === "date") count++; // Auto-filled
@@ -230,6 +232,8 @@ export function DocumentSigningView({
     switch (field.field_type) {
       case "signature":
         return signatureData ? "✓ Signed" : null;
+      case "initials":
+        return signatureData ? "✓ Initialed" : null;
       case "name":
         return signerName || null;
       case "email":
@@ -254,7 +258,7 @@ export function DocumentSigningView({
     setActiveFieldIndex(fieldIndex);
     const field = myFields[fieldIndex];
     
-    if (field.field_type === "signature") {
+    if (field.field_type === "signature" || field.field_type === "initials") {
       setShowSignatureModal(true);
     }
   }, [myFields]);
@@ -265,7 +269,7 @@ export function DocumentSigningView({
     if (nextIncompleteIndex !== -1) {
       setActiveFieldIndex(nextIncompleteIndex);
       const nextField = myFields[nextIncompleteIndex];
-      if (nextField.field_type === "signature") {
+      if (nextField.field_type === "signature" || nextField.field_type === "initials") {
         setShowSignatureModal(true);
       }
     } else {
@@ -329,7 +333,7 @@ export function DocumentSigningView({
       const firstIncomplete = myFields.findIndex(f => !isFieldComplete(f) && f.is_required);
       if (firstIncomplete !== -1) {
         setActiveFieldIndex(firstIncomplete);
-        if (myFields[firstIncomplete].field_type === "signature") {
+        if (myFields[firstIncomplete].field_type === "signature" || myFields[firstIncomplete].field_type === "initials") {
           setShowSignatureModal(true);
         }
       }
@@ -525,7 +529,7 @@ export function DocumentSigningView({
                             </div>
 
                             {/* Field value or input - show input when active for editable fields */}
-                            {isActive && field.field_type !== "signature" && field.field_type !== "date" ? (
+                            {isActive && field.field_type !== "signature" && field.field_type !== "initials" && field.field_type !== "date" ? (
                               <Input
                                 autoFocus
                                 value={
@@ -547,12 +551,14 @@ export function DocumentSigningView({
                             ) : (
                               <div className="flex-1 flex items-center justify-center text-sm">
                                 {value ? (
-                                  field.field_type === "signature" && signatureData ? (
+                                  (field.field_type === "signature" || field.field_type === "initials") && signatureData ? (
                                     signatureData.type === "drawn" ? (
-                                      <img src={signatureData.data} alt="Signature" className="max-h-full max-w-full object-contain" />
+                                      <img src={signatureData.data} alt={field.field_type === "initials" ? "Initials" : "Signature"} className="max-h-full max-w-full object-contain" />
                                     ) : (
                                       <span style={{ fontFamily: signatureData.font || "cursive" }} className="text-lg">
-                                        {signatureData.data}
+                                        {field.field_type === "initials" 
+                                          ? signatureData.data.split(' ').map(w => w[0]).join('').toUpperCase()
+                                          : signatureData.data}
                                       </span>
                                     )
                                   ) : (
@@ -560,7 +566,8 @@ export function DocumentSigningView({
                                   )
                                 ) : (
                                   <span className="text-muted-foreground italic">
-                                    {field.field_type === "signature" ? "Click to sign" : "Click to enter"}
+                                    {field.field_type === "signature" ? "Click to sign" : 
+                                     field.field_type === "initials" ? "Click to initial" : "Click to enter"}
                                   </span>
                                 )}
                               </div>

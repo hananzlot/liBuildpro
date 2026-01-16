@@ -147,22 +147,27 @@ export function SignedDocumentView({
     
     switch (field.field_type) {
       case "signature":
+      case "initials":
         if (signature) {
           if (signature.signature_type === "drawn") {
             return (
               <img 
                 src={signature.signature_data} 
-                alt={`Signature by ${signature.signer_name}`} 
+                alt={field.field_type === "initials" ? `Initials by ${signature.signer_name}` : `Signature by ${signature.signer_name}`} 
                 className="max-h-full max-w-full object-contain"
               />
             );
           } else {
+            // For initials, just use first letters of each word
+            const displayText = field.field_type === "initials" 
+              ? signature.signature_data.split(' ').map((w: string) => w[0]).join('').toUpperCase()
+              : signature.signature_data;
             return (
               <span 
                 style={{ fontFamily: signature.signature_font || "cursive" }} 
                 className="text-lg text-gray-800"
               >
-                {signature.signature_data}
+                {displayText}
               </span>
             );
           }
