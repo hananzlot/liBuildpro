@@ -798,6 +798,8 @@ const Index = () => {
         contacts={metrics?.allContacts || []}
         opportunities={metrics?.allOpportunities || []}
         users={metrics?.users || []}
+        notes={metrics?.contactNotes || []}
+        conversations={metrics?.conversations || []}
       />
     </AppLayout>
   );
