@@ -805,16 +805,6 @@ export function SignatureFieldEditor({
                 onCheckedChange={setFieldIsRequired}
               />
             </div>
-            <Button
-              type="button"
-              onClick={deleteSelectedObject}
-              variant="outline"
-              className="w-full text-destructive hover:text-destructive"
-              size="sm"
-            >
-              <Trash2 className="h-4 w-4 mr-1" />
-              Delete Selected
-            </Button>
 
             <div className="border-t pt-4 mt-4">
               <Button
