@@ -125,7 +125,7 @@ const navSections: NavSection[] = [
       { 
         title: "Outstanding AR", 
         dynamicSuffix: "ar",
-        url: "/production?view=analytics&tab=receivables", 
+        url: "/production?view=analytics&tab=cashflow&kpi=outstandingAR", 
         icon: FileText,
         roles: ['super_admin', 'admin', 'production']
       },

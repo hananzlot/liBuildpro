@@ -21,9 +21,10 @@ interface AnalyticsSectionProps {
   onPayablesSheetOpened?: () => void;
   initialTab?: string;
   openPayablesOnLoad?: boolean;
+  initialKPI?: string;
 }
 
-export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, initialTab, openPayablesOnLoad }: AnalyticsSectionProps) {
+export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, initialTab, openPayablesOnLoad, initialKPI }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
   const queryClient = useQueryClient();
   
@@ -325,6 +326,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             reopenPayablesSheet={reopenPayablesSheet || openPayablesOnLoad}
             onPayablesSheetOpened={onPayablesSheetOpened}
             hideCloseButton={!isAdmin}
+            openARKPIOnLoad={initialKPI === 'outstandingAR'}
           />
         </TabsContent>
 

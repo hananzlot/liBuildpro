@@ -2325,6 +2325,7 @@ export default function Production() {
               onPayablesSheetOpened={() => setReopenPayablesSheet(false)}
               initialTab={searchParams.get('tab') || undefined}
               openPayablesOnLoad={searchParams.get('section') === 'payables'}
+              initialKPI={searchParams.get('kpi') || undefined}
             />
           )}
 
