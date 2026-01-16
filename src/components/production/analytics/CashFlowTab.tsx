@@ -47,8 +47,9 @@ interface CashFlowTabProps {
   }) => void;
   reopenPayablesSheet?: boolean;
   onPayablesSheetOpened?: () => void;
-  hideCloseButton?: boolean;
+  hidePayablesCloseButton?: boolean;
   openARKPIOnLoad?: boolean;
+  onARSheetClose?: () => void;
 }
 
 const getCashStatusColor = (status: string) => {
@@ -95,9 +96,12 @@ export function CashFlowTab({
   onMarkAsPaid,
   reopenPayablesSheet,
   onPayablesSheetOpened,
-  hideCloseButton,
+  hidePayablesCloseButton,
   openARKPIOnLoad,
+  onARSheetClose,
 }: CashFlowTabProps) {
+  // Track if AR sheet was opened from URL (sidebar navigation)
+  const [arOpenedFromUrl, setArOpenedFromUrl] = useState(false);
   // Sheet states
   const [selectedKPI, setSelectedKPI] = useState<CashFlowKPIType | null>(null);
   const [kpiSheetOpen, setKpiSheetOpen] = useState(false);
@@ -122,8 +126,18 @@ export function CashFlowTab({
     if (openARKPIOnLoad) {
       setSelectedKPI('outstandingAR');
       setKpiSheetOpen(true);
+      setArOpenedFromUrl(true);
     }
   }, [openARKPIOnLoad]);
+
+  // Handle AR KPI sheet close
+  const handleARSheetClose = (open: boolean) => {
+    setKpiSheetOpen(open);
+    if (!open && arOpenedFromUrl && onARSheetClose) {
+      onARSheetClose();
+      setArOpenedFromUrl(false);
+    }
+  };
   
   // Project amount detail states
   const [amountDetailOpen, setAmountDetailOpen] = useState(false);
@@ -385,13 +399,12 @@ export function CashFlowTab({
       {/* Sheets and Dialogs */}
       <CashFlowKPISheet
         open={kpiSheetOpen}
-        onOpenChange={setKpiSheetOpen}
+        onOpenChange={selectedKPI === 'outstandingAR' ? handleARSheetClose : setKpiSheetOpen}
         kpiType={selectedKPI}
         projects={projects}
         invoicesWithAging={invoicesWithAging}
         bankTransactions={bankTransactions}
         onProjectClick={onProjectClick}
-        hideCloseButton={hideCloseButton}
       />
 
       <PayablesSheet
@@ -405,7 +418,7 @@ export function CashFlowTab({
         }}
         onSchedulePayment={handleSchedulePayment}
         onMarkAsPaid={handleMarkAsPaid}
-        hideCloseButton={hideCloseButton}
+        hideCloseButton={hidePayablesCloseButton}
       />
 
       <PaymentScheduleSheet
