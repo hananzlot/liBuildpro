@@ -31,7 +31,9 @@ interface CashFlowKPISheetProps {
   projects: ProjectWithFinancials[];
   invoicesWithAging: InvoiceWithAging[];
   bankTransactions: BankTransaction[];
-  onProjectClick?: (projectId: string) => void;
+  onProjectClick?: (projectId: string, invoiceId?: string) => void;
+  hideCloseButton?: boolean;
+  highlightInvoiceId?: string | null;
 }
 
 const KPI_TITLES: Record<CashFlowKPIType, string> = {
@@ -60,14 +62,16 @@ export function CashFlowKPISheet({
   invoicesWithAging,
   bankTransactions,
   onProjectClick,
+  hideCloseButton,
+  highlightInvoiceId,
 }: CashFlowKPISheetProps) {
   const [search, setSearch] = useState("");
 
   if (!kpiType) return null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-5xl overflow-y-auto">
+    <Sheet open={open} onOpenChange={hideCloseButton ? undefined : onOpenChange}>
+      <SheetContent className="w-full sm:max-w-5xl overflow-y-auto" hideCloseButton={hideCloseButton}>
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>
@@ -127,6 +131,7 @@ export function CashFlowKPISheet({
               invoices={invoicesWithAging}
               search={search}
               onProjectClick={onProjectClick}
+              highlightInvoiceId={highlightInvoiceId}
             />
           )}
           {kpiType === 'projectsAtRisk' && (
@@ -409,10 +414,12 @@ function ARContent({
   invoices,
   search,
   onProjectClick,
+  highlightInvoiceId,
 }: {
   invoices: InvoiceWithAging[];
   search: string;
-  onProjectClick?: (projectId: string) => void;
+  onProjectClick?: (projectId: string, invoiceId?: string) => void;
+  highlightInvoiceId?: string | null;
 }) {
   const filtered = useMemo(() => {
     const lower = search.toLowerCase();
@@ -452,8 +459,11 @@ function ARContent({
             {filtered.map((inv) => (
               <TableRow
                 key={inv.id}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => inv.project_id && onProjectClick?.(inv.project_id)}
+                className={cn(
+                  "cursor-pointer hover:bg-muted/50",
+                  highlightInvoiceId === inv.id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse"
+                )}
+                onClick={() => inv.project_id && onProjectClick?.(inv.project_id, inv.id)}
               >
                 <TableCell className="font-medium">{inv.primary_salesperson || '-'}</TableCell>
                 <TableCell className="max-w-[200px]">
