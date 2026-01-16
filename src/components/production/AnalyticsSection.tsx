@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,7 +31,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
   const canViewProfitability = isAdmin || !isProduction;
   
   // Determine initial tab - use prop if provided, otherwise default based on role
-  const getDefaultTab = () => {
+  const getDefaultTab = useCallback(() => {
     if (initialTab && ['profitability', 'cashflow', 'receivables', 'bank', 'commission'].includes(initialTab)) {
       // If profitability requested but user can't view it, fall back to cashflow
       if (initialTab === 'profitability' && !canViewProfitability) {
@@ -40,13 +40,21 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
       return initialTab;
     }
     return canViewProfitability ? "profitability" : "cashflow";
-  };
+  }, [initialTab, canViewProfitability]);
   
   // Filter states - default to cashflow if profitability is not accessible
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedSalespeople, setSelectedSalespeople] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState(getDefaultTab());
+
+  // Update active tab when initialTab prop changes (e.g., from URL navigation)
+  useEffect(() => {
+    if (initialTab) {
+      const newTab = getDefaultTab();
+      setActiveTab(newTab);
+    }
+  }, [initialTab, getDefaultTab]);
 
   // Fetch analytics data with filters
   const {
