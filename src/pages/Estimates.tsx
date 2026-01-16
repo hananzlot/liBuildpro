@@ -93,39 +93,49 @@ export default function Estimates() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (estimateId: string) => {
-      // FIRST: Delete ALL estimate_signatures for this estimate (before touching tokens)
-      // This must happen first because signatures reference both estimate_id AND portal_token_id
-      await supabase
-        .from("estimate_signatures")
-        .delete()
-        .eq("estimate_id", estimateId);
-
-      // Get all client_portal_tokens for this estimate
-      const { data: tokens } = await supabase
+      // Get all client_portal_tokens for this estimate (we need ids to clean up dependent rows)
+      const { data: tokens, error: tokenFetchError } = await supabase
         .from("client_portal_tokens")
         .select("id")
         .eq("estimate_id", estimateId);
 
-      if (tokens && tokens.length > 0) {
-        const tokenIds = tokens.map(t => t.id);
-        
-        // Delete portal_view_logs that reference these tokens
-        await supabase
+      if (tokenFetchError) throw tokenFetchError;
+
+      const tokenIds = (tokens || []).map((t) => t.id);
+
+      // FIRST: Delete ALL estimate_signatures for this estimate (before touching tokens)
+      // Note: Some signatures may only reference portal_token_id, so we also delete by tokenIds below.
+      const { error: sigByEstimateError } = await supabase
+        .from("estimate_signatures")
+        .delete()
+        .eq("estimate_id", estimateId);
+      if (sigByEstimateError) throw sigByEstimateError;
+
+      if (tokenIds.length > 0) {
+        // Delete any remaining signatures that reference portal tokens (even if estimate_id is null)
+        const { error: sigByTokenError } = await supabase
+          .from("estimate_signatures")
+          .delete()
+          .in("portal_token_id", tokenIds);
+        if (sigByTokenError) throw sigByTokenError;
+
+        const { error: viewLogsError } = await supabase
           .from("portal_view_logs")
           .delete()
           .in("portal_token_id", tokenIds);
-        
-        // Delete client_comments that reference these tokens
-        await supabase
+        if (viewLogsError) throw viewLogsError;
+
+        const { error: tokenCommentsError } = await supabase
           .from("client_comments")
           .delete()
           .in("portal_token_id", tokenIds);
-        
-        // Now delete the client_portal_tokens
-        await supabase
+        if (tokenCommentsError) throw tokenCommentsError;
+
+        const { error: tokenDeleteError } = await supabase
           .from("client_portal_tokens")
           .delete()
           .eq("estimate_id", estimateId);
+        if (tokenDeleteError) throw tokenDeleteError;
       }
 
       // Delete estimate_payment_schedule
