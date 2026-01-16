@@ -107,7 +107,7 @@ serve(async (req: Request) => {
     const { data: settings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "email_template_daily_portal_update"]);
+      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "email_template_daily_portal_update", "app_base_url"]);
 
     const settingsMap: Record<string, string> = (settings || []).reduce((acc, s) => {
       acc[s.setting_key] = s.setting_value || "";
@@ -117,6 +117,7 @@ serve(async (req: Request) => {
     const fromEmail = settingsMap.resend_from_email || "portal@caprobuilders.com";
     const fromName = settingsMap.resend_from_name || "Capro Builders";
     const companyName = settingsMap.company_name || "Capro Builders";
+    const appBaseUrl = settingsMap.app_base_url || "https://crm.ca-probuilders.com";
 
     // Parse email template if exists
     let emailSubject = "Project Update Available - {{company_name}}";
@@ -144,7 +145,7 @@ The {{company_name}} Team`;
     }
 
     // Build portal URL - use query parameter format
-    const portalUrl = `https://crm-caprobuilders.lovable.app/portal?token=${portalToken}`;
+    const portalUrl = `${appBaseUrl}/portal?token=${portalToken}`;
 
     const customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || "Valued Customer";
 
