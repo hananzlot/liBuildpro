@@ -74,8 +74,11 @@ const handler = async (req: Request): Promise<Response> => {
       ? `<p>This is a friendly reminder that ${companyName} has sent you a document that still requires your signature.</p>`
       : `<p>${companyName} has sent you a document that requires your signature.</p>`;
 
-    // Send email with retry logic for rate limiting
-    const sendEmailWithRetry = async (maxRetries = 3): Promise<void> => {
+    // Send email with retry logic for rate limiting (Resend: 2 req/sec)
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+    const sendEmailWithRetry = async (maxRetries = 6): Promise<void> => {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const emailResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -90,7 +93,7 @@ const handler = async (req: Request): Promise<Response> => {
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: #1a1a2e; color: white; padding: 30px; text-align: center;">
-                  <h1 style="margin: 0;">${isReminder ? 'Reminder: ' : ''}Document Signature Required</h1>
+                  <h1 style="margin: 0;">${isReminder ? "Reminder: " : ""}Document Signature Required</h1>
                 </div>
                 <div style="padding: 30px; background: #f9fafb;">
                   <p>Hello ${recipientName},</p>
@@ -116,16 +119,34 @@ const handler = async (req: Request): Promise<Response> => {
         }
 
         const errorText = await emailResponse.text();
-        
-        // Check for rate limit error (429)
-        if (emailResponse.status === 429 && attempt < maxRetries) {
-          const waitTime = attempt * 1000; // 1s, 2s, 3s backoff
-          console.log(`Rate limited (attempt ${attempt}/${maxRetries}), waiting ${waitTime}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
+        const isRateLimited =
+          emailResponse.status === 429 || errorText.includes("rate_limit_exceeded");
+
+        if (isRateLimited && attempt < maxRetries) {
+          const retryAfter = emailResponse.headers.get("retry-after");
+          const retryAfterMs =
+            retryAfter && !Number.isNaN(Number(retryAfter))
+              ? Math.max(0, Number(retryAfter) * 1000)
+              : 0;
+
+          // 0.5s, 1s, 2s, 4s, 8s, 15s (capped) + jitter
+          const expBackoffMs = Math.min(15000, 500 * Math.pow(2, attempt - 1));
+          const jitterMs = Math.floor(Math.random() * 500);
+          const waitTime = Math.max(retryAfterMs, expBackoffMs) + jitterMs;
+
+          console.log(
+            `Rate limited (attempt ${attempt}/${maxRetries}), waiting ${waitTime}ms before retry...`,
+          );
+          await sleep(waitTime);
           continue;
         }
 
         console.error("Email failed:", errorText);
+
+        if (isRateLimited) {
+          throw new Error(`RATE_LIMIT_EXCEEDED: ${errorText}`);
+        }
+
         throw new Error(`Email failed: ${errorText}`);
       }
     };
@@ -146,7 +167,7 @@ const handler = async (req: Request): Promise<Response> => {
         .from("document_signers")
         .update({ status: "sent", sent_at: new Date().toISOString() })
         .eq("id", signerId);
-      
+
       console.log("Updated signer status:", signerId);
     }
 
@@ -156,10 +177,21 @@ const handler = async (req: Request): Promise<Response> => {
     });
   } catch (error: any) {
     console.error("Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+
+    const msg = typeof error?.message === "string" ? error.message : String(error);
+    const isRateLimited =
+      msg.includes("RATE_LIMIT_EXCEEDED") || msg.includes("rate_limit_exceeded");
+
+    return new Response(
+      JSON.stringify({
+        error: msg.replace(/^RATE_LIMIT_EXCEEDED:\s*/, ""),
+        rate_limited: isRateLimited,
+      }),
+      {
+        status: isRateLimited ? 429 : 500,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      },
+    );
   }
 };
 
