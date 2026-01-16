@@ -207,8 +207,22 @@ export default function Production() {
   const { isAdmin, isSimulating } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = searchParams.get('view') || 'projects';
+  const currentTab = searchParams.get('tab');
   const returnToProjectId = searchParams.get('returnToProject');
   const openBillDialog = searchParams.get('openBill') === 'true';
+  
+  // Redirect non-admin users away from analytics view if they don't have a specific tab
+  // Admin can access full analytics, production users can only access AR/AP tabs directly
+  useEffect(() => {
+    if (!isAdmin && activeView === 'analytics') {
+      // Production users can only access receivables or cashflow tabs
+      const allowedTabs = ['receivables', 'cashflow'];
+      if (!currentTab || !allowedTabs.includes(currentTab)) {
+        // Redirect to projects view
+        setSearchParams({ view: 'projects' });
+      }
+    }
+  }, [isAdmin, activeView, currentTab, setSearchParams]);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
