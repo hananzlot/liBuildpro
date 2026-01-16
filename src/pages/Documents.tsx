@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { MultiSignerInput, SignerData } from "@/components/documents/MultiSignerInput";
 import { SignatureFieldEditor } from "@/components/documents/SignatureFieldEditor";
+import { SignedDocumentView } from "@/components/portal/SignedDocumentView";
 
 interface DocumentSigner {
   id: string;
@@ -92,6 +93,13 @@ export default function Documents() {
   const [resendDialogOpen, setResendDialogOpen] = useState(false);
   const [resendSigner, setResendSigner] = useState<DocumentSigner | null>(null);
   const [resendDocument, setResendDocument] = useState<SignatureDocument | null>(null);
+
+  // Signed preview dialog
+  const [signedViewOpen, setSignedViewOpen] = useState(false);
+  const [signedViewDoc, setSignedViewDoc] = useState<SignatureDocument | null>(null);
+  const [signedViewFields, setSignedViewFields] = useState<DbSignatureField[]>([]);
+  const [signedViewSignatures, setSignedViewSignatures] = useState<DbDocumentSignature[]>([]);
+  const [signedViewLoading, setSignedViewLoading] = useState(false);
   
   // Form state
   const [documentName, setDocumentName] = useState("");
