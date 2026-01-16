@@ -84,6 +84,7 @@ interface FinanceSectionProps {
   onNavigateToSubcontractors?: () => void;
   autoOpenBillDialog?: boolean;
   initialBillsSubTab?: 'bills' | 'history';
+  highlightInvoiceId?: string | null;
 }
 
 interface Invoice {
@@ -174,7 +175,7 @@ const formatDate = (date: string | null) => {
   return new Date(date).toLocaleDateString();
 };
 
-export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialBillsSubTab }: FinanceSectionProps) {
+export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialBillsSubTab, highlightInvoiceId }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState(initialBillsSubTab ? "bills" : "agreements");
@@ -215,6 +216,14 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       setActiveBillsSubTab(initialBillsSubTab);
     }
   }, [initialBillsSubTab]);
+
+  // Auto-switch to invoices tab when highlighting an invoice
+  useEffect(() => {
+    if (highlightInvoiceId) {
+      setActiveSubTab("invoices");
+      setActiveInvoicesSubTab("invoices");
+    }
+  }, [highlightInvoiceId]);
   
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [prePopulatedInvoice, setPrePopulatedInvoice] = useState<Partial<Invoice> | null>(null);
@@ -1252,7 +1261,12 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                       </TableHeader>
                       <TableBody>
                         {invoices.map((inv) => (
-                          <TableRow key={inv.id}>
+                          <TableRow 
+                            key={inv.id}
+                            className={cn(
+                              highlightInvoiceId === inv.id && "bg-yellow-100 dark:bg-yellow-900/30 animate-pulse"
+                            )}
+                          >
                             <TableCell className="text-xs">{inv.invoice_number || "-"}</TableCell>
                             <TableCell className="text-xs">{formatDate(inv.invoice_date)}</TableCell>
                             <TableCell className="text-xs text-right">{formatCurrency(inv.amount)}</TableCell>
