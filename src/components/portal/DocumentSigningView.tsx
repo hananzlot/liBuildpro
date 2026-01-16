@@ -618,18 +618,51 @@ export function DocumentSigningView({
         />
       )}
 
-      {/* Action Buttons */}
+      {/* Navigation and Action Buttons */}
       <Card>
         <CardContent className="py-4">
           <div className="flex flex-wrap gap-3 justify-between items-center">
-            <div className="text-sm text-muted-foreground">
-              {activeField && (
-                <span>
-                  Current field: <strong>{FIELD_TYPE_LABELS[activeField.field_type] || activeField.field_label}</strong>
-                  {activeField.is_required && <Badge variant="outline" className="ml-2">Required</Badge>}
-                </span>
-              )}
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-muted-foreground">
+                {activeField && (
+                  <span>
+                    Field {activeFieldIndex + 1} of {myFields.length}: <strong>{FIELD_TYPE_LABELS[activeField.field_type] || activeField.field_label}</strong>
+                    {activeField.is_required && <Badge variant="outline" className="ml-2">Required</Badge>}
+                  </span>
+                )}
+              </div>
+              
+              {/* Navigation Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveFieldIndex(Math.max(0, activeFieldIndex - 1))}
+                  disabled={activeFieldIndex <= 0}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Previous
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    const nextField = myFields[activeFieldIndex + 1];
+                    if (nextField) {
+                      setActiveFieldIndex(activeFieldIndex + 1);
+                      if (nextField.field_type === "signature") {
+                        setShowSignatureModal(true);
+                      }
+                    }
+                  }}
+                  disabled={activeFieldIndex >= myFields.length - 1}
+                >
+                  Next Field
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
+            
             <div className="flex gap-3">
               <Button
                 variant="outline"
