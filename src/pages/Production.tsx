@@ -1780,6 +1780,7 @@ export default function Production() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="Proposal">Proposal</SelectItem>
                     <SelectItem value="New Job">New Job</SelectItem>
                     <SelectItem value="In-Progress">In-Progress</SelectItem>
                     <SelectItem value="On-Hold">On-Hold</SelectItem>
