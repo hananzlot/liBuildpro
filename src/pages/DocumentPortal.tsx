@@ -39,9 +39,10 @@ export default function DocumentPortal() {
   const [signatureData, setSignatureData] = useState<{ type: "typed" | "drawn"; data: string; font?: string } | null>(null);
   const [declineReason, setDeclineReason] = useState("");
   const [showDeclineForm, setShowDeclineForm] = useState(false);
-const [textFieldValues, setTextFieldValues] = useState<Record<string, string>>({});
+  const [textFieldValues, setTextFieldValues] = useState<Record<string, string>>({});
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [showSignedPreview, setShowSignedPreview] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState<'signed' | 'audit' | null>(null);
 
   // Fetch document data via token
   const { data, isLoading, error } = useQuery({
@@ -328,6 +329,53 @@ const [textFieldValues, setTextFieldValues] = useState<Record<string, string>>({
     setSignatureData(sigData);
   };
 
+  const handleDownloadSignedPdf = async (includeAuditTrail: boolean) => {
+    if (!data?.document) return;
+    
+    setDownloadingPdf(includeAuditTrail ? 'audit' : 'signed');
+    try {
+      const response = await supabase.functions.invoke('generate-signed-document-pdf', {
+        body: {
+          documentId: data.document.id,
+          includeAuditTrail,
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to generate PDF');
+      }
+
+      const { pdf, filename } = response.data;
+      
+      // Convert base64 to blob and download
+      const byteCharacters = atob(pdf);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = includeAuditTrail 
+        ? filename.replace('.pdf', '_with_certificate.pdf')
+        : filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('PDF downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast.error('Failed to download PDF');
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
+
   if (!token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -446,16 +494,41 @@ const [textFieldValues, setTextFieldValues] = useState<Record<string, string>>({
                 </div>
               )}
 
-              <div className="flex justify-center gap-3 pt-2">
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
                 <Button variant="outline" onClick={() => window.open(doc.document_url, "_blank")}>
                   <Download className="mr-2 h-4 w-4" />
                   Download Original
                 </Button>
                 {hasPositionedFields && (
-                  <Button onClick={() => setShowSignedPreview(true)}>
-                    <Eye className="mr-2 h-4 w-4" />
-                    View Signed Document
-                  </Button>
+                  <>
+                    <Button variant="outline" onClick={() => setShowSignedPreview(true)}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Preview Signed
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => handleDownloadSignedPdf(false)}
+                      disabled={downloadingPdf !== null}
+                    >
+                      {downloadingPdf === 'signed' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                      )}
+                      Download Signed
+                    </Button>
+                    <Button 
+                      onClick={() => handleDownloadSignedPdf(true)}
+                      disabled={downloadingPdf !== null}
+                    >
+                      {downloadingPdf === 'audit' ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Shield className="mr-2 h-4 w-4" />
+                      )}
+                      Download with Certificate
+                    </Button>
+                  </>
                 )}
               </div>
             </CardContent>
