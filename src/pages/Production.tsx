@@ -242,8 +242,9 @@ export default function Production() {
   const [projectInitialTab, setProjectInitialTab] = useState<string | undefined>(undefined);
   const [projectInitialFinanceSubTab, setProjectInitialFinanceSubTab] = useState<'bills' | 'history' | undefined>(undefined);
   const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null);
-  const [returnToAfterProjectClose, setReturnToAfterProjectClose] = useState<'payables' | null>(null);
+  const [returnToAfterProjectClose, setReturnToAfterProjectClose] = useState<'payables' | 'outstandingAR' | null>(null);
   const [reopenPayablesSheet, setReopenPayablesSheet] = useState(false);
+  const [reopenARSheet, setReopenARSheet] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [profitSheetOpen, setProfitSheetOpen] = useState(false);
   const [profitSheetType, setProfitSheetType] = useState<'expected' | 'realized' | null>(null);
@@ -1254,7 +1255,7 @@ export default function Production() {
     return toTitleCase(fullName);
   };
 
-  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => {
+  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables' | 'outstandingAR', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => {
     setProjectInitialTab(initialTab);
     setProjectInitialFinanceSubTab(financeSubTab);
     setReturnToAfterProjectClose(returnTo || null);
@@ -2323,6 +2324,8 @@ export default function Production() {
               }}
               reopenPayablesSheet={reopenPayablesSheet}
               onPayablesSheetOpened={() => setReopenPayablesSheet(false)}
+              reopenARSheet={reopenARSheet}
+              onARSheetOpened={() => setReopenARSheet(false)}
               initialTab={searchParams.get('tab') || undefined}
               openPayablesOnLoad={searchParams.get('section') === 'payables'}
               initialKPI={searchParams.get('kpi') || undefined}
@@ -2359,6 +2362,8 @@ export default function Production() {
               // Handle return-to behavior
               if (returnToAfterProjectClose === 'payables') {
                 setReopenPayablesSheet(true);
+              } else if (returnToAfterProjectClose === 'outstandingAR') {
+                setReopenARSheet(true);
               }
               setProjectInitialTab(undefined);
               setProjectInitialFinanceSubTab(undefined);

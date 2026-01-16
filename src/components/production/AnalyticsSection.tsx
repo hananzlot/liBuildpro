@@ -17,15 +17,17 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface AnalyticsSectionProps {
-  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables' | 'outstandingAR', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => void;
   reopenPayablesSheet?: boolean;
   onPayablesSheetOpened?: () => void;
+  reopenARSheet?: boolean;
+  onARSheetOpened?: () => void;
   initialTab?: string;
   openPayablesOnLoad?: boolean;
   initialKPI?: string;
 }
 
-export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, initialTab, openPayablesOnLoad, initialKPI }: AnalyticsSectionProps) {
+export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -335,8 +337,9 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             }}
             hidePayablesCloseButton={false}
             openARKPIOnLoad={initialKPI === 'outstandingAR'}
+            reopenARSheet={reopenARSheet}
+            onARSheetOpened={onARSheetOpened}
             onARSheetClose={() => {
-              // Redirect non-admin users to projects page when they close AR sheet opened from sidebar
               if (!isAdmin) {
                 navigate('/production?view=projects');
               }

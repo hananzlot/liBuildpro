@@ -35,7 +35,7 @@ interface CashFlowTabProps {
   payablesWithCashImpact: PayableWithCashImpact[];
   cashFlowTimeline: CashFlowTimelinePoint[];
   scheduledPayments: PayableWithCashImpact[];
-  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables' | 'outstandingAR', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => void;
   onSchedulePayment?: (billId: string, date: Date, amount: number) => void;
   onClearSchedule?: (billId: string) => void;
   onMarkAsPaid?: (billId: string, data: {
@@ -51,6 +51,8 @@ interface CashFlowTabProps {
   onPayablesSheetClose?: () => void;
   hidePayablesCloseButton?: boolean;
   openARKPIOnLoad?: boolean;
+  reopenARSheet?: boolean;
+  onARSheetOpened?: () => void;
   onARSheetClose?: () => void;
 }
 
@@ -102,6 +104,8 @@ export function CashFlowTab({
   onPayablesSheetClose,
   hidePayablesCloseButton,
   openARKPIOnLoad,
+  reopenARSheet,
+  onARSheetOpened,
   onARSheetClose,
 }: CashFlowTabProps) {
   // Track if AR sheet was opened from URL (sidebar navigation)
@@ -136,7 +140,7 @@ export function CashFlowTab({
     }
   }, [openPayablesOnLoad, onPayablesSheetOpened]);
 
-  // Open AR KPI sheet when openARKPIOnLoad is set
+  // Open AR KPI sheet when openARKPIOnLoad is set or reopenARSheet is true
   useEffect(() => {
     if (openARKPIOnLoad) {
       setSelectedKPI('outstandingAR');
@@ -144,6 +148,15 @@ export function CashFlowTab({
       setArOpenedFromUrl(true);
     }
   }, [openARKPIOnLoad]);
+
+  // Reopen AR sheet when returning from project detail
+  useEffect(() => {
+    if (reopenARSheet) {
+      setSelectedKPI('outstandingAR');
+      setKpiSheetOpen(true);
+      onARSheetOpened?.();
+    }
+  }, [reopenARSheet, onARSheetOpened]);
 
   // Handle AR KPI sheet close
   const handleARSheetClose = (open: boolean) => {
@@ -431,7 +444,7 @@ export function CashFlowTab({
           // For AR content, open finance tab with invoices sub-tab and highlight the invoice
           if (selectedKPI === 'outstandingAR' && invoiceId) {
             setKpiSheetOpen(false);
-            onProjectClick?.(projectId, 'finance', undefined, undefined, invoiceId);
+            onProjectClick?.(projectId, 'finance', 'outstandingAR', undefined, invoiceId);
           } else {
             onProjectClick?.(projectId);
           }
