@@ -197,7 +197,15 @@ export default function DocumentPortal() {
 
       const signedAt = new Date().toISOString();
 
-      // Save signature with full audit info
+      // Build field values object for all fields (name, email, date, text)
+      const fieldValues: Record<string, string> = {
+        ...textValuesToUse,
+        _signerName: signerName,
+        _signerEmail: signerEmail || "",
+        _signedDate: signedAt,
+      };
+
+      // Save signature with full audit info including field values
       const { error: sigError } = await supabase.from("document_signatures").insert({
         document_id: data.document.id,
         signer_id: data.currentSigner?.id || null,
@@ -209,7 +217,8 @@ export default function DocumentPortal() {
         ip_address: null, // Would need server-side to capture
         user_agent: navigator.userAgent,
         signed_at: signedAt,
-      });
+        field_values: fieldValues,
+      } as any);
 
       if (sigError) throw sigError;
 
@@ -450,7 +459,10 @@ export default function DocumentPortal() {
               documentUrl={doc.document_url}
               documentName={doc.document_name}
               fields={data.fields}
-              signatures={data.signatures}
+              signatures={data.signatures.map(sig => ({
+                ...sig,
+                field_values: (sig.field_values as Record<string, string>) || {},
+              }))}
             />
           )}
         </div>

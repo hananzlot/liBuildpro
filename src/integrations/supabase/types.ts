@@ -903,6 +903,7 @@ export type Database = {
       document_signatures: {
         Row: {
           document_id: string
+          field_values: Json | null
           id: string
           ip_address: string | null
           signature_data: string
@@ -916,6 +917,7 @@ export type Database = {
         }
         Insert: {
           document_id: string
+          field_values?: Json | null
           id?: string
           ip_address?: string | null
           signature_data: string
@@ -929,6 +931,7 @@ export type Database = {
         }
         Update: {
           document_id?: string
+          field_values?: Json | null
           id?: string
           ip_address?: string | null
           signature_data?: string
