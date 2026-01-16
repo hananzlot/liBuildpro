@@ -246,15 +246,20 @@ export default function Documents() {
         .eq("document_id", uploadedDocId);
 
       // Insert new fields
+      // Note: The editor renders the PDF at scale 2 for quality, so field coordinates
+      // are in that scaled space. We divide by 2 to normalize to PDF coordinates (scale 1).
+      const PDF_EDITOR_SCALE = 2;
+      
       if (signatureFields.length > 0) {
         const fieldsToInsert = signatureFields.map(f => ({
           document_id: uploadedDocId,
           signer_id: signerIdMap.get(f.signerId) || null,
           page_number: f.pageNumber,
-          x_position: f.x,
-          y_position: f.y,
-          width: f.width,
-          height: f.height,
+          // Normalize coordinates from editor scale (2x) to PDF coordinates (1x)
+          x_position: f.x / PDF_EDITOR_SCALE,
+          y_position: f.y / PDF_EDITOR_SCALE,
+          width: f.width / PDF_EDITOR_SCALE,
+          height: f.height / PDF_EDITOR_SCALE,
           field_type: f.fieldType,
           is_required: f.isRequired,
           field_label: f.fieldLabel || null,
@@ -469,6 +474,9 @@ export default function Documents() {
     }
     
     // Load existing fields
+    // Note: Fields are stored in PDF coordinates (scale 1), but the editor uses scale 2
+    const PDF_EDITOR_SCALE = 2;
+    
     const { data: dbFields } = await supabase
       .from("document_signature_fields")
       .select("*, document_signers(signer_name)")
@@ -480,10 +488,11 @@ export default function Documents() {
         signerId: f.signer_id || "",
         signerName: f.document_signers?.signer_name || "Unknown",
         pageNumber: f.page_number,
-        x: f.x_position,
-        y: f.y_position,
-        width: f.width,
-        height: f.height,
+        // Convert from PDF coordinates (1x) to editor scale (2x)
+        x: f.x_position * PDF_EDITOR_SCALE,
+        y: f.y_position * PDF_EDITOR_SCALE,
+        width: f.width * PDF_EDITOR_SCALE,
+        height: f.height * PDF_EDITOR_SCALE,
         fieldType: f.field_type as any,
         isRequired: f.is_required,
         fieldLabel: f.field_label || undefined,
