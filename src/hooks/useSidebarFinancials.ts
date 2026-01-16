@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SidebarFinancials {
-  arDueByFocusDay: number;
+  totalUnpaidAR: number;
   apDueByFocusDay: number;
   focusDate: Date;
   isLoading: boolean;
@@ -57,24 +57,15 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
   const focusDate = getNextFocusDay(today, focusDayOfWeek);
   const focusDateStr = focusDate.toISOString().split('T')[0];
 
-  // Fetch AR (invoices with open balance) due by focus day
-  // AR is due based on payment phase due_date
+  // Fetch ALL unpaid AR (total open balance across all invoices)
   const { data: arData, isLoading: arLoading } = useQuery({
-    queryKey: ["sidebar-ar-due", focusDateStr],
+    queryKey: ["sidebar-ar-total"],
     queryFn: async () => {
-      // Get invoices with open balance that have payment phases due by focus day
+      // Get ALL invoices with open balance (no date filter)
       const { data: invoices, error } = await supabase
         .from("project_invoices")
-        .select(`
-          id,
-          open_balance,
-          payment_phase_id,
-          project_payment_phases!inner (
-            due_date
-          )
-        `)
-        .gt("open_balance", 0)
-        .lte("project_payment_phases.due_date", focusDateStr);
+        .select("id, open_balance")
+        .gt("open_balance", 0);
 
       if (error) {
         console.error("Error fetching AR data:", error);
@@ -84,7 +75,6 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
       return invoices?.reduce((sum, inv) => sum + (Number(inv.open_balance) || 0), 0) || 0;
     },
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
-    enabled: focusDaySetting !== undefined,
   });
 
   // Fetch AP (bills with scheduled payments) due by focus day
@@ -116,7 +106,7 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
   });
 
   return {
-    arDueByFocusDay: arData || 0,
+    totalUnpaidAR: arData || 0,
     apDueByFocusDay: apData || 0,
     focusDate,
     isLoading: arLoading || apLoading,

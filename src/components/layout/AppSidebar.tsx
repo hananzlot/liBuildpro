@@ -120,7 +120,7 @@ const navSections: NavSection[] = [
         title: "Analytics", 
         url: "/production?view=analytics", 
         icon: BarChart3,
-        roles: ['super_admin', 'admin', 'production']
+        roles: ['super_admin', 'admin']
       },
       { 
         title: "Outstanding AR", 
@@ -224,7 +224,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const navigate = useNavigate();
   const { user, profile, isAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
   const { versionString, version } = useAppVersion();
-  const { arDueByFocusDay, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
+  const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
   const collapsed = state === "collapsed";
 
   const closeSidebar = () => {
@@ -443,8 +443,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     
     // Build display title with dynamic suffix for AR/AP
     const getDynamicAmount = () => {
-      if (item.dynamicSuffix === 'ar' && arDueByFocusDay > 0) {
-        return formatCompactCurrency(arDueByFocusDay);
+      if (item.dynamicSuffix === 'ar' && totalUnpaidAR > 0) {
+        return formatCompactCurrency(totalUnpaidAR);
       }
       if (item.dynamicSuffix === 'ap' && apDueByFocusDay > 0) {
         return formatCompactCurrency(apDueByFocusDay);
@@ -459,7 +459,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       if (!dynamicAmount) return <span>{item.title}</span>;
       return (
         <span>
-          {item.title} <span className="text-orange-500">({dynamicAmount})</span>
+          {item.title} <span className="text-green-700 dark:text-green-500">({dynamicAmount})</span>
         </span>
       );
     };
