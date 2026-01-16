@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface AnalyticsSectionProps {
-  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history') => void;
+  onProjectClick?: (projectId: string, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => void;
   reopenPayablesSheet?: boolean;
   onPayablesSheetOpened?: () => void;
   initialTab?: string;
@@ -331,7 +331,10 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
           <AccountsReceivableTab
             invoices={invoicesWithAging}
             totals={totals}
-            onProjectClick={onProjectClick}
+            onProjectClick={(projectId, invoiceId) => {
+              // Open project with finance tab, invoices sub-tab, and highlight the invoice
+              onProjectClick?.(projectId, 'finance', undefined, undefined, invoiceId);
+            }}
           />
         </TabsContent>
 

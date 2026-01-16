@@ -241,6 +241,7 @@ export default function Production() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [projectInitialTab, setProjectInitialTab] = useState<string | undefined>(undefined);
   const [projectInitialFinanceSubTab, setProjectInitialFinanceSubTab] = useState<'bills' | 'history' | undefined>(undefined);
+  const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null);
   const [returnToAfterProjectClose, setReturnToAfterProjectClose] = useState<'payables' | null>(null);
   const [reopenPayablesSheet, setReopenPayablesSheet] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
@@ -1253,10 +1254,11 @@ export default function Production() {
     return toTitleCase(fullName);
   };
 
-  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history') => {
+  const handleOpenProject = (project: Project, initialTab?: string, returnTo?: 'payables', financeSubTab?: 'bills' | 'history', highlightInvoiceId?: string) => {
     setProjectInitialTab(initialTab);
     setProjectInitialFinanceSubTab(financeSubTab);
     setReturnToAfterProjectClose(returnTo || null);
+    setHighlightedInvoiceId(highlightInvoiceId || null);
     setSelectedProject(project);
     setDetailSheetOpen(true);
   };
@@ -2313,10 +2315,10 @@ export default function Production() {
 
           {activeView === 'analytics' && (
             <AnalyticsSection 
-              onProjectClick={(projectId, initialTab, returnTo, financeSubTab) => {
+              onProjectClick={(projectId, initialTab, returnTo, financeSubTab, highlightInvoiceId) => {
                 const project = projects.find(p => p.id === projectId);
                 if (project) {
-                  handleOpenProject(project, initialTab, returnTo, financeSubTab);
+                  handleOpenProject(project, initialTab, returnTo, financeSubTab, highlightInvoiceId);
                 }
               }}
               reopenPayablesSheet={reopenPayablesSheet}
@@ -2360,6 +2362,7 @@ export default function Production() {
               setProjectInitialTab(undefined);
               setProjectInitialFinanceSubTab(undefined);
               setReturnToAfterProjectClose(null);
+              setHighlightedInvoiceId(null);
             }
           }}
           onUpdate={refetch}
@@ -2367,6 +2370,7 @@ export default function Production() {
           onBillDialogOpened={() => setPendingBillDialogOpen(false)}
           initialTab={projectInitialTab}
           initialFinanceSubTab={projectInitialFinanceSubTab}
+          highlightInvoiceId={highlightedInvoiceId}
         />
 
         {/* New Project Dialog */}
