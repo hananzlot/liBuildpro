@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -313,6 +313,10 @@ export default function AdminSettings() {
     ["default_terms_and_conditions"].includes(s.setting_key)
   );
 
+  const payablesReceivablesSettings = settings?.filter((s) =>
+    ["payment_focus_day"].includes(s.setting_key)
+  );
+
   const formatLabel = (key: string) => {
     return key
       .replace(/_/g, " ")
@@ -397,7 +401,7 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
@@ -409,6 +413,10 @@ export default function AdminSettings() {
             <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               <span className="hidden sm:inline">Chat</span>
+            </TabsTrigger>
+            <TabsTrigger value="payables" className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">AR/AP</span>
             </TabsTrigger>
             <TabsTrigger value="cleanup" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
@@ -550,6 +558,64 @@ export default function AdminSettings() {
           {/* Email Templates Tab */}
           <TabsContent value="emails" className="mt-6">
             <EmailTemplatesManager />
+          </TabsContent>
+
+          {/* Payables & Receivables Tab */}
+          <TabsContent value="payables" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Payables & Receivables Settings
+                </CardTitle>
+                <CardDescription>
+                  Configure how AR and AP amounts are calculated and displayed in the sidebar
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {payablesReceivablesSettings?.map((setting) => (
+                  <div key={setting.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor={setting.setting_key}>Payment Focus Day</Label>
+                      {hasChanges(setting.setting_key) && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave(setting.setting_key)}
+                          disabled={updateSetting.isPending}
+                        >
+                          {updateSetting.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Save className="h-3 w-3 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      )}
+                    </div>
+                    <Select
+                      value={getValue(setting)}
+                      onValueChange={(value) => handleChange(setting.setting_key, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select day of week" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Sunday</SelectItem>
+                        <SelectItem value="1">Monday</SelectItem>
+                        <SelectItem value="2">Tuesday</SelectItem>
+                        <SelectItem value="3">Wednesday</SelectItem>
+                        <SelectItem value="4">Thursday</SelectItem>
+                        <SelectItem value="5">Friday</SelectItem>
+                        <SelectItem value="6">Saturday</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      The sidebar will show AR/AP amounts due by this day each week. If today is the focus day, it shows today's dues. Otherwise, it shows dues by the next occurrence of this day.
+                    </p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Chat Management Tab */}
