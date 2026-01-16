@@ -128,6 +128,13 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
     }
   }, [open, initialTab]);
 
+  // Automatically open finance tab when highlighting an invoice
+  useEffect(() => {
+    if (open && highlightInvoiceId) {
+      setActiveTab("finance");
+    }
+  }, [open, highlightInvoiceId]);
+
   const handleNavigateToSubcontractors = useCallback(() => {
     onOpenChange(false); // Close the sheet first
     navigate(`/production?view=subcontractors&returnToProject=${project?.id}`);
