@@ -63,7 +63,34 @@ interface SignatureField {
   fieldLabel?: string;
 }
 
+// DB shapes for signed-preview overlay
+interface DbSignatureField {
+  id: string;
+  page_number: number;
+  x_position: number;
+  y_position: number;
+  width: number;
+  height: number;
+  field_type: string;
+  signer_id: string | null;
+  is_required: boolean;
+  field_label: string | null;
+}
+
+interface DbDocumentSignature {
+  id: string;
+  signer_id: string | null;
+  signer_name: string;
+  signer_email: string | null;
+  signature_type: string;
+  signature_data: string;
+  signature_font: string | null;
+  signed_at: string;
+  field_values: Record<string, string> | null;
+}
+
 const statusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+
   pending: { label: "Pending", color: "bg-gray-500", icon: Clock },
   sent: { label: "Sent", color: "bg-blue-500", icon: Send },
   viewed: { label: "Viewed", color: "bg-purple-500", icon: Eye },
@@ -449,7 +476,44 @@ export default function Documents() {
     setSendDialogOpen(true);
   };
 
+  const handleViewSigned = useCallback(async (doc: SignatureDocument) => {
+    setSignedViewOpen(true);
+    setSignedViewDoc(doc);
+    setSignedViewLoading(true);
+
+    try {
+      const [fieldsRes, sigRes] = await Promise.all([
+        supabase
+          .from("document_signature_fields")
+          .select("*")
+          .eq("document_id", doc.id),
+        supabase
+          .from("document_signatures")
+          .select("*")
+          .eq("document_id", doc.id),
+      ]);
+
+      if (fieldsRes.error) throw fieldsRes.error;
+      if (sigRes.error) throw sigRes.error;
+
+      setSignedViewFields((fieldsRes.data || []) as DbSignatureField[]);
+      setSignedViewSignatures(
+        ((sigRes.data || []) as any[]).map((s) => ({
+          ...s,
+          field_values: (s.field_values as Record<string, string>) || {},
+        })) as DbDocumentSignature[]
+      );
+    } catch (err: any) {
+      const msg = typeof err?.message === "string" ? err.message : "Unknown error";
+      toast.error(`Failed to load signed view: ${msg}`);
+      setSignedViewOpen(false);
+    } finally {
+      setSignedViewLoading(false);
+    }
+  }, []);
+
   const handleEditClick = async (doc: SignatureDocument) => {
+
     setEditingDocument(doc);
     setUploadedDocId(doc.id);
     setUploadedDocUrl(doc.document_url);
@@ -747,10 +811,21 @@ export default function Documents() {
                               variant="ghost"
                               size="icon"
                               onClick={() => window.open(doc.document_url, "_blank")}
-                              title="View Document"
+                              title="View Original PDF"
                             >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
+                            {(docStatus === "signed" || signedSigners > 0) && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleViewSigned(doc)}
+                                title="View Signed Document"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+
                             {canEdit && (
                               <Button
                                 variant="ghost"
@@ -820,8 +895,47 @@ export default function Documents() {
         </Card>
       </div>
 
+      {/* Signed Document Preview Dialog */}
+      <Dialog
+        open={signedViewOpen}
+        onOpenChange={(open) => {
+          setSignedViewOpen(open);
+          if (!open) {
+            setSignedViewDoc(null);
+            setSignedViewFields([]);
+            setSignedViewSignatures([]);
+            setSignedViewLoading(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Signed Document</DialogTitle>
+            <DialogDescription>
+              This view shows signatures/fields as overlays on the original PDF.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="overflow-auto" style={{ maxHeight: "calc(95vh - 140px)" }}>
+            {signedViewLoading ? (
+              <div className="min-h-[40vh] flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : signedViewDoc ? (
+              <SignedDocumentView
+                documentUrl={signedViewDoc.document_url}
+                documentName={signedViewDoc.document_name}
+                fields={signedViewFields as any}
+                signatures={signedViewSignatures as any}
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Multi-step Upload/Edit Dialog */}
-      <Dialog open={uploadDialogOpen} onOpenChange={(open) => { 
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => {
+
         if (!open) { resetForm(); }
         setUploadDialogOpen(open);
       }}>
