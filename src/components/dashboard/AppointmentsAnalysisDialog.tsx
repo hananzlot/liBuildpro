@@ -8,10 +8,11 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft, MapPin, Briefcase, Mail, Phone as PhoneIcon, Download } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Megaphone, ChevronLeft, MapPin, Briefcase, Mail, Phone as PhoneIcon, Download, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
 import { toast } from "sonner";
+import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 
 interface Appointment {
   ghl_id: string;
@@ -66,6 +67,10 @@ interface AppointmentsAnalysisDialogProps {
   contacts: Contact[];
   opportunities: Opportunity[];
   users: User[];
+  conversations?: Array<{
+    ghl_id: string;
+    contact_id: string | null;
+  }>;
 }
 
 // Helper to format phone numbers
@@ -99,8 +104,11 @@ export function AppointmentsAnalysisDialog({
   contacts,
   opportunities,
   users,
+  conversations = [],
 }: AppointmentsAnalysisDialogProps) {
   const [detailView, setDetailView] = useState<DetailView>(null);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
+  const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
@@ -535,10 +543,18 @@ export function AppointmentsAnalysisDialog({
                   const addressFromAppt = apt.address;
                   const address = addressFromOpp || addressFromCustom || addressFromAppt;
 
+                  const handleCardClick = () => {
+                    if (opp) {
+                      setSelectedOpportunity(opp);
+                      setOpportunitySheetOpen(true);
+                    }
+                  };
+
                   return (
                     <div 
                       key={apt.ghl_id} 
-                      className="p-4 rounded-lg border bg-card"
+                      className={`p-4 rounded-lg border bg-card transition-colors ${opp ? 'cursor-pointer hover:bg-accent/50' : ''}`}
+                      onClick={handleCardClick}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -603,13 +619,18 @@ export function AppointmentsAnalysisDialog({
                           </div>
                         </div>
                         
-                        {/* Right side - rep and date */}
-                        <div className="text-right text-sm shrink-0">
-                          <p className="text-muted-foreground font-medium">{repName}</p>
-                          {apt.start_time && (
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(apt.start_time).toLocaleDateString()}
-                            </p>
+                        {/* Right side - rep, date, and chevron */}
+                        <div className="flex items-center gap-2">
+                          <div className="text-right text-sm shrink-0">
+                            <p className="text-muted-foreground font-medium">{repName}</p>
+                            {apt.start_time && (
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(apt.start_time).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                          {opp && (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
                         </div>
                       </div>
@@ -728,6 +749,18 @@ export function AppointmentsAnalysisDialog({
           )}
         </ScrollArea>
       </DialogContent>
+
+      {/* Opportunity Detail Sheet */}
+      <OpportunityDetailSheet
+        opportunity={selectedOpportunity as any}
+        appointments={appointments as any}
+        contacts={contacts as any}
+        users={users as any}
+        conversations={conversations as any}
+        open={opportunitySheetOpen}
+        onOpenChange={setOpportunitySheetOpen}
+        allOpportunities={opportunities as any}
+      />
     </Dialog>
   );
 }
