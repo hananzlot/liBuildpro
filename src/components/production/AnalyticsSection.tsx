@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +27,7 @@ interface AnalyticsSectionProps {
 
 export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, initialTab, openPayablesOnLoad, initialKPI }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   
   // Check if user can view profitability tab (admin only, not production-only users)
@@ -325,8 +327,14 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             onMarkAsPaid={handleMarkAsPaid}
             reopenPayablesSheet={reopenPayablesSheet || openPayablesOnLoad}
             onPayablesSheetOpened={onPayablesSheetOpened}
-            hideCloseButton={!isAdmin}
+            hidePayablesCloseButton={!isAdmin}
             openARKPIOnLoad={initialKPI === 'outstandingAR'}
+            onARSheetClose={() => {
+              // Redirect non-admin users to projects page when they close AR sheet opened from sidebar
+              if (!isAdmin) {
+                navigate('/production?view=projects');
+              }
+            }}
           />
         </TabsContent>
 
