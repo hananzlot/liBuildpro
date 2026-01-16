@@ -513,7 +513,7 @@ export function AppointmentsAnalysisDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh]">
+      <DialogContent className="max-w-4xl max-h-[85vh]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
