@@ -495,6 +495,18 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setActiveTab("customer");
       return false;
     }
+    if (!formData.customer_email?.trim()) {
+      toast.error("Customer email is required");
+      setActiveTab("customer");
+      return false;
+    }
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.customer_email.trim())) {
+      toast.error("Please enter a valid email address");
+      setActiveTab("customer");
+      return false;
+    }
     if (!formData.job_address?.trim()) {
       toast.error("Job site address is required");
       setActiveTab("customer");
@@ -875,13 +887,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="customer_email">Email</Label>
+                        <Label htmlFor="customer_email">Email *</Label>
                         <Input
                           id="customer_email"
                           type="email"
                           value={formData.customer_email}
                           onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
                           placeholder="john@example.com"
+                          required
                         />
                       </div>
                       <div className="space-y-2">
