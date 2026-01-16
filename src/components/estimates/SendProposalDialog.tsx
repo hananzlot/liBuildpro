@@ -37,19 +37,30 @@ export function SendProposalDialog({
   isResend = false,
 }: SendProposalDialogProps) {
   const queryClient = useQueryClient();
-  const [email, setEmail] = useState(customerEmail || '');
-  const [subject, setSubject] = useState(
-    isResend 
-      ? `Reminder: Your Proposal from Capro Builders`
-      : `Your Proposal from Capro Builders`
-  );
-  const [message, setMessage] = useState(
-    isResend
-      ? `Hi ${customerName},\n\nThis is a friendly reminder about your proposal. Please find it available for review through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
-      : `Hi ${customerName},\n\nPlease find your proposal attached. You can review, comment, and sign it directly through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
-  );
+  const [email, setEmail] = useState('');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
   const [portalLink, setPortalLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Reset form when dialog opens with new data
+  useEffect(() => {
+    if (open) {
+      setEmail(customerEmail || '');
+      setSubject(
+        isResend 
+          ? `Reminder: Your Proposal from Capro Builders`
+          : `Your Proposal from Capro Builders`
+      );
+      setMessage(
+        isResend
+          ? `Hi ${customerName},\n\nThis is a friendly reminder about your proposal. Please find it available for review through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
+          : `Hi ${customerName},\n\nPlease find your proposal attached. You can review, comment, and sign it directly through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
+      );
+      setPortalLink(null);
+      setCopied(false);
+    }
+  }, [open, customerEmail, customerName, isResend]);
 
   // Check if estimate already has a project
   const { data: estimateData } = useQuery({
