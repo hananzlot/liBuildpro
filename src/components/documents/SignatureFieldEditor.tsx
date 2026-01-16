@@ -805,12 +805,6 @@ export function SignatureFieldEditor({
                 onCheckedChange={setFieldIsRequired}
               />
             </div>
-
-            <Button type="button" onClick={() => addField()} className="w-full" size="sm">
-              <Plus className="h-4 w-4 mr-1" />
-              Add Field at Center
-            </Button>
-
             <Button
               type="button"
               onClick={deleteSelectedObject}
