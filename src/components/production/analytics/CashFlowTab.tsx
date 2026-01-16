@@ -47,6 +47,7 @@ interface CashFlowTabProps {
   }) => void;
   reopenPayablesSheet?: boolean;
   onPayablesSheetOpened?: () => void;
+  hideCloseButton?: boolean;
 }
 
 const getCashStatusColor = (status: string) => {
@@ -93,6 +94,7 @@ export function CashFlowTab({
   onMarkAsPaid,
   reopenPayablesSheet,
   onPayablesSheetOpened,
+  hideCloseButton,
 }: CashFlowTabProps) {
   // Sheet states
   const [selectedKPI, setSelectedKPI] = useState<CashFlowKPIType | null>(null);
@@ -392,6 +394,7 @@ export function CashFlowTab({
         }}
         onSchedulePayment={handleSchedulePayment}
         onMarkAsPaid={handleMarkAsPaid}
+        hideCloseButton={hideCloseButton}
       />
 
       <PaymentScheduleSheet

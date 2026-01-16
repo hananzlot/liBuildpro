@@ -324,6 +324,7 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             onMarkAsPaid={handleMarkAsPaid}
             reopenPayablesSheet={reopenPayablesSheet || openPayablesOnLoad}
             onPayablesSheetOpened={onPayablesSheetOpened}
+            hideCloseButton={!isAdmin}
           />
         </TabsContent>
 

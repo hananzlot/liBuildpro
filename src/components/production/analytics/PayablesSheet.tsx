@@ -46,6 +46,7 @@ interface PayablesSheetProps {
   onBillClick?: (projectId: string, billId: string) => void;
   onSchedulePayment?: (payable: PayableWithCashImpact, scheduledDateFilter?: Date) => void;
   onMarkAsPaid?: (payable: PayableWithCashImpact) => void;
+  hideCloseButton?: boolean;
 }
 
 type SortField = 'project_number' | 'vendor' | 'amount_due' | 'project_current_cash' | 'cash_after_payment' | 'scheduled_payment_date';
@@ -104,6 +105,7 @@ export function PayablesSheet({
   onBillClick,
   onSchedulePayment,
   onMarkAsPaid,
+  hideCloseButton,
 }: PayablesSheetProps) {
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -490,8 +492,8 @@ export function PayablesSheet({
   }, [filteredBillPayments]);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-[85rem] overflow-y-auto">
+    <Sheet open={open} onOpenChange={hideCloseButton ? undefined : onOpenChange}>
+      <SheetContent className="w-full sm:max-w-[85rem] overflow-y-auto" hideCloseButton={hideCloseButton}>
         <SheetHeader className="print-header">
           <div className="flex items-center justify-between">
             <div>

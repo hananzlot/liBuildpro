@@ -905,6 +905,8 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         // Also invalidate payments since we may have deleted associated payments
         queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
         queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
+        // Invalidate sidebar AR total
+        queryClient.invalidateQueries({ queryKey: ["sidebar-ar-total"] });
       } else if (deleteTarget?.type === "payment") {
         queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
       } else if (deleteTarget?.type === "bill") {
