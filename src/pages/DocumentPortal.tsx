@@ -183,12 +183,14 @@ export default function DocumentPortal() {
     mutationFn: async (params?: { 
       sigData?: { type: "typed" | "drawn"; data: string; font?: string };
       textValues?: Record<string, string>;
+      initData?: { type: "typed" | "drawn"; data: string; font?: string } | null;
     }) => {
       if (!data?.document) throw new Error("Document not found");
       
       // Use passed signature data or the state
       const sigToUse = params?.sigData || signatureData;
       const textValuesToUse = params?.textValues || textFieldValues;
+      const initToUse = params?.initData;
       
       if (!sigToUse) {
         throw new Error("Signature is required");
@@ -217,6 +219,9 @@ export default function DocumentPortal() {
           signatureFont: sigToUse.font || null,
           userAgent: navigator.userAgent,
           fieldValues: fieldValues,
+          initialsType: initToUse?.type || null,
+          initialsData: initToUse?.data || null,
+          initialsFont: initToUse?.font || null,
         },
       });
 
@@ -543,10 +548,11 @@ export default function DocumentPortal() {
   // Handler for the new signing view - uses the memoized callback
   const handleSignWithView = (
     sigData: { type: "typed" | "drawn"; data: string; font?: string },
-    textValues: Record<string, string>
+    textValues: Record<string, string>,
+    initData?: { type: "typed" | "drawn"; data: string; font?: string } | null
   ) => {
     setTextFieldValues(textValues);
-    signMutation.mutate({ sigData, textValues });
+    signMutation.mutate({ sigData, textValues, initData });
   };
 
   // Use new overlay signing view when fields are positioned on the document
