@@ -617,10 +617,14 @@ export function SignatureFieldEditor({
     addFieldRef.current = addField;
   }, [addField]);
 
-  // Add native DOM drop event listeners to the canvas wrapper (more accurate positioning)
+  // Add native DOM drop event listeners to the actual Fabric canvas element (most accurate positioning)
   useEffect(() => {
-    const wrapper = canvasWrapperRef.current;
-    if (!wrapper) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !canvasReady) return;
+    
+    // Get the actual canvas element that Fabric renders to
+    const upperCanvas = canvas.getElement();
+    if (!upperCanvas) return;
 
     const handleDrop = (e: DragEvent) => {
       e.preventDefault();
@@ -628,8 +632,8 @@ export function SignatureFieldEditor({
       const fieldType = e.dataTransfer?.getData("fieldType") as keyof typeof FIELD_TYPE_CONFIG;
       if (!fieldType || !FIELD_TYPE_CONFIG[fieldType]) return;
       
-      // Get drop position relative to the canvas wrapper element
-      const rect = wrapper.getBoundingClientRect();
+      // Get drop position relative to the actual canvas element
+      const rect = upperCanvas.getBoundingClientRect();
       const dropX = e.clientX - rect.left;
       const dropY = e.clientY - rect.top;
       
@@ -644,25 +648,42 @@ export function SignatureFieldEditor({
       }
     };
 
-    wrapper.addEventListener('drop', handleDrop, true); // Use capture phase
-    wrapper.addEventListener('dragover', handleDragOver, true);
+    // Listen on the canvas element directly
+    upperCanvas.addEventListener('drop', handleDrop, true);
+    upperCanvas.addEventListener('dragover', handleDragOver, true);
+    
+    // Also listen on the wrapper for cases where drop lands slightly outside
+    const wrapper = canvasWrapperRef.current;
+    if (wrapper) {
+      wrapper.addEventListener('drop', handleDrop, true);
+      wrapper.addEventListener('dragover', handleDragOver, true);
+    }
 
     return () => {
-      wrapper.removeEventListener('drop', handleDrop, true);
-      wrapper.removeEventListener('dragover', handleDragOver, true);
+      upperCanvas.removeEventListener('drop', handleDrop, true);
+      upperCanvas.removeEventListener('dragover', handleDragOver, true);
+      if (wrapper) {
+        wrapper.removeEventListener('drop', handleDrop, true);
+        wrapper.removeEventListener('dragover', handleDragOver, true);
+      }
     };
-  }, []);
+  }, [canvasReady]);
 
   // Handle drop on canvas (React fallback)
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const fieldType = e.dataTransfer.getData("fieldType") as keyof typeof FIELD_TYPE_CONFIG;
     if (!fieldType || !FIELD_TYPE_CONFIG[fieldType]) return;
     
-    // Get drop position relative to canvas wrapper
-    const rect = canvasWrapperRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    // Get drop position relative to the Fabric canvas upper-canvas element for accuracy
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
     
+    const upperCanvas = canvas.getElement();
+    if (!upperCanvas) return;
+    
+    const rect = upperCanvas.getBoundingClientRect();
     const dropX = e.clientX - rect.left;
     const dropY = e.clientY - rect.top;
     
