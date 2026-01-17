@@ -22,6 +22,9 @@ serve(async (req) => {
       signatureFont,
       userAgent,
       fieldValues,
+      initialsType,
+      initialsData,
+      initialsFont,
     } = await req.json();
 
     if (!documentId || !signerName || !signatureData) {
@@ -59,6 +62,15 @@ serve(async (req) => {
 
     const signedAt = new Date().toISOString();
 
+    // Merge field values with initials data if present
+    const mergedFieldValues = {
+      ...(fieldValues || {}),
+      ...(initialsData ? {
+        _initialsType: initialsType,
+        _initialsData: initialsData,
+        _initialsFont: initialsFont,
+      } : {}),
+    };
     // Insert signature with IP address
     const { data: signature, error: sigError } = await supabase
       .from('document_signatures')
@@ -73,7 +85,7 @@ serve(async (req) => {
         ip_address: ipAddress,
         user_agent: userAgent || null,
         signed_at: signedAt,
-        field_values: fieldValues || {},
+        field_values: mergedFieldValues,
       })
       .select()
       .single();

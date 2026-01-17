@@ -51,7 +51,7 @@ interface DocumentSigningViewProps {
   signerEmail: string;
   onSignerNameChange: (name: string) => void;
   onSignerEmailChange: (email: string) => void;
-  onSign: (signatureData: { type: "typed" | "drawn"; data: string; font?: string }, textFieldValues: Record<string, string>) => void;
+  onSign: (signatureData: { type: "typed" | "drawn"; data: string; font?: string }, textFieldValues: Record<string, string>, initialsData?: { type: "typed" | "drawn"; data: string; font?: string } | null) => void;
   onDecline: () => void;
   isSubmitting: boolean;
 }
@@ -102,8 +102,10 @@ export function DocumentSigningView({
   // Field completion state
   const [textFieldValues, setTextFieldValues] = useState<Record<string, string>>({});
   const [signatureData, setSignatureData] = useState<{ type: "typed" | "drawn"; data: string; font?: string } | null>(null);
+  const [initialsData, setInitialsData] = useState<{ type: "typed" | "drawn"; data: string; font?: string } | null>(null);
   const [activeFieldIndex, setActiveFieldIndex] = useState(0);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [showInitialsModal, setShowInitialsModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Filter fields for current signer and sort by page, then y position (top to bottom)
@@ -121,14 +123,15 @@ export function DocumentSigningView({
   const completedFields = useMemo(() => {
     let count = 0;
     myFields.forEach(field => {
-      if ((field.field_type === "signature" || field.field_type === "initials") && signatureData) count++;
+      if (field.field_type === "signature" && signatureData) count++;
+      else if (field.field_type === "initials" && initialsData) count++;
       else if (field.field_type === "name" && signerName) count++;
       else if (field.field_type === "email" && signerEmail) count++;
       else if (field.field_type === "date") count++; // Auto-filled
       else if (field.field_type === "text" && textFieldValues[field.id]) count++;
     });
     return count;
-  }, [myFields, signatureData, signerName, signerEmail, textFieldValues]);
+  }, [myFields, signatureData, initialsData, signerName, signerEmail, textFieldValues]);
 
   const progress = myFields.length > 0 ? (completedFields / myFields.length) * 100 : 0;
 
@@ -233,7 +236,7 @@ export function DocumentSigningView({
       case "signature":
         return signatureData ? "✓ Signed" : null;
       case "initials":
-        return signatureData ? "✓ Initialed" : null;
+        return initialsData ? "✓ Initialed" : null;
       case "name":
         return signerName || null;
       case "email":
@@ -245,7 +248,7 @@ export function DocumentSigningView({
       default:
         return null;
     }
-  }, [signatureData, signerName, signerEmail, textFieldValues]);
+  }, [signatureData, initialsData, signerName, signerEmail, textFieldValues]);
 
   // Check if field is complete
   const isFieldComplete = useCallback((field: SignatureField): boolean => {
@@ -258,8 +261,10 @@ export function DocumentSigningView({
     setActiveFieldIndex(fieldIndex);
     const field = myFields[fieldIndex];
     
-    if (field.field_type === "signature" || field.field_type === "initials") {
+    if (field.field_type === "signature") {
       setShowSignatureModal(true);
+    } else if (field.field_type === "initials") {
+      setShowInitialsModal(true);
     }
   }, [myFields]);
 
@@ -269,8 +274,10 @@ export function DocumentSigningView({
     if (nextIncompleteIndex !== -1) {
       setActiveFieldIndex(nextIncompleteIndex);
       const nextField = myFields[nextIncompleteIndex];
-      if (nextField.field_type === "signature" || nextField.field_type === "initials") {
+      if (nextField.field_type === "signature") {
         setShowSignatureModal(true);
+      } else if (nextField.field_type === "initials") {
+        setShowInitialsModal(true);
       }
     } else {
       // All done - find first incomplete if any
@@ -306,6 +313,13 @@ export function DocumentSigningView({
     advanceToNextField();
   }, [advanceToNextField]);
 
+  // Handle initials complete
+  const handleInitialsComplete = useCallback((data: { type: "typed" | "drawn"; data: string; font?: string }) => {
+    setInitialsData(data);
+    setShowInitialsModal(false);
+    advanceToNextField();
+  }, [advanceToNextField]);
+
   // Validate and submit
   const handleSubmit = useCallback(() => {
     const errors: string[] = [];
@@ -317,9 +331,16 @@ export function DocumentSigningView({
       }
     });
 
-    // Must have signature
-    if (!signatureData) {
+    // Must have signature if there are signature fields
+    const hasSignatureFields = myFields.some(f => f.field_type === "signature");
+    if (hasSignatureFields && !signatureData) {
       errors.push("Signature is required");
+    }
+
+    // Must have initials if there are required initials fields
+    const hasRequiredInitialsFields = requiredFields.some(f => f.field_type === "initials");
+    if (hasRequiredInitialsFields && !initialsData) {
+      errors.push("Initials are required");
     }
 
     // Must have name
@@ -333,8 +354,10 @@ export function DocumentSigningView({
       const firstIncomplete = myFields.findIndex(f => !isFieldComplete(f) && f.is_required);
       if (firstIncomplete !== -1) {
         setActiveFieldIndex(firstIncomplete);
-        if (myFields[firstIncomplete].field_type === "signature" || myFields[firstIncomplete].field_type === "initials") {
+        if (myFields[firstIncomplete].field_type === "signature") {
           setShowSignatureModal(true);
+        } else if (myFields[firstIncomplete].field_type === "initials") {
+          setShowInitialsModal(true);
         }
       }
       toast.error("Please complete all required fields");
@@ -342,8 +365,8 @@ export function DocumentSigningView({
     }
 
     setValidationErrors([]);
-    onSign(signatureData!, textFieldValues);
-  }, [requiredFields, isFieldComplete, signatureData, signerName, myFields, onSign, textFieldValues]);
+    onSign(signatureData!, textFieldValues, initialsData);
+  }, [requiredFields, isFieldComplete, signatureData, initialsData, signerName, myFields, onSign, textFieldValues]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -517,9 +540,9 @@ export function DocumentSigningView({
                           }}
                           onClick={() => handleFieldClick(globalIdx)}
                         >
-                          <div className="absolute inset-0 p-1 flex flex-col">
+                          <div className="absolute inset-0 p-1 flex flex-col overflow-hidden">
                             {/* Field header */}
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                               <Icon className="h-3 w-3" />
                               <span className="truncate">
                                 {field.field_label || FIELD_TYPE_LABELS[field.field_type]}
@@ -545,24 +568,30 @@ export function DocumentSigningView({
                                     advanceToNextField();
                                   }
                                 }}
-                                className="h-6 text-sm mt-1"
+                                className="flex-1 min-h-0 h-auto text-sm px-1 py-0"
                                 placeholder={`Enter ${FIELD_TYPE_LABELS[field.field_type].toLowerCase()}`}
                               />
                             ) : (
-                              <div className="flex-1 flex items-center justify-center text-sm">
+                              <div className="flex-1 min-h-0 flex items-center justify-center text-sm overflow-hidden">
                                 {value ? (
-                                  (field.field_type === "signature" || field.field_type === "initials") && signatureData ? (
+                                  field.field_type === "signature" && signatureData ? (
                                     signatureData.type === "drawn" ? (
-                                      <img src={signatureData.data} alt={field.field_type === "initials" ? "Initials" : "Signature"} className="max-h-full max-w-full object-contain" />
+                                      <img src={signatureData.data} alt="Signature" className="max-h-full max-w-full object-contain" />
                                     ) : (
                                       <span style={{ fontFamily: signatureData.font || "cursive" }} className="text-lg">
-                                        {field.field_type === "initials" 
-                                          ? signatureData.data.split(' ').map(w => w[0]).join('').toUpperCase()
-                                          : signatureData.data}
+                                        {signatureData.data}
+                                      </span>
+                                    )
+                                  ) : field.field_type === "initials" && initialsData ? (
+                                    initialsData.type === "drawn" ? (
+                                      <img src={initialsData.data} alt="Initials" className="max-h-full max-w-full object-contain" />
+                                    ) : (
+                                      <span style={{ fontFamily: initialsData.font || "cursive" }} className="text-lg">
+                                        {initialsData.data.split(' ').map(w => w[0]).join('').toUpperCase()}
                                       </span>
                                     )
                                   ) : (
-                                    <span className="text-gray-700">{value}</span>
+                                    <span className="text-gray-700 truncate">{value}</span>
                                   )
                                 ) : (
                                   <span className="text-muted-foreground italic">
@@ -622,6 +651,49 @@ export function DocumentSigningView({
         <div 
           className="fixed inset-0 bg-black/50 z-40"
           onClick={() => setShowSignatureModal(false)}
+        />
+      )}
+
+      {/* Initials Modal */}
+      {showInitialsModal && (
+        <Card className="fixed inset-4 md:inset-auto md:fixed md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[400px] z-50 shadow-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PenTool className="h-5 w-5" />
+              Add Your Initials
+            </CardTitle>
+            <CardDescription>
+              Draw or type your initials below
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Your Name</Label>
+              <Input
+                value={signerName}
+                onChange={(e) => onSignerNameChange(e.target.value)}
+                placeholder="Enter your full name"
+              />
+            </div>
+            <SignatureCanvas
+              onSignatureComplete={handleInitialsComplete}
+              signerName={signerName}
+              isInitials={true}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowInitialsModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Backdrop for initials modal */}
+      {showInitialsModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={() => setShowInitialsModal(false)}
         />
       )}
 

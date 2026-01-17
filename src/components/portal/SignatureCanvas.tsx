@@ -12,6 +12,7 @@ interface SignatureCanvasProps {
     font?: string;
   }) => void;
   signerName: string;
+  isInitials?: boolean;
 }
 
 const SIGNATURE_FONTS = [
@@ -21,7 +22,7 @@ const SIGNATURE_FONTS = [
   { name: 'Satisfy', value: "'Satisfy', cursive" },
 ];
 
-export function SignatureCanvas({ onSignatureComplete, signerName }: SignatureCanvasProps) {
+export function SignatureCanvas({ onSignatureComplete, signerName, isInitials = false }: SignatureCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [typedName, setTypedName] = useState(signerName);
@@ -206,7 +207,9 @@ export function SignatureCanvas({ onSignatureComplete, signerName }: SignatureCa
                     style={{ fontFamily: font.value, fontSize: '24px' }}
                     className="text-foreground"
                   >
-                    {typedName || signerName || 'Your Name'}
+                    {isInitials 
+                      ? (typedName || signerName || 'Your Name').split(' ').map(w => w[0]).join('').toUpperCase()
+                      : (typedName || signerName || 'Your Name')}
                   </span>
                 </button>
               ))}
@@ -215,12 +218,12 @@ export function SignatureCanvas({ onSignatureComplete, signerName }: SignatureCa
 
           {typedName && (
             <div className="p-6 bg-muted/30 rounded-lg border-2 border-dashed">
-              <p className="text-sm text-muted-foreground mb-2">Signature Preview:</p>
+              <p className="text-sm text-muted-foreground mb-2">{isInitials ? 'Initials' : 'Signature'} Preview:</p>
               <p
                 style={{ fontFamily: selectedFont, fontSize: '32px' }}
                 className="text-foreground"
               >
-                {typedName}
+                {isInitials ? typedName.split(' ').map(w => w[0]).join('').toUpperCase() : typedName}
               </p>
             </div>
           )}
@@ -229,7 +232,7 @@ export function SignatureCanvas({ onSignatureComplete, signerName }: SignatureCa
         <TabsContent value="draw" className="space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Draw your signature below</Label>
+              <Label>Draw your {isInitials ? 'initials' : 'signature'} below</Label>
               <Button variant="ghost" size="sm" onClick={clearCanvas}>
                 <Eraser className="h-4 w-4 mr-1" />
                 Clear
@@ -249,7 +252,7 @@ export function SignatureCanvas({ onSignatureComplete, signerName }: SignatureCa
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              Use your mouse or finger to draw your signature
+              Use your mouse or finger to draw your {isInitials ? 'initials' : 'signature'}
             </p>
           </div>
         </TabsContent>
@@ -262,7 +265,7 @@ export function SignatureCanvas({ onSignatureComplete, signerName }: SignatureCa
         size="lg"
       >
         <Check className="h-4 w-4 mr-2" />
-        Apply Signature
+        Apply {isInitials ? 'Initials' : 'Signature'}
       </Button>
     </div>
   );
