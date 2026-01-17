@@ -1041,6 +1041,22 @@ export default function Production() {
       const { error } = await supabase.from('client_comments').delete().eq('project_id', projectId);
       if (error) throw error;
     }
+
+    // Delete estimate_signatures that reference client_portal_tokens for this project
+    {
+      const { data: tokens, error: tokensSelError } = await supabase
+        .from('client_portal_tokens')
+        .select('id')
+        .eq('project_id', projectId);
+      if (tokensSelError) throw tokensSelError;
+
+      const tokenIds = (tokens ?? []).map((t) => t.id);
+      if (tokenIds.length > 0) {
+        const { error } = await supabase.from('estimate_signatures').delete().in('portal_token_id', tokenIds);
+        if (error) throw error;
+      }
+    }
+
     {
       const { error } = await supabase.from('client_portal_tokens').delete().eq('project_id', projectId);
       if (error) throw error;
