@@ -617,10 +617,10 @@ export function SignatureFieldEditor({
     addFieldRef.current = addField;
   }, [addField]);
 
-  // Add native DOM drop event listeners to the container (more reliable than React events with Fabric)
+  // Add native DOM drop event listeners to the canvas wrapper (more accurate positioning)
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const wrapper = canvasWrapperRef.current;
+    if (!wrapper) return;
 
     const handleDrop = (e: DragEvent) => {
       e.preventDefault();
@@ -628,7 +628,8 @@ export function SignatureFieldEditor({
       const fieldType = e.dataTransfer?.getData("fieldType") as keyof typeof FIELD_TYPE_CONFIG;
       if (!fieldType || !FIELD_TYPE_CONFIG[fieldType]) return;
       
-      const rect = container.getBoundingClientRect();
+      // Get drop position relative to the canvas wrapper element
+      const rect = wrapper.getBoundingClientRect();
       const dropX = e.clientX - rect.left;
       const dropY = e.clientY - rect.top;
       
@@ -643,12 +644,12 @@ export function SignatureFieldEditor({
       }
     };
 
-    container.addEventListener('drop', handleDrop, true); // Use capture phase
-    container.addEventListener('dragover', handleDragOver, true);
+    wrapper.addEventListener('drop', handleDrop, true); // Use capture phase
+    wrapper.addEventListener('dragover', handleDragOver, true);
 
     return () => {
-      container.removeEventListener('drop', handleDrop, true);
-      container.removeEventListener('dragover', handleDragOver, true);
+      wrapper.removeEventListener('drop', handleDrop, true);
+      wrapper.removeEventListener('dragover', handleDragOver, true);
     };
   }, []);
 
@@ -658,8 +659,8 @@ export function SignatureFieldEditor({
     const fieldType = e.dataTransfer.getData("fieldType") as keyof typeof FIELD_TYPE_CONFIG;
     if (!fieldType || !FIELD_TYPE_CONFIG[fieldType]) return;
     
-    // Get drop position relative to canvas container
-    const rect = containerRef.current?.getBoundingClientRect();
+    // Get drop position relative to canvas wrapper
+    const rect = canvasWrapperRef.current?.getBoundingClientRect();
     if (!rect) return;
     
     const dropX = e.clientX - rect.left;
