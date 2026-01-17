@@ -99,11 +99,20 @@ serve(async (req) => {
       const page = pages[pageIndex];
       const { width: pageWidth, height: pageHeight } = page.getSize();
 
-      // Calculate position (fields are stored as percentages)
-      const x = (field.x_position / 100) * pageWidth;
-      const y = pageHeight - ((field.y_position / 100) * pageHeight) - ((field.height / 100) * pageHeight);
-      const fieldWidth = (field.width / 100) * pageWidth;
-      const fieldHeight = (field.height / 100) * pageHeight;
+      // Field coordinates are stored in PDF.js viewport coordinates at scale 1 (top-left origin).
+      // pdf-lib uses bottom-left origin, so we convert Y.
+      // We also support legacy ratio-based coordinates (0-1) just in case.
+      const useRatio =
+        field.x_position <= 1 &&
+        field.y_position <= 1 &&
+        field.width <= 1 &&
+        field.height <= 1;
+
+      const x = useRatio ? field.x_position * pageWidth : field.x_position;
+      const fieldWidth = useRatio ? field.width * pageWidth : field.width;
+      const fieldHeight = useRatio ? field.height * pageHeight : field.height;
+      const yFromTop = useRatio ? field.y_position * pageHeight : field.y_position;
+      const y = pageHeight - yFromTop - fieldHeight;
 
       // Find the signature for this field - try by signer_id first, then fallback to first signature
       let signature = null;
