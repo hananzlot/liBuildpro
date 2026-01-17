@@ -377,9 +377,18 @@ serve(async (req) => {
 
     // Serialize the PDF
     const modifiedPdfBytes = await pdfDoc.save();
-    const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(modifiedPdfBytes)));
+    
+    // Convert to base64 using chunked approach to avoid stack overflow
+    const uint8Array = new Uint8Array(modifiedPdfBytes);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    const base64Pdf = btoa(binary);
 
-    console.log('PDF generated successfully');
+    console.log('PDF generated successfully, size:', uint8Array.length);
 
     return new Response(JSON.stringify({ 
       pdf: base64Pdf,
