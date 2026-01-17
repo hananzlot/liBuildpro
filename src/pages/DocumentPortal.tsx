@@ -178,7 +178,7 @@ export default function DocumentPortal() {
     return errors;
   }, [data, signerName, signatureData, textFieldValues]);
 
-  // Sign mutation - accepts signature data as parameter for the new signing view
+  // Sign mutation - uses edge function to capture IP address
   const signMutation = useMutation({
     mutationFn: async (params?: { 
       sigData?: { type: "typed" | "drawn"; data: string; font?: string };
@@ -198,73 +198,37 @@ export default function DocumentPortal() {
         throw new Error("Name is required");
       }
 
-      const signedAt = new Date().toISOString();
-
       // Build field values object for all fields (name, email, date, text)
       const fieldValues: Record<string, string> = {
         ...textValuesToUse,
         _signerName: signerName,
         _signerEmail: signerEmail || "",
-        _signedDate: signedAt,
       };
 
-      // Save signature with full audit info including field values
-      const { error: sigError } = await supabase.from("document_signatures").insert({
-        document_id: data.document.id,
-        signer_id: data.currentSigner?.id || null,
-        signer_name: signerName,
-        signer_email: signerEmail || null,
-        signature_type: sigToUse.type,
-        signature_data: sigToUse.data,
-        signature_font: sigToUse.font || null,
-        ip_address: null, // Would need server-side to capture
-        user_agent: navigator.userAgent,
-        signed_at: signedAt,
-        field_values: fieldValues,
-      } as any);
-
-      if (sigError) throw sigError;
-
-      // Update signer status if we have one
-      if (data.currentSigner) {
-        await supabase
-          .from("document_signers")
-          .update({
-            status: "signed",
-            signed_at: signedAt,
-          })
-          .eq("id", data.currentSigner.id);
-      }
-
-      // Check if all signers have signed
-      const { data: allSigners } = await supabase
-        .from("document_signers")
-        .select("status")
-        .eq("document_id", data.document.id);
-
-      const allSigned = allSigners && allSigners.length > 0 
-        ? allSigners.every(s => s.status === "signed")
-        : true;
-
-      // Update document status
-      await supabase
-        .from("signature_documents")
-        .update({
-          status: allSigned ? "signed" : "viewed",
-          signed_at: allSigned ? signedAt : null,
-        })
-        .eq("id", data.document.id);
-
-      // Notify admin
-      await supabase.functions.invoke("send-proposal-notification", {
+      // Use edge function to sign - this captures the IP address server-side
+      const response = await supabase.functions.invoke("sign-document", {
         body: {
-          action: "document_signed",
-          documentName: data.document.document_name,
-          recipientName: signerName,
-          recipientEmail: signerEmail,
-          signedAt: signedAt,
+          documentId: data.document.id,
+          signerId: data.currentSigner?.id || null,
+          signerName: signerName,
+          signerEmail: signerEmail || null,
+          signatureType: sigToUse.type,
+          signatureData: sigToUse.data,
+          signatureFont: sigToUse.font || null,
+          userAgent: navigator.userAgent,
+          fieldValues: fieldValues,
         },
       });
+
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to sign document");
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["document-portal", token] });

@@ -128,3 +128,6 @@ verify_jwt = false
 
 [functions.generate-signed-document-pdf]
 verify_jwt = false
+
+[functions.sign-document]
+verify_jwt = false

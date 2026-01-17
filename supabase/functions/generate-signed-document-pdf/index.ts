@@ -76,7 +76,7 @@ serve(async (req) => {
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    // Create a signature map for easy lookup
+    // Create a signature map for easy lookup by signer_id
     const signatureMap = new Map();
     signatures?.forEach(sig => {
       if (sig.signer_id) {
@@ -84,10 +84,17 @@ serve(async (req) => {
       }
     });
 
+    console.log('Signature map created with', signatureMap.size, 'entries');
+    console.log('Total signatures:', signatures?.length || 0);
+    console.log('Processing', fields?.length || 0, 'fields');
+
     // Overlay signatures and field values on each page
     for (const field of (fields || [])) {
       const pageIndex = field.page_number - 1;
-      if (pageIndex < 0 || pageIndex >= pages.length) continue;
+      if (pageIndex < 0 || pageIndex >= pages.length) {
+        console.log('Skipping field - invalid page:', field.page_number);
+        continue;
+      }
 
       const page = pages[pageIndex];
       const { width: pageWidth, height: pageHeight } = page.getSize();
@@ -98,8 +105,22 @@ serve(async (req) => {
       const fieldWidth = (field.width / 100) * pageWidth;
       const fieldHeight = (field.height / 100) * pageHeight;
 
-      const signature = field.signer_id ? signatureMap.get(field.signer_id) : signatures?.[0];
-      if (!signature) continue;
+      // Find the signature for this field - try by signer_id first, then fallback to first signature
+      let signature = null;
+      if (field.signer_id) {
+        signature = signatureMap.get(field.signer_id);
+      }
+      // If no signature found by signer_id, use the first available signature
+      if (!signature && signatures && signatures.length > 0) {
+        signature = signatures[0];
+      }
+      
+      if (!signature) {
+        console.log('No signature found for field:', field.id, 'type:', field.field_type);
+        continue;
+      }
+      
+      console.log('Processing field:', field.field_type, 'at page', field.page_number, 'with signature from', signature.signer_name);
 
       const fieldValues = signature.field_values || {};
 
