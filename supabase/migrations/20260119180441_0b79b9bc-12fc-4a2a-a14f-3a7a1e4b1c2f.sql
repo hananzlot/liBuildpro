@@ -1,0 +1,1 @@
+UPDATE projects SET project_status = 'Contract Signed' WHERE project_number = 39;
