@@ -98,9 +98,10 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
   const buildPrintContent = () => {
     if (!data?.estimate) return "";
 
+    const showLineItems = data.estimate.show_line_items_to_customer ?? false;
     const showDetails = data.estimate.show_details_to_customer ?? false;
 
-    const groupsHtml = data.groups?.map((group) => {
+    const groupsHtml = showLineItems ? (data.groups?.map((group) => {
       const items = data.lineItems?.filter((item) => item.group_id === group.id) || [];
       const itemsHtml = items.map((item) => `
         <div class="line-item">
@@ -122,7 +123,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
           ${itemsHtml}
         </div>
       `;
-    }).join("") || "";
+    }).join("") || "") : "";
 
     const paymentHtml = data.paymentSchedule?.map((phase) => `
       <div class="payment-item">

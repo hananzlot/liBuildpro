@@ -1432,6 +1432,7 @@ export type Database = {
           project_id: string | null
           sent_at: string | null
           show_details_to_customer: boolean
+          show_line_items_to_customer: boolean
           show_scope_to_customer: boolean
           signed_at: string | null
           status: Database["public"]["Enums"]["estimate_status"]
@@ -1472,6 +1473,7 @@ export type Database = {
           project_id?: string | null
           sent_at?: string | null
           show_details_to_customer?: boolean
+          show_line_items_to_customer?: boolean
           show_scope_to_customer?: boolean
           signed_at?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
@@ -1512,6 +1514,7 @@ export type Database = {
           project_id?: string | null
           sent_at?: string | null
           show_details_to_customer?: boolean
+          show_line_items_to_customer?: boolean
           show_scope_to_customer?: boolean
           signed_at?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]

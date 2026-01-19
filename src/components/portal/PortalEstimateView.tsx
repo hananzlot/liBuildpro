@@ -804,7 +804,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                 <p className="whitespace-pre-wrap text-sm">{estimate.work_scope_description}</p>
               </div>
             )}
-            {groups.map((group: Group) => (
+            {estimate.show_line_items_to_customer && groups.map((group: Group) => (
               <div key={group.id} className="space-y-3">
                 <h4 className="font-semibold text-lg">{group.group_name}</h4>
                 {group.description && (
@@ -831,7 +831,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
               </div>
             ))}
 
-            {ungroupedItems.length > 0 && (
+            {estimate.show_line_items_to_customer && ungroupedItems.length > 0 && (
               <div className="space-y-2">
               {ungroupedItems.map((item: LineItem) => (
                   <div
