@@ -1229,6 +1229,57 @@ export type Database = {
           },
         ]
       }
+      estimate_portal_tokens: {
+        Row: {
+          access_count: number | null
+          created_at: string
+          estimate_id: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          last_accessed_at: string | null
+          signer_id: string
+          token: string
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string
+          estimate_id: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          signer_id: string
+          token?: string
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string
+          estimate_id?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_accessed_at?: string | null
+          signer_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_portal_tokens_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_portal_tokens_signer_id_fkey"
+            columns: ["signer_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_signers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estimate_signatures: {
         Row: {
           estimate_id: string
@@ -1282,6 +1333,72 @@ export type Database = {
             columns: ["portal_token_id"]
             isOneToOne: false
             referencedRelation: "client_portal_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimate_signers: {
+        Row: {
+          created_at: string
+          decline_reason: string | null
+          declined_at: string | null
+          estimate_id: string
+          id: string
+          sent_at: string | null
+          signature_id: string | null
+          signed_at: string | null
+          signer_email: string
+          signer_name: string
+          signer_order: number
+          status: string
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          decline_reason?: string | null
+          declined_at?: string | null
+          estimate_id: string
+          id?: string
+          sent_at?: string | null
+          signature_id?: string | null
+          signed_at?: string | null
+          signer_email: string
+          signer_name: string
+          signer_order?: number
+          status?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          decline_reason?: string | null
+          declined_at?: string | null
+          estimate_id?: string
+          id?: string
+          sent_at?: string | null
+          signature_id?: string | null
+          signed_at?: string | null
+          signer_email?: string
+          signer_name?: string
+          signer_order?: number
+          status?: string
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_signers_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_signers_signature_id_fkey"
+            columns: ["signature_id"]
+            isOneToOne: false
+            referencedRelation: "estimate_signatures"
             referencedColumns: ["id"]
           },
         ]
