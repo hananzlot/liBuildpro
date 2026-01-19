@@ -86,6 +86,8 @@ interface DbDocumentSignature {
   signature_data: string;
   signature_font: string | null;
   signed_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
   field_values: Record<string, string> | null;
 }
 
