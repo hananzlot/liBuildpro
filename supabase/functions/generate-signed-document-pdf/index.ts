@@ -224,7 +224,13 @@ serve(async (req) => {
           } catch (imgError) {
             console.error('Error embedding initials image:', imgError);
             // Fallback to text initials
-            const initials = (initialsData || signature.signer_name || '').split(' ').map((w: string) => w[0]).join('').toUpperCase();
+            const rawData = initialsData || signature.signer_name || '';
+            const initials = rawData
+              .split(' ')
+              .filter((w: string) => w.length > 0)
+              .map((w: string) => w[0])
+              .join('')
+              .toUpperCase();
             page.drawText(initials, {
               x: x + 5,
               y: y + fieldHeight / 2 - 6,
@@ -234,9 +240,25 @@ serve(async (req) => {
             });
           }
         } else {
-          // Draw typed initials - extract first letters from each word
+          // Draw typed initials - use the data directly if short enough, otherwise extract first letters from each word
           const fontSize = Math.min(fieldHeight * 0.6, 24);
-          const initials = (initialsData || signature.signer_name || '').split(' ').map((w: string) => w[0]).join('').toUpperCase();
+          const rawInitialsData = initialsData || signature.signer_name || '';
+          // If the data is already short (like "CZ" or "AB"), use it directly
+          // Otherwise extract first letters from each word
+          let initials: string;
+          if (rawInitialsData.length <= 4 && !rawInitialsData.includes(' ')) {
+            // Already short initials, use directly
+            initials = rawInitialsData.toUpperCase();
+          } else {
+            // Extract first letter from each word, filtering out empty strings
+            initials = rawInitialsData
+              .split(' ')
+              .filter((w: string) => w.length > 0)
+              .map((w: string) => w[0])
+              .join('')
+              .toUpperCase();
+          }
+          console.log('Rendering typed initials:', initials, 'from raw data:', rawInitialsData);
           page.drawText(initials, {
             x: x + 5,
             y: y + fieldHeight / 2 - fontSize / 3,
