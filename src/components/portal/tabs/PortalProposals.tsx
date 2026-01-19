@@ -159,7 +159,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         groups: groupsRes.data || [],
         lineItems: itemsRes.data || [],
         paymentSchedule: scheduleRes.data || [],
-        signature: signaturesRes.data?.[0] || null,
+        signatures: signaturesRes.data || [],
       };
     },
     enabled: !!selectedEstimateId && viewingProposal,
@@ -339,7 +339,8 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     const groups = estimateDetails?.groups || [];
     const lineItems = estimateDetails?.lineItems || [];
     const paymentSchedule = estimateDetails?.paymentSchedule || [];
-    const signature = estimateDetails?.signature;
+    const signatures = estimateDetails?.signatures || [];
+    
 
     const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
       acc[group.id] = lineItems.filter((item: LineItem) => item.group_id === group.id);
@@ -364,14 +365,14 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         </Button>
 
         {/* Status Banner */}
-        {isSigned && signature && (
+        {isSigned && signatures.length > 0 && (
           <Card className="bg-green-50 border-green-200">
             <CardContent className="py-4 flex items-center gap-3">
               <CheckCircle2 className="h-6 w-6 text-green-600" />
               <div>
                 <p className="font-medium text-green-800">Proposal Accepted</p>
                 <p className="text-sm text-green-600">
-                  Signed by {signature.signer_name} on {format(new Date(signature.signed_at), 'MMM d, yyyy')}
+                  Signed by {signatures.length} {signatures.length === 1 ? 'party' : 'parties'}
                 </p>
               </div>
             </CardContent>
@@ -619,28 +620,42 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
               </Card>
             )}
 
-            {/* Signature Display */}
-            {signature && (
+            {/* Signatures Display */}
+            {signatures.length > 0 && (
               <Card className="border-0 shadow-lg bg-green-50 border-green-200">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-green-800">
                     <Shield className="h-5 w-5" />
-                    Digital Signature
+                    Digital Signatures ({signatures.length})
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {signature.signature_type === 'typed' ? (
-                      <p style={{ fontFamily: signature.signature_font, fontSize: '28px' }}>
-                        {signature.signature_data}
+                <CardContent className="space-y-4">
+                  {signatures.map((sig: any, index: number) => (
+                    <div key={sig.id} className={`space-y-2 ${index > 0 ? 'pt-4 border-t border-green-200' : ''}`}>
+                      <div className="flex items-center gap-2 text-sm font-medium text-green-800">
+                        <span className="w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center text-xs">
+                          {index + 1}
+                        </span>
+                        Signer {index + 1}
+                      </div>
+                      {sig.signature_type === 'typed' ? (
+                        <p style={{ fontFamily: sig.signature_font, fontSize: '28px' }}>
+                          {sig.signature_data}
+                        </p>
+                      ) : (
+                        <img src={sig.signature_data} alt={`Signature by ${sig.signer_name}`} className="max-h-20" />
+                      )}
+                      <p className="text-sm text-green-700">
+                        Signed by: {sig.signer_name}
                       </p>
-                    ) : (
-                      <img src={signature.signature_data} alt="Signature" className="max-h-20" />
-                    )}
-                    <p className="text-sm text-green-700">
-                      {signature.signer_name} • {signature.signer_email} • {format(new Date(signature.signed_at), 'MMM d, yyyy h:mm a')}
-                    </p>
-                  </div>
+                      <p className="text-sm text-green-700">
+                        Email: {sig.signer_email}
+                      </p>
+                      <p className="text-sm text-green-700">
+                        Date: {format(new Date(sig.signed_at), 'MMMM d, yyyy')}
+                      </p>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             )}
