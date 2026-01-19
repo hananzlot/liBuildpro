@@ -310,7 +310,7 @@ export default function AdminSettings() {
   );
 
   const estimateSettings = settings?.filter((s) =>
-    ["default_terms_and_conditions"].includes(s.setting_key)
+    ["default_terms_and_conditions", "default_markup_percent"].includes(s.setting_key)
   );
 
   const payablesReceivablesSettings = settings?.filter((s) =>
