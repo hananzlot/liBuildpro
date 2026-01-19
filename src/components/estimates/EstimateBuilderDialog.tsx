@@ -1119,42 +1119,46 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </>
                     ) : (
                       <div className="space-y-4">
-                        {/* Line Items header */}
-                        <h3 className="font-semibold text-center">Line Items</h3>
-                        {/* Action buttons centered on one line */}
-                        <div className="flex flex-wrap items-center justify-center gap-2">
-                          <Button onClick={addGroup} size="sm" variant="outline">
-                            <FolderPlus className="mr-2 h-4 w-4" />
-                            Add Area
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setGroups([]);
-                              setPaymentSchedule([]);
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Clear All
-                          </Button>
-                          <Button 
-                            size="sm"
-                            onClick={() => {
-                              setGroups([]);
-                              setPaymentSchedule([]);
-                              setTimeout(() => generateScope(), 100);
-                            }} 
-                            disabled={isGeneratingScope || !canGenerateAI}
-                            title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Clear and regenerate with AI'}
-                          >
-                            {isGeneratingScope ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Wand2 className="mr-2 h-4 w-4" />
-                            )}
-                            Regenerate AI
-                          </Button>
+                        {/* Line Items header (left) + actions (center) */}
+                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                          <h3 className="font-semibold justify-self-start">Line Items</h3>
+
+                          <div className="flex flex-wrap items-center justify-center gap-2 justify-self-center">
+                            <Button onClick={addGroup} size="sm" variant="outline">
+                              <FolderPlus className="mr-2 h-4 w-4" />
+                              Add Area
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setGroups([]);
+                                setPaymentSchedule([]);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Clear All
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setGroups([]);
+                                setPaymentSchedule([]);
+                                setTimeout(() => generateScope(), 100);
+                              }}
+                              disabled={isGeneratingScope || !canGenerateAI}
+                              title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Clear and regenerate with AI'}
+                            >
+                              {isGeneratingScope ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Wand2 className="mr-2 h-4 w-4" />
+                              )}
+                              Regenerate AI
+                            </Button>
+                          </div>
+
+                          <div aria-hidden="true" />
                         </div>
                       {groups.map((group) => (
                         <Card key={group.id}>
