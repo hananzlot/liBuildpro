@@ -368,8 +368,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             })
             .eq('id', portalData!.estimate.id);
 
-          // Generate contract PDF if there's a linked project
+          // Update project status to "Contract Signed" if there's a linked project
           if (portalData!.estimate.project_id) {
+            await supabase
+              .from('projects')
+              .update({
+                project_status: 'Contract Signed',
+                agreement_signed_date: new Date().toISOString().split('T')[0],
+              })
+              .eq('id', portalData!.estimate.project_id);
+
+            // Generate contract PDF
             supabase.functions.invoke('generate-contract-pdf', {
               body: {
                 estimateId: portalData!.estimate.id,
@@ -414,8 +423,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           })
           .eq('id', portalData!.estimate.id);
 
-        // Generate contract PDF if there's a linked project
+        // Update project status to "Contract Signed" if there's a linked project
         if (portalData!.estimate.project_id) {
+          await supabase
+            .from('projects')
+            .update({
+              project_status: 'Contract Signed',
+              agreement_signed_date: new Date().toISOString().split('T')[0],
+            })
+            .eq('id', portalData!.estimate.project_id);
+
+          // Generate contract PDF
           supabase.functions.invoke('generate-contract-pdf', {
             body: {
               estimateId: portalData!.estimate.id,
