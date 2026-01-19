@@ -186,7 +186,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   const totals = calculateTotals();
 
-  // Fetch default terms & conditions from admin settings
+  // Fetch default terms & conditions and markup from admin settings
   const { data: defaultTerms } = useQuery({
     queryKey: ["default-terms-conditions"],
     queryFn: async () => {
@@ -196,6 +196,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         .eq("setting_key", "default_terms_and_conditions")
         .maybeSingle();
       return data?.setting_value || "";
+    },
+    enabled: open && !estimateId, // Only fetch for new estimates
+  });
+
+  const { data: defaultMarkupSetting } = useQuery({
+    queryKey: ["default-markup-percent"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", "default_markup_percent")
+        .maybeSingle();
+      return data?.setting_value ? parseFloat(data.setting_value) : 50;
     },
     enabled: open && !estimateId, // Only fetch for new estimates
   });
@@ -311,6 +324,16 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
   }, [open, estimateId, defaultTerms]);
 
+  // Apply default markup from admin settings when loaded for new estimates
+  useEffect(() => {
+    if (open && !estimateId && defaultMarkupSetting !== undefined && formData.default_markup_percent === 50) {
+      setFormData(prev => ({
+        ...prev,
+        default_markup_percent: defaultMarkupSetting,
+      }));
+    }
+  }, [open, estimateId, defaultMarkupSetting]);
+
   // AI Scope Generation
   const generateScope = async () => {
     if (!formData.job_address?.trim()) {
@@ -341,7 +364,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       const scope = data.scope;
       
-      // Add generated groups and items - now with cost and markup from AI
+      // Add generated groups and items - always use the form's default markup, ignoring AI recommendations
       const newGroups: Group[] = scope.groups.map((g: any, gIdx: number) => ({
         id: generateId(),
         group_name: g.group_name,
@@ -350,7 +373,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         isOpen: true,
         items: g.items.map((item: any, iIdx: number) => {
           const itemCost = item.cost || 0;
-          const itemMarkup = item.markup_percent ?? formData.default_markup_percent;
+          // Always use the form's default markup, ignore AI markup suggestions
+          const itemMarkup = formData.default_markup_percent;
           const itemUnitPrice = itemCost * (1 + itemMarkup / 100);
           const itemQuantity = item.quantity || 1;
           
