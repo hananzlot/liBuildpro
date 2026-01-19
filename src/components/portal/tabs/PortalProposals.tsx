@@ -476,7 +476,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                   </div>
                 )}
 
-                {groups.map((group: Group) => (
+                {selectedEstimate.show_line_items_to_customer && groups.map((group: Group) => (
                   <div key={group.id} className="space-y-3">
                     <h4 className="font-semibold text-lg">{group.group_name}</h4>
                     {group.description && (
@@ -503,7 +503,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                   </div>
                 ))}
 
-                {ungroupedItems.length > 0 && (
+                {selectedEstimate.show_line_items_to_customer && ungroupedItems.length > 0 && (
                   <div className="space-y-2">
                     {ungroupedItems.map((item: LineItem) => (
                       <div

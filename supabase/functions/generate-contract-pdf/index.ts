@@ -248,59 +248,62 @@ serve(async (req) => {
       yPos -= 20;
     }
 
-    // Check if we should show line item details
+    // Check if we should show line items and details
+    const showLineItems = estimate.show_line_items_to_customer ?? false;
     const showDetails = estimate.show_details_to_customer ?? false;
 
-    // Line items by group
-    for (const group of groups) {
-      checkNewPage(60);
-      
-      // Group header with background
-      page.drawRectangle({
-        x: margin,
-        y: yPos - 5,
-        width: contentWidth,
-        height: 20,
-        color: lightGray,
-      });
-      page.drawText(group.group_name, { x: margin + 5, y: yPos, size: 11, font: helveticaBold, color: black });
-      yPos -= 25;
-
-      const groupItems = lineItems.filter((item: any) => item.group_id === group.id);
-      
-      // Table header - conditionally show Qty and Unit Price columns
-      page.drawText('Description', { x: margin + 5, y: yPos, size: 9, font: helveticaBold, color: gray });
-      if (showDetails) {
-        page.drawText('Qty', { x: margin + 280, y: yPos, size: 9, font: helveticaBold, color: gray });
-        page.drawText('Unit Price', { x: margin + 340, y: yPos, size: 9, font: helveticaBold, color: gray });
-      }
-      page.drawText('Total', { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: gray });
-      yPos -= 5;
-      page.drawLine({
-        start: { x: margin, y: yPos },
-        end: { x: width - margin, y: yPos },
-        thickness: 0.5,
-        color: gray,
-      });
-      yPos -= 12;
-
-      for (const item of groupItems) {
-        checkNewPage(20);
+    // Line items by group - only if show_line_items_to_customer is true
+    if (showLineItems) {
+      for (const group of groups) {
+        checkNewPage(60);
         
-        // Truncate description if too long - allow longer desc if not showing details
-        let desc = item.description || '';
-        const maxDescLength = showDetails ? 45 : 70;
-        if (desc.length > maxDescLength) desc = desc.substring(0, maxDescLength - 3) + '...';
+        // Group header with background
+        page.drawRectangle({
+          x: margin,
+          y: yPos - 5,
+          width: contentWidth,
+          height: 20,
+          color: lightGray,
+        });
+        page.drawText(group.group_name, { x: margin + 5, y: yPos, size: 11, font: helveticaBold, color: black });
+        yPos -= 25;
+
+        const groupItems = lineItems.filter((item: any) => item.group_id === group.id);
         
-        page.drawText(desc, { x: margin + 5, y: yPos, size: 9, font: helvetica, color: black });
+        // Table header - conditionally show Qty and Unit Price columns
+        page.drawText('Description', { x: margin + 5, y: yPos, size: 9, font: helveticaBold, color: gray });
         if (showDetails) {
-          page.drawText(`${item.quantity} ${item.unit || ''}`, { x: margin + 280, y: yPos, size: 9, font: helvetica, color: black });
-          page.drawText(formatCurrency(item.unit_price), { x: margin + 340, y: yPos, size: 9, font: helvetica, color: black });
+          page.drawText('Qty', { x: margin + 280, y: yPos, size: 9, font: helveticaBold, color: gray });
+          page.drawText('Unit Price', { x: margin + 340, y: yPos, size: 9, font: helveticaBold, color: gray });
         }
-        page.drawText(formatCurrency(item.line_total), { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: black });
-        yPos -= 14;
+        page.drawText('Total', { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: gray });
+        yPos -= 5;
+        page.drawLine({
+          start: { x: margin, y: yPos },
+          end: { x: width - margin, y: yPos },
+          thickness: 0.5,
+          color: gray,
+        });
+        yPos -= 12;
+
+        for (const item of groupItems) {
+          checkNewPage(20);
+          
+          // Truncate description if too long - allow longer desc if not showing details
+          let desc = item.description || '';
+          const maxDescLength = showDetails ? 45 : 70;
+          if (desc.length > maxDescLength) desc = desc.substring(0, maxDescLength - 3) + '...';
+          
+          page.drawText(desc, { x: margin + 5, y: yPos, size: 9, font: helvetica, color: black });
+          if (showDetails) {
+            page.drawText(`${item.quantity} ${item.unit || ''}`, { x: margin + 280, y: yPos, size: 9, font: helvetica, color: black });
+            page.drawText(formatCurrency(item.unit_price), { x: margin + 340, y: yPos, size: 9, font: helvetica, color: black });
+          }
+          page.drawText(formatCurrency(item.line_total), { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: black });
+          yPos -= 14;
+        }
+        yPos -= 10;
       }
-      yPos -= 10;
     }
 
     // TOTALS

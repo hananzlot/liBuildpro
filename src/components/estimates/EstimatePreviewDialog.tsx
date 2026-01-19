@@ -155,7 +155,8 @@ export function EstimatePreviewDialog({
   const lineItems = data?.lineItems || [];
   const paymentSchedule = data?.paymentSchedule || [];
   const signatures = data?.signatures || [];
-  const showDetails = estimate?.show_details_to_customer ?? true;
+  const showLineItems = estimate?.show_line_items_to_customer ?? false;
+  const showDetails = estimate?.show_details_to_customer ?? false;
   const showScope = estimate?.show_scope_to_customer ?? false;
 
   // De-duplicate line items based on description, quantity, unit_price, and group_id
@@ -342,7 +343,7 @@ export function EstimatePreviewDialog({
                       <p className="whitespace-pre-wrap text-sm">{estimate.work_scope_description}</p>
                     </div>
                   )}
-                  {groups.map((group: Group) => (
+                  {showLineItems && groups.map((group: Group) => (
                     <div key={group.id} className="space-y-3">
                       <h4 className="font-semibold text-lg">{group.group_name}</h4>
                       {group.description && (
@@ -369,7 +370,7 @@ export function EstimatePreviewDialog({
                     </div>
                   ))}
 
-                  {ungroupedItems.length > 0 && (
+                  {showLineItems && ungroupedItems.length > 0 && (
                     <div className="space-y-2">
                       {ungroupedItems.map((item: LineItem) => (
                         <div
