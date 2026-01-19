@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FileText, Plus, Trash2, Eye, Send, Loader2, Upload, ExternalLink, CheckCircle, XCircle, Clock, Users, Settings, Pencil, Ban, RefreshCw } from "lucide-react";
+import { FileText, Plus, Trash2, Eye, Send, Loader2, Upload, ExternalLink, CheckCircle, XCircle, Clock, Users, Settings, Pencil, Ban, RefreshCw, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { MultiSignerInput, SignerData } from "@/components/documents/MultiSignerInput";
@@ -120,6 +120,7 @@ export default function Documents() {
   const [resendDialogOpen, setResendDialogOpen] = useState(false);
   const [resendSigner, setResendSigner] = useState<DocumentSigner | null>(null);
   const [resendDocument, setResendDocument] = useState<SignatureDocument | null>(null);
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
   // Signed preview dialog
   const [signedViewOpen, setSignedViewOpen] = useState(false);
@@ -512,6 +513,42 @@ export default function Documents() {
     }
   }, []);
 
+  const handleDownloadSignedPdf = useCallback(async (doc: SignatureDocument) => {
+    setDownloadingDocId(doc.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-signed-document-pdf", {
+        body: { documentId: doc.id, includeAuditTrail: true },
+      });
+
+      if (error) throw error;
+      if (!data?.pdf) throw new Error("No PDF data returned");
+
+      // Convert base64 to blob and download
+      const binaryString = atob(data.pdf);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = data.filename || `${doc.document_name.replace(/\.pdf$/i, "")}_signed.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success("Signed document downloaded!");
+    } catch (err: any) {
+      const msg = typeof err?.message === "string" ? err.message : "Unknown error";
+      toast.error(`Failed to download: ${msg}`);
+    } finally {
+      setDownloadingDocId(null);
+    }
+  }, []);
+
   const handleEditClick = async (doc: SignatureDocument) => {
 
     setEditingDocument(doc);
@@ -824,6 +861,30 @@ export default function Documents() {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+                            )}
+                            {docStatus === "signed" && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDownloadSignedPdf(doc)}
+                                      disabled={downloadingDocId === doc.id}
+                                      title="Download Signed PDF with Certificate"
+                                    >
+                                      {downloadingDocId === doc.id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Download className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Download signed PDF with audit certificate</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             )}
 
                             {canEdit && (
