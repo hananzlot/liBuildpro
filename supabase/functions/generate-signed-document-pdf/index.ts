@@ -133,8 +133,8 @@ serve(async (req) => {
 
       const fieldValues = signature.field_values || {};
 
-      if (field.field_type === 'signature' || field.field_type === 'initials') {
-        // Draw signature or initials
+      if (field.field_type === 'signature') {
+        // Draw signature
         if (signature.signature_type === 'drawn' && signature.signature_data) {
           try {
             // Embed the signature image
@@ -166,10 +166,7 @@ serve(async (req) => {
           } catch (imgError) {
             console.error('Error embedding signature image:', imgError);
             // Fallback to text
-            const displayText = field.field_type === 'initials' 
-              ? (signature.signer_name || 'Signed').split(' ').map((w: string) => w[0]).join('').toUpperCase()
-              : signature.signer_name || 'Signed';
-            page.drawText(displayText, {
+            page.drawText(signature.signer_name || 'Signed', {
               x: x + 5,
               y: y + fieldHeight / 2 - 6,
               size: 12,
@@ -178,12 +175,69 @@ serve(async (req) => {
             });
           }
         } else if (signature.signature_type === 'typed') {
-          // Draw typed signature - for initials, just use first letters
+          // Draw typed signature
           const fontSize = Math.min(fieldHeight * 0.6, 24);
-          const displayText = field.field_type === 'initials'
-            ? (signature.signature_data || signature.signer_name || '').split(' ').map((w: string) => w[0]).join('').toUpperCase()
-            : signature.signature_data || signature.signer_name || '';
+          const displayText = signature.signature_data || signature.signer_name || '';
           page.drawText(displayText, {
+            x: x + 5,
+            y: y + fieldHeight / 2 - fontSize / 3,
+            size: fontSize,
+            font: helveticaFont,
+            color: rgb(0, 0, 0.5),
+          });
+        }
+      } else if (field.field_type === 'initials') {
+        // Draw initials - use separate initials data from field_values
+        const initialsType = fieldValues._initialsType || 'typed';
+        const initialsData = fieldValues._initialsData || '';
+        
+        console.log('Processing initials field with type:', initialsType, 'data preview:', typeof initialsData === 'string' ? initialsData.substring(0, 50) : initialsData);
+        
+        if (initialsType === 'drawn' && initialsData && typeof initialsData === 'string' && initialsData.startsWith('data:image')) {
+          try {
+            // Embed the initials image
+            const initialsImageBytes = Uint8Array.from(
+              atob(initialsData.replace(/^data:image\/\w+;base64,/, '')),
+              c => c.charCodeAt(0)
+            );
+            const initialsImage = await pdfDoc.embedPng(initialsImageBytes);
+            
+            // Calculate aspect ratio to fit within field bounds
+            const imgAspect = initialsImage.width / initialsImage.height;
+            const fieldAspect = fieldWidth / fieldHeight;
+            
+            let drawWidth = fieldWidth;
+            let drawHeight = fieldHeight;
+            
+            if (imgAspect > fieldAspect) {
+              drawHeight = fieldWidth / imgAspect;
+            } else {
+              drawWidth = fieldHeight * imgAspect;
+            }
+
+            page.drawImage(initialsImage, {
+              x: x + (fieldWidth - drawWidth) / 2,
+              y: y + (fieldHeight - drawHeight) / 2,
+              width: drawWidth,
+              height: drawHeight,
+            });
+          } catch (imgError) {
+            console.error('Error embedding initials image:', imgError);
+            // Fallback to text initials
+            const initials = (initialsData || signature.signer_name || '').split(' ').map((w: string) => w[0]).join('').toUpperCase();
+            page.drawText(initials, {
+              x: x + 5,
+              y: y + fieldHeight / 2 - 6,
+              size: 12,
+              font: helveticaFont,
+              color: rgb(0, 0, 0.5),
+            });
+          }
+        } else {
+          // Draw typed initials - extract first letters from each word
+          const fontSize = Math.min(fieldHeight * 0.6, 24);
+          const initials = (initialsData || signature.signer_name || '').split(' ').map((w: string) => w[0]).join('').toUpperCase();
+          page.drawText(initials, {
             x: x + 5,
             y: y + fieldHeight / 2 - fontSize / 3,
             size: fontSize,
