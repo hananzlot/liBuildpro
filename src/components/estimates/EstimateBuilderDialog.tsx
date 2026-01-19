@@ -577,7 +577,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           .eq("id", sourceEstimateId);
         if (updateError) throw updateError;
 
-        // Delete existing groups, items, and schedule (cascade will handle items)
+        // Delete existing line items, groups, and schedule
+        // Must delete line items first since they reference groups
+        await supabase.from("estimate_line_items").delete().eq("estimate_id", sourceEstimateId);
         await supabase.from("estimate_groups").delete().eq("estimate_id", sourceEstimateId);
         await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", sourceEstimateId);
       } else {
