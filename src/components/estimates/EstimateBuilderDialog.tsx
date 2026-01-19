@@ -1008,56 +1008,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     </CardContent>
                   </Card>
 
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4" />
-                        Markup Settings
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="default_markup_percent_customer">Default Markup</Label>
-                        <Input
-                          id="default_markup_percent_customer"
-                          type="text"
-                          inputMode="decimal"
-                          value={formData.default_markup_percent}
-                          onChange={(e) => {
-                            const newMarkup = parseFloat(e.target.value) || 0;
-                            setFormData({ ...formData, default_markup_percent: newMarkup });
-                            // Apply retroactively to all line items
-                            setGroups(prevGroups => prevGroups.map(g => ({
-                              ...g,
-                              items: g.items.map(item => {
-                                const newUnitPrice = item.cost * (1 + newMarkup / 100);
-                                return {
-                                  ...item,
-                                  markup_percent: newMarkup,
-                                  unit_price: newUnitPrice,
-                                  line_total: item.quantity * newUnitPrice,
-                                };
-                              }),
-                            })));
-                          }}
-                          placeholder="35"
-                        />
-                        <p className="text-xs text-muted-foreground">Default 35. Applied to all line items when changed.</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="tax_rate_customer">Tax Rate</Label>
-                        <Input
-                          id="tax_rate_customer"
-                          type="text"
-                          inputMode="decimal"
-                          value={formData.tax_rate}
-                          onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
-                          placeholder="9.5"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-
                 </TabsContent>
 
                 <TabsContent value="scope" className="mt-0 space-y-4">
@@ -1335,29 +1285,116 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 <TabsContent value="payments" className="mt-0 space-y-4">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Deposit Settings</CardTitle>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        Pricing & Payment Settings
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-2">
-                      <div className="flex items-center gap-4">
-                        <Switch
-                          id="deposit_required"
-                          checked={formData.deposit_required}
-                          onCheckedChange={(v) => setFormData({ ...formData, deposit_required: v })}
-                        />
-                        <Label htmlFor="deposit_required">Deposit Required</Label>
+                    <CardContent className="space-y-6">
+                      {/* Markup & Tax Row */}
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="default_markup_percent">Default Markup %</Label>
+                          <Input
+                            id="default_markup_percent"
+                            type="text"
+                            inputMode="decimal"
+                            value={formData.default_markup_percent}
+                            onChange={(e) => {
+                              const newMarkup = parseFloat(e.target.value) || 0;
+                              setFormData({ ...formData, default_markup_percent: newMarkup });
+                              // Apply retroactively to all line items
+                              setGroups(prevGroups => prevGroups.map(g => ({
+                                ...g,
+                                items: g.items.map(item => {
+                                  const newUnitPrice = item.cost * (1 + newMarkup / 100);
+                                  return {
+                                    ...item,
+                                    markup_percent: newMarkup,
+                                    unit_price: newUnitPrice,
+                                    line_total: item.quantity * newUnitPrice,
+                                  };
+                                }),
+                              })));
+                            }}
+                            placeholder="50"
+                          />
+                          <p className="text-xs text-muted-foreground">Applied to all line items when changed</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="tax_rate">Tax Rate %</Label>
+                          <Input
+                            id="tax_rate"
+                            type="text"
+                            inputMode="decimal"
+                            value={formData.tax_rate}
+                            onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
+                            placeholder="9.5"
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="deposit_percent">Deposit %</Label>
-                        <Input
-                          id="deposit_percent"
-                          type="number"
-                          value={formData.deposit_percent}
-                          onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
-                          disabled={!formData.deposit_required}
-                        />
+
+                      <Separator />
+
+                      {/* Deposit Row */}
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="flex items-center gap-4">
+                          <Switch
+                            id="deposit_required"
+                            checked={formData.deposit_required}
+                            onCheckedChange={(v) => setFormData({ ...formData, deposit_required: v })}
+                          />
+                          <Label htmlFor="deposit_required">Deposit Required</Label>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="deposit_percent">Deposit %</Label>
+                          <Input
+                            id="deposit_percent"
+                            type="number"
+                            value={formData.deposit_percent}
+                            onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
+                            disabled={!formData.deposit_required}
+                          />
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      {/* Discount Row */}
+                      <div>
+                        <Label className="mb-2 block">Discount</Label>
+                        <div className="flex items-center gap-4">
+                          <Select
+                            value={formData.discount_type}
+                            onValueChange={(v) => setFormData({ ...formData, discount_type: v })}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="percent">Percent</SelectItem>
+                              <SelectItem value="fixed">Fixed Amount</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            value={formData.discount_value}
+                            onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
+                            className="w-32"
+                          />
+                          <span className="text-muted-foreground">
+                            {formData.discount_type === "percent" ? "%" : "$"}
+                          </span>
+                          {totals.discountAmount > 0 && (
+                            <span className="text-sm text-muted-foreground">
+                              = {formatCurrency(totals.discountAmount)} off
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
+
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                       <CardTitle className="text-base">Payment Schedule</CardTitle>
@@ -1430,35 +1467,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           </div>
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Discount</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex items-center gap-4">
-                      <Select
-                        value={formData.discount_type}
-                        onValueChange={(v) => setFormData({ ...formData, discount_type: v })}
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percent">Percent</SelectItem>
-                          <SelectItem value="fixed">Fixed Amount</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="number"
-                        value={formData.discount_value}
-                        onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
-                        className="w-32"
-                      />
-                      <span className="text-muted-foreground">
-                        {formData.discount_type === "percent" ? "%" : "$"}
-                      </span>
                     </CardContent>
                   </Card>
                 </TabsContent>
