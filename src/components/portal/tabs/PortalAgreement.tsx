@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  FileText, 
-  Download, 
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import {
+  FileText,
+  Download,
   Calendar,
   CheckCircle2,
   Eye,
   Shield,
   Award,
   FileCheck,
-  Clock
+  Clock,
+  Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
@@ -23,7 +26,8 @@ interface PortalAgreementProps {
 
 export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreementProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  
+  const [generatingAgreementId, setGeneratingAgreementId] = useState<string | null>(null);
+
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
     return new Intl.NumberFormat('en-US', {
@@ -32,7 +36,115 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
     }).format(amount);
   };
 
-  const hasAgreement = agreements.length > 0 || acceptedEstimate;
+  const hasAgreement = useMemo(() => agreements.length > 0 || !!acceptedEstimate, [agreements.length, acceptedEstimate]);
+
+  const parseAgreementEstimateNumber = (agreementNumber?: string | null): number | null => {
+    if (!agreementNumber) return null;
+    const match = agreementNumber.match(/(\d+)/);
+    if (!match) return null;
+    const num = Number(match[1]);
+    return Number.isFinite(num) ? num : null;
+  };
+
+  const isContractAgreement = (agreement: any) => {
+    const type = (agreement?.agreement_type || '').toLowerCase();
+    const num = agreement?.agreement_number || '';
+    return type === 'contract' || num.startsWith('CNT-');
+  };
+
+  const openAgreementPdf = async (agreement: any) => {
+    if (!agreement?.attachment_url) return;
+
+    // For non-contract docs, open the stored PDF as-is
+    if (!isContractAgreement(agreement)) {
+      setPdfUrl(agreement.attachment_url);
+      return;
+    }
+
+    const estimateNumber = parseAgreementEstimateNumber(agreement.agreement_number);
+    if (!estimateNumber) {
+      setPdfUrl(agreement.attachment_url);
+      return;
+    }
+
+    setGeneratingAgreementId(agreement.id);
+    try {
+      const { data: estimateRow, error: estimateError } = await supabase
+        .from('estimates')
+        .select('id')
+        .eq('estimate_number', estimateNumber)
+        .eq('project_id', agreement.project_id)
+        .maybeSingle();
+
+      if (estimateError) throw estimateError;
+      if (!estimateRow?.id) throw new Error('Estimate not found for this contract');
+
+      const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
+        body: {
+          estimateId: estimateRow.id,
+          projectId: agreement.project_id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error('Failed to generate contract PDF');
+
+      setPdfUrl(data.url);
+    } catch (err) {
+      console.error('Failed to generate contract PDF:', err);
+      toast.error('Could not regenerate PDF; opening existing file.');
+      setPdfUrl(agreement.attachment_url);
+    } finally {
+      setGeneratingAgreementId(null);
+    }
+  };
+
+  const downloadAgreementPdf = async (agreement: any) => {
+    if (!agreement?.attachment_url) return;
+
+    // For non-contract docs, download/open the stored PDF as-is
+    if (!isContractAgreement(agreement)) {
+      window.open(agreement.attachment_url, '_blank');
+      return;
+    }
+
+    const estimateNumber = parseAgreementEstimateNumber(agreement.agreement_number);
+    if (!estimateNumber) {
+      window.open(agreement.attachment_url, '_blank');
+      return;
+    }
+
+    setGeneratingAgreementId(agreement.id);
+    try {
+      const { data: estimateRow, error: estimateError } = await supabase
+        .from('estimates')
+        .select('id')
+        .eq('estimate_number', estimateNumber)
+        .eq('project_id', agreement.project_id)
+        .maybeSingle();
+
+      if (estimateError) throw estimateError;
+      if (!estimateRow?.id) throw new Error('Estimate not found for this contract');
+
+      const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
+        body: {
+          estimateId: estimateRow.id,
+          projectId: agreement.project_id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error('Failed to generate contract PDF');
+
+      window.open(data.url, '_blank');
+    } catch (err) {
+      console.error('Failed to generate contract PDF:', err);
+      toast.error('Could not regenerate PDF; opening existing file.');
+      window.open(agreement.attachment_url, '_blank');
+    } finally {
+      setGeneratingAgreementId(null);
+    }
+  };
 
   if (!hasAgreement) {
     return (
@@ -192,19 +304,32 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                   
                   {agreement.attachment_url && (
                     <div className="flex gap-2 shrink-0">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         className="shadow-sm"
-                        onClick={() => setPdfUrl(agreement.attachment_url)}
+                        onClick={() => openAgreementPdf(agreement)}
+                        disabled={generatingAgreementId === agreement.id}
                       >
-                        <Eye className="h-4 w-4 mr-2" />
+                        {generatingAgreementId === agreement.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Eye className="h-4 w-4 mr-2" />
+                        )}
                         View PDF
                       </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <a href={agreement.attachment_url} target="_blank" rel="noopener noreferrer" download>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => downloadAgreementPdf(agreement)}
+                        disabled={generatingAgreementId === agreement.id}
+                        aria-label="Download PDF"
+                      >
+                        {generatingAgreementId === agreement.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
                           <Download className="h-4 w-4" />
-                        </a>
+                        )}
                       </Button>
                     </div>
                   )}
