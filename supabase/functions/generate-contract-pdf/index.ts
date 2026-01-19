@@ -248,6 +248,9 @@ serve(async (req) => {
       yPos -= 20;
     }
 
+    // Check if we should show line item details
+    const showDetails = estimate.show_details_to_customer ?? false;
+
     // Line items by group
     for (const group of groups) {
       checkNewPage(60);
@@ -265,10 +268,12 @@ serve(async (req) => {
 
       const groupItems = lineItems.filter((item: any) => item.group_id === group.id);
       
-      // Table header
+      // Table header - conditionally show Qty and Unit Price columns
       page.drawText('Description', { x: margin + 5, y: yPos, size: 9, font: helveticaBold, color: gray });
-      page.drawText('Qty', { x: margin + 280, y: yPos, size: 9, font: helveticaBold, color: gray });
-      page.drawText('Unit Price', { x: margin + 340, y: yPos, size: 9, font: helveticaBold, color: gray });
+      if (showDetails) {
+        page.drawText('Qty', { x: margin + 280, y: yPos, size: 9, font: helveticaBold, color: gray });
+        page.drawText('Unit Price', { x: margin + 340, y: yPos, size: 9, font: helveticaBold, color: gray });
+      }
       page.drawText('Total', { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: gray });
       yPos -= 5;
       page.drawLine({
@@ -282,13 +287,16 @@ serve(async (req) => {
       for (const item of groupItems) {
         checkNewPage(20);
         
-        // Truncate description if too long
+        // Truncate description if too long - allow longer desc if not showing details
         let desc = item.description || '';
-        if (desc.length > 45) desc = desc.substring(0, 42) + '...';
+        const maxDescLength = showDetails ? 45 : 70;
+        if (desc.length > maxDescLength) desc = desc.substring(0, maxDescLength - 3) + '...';
         
         page.drawText(desc, { x: margin + 5, y: yPos, size: 9, font: helvetica, color: black });
-        page.drawText(`${item.quantity} ${item.unit || ''}`, { x: margin + 280, y: yPos, size: 9, font: helvetica, color: black });
-        page.drawText(formatCurrency(item.unit_price), { x: margin + 340, y: yPos, size: 9, font: helvetica, color: black });
+        if (showDetails) {
+          page.drawText(`${item.quantity} ${item.unit || ''}`, { x: margin + 280, y: yPos, size: 9, font: helvetica, color: black });
+          page.drawText(formatCurrency(item.unit_price), { x: margin + 340, y: yPos, size: 9, font: helvetica, color: black });
+        }
         page.drawText(formatCurrency(item.line_total), { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: black });
         yPos -= 14;
       }

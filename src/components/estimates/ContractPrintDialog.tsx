@@ -98,15 +98,19 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
   const buildPrintContent = () => {
     if (!data?.estimate) return "";
 
+    const showDetails = data.estimate.show_details_to_customer ?? false;
+
     const groupsHtml = data.groups?.map((group) => {
       const items = data.lineItems?.filter((item) => item.group_id === group.id) || [];
       const itemsHtml = items.map((item) => `
         <div class="line-item">
           <div class="line-item-desc">
             <div>${item.description}</div>
-            <div class="line-item-detail">
-              ${item.quantity} ${item.unit} × ${formatCurrency(item.unit_price)}
-            </div>
+            ${showDetails ? `
+              <div class="line-item-detail">
+                ${item.quantity} ${item.unit} × ${formatCurrency(item.unit_price)}
+              </div>
+            ` : ""}
           </div>
           <div class="line-item-total">${formatCurrency(item.line_total)}</div>
         </div>
