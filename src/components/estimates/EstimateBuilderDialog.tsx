@@ -1296,17 +1296,17 @@ The more detail you provide, the more accurate the AI-generated estimate will be
 
                 <TabsContent value="payments" className="mt-0 space-y-4">
                   <Card>
-                    <CardHeader>
+                    <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
                         Pricing & Payment Settings
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Markup & Tax Row */}
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="default_markup_percent">Default Markup %</Label>
+                    <CardContent>
+                      <div className="flex flex-wrap items-end gap-4">
+                        {/* Markup */}
+                        <div className="space-y-1">
+                          <Label htmlFor="default_markup_percent" className="text-xs">Markup %</Label>
                           <Input
                             id="default_markup_percent"
                             type="text"
@@ -1315,7 +1315,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             onChange={(e) => {
                               const newMarkup = parseFloat(e.target.value) || 0;
                               setFormData({ ...formData, default_markup_percent: newMarkup });
-                              // Apply retroactively to all line items
                               setGroups(prevGroups => prevGroups.map(g => ({
                                 ...g,
                                 items: g.items.map(item => {
@@ -1329,79 +1328,75 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 }),
                               })));
                             }}
+                            className="w-20 h-9"
                             placeholder="50"
                           />
-                          <p className="text-xs text-muted-foreground">Applied to all line items when changed</p>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="tax_rate">Tax Rate %</Label>
+
+                        {/* Tax Rate */}
+                        <div className="space-y-1">
+                          <Label htmlFor="tax_rate" className="text-xs">Tax %</Label>
                           <Input
                             id="tax_rate"
                             type="text"
                             inputMode="decimal"
                             value={formData.tax_rate}
                             onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
+                            className="w-20 h-9"
                             placeholder="9.5"
                           />
                         </div>
-                      </div>
 
-                      <Separator />
-
-                      {/* Deposit Row */}
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="flex items-center gap-4">
-                          <Switch
-                            id="deposit_required"
-                            checked={formData.deposit_required}
-                            onCheckedChange={(v) => setFormData({ ...formData, deposit_required: v })}
-                          />
-                          <Label htmlFor="deposit_required">Deposit Required</Label>
+                        {/* Deposit */}
+                        <div className="flex items-end gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Deposit</Label>
+                            <div className="flex items-center gap-2 h-9">
+                              <Switch
+                                id="deposit_required"
+                                checked={formData.deposit_required}
+                                onCheckedChange={(v) => setFormData({ ...formData, deposit_required: v })}
+                              />
+                              <Input
+                                type="number"
+                                value={formData.deposit_percent}
+                                onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
+                                disabled={!formData.deposit_required}
+                                className="w-16 h-9"
+                              />
+                              <span className="text-sm text-muted-foreground">%</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="deposit_percent">Deposit %</Label>
-                          <Input
-                            id="deposit_percent"
-                            type="number"
-                            value={formData.deposit_percent}
-                            onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
-                            disabled={!formData.deposit_required}
-                          />
-                        </div>
-                      </div>
 
-                      <Separator />
-
-                      {/* Discount Row */}
-                      <div>
-                        <Label className="mb-2 block">Discount</Label>
-                        <div className="flex items-center gap-4">
-                          <Select
-                            value={formData.discount_type}
-                            onValueChange={(v) => setFormData({ ...formData, discount_type: v })}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="percent">Percent</SelectItem>
-                              <SelectItem value="fixed">Fixed Amount</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            type="number"
-                            value={formData.discount_value}
-                            onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
-                            className="w-32"
-                          />
-                          <span className="text-muted-foreground">
-                            {formData.discount_type === "percent" ? "%" : "$"}
-                          </span>
-                          {totals.discountAmount > 0 && (
-                            <span className="text-sm text-muted-foreground">
-                              = {formatCurrency(totals.discountAmount)} off
-                            </span>
-                          )}
+                        {/* Discount */}
+                        <div className="space-y-1">
+                          <Label className="text-xs">Discount</Label>
+                          <div className="flex items-center gap-2 h-9">
+                            <Select
+                              value={formData.discount_type}
+                              onValueChange={(v) => setFormData({ ...formData, discount_type: v })}
+                            >
+                              <SelectTrigger className="w-24 h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="percent">%</SelectItem>
+                                <SelectItem value="fixed">$</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              value={formData.discount_value}
+                              onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
+                              className="w-20 h-9"
+                            />
+                            {totals.discountAmount > 0 && (
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                -{formatCurrency(totals.discountAmount)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>
