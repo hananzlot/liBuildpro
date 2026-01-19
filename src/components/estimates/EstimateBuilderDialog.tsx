@@ -1303,10 +1303,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex flex-wrap items-end gap-4">
+                      <div className="flex flex-wrap gap-2">
                         {/* Markup */}
-                        <div className="space-y-1">
-                          <Label htmlFor="default_markup_percent" className="text-xs">Markup %</Label>
+                        <div className="border rounded-lg p-3 bg-background">
+                          <Label htmlFor="default_markup_percent" className="text-xs text-muted-foreground mb-1 block">Markup %</Label>
                           <Input
                             id="default_markup_percent"
                             type="text"
@@ -1328,56 +1328,54 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 }),
                               })));
                             }}
-                            className="w-20 h-9"
+                            className="w-20 h-8"
                             placeholder="50"
                           />
                         </div>
 
                         {/* Tax Rate */}
-                        <div className="space-y-1">
-                          <Label htmlFor="tax_rate" className="text-xs">Tax %</Label>
+                        <div className="border rounded-lg p-3 bg-background">
+                          <Label htmlFor="tax_rate" className="text-xs text-muted-foreground mb-1 block">Tax %</Label>
                           <Input
                             id="tax_rate"
                             type="text"
                             inputMode="decimal"
                             value={formData.tax_rate}
                             onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
-                            className="w-20 h-9"
+                            className="w-20 h-8"
                             placeholder="9.5"
                           />
                         </div>
 
                         {/* Deposit */}
-                        <div className="flex items-end gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Deposit</Label>
-                            <div className="flex items-center gap-2 h-9">
-                              <Switch
-                                id="deposit_required"
-                                checked={formData.deposit_required}
-                                onCheckedChange={(v) => setFormData({ ...formData, deposit_required: v })}
-                              />
-                              <Input
-                                type="number"
-                                value={formData.deposit_percent}
-                                onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
-                                disabled={!formData.deposit_required}
-                                className="w-16 h-9"
-                              />
-                              <span className="text-sm text-muted-foreground">%</span>
-                            </div>
+                        <div className="border rounded-lg p-3 bg-background">
+                          <Label className="text-xs text-muted-foreground mb-1 block">Deposit</Label>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              id="deposit_required"
+                              checked={formData.deposit_required}
+                              onCheckedChange={(v) => setFormData({ ...formData, deposit_required: v })}
+                            />
+                            <Input
+                              type="number"
+                              value={formData.deposit_percent}
+                              onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
+                              disabled={!formData.deposit_required}
+                              className="w-16 h-8"
+                            />
+                            <span className="text-sm text-muted-foreground">%</span>
                           </div>
                         </div>
 
                         {/* Discount */}
-                        <div className="space-y-1">
-                          <Label className="text-xs">Discount</Label>
-                          <div className="flex items-center gap-2 h-9">
+                        <div className="border rounded-lg p-3 bg-background">
+                          <Label className="text-xs text-muted-foreground mb-1 block">Discount</Label>
+                          <div className="flex items-center gap-2">
                             <Select
                               value={formData.discount_type}
                               onValueChange={(v) => setFormData({ ...formData, discount_type: v })}
                             >
-                              <SelectTrigger className="w-24 h-9">
+                              <SelectTrigger className="w-16 h-8">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1389,7 +1387,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               type="number"
                               value={formData.discount_value}
                               onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
-                              className="w-20 h-9"
+                              className="w-20 h-8"
                             />
                             {totals.discountAmount > 0 && (
                               <span className="text-xs text-muted-foreground whitespace-nowrap">
