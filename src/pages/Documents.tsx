@@ -288,6 +288,14 @@ export default function Documents() {
       // are in that scaled space. We divide by 2 to normalize to PDF coordinates (scale 1).
       const PDF_EDITOR_SCALE = 2;
       
+      console.log('[saveFieldsMutation] signatureFields before save:', signatureFields.map(f => ({
+        id: f.id,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+      })));
+      
       if (signatureFields.length > 0) {
         const fieldsToInsert = signatureFields.map(f => ({
           document_id: uploadedDocId,
@@ -302,6 +310,13 @@ export default function Documents() {
           is_required: f.isRequired,
           field_label: f.fieldLabel || null,
         }));
+
+        console.log('[saveFieldsMutation] fieldsToInsert (after /2):', fieldsToInsert.map(f => ({
+          x_position: f.x_position,
+          y_position: f.y_position,
+          width: f.width,
+          height: f.height,
+        })));
 
         const { error } = await supabase
           .from("document_signature_fields")
