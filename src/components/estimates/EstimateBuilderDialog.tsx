@@ -84,6 +84,7 @@ interface EstimateFormData {
   show_details_to_customer: boolean;
   show_scope_to_customer: boolean;
   show_line_items_to_customer: boolean;
+  salesperson_name: string;
 }
 
 const itemTypes = [
@@ -130,6 +131,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     show_details_to_customer: false,
     show_scope_to_customer: false,
     show_line_items_to_customer: false,
+    salesperson_name: "",
   });
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -151,6 +153,21 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         .select("id, project_number, project_name, customer_first_name, customer_last_name, project_address")
         .order("project_number", { ascending: false })
         .limit(100);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  // Fetch salespeople for selection
+  const { data: salespeople = [] } = useQuery({
+    queryKey: ["salespeople-for-estimate"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
       if (error) throw error;
       return data || [];
     },
@@ -272,6 +289,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_details_to_customer: est.show_details_to_customer ?? false,
         show_scope_to_customer: est.show_scope_to_customer ?? false,
         show_line_items_to_customer: est.show_line_items_to_customer ?? false,
+        salesperson_name: est.salesperson_name || "",
       });
 
       // Populate groups with items
@@ -316,6 +334,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_details_to_customer: false,
         show_scope_to_customer: false,
         show_line_items_to_customer: false,
+        salesperson_name: "",
       });
       setGroups([]);
       setPaymentSchedule([]);
@@ -616,6 +635,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_details_to_customer: formData.show_details_to_customer,
         show_scope_to_customer: formData.show_scope_to_customer,
         show_line_items_to_customer: formData.show_line_items_to_customer,
+        salesperson_name: formData.salesperson_name || null,
       };
       
       // Only set status for new estimates (not when editing)
@@ -758,6 +778,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_details_to_customer: formData.show_details_to_customer,
         show_scope_to_customer: formData.show_scope_to_customer,
         show_line_items_to_customer: formData.show_line_items_to_customer,
+        salesperson_name: formData.salesperson_name || null,
       };
 
       // Create new estimate
@@ -1012,6 +1033,25 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           value={formData.expiration_date}
                           onChange={(e) => setFormData({ ...formData, expiration_date: e.target.value })}
                         />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="salesperson_name">Salesperson</Label>
+                        <Select
+                          value={formData.salesperson_name || "none"}
+                          onValueChange={(value) => setFormData({ ...formData, salesperson_name: value === "none" ? "" : value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select salesperson..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No salesperson assigned</SelectItem>
+                            {salespeople.map((sp) => (
+                              <SelectItem key={sp.id} value={sp.name}>
+                                {sp.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </CardContent>
                   </Card>

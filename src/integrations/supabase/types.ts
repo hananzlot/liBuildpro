@@ -1430,6 +1430,7 @@ export type Database = {
           notes: string | null
           opportunity_id: string | null
           project_id: string | null
+          salesperson_name: string | null
           sent_at: string | null
           show_details_to_customer: boolean
           show_line_items_to_customer: boolean
@@ -1471,6 +1472,7 @@ export type Database = {
           notes?: string | null
           opportunity_id?: string | null
           project_id?: string | null
+          salesperson_name?: string | null
           sent_at?: string | null
           show_details_to_customer?: boolean
           show_line_items_to_customer?: boolean
@@ -1512,6 +1514,7 @@ export type Database = {
           notes?: string | null
           opportunity_id?: string | null
           project_id?: string | null
+          salesperson_name?: string | null
           sent_at?: string | null
           show_details_to_customer?: boolean
           show_line_items_to_customer?: boolean

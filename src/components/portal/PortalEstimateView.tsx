@@ -784,6 +784,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                     </span>
                   )}
                 </div>
+                {estimate.salesperson_name && (
+                  <p className="text-sm flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    Sales Rep: {estimate.salesperson_name}
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
