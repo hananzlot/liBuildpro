@@ -23,6 +23,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { CompanyHeader } from '@/components/proposals/CompanyHeader';
 
 interface EstimatePreviewDialogProps {
   estimateId: string | null;
@@ -174,6 +175,9 @@ export function EstimatePreviewDialog({
             </div>
           ) : (
             <div className="p-6 space-y-6 bg-muted/30">
+              {/* Company Header */}
+              <CompanyHeader />
+
               {/* Status Banner */}
               {isSigned && (
                 <Card className="bg-green-50 border-green-200">

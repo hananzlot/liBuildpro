@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SignatureCanvas } from './SignatureCanvas';
 import { ClientComments } from './ClientComments';
+import { CompanyHeader } from '@/components/proposals/CompanyHeader';
 import {
   FileText,
   Calendar,
@@ -620,6 +621,9 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        {/* Company Header */}
+        <CompanyHeader />
+
         {/* Multi-signer Progress */}
         {portalData.isMultiSigner && allSigners.length > 1 && (
           <Card>
