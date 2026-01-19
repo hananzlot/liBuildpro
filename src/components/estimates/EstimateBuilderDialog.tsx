@@ -1073,12 +1073,17 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </CardContent>
                   </Card>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-2">
                     <h3 className="font-semibold">Line Items</h3>
-                    <Button onClick={addGroup} size="sm" className="w-full sm:w-auto">
+                    <Button
+                      onClick={addGroup}
+                      size="sm"
+                      className="w-full sm:w-auto sm:justify-self-center"
+                    >
                       <FolderPlus className="mr-2 h-4 w-4" />
                       Add Area
                     </Button>
+                    <div className="hidden sm:block" />
                   </div>
 
                   {/* Check if mandatory fields are filled for AI generation */}
@@ -1122,7 +1127,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     ) : (
                       <div className="space-y-4">
                         {/* Clear & Regenerate option when items exist */}
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-center gap-2">
                           <Button 
                             variant="outline" 
                             size="sm"
