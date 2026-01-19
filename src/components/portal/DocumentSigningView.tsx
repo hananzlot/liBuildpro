@@ -568,7 +568,7 @@ export function DocumentSigningView({
                                     advanceToNextField();
                                   }
                                 }}
-                                className="flex-1 min-h-0 h-auto text-sm px-1 py-0"
+                                className="flex-1 min-h-[24px] h-6 text-sm px-2 py-1 bg-white text-gray-900 border-gray-300"
                                 placeholder={`Enter ${FIELD_TYPE_LABELS[field.field_type].toLowerCase()}`}
                               />
                             ) : (
