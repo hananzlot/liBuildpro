@@ -14,7 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Copy, Mail, Link, Check, Loader2, Send, Users, User } from 'lucide-react';
+import { Copy, Mail, Link, Check, Loader2, Send, Users, User, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MultiSignerInput, SignerData } from '@/components/documents/MultiSignerInput';
 
 interface SendProposalDialogProps {
@@ -79,13 +80,13 @@ export function SendProposalDialog({
     }
   }, [open, customerEmail, customerName, isResend]);
 
-  // Check if estimate already has a project
+  // Check if estimate already has a project and get visibility settings
   const { data: estimateData } = useQuery({
     queryKey: ['estimate-project-check', estimateId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('estimates')
-        .select('project_id, estimate_title, job_address, customer_phone')
+        .select('project_id, estimate_title, job_address, customer_phone, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer')
         .eq('id', estimateId)
         .single();
       if (error) throw error;
@@ -592,6 +593,51 @@ export function SendProposalDialog({
           {/* Email Section */}
           {canSendEmail && (
             <>
+              {/* Visibility Summary Alert */}
+              <Alert className="border-amber-200 bg-amber-50">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <div className="font-medium mb-2">Customer will see:</div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center gap-2">
+                      {estimateData?.show_scope_to_customer ? (
+                        <Eye className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                      <span className={estimateData?.show_scope_to_customer ? 'text-green-700' : 'text-muted-foreground'}>
+                        Scope of Work Description: {estimateData?.show_scope_to_customer ? 'Visible' : 'Hidden'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {estimateData?.show_line_items_to_customer ? (
+                        <Eye className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                      <span className={estimateData?.show_line_items_to_customer ? 'text-green-700' : 'text-muted-foreground'}>
+                        Line Items: {estimateData?.show_line_items_to_customer ? 'Visible' : 'Hidden'}
+                      </span>
+                    </div>
+                    {estimateData?.show_line_items_to_customer && (
+                      <div className="flex items-center gap-2 pl-4">
+                        {estimateData?.show_details_to_customer ? (
+                          <Eye className="h-3.5 w-3.5 text-green-600" />
+                        ) : (
+                          <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        <span className={estimateData?.show_details_to_customer ? 'text-green-700' : 'text-muted-foreground'}>
+                          Line Item Details (Qty, Unit Price): {estimateData?.show_details_to_customer ? 'Visible' : 'Hidden'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs mt-2 text-amber-600">
+                    Edit these settings in the estimate's "Terms & Notes" tab.
+                  </p>
+                </AlertDescription>
+              </Alert>
+
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-3 flex items-center gap-2">
                   <Mail className="h-4 w-4" />
