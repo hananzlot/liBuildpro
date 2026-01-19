@@ -151,24 +151,54 @@ export function SignedDocumentView({
     
     switch (field.field_type) {
       case "signature":
-      case "initials":
         if (signature) {
           if (signature.signature_type === "drawn") {
             return (
               <img 
                 src={signature.signature_data} 
-                alt={field.field_type === "initials" ? `Initials by ${signature.signer_name}` : `Signature by ${signature.signer_name}`} 
+                alt={`Signature by ${signature.signer_name}`} 
                 className="max-h-full max-w-full object-contain"
               />
             );
           } else {
-            // For initials, just use first letters of each word
-            const displayText = field.field_type === "initials" 
-              ? signature.signature_data.split(' ').map((w: string) => w[0]).join('').toUpperCase()
-              : signature.signature_data;
             return (
               <span 
                 style={{ fontFamily: signature.signature_font || "cursive" }} 
+                className="text-lg text-gray-800"
+              >
+                {signature.signature_data}
+              </span>
+            );
+          }
+        }
+        return null;
+      
+      case "initials":
+        if (signature) {
+          // Use the separate initials data from field_values
+          const initialsType = fieldValues._initialsType || 'typed';
+          const initialsData = fieldValues._initialsData || '';
+          const initialsFont = fieldValues._initialsFont;
+          
+          if (initialsType === "drawn" && initialsData && typeof initialsData === 'string' && initialsData.startsWith('data:image')) {
+            return (
+              <img 
+                src={initialsData} 
+                alt={`Initials by ${signature.signer_name}`} 
+                className="max-h-full max-w-full object-contain"
+              />
+            );
+          } else {
+            // Extract first letters from each word for typed initials
+            const displayText = (initialsData || signature.signer_name || '')
+              .split(' ')
+              .filter((w: string) => w.length > 0)
+              .map((w: string) => w[0])
+              .join('')
+              .toUpperCase();
+            return (
+              <span 
+                style={{ fontFamily: initialsFont || signature.signature_font || "cursive" }} 
                 className="text-lg text-gray-800"
               >
                 {displayText}
