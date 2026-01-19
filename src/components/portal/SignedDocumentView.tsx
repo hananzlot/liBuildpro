@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Loader2, Shield, User, Mail, Clock, Globe, Monitor } from "lucide-react";
 import { format } from "date-fns";
 import * as pdfjsLib from "pdfjs-dist/build/pdf.mjs";
 import pdfjsWorkerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
@@ -31,6 +33,8 @@ interface DocumentSignature {
   signature_data: string;
   signature_font: string | null;
   signed_at: string;
+  ip_address?: string | null;
+  user_agent?: string | null;
   field_values?: Record<string, string>;
 }
 
@@ -336,6 +340,92 @@ export function SignedDocumentView({
             )}
           </div>
         </div>
+
+        {/* Digital Signature Certificate */}
+        {signatures.length > 0 && (
+          <div className="mt-6 border rounded-lg bg-muted/30 p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="h-5 w-5 text-green-600" />
+              <h3 className="font-semibold text-lg">Digital Signature Certificate</h3>
+              <Badge variant="outline" className="ml-auto bg-green-50 text-green-700 border-green-200">
+                Verified
+              </Badge>
+            </div>
+            
+            <div className="space-y-4">
+              {signatures.map((sig, index) => (
+                <div key={sig.id} className="bg-background rounded-lg p-4 border">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{sig.signer_name}</p>
+                      <p className="text-sm text-muted-foreground">Signer {index + 1}</p>
+                    </div>
+                  </div>
+                  
+                  <Separator className="my-3" />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    {sig.signer_email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Email:</span>
+                        <span className="font-medium">{sig.signer_email}</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Signed:</span>
+                      <span className="font-medium">
+                        {format(new Date(sig.signed_at), "MMM d, yyyy 'at' h:mm:ss a")}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Signature Type:</span>
+                      <span className="font-medium capitalize">
+                        {sig.signature_type === "drawn" ? "Hand-drawn" : "Typed"}
+                      </span>
+                    </div>
+                    
+                    {sig.ip_address && (
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">IP Address:</span>
+                        <span className="font-medium font-mono text-xs">{sig.ip_address}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {sig.user_agent && (
+                    <div className="mt-3 pt-3 border-t">
+                      <div className="flex items-start gap-2 text-sm">
+                        <Monitor className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <div>
+                          <span className="text-muted-foreground">Device:</span>
+                          <p className="font-medium text-xs font-mono break-all mt-1 text-muted-foreground">
+                            {sig.user_agent.length > 100 
+                              ? sig.user_agent.substring(0, 100) + "..." 
+                              : sig.user_agent}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <p className="text-xs text-muted-foreground mt-4 text-center">
+              This document was electronically signed using a secure digital signature platform.
+              The signatures are legally binding and comply with electronic signature laws.
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
