@@ -200,6 +200,9 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
 
       <div class="section">
         <div class="section-title">Scope of Work</div>
+        ${data.estimate.work_scope_description ? `
+          <div class="work-scope-description">${data.estimate.work_scope_description}</div>
+        ` : ""}
         ${groupsHtml}
       </div>
 
@@ -336,6 +339,15 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
             .info-value {
               font-size: 14px;
               font-weight: 500;
+            }
+            .work-scope-description {
+              white-space: pre-wrap;
+              font-size: 14px;
+              line-height: 1.6;
+              margin-bottom: 20px;
+              padding: 12px;
+              background: #fafafa;
+              border-left: 3px solid #1a1a2e;
             }
             .scope-group {
               margin-bottom: 20px;
