@@ -56,19 +56,34 @@ export function SendProposalDialog({
     show_details_to_customer: false,
   });
 
+  // Fetch company name from settings
+  const { data: companySettings } = useQuery({
+    queryKey: ['company-name-setting'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'company_name')
+        .maybeSingle();
+      return data?.setting_value || 'Our Company';
+    },
+  });
+
+  const companyName = companySettings || 'Our Company';
+
   // Reset form when dialog opens with new data
   useEffect(() => {
-    if (open) {
+    if (open && companyName) {
       setEmail(customerEmail || '');
       setSubject(
         isResend 
-          ? `Reminder: Your Proposal from Capro Builders`
-          : `Your Proposal from Capro Builders`
+          ? `Reminder: Your Proposal from ${companyName}`
+          : `Your Proposal from ${companyName}`
       );
       setMessage(
         isResend
-          ? `Hi ${customerName},\n\nThis is a friendly reminder about your proposal. Please find it available for review through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
-          : `Hi ${customerName},\n\nPlease find your proposal attached. You can review, comment, and sign it directly through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\nCapro Builders`
+          ? `Hi ${customerName},\n\nThis is a friendly reminder about your proposal. Please find it available for review through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\n${companyName}`
+          : `Hi ${customerName},\n\nPlease find your proposal attached. You can review, comment, and sign it directly through the link below.\n\nIf you have any questions, please don't hesitate to reach out.\n\nBest regards,\n${companyName}`
       );
       setPortalLink(null);
       setCopied(false);
@@ -82,7 +97,7 @@ export function SendProposalDialog({
         color: SIGNER_COLORS[0],
       }]);
     }
-  }, [open, customerEmail, customerName, isResend]);
+  }, [open, customerEmail, customerName, isResend, companyName]);
 
   // Check if estimate already has a project and get visibility settings
   const { data: estimateData } = useQuery({
