@@ -783,17 +783,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                   <p className="text-sm text-muted-foreground">{group.description}</p>
                 )}
                 <div className="space-y-2">
-                  {groupedItems[group.id]?.map((item: LineItem) => (
+                {groupedItems[group.id]?.map((item: LineItem) => (
                     <div
                       key={item.id}
-                      className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
+                      className="flex justify-between items-center p-3 bg-muted/50 rounded-lg"
                     >
-                      <div className="flex-1">
-                        <p className="font-medium">{item.description}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
-                        </p>
-                      </div>
+                      <p className="font-medium flex-1">{item.description}</p>
                       <p className="font-medium">{formatCurrency(item.line_total)}</p>
                     </div>
                   ))}
@@ -803,17 +798,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
             {ungroupedItems.length > 0 && (
               <div className="space-y-2">
-                {ungroupedItems.map((item: LineItem) => (
+              {ungroupedItems.map((item: LineItem) => (
                   <div
                     key={item.id}
-                    className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
+                    className="flex justify-between items-center p-3 bg-muted/50 rounded-lg"
                   >
-                    <div className="flex-1">
-                      <p className="font-medium">{item.description}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
-                      </p>
-                    </div>
+                    <p className="font-medium flex-1">{item.description}</p>
                     <p className="font-medium">{formatCurrency(item.line_total)}</p>
                   </div>
                 ))}
