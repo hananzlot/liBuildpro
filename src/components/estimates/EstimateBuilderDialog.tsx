@@ -282,7 +282,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         discount_type: "percent",
         discount_value: 0,
         notes: "",
-        terms_and_conditions: defaultTerms || "",
+        terms_and_conditions: "",
         work_scope_description: "",
         show_details_to_customer: false,
       });
@@ -290,6 +290,16 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setPaymentSchedule([]);
       setActiveTab("customer");
       setLinkedProjectId(null);
+    }
+  }, [open, estimateId]);
+
+  // Apply default terms when they're loaded for new estimates
+  useEffect(() => {
+    if (open && !estimateId && defaultTerms && !formData.terms_and_conditions) {
+      setFormData(prev => ({
+        ...prev,
+        terms_and_conditions: defaultTerms,
+      }));
     }
   }, [open, estimateId, defaultTerms]);
 
