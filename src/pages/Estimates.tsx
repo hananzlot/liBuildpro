@@ -37,6 +37,7 @@ interface Estimate {
   notes: string | null;
   signed_at: string | null;
   declined_at: string | null;
+  salesperson_name: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -267,6 +268,7 @@ export default function Estimates() {
             <TableHead className="w-[100px]">#</TableHead>
             <TableHead>Customer</TableHead>
             <TableHead>Title</TableHead>
+            <TableHead>Salesperson</TableHead>
             <TableHead>Date</TableHead>
             {isContractsTab && <TableHead>Date Accepted</TableHead>}
             {isDeclinedTab && <TableHead>Date Declined</TableHead>}
@@ -298,6 +300,11 @@ export default function Estimates() {
                     </span>
                   )}
                 </div>
+              </TableCell>
+              <TableCell>
+                <span className="text-muted-foreground">
+                  {estimate.salesperson_name || '-'}
+                </span>
               </TableCell>
               <TableCell>
                 <div className="flex flex-col">
