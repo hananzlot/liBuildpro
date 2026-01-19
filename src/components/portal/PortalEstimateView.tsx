@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,12 +25,22 @@ import {
   Building,
   AlertCircle,
   Loader2,
+  Users,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 interface PortalEstimateViewProps {
   token: string;
+  isMultiSigner?: boolean;
+  signerId?: string;
+  signerData?: {
+    id: string;
+    signer_name: string;
+    signer_email: string;
+    signer_order: number;
+    status: string;
+  };
 }
 
 interface LineItem {
@@ -60,7 +70,18 @@ interface PaymentPhase {
   description: string | null;
 }
 
-export function PortalEstimateView({ token }: PortalEstimateViewProps) {
+interface EstimateSigner {
+  id: string;
+  signer_name: string;
+  signer_email: string;
+  signer_order: number;
+  status: string;
+  signed_at: string | null;
+  signature_id: string | null;
+}
+
+export function PortalEstimateView({ token, isMultiSigner = false, signerId, signerData }: PortalEstimateViewProps) {
+  const queryClient = useQueryClient();
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
@@ -75,103 +96,222 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
 
   // Fetch token and estimate data
   const { data: portalData, isLoading, error, refetch } = useQuery({
-    queryKey: ['portal-estimate', token],
+    queryKey: ['portal-estimate', token, isMultiSigner],
     queryFn: async () => {
-      // First get the token
-      const { data: tokenData, error: tokenError } = await supabase
-        .from('client_portal_tokens')
-        .select('*')
-        .eq('token', token)
-        .eq('is_active', true)
-        .single();
+      if (isMultiSigner) {
+        // Multi-signer flow - use estimate_portal_tokens
+        const { data: tokenData, error: tokenError } = await supabase
+          .from('estimate_portal_tokens')
+          .select('*')
+          .eq('token', token)
+          .eq('is_active', true)
+          .single();
 
-      if (tokenError) throw new Error('Invalid or expired link');
-      if (!tokenData.estimate_id) throw new Error('No estimate linked to this token');
+        if (tokenError) throw new Error('Invalid or expired link');
 
-      // Check expiration
-      if (new Date(tokenData.expires_at) < new Date()) {
-        throw new Error('This link has expired');
-      }
+        // Check expiration
+        if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
+          throw new Error('This link has expired');
+        }
 
-      // Get estimate
-      const { data: estimate, error: estError } = await supabase
-        .from('estimates')
-        .select('*')
-        .eq('id', tokenData.estimate_id)
-        .single();
+        // Get signer info
+        const { data: signer, error: signerError } = await supabase
+          .from('estimate_signers')
+          .select('*')
+          .eq('id', tokenData.signer_id)
+          .single();
 
-      if (estError) throw estError;
+        if (signerError) throw new Error('Signer not found');
 
-      // Get groups
-      const { data: groups } = await supabase
-        .from('estimate_groups')
-        .select('*')
-        .eq('estimate_id', estimate.id)
-        .order('sort_order');
-
-      // Get line items
-      const { data: lineItems } = await supabase
-        .from('estimate_line_items')
-        .select('*')
-        .eq('estimate_id', estimate.id)
-        .order('sort_order');
-
-      // Get payment schedule
-      const { data: paymentSchedule } = await supabase
-        .from('estimate_payment_schedule')
-        .select('*')
-        .eq('estimate_id', estimate.id)
-        .order('sort_order');
-
-      // Get signature if exists
-      const { data: signatures } = await supabase
-        .from('estimate_signatures')
-        .select('*')
-        .eq('estimate_id', estimate.id);
-
-      // Log view
-      await supabase.from('portal_view_logs').insert({
-        portal_token_id: tokenData.id,
-        estimate_id: estimate.id,
-        page_viewed: 'estimate',
-      });
-
-      // Update access count
-      await supabase
-        .from('client_portal_tokens')
-        .update({
-          last_accessed_at: new Date().toISOString(),
-          access_count: (tokenData.access_count || 0) + 1,
-        })
-        .eq('id', tokenData.id);
-
-      // Update estimate viewed_at if not already
-      if (!estimate.viewed_at) {
-        await supabase
+        // Get estimate
+        const { data: estimate, error: estError } = await supabase
           .from('estimates')
-          .update({ 
-            viewed_at: new Date().toISOString(),
-            status: estimate.status === 'sent' ? 'viewed' : estimate.status
-          })
-          .eq('id', estimate.id);
-      }
+          .select('*')
+          .eq('id', tokenData.estimate_id)
+          .single();
 
-      return {
-        token: tokenData,
-        estimate,
-        groups: groups || [],
-        lineItems: lineItems || [],
-        paymentSchedule: paymentSchedule || [],
-        signature: signatures?.[0] || null,
-      };
+        if (estError) throw estError;
+
+        // Get all signers for this estimate
+        const { data: allSigners } = await supabase
+          .from('estimate_signers')
+          .select('*')
+          .eq('estimate_id', estimate.id)
+          .order('signer_order', { ascending: true });
+
+        // Get groups
+        const { data: groups } = await supabase
+          .from('estimate_groups')
+          .select('*')
+          .eq('estimate_id', estimate.id)
+          .order('sort_order');
+
+        // Get line items
+        const { data: lineItems } = await supabase
+          .from('estimate_line_items')
+          .select('*')
+          .eq('estimate_id', estimate.id)
+          .order('sort_order');
+
+        // Get payment schedule
+        const { data: paymentSchedule } = await supabase
+          .from('estimate_payment_schedule')
+          .select('*')
+          .eq('estimate_id', estimate.id)
+          .order('sort_order');
+
+        // Get signatures for this estimate
+        const { data: signatures } = await supabase
+          .from('estimate_signatures')
+          .select('*')
+          .eq('estimate_id', estimate.id);
+
+        // Log view and update signer status if needed
+        if (signer.status === 'sent' || signer.status === 'pending') {
+          await supabase
+            .from('estimate_signers')
+            .update({ 
+              status: 'viewed',
+              viewed_at: new Date().toISOString(),
+            })
+            .eq('id', signer.id);
+        }
+
+        // Update access count
+        await supabase
+          .from('estimate_portal_tokens')
+          .update({
+            last_accessed_at: new Date().toISOString(),
+            access_count: (tokenData.access_count || 0) + 1,
+          })
+          .eq('id', tokenData.id);
+
+        // Update estimate viewed_at if not already
+        if (!estimate.viewed_at) {
+          await supabase
+            .from('estimates')
+            .update({ 
+              viewed_at: new Date().toISOString(),
+              status: estimate.status === 'sent' ? 'viewed' : estimate.status
+            })
+            .eq('id', estimate.id);
+        }
+
+        return {
+          token: tokenData,
+          estimate,
+          groups: groups || [],
+          lineItems: lineItems || [],
+          paymentSchedule: paymentSchedule || [],
+          signatures: signatures || [],
+          currentSigner: signer,
+          allSigners: allSigners || [],
+          isMultiSigner: true,
+        };
+      } else {
+        // Legacy single signer flow
+        const { data: tokenData, error: tokenError } = await supabase
+          .from('client_portal_tokens')
+          .select('*')
+          .eq('token', token)
+          .eq('is_active', true)
+          .single();
+
+        if (tokenError) throw new Error('Invalid or expired link');
+        if (!tokenData.estimate_id) throw new Error('No estimate linked to this token');
+
+        // Check expiration
+        if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
+          throw new Error('This link has expired');
+        }
+
+        // Get estimate
+        const { data: estimate, error: estError } = await supabase
+          .from('estimates')
+          .select('*')
+          .eq('id', tokenData.estimate_id)
+          .single();
+
+        if (estError) throw estError;
+
+        // Get groups
+        const { data: groups } = await supabase
+          .from('estimate_groups')
+          .select('*')
+          .eq('estimate_id', estimate.id)
+          .order('sort_order');
+
+        // Get line items
+        const { data: lineItems } = await supabase
+          .from('estimate_line_items')
+          .select('*')
+          .eq('estimate_id', estimate.id)
+          .order('sort_order');
+
+        // Get payment schedule
+        const { data: paymentSchedule } = await supabase
+          .from('estimate_payment_schedule')
+          .select('*')
+          .eq('estimate_id', estimate.id)
+          .order('sort_order');
+
+        // Get signature if exists
+        const { data: signatures } = await supabase
+          .from('estimate_signatures')
+          .select('*')
+          .eq('estimate_id', estimate.id);
+
+        // Log view
+        await supabase.from('portal_view_logs').insert({
+          portal_token_id: tokenData.id,
+          estimate_id: estimate.id,
+          page_viewed: 'estimate',
+        });
+
+        // Update access count
+        await supabase
+          .from('client_portal_tokens')
+          .update({
+            last_accessed_at: new Date().toISOString(),
+            access_count: (tokenData.access_count || 0) + 1,
+          })
+          .eq('id', tokenData.id);
+
+        // Update estimate viewed_at if not already
+        if (!estimate.viewed_at) {
+          await supabase
+            .from('estimates')
+            .update({ 
+              viewed_at: new Date().toISOString(),
+              status: estimate.status === 'sent' ? 'viewed' : estimate.status
+            })
+            .eq('id', estimate.id);
+        }
+
+        return {
+          token: tokenData,
+          estimate,
+          groups: groups || [],
+          lineItems: lineItems || [],
+          paymentSchedule: paymentSchedule || [],
+          signatures: signatures || [],
+          signature: signatures?.[0] || null,
+          isMultiSigner: false,
+        };
+      }
     },
   });
 
-  // Set initial signer info from estimate
+  // Set initial signer info
   useEffect(() => {
-    if (portalData?.estimate) {
-      setSignerName(portalData.estimate.customer_name || '');
-      setSignerEmail(portalData.estimate.customer_email || '');
+    if (portalData) {
+      if (portalData.isMultiSigner && portalData.currentSigner) {
+        setSignerName(portalData.currentSigner.signer_name || '');
+        setSignerEmail(portalData.currentSigner.signer_email || '');
+      } else if (portalData.estimate) {
+        setSignerName(portalData.estimate.customer_name || '');
+        setSignerEmail(portalData.estimate.customer_email || '');
+      }
     }
   }, [portalData]);
 
@@ -181,63 +321,134 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
         throw new Error('Please complete the signature and agree to terms');
       }
 
-      const { error: sigError } = await supabase.from('estimate_signatures').insert({
-        estimate_id: portalData!.estimate.id,
-        signer_name: signerName,
-        signer_email: signerEmail,
-        signature_type: signatureData.type,
-        signature_data: signatureData.data,
-        signature_font: signatureData.font,
-        portal_token_id: portalData!.token.id,
-      });
+      // Insert signature
+      const { data: signatureRecord, error: sigError } = await supabase
+        .from('estimate_signatures')
+        .insert({
+          estimate_id: portalData!.estimate.id,
+          signer_name: signerName,
+          signer_email: signerEmail,
+          signature_type: signatureData.type,
+          signature_data: signatureData.data,
+          signature_font: signatureData.font,
+          portal_token_id: portalData!.isMultiSigner ? null : portalData!.token.id,
+        })
+        .select()
+        .single();
 
       if (sigError) throw sigError;
 
-      // Update estimate status
-      const { error: updateError } = await supabase
-        .from('estimates')
-        .update({
-          status: 'accepted',
-          signed_at: new Date().toISOString(),
-        })
-        .eq('id', portalData!.estimate.id);
+      if (portalData!.isMultiSigner) {
+        // Update signer status
+        await supabase
+          .from('estimate_signers')
+          .update({
+            status: 'signed',
+            signed_at: new Date().toISOString(),
+            signature_id: signatureRecord.id,
+          })
+          .eq('id', portalData!.currentSigner.id);
 
-      if (updateError) throw updateError;
+        // Check if all signers have signed
+        const { data: allSigners } = await supabase
+          .from('estimate_signers')
+          .select('status')
+          .eq('estimate_id', portalData!.estimate.id);
 
-      // Generate contract PDF if there's a linked project
-      if (portalData!.estimate.project_id) {
-        supabase.functions.invoke('generate-contract-pdf', {
+        const allSigned = allSigners?.every(s => s.status === 'signed');
+
+        if (allSigned) {
+          // All signers have signed - mark estimate as accepted
+          await supabase
+            .from('estimates')
+            .update({
+              status: 'accepted',
+              signed_at: new Date().toISOString(),
+            })
+            .eq('id', portalData!.estimate.id);
+
+          // Generate contract PDF if there's a linked project
+          if (portalData!.estimate.project_id) {
+            supabase.functions.invoke('generate-contract-pdf', {
+              body: {
+                estimateId: portalData!.estimate.id,
+                projectId: portalData!.estimate.project_id,
+                signerName: signerName,
+                signedAt: new Date().toISOString(),
+                isMultiSigner: true,
+              },
+            }).catch((err) => console.error('Failed to generate contract PDF:', err));
+          }
+
+          // Send notification that all parties have signed
+          supabase.functions.invoke('send-proposal-notification', {
+            body: {
+              estimateId: portalData!.estimate.id,
+              action: 'accepted',
+              customerName: signerName,
+              isMultiSigner: true,
+              allSigned: true,
+            },
+          }).catch((err) => console.error('Failed to send admin notification:', err));
+        } else {
+          // Send notification that this signer has signed
+          supabase.functions.invoke('send-proposal-notification', {
+            body: {
+              estimateId: portalData!.estimate.id,
+              action: 'partial_sign',
+              customerName: signerName,
+              isMultiSigner: true,
+              signedCount: allSigners?.filter(s => s.status === 'signed').length || 1,
+              totalSigners: allSigners?.length || 1,
+            },
+          }).catch((err) => console.error('Failed to send notification:', err));
+        }
+      } else {
+        // Single signer flow - mark as accepted immediately
+        await supabase
+          .from('estimates')
+          .update({
+            status: 'accepted',
+            signed_at: new Date().toISOString(),
+          })
+          .eq('id', portalData!.estimate.id);
+
+        // Generate contract PDF if there's a linked project
+        if (portalData!.estimate.project_id) {
+          supabase.functions.invoke('generate-contract-pdf', {
+            body: {
+              estimateId: portalData!.estimate.id,
+              projectId: portalData!.estimate.project_id,
+              signerName: signerName,
+              signedAt: new Date().toISOString(),
+            },
+          }).catch((err) => console.error('Failed to generate contract PDF:', err));
+        }
+
+        // Send notification email to admin
+        supabase.functions.invoke('send-proposal-notification', {
           body: {
             estimateId: portalData!.estimate.id,
-            projectId: portalData!.estimate.project_id,
-            signerName: signerName,
-            signedAt: new Date().toISOString(),
+            action: 'accepted',
+            customerName: signerName,
           },
-        }).catch((err) => console.error('Failed to generate contract PDF:', err));
+        }).catch((err) => console.error('Failed to send admin notification:', err));
+
+        // Send confirmation email to customer
+        supabase.functions.invoke('send-customer-confirmation', {
+          body: {
+            estimateId: portalData!.estimate.id,
+            action: 'accepted',
+            customerEmail: signerEmail || portalData!.estimate.customer_email,
+            customerName: signerName,
+          },
+        }).catch((err) => console.error('Failed to send customer confirmation:', err));
       }
-
-      // Send notification email to admin
-      supabase.functions.invoke('send-proposal-notification', {
-        body: {
-          estimateId: portalData!.estimate.id,
-          action: 'accepted',
-          customerName: signerName,
-        },
-      }).catch((err) => console.error('Failed to send admin notification:', err));
-
-      // Send confirmation email to customer
-      supabase.functions.invoke('send-customer-confirmation', {
-        body: {
-          estimateId: portalData!.estimate.id,
-          action: 'accepted',
-          customerEmail: signerEmail || portalData!.estimate.customer_email,
-          customerName: signerName,
-        },
-      }).catch((err) => console.error('Failed to send customer confirmation:', err));
     },
     onSuccess: () => {
       toast.success('Proposal signed successfully!');
       setSignatureDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['portal-estimate', token] });
       refetch();
     },
     onError: (error: Error) => {
@@ -247,35 +458,59 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
 
   const declineMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from('estimates')
-        .update({
-          status: 'declined',
-          declined_at: new Date().toISOString(),
-          decline_reason: declineReason,
-        })
-        .eq('id', portalData!.estimate.id);
+      if (portalData!.isMultiSigner) {
+        // Update signer status to declined
+        await supabase
+          .from('estimate_signers')
+          .update({
+            status: 'declined',
+            declined_at: new Date().toISOString(),
+            decline_reason: declineReason,
+          })
+          .eq('id', portalData!.currentSigner.id);
 
-      if (error) throw error;
+        // Mark estimate as declined
+        await supabase
+          .from('estimates')
+          .update({
+            status: 'declined',
+            declined_at: new Date().toISOString(),
+            decline_reason: `${portalData!.currentSigner.signer_name}: ${declineReason}`,
+          })
+          .eq('id', portalData!.estimate.id);
+      } else {
+        await supabase
+          .from('estimates')
+          .update({
+            status: 'declined',
+            declined_at: new Date().toISOString(),
+            decline_reason: declineReason,
+          })
+          .eq('id', portalData!.estimate.id);
+      }
 
       // Send notification email to admin
       supabase.functions.invoke('send-proposal-notification', {
         body: {
           estimateId: portalData!.estimate.id,
           action: 'declined',
-          customerName: portalData!.estimate.customer_name,
+          customerName: portalData!.isMultiSigner ? portalData!.currentSigner.signer_name : portalData!.estimate.customer_name,
           declineReason: declineReason,
         },
       }).catch((err) => console.error('Failed to send admin notification:', err));
 
       // Send confirmation email to customer
-      if (portalData!.estimate.customer_email) {
+      const customerEmail = portalData!.isMultiSigner 
+        ? portalData!.currentSigner.signer_email 
+        : portalData!.estimate.customer_email;
+      
+      if (customerEmail) {
         supabase.functions.invoke('send-customer-confirmation', {
           body: {
             estimateId: portalData!.estimate.id,
             action: 'declined',
-            customerEmail: portalData!.estimate.customer_email,
-            customerName: portalData!.estimate.customer_name,
+            customerEmail,
+            customerName: portalData!.isMultiSigner ? portalData!.currentSigner.signer_name : portalData!.estimate.customer_name,
           },
         }).catch((err) => console.error('Failed to send customer confirmation:', err));
       }
@@ -325,7 +560,10 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
 
   if (!portalData) return null;
 
-  const { estimate, groups, lineItems, paymentSchedule, signature } = portalData;
+  const { estimate, groups, lineItems, paymentSchedule, signatures } = portalData;
+  const signature = portalData.signature || signatures?.[0];
+  const currentSigner = portalData.currentSigner;
+  const allSigners: EstimateSigner[] = portalData.allSigners || [];
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -347,9 +585,18 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
 
   const ungroupedItems = lineItems.filter((item: LineItem) => !item.group_id);
 
-  const canSign = ['sent', 'viewed', 'needs_changes'].includes(estimate.status);
+  // Determine if current user can sign
+  const canSign = portalData.isMultiSigner
+    ? currentSigner && ['sent', 'viewed', 'pending'].includes(currentSigner.status)
+    : ['sent', 'viewed', 'needs_changes'].includes(estimate.status);
+  
+  const currentSignerHasSigned = portalData.isMultiSigner && currentSigner?.status === 'signed';
   const isSigned = estimate.status === 'accepted';
-  const isDeclined = estimate.status === 'declined';
+  const isDeclined = estimate.status === 'declined' || (portalData.isMultiSigner && currentSigner?.status === 'declined');
+
+  // Calculate signing progress for multi-signer
+  const signedCount = allSigners.filter(s => s.status === 'signed').length;
+  const totalSigners = allSigners.length;
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -360,12 +607,77 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
             <Building className="h-6 w-6 text-primary" />
             <span className="font-semibold text-lg">Client Portal</span>
           </div>
-          {getStatusBadge(estimate.status)}
+          <div className="flex items-center gap-2">
+            {portalData.isMultiSigner && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {signedCount}/{totalSigners} signed
+              </Badge>
+            )}
+            {getStatusBadge(estimate.status)}
+          </div>
         </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+        {/* Multi-signer Progress */}
+        {portalData.isMultiSigner && allSigners.length > 1 && (
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3 mb-3">
+                <Users className="h-5 w-5 text-muted-foreground" />
+                <span className="font-medium">Signing Progress</span>
+              </div>
+              <div className="grid gap-2">
+                {allSigners.map((signer: EstimateSigner) => (
+                  <div 
+                    key={signer.id} 
+                    className={`flex items-center justify-between p-2 rounded ${
+                      signer.id === currentSigner?.id ? 'bg-primary/10 border border-primary/20' : 'bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                        {signer.signer_order}
+                      </div>
+                      <span className="text-sm">
+                        {signer.signer_name}
+                        {signer.id === currentSigner?.id && (
+                          <span className="text-primary ml-1">(You)</span>
+                        )}
+                      </span>
+                    </div>
+                    <Badge variant={
+                      signer.status === 'signed' ? 'default' : 
+                      signer.status === 'declined' ? 'destructive' : 
+                      'secondary'
+                    }>
+                      {signer.status === 'signed' ? 'Signed' : 
+                       signer.status === 'declined' ? 'Declined' :
+                       signer.status === 'viewed' ? 'Viewed' : 'Pending'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Status Banner */}
+        {currentSignerHasSigned && !isSigned && (
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="py-4 flex items-center gap-3">
+              <CheckCircle2 className="h-6 w-6 text-blue-600" />
+              <div>
+                <p className="font-medium text-blue-800">You have signed this proposal</p>
+                <p className="text-sm text-blue-600">
+                  Waiting for {totalSigners - signedCount} more signature(s) to complete the agreement.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {isSigned && (
           <Card className="bg-green-50 border-green-200">
             <CardContent className="py-4 flex items-center gap-3">
@@ -373,7 +685,10 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
               <div>
                 <p className="font-medium text-green-800">Proposal Accepted</p>
                 <p className="text-sm text-green-600">
-                  Signed by {signature?.signer_name} on {format(new Date(signature?.signed_at || estimate.signed_at), 'MMM d, yyyy')}
+                  {portalData.isMultiSigner 
+                    ? `All ${totalSigners} parties have signed this agreement.`
+                    : `Signed by ${signature?.signer_name} on ${format(new Date(signature?.signed_at || estimate.signed_at), 'MMM d, yyyy')}`
+                  }
                 </p>
               </div>
             </CardContent>
@@ -598,51 +913,59 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
           </Card>
         )}
 
-        {/* Signature Display */}
-        {signature && (
+        {/* Signatures Display */}
+        {signatures && signatures.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-green-600">
                 <CheckCircle2 className="h-5 w-5" />
-                Signed Document
+                {portalData.isMultiSigner ? 'Signatures' : 'Signed Document'}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
-                <p className="text-sm text-muted-foreground">Signed by:</p>
-                {signature.signature_type === 'typed' ? (
-                  <p
-                    style={{ fontFamily: signature.signature_font, fontSize: '28px' }}
-                    className="text-foreground"
-                  >
-                    {signature.signature_data}
-                  </p>
-                ) : (
-                  <img
-                    src={signature.signature_data}
-                    alt="Signature"
-                    className="max-h-20 object-contain"
-                  />
-                )}
-                <p className="text-sm text-muted-foreground">
-                  {signature.signer_name} • {signature.signer_email} • {format(new Date(signature.signed_at), 'MMM d, yyyy h:mm a')}
-                </p>
+              <div className="space-y-3">
+                {signatures.map((sig: any, index: number) => (
+                  <div key={sig.id} className="p-4 bg-muted/50 rounded-lg space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      {portalData.isMultiSigner ? `Signer ${index + 1}:` : 'Signed by:'}
+                    </p>
+                    {sig.signature_type === 'typed' ? (
+                      <p
+                        style={{ fontFamily: sig.signature_font, fontSize: '28px' }}
+                        className="text-foreground"
+                      >
+                        {sig.signature_data}
+                      </p>
+                    ) : (
+                      <img
+                        src={sig.signature_data}
+                        alt="Signature"
+                        className="max-h-20 object-contain"
+                      />
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {sig.signer_name} • {sig.signer_email} • {format(new Date(sig.signed_at), 'MMM d, yyyy h:mm a')}
+                    </p>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
         )}
 
         {/* Comments Section */}
-        <Card>
-          <CardContent className="pt-6">
-            <ClientComments
-              estimateId={estimate.id}
-              portalTokenId={portalData.token.id}
-              commenterName={estimate.customer_name}
-              commenterEmail={estimate.customer_email || ''}
-            />
-          </CardContent>
-        </Card>
+        {!portalData.isMultiSigner && (
+          <Card>
+            <CardContent className="pt-6">
+              <ClientComments
+                estimateId={estimate.id}
+                portalTokenId={portalData.token.id}
+                commenterName={estimate.customer_name}
+                commenterEmail={estimate.customer_email || ''}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Action Buttons */}
         {canSign && (
@@ -650,7 +973,11 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
             <CardContent className="py-6">
               <div className="text-center mb-4">
                 <h3 className="font-semibold text-lg">Ready to proceed?</h3>
-                <p className="text-sm text-muted-foreground">Review the proposal above and accept or request changes</p>
+                <p className="text-sm text-muted-foreground">
+                  {portalData.isMultiSigner 
+                    ? `Review the proposal above and add your signature (${signedCount + 1} of ${totalSigners})`
+                    : 'Review the proposal above and accept or request changes'}
+                </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button
@@ -694,6 +1021,7 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
                   value={signerName}
                   onChange={(e) => setSignerName(e.target.value)}
                   placeholder="Your full legal name"
+                  disabled={portalData.isMultiSigner}
                 />
               </div>
               <div className="space-y-2">
@@ -703,6 +1031,7 @@ export function PortalEstimateView({ token }: PortalEstimateViewProps) {
                   value={signerEmail}
                   onChange={(e) => setSignerEmail(e.target.value)}
                   placeholder="your@email.com"
+                  disabled={portalData.isMultiSigner}
                 />
               </div>
             </div>

@@ -22,9 +22,27 @@ export default function ClientPortal() {
   usePortalTitle();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
+  const estimateToken = searchParams.get('estimate_token');
 
-  // Check what type of portal this token is for
-  const { data: tokenData, isLoading, error } = useQuery({
+  // Handle multi-signer estimate token
+  const { data: estimateTokenData, isLoading: isLoadingEstimateToken, error: estimateTokenError } = useQuery({
+    queryKey: ['estimate-portal-token', estimateToken],
+    queryFn: async () => {
+      if (!estimateToken) return null;
+      const { data, error } = await supabase
+        .from('estimate_portal_tokens')
+        .select('*, estimate_signers(*)')
+        .eq('token', estimateToken)
+        .eq('is_active', true)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!estimateToken,
+  });
+
+  // Handle legacy client portal token
+  const { data: tokenData, isLoading: isLoadingToken, error: tokenError } = useQuery({
     queryKey: ['portal-token-type', token],
     queryFn: async () => {
       if (!token) return null;
@@ -37,10 +55,12 @@ export default function ClientPortal() {
       if (error) throw error;
       return data;
     },
-    enabled: !!token,
+    enabled: !!token && !estimateToken,
   });
 
-  if (!token) {
+  const isLoading = isLoadingEstimateToken || isLoadingToken;
+
+  if (!token && !estimateToken) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -64,7 +84,35 @@ export default function ClientPortal() {
     );
   }
 
-  if (error || !tokenData) {
+  // Handle multi-signer estimate token
+  if (estimateToken) {
+    if (estimateTokenError || !estimateTokenData) {
+      return (
+        <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+          <Card className="max-w-md w-full">
+            <CardContent className="pt-6 text-center space-y-4">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+              <h2 className="text-xl font-semibold">Access Error</h2>
+              <p className="text-muted-foreground">Invalid or expired link.</p>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    // Show estimate view with signer-specific token
+    return (
+      <PortalEstimateView 
+        token={estimateToken} 
+        isMultiSigner={true}
+        signerId={estimateTokenData.signer_id}
+        signerData={estimateTokenData.estimate_signers}
+      />
+    );
+  }
+
+  // Handle legacy token
+  if (tokenError || !tokenData) {
     return (
       <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -80,9 +128,9 @@ export default function ClientPortal() {
 
   // If project_id exists, show full project portal
   if (tokenData.project_id) {
-    return <ProjectPortal token={token} />;
+    return <ProjectPortal token={token!} />;
   }
 
-  // Otherwise, show estimate-only view
-  return <PortalEstimateView token={token} />;
+  // Otherwise, show estimate-only view (legacy single signer)
+  return <PortalEstimateView token={token!} />;
 }
