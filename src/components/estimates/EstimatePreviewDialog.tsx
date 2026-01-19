@@ -157,12 +157,25 @@ export function EstimatePreviewDialog({
   const signatures = data?.signatures || [];
   const showDetails = estimate?.show_details_to_customer ?? true;
 
+  // De-duplicate line items based on description, quantity, unit_price, and group_id
+  const deduplicateItems = (items: LineItem[]): LineItem[] => {
+    const seen = new Set<string>();
+    return items.filter((item) => {
+      const key = `${item.description}-${item.quantity}-${item.unit_price}-${item.group_id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
+  const uniqueLineItems = deduplicateItems(lineItems);
+
   const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
-    acc[group.id] = lineItems.filter((item: LineItem) => item.group_id === group.id);
+    acc[group.id] = uniqueLineItems.filter((item: LineItem) => item.group_id === group.id);
     return acc;
   }, {});
 
-  const ungroupedItems = lineItems.filter((item: LineItem) => !item.group_id);
+  const ungroupedItems = uniqueLineItems.filter((item: LineItem) => !item.group_id);
 
   const isSigned = estimate?.status === 'accepted';
   const isDeclined = estimate?.status === 'declined';
