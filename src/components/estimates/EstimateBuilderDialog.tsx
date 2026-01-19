@@ -81,6 +81,7 @@ interface EstimateFormData {
   notes: string;
   terms_and_conditions: string;
   work_scope_description: string;
+  show_details_to_customer: boolean;
 }
 
 const itemTypes = [
@@ -124,6 +125,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     notes: "",
     terms_and_conditions: "",
     work_scope_description: "",
+    show_details_to_customer: false,
   });
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -240,6 +242,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         notes: est.notes || "",
         terms_and_conditions: est.terms_and_conditions || "",
         work_scope_description: est.work_scope_description || "",
+        show_details_to_customer: est.show_details_to_customer ?? false,
       });
 
       // Populate groups with items
@@ -281,6 +284,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         notes: "",
         terms_and_conditions: defaultTerms || "",
         work_scope_description: "",
+        show_details_to_customer: false,
       });
       setGroups([]);
       setPaymentSchedule([]);
@@ -557,6 +561,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         work_scope_description: formData.work_scope_description || null,
         created_by: user?.id || null,
         project_id: linkedProjectId || null,
+        show_details_to_customer: formData.show_details_to_customer,
       };
       
       // Only set status for new estimates (not when editing)
@@ -694,6 +699,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         work_scope_description: formData.work_scope_description || null,
         status: "draft" as const,
         created_by: user?.id || null,
+        show_details_to_customer: formData.show_details_to_customer,
       };
 
       // Create new estimate
@@ -1434,6 +1440,26 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 </TabsContent>
 
                 <TabsContent value="terms" className="mt-0 space-y-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Customer View Options</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Show Line Item Details to Customer</Label>
+                          <p className="text-sm text-muted-foreground">
+                            When enabled, customers will see quantity, unit, and unit price for each line item
+                          </p>
+                        </div>
+                        <Switch
+                          checked={formData.show_details_to_customer}
+                          onCheckedChange={(checked) => setFormData({ ...formData, show_details_to_customer: checked })}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">Notes</CardTitle>

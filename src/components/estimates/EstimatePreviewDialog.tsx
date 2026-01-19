@@ -124,6 +124,7 @@ export function EstimatePreviewDialog({
   const lineItems = data?.lineItems || [];
   const paymentSchedule = data?.paymentSchedule || [];
   const signature = data?.signature;
+  const showDetails = estimate?.show_details_to_customer ?? true;
 
   const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
     acc[group.id] = lineItems.filter((item: LineItem) => item.group_id === group.id);
@@ -287,9 +288,11 @@ export function EstimatePreviewDialog({
                           >
                             <div className="flex-1">
                               <p className="font-medium">{item.description}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
-                              </p>
+                              {showDetails && (
+                                <p className="text-sm text-muted-foreground">
+                                  {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                                </p>
+                              )}
                             </div>
                             <p className="font-medium">{formatCurrency(item.line_total)}</p>
                           </div>
@@ -307,9 +310,11 @@ export function EstimatePreviewDialog({
                         >
                           <div className="flex-1">
                             <p className="font-medium">{item.description}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
-                            </p>
+                            {showDetails && (
+                              <p className="text-sm text-muted-foreground">
+                                {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                              </p>
+                            )}
                           </div>
                           <p className="font-medium">{formatCurrency(item.line_total)}</p>
                         </div>
