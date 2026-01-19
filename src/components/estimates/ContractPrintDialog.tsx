@@ -60,16 +60,27 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
         supabase.from("estimate_line_items").select("*").eq("estimate_id", estimateId).order("sort_order"),
         supabase.from("estimate_payment_schedule").select("*").eq("estimate_id", estimateId).order("sort_order"),
         supabase.from("estimate_signatures").select("*").eq("estimate_id", estimateId).maybeSingle(),
-        supabase.from("app_settings").select("setting_key, setting_value").in("setting_key", ["company_name"]),
+        supabase.from("app_settings").select("setting_key, setting_value").in("setting_key", [
+          "company_name", "company_address", "company_phone", "company_email",
+          "license_number", "license_type", "license_holder_name"
+        ]),
       ]);
 
+      const getSetting = (key: string) => settingsRes.data?.find((s) => s.setting_key === key)?.setting_value || "";
+      
       return {
         estimate: estimateRes.data,
         groups: groupsRes.data as Group[],
         lineItems: itemsRes.data as LineItem[],
         paymentSchedule: scheduleRes.data as PaymentSchedule[],
         signature: signatureRes.data as Signature | null,
-        companyName: settingsRes.data?.find((s) => s.setting_key === "company_name")?.setting_value || "Company",
+        companyName: getSetting("company_name") || "Company",
+        companyAddress: getSetting("company_address"),
+        companyPhone: getSetting("company_phone"),
+        companyEmail: getSetting("company_email"),
+        licenseNumber: getSetting("license_number"),
+        licenseType: getSetting("license_type"),
+        licenseHolderName: getSetting("license_holder_name"),
       };
     },
     enabled: !!estimateId && open,
@@ -131,9 +142,16 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
       </div>
     ` : "";
 
+    const licenseInfo = data.licenseNumber 
+      ? `<p class="company-license">${data.licenseType || 'License'} #${data.licenseNumber}${data.licenseHolderName ? ` - ${data.licenseHolderName}` : ''}</p>`
+      : '';
+    
     return `
       <div class="header">
         <h1>${data.companyName}</h1>
+        ${data.companyAddress ? `<p class="company-info">${data.companyAddress}</p>` : ''}
+        ${data.companyPhone || data.companyEmail ? `<p class="company-info">${[data.companyPhone, data.companyEmail].filter(Boolean).join(' • ')}</p>` : ''}
+        ${licenseInfo}
         <p class="contract-number">
           Contract #${data.estimate.status === "accepted" ? "CNT" : "EST"}-${data.estimate.estimate_number}
         </p>
@@ -275,9 +293,20 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
               color: #1a1a2e;
               margin-bottom: 5px;
             }
+            .header .company-info {
+              font-size: 13px;
+              color: #444;
+              margin: 2px 0;
+            }
+            .header .company-license {
+              font-size: 12px;
+              color: #666;
+              margin: 5px 0;
+            }
             .header .contract-number {
               font-size: 14px;
               color: #666;
+              margin-top: 10px;
             }
             .section {
               margin-bottom: 30px;

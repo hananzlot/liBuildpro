@@ -490,9 +490,11 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                         >
                           <div className="flex-1">
                             <p className="font-medium">{item.description}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
-                            </p>
+                            {selectedEstimate.show_details_to_customer && (
+                              <p className="text-sm text-muted-foreground">
+                                {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                              </p>
+                            )}
                           </div>
                           <p className="font-medium">{formatCurrency(item.line_total)}</p>
                         </div>
@@ -510,9 +512,11 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                       >
                         <div className="flex-1">
                           <p className="font-medium">{item.description}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
-                          </p>
+                          {selectedEstimate.show_details_to_customer && (
+                            <p className="text-sm text-muted-foreground">
+                              {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                            </p>
+                          )}
                         </div>
                         <p className="font-medium">{formatCurrency(item.line_total)}</p>
                       </div>
