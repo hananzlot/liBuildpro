@@ -241,6 +241,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   useEffect(() => {
     if (existingEstimate?.estimate) {
       const est = existingEstimate.estimate;
+      
+      // Infer markup percent from existing line items (use the first item's markup, or default to 50)
+      const existingMarkup = existingEstimate.items.length > 0 
+        ? existingEstimate.items[0].markup_percent ?? 50
+        : 50;
+      
       setFormData({
         customer_name: est.customer_name || "",
         customer_email: est.customer_email || "",
@@ -253,7 +259,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         deposit_required: est.deposit_required || false,
         deposit_percent: est.deposit_percent || 10,
         tax_rate: est.tax_rate || 9.5,
-        default_markup_percent: 50, // Default, not stored in DB yet
+        default_markup_percent: existingMarkup,
         discount_type: est.discount_type || "percent",
         discount_value: est.discount_value || 0,
         notes: est.notes || "",
