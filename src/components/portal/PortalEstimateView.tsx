@@ -786,9 +786,16 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                 {groupedItems[group.id]?.map((item: LineItem) => (
                     <div
                       key={item.id}
-                      className="flex justify-between items-center p-3 bg-muted/50 rounded-lg"
+                      className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
                     >
-                      <p className="font-medium flex-1">{item.description}</p>
+                      <div className="flex-1">
+                        <p className="font-medium">{item.description}</p>
+                        {estimate.show_details_to_customer && (
+                          <p className="text-sm text-muted-foreground">
+                            {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                          </p>
+                        )}
+                      </div>
                       <p className="font-medium">{formatCurrency(item.line_total)}</p>
                     </div>
                   ))}
@@ -801,9 +808,16 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
               {ungroupedItems.map((item: LineItem) => (
                   <div
                     key={item.id}
-                    className="flex justify-between items-center p-3 bg-muted/50 rounded-lg"
+                    className="flex justify-between items-start p-3 bg-muted/50 rounded-lg"
                   >
-                    <p className="font-medium flex-1">{item.description}</p>
+                    <div className="flex-1">
+                      <p className="font-medium">{item.description}</p>
+                      {estimate.show_details_to_customer && (
+                        <p className="text-sm text-muted-foreground">
+                          {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                        </p>
+                      )}
+                    </div>
                     <p className="font-medium">{formatCurrency(item.line_total)}</p>
                   </div>
                 ))}
