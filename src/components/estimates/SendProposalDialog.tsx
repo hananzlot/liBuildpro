@@ -105,7 +105,7 @@ export function SendProposalDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('estimates')
-        .select('project_id, estimate_title, job_address, customer_phone, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer')
+        .select('project_id, estimate_title, job_address, customer_phone, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer, salesperson_name')
         .eq('id', estimateId)
         .single();
       if (error) throw error;
@@ -430,6 +430,7 @@ export function SendProposalDialog({
             estimateId,
             isReminder: isResend,
             totalSigners: recipients.length,
+            salespersonName: estimateData?.salesperson_name || undefined,
           },
         });
 
@@ -458,6 +459,7 @@ export function SendProposalDialog({
             customerName,
             estimateId,
             isReminder: isResend,
+            salespersonName: estimateData?.salesperson_name || undefined,
           },
         });
 

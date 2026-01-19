@@ -18,6 +18,7 @@ interface SingleEmailRequest {
   customerName: string;
   estimateId: string;
   isReminder?: boolean;
+  salespersonName?: string;
 }
 
 interface BatchEmailRequest {
@@ -32,6 +33,7 @@ interface BatchEmailRequest {
   estimateId: string;
   isReminder?: boolean;
   totalSigners?: number;
+  salespersonName?: string;
 }
 
 type EmailRequest = SingleEmailRequest | BatchEmailRequest;
@@ -74,10 +76,15 @@ serve(async (req) => {
       portalLink: string,
       subject: string,
       isReminder: boolean,
-      signerInfo?: { current: number; total: number }
+      signerInfo?: { current: number; total: number },
+      salespersonName?: string
     ) => {
       const signerNote = signerInfo && signerInfo.total > 1
         ? `<p style="margin: 10px 0; font-size: 13px; color: #666;">You are signer ${signerInfo.current} of ${signerInfo.total}.</p>`
+        : '';
+      
+      const salesRepNote = salespersonName
+        ? `<p style="margin: 10px 0; font-size: 13px; color: #444;">Your Sales Representative: <strong>${salespersonName}</strong></p>`
         : '';
 
       return `
@@ -152,6 +159,7 @@ serve(async (req) => {
             <div class="content">
               <p>Dear ${customerName},</p>
               ${signerNote}
+              ${salesRepNote}
               
               <div class="message">${messageText}</div>
               
@@ -233,7 +241,7 @@ serve(async (req) => {
 
     // Check if this is a batch request
     if ('batch' in body && body.batch === true) {
-      const { recipients, subject, message, isReminder, totalSigners } = body as BatchEmailRequest;
+      const { recipients, subject, message, isReminder, totalSigners, salespersonName } = body as BatchEmailRequest;
 
       if (!recipients || recipients.length === 0) {
         throw new Error("No recipients provided");
@@ -250,7 +258,8 @@ serve(async (req) => {
           recipient.portalLink,
           subject,
           isReminder || false,
-          { current: i + 1, total: totalSigners || recipients.length }
+          { current: i + 1, total: totalSigners || recipients.length },
+          salespersonName
         );
 
         const result = await sendEmailWithRetry(recipient.email, subject, htmlContent);
@@ -285,7 +294,7 @@ serve(async (req) => {
       );
     } else {
       // Single email flow (legacy)
-      const { to, subject, message, portalLink, customerName, isReminder } = body as SingleEmailRequest;
+      const { to, subject, message, portalLink, customerName, isReminder, salespersonName } = body as SingleEmailRequest;
 
       if (!to || !portalLink) {
         throw new Error("Missing required fields");
@@ -293,7 +302,7 @@ serve(async (req) => {
 
       console.log(`Sending ${isReminder ? 'reminder ' : ''}email to ${to} from ${fromName} <${fromEmail}>`);
 
-      const htmlContent = generateHtmlContent(customerName, message, portalLink, subject, isReminder || false);
+      const htmlContent = generateHtmlContent(customerName, message, portalLink, subject, isReminder || false, undefined, salespersonName);
       const result = await sendEmailWithRetry(to, subject, htmlContent);
 
       if (!result.success) {

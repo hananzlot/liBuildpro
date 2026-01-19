@@ -226,6 +226,10 @@ serve(async (req) => {
     }
     page.drawText(`Date: ${formatDate(estimate.estimate_date)}`, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
     yPos -= 12;
+    if (estimate.salesperson_name) {
+      page.drawText(`Sales Rep: ${estimate.salesperson_name}`, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      yPos -= 12;
+    }
     if (estimate.signed_at) {
       page.drawText(`Signed: ${formatDate(estimate.signed_at)}`, { x: margin, y: yPos, size: 10, font: helvetica, color: green });
       yPos -= 12;
