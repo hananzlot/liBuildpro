@@ -798,6 +798,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Work Scope Description */}
+            {estimate.show_scope_to_customer && estimate.work_scope_description && (
+              <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                <p className="whitespace-pre-wrap text-sm">{estimate.work_scope_description}</p>
+              </div>
+            )}
             {groups.map((group: Group) => (
               <div key={group.id} className="space-y-3">
                 <h4 className="font-semibold text-lg">{group.group_name}</h4>

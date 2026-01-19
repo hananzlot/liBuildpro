@@ -470,7 +470,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Work Scope Description */}
-                {selectedEstimate.work_scope_description && (
+                {selectedEstimate.show_scope_to_customer && selectedEstimate.work_scope_description && (
                   <div className="bg-muted/50 rounded-lg p-4">
                     <p className="whitespace-pre-wrap text-sm">{selectedEstimate.work_scope_description}</p>
                   </div>

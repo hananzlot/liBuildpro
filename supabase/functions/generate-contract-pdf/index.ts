@@ -232,20 +232,20 @@ serve(async (req) => {
     }
     yPos -= 20;
 
-    // SCOPE OF WORK
-    page.drawText('SCOPE OF WORK', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
-    yPos -= 5;
-    page.drawLine({
-      start: { x: margin, y: yPos },
-      end: { x: width - margin, y: yPos },
-      thickness: 1,
-      color: lightGray,
-    });
-    yPos -= 15;
+    // SCOPE OF WORK DESCRIPTION (if enabled)
+    if (estimate.show_scope_to_customer && estimate.work_scope_description) {
+      page.drawText('SCOPE OF WORK', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({
+        start: { x: margin, y: yPos },
+        end: { x: width - margin, y: yPos },
+        thickness: 1,
+        color: lightGray,
+      });
+      yPos -= 15;
 
-    if (estimate.work_scope_description) {
       drawWrappedText(estimate.work_scope_description, margin, contentWidth, 10, helvetica, gray);
-      yPos -= 10;
+      yPos -= 20;
     }
 
     // Line items by group
