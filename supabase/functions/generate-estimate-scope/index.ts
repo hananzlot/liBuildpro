@@ -118,6 +118,13 @@ INSTRUCTIONS:
 6. Group items logically by work area
 7. Include suggested markup percentages for each item based on type
 
+CRITICAL - UNIT COST CALCULATION:
+- The "cost" field is the UNIT COST (cost per single unit), NOT the total cost
+- For labor: If 8 hours of work costs $800 total, the unit cost is $100/hour (quantity: 8, unit: "hours", cost: 100)
+- For materials: If 77 sqft of countertop costs $4,620 total, the unit cost is $60/sqft (quantity: 77, unit: "sqft", cost: 60)
+- For cabinets: If 38 linear ft of cabinets costs $11,400 total, the unit cost is $300/linear ft (quantity: 38, unit: "linear ft", cost: 300)
+- The system will calculate: total = quantity × cost × (1 + markup_percent/100)
+
 Return a JSON object with this exact structure:
 {
   "groups": [
@@ -130,7 +137,7 @@ Return a JSON object with this exact structure:
           "description": "Detailed item description with specs",
           "quantity": number (use exact quantities from scope when provided),
           "unit": "hours|sqft|linear ft|each|set|unit",
-          "cost": number (YOUR COST, adjusted for ${regionInfo.region} - what you pay),
+          "cost": number (UNIT COST - cost per 1 unit, NOT total. System multiplies by quantity),
           "markup_percent": number (suggested markup: labor 45%, materials 30%, equipment 35%, permits 12%),
           "is_taxable": boolean (materials taxable, labor not taxable in CA)
         }
@@ -149,6 +156,15 @@ Return a JSON object with this exact structure:
   "suggested_tax_rate": 9.5,
   "notes": "Include note about ${regionInfo.region} pricing and any regional considerations"
 }
+
+EXAMPLES OF CORRECT UNIT COSTS (adjusted for ${regionInfo.region}):
+- General labor: $45-60/hour (unit cost)
+- Skilled trades labor: $75-110/hour (unit cost)
+- Pre-fab cabinets: $200-400/linear ft (unit cost)
+- Quartz countertop with install: $60-120/sqft (unit cost)
+- Drywall finish labor: $2-4/sqft (unit cost)
+- Paint labor: $1.50-3/sqft (unit cost)
+- Demolition labor: $35-55/hour (unit cost)
 
 Be specific and detailed. Include 3-6 groups with 3-8 items each based on the project scope.
 Use the EXACT measurements from the work scope description when provided.`;
