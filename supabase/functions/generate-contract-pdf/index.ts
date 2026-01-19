@@ -102,16 +102,18 @@ serve(async (req) => {
       }
     };
 
-    // Helper to sanitize text for PDF (remove characters that can't be encoded)
-    const sanitizeText = (text: string): string => {
+    // Helper to sanitize a single line of text for PDF (remove characters that can't be encoded)
+    const sanitizeLine = (text: string): string => {
       if (!text) return '';
-      // Replace newlines, tabs, and other control characters with spaces
-      return text.replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
+      // Replace tabs and other control characters with spaces, but NOT newlines
+      return text.replace(/[\t]/g, ' ').replace(/\r/g, '').replace(/\s+/g, ' ').trim();
     };
 
-    // Helper to draw text with word wrap
-    const drawWrappedText = (text: string, x: number, maxWidth: number, fontSize: number, font: any, color = black) => {
-      const sanitized = sanitizeText(text);
+    // Helper to draw text with word wrap (handles a single paragraph)
+    const drawWrappedParagraph = (text: string, x: number, maxWidth: number, fontSize: number, font: any, color = black) => {
+      const sanitized = sanitizeLine(text);
+      if (!sanitized) return;
+      
       const words = sanitized.split(' ');
       let line = '';
       
@@ -133,6 +135,22 @@ serve(async (req) => {
         checkNewPage(fontSize + 4);
         page.drawText(line, { x, y: yPos, size: fontSize, font, color });
         yPos -= fontSize + 4;
+      }
+    };
+
+    // Helper to draw multi-line text preserving paragraph breaks
+    const drawWrappedText = (text: string, x: number, maxWidth: number, fontSize: number, font: any, color = black) => {
+      if (!text) return;
+      // Split by newlines to preserve paragraph structure
+      const paragraphs = text.split(/\n/);
+      
+      for (const paragraph of paragraphs) {
+        if (paragraph.trim()) {
+          drawWrappedParagraph(paragraph, x, maxWidth, fontSize, font, color);
+        } else {
+          // Empty line = paragraph break, add extra spacing
+          yPos -= fontSize + 2;
+        }
       }
     };
 
@@ -358,9 +376,8 @@ serve(async (req) => {
       });
       yPos -= 15;
 
-      // Handle terms - split by newlines and draw each paragraph
-      const termsText = sanitizeText(estimate.terms_and_conditions);
-      drawWrappedText(termsText, margin + 5, contentWidth - 10, 9, helvetica, gray);
+      // Draw terms preserving paragraph structure
+      drawWrappedText(estimate.terms_and_conditions, margin + 5, contentWidth - 10, 9, helvetica, gray);
       yPos -= 20;
     }
 
