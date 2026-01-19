@@ -39,18 +39,18 @@ serve(async (req) => {
     }
 
     // Fetch related data
-    const [groupsRes, itemsRes, scheduleRes, signatureRes, settingsRes] = await Promise.all([
+    const [groupsRes, itemsRes, scheduleRes, signaturesRes, settingsRes] = await Promise.all([
       supabase.from('estimate_groups').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_line_items').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_payment_schedule').select('*').eq('estimate_id', estimateId).order('sort_order'),
-      supabase.from('estimate_signatures').select('*').eq('estimate_id', estimateId).order('signed_at', { ascending: false }).limit(1),
+      supabase.from('estimate_signatures').select('*').eq('estimate_id', estimateId).order('signed_at'),
       supabase.from('app_settings').select('setting_key, setting_value').in('setting_key', ['company_name', 'company_address', 'company_phone']),
     ]);
 
     const groups = groupsRes.data || [];
     const lineItems = itemsRes.data || [];
     const paymentSchedule = scheduleRes.data || [];
-    const signature = signatureRes.data?.[0] || null;
+    const signatures = signaturesRes.data || [];
     
     const settingsMap: Record<string, string> = {};
     settingsRes.data?.forEach((s: any) => {
@@ -365,41 +365,85 @@ serve(async (req) => {
     }
 
     // SIGNATURE SECTION
-    if (signature) {
-      checkNewPage(100);
+    if (signatures.length > 0) {
+      checkNewPage(120);
       
-      // Green border box for signature
-      page.drawRectangle({
-        x: margin,
-        y: yPos - 80,
-        width: contentWidth,
-        height: 90,
-        borderColor: green,
-        borderWidth: 2,
-        color: rgb(0.94, 0.99, 0.94),
+      page.drawText('SIGNATURES', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+      yPos -= 5;
+      page.drawLine({
+        start: { x: margin, y: yPos },
+        end: { x: width - margin, y: yPos },
+        thickness: 1,
+        color: lightGray,
       });
+      yPos -= 15;
 
-      yPos -= 10;
-      page.drawText('[X] CUSTOMER SIGNATURE', { x: margin + 10, y: yPos, size: 11, font: helveticaBold, color: green });
-      yPos -= 20;
+      for (let i = 0; i < signatures.length; i++) {
+        const sig = signatures[i];
+        checkNewPage(110);
+        
+        // Green border box for signature
+        page.drawRectangle({
+          x: margin,
+          y: yPos - 85,
+          width: contentWidth,
+          height: 95,
+          borderColor: green,
+          borderWidth: 2,
+          color: rgb(0.94, 0.99, 0.94),
+        });
 
-      if (signature.signature_type === 'typed') {
-        page.drawText(signature.signature_data, { x: margin + 10, y: yPos, size: 24, font: helveticaBold, color: black });
-        yPos -= 25;
-      } else {
-        // For drawn signatures, we can't easily embed the image in pdf-lib without more complex handling
-        page.drawText('[Drawn Signature on File]', { x: margin + 10, y: yPos, size: 12, font: helvetica, color: gray });
+        yPos -= 10;
+        page.drawText(`[X] SIGNER ${i + 1}`, { x: margin + 10, y: yPos, size: 11, font: helveticaBold, color: green });
         yPos -= 20;
-      }
 
-      page.drawText(`Signed by: ${signature.signer_name}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
-      yPos -= 12;
-      if (signature.signer_email) {
-        page.drawText(`Email: ${signature.signer_email}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+        if (sig.signature_type === 'typed') {
+          page.drawText(sig.signature_data, { x: margin + 10, y: yPos, size: 24, font: helveticaBold, color: black });
+          yPos -= 25;
+        } else if (sig.signature_type === 'drawn' && sig.signature_data) {
+          // Embed the actual drawn signature image
+          try {
+            // signature_data is a base64 data URL (e.g., "data:image/png;base64,...")
+            const base64Data = sig.signature_data.split(',')[1];
+            if (base64Data) {
+              const imageBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+              const pngImage = await pdfDoc.embedPng(imageBytes);
+              const imgDims = pngImage.scale(0.5);
+              const maxHeight = 40;
+              const scaleFactor = maxHeight / imgDims.height;
+              const scaledWidth = imgDims.width * scaleFactor;
+              const scaledHeight = maxHeight;
+              
+              page.drawImage(pngImage, {
+                x: margin + 10,
+                y: yPos - scaledHeight + 5,
+                width: scaledWidth,
+                height: scaledHeight,
+              });
+              yPos -= scaledHeight + 5;
+            } else {
+              page.drawText('[Signature on File]', { x: margin + 10, y: yPos, size: 12, font: helvetica, color: gray });
+              yPos -= 20;
+            }
+          } catch (imgError) {
+            console.error('Failed to embed signature image:', imgError);
+            page.drawText('[Signature on File]', { x: margin + 10, y: yPos, size: 12, font: helvetica, color: gray });
+            yPos -= 20;
+          }
+        } else {
+          page.drawText('[Signature on File]', { x: margin + 10, y: yPos, size: 12, font: helvetica, color: gray });
+          yPos -= 20;
+        }
+
+        page.drawText(`Signed by: ${sig.signer_name}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
         yPos -= 12;
+        if (sig.signer_email) {
+          page.drawText(`Email: ${sig.signer_email}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+          yPos -= 12;
+        }
+        page.drawText(`Date: ${formatDate(sig.signed_at)}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+        yPos -= 25;
       }
-      page.drawText(`Date: ${formatDate(signature.signed_at)}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
-      yPos -= 30;
     }
 
     // FOOTER
