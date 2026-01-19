@@ -138,6 +138,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [activeTab, setActiveTab] = useState("customer");
   const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
 
+  // Draft string values for money inputs so users can type decimals (e.g. "12.")
+  const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
+  const [unitPriceDrafts, setUnitPriceDrafts] = useState<Record<string, string>>({});
+
   // Fetch projects for linking
   const { data: projects = [] } = useQuery({
     queryKey: ["projects-for-linking"],
@@ -848,6 +852,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }).format(amount);
   };
 
+  const formatMoney = (amount: number) => {
+    if (!Number.isFinite(amount)) return "0.00";
+    return amount.toFixed(2);
+  };
+
   if (loadingEstimate && isEditing) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1284,12 +1293,39 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           <Input
                                             type="text"
                                             inputMode="decimal"
-                                            value={item.cost}
+                                            value={costDrafts[item.id] ?? formatMoney(item.cost)}
                                             onChange={(e) => {
-                                              const val = e.target.value;
-                                              if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
-                                                updateLineItem(group.id, item.id, { cost: parseFloat(val) || 0 });
+                                              const val = e.target.value.replace(/,/g, ".");
+                                              if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
+                                                setCostDrafts((prev) => ({ ...prev, [item.id]: val }));
+
+                                                // Only commit to numeric state when it's a valid number (not a trailing dot)
+                                                if (val !== "" && val !== "." && !val.endsWith(".")) {
+                                                  updateLineItem(group.id, item.id, { cost: Number(val) });
+                                                  // Cost changes recalc unit price; drop any manual price draft
+                                                  setUnitPriceDrafts((prev) => {
+                                                    if (!(item.id in prev)) return prev;
+                                                    const next = { ...prev };
+                                                    delete next[item.id];
+                                                    return next;
+                                                  });
+                                                }
                                               }
+                                            }}
+                                            onBlur={() => {
+                                              const draft = costDrafts[item.id];
+                                              if (draft === undefined) return;
+
+                                              const normalized = draft === "" || draft === "." ? 0 : Number(draft);
+                                              updateLineItem(group.id, item.id, { cost: normalized });
+
+                                              setCostDrafts((prev) => ({ ...prev, [item.id]: formatMoney(normalized) }));
+                                              setUnitPriceDrafts((prev) => {
+                                                if (!(item.id in prev)) return prev;
+                                                const next = { ...prev };
+                                                delete next[item.id];
+                                                return next;
+                                              });
                                             }}
                                             className="w-24 h-8 text-sm"
                                             placeholder="0.00"
@@ -1298,7 +1334,18 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           <Input
                                             type="number"
                                             value={item.markup_percent}
-                                            onChange={(e) => updateLineItem(group.id, item.id, { markup_percent: parseFloat(e.target.value) || 0 })}
+                                            onChange={(e) => {
+                                              updateLineItem(group.id, item.id, {
+                                                markup_percent: parseFloat(e.target.value) || 0,
+                                              });
+                                              // Markup changes recalc unit price; drop any manual price draft
+                                              setUnitPriceDrafts((prev) => {
+                                                if (!(item.id in prev)) return prev;
+                                                const next = { ...prev };
+                                                delete next[item.id];
+                                                return next;
+                                              });
+                                            }}
                                             className="w-20 h-8 text-sm"
                                             step="1"
                                             placeholder="35"
@@ -1307,12 +1354,24 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           <Input
                                             type="text"
                                             inputMode="decimal"
-                                            value={item.unit_price}
+                                            value={unitPriceDrafts[item.id] ?? formatMoney(item.unit_price)}
                                             onChange={(e) => {
-                                              const val = e.target.value;
-                                              if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
-                                                updateLineItem(group.id, item.id, { unit_price: parseFloat(val) || 0 });
+                                              const val = e.target.value.replace(/,/g, ".");
+                                              if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
+                                                setUnitPriceDrafts((prev) => ({ ...prev, [item.id]: val }));
+
+                                                if (val !== "" && val !== "." && !val.endsWith(".")) {
+                                                  updateLineItem(group.id, item.id, { unit_price: Number(val) });
+                                                }
                                               }
+                                            }}
+                                            onBlur={() => {
+                                              const draft = unitPriceDrafts[item.id];
+                                              if (draft === undefined) return;
+
+                                              const normalized = draft === "" || draft === "." ? 0 : Number(draft);
+                                              updateLineItem(group.id, item.id, { unit_price: normalized });
+                                              setUnitPriceDrafts((prev) => ({ ...prev, [item.id]: formatMoney(normalized) }));
                                             }}
                                             className="w-28 h-8 text-sm"
                                           />
