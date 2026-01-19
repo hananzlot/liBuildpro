@@ -134,7 +134,7 @@ export function EstimatePreviewDialog({
         groups: groups || [],
         lineItems: lineItems || [],
         paymentSchedule: paymentSchedule || [],
-        signature: signatures?.[0] || null,
+        signatures: signatures || [],
       };
     },
     enabled: !!estimateId && open,
@@ -154,7 +154,7 @@ export function EstimatePreviewDialog({
   const groups = data?.groups || [];
   const lineItems = data?.lineItems || [];
   const paymentSchedule = data?.paymentSchedule || [];
-  const signature = data?.signature;
+  const signatures = data?.signatures || [];
   const showDetails = estimate?.show_details_to_customer ?? true;
 
   const groupedItems = groups.reduce((acc: Record<string, LineItem[]>, group: Group) => {
@@ -224,15 +224,14 @@ export function EstimatePreviewDialog({
               <CompanyHeader />
 
               {/* Status Banner */}
-              {isSigned && (
+              {isSigned && signatures.length > 0 && (
                 <Card className="bg-green-50 border-green-200">
                   <CardContent className="py-4 flex items-center gap-3">
                     <CheckCircle2 className="h-6 w-6 text-green-600" />
                     <div>
                       <p className="font-medium text-green-800">Proposal Accepted</p>
                       <p className="text-sm text-green-600">
-                        Signed by {signature?.signer_name} on{' '}
-                        {format(new Date(signature?.signed_at || estimate.signed_at), 'MMM d, yyyy')}
+                        Signed by {signatures.length} {signatures.length === 1 ? 'party' : 'parties'}
                       </p>
                     </div>
                   </CardContent>
@@ -453,6 +452,46 @@ export function EstimatePreviewDialog({
                     <div className="prose prose-sm max-w-none text-muted-foreground whitespace-pre-wrap">
                       {estimate.terms_and_conditions}
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Signatures Display */}
+              {signatures.length > 0 && (
+                <Card className="bg-green-50 border-green-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-green-800">
+                      <CheckCircle2 className="h-5 w-5" />
+                      Digital Signatures ({signatures.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {signatures.map((sig: any, index: number) => (
+                      <div key={sig.id} className={`space-y-2 ${index > 0 ? 'pt-4 border-t border-green-200' : ''}`}>
+                        <div className="flex items-center gap-2 text-sm font-medium text-green-800">
+                          <span className="w-6 h-6 rounded-full bg-green-600 text-white flex items-center justify-center text-xs">
+                            {index + 1}
+                          </span>
+                          Signer {index + 1}
+                        </div>
+                        {sig.signature_type === 'typed' ? (
+                          <p style={{ fontFamily: sig.signature_font, fontSize: '28px' }}>
+                            {sig.signature_data}
+                          </p>
+                        ) : (
+                          <img src={sig.signature_data} alt={`Signature by ${sig.signer_name}`} className="max-h-20" />
+                        )}
+                        <p className="text-sm text-green-700">
+                          Signed by: {sig.signer_name}
+                        </p>
+                        <p className="text-sm text-green-700">
+                          Email: {sig.signer_email}
+                        </p>
+                        <p className="text-sm text-green-700">
+                          Date: {format(new Date(sig.signed_at), 'MMMM d, yyyy')}
+                        </p>
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
               )}
