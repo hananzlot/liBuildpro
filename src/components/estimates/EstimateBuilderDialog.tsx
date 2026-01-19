@@ -1067,9 +1067,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </CardContent>
                   </Card>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3 className="font-semibold">Line Items</h3>
-                    <Button onClick={addGroup} size="sm">
+                    <Button onClick={addGroup} size="sm" className="shrink-0">
                       <FolderPlus className="mr-2 h-4 w-4" />
                       Add Area
                     </Button>
@@ -1116,10 +1116,11 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     ) : (
                       <div className="space-y-4">
                         {/* Clear & Regenerate option when items exist */}
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           <Button 
                             variant="outline" 
                             size="sm"
+                            className="shrink-0"
                             onClick={() => {
                               setGroups([]);
                               setPaymentSchedule([]);
@@ -1130,6 +1131,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           </Button>
                           <Button 
                             size="sm"
+                            className="shrink-0"
                             onClick={() => {
                               setGroups([]);
                               setPaymentSchedule([]);
