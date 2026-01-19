@@ -520,11 +520,15 @@ export default function AdminSettings() {
                       Estimate Settings
                     </CardTitle>
                     <CardDescription>
-                      Default terms and conditions for new estimates
+                      Default settings for new estimates
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {estimateSettings?.map(renderTextareaSettingField)}
+                    {estimateSettings?.map((setting) => 
+                      setting.setting_key === "default_markup_percent" 
+                        ? renderSettingField(setting) 
+                        : renderTextareaSettingField(setting)
+                    )}
                   </CardContent>
                 </Card>
 
