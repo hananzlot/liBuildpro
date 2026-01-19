@@ -14,8 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Copy, Mail, Link, Check, Loader2, Send, Users, User, Eye, EyeOff, AlertTriangle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Copy, Mail, Link, Check, Loader2, Send, Users, User, Eye, EyeOff } from 'lucide-react';
 import { MultiSignerInput, SignerData } from '@/components/documents/MultiSignerInput';
 
 interface SendProposalDialogProps {
@@ -51,6 +50,11 @@ export function SendProposalDialog({
   const [portalLink, setPortalLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [signers, setSigners] = useState<SignerData[]>([]);
+  const [visibilitySettings, setVisibilitySettings] = useState({
+    show_scope_to_customer: false,
+    show_line_items_to_customer: false,
+    show_details_to_customer: false,
+  });
 
   // Reset form when dialog opens with new data
   useEffect(() => {
@@ -142,6 +146,17 @@ export function SendProposalDialog({
     enabled: !!estimateData?.project_id && !multipleSigners,
   });
 
+  // Sync visibility settings from estimateData
+  useEffect(() => {
+    if (estimateData) {
+      setVisibilitySettings({
+        show_scope_to_customer: estimateData.show_scope_to_customer ?? false,
+        show_line_items_to_customer: estimateData.show_line_items_to_customer ?? false,
+        show_details_to_customer: estimateData.show_details_to_customer ?? false,
+      });
+    }
+  }, [estimateData]);
+
   // Auto-set portal link if existing token found (single signer mode)
   useEffect(() => {
     if (existingToken && !portalLink && !multipleSigners) {
@@ -149,6 +164,27 @@ export function SendProposalDialog({
       setPortalLink(link);
     }
   }, [existingToken, portalLink, multipleSigners]);
+
+  // Update visibility setting and save to DB
+  const updateVisibilitySetting = async (key: keyof typeof visibilitySettings, value: boolean) => {
+    setVisibilitySettings(prev => ({ ...prev, [key]: value }));
+    
+    // If hiding line items, also hide details
+    if (key === 'show_line_items_to_customer' && !value) {
+      setVisibilitySettings(prev => ({ ...prev, [key]: value, show_details_to_customer: false }));
+      await supabase
+        .from('estimates')
+        .update({ [key]: value, show_details_to_customer: false })
+        .eq('id', estimateId);
+    } else {
+      await supabase
+        .from('estimates')
+        .update({ [key]: value })
+        .eq('id', estimateId);
+    }
+    
+    queryClient.invalidateQueries({ queryKey: ['estimates'] });
+  };
 
   const generateLinkMutation = useMutation({
     mutationFn: async () => {
@@ -593,50 +629,59 @@ export function SendProposalDialog({
           {/* Email Section */}
           {canSendEmail && (
             <>
-              {/* Visibility Summary Alert */}
-              <Alert className="border-amber-200 bg-amber-50">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800">
-                  <div className="font-medium mb-2">Customer will see:</div>
-                  <div className="space-y-1 text-sm">
+              {/* Visibility Settings */}
+              <div className="border rounded-lg p-4 bg-muted/30">
+                <div className="font-medium mb-3 flex items-center gap-2 text-sm">
+                  <Eye className="h-4 w-4" />
+                  Customer will see:
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {estimateData?.show_scope_to_customer ? (
+                      {visibilitySettings.show_scope_to_customer ? (
                         <Eye className="h-3.5 w-3.5 text-green-600" />
                       ) : (
                         <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
-                      <span className={estimateData?.show_scope_to_customer ? 'text-green-700' : 'text-muted-foreground'}>
-                        Scope of Work Description: {estimateData?.show_scope_to_customer ? 'Visible' : 'Hidden'}
-                      </span>
+                      <span className="text-sm">Scope of Work Description</span>
                     </div>
+                    <Switch
+                      checked={visibilitySettings.show_scope_to_customer}
+                      onCheckedChange={(checked) => updateVisibilitySetting('show_scope_to_customer', checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      {estimateData?.show_line_items_to_customer ? (
+                      {visibilitySettings.show_line_items_to_customer ? (
                         <Eye className="h-3.5 w-3.5 text-green-600" />
                       ) : (
                         <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
-                      <span className={estimateData?.show_line_items_to_customer ? 'text-green-700' : 'text-muted-foreground'}>
-                        Line Items: {estimateData?.show_line_items_to_customer ? 'Visible' : 'Hidden'}
-                      </span>
+                      <span className="text-sm">Line Items</span>
                     </div>
-                    {estimateData?.show_line_items_to_customer && (
-                      <div className="flex items-center gap-2 pl-4">
-                        {estimateData?.show_details_to_customer ? (
+                    <Switch
+                      checked={visibilitySettings.show_line_items_to_customer}
+                      onCheckedChange={(checked) => updateVisibilitySetting('show_line_items_to_customer', checked)}
+                    />
+                  </div>
+                  {visibilitySettings.show_line_items_to_customer && (
+                    <div className="flex items-center justify-between pl-6">
+                      <div className="flex items-center gap-2">
+                        {visibilitySettings.show_details_to_customer ? (
                           <Eye className="h-3.5 w-3.5 text-green-600" />
                         ) : (
                           <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
-                        <span className={estimateData?.show_details_to_customer ? 'text-green-700' : 'text-muted-foreground'}>
-                          Line Item Details (Qty, Unit Price): {estimateData?.show_details_to_customer ? 'Visible' : 'Hidden'}
-                        </span>
+                        <span className="text-sm">Line Item Details (Qty, Unit Price)</span>
                       </div>
-                    )}
-                  </div>
-                  <p className="text-xs mt-2 text-amber-600">
-                    Edit these settings in the estimate's "Terms & Notes" tab.
-                  </p>
-                </AlertDescription>
-              </Alert>
+                      <Switch
+                        checked={visibilitySettings.show_details_to_customer}
+                        onCheckedChange={(checked) => updateVisibilitySetting('show_details_to_customer', checked)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div className="border-t pt-4">
                 <h4 className="font-medium mb-3 flex items-center gap-2">
