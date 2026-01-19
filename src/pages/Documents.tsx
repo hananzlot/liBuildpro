@@ -973,10 +973,30 @@ export default function Documents() {
       >
         <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Signed Document</DialogTitle>
-            <DialogDescription>
-              This view shows signatures/fields as overlays on the original PDF.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Signed Document</DialogTitle>
+                <DialogDescription>
+                  This view shows signatures/fields as overlays on the original PDF.
+                </DialogDescription>
+              </div>
+              {signedViewDoc && !signedViewLoading && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => signedViewDoc && handleDownloadSignedPdf(signedViewDoc)}
+                  disabled={downloadingDocId === signedViewDoc?.id}
+                  className="flex items-center gap-2"
+                >
+                  {downloadingDocId === signedViewDoc?.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download PDF
+                </Button>
+              )}
+            </div>
           </DialogHeader>
 
           <div className="overflow-auto" style={{ maxHeight: "calc(95vh - 140px)" }}>
