@@ -533,14 +533,14 @@ export function DocumentSigningView({
                           style={{
                             left,
                             top,
-                            width,
-                            height,
-                            minWidth: 100,
-                            minHeight: 30,
+                            width: Math.max(width, 120),
+                            height: Math.max(height, 50),
+                            minWidth: 120,
+                            minHeight: 50,
                           }}
                           onClick={() => handleFieldClick(globalIdx)}
                         >
-                          <div className="absolute inset-0 p-1 flex flex-col overflow-hidden">
+                          <div className="absolute inset-0 p-2 flex flex-col overflow-hidden">
                             {/* Field header */}
                             <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                               <Icon className="h-3 w-3" />
@@ -572,13 +572,13 @@ export function DocumentSigningView({
                                 placeholder={`Enter ${FIELD_TYPE_LABELS[field.field_type].toLowerCase()}`}
                               />
                             ) : (
-                              <div className="flex-1 min-h-0 flex items-center justify-center text-sm overflow-hidden">
+                              <div className="flex-1 min-h-[28px] flex items-center justify-center text-sm overflow-hidden px-1">
                                 {value ? (
                                   field.field_type === "signature" && signatureData ? (
                                     signatureData.type === "drawn" ? (
                                       <img src={signatureData.data} alt="Signature" className="max-h-full max-w-full object-contain" />
                                     ) : (
-                                      <span style={{ fontFamily: signatureData.font || "cursive" }} className="text-lg">
+                                      <span style={{ fontFamily: signatureData.font || "cursive" }} className="text-lg text-gray-900">
                                         {signatureData.data}
                                       </span>
                                     )
@@ -586,15 +586,15 @@ export function DocumentSigningView({
                                     initialsData.type === "drawn" ? (
                                       <img src={initialsData.data} alt="Initials" className="max-h-full max-w-full object-contain" />
                                     ) : (
-                                      <span style={{ fontFamily: initialsData.font || "cursive" }} className="text-lg">
+                                      <span style={{ fontFamily: initialsData.font || "cursive" }} className="text-lg text-gray-900">
                                         {initialsData.data.split(' ').map(w => w[0]).join('').toUpperCase()}
                                       </span>
                                     )
                                   ) : (
-                                    <span className="text-gray-700 truncate">{value}</span>
+                                    <span className="text-gray-900 truncate font-medium">{value}</span>
                                   )
                                 ) : (
-                                  <span className="text-muted-foreground italic">
+                                  <span className="text-gray-500 italic text-xs">
                                     {field.field_type === "signature" ? "Click to sign" : 
                                      field.field_type === "initials" ? "Click to initial" : "Click to enter"}
                                   </span>
