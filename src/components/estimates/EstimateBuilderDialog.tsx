@@ -1073,19 +1073,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </CardContent>
                   </Card>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-center gap-2">
-                    <h3 className="font-semibold">Line Items</h3>
-                    <Button
-                      onClick={addGroup}
-                      size="sm"
-                      className="w-full sm:w-auto sm:justify-self-center"
-                    >
-                      <FolderPlus className="mr-2 h-4 w-4" />
-                      Add Area
-                    </Button>
-                    <div className="hidden sm:block" />
-                  </div>
-
                   {/* Check if mandatory fields are filled for AI generation */}
                   {(() => {
                     const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim();
@@ -1095,43 +1082,53 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     if (!formData.estimate_title?.trim()) missingFields.push('Project Title');
                     
                     return groups.length === 0 ? (
-                      <Card>
-                        <CardContent className="py-8 text-center">
-                          <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                          <p className="text-muted-foreground mb-4">No scope items yet.</p>
-                          <div className="flex items-center justify-center gap-2">
-                            <Button onClick={addGroup} variant="outline">
-                              <FolderPlus className="mr-2 h-4 w-4" />
-                              Add Area Manually
-                            </Button>
-                            <Button 
-                              onClick={generateScope} 
-                              disabled={isGeneratingScope || !canGenerateAI}
-                              title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Generate scope with AI'}
-                            >
-                              {isGeneratingScope ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Wand2 className="mr-2 h-4 w-4" />
-                              )}
-                              Generate with AI
-                            </Button>
-                          </div>
-                          {!canGenerateAI && (
-                            <p className="text-xs text-amber-600 mt-3">
-                              Fill in {missingFields.join(', ')} in Customer tab to enable AI generation
-                            </p>
-                          )}
-                        </CardContent>
-                      </Card>
+                      <>
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold">Line Items</h3>
+                        </div>
+                        <Card>
+                          <CardContent className="py-8 text-center">
+                            <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                            <p className="text-muted-foreground mb-4">No scope items yet.</p>
+                            <div className="flex flex-wrap items-center justify-center gap-2">
+                              <Button onClick={addGroup} variant="outline" size="sm">
+                                <FolderPlus className="mr-2 h-4 w-4" />
+                                Add Area
+                              </Button>
+                              <Button 
+                                size="sm"
+                                onClick={generateScope} 
+                                disabled={isGeneratingScope || !canGenerateAI}
+                                title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Generate scope with AI'}
+                              >
+                                {isGeneratingScope ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Wand2 className="mr-2 h-4 w-4" />
+                                )}
+                                Generate with AI
+                              </Button>
+                            </div>
+                            {!canGenerateAI && (
+                              <p className="text-xs text-amber-600 mt-3">
+                                Fill in {missingFields.join(', ')} in Customer tab to enable AI generation
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </>
                     ) : (
                       <div className="space-y-4">
-                        {/* Clear & Regenerate option when items exist */}
-                        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-center gap-2">
+                        {/* Line Items header with all action buttons on one line */}
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <h3 className="font-semibold mr-auto">Line Items</h3>
+                          <Button onClick={addGroup} size="sm" variant="outline">
+                            <FolderPlus className="mr-2 h-4 w-4" />
+                            Add Area
+                          </Button>
                           <Button 
                             variant="outline" 
                             size="sm"
-                            className="w-full sm:w-auto"
                             onClick={() => {
                               setGroups([]);
                               setPaymentSchedule([]);
@@ -1142,7 +1139,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           </Button>
                           <Button 
                             size="sm"
-                            className="w-full sm:w-auto"
                             onClick={() => {
                               setGroups([]);
                               setPaymentSchedule([]);
@@ -1156,7 +1152,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             ) : (
                               <Wand2 className="mr-2 h-4 w-4" />
                             )}
-                            Regenerate AI Scope
+                            Regenerate AI
                           </Button>
                         </div>
                       {groups.map((group) => (
