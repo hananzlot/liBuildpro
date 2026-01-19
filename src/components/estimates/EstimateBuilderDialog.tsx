@@ -1119,9 +1119,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </>
                     ) : (
                       <div className="space-y-4">
-                        {/* Line Items header with all action buttons on one line */}
+                        {/* Line Items header */}
+                        <h3 className="font-semibold text-center">Line Items</h3>
+                        {/* Action buttons centered on one line */}
                         <div className="flex flex-wrap items-center justify-center gap-2">
-                          <h3 className="font-semibold mr-auto">Line Items</h3>
                           <Button onClick={addGroup} size="sm" variant="outline">
                             <FolderPlus className="mr-2 h-4 w-4" />
                             Add Area
