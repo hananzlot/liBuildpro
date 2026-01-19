@@ -1210,8 +1210,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                     {/* Header row - Wider layout with better readability */}
                                     <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
                                       <div className="w-24">Type</div>
-                                      <div className="flex-1 min-w-[200px]">Description</div>
-                                      <div className="w-16">Qty</div>
+                                      <div className="flex-1 min-w-[180px]">Description</div>
+                                      <div className="w-20">Qty</div>
                                       <div className="w-20">Unit</div>
                                       <div className="w-24">Cost</div>
                                       <div className="w-20">Markup %</div>
@@ -1239,7 +1239,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                         <Textarea
                                           value={item.description}
                                           onChange={(e) => updateLineItem(group.id, item.id, { description: e.target.value })}
-                                          className="flex-1 min-w-[200px] min-h-[32px] text-sm resize-none overflow-hidden py-1.5"
+                                          className="flex-1 min-w-[180px] min-h-[32px] text-sm resize-none overflow-hidden py-1.5"
                                           placeholder="Item description"
                                           rows={1}
                                           onInput={(e) => {
@@ -1259,7 +1259,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                             type="number"
                                             value={item.quantity}
                                             onChange={(e) => updateLineItem(group.id, item.id, { quantity: parseFloat(e.target.value) || 0 })}
-                                            className="w-16 h-8 text-sm"
+                                            className="w-20 h-8 text-sm"
                                           />
                                           <Select
                                             value={item.unit}
