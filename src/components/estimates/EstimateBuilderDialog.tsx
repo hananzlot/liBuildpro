@@ -1282,11 +1282,16 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           </Select>
                                           {/* Cost field - 2 decimal display */}
                                           <Input
-                                            type="number"
-                                            value={item.cost.toFixed(2)}
-                                            onChange={(e) => updateLineItem(group.id, item.id, { cost: parseFloat(e.target.value) || 0 })}
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={item.cost}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                                                updateLineItem(group.id, item.id, { cost: parseFloat(val) || 0 });
+                                              }
+                                            }}
                                             className="w-24 h-8 text-sm"
-                                            step="0.01"
                                             placeholder="0.00"
                                           />
                                           {/* Markup % field - aligned */}
@@ -1300,11 +1305,16 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           />
                                           {/* Price field - 2 decimal display */}
                                           <Input
-                                            type="number"
-                                            value={item.unit_price.toFixed(2)}
-                                            onChange={(e) => updateLineItem(group.id, item.id, { unit_price: parseFloat(e.target.value) || 0 })}
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={item.unit_price}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                                                updateLineItem(group.id, item.id, { unit_price: parseFloat(val) || 0 });
+                                              }
+                                            }}
                                             className="w-28 h-8 text-sm"
-                                            step="0.01"
                                           />
                                           <div className="w-28 text-sm font-medium text-right">
                                             {formatCurrency(item.line_total)}
