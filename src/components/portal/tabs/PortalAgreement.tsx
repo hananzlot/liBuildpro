@@ -232,6 +232,21 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
               <CheckCircle2 className="h-6 w-6 text-green-500" />
             </div>
 
+            {/* Scope of Work Description */}
+            {acceptedEstimate.show_scope_to_customer && acceptedEstimate.work_scope_description && (
+              <div className="space-y-3">
+                <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-slate-400" />
+                  Scope of Work
+                </h4>
+                <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 max-h-64 overflow-y-auto">
+                  <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">
+                    {acceptedEstimate.work_scope_description}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {acceptedEstimate.terms_and_conditions && (
               <div className="space-y-3">
                 <h4 className="font-semibold text-slate-900 flex items-center gap-2">

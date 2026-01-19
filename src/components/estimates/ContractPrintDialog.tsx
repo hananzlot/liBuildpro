@@ -200,7 +200,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
 
       <div class="section">
         <div class="section-title">Scope of Work</div>
-        ${data.estimate.work_scope_description ? `
+        ${data.estimate.show_scope_to_customer && data.estimate.work_scope_description ? `
           <div class="work-scope-description">${data.estimate.work_scope_description}</div>
         ` : ""}
         ${groupsHtml}

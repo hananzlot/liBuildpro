@@ -1432,6 +1432,7 @@ export type Database = {
           project_id: string | null
           sent_at: string | null
           show_details_to_customer: boolean
+          show_scope_to_customer: boolean
           signed_at: string | null
           status: Database["public"]["Enums"]["estimate_status"]
           subtotal: number | null
@@ -1471,6 +1472,7 @@ export type Database = {
           project_id?: string | null
           sent_at?: string | null
           show_details_to_customer?: boolean
+          show_scope_to_customer?: boolean
           signed_at?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
           subtotal?: number | null
@@ -1510,6 +1512,7 @@ export type Database = {
           project_id?: string | null
           sent_at?: string | null
           show_details_to_customer?: boolean
+          show_scope_to_customer?: boolean
           signed_at?: string | null
           status?: Database["public"]["Enums"]["estimate_status"]
           subtotal?: number | null

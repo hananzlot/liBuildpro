@@ -156,6 +156,7 @@ export function EstimatePreviewDialog({
   const paymentSchedule = data?.paymentSchedule || [];
   const signatures = data?.signatures || [];
   const showDetails = estimate?.show_details_to_customer ?? true;
+  const showScope = estimate?.show_scope_to_customer ?? false;
 
   // De-duplicate line items based on description, quantity, unit_price, and group_id
   const deduplicateItems = (items: LineItem[]): LineItem[] => {
@@ -335,6 +336,12 @@ export function EstimatePreviewDialog({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Work Scope Description */}
+                  {showScope && estimate.work_scope_description && (
+                    <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                      <p className="whitespace-pre-wrap text-sm">{estimate.work_scope_description}</p>
+                    </div>
+                  )}
                   {groups.map((group: Group) => (
                     <div key={group.id} className="space-y-3">
                       <h4 className="font-semibold text-lg">{group.group_name}</h4>

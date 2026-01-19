@@ -82,6 +82,7 @@ interface EstimateFormData {
   terms_and_conditions: string;
   work_scope_description: string;
   show_details_to_customer: boolean;
+  show_scope_to_customer: boolean;
 }
 
 const itemTypes = [
@@ -126,6 +127,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     terms_and_conditions: "",
     work_scope_description: "",
     show_details_to_customer: false,
+    show_scope_to_customer: false,
   });
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -243,6 +245,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         terms_and_conditions: est.terms_and_conditions || "",
         work_scope_description: est.work_scope_description || "",
         show_details_to_customer: est.show_details_to_customer ?? false,
+        show_scope_to_customer: est.show_scope_to_customer ?? false,
       });
 
       // Populate groups with items
@@ -285,6 +288,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         terms_and_conditions: "",
         work_scope_description: "",
         show_details_to_customer: false,
+        show_scope_to_customer: false,
       });
       setGroups([]);
       setPaymentSchedule([]);
@@ -572,6 +576,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         created_by: user?.id || null,
         project_id: linkedProjectId || null,
         show_details_to_customer: formData.show_details_to_customer,
+        show_scope_to_customer: formData.show_scope_to_customer,
       };
       
       // Only set status for new estimates (not when editing)
@@ -712,6 +717,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         status: "draft" as const,
         created_by: user?.id || null,
         show_details_to_customer: formData.show_details_to_customer,
+        show_scope_to_customer: formData.show_scope_to_customer,
       };
 
       // Create new estimate
@@ -1458,6 +1464,18 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </CardHeader>
                     <CardContent>
                       <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Show Scope of Work Description</Label>
+                          <p className="text-sm text-muted-foreground">
+                            When enabled, the scope of work description will be shown on proposals and contracts
+                          </p>
+                        </div>
+                        <Switch
+                          checked={formData.show_scope_to_customer}
+                          onCheckedChange={(checked) => setFormData({ ...formData, show_scope_to_customer: checked })}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between pt-4 border-t">
                         <div className="space-y-0.5">
                           <Label>Show Line Item Details to Customer</Label>
                           <p className="text-sm text-muted-foreground">
