@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -8,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FileText,
@@ -21,8 +23,10 @@ import {
   DollarSign,
   CheckCircle2,
   XCircle,
+  FileDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import { CompanyHeader } from '@/components/proposals/CompanyHeader';
 
 interface EstimatePreviewDialogProps {
@@ -63,6 +67,32 @@ export function EstimatePreviewDialog({
   open,
   onOpenChange,
 }: EstimatePreviewDialogProps) {
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleGeneratePdf = async () => {
+    if (!estimateId) return;
+    
+    setGeneratingPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
+        body: { estimateId },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.open(data.url, '_blank');
+        toast.success('PDF generated successfully');
+      } else {
+        throw new Error('Failed to generate PDF');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
   const { data, isLoading } = useQuery({
     queryKey: ['estimate-preview', estimateId],
     queryFn: async () => {
@@ -160,7 +190,22 @@ export function EstimatePreviewDialog({
               <Building className="h-5 w-5 text-primary" />
               <DialogTitle>Customer Proposal Preview</DialogTitle>
             </div>
-            {estimate && getStatusBadge(estimate.status)}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGeneratePdf}
+                disabled={generatingPdf || !estimate}
+              >
+                {generatingPdf ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <FileDown className="h-4 w-4 mr-2" />
+                )}
+                View PDF
+              </Button>
+              {estimate && getStatusBadge(estimate.status)}
+            </div>
           </div>
         </DialogHeader>
 
