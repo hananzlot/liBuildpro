@@ -98,7 +98,8 @@ export function useSubscription({ companyId, isSuperAdmin }: UseSubscriptionProp
     return diffDays;
   }, [subscription]);
 
-  const userLimit = plan?.max_users ?? -1;
+  // Use override if set, otherwise use plan default
+  const userLimit = subscription?.max_users_override ?? plan?.max_users ?? -1;
   const userLimitReached = userLimit !== -1 && userCount >= userLimit;
 
   const canUseFeature = useCallback((featureKey: string): boolean => {

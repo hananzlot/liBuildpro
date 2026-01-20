@@ -949,6 +949,7 @@ export type Database = {
           current_period_start: string
           grace_period_ends_at: string | null
           id: string
+          max_users_override: number | null
           plan_id: string
           status: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id: string | null
@@ -965,6 +966,7 @@ export type Database = {
           current_period_start?: string
           grace_period_ends_at?: string | null
           id?: string
+          max_users_override?: number | null
           plan_id: string
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string | null
@@ -981,6 +983,7 @@ export type Database = {
           current_period_start?: string
           grace_period_ends_at?: string | null
           id?: string
+          max_users_override?: number | null
           plan_id?: string
           status?: Database["public"]["Enums"]["subscription_status"]
           stripe_customer_id?: string | null
