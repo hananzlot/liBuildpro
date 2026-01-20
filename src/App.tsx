@@ -19,6 +19,8 @@ import DocumentPortal from "./pages/DocumentPortal";
 import AdminSettings from "./pages/AdminSettings";
 import SalesPortal from "./pages/SalesPortal";
 import TenantManagement from "./pages/TenantManagement";
+import Opportunities from "./pages/Opportunities";
+import Appointments from "./pages/Appointments";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -185,6 +187,22 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['sales', 'admin']}>
                   <SalesPortal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/opportunities"
+              element={
+                <ProtectedRoute blockSalesOnly>
+                  <Opportunities />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/appointments"
+              element={
+                <ProtectedRoute blockSalesOnly>
+                  <Appointments />
                 </ProtectedRoute>
               }
             />
