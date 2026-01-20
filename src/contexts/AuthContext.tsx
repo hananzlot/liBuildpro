@@ -2,22 +2,53 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = 'super_admin' | 'admin' | 'magazine' | 'production' | 'dispatch' | 'sales' | 'contract_manager';
+export type AppRole = 'super_admin' | 'admin' | 'magazine' | 'production' | 'dispatch' | 'sales' | 'contract_manager' | 'corp_admin' | 'corp_viewer';
 
 interface Profile {
   id: string;
   email: string;
   full_name: string | null;
   ghl_user_id: string | null;
+  company_id: string | null;
+}
+
+interface Company {
+  id: string;
+  corporation_id: string | null;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+  primary_color: string;
+  secondary_color: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  is_active: boolean;
+}
+
+interface Corporation {
+  id: string;
+  name: string;
+  slug: string;
+  settings: Record<string, unknown>;
+  is_active: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  // Multi-tenancy context
+  companyId: string | null;
+  corporationId: string | null;
+  company: Company | null;
+  corporation: Corporation | null;
   // Role checks
   isSuperAdmin: boolean;
   isAdmin: boolean; // true if super_admin OR admin
+  isCorpAdmin: boolean;
+  isCorpViewer: boolean;
   isMagazine: boolean;
   isProduction: boolean;
   isDispatch: boolean;
@@ -35,23 +66,33 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: Error | null }>;
+  // Helper to refresh company context
+  refreshCompanyContext: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ALL_ROLES: AppRole[] = ['super_admin', 'admin', 'magazine', 'production', 'dispatch', 'sales', 'contract_manager'];
+const ALL_ROLES: AppRole[] = ['super_admin', 'corp_admin', 'admin', 'corp_viewer', 'magazine', 'production', 'dispatch', 'sales', 'contract_manager'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [corporation, setCorporation] = useState<Corporation | null>(null);
   const [actualRoles, setActualRoles] = useState<AppRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [simulatedRole, setSimulatedRole] = useState<AppRole | null>(null);
 
+  // Derive company and corporation IDs
+  const companyId = profile?.company_id ?? null;
+  const corporationId = company?.corporation_id ?? null;
+
   // Calculate actual role flags
   const actualIsSuperAdmin = actualRoles.includes('super_admin');
-  const actualIsAdmin = actualRoles.includes('admin') || actualIsSuperAdmin;
+  const actualIsCorpAdmin = actualRoles.includes('corp_admin') || actualIsSuperAdmin;
+  const actualIsCorpViewer = actualRoles.includes('corp_viewer');
+  const actualIsAdmin = actualRoles.includes('admin') || actualIsSuperAdmin || actualIsCorpAdmin;
   const actualIsMagazine = actualRoles.includes('magazine');
   const actualIsProduction = actualRoles.includes('production');
   const actualIsDispatch = actualRoles.includes('dispatch');
@@ -65,8 +106,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ? simulatedRole === 'super_admin' 
     : actualIsSuperAdmin;
   
+  const isCorpAdmin = isSimulating
+    ? (simulatedRole === 'super_admin' || simulatedRole === 'corp_admin')
+    : actualIsCorpAdmin;
+
+  const isCorpViewer = isSimulating
+    ? simulatedRole === 'corp_viewer'
+    : actualIsCorpViewer;
+  
   const isAdmin = isSimulating 
-    ? (simulatedRole === 'super_admin' || simulatedRole === 'admin')
+    ? (simulatedRole === 'super_admin' || simulatedRole === 'admin' || simulatedRole === 'corp_admin')
     : actualIsAdmin;
   
   const isMagazine = isSimulating 
@@ -103,11 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Defer profile fetch to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
-            fetchProfile(session.user.id);
+            fetchProfileAndCompany(session.user.id);
             checkUserRoles(session.user.id);
           }, 0);
         } else {
           setProfile(null);
+          setCompany(null);
+          setCorporation(null);
           setActualRoles([]);
           setSimulatedRole(null);
         }
@@ -120,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfileAndCompany(session.user.id);
         checkUserRoles(session.user.id);
       }
       setIsLoading(false);
@@ -129,15 +180,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
+  const fetchProfileAndCompany = async (userId: string) => {
+    // Fetch profile
+    const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id, email, full_name, ghl_user_id, company_id")
       .eq("id", userId)
       .single();
 
-    if (!error && data) {
-      setProfile(data as Profile);
+    if (!profileError && profileData) {
+      setProfile(profileData as Profile);
+
+      // Fetch company if profile has company_id
+      if (profileData.company_id) {
+        const { data: companyData, error: companyError } = await supabase
+          .from("companies")
+          .select("*")
+          .eq("id", profileData.company_id)
+          .single();
+
+        if (!companyError && companyData) {
+          setCompany(companyData as Company);
+
+          // Fetch corporation if company has corporation_id
+          if (companyData.corporation_id) {
+            const { data: corpData, error: corpError } = await supabase
+              .from("corporations")
+              .select("*")
+              .eq("id", companyData.corporation_id)
+              .single();
+
+            if (!corpError && corpData) {
+              setCorporation(corpData as Corporation);
+            }
+          }
+        }
+      }
     }
   };
 
@@ -152,6 +230,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setActualRoles(roles);
     } else {
       setActualRoles([]);
+    }
+  };
+
+  const refreshCompanyContext = async () => {
+    if (user?.id) {
+      await fetchProfileAndCompany(user.id);
     }
   };
 
@@ -181,6 +265,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
+    setCompany(null);
+    setCorporation(null);
     setActualRoles([]);
     setSimulatedRole(null);
   };
@@ -215,8 +301,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{ 
       user, 
       session, 
-      profile, 
+      profile,
+      // Multi-tenancy context
+      companyId,
+      corporationId,
+      company,
+      corporation,
+      // Role checks
       isSuperAdmin,
+      isCorpAdmin,
+      isCorpViewer,
       isAdmin, 
       isMagazine,
       isProduction,
@@ -234,7 +328,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp, 
       signOut,
       resetPassword,
-      updatePassword
+      updatePassword,
+      refreshCompanyContext
     }}>
       {children}
     </AuthContext.Provider>
