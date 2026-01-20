@@ -237,11 +237,7 @@ export default function Estimates() {
       if (signerTokens && signerTokens.length > 0) {
         // Build links for all signers
         const baseUrl = window.location.origin;
-        const links = signerTokens.map((t: any) => {
-          const signer = t.estimate_signers;
-          const name = signer?.signer_name || 'Unknown';
-          return `${name}: ${baseUrl}/portal?token=${t.token}`;
-        }).join('\n');
+        const links = signerTokens.map((t: any) => `${baseUrl}/portal?token=${t.token}`).join('\n');
         
         await navigator.clipboard.writeText(links);
         toast.success(`Copied ${signerTokens.length} portal link(s) to clipboard`);
