@@ -341,6 +341,7 @@ export function AppointmentsTable({
     const wonBySource: Record<string, { count: number; value: number }> = {};
     let totalValue = 0;
     const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
+    const repValueCountedContacts = new Set<string>(); // Track contacts already attributed to a rep for value (global)
     
     filteredAppointments.forEach(a => {
       // Count by appointment status (all appointments + unique contacts)
@@ -353,7 +354,7 @@ export function AppointmentsTable({
         byStatus[status].uniqueContacts.add(a.contact_id);
       }
 
-      // Count by rep (appointments count, but only unique contact values)
+      // Count by rep (appointments count, but only unique contact values GLOBALLY)
       const repId = a.assigned_user_id || 'unassigned';
       const repName = getUserName(a.assigned_user_id);
       if (!byRep[repId]) {
@@ -361,8 +362,10 @@ export function AppointmentsTable({
       }
       byRep[repId].count += 1;
       
-      // Only add value once per unique contact per rep
-      if (a.contact_id && !byRep[repId].countedContacts.has(a.contact_id)) {
+      // Only add value once per unique contact GLOBALLY (not per rep) to avoid double-counting
+      // when same contact has appointments with multiple reps
+      if (a.contact_id && !repValueCountedContacts.has(a.contact_id)) {
+        repValueCountedContacts.add(a.contact_id);
         byRep[repId].countedContacts.add(a.contact_id);
         const oppValueForRep = getOpportunityValue(a.contact_id) || 0;
         const oppStatusForRep = getOpportunityStatus(a.contact_id);
