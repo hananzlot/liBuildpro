@@ -64,11 +64,11 @@ serve(async (req) => {
 
     // Step 2: Store the API key in vault
     console.log("Storing API key in vault...");
-    const keyName = `ghl_${companyId || "default"}_${locationId}`;
+    const integrationName = `GHL API Key - ${name}`;
     
     const { data: vaultId, error: vaultError } = await supabase.rpc("store_ghl_api_key", {
       api_key: apiKey,
-      key_name: keyName,
+      integration_name: integrationName,
     });
 
     if (vaultError) {
