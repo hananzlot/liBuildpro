@@ -279,13 +279,17 @@ export default function AdminSettings() {
 
   const updateSetting = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      if (!companyId) throw new Error("No company ID");
+      
+      // Upsert to company_settings for per-company isolation
       const { error } = await supabase
-        .from("app_settings")
-        .update({ 
-          setting_value: value, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq("setting_key", key);
+        .from("company_settings")
+        .upsert({
+          company_id: companyId,
+          setting_key: key,
+          setting_value: value,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "company_id,setting_key" });
 
       if (error) throw error;
     },
