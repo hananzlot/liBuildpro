@@ -124,7 +124,7 @@ export default function AdminSettings() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
-        .select("ghl_id, contact_name, first_name, last_name, source");
+        .select("id, ghl_id, contact_name, first_name, last_name, source");
       if (error) throw error;
       return data;
     },

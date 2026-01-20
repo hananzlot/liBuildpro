@@ -14,7 +14,7 @@ import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
+import { getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
 import { ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -22,6 +22,7 @@ interface DBAppointment {
   id: string;
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   calendar_id: string | null;
   title: string | null;
   appointment_status: string | null;
@@ -160,7 +161,7 @@ function CalendarView({
   }, [appointments]);
 
   const getContactName = (appt: DBAppointment) => {
-    const contact = contacts.find((c) => c.ghl_id === appt.contact_id);
+    const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
     return contact?.contact_name || 
       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || 
       "Unknown";

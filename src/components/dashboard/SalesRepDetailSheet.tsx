@@ -17,14 +17,16 @@ import {
 } from "@/components/ui/select";
 import { User, Megaphone, Calendar, DollarSign, Clock, GitBranch, ChevronRight, Search, MapPin } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
-import { getAddressFromContact } from "@/lib/utils";
+import { getAddressFromContact, findContactByIdOrGhlId, findOpportunityByIdOrGhlId } from "@/lib/utils";
 
 interface Opportunity {
+  id: string;
   ghl_id: string;
   name: string | null;
   status: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
@@ -35,6 +37,7 @@ interface Opportunity {
 }
 
 interface Appointment {
+  id?: string;
   ghl_id: string;
   title: string | null;
   appointment_status: string | null;
@@ -42,11 +45,13 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_user_id: string | null;
   address?: string | null;
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -215,7 +220,7 @@ export function SalesRepDetailSheet({
 
   // Helper to get source for an opportunity
   const getOpportunitySource = (opp: Opportunity): string => {
-    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+    const contact = findContactByIdOrGhlId(contacts, opp.contact_uuid, opp.contact_id);
     return contact?.source || 'No Source';
   };
 
@@ -346,7 +351,7 @@ export function SalesRepDetailSheet({
                       .sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())
                       .slice(0, 10)
                       .map((appt) => {
-                        const contact = contacts.find(c => c.ghl_id === appt.contact_id);
+                        const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
                         const opportunity = opportunities.find(o => o.contact_id === appt.contact_id);
                         
                         // Extract address from contact with appointment fallback

@@ -27,9 +27,10 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { cn, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
+import { cn, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
 
 interface Opportunity {
+  id?: string;
   ghl_id: string;
   name: string | null;
   stage_name: string | null;
@@ -41,6 +42,7 @@ interface Opportunity {
   pipeline_name: string | null;
   pipeline_stage_id: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_to: string | null;
 }
 
@@ -56,6 +58,7 @@ interface Appointment {
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;

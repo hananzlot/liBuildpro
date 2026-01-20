@@ -13,13 +13,14 @@ import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { stripHtml, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS } from "@/lib/utils";
+import { stripHtml, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 interface DBOpportunity {
   id: string;
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   pipeline_id: string | null;
   pipeline_name: string | null;
   pipeline_stage_id: string | null;
@@ -210,9 +211,9 @@ export function FollowUpManagement({
     const user = users.find(u => u.ghl_id === userId);
     return user?.name || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Unknown";
   };
-  const getContactName = (contactId: string | null): string => {
-    if (!contactId) return "Unknown Contact";
-    const contact = contacts.find(c => c.ghl_id === contactId);
+  const getContactName = (contactId: string | null, contactUuid?: string | null): string => {
+    if (!contactId && !contactUuid) return "Unknown Contact";
+    const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
     return contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown Contact";
   };
   const getOpportunityForAppointment = (contactId: string | null): DBOpportunity | undefined => {
@@ -587,8 +588,8 @@ export function FollowUpManagement({
         dueDateTime = date.toISOString();
       }
 
-      // Get location_id from contact
-      const contact = contacts.find(c => c.ghl_id === taskDialogContactId);
+      // Get location_id from contact (use ghl_id lookup since taskDialogContactId is a ghl_id)
+      const contact = findContactByIdOrGhlId(contacts, null, taskDialogContactId);
       const locationId = contact?.location_id || DEFAULT_LOCATION_ID;
 
       // Create in GHL first (edge function will also insert into ghl_tasks)
@@ -674,8 +675,8 @@ export function FollowUpManagement({
 
   // Scope handlers
   const handleOpenScopeDialog = (opportunity: DBOpportunity) => {
-    const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
-    const contactName = getContactName(opportunity.contact_id);
+    const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
+    const contactName = getContactName(opportunity.contact_id, opportunity.contact_uuid);
     setScopeDialogOpportunity(opportunity);
     setScopeDialogContactId(opportunity.contact_id);
     setScopeDialogContactName(contactName);
@@ -769,16 +770,16 @@ export function FollowUpManagement({
   };
 
   // Helper to get address from contact custom_fields with appointment fallback
-  const getAddress = (contactId: string | null): string => {
-    if (!contactId) return "No address";
-    const contact = contacts.find(c => c.ghl_id === contactId);
+  const getAddress = (contactId: string | null, contactUuid?: string | null): string => {
+    if (!contactId && !contactUuid) return "No address";
+    const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
     return getAddressFromContact(contact, appointments, contactId) || "No address";
   };
 
   // Helper to get scope from contact custom_fields
-  const getScope = (contactId: string | null): string => {
-    if (!contactId) return "";
-    const contact = contacts.find(c => c.ghl_id === contactId);
+  const getScope = (contactId: string | null, contactUuid?: string | null): string => {
+    if (!contactId && !contactUuid) return "";
+    const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
     if (!contact) return "";
 
     // Try custom_fields first
