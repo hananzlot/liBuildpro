@@ -10,8 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -20,6 +21,7 @@ import { EmailTemplatesManager } from "@/components/admin/EmailTemplatesManager"
 import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement";
 import { ChatManagement } from "@/components/admin/ChatManagement";
 import { LogoUpload } from "@/components/admin/LogoUpload";
+import { useGHLMode } from "@/hooks/useGHLMode";
 import { format } from "date-fns";
 import {
   Table,
@@ -75,6 +77,7 @@ export default function AdminSettings() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "settings";
+  const { isGHLEnabled } = useGHLMode();
   
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({});
   
@@ -91,6 +94,29 @@ export default function AdminSettings() {
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+
+  // GHL Integration toggle mutation
+  const toggleGHLIntegration = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { error } = await supabase
+        .from("app_settings")
+        .update({ 
+          setting_value: enabled ? "true" : "false", 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("setting_key", "ghl_integration_enabled");
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ghl-integration-enabled"] });
+      queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+      toast.success("GHL integration setting updated");
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update GHL setting: ${error.message}`);
+    },
+  });
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["app-settings"],
@@ -536,6 +562,47 @@ export default function AdminSettings() {
                 <SalespeopleManagement />
 
                 <Separator />
+
+                {/* GHL Integration Toggle */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Database className="h-5 w-5" />
+                      GoHighLevel Integration
+                    </CardTitle>
+                    <CardDescription>
+                      Enable or disable GoHighLevel (GHL) integration. When disabled, the app works in local-only mode
+                      without syncing data to/from GHL.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="ghl-toggle">GHL Sync Enabled</Label>
+                        <p className="text-xs text-muted-foreground">
+                          {isGHLEnabled 
+                            ? "GHL sync is enabled - data will sync with GoHighLevel" 
+                            : "GHL sync is disabled - app works in local-only mode"}
+                        </p>
+                      </div>
+                      <Switch
+                        id="ghl-toggle"
+                        checked={isGHLEnabled}
+                        onCheckedChange={(checked) => toggleGHLIntegration.mutate(checked)}
+                        disabled={toggleGHLIntegration.isPending}
+                      />
+                    </div>
+                    {!isGHLEnabled && (
+                      <div className="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                        <div className="text-amber-800">
+                          <strong>Local-Only Mode:</strong> New entries will be created locally without syncing to GHL.
+                          The sync button is hidden in this mode.
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 <Card className="border-dashed">
                   <CardHeader>

@@ -1049,8 +1049,23 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+    // Check if GHL credentials are available - if not, return early with success (local-only mode)
     if (!ghlApiKey1 || !locationId1) {
-      throw new Error('Missing GHL_API_KEY or GHL_LOCATION_ID for primary location');
+      console.log('GHL credentials not configured - running in local-only mode');
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'GHL sync skipped - no GHL credentials configured (local-only mode)',
+        meta: {
+          contacts: 0,
+          opportunities: 0,
+          appointments: 0,
+          tasks: 0,
+          conversations: 0,
+          localOnlyMode: true,
+        },
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (!supabaseUrl || !supabaseServiceKey) {

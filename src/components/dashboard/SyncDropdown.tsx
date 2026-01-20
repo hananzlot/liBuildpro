@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useSyncTimestamps } from "@/hooks/useGHLContacts";
+import { useGHLMode } from "@/hooks/useGHLMode";
 import { formatDistanceToNow } from "date-fns";
 
 interface SyncDropdownProps {
@@ -18,7 +19,13 @@ interface SyncDropdownProps {
 }
 
 export function SyncDropdown({ onSyncGHL, onSyncGHL2, isSyncingGHL, isSyncingGHL2 }: SyncDropdownProps) {
+  const { isGHLEnabled } = useGHLMode();
   const { data: timestamps } = useSyncTimestamps();
+  
+  // Hide sync dropdown when GHL integration is disabled
+  if (!isGHLEnabled) {
+    return null;
+  }
   
   const formatTimestamp = (timestamp: string | null) => {
     if (!timestamp) return "Never";
