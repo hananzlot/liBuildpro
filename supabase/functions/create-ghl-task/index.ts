@@ -77,16 +77,23 @@ serve(async (req) => {
       throw new Error('Missing contactId');
     }
 
-    // If locationId not provided, look it up from the contact
+    // If locationId or companyId not provided, look them up from the contact
     let effectiveLocationId = locationId;
-    if (!effectiveLocationId) {
+    let effectiveCompanyId = companyId;
+    
+    if (!effectiveLocationId || !effectiveCompanyId) {
       const { data: contactData } = await supabase
         .from('contacts')
-        .select('location_id')
+        .select('location_id, company_id')
         .eq('ghl_id', contactId)
         .single();
       
-      effectiveLocationId = contactData?.location_id || 'local';
+      if (!effectiveLocationId) {
+        effectiveLocationId = contactData?.location_id || 'local';
+      }
+      if (!effectiveCompanyId) {
+        effectiveCompanyId = contactData?.company_id;
+      }
     }
 
     const ghlApiKey = await getGHLApiKey(supabase, effectiveLocationId);
@@ -110,7 +117,7 @@ serve(async (req) => {
           completed: false,
           entered_by: enteredBy || null,
           provider: 'local',
-          company_id: companyId || null,
+          company_id: effectiveCompanyId || null,
         })
         .select()
         .single();
@@ -189,7 +196,7 @@ serve(async (req) => {
           location_id: effectiveLocationId,
           completed: false,
           entered_by: enteredBy || null,
-          company_id: companyId || null,
+          company_id: effectiveCompanyId || null,
         });
 
       if (supabaseError) {
