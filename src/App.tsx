@@ -17,6 +17,7 @@ import ClientPortal from "./pages/ClientPortal";
 import DocumentPortal from "./pages/DocumentPortal";
 import AdminSettings from "./pages/AdminSettings";
 import SalesPortal from "./pages/SalesPortal";
+import TenantManagement from "./pages/TenantManagement";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -247,6 +248,8 @@ const App = () => (
             <Route path="/portal" element={<ClientPortal />} />
             {/* Public document portal - no auth required */}
             <Route path="/document-portal" element={<DocumentPortal />} />
+            {/* Super Admin tenant management */}
+            <Route path="/super-admin/tenants" element={<TenantManagement />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
