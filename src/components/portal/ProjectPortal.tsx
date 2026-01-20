@@ -312,7 +312,10 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                   <span className="text-white/60 text-sm font-mono">#{project.project_number}</span>
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                  {project.project_name || 'Your Project'}
+                  {estimates.length > 1 
+                    ? `Multiple Proposals - ${[project.customer_first_name, project.customer_last_name].filter(Boolean).join(' ') || estimates[0]?.customer_name || 'Customer'}`
+                    : (project.project_name || 'Your Project')
+                  }
                 </h2>
                 {/* Show all estimate titles if multiple estimates exist */}
                 {estimates.length > 1 && (
