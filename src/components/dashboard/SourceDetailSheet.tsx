@@ -97,6 +97,8 @@ interface GHLUser {
   email: string | null;
 }
 
+// Import is already at top - use findContactByIdOrGhlId from utils
+
 type ViewMode = "opportunities" | "won";
 
 interface SourceDetailSheetProps {

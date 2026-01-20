@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, DollarSign, Plus, Trash2 } from "lucide-react";
+import { findUserByIdOrGhlId } from "@/lib/utils";
 
 interface GHLUser {
+  id?: string;
   ghl_id: string;
   name: string | null;
   first_name: string | null;
@@ -170,7 +172,7 @@ export function OpportunitySalesDialog({
 
   const getUserName = (ghlId: string | null) => {
     if (!ghlId) return "Unknown";
-    const user = users.find(u => u.ghl_id === ghlId);
+    const user = findUserByIdOrGhlId(users, undefined, ghlId);
     if (!user) return "Unknown";
     return user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || "Unknown";
   };

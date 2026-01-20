@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { stripHtml, getAddressFromContact, CUSTOM_FIELD_IDS as SHARED_CUSTOM_FIELD_IDS, extractCustomField as sharedExtractCustomField } from "@/lib/utils";
+import { stripHtml, getAddressFromContact, CUSTOM_FIELD_IDS as SHARED_CUSTOM_FIELD_IDS, extractCustomField as sharedExtractCustomField, findContactByIdOrGhlId } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -61,6 +61,7 @@ const getPSTOffset = (utcDate: Date): number => {
 const APPOINTMENT_STATUSES = ["new", "confirmed", "cancelled", "no_show", "noshow", "showed"] as const;
 
 interface Appointment {
+  id?: string;
   ghl_id: string;
   title: string | null;
   appointment_status: string | null;
@@ -68,6 +69,7 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_user_id: string | null;
   calendar_id: string | null;
   address?: string | null;
@@ -92,6 +94,7 @@ interface CustomField {
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -224,7 +227,7 @@ export function AppointmentDetailSheet({
 
   const queryClient = useQueryClient();
 
-  const contact = appointment ? contacts.find((c) => c.ghl_id === appointment.contact_id) : null;
+  const contact = appointment ? findContactByIdOrGhlId(contacts, appointment.contact_uuid, appointment.contact_id) : null;
   const relatedOpportunities = appointment ? opportunities.filter((o) => o.contact_id === appointment.contact_id) : [];
   const primaryOpportunity = relatedOpportunities[0];
 

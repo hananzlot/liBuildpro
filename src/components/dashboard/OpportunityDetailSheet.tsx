@@ -15,7 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { stripHtml } from "@/lib/utils";
+import { stripHtml, findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { OpportunitySalesDialog } from "./OpportunitySalesDialog";
@@ -36,6 +36,7 @@ const CUSTOM_FIELD_IDS = {
   NOTES: "588ddQgiGEg3AWtTQB2i"
 };
 interface Opportunity {
+  id?: string;
   ghl_id: string;
   name: string | null;
   status: string | null;
@@ -45,6 +46,7 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   stage_name: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
@@ -64,6 +66,7 @@ interface Appointment {
   address?: string | null;
 }
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -76,6 +79,7 @@ interface Contact {
   attributions?: unknown;
 }
 interface GHLUser {
+  id?: string;
   ghl_id: string;
   name: string | null;
   first_name: string | null;
@@ -630,7 +634,7 @@ export function OpportunityDetailSheet({
     setTasks(tasks);
   };
   const openTaskDialog = () => {
-    const contact = contacts.find(c => c.ghl_id === opportunity?.contact_id);
+    const contact = findContactByIdOrGhlId(contacts, opportunity?.contact_uuid, opportunity?.contact_id);
     const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
     setTaskTitle(`Follow up: ${opportunity?.name || contactName || "Opportunity"}`);
     setTaskNotes("");
@@ -646,7 +650,7 @@ export function OpportunityDetailSheet({
     }
     setIsCreatingTask(true);
     try {
-      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
       const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
       const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
 
@@ -1183,7 +1187,7 @@ export function OpportunityDetailSheet({
     setEditedStage(savedValues.stage_name ?? opportunity?.stage_name ?? "");
     setEditedMonetaryValue((savedValues.monetary_value ?? opportunity?.monetary_value)?.toString() ?? "0");
     setEditedAssignedTo(savedValues.assigned_to ?? opportunity?.assigned_to ?? "__unassigned__");
-    const contact = contacts.find(c => c.ghl_id === opportunity?.contact_id);
+    const contact = findContactByIdOrGhlId(contacts, opportunity?.contact_uuid, opportunity?.contact_id);
     const contactSource = contact?.source ? normalizeSourceName(contact.source) : "";
     setEditedSource(savedValues.source ?? contactSource);
     setShowCustomSourceInput(false);
@@ -1342,9 +1346,9 @@ export function OpportunityDetailSheet({
       
       if (!oppData) return;
 
-      const contact = contacts.find(c => c.ghl_id === oppData.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, undefined, oppData.contact_id);
       const address = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
-      const assignedUser = users.find(u => u.ghl_id === oppData.assigned_to);
+      const assignedUser = findUserByIdOrGhlId(users, undefined, oppData.assigned_to);
 
       // Create the project
       const { error: createError } = await supabase
@@ -1447,7 +1451,7 @@ export function OpportunityDetailSheet({
       if (data?.error) throw new Error(data.error);
 
       // If source was changed, update contact source separately
-      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
       const originalSource = contact?.source || "";
       if (editedSource !== originalSource && opportunity.contact_id) {
         try {
@@ -1796,10 +1800,10 @@ export function OpportunityDetailSheet({
       minimumFractionDigits: 0
     }).format(value);
   };
-  const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+  const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
   const relatedAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id);
   const effectiveAssignedTo = savedValues.assigned_to !== undefined ? savedValues.assigned_to : opportunity.assigned_to;
-  const assignedUser = users.find(u => u.ghl_id === effectiveAssignedTo);
+  const assignedUser = findUserByIdOrGhlId(users, undefined, effectiveAssignedTo);
   const contactName = savedContactName || contact?.contact_name || (contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}` : contact?.first_name || contact?.last_name || "Unknown");
   const userName = assignedUser?.name || (assignedUser?.first_name && assignedUser?.last_name ? `${assignedUser.first_name} ${assignedUser.last_name}` : "Unassigned");
   // Get address from opportunity first, fallback to contact custom_fields, then appointment address

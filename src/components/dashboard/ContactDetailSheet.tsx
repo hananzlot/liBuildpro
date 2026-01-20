@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { findUserByIdOrGhlId } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -176,7 +177,7 @@ export function ContactDetailSheet({
     `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 
     "Unknown Contact";
 
-  const assignedUser = users.find(u => u.ghl_id === contact.assigned_to);
+  const assignedUser = findUserByIdOrGhlId(users, undefined, contact.assigned_to);
   const assignedUserName = assignedUser?.name || 
     `${assignedUser?.first_name || ''} ${assignedUser?.last_name || ''}`.trim() || 
     null;

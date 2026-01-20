@@ -125,3 +125,20 @@ export function findOpportunityByIdOrGhlId<T extends { id: string; ghl_id?: stri
   }
   return undefined;
 }
+
+// Helper to find GHL user using UUID with fallback to GHL ID
+export function findUserByIdOrGhlId<T extends { id?: string; ghl_id: string }>(
+  users: T[] | undefined,
+  userUuid: string | null | undefined,
+  userGhlId: string | null | undefined
+): T | undefined {
+  if (!users) return undefined;
+  if (userUuid) {
+    const found = users.find(u => u.id === userUuid);
+    if (found) return found;
+  }
+  if (userGhlId) {
+    return users.find(u => u.ghl_id === userGhlId);
+  }
+  return undefined;
+}
