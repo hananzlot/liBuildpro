@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2 } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface UserManagementProps {
   open: boolean;
@@ -30,6 +31,16 @@ interface UserRole {
   role: AppRole;
 }
 
+// Map roles to their required feature keys
+// Roles not in this map are always available (admin, super_admin)
+const ROLE_FEATURE_MAP: Partial<Record<AppRole, string>> = {
+  magazine: 'magazine_sales',
+  production: 'production',
+  dispatch: 'production', // dispatch is part of production
+  sales: 'sales_portal',
+  contract_manager: 'documents',
+};
+
 const ROLE_CONFIG: { role: AppRole; label: string; color: string }[] = [
   { role: 'super_admin', label: 'Super Admin', color: 'bg-red-500/10 text-red-500' },
   { role: 'admin', label: 'Admin', color: 'bg-primary/10 text-primary' },
@@ -44,6 +55,7 @@ const PROFILES_QUERY_KEY = ["user-management", "profiles"] as const;
 const ROLES_QUERY_KEY = ["user-management", "roles"] as const;
 
 export function UserManagement({ open, onOpenChange }: UserManagementProps) {
+  const { isSuperAdmin, canUseFeature } = useAuth();
   const queryClient = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
@@ -93,6 +105,21 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   });
 
   const loadError = profilesError || rolesError;
+
+  // Filter roles based on company's available features
+  const availableRoles = useMemo(() => {
+    // Super admins see all roles
+    if (isSuperAdmin) return ROLE_CONFIG;
+    
+    return ROLE_CONFIG.filter(roleConfig => {
+      const requiredFeature = ROLE_FEATURE_MAP[roleConfig.role];
+      // If no feature requirement, always show (admin, super_admin)
+      if (!requiredFeature) return true;
+      // Check if company has access to this feature
+      return canUseFeature(requiredFeature);
+    });
+  }, [isSuperAdmin, canUseFeature]);
+
   const createUserMutation = useMutation({
     mutationFn: async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -421,7 +448,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
           <ScrollArea className="max-h-[50vh]">
             <div className="space-y-2">
               {profiles.map((profile) => {
-                const userRolesForProfile = ROLE_CONFIG.map(cfg => ({
+                const userRolesForProfile = availableRoles.map(cfg => ({
                   ...cfg,
                   active: hasRole(profile.id, cfg.role),
                   isUpdating: updatingUserId === profile.id && updatingRole === cfg.role,
