@@ -287,22 +287,22 @@ export function GHLFieldMappings() {
               value={effectiveIntegrationId || ""}
               onValueChange={(value) => setSelectedIntegrationId(value)}
             >
-              <SelectTrigger className="w-[280px]">
+              <SelectTrigger className="w-[320px]">
                 <SelectValue placeholder="Select an integration" />
               </SelectTrigger>
               <SelectContent>
                 {integrations.map((integration) => (
                   <SelectItem key={integration.id} value={integration.id}>
-                    {integration.name || integration.location_id || "Unknown"}
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{integration.name || "Unnamed"}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({integration.location_id})
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {selectedIntegration?.location_id && (
-              <span className="text-xs text-muted-foreground">
-                Location: {selectedIntegration.location_id}
-              </span>
-            )}
           </div>
         )}
 
