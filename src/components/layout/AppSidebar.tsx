@@ -235,7 +235,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, isAdmin, isSuperAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
+  const { user, profile, company, isAdmin, isSuperAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
   const { versionString, version } = useAppVersion();
   const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
   const collapsed = state === "collapsed";
@@ -523,12 +523,20 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shrink-0">
-            CA
-          </div>
+          {company?.logo_url ? (
+            <img 
+              src={company.logo_url} 
+              alt={company.name || "Company"} 
+              className="h-8 w-8 rounded-lg object-contain shrink-0"
+            />
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shrink-0">
+              {(company?.name || "CO").substring(0, 2).toUpperCase()}
+            </div>
+          )}
           {!collapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold truncate">CA Pro Builders</span>
+              <span className="text-sm font-semibold truncate">{company?.name || "Company"}</span>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">{versionString}</span>
                 {isAdmin && (
