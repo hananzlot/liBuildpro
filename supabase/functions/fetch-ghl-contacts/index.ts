@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGHLFieldMappings } from "../_shared/ghl-field-mappings.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -515,7 +516,8 @@ async function syncLocationData(
   ghlApiKey: string,
   locationId: string,
   locationLabel: string,
-  companyId: string | null
+  companyId: string | null,
+  integrationId: string | null = null
 ): Promise<{
   contacts: number;
   opportunities: number;
@@ -527,6 +529,10 @@ async function syncLocationData(
   callLogs: number;
 }> {
   console.log(`\n========== Starting sync for ${locationLabel} (${locationId}) | Company: ${companyId || 'none'} ==========`);
+
+  // Fetch field mappings for this integration to map GHL standard fields correctly
+  const fieldMappings = await getGHLFieldMappings(supabase, { integrationId, locationId });
+  console.log(`Using field mappings:`, fieldMappings);
 
   // Fetch all data in parallel (including pipelines for name resolution)
   const [contacts, opportunities, appointmentsData, users, pipelines, conversations] = await Promise.all([
@@ -621,10 +627,68 @@ async function syncLocationData(
     }
   }
 
+  // Helper function to build enhanced custom_fields with GHL standard address fields
+  function buildEnhancedCustomFields(
+    ghlContact: any,
+    existingCustomFields: any[] | null,
+    mappings: typeof fieldMappings
+  ): any[] | null {
+    // Start with GHL's custom fields or empty array
+    let customFields: any[] = [];
+    
+    if (ghlContact.customFields && Array.isArray(ghlContact.customFields)) {
+      customFields = [...ghlContact.customFields];
+    }
+    
+    // Build full address from GHL standard fields (address1, city, state, postalCode, country)
+    const addressParts: string[] = [];
+    if (ghlContact.address1) addressParts.push(ghlContact.address1);
+    if (ghlContact.city) addressParts.push(ghlContact.city);
+    if (ghlContact.state) addressParts.push(ghlContact.state);
+    if (ghlContact.postalCode) addressParts.push(ghlContact.postalCode);
+    if (ghlContact.country && ghlContact.country !== 'US' && ghlContact.country !== 'USA') {
+      addressParts.push(ghlContact.country);
+    }
+    
+    const fullAddress = addressParts.join(', ');
+    
+    // If we have an address and a mapping for it, add/update it in custom_fields
+    if (fullAddress && mappings.address) {
+      // Check if address field already exists in custom_fields
+      const existingAddressIdx = customFields.findIndex((f: any) => f.id === mappings.address);
+      
+      if (existingAddressIdx >= 0) {
+        // Update existing if empty
+        if (!customFields[existingAddressIdx].value) {
+          customFields[existingAddressIdx].value = fullAddress;
+        }
+      } else {
+        // Add new address field
+        customFields.push({
+          id: mappings.address,
+          value: fullAddress,
+        });
+      }
+    }
+    
+    // Also preserve any existing local custom_fields that aren't in GHL data
+    if (existingCustomFields && Array.isArray(existingCustomFields)) {
+      const existingIds = new Set(customFields.map((f: any) => f.id));
+      for (const existingField of existingCustomFields) {
+        if (!existingIds.has(existingField.id)) {
+          customFields.push(existingField);
+        }
+      }
+    }
+    
+    return customFields.length > 0 ? customFields : null;
+  }
+
   // Sync contacts with last_synced_at tracking
   // LOCAL WINS STRATEGY: Only fill in null fields, never overwrite existing local data
   if (contacts.length > 0) {
     console.log(`Syncing ${contacts.length} contacts with LOCAL WINS strategy...`);
+    console.log(`Address field mapping ID: ${fieldMappings.address || 'not configured'}`);
     
     // Fetch all existing contacts to preserve local data
     const contactGhlIds = contacts.map(c => c.id);
@@ -651,6 +715,9 @@ async function syncLocationData(
     const contactsToUpsert = contacts.map(c => {
       const existing = existingContactsMap.get(c.id);
       
+      // Build enhanced custom_fields with address from standard GHL fields
+      const enhancedCustomFields = buildEnhancedCustomFields(c, existing?.custom_fields, fieldMappings);
+      
       // If record exists locally, only fill null fields (LOCAL WINS)
       if (existing) {
         return {
@@ -669,14 +736,14 @@ async function syncLocationData(
           assigned_to: existing.assigned_to ?? c.assignedTo ?? null,
           ghl_date_added: existing.ghl_date_added ?? c.dateAdded ?? null,
           ghl_date_updated: existing.ghl_date_updated ?? c.dateUpdated ?? null,
-          custom_fields: existing.custom_fields ?? c.customFields ?? null,
+          custom_fields: existing.custom_fields ?? enhancedCustomFields,
           attributions: existing.attributions ?? c.attributions ?? null,
           entered_by: existing.entered_by, // Always preserve
           last_synced_at: syncTimestamp, // Always update sync timestamp
         };
       }
       
-      // New record - use GHL data
+      // New record - use GHL data with enhanced custom_fields
       return {
         ghl_id: c.id,
         company_id: companyId,
@@ -693,7 +760,7 @@ async function syncLocationData(
         assigned_to: c.assignedTo || null,
         ghl_date_added: c.dateAdded || null,
         ghl_date_updated: c.dateUpdated || null,
-        custom_fields: c.customFields || null,
+        custom_fields: enhancedCustomFields,
         attributions: c.attributions || null,
         last_synced_at: syncTimestamp,
       };
@@ -1331,7 +1398,8 @@ serve(async (req) => {
           apiKey,
           integration.location_id,
           integration.name || `Integration ${integration.id}`,
-          integration.company_id
+          integration.company_id,
+          integration.id  // Pass integration ID for field mappings
         );
 
         // Cleanup stale records for this company
