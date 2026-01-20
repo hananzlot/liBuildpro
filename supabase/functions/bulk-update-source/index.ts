@@ -53,41 +53,74 @@ serve(async (req) => {
     // Get API keys for both locations
     const locationId1 = Deno.env.get("GHL_LOCATION_ID");
     const locationId2 = Deno.env.get("GHL_LOCATION_ID_2");
-    const apiKey1 = Deno.env.get("GHL_API_KEY")!;
-    const apiKey2 = Deno.env.get("GHL_API_KEY_2")!;
+    const apiKey1 = Deno.env.get("GHL_API_KEY");
+    const apiKey2 = Deno.env.get("GHL_API_KEY_2");
 
     let successCount = 0;
     let errorCount = 0;
+    let localOnlyCount = 0;
 
     // Process contacts in batches to avoid rate limiting
     for (const contact of contacts) {
       try {
-        // Determine which API key to use based on location
-        const apiKey = contact.location_id === locationId2 ? apiKey2 : apiKey1;
+        // Check if this is a local-only contact
+        const isLocalContact = contact.ghl_id.startsWith("local_");
+        
+        if (isLocalContact) {
+          // For local contacts, just update Supabase directly
+          console.log(`Updating local-only contact ${contact.ghl_id}`);
+          await supabase
+            .from("contacts")
+            .update({ source: newSource, updated_at: new Date().toISOString() })
+            .eq("ghl_id", contact.ghl_id);
+          localOnlyCount++;
+          successCount++;
+        } else {
+          // Determine which API key to use based on location
+          const apiKey = contact.location_id === locationId2 ? apiKey2 : apiKey1;
 
-        // Update in GHL
-        const ghlResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${contact.ghl_id}`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            Version: "2021-07-28",
-          },
-          body: JSON.stringify({ source: newSource }),
-        });
+          // Skip GHL sync if no API key configured
+          if (!apiKey) {
+            console.log(`No API key for contact ${contact.ghl_id}, updating locally only`);
+            await supabase
+              .from("contacts")
+              .update({ source: newSource, updated_at: new Date().toISOString() })
+              .eq("ghl_id", contact.ghl_id);
+            localOnlyCount++;
+            successCount++;
+          } else {
+            // Update in GHL
+            const ghlResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${contact.ghl_id}`, {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                Version: "2021-07-28",
+              },
+              body: JSON.stringify({ source: newSource }),
+            });
 
-        if (!ghlResponse.ok) {
-          const errorText = await ghlResponse.text();
-          console.error(`GHL API error for contact ${contact.ghl_id}:`, ghlResponse.status, errorText);
-          errorCount++;
-          continue;
+            if (!ghlResponse.ok) {
+              const errorText = await ghlResponse.text();
+              console.error(`GHL API error for contact ${contact.ghl_id}:`, ghlResponse.status, errorText);
+              // Still update locally even if GHL fails
+              await supabase
+                .from("contacts")
+                .update({ source: newSource, updated_at: new Date().toISOString() })
+                .eq("ghl_id", contact.ghl_id);
+              errorCount++;
+              successCount++; // Count as success since local update worked
+              continue;
+            }
+
+            // Update in Supabase
+            await supabase
+              .from("contacts")
+              .update({ source: newSource, updated_at: new Date().toISOString() })
+              .eq("ghl_id", contact.ghl_id);
+            successCount++;
+          }
         }
-
-        // Update in Supabase
-        await supabase
-          .from("contacts")
-          .update({ source: newSource, updated_at: new Date().toISOString() })
-          .eq("ghl_id", contact.ghl_id);
 
         // Find related opportunity for edit tracking
         const { data: opportunity } = await supabase
@@ -110,8 +143,6 @@ serve(async (req) => {
           });
         }
 
-        successCount++;
-
         // Small delay to avoid rate limiting
         await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (err) {
@@ -120,12 +151,13 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Bulk update complete: ${successCount} success, ${errorCount} errors`);
+    console.log(`Bulk update complete: ${successCount} success (${localOnlyCount} local-only), ${errorCount} errors`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         updated: successCount, 
+        localOnly: localOnlyCount,
         errors: errorCount,
         total: contacts.length 
       }),
