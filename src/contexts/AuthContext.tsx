@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
+import type { CompanySubscription, SubscriptionPlan } from "@/types/subscription";
 
 export type AppRole = 'super_admin' | 'admin' | 'magazine' | 'production' | 'dispatch' | 'sales' | 'contract_manager' | 'corp_admin' | 'corp_viewer';
 
@@ -61,6 +63,20 @@ interface AuthContextType {
   isSimulating: boolean;
   setSimulatedRole: (role: AppRole | null) => void;
   availableRoles: AppRole[];
+  // Subscription context
+  subscription: CompanySubscription | null;
+  plan: SubscriptionPlan | null;
+  subscriptionFeatures: string[];
+  canUseFeature: (featureKey: string) => boolean;
+  isSubscriptionActive: boolean;
+  isTrialing: boolean;
+  isPastDue: boolean;
+  daysUntilExpiration: number | null;
+  userCount: number;
+  userLimit: number;
+  userLimitReached: boolean;
+  refetchSubscription: () => Promise<void>;
+  // Auth methods
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -141,6 +157,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const userRoles = isSimulating 
     ? [simulatedRole!] 
     : actualRoles;
+
+  // Use subscription hook
+  const subscriptionData = useSubscription({ companyId, isSuperAdmin });
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -324,6 +343,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSimulating,
       setSimulatedRole: actualIsAdmin ? setSimulatedRole : () => {}, // Only admins can simulate
       availableRoles: ALL_ROLES,
+      // Subscription context
+      subscription: subscriptionData.subscription,
+      plan: subscriptionData.plan,
+      subscriptionFeatures: subscriptionData.features,
+      canUseFeature: subscriptionData.canUseFeature,
+      isSubscriptionActive: subscriptionData.isSubscriptionActive,
+      isTrialing: subscriptionData.isTrialing,
+      isPastDue: subscriptionData.isPastDue,
+      daysUntilExpiration: subscriptionData.daysUntilExpiration,
+      userCount: subscriptionData.userCount,
+      userLimit: subscriptionData.userLimit,
+      userLimitReached: subscriptionData.userLimitReached,
+      refetchSubscription: subscriptionData.refetch,
+      // Auth methods
       signIn, 
       signUp, 
       signOut,
