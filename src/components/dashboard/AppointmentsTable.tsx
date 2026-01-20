@@ -192,6 +192,12 @@ export function AppointmentsTable({
     return opp?.monetary_value || null;
   };
 
+  // Get ALL opportunities for a contact (for proper multi-opp tracking)
+  const getOpportunitiesForContact = (contactId: string | null): Opportunity[] => {
+    if (!contactId) return [];
+    return opportunities.filter(o => o.contact_id === contactId);
+  };
+
   const getOpportunityStage = (contactId: string | null): string => {
     if (!contactId) return '-';
     const opp = opportunities.find(o => o.contact_id === contactId);
@@ -333,15 +339,16 @@ export function AppointmentsTable({
   }, [appointments, statusFilter, repFilter, sourceFilter, oppStatusFilter, dateRange, contacts, opportunities]);
 
   // Summary stats based on filtered appointments
+  // Summary stats based on filtered appointments
   const summaryStats = useMemo(() => {
     const bySource: Record<string, { count: number; value: number }> = {};
     const byStatus: Record<string, { total: number; uniqueContacts: Set<string> }> = {};
     const byOppStatus: Record<string, { count: number; value: number }> = {};
-    const byRep: Record<string, { id: string; name: string; count: number; value: number; wonValue: number; countedContacts: Set<string> }> = {};
+    const byRep: Record<string, { id: string; name: string; count: number; value: number; wonValue: number; countedOpps: Set<string> }> = {};
     const wonBySource: Record<string, { count: number; value: number }> = {};
     let totalValue = 0;
-    const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
-    const repValueCountedContacts = new Set<string>(); // Track contacts already attributed to a rep for value (global)
+    const countedOppIds = new Set<string>(); // Track unique opportunities to avoid double-counting
+    const processedContacts = new Set<string>(); // Track contacts we've already processed for opportunity lookup
     
     filteredAppointments.forEach(a => {
       // Count by appointment status (all appointments + unique contacts)
@@ -354,58 +361,63 @@ export function AppointmentsTable({
         byStatus[status].uniqueContacts.add(a.contact_id);
       }
 
-      // Count by rep (appointments count, but only unique contact values GLOBALLY)
+      // Count by rep (appointments count)
       const repId = a.assigned_user_id || 'unassigned';
       const repName = getUserName(a.assigned_user_id);
       if (!byRep[repId]) {
-        byRep[repId] = { id: repId, name: repName, count: 0, value: 0, wonValue: 0, countedContacts: new Set() };
+        byRep[repId] = { id: repId, name: repName, count: 0, value: 0, wonValue: 0, countedOpps: new Set() };
       }
       byRep[repId].count += 1;
       
-      // Only add value once per unique contact GLOBALLY (not per rep) to avoid double-counting
-      // when same contact has appointments with multiple reps
-      if (a.contact_id && !repValueCountedContacts.has(a.contact_id)) {
-        repValueCountedContacts.add(a.contact_id);
-        byRep[repId].countedContacts.add(a.contact_id);
-        const oppValueForRep = getOpportunityValue(a.contact_id) || 0;
-        const oppStatusForRep = getOpportunityStatus(a.contact_id);
-        byRep[repId].value += oppValueForRep;
-        // Track won value per rep
-        if (oppStatusForRep.toLowerCase() === 'won') {
-          byRep[repId].wonValue += oppValueForRep;
-        }
-      }
-      
-      // Only count opportunity value once per contact
-      if (a.contact_id && !countedContactIds.has(a.contact_id)) {
-        countedContactIds.add(a.contact_id);
+      // Process all opportunities for this contact (only once per contact)
+      if (a.contact_id && !processedContacts.has(a.contact_id)) {
+        processedContacts.add(a.contact_id);
         
+        const contactOpps = getOpportunitiesForContact(a.contact_id);
         const source = getContactSource(a.contact_id);
-        const oppValue = getOpportunityValue(a.contact_id) || 0;
-        const oppStatus = getOpportunityStatus(a.contact_id);
         
-        if (!bySource[source]) {
-          bySource[source] = { count: 0, value: 0 };
-        }
-        bySource[source].count += 1;
-        bySource[source].value += oppValue;
-        
-        if (!byOppStatus[oppStatus]) {
-          byOppStatus[oppStatus] = { count: 0, value: 0 };
-        }
-        byOppStatus[oppStatus].count += 1;
-        byOppStatus[oppStatus].value += oppValue;
-        
-        // Track Won By Source
-        if (oppStatus.toLowerCase() === 'won') {
-          if (!wonBySource[source]) {
-            wonBySource[source] = { count: 0, value: 0 };
+        contactOpps.forEach(opp => {
+          const oppId = opp.ghl_id || opp.id || '';
+          if (!oppId || countedOppIds.has(oppId)) return;
+          countedOppIds.add(oppId);
+          
+          const oppValue = opp.monetary_value || 0;
+          const oppStatus = opp.status || '-';
+          
+          // Add to rep stats (attribute to the appointment's rep)
+          if (!byRep[repId].countedOpps.has(oppId)) {
+            byRep[repId].countedOpps.add(oppId);
+            byRep[repId].value += oppValue;
+            if (oppStatus.toLowerCase() === 'won') {
+              byRep[repId].wonValue += oppValue;
+            }
           }
-          wonBySource[source].count += 1;
-          wonBySource[source].value += oppValue;
-        }
-        
-        totalValue += oppValue;
+          
+          // By Source
+          if (!bySource[source]) {
+            bySource[source] = { count: 0, value: 0 };
+          }
+          bySource[source].count += 1;
+          bySource[source].value += oppValue;
+          
+          // By Opp Status
+          if (!byOppStatus[oppStatus]) {
+            byOppStatus[oppStatus] = { count: 0, value: 0 };
+          }
+          byOppStatus[oppStatus].count += 1;
+          byOppStatus[oppStatus].value += oppValue;
+          
+          // Won By Source
+          if (oppStatus.toLowerCase() === 'won') {
+            if (!wonBySource[source]) {
+              wonBySource[source] = { count: 0, value: 0 };
+            }
+            wonBySource[source].count += 1;
+            wonBySource[source].value += oppValue;
+          }
+          
+          totalValue += oppValue;
+        });
       }
     });
 
@@ -445,7 +457,7 @@ export function AppointmentsTable({
 
     return {
       total: filteredAppointments.length,
-      uniqueContacts: countedContactIds.size,
+      uniqueContacts: processedContacts.size,
       totalValue,
       bySource: Object.entries(bySource).sort((a, b) => b[1].value - a[1].value),
       byStatus: sortedByStatus,
