@@ -58,11 +58,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get field mappings from database
-    const fieldMappings = await getGHLFieldMappings(supabase, companyId);
-    const SCOPE_OF_WORK_FIELD_ID = fieldMappings.scope_of_work || "KwQRtJT0aMSHnq3mwR68";
-
-    // Fetch contact with current custom_fields to get old scope
+    // Fetch contact with current custom_fields to get old scope and location_id
     const { data: contact, error: contactError } = await supabase
       .from("contacts")
       .select("location_id, custom_fields")
@@ -77,6 +73,10 @@ serve(async (req) => {
       );
     }
 
+    // Get field mappings from database using location_id
+    const fieldMappings = await getGHLFieldMappings(supabase, { locationId: contact.location_id });
+    const SCOPE_OF_WORK_FIELD_ID = fieldMappings.scope_of_work || "KwQRtJT0aMSHnq3mwR68";
+
     // Extract old scope from custom_fields
     let oldScope = "";
     if (Array.isArray(contact.custom_fields)) {
@@ -84,6 +84,7 @@ serve(async (req) => {
       oldScope = scopeField?.value || "";
     }
     const newScope = scopeOfWork || "";
+
 
     // Get API key - may be null if GHL is not configured
     const apiKey = await getGHLApiKey(supabase, contact.location_id);

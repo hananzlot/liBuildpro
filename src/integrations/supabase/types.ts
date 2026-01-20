@@ -2143,6 +2143,7 @@ export type Database = {
           field_name: string
           ghl_custom_field_id: string
           id: string
+          integration_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2152,6 +2153,7 @@ export type Database = {
           field_name: string
           ghl_custom_field_id: string
           id?: string
+          integration_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2161,6 +2163,7 @@ export type Database = {
           field_name?: string
           ghl_custom_field_id?: string
           id?: string
+          integration_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2169,6 +2172,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghl_field_mappings_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "company_integrations"
             referencedColumns: ["id"]
           },
         ]

@@ -16,18 +16,53 @@ const DEFAULT_MAPPINGS: GHLFieldMappings = {
 
 /**
  * Get GHL custom field mappings from the database.
+ * Looks up by integration_id (preferred) or location_id.
  * Falls back to default hardcoded values if no mappings are configured.
  */
 export async function getGHLFieldMappings(
   supabase: SupabaseClient,
-  companyId?: string | null
+  options?: { integrationId?: string | null; locationId?: string | null }
 ): Promise<GHLFieldMappings> {
-  // Query field mappings - first try company-specific, then global (company_id = NULL)
-  const { data: mappings, error } = await supabase
-    .from("ghl_field_mappings")
-    .select("field_name, ghl_custom_field_id, company_id")
-    .or(`company_id.is.null${companyId ? `,company_id.eq.${companyId}` : ""}`)
-    .order("company_id", { ascending: false, nullsFirst: false }); // Company-specific first
+  const { integrationId, locationId } = options || {};
+  
+  let mappings: any[] | null = null;
+  let error: any = null;
+
+  // Priority 1: Look up by integration_id directly
+  if (integrationId) {
+    const result = await supabase
+      .from("ghl_field_mappings")
+      .select("field_name, ghl_custom_field_id")
+      .eq("integration_id", integrationId);
+    
+    mappings = result.data;
+    error = result.error;
+  }
+  // Priority 2: Look up integration by location_id, then get its mappings
+  else if (locationId) {
+    // First find the integration for this location
+    const { data: integration, error: integrationError } = await supabase
+      .from("company_integrations")
+      .select("id")
+      .eq("location_id", locationId)
+      .eq("provider", "ghl")
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (integrationError) {
+      console.warn("Failed to find integration for location:", integrationError.message);
+    }
+
+    if (integration?.id) {
+      const result = await supabase
+        .from("ghl_field_mappings")
+        .select("field_name, ghl_custom_field_id")
+        .eq("integration_id", integration.id);
+      
+      mappings = result.data;
+      error = result.error;
+    }
+  }
 
   if (error) {
     console.warn("Failed to fetch field mappings, using defaults:", error.message);
@@ -35,24 +70,15 @@ export async function getGHLFieldMappings(
   }
 
   if (!mappings || mappings.length === 0) {
-    console.log("No field mappings found, using defaults");
+    console.log("No field mappings found for integration/location, using defaults");
     return { ...DEFAULT_MAPPINGS };
   }
 
-  // Build mappings object, preferring company-specific over global
+  // Build mappings object
   const result: GHLFieldMappings = { ...DEFAULT_MAPPINGS };
-  const seenFields = new Set<string>();
 
   for (const mapping of mappings) {
-    // Skip if we already have a company-specific mapping for this field
-    if (seenFields.has(mapping.field_name)) continue;
-    
     result[mapping.field_name] = mapping.ghl_custom_field_id;
-    
-    // Mark as seen if this is a company-specific mapping
-    if (mapping.company_id) {
-      seenFields.add(mapping.field_name);
-    }
   }
 
   console.log("Loaded field mappings:", result);
@@ -65,8 +91,8 @@ export async function getGHLFieldMappings(
 export async function getFieldMapping(
   supabase: SupabaseClient,
   fieldName: string,
-  companyId?: string | null
+  options?: { integrationId?: string | null; locationId?: string | null }
 ): Promise<string | null> {
-  const mappings = await getGHLFieldMappings(supabase, companyId);
+  const mappings = await getGHLFieldMappings(supabase, options);
   return mappings[fieldName] || null;
 }

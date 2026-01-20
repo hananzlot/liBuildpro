@@ -60,11 +60,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get field mappings from database
-    const fieldMappings = await getGHLFieldMappings(supabase, companyId);
-    const ADDRESS_FIELD_ID = fieldMappings.address || "b7oTVsUQrLgZt84bHpCn";
-
-    // Fetch contact with current custom_fields to get old address
+    // Fetch contact with current custom_fields to get old address and location_id
     const { data: contact, error: contactError } = await supabase
       .from("contacts")
       .select("location_id, custom_fields")
@@ -79,6 +75,10 @@ serve(async (req) => {
       );
     }
 
+    // Get field mappings from database using location_id
+    const fieldMappings = await getGHLFieldMappings(supabase, { locationId: contact.location_id });
+    const ADDRESS_FIELD_ID = fieldMappings.address || "b7oTVsUQrLgZt84bHpCn";
+
     // Extract old address from custom_fields
     let oldAddress = "";
     if (Array.isArray(contact.custom_fields)) {
@@ -86,6 +86,7 @@ serve(async (req) => {
       oldAddress = addressField?.value || "";
     }
     const newAddress = address || "";
+
 
     // Get API key - may be null if GHL is not configured
     const apiKey = await getGHLApiKey(supabase, contact.location_id);

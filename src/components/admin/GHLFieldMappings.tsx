@@ -23,23 +23,39 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
   Settings2, 
   Plus, 
   Loader2,
   Trash2,
   Pencil,
   Save,
-  X
+  X,
+  Building2
 } from "lucide-react";
 
 interface FieldMapping {
   id: string;
   company_id: string | null;
+  integration_id: string | null;
   field_name: string;
   ghl_custom_field_id: string;
   description: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface GHLIntegration {
+  id: string;
+  name: string | null;
+  location_id: string | null;
+  is_active: boolean | null;
 }
 
 const KNOWN_FIELDS = [
@@ -50,6 +66,7 @@ const KNOWN_FIELDS = [
 
 export function GHLFieldMappings() {
   const queryClient = useQueryClient();
+  const [selectedIntegrationId, setSelectedIntegrationId] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -59,24 +76,52 @@ export function GHLFieldMappings() {
   const [formGhlFieldId, setFormGhlFieldId] = useState("");
   const [formDescription, setFormDescription] = useState("");
 
-  // Fetch field mappings (including global defaults with company_id = NULL)
-  const { data: mappings, isLoading } = useQuery({
-    queryKey: ["ghl-field-mappings"],
+  // Fetch active GHL integrations
+  const { data: integrations, isLoading: integrationsLoading } = useQuery({
+    queryKey: ["ghl-integrations-active"],
     queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_integrations")
+        .select("id, name, location_id, is_active")
+        .eq("provider", "ghl")
+        .eq("is_active", true)
+        .order("name");
+
+      if (error) throw error;
+      return (data || []) as GHLIntegration[];
+    },
+  });
+
+  // Auto-select first integration
+  const effectiveIntegrationId = selectedIntegrationId || integrations?.[0]?.id || null;
+
+  // Fetch field mappings for selected integration
+  const { data: mappings, isLoading: mappingsLoading } = useQuery({
+    queryKey: ["ghl-field-mappings", effectiveIntegrationId],
+    queryFn: async () => {
+      if (!effectiveIntegrationId) return [];
+      
       const { data, error } = await supabase
         .from("ghl_field_mappings")
         .select("*")
+        .eq("integration_id", effectiveIntegrationId)
         .order("field_name");
 
       if (error) throw error;
       return (data || []) as FieldMapping[];
     },
+    enabled: !!effectiveIntegrationId,
   });
 
   // Add/update mapping mutation
   const upsertMapping = useMutation({
     mutationFn: async (data: { fieldName: string; ghlFieldId: string; description: string }) => {
-      // Check if mapping exists for this field
+      if (!effectiveIntegrationId) throw new Error("No integration selected");
+      
+      // Get the integration's company_id
+      const integration = integrations?.find(i => i.id === effectiveIntegrationId);
+      
+      // Check if mapping exists for this field on this integration
       const existing = mappings?.find(m => m.field_name === data.fieldName);
       
       if (existing) {
@@ -90,14 +135,22 @@ export function GHLFieldMappings() {
           .eq("id", existing.id);
         if (error) throw error;
       } else {
-        // Insert new (with company_id = NULL for global)
+        // Get company_id from integration
+        const { data: integrationData } = await supabase
+          .from("company_integrations")
+          .select("company_id")
+          .eq("id", effectiveIntegrationId)
+          .single();
+        
+        // Insert new with integration_id
         const { error } = await supabase
           .from("ghl_field_mappings")
           .insert({
             field_name: data.fieldName,
             ghl_custom_field_id: data.ghlFieldId,
             description: data.description,
-            company_id: null, // Global default
+            integration_id: effectiveIntegrationId,
+            company_id: integrationData?.company_id || null,
           });
         if (error) throw error;
       }
@@ -198,6 +251,9 @@ export function GHLFieldMappings() {
     kf => !mappings?.some(m => m.field_name === kf.name)
   );
 
+  const isLoading = integrationsLoading || mappingsLoading;
+  const selectedIntegration = integrations?.find(i => i.id === effectiveIntegrationId);
+
   return (
     <Card>
       <CardHeader>
@@ -208,24 +264,62 @@ export function GHLFieldMappings() {
               Custom Field Mappings
             </CardTitle>
             <CardDescription>
-              Map GHL custom field IDs to application fields. These IDs are specific to your GHL location.
+              Map GHL custom field IDs to application fields. Each integration can have different mappings.
             </CardDescription>
           </div>
-          <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+          <Button 
+            size="sm" 
+            onClick={() => setAddDialogOpen(true)}
+            disabled={!effectiveIntegrationId}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Mapping
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Integration Selector */}
+        {integrations && integrations.length > 0 && (
+          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-sm font-medium whitespace-nowrap">Integration:</Label>
+            <Select
+              value={effectiveIntegrationId || ""}
+              onValueChange={(value) => setSelectedIntegrationId(value)}
+            >
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Select an integration" />
+              </SelectTrigger>
+              <SelectContent>
+                {integrations.map((integration) => (
+                  <SelectItem key={integration.id} value={integration.id}>
+                    {integration.name || integration.location_id || "Unknown"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedIntegration?.location_id && (
+              <span className="text-xs text-muted-foreground">
+                Location: {selectedIntegration.location_id}
+              </span>
+            )}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
+        ) : !integrations || integrations.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Building2 className="h-12 w-12 mx-auto mb-4 opacity-20" />
+            <p>No active GHL integrations found</p>
+            <p className="text-sm mt-1">Add a GHL integration first to configure field mappings</p>
+          </div>
         ) : !mappings || mappings.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Settings2 className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p>No field mappings configured</p>
+            <p>No field mappings for this integration</p>
             <p className="text-sm mt-1">Add mappings to sync custom fields from GHL</p>
           </div>
         ) : (
@@ -323,7 +417,7 @@ export function GHLFieldMappings() {
           <DialogHeader>
             <DialogTitle>Add Field Mapping</DialogTitle>
             <DialogDescription>
-              Map a GHL custom field ID to an application field.
+              Map a GHL custom field ID to an application field for {selectedIntegration?.name || "this integration"}.
             </DialogDescription>
           </DialogHeader>
 
