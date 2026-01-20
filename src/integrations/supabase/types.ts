@@ -779,6 +779,7 @@ export type Database = {
       company_integrations: {
         Row: {
           api_key_encrypted: string | null
+          api_key_vault_id: string | null
           company_id: string
           config: Json | null
           created_at: string | null
@@ -786,14 +787,18 @@ export type Database = {
           is_active: boolean | null
           is_primary: boolean | null
           last_sync_at: string | null
+          last_sync_started_at: string | null
           location_id: string | null
           name: string | null
           provider: string
           refresh_token_encrypted: string | null
+          sync_error: string | null
+          sync_status: string | null
           updated_at: string | null
         }
         Insert: {
           api_key_encrypted?: string | null
+          api_key_vault_id?: string | null
           company_id: string
           config?: Json | null
           created_at?: string | null
@@ -801,14 +806,18 @@ export type Database = {
           is_active?: boolean | null
           is_primary?: boolean | null
           last_sync_at?: string | null
+          last_sync_started_at?: string | null
           location_id?: string | null
           name?: string | null
           provider: string
           refresh_token_encrypted?: string | null
+          sync_error?: string | null
+          sync_status?: string | null
           updated_at?: string | null
         }
         Update: {
           api_key_encrypted?: string | null
+          api_key_vault_id?: string | null
           company_id?: string
           config?: Json | null
           created_at?: string | null
@@ -816,10 +825,13 @@ export type Database = {
           is_active?: boolean | null
           is_primary?: boolean | null
           last_sync_at?: string | null
+          last_sync_started_at?: string | null
           location_id?: string | null
           name?: string | null
           provider?: string
           refresh_token_encrypted?: string | null
+          sync_error?: string | null
+          sync_status?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -4903,6 +4915,8 @@ export type Database = {
     }
     Functions: {
       backfill_contact_uuids: { Args: never; Returns: undefined }
+      delete_ghl_api_key: { Args: { secret_id: string }; Returns: boolean }
+      get_ghl_api_key: { Args: { secret_id: string }; Returns: string }
       get_user_company_id: { Args: never; Returns: string }
       get_user_corporation_id: { Args: never; Returns: string }
       has_company_access: {
@@ -4927,6 +4941,10 @@ export type Database = {
           p_record_id: string
           p_table_name: string
         }
+        Returns: string
+      }
+      store_ghl_api_key: {
+        Args: { api_key: string; integration_name?: string }
         Returns: string
       }
       user_in_corporation: { Args: { corp_id: string }; Returns: boolean }
