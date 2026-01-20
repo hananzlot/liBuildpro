@@ -1,32 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGHLCredentials } from "../_shared/ghl-credentials.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper to get the correct GHL API key based on location_id
-// Returns null if GHL credentials are not configured (local-only mode)
-function getGHLApiKey(locationId: string): string | null {
-  const location1Id = Deno.env.get('GHL_LOCATION_ID');
-  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
-  
-  if (locationId === location2Id) {
-    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
-    if (apiKey2) return apiKey2;
-  }
-  
-  // Default to primary API key
-  const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) return null; // Return null for local-only mode
-  return apiKey1;
-}
-
 // Fetch with retry and exponential backoff for rate limiting
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
-  let lastError: Error | null = null;
-  
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const response = await fetch(url, options);
     
@@ -63,17 +45,18 @@ serve(async (req) => {
       );
     }
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase credentials');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Skip GHL fetch for local-only contacts
     if (contact_id.startsWith('local_')) {
-      console.log(`Skipping GHL fetch for local-only contact: ${contact_id}`);
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-      
-      if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error('Missing Supabase credentials');
-      }
-      
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      console.log(`Returning cached notes for local-only contact: ${contact_id}`);
       
       const { data: cachedNotes } = await supabase
         .from('contact_notes')
@@ -109,15 +92,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase credentials');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // If location_id not provided, look it up from the contact
     let effectiveLocationId = location_id;
@@ -128,49 +102,15 @@ serve(async (req) => {
         .eq('ghl_id', contact_id)
         .single();
       
-      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
+      effectiveLocationId = contactData?.location_id;
     }
 
-    const ghlApiKey = getGHLApiKey(effectiveLocationId);
-
-    // If no GHL credentials, return cached notes from Supabase only
-    if (!ghlApiKey) {
-      console.log('No GHL credentials configured, returning cached notes only (local-only mode)');
-      
-      const { data: cachedNotes } = await supabase
-        .from('contact_notes')
-        .select(`
-          ghl_id,
-          body,
-          user_id,
-          ghl_date_added,
-          entered_by,
-          profiles:entered_by (
-            id,
-            full_name,
-            email
-          )
-        `)
-        .eq('contact_id', contact_id)
-        .order('ghl_date_added', { ascending: false });
-      
-      const notesWithCreator = (cachedNotes || []).map((note: any) => ({
-        id: note.ghl_id,
-        body: note.body,
-        userId: note.user_id,
-        dateAdded: note.ghl_date_added,
-        enteredBy: note.entered_by,
-        enteredByName: note.profiles?.full_name || null,
-      }));
-      
-      return new Response(
-        JSON.stringify({ 
-          notes: notesWithCreator,
-          localOnlyMode: true,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!effectiveLocationId) {
+      throw new Error('Could not determine location_id for contact');
     }
+
+    // Get GHL credentials from vault
+    const credentials = await getGHLCredentials(supabase, effectiveLocationId);
 
     console.log(`Fetching notes for contact: ${contact_id} (location: ${effectiveLocationId})`);
 
@@ -180,7 +120,7 @@ serve(async (req) => {
       {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${ghlApiKey}`,
+          'Authorization': `Bearer ${credentials.apiKey}`,
           'Version': '2021-07-28',
           'Content-Type': 'application/json',
         },

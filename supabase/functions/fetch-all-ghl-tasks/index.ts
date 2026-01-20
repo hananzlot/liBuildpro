@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAllGHLCredentials } from "../_shared/ghl-credentials.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,8 +13,6 @@ serve(async (req) => {
   }
 
   try {
-    const ghlApiKey = Deno.env.get('GHL_API_KEY');
-    const ghlLocationId = Deno.env.get('GHL_LOCATION_ID');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
@@ -23,8 +22,11 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // If GHL credentials are missing, return cached tasks from Supabase only
-    if (!ghlApiKey || !ghlLocationId) {
+    // Get all GHL credentials from vault
+    let allCredentials: { apiKey: string; locationId: string }[] = [];
+    try {
+      allCredentials = await getAllGHLCredentials(supabase);
+    } catch (error) {
       console.log('GHL credentials not configured - returning cached tasks only');
       
       const { data: cachedTasks, error: cacheError } = await supabase
@@ -47,55 +49,65 @@ serve(async (req) => {
       );
     }
 
-    // Fetch all contact GHL IDs from Supabase (excluding local-only contacts)
-    console.log('Fetching contacts from Supabase...');
-    const { data: contacts, error: contactsError } = await supabase
-      .from('contacts')
-      .select('ghl_id')
-      .not('ghl_id', 'like', 'local_%');
-
-    if (contactsError) {
-      throw new Error(`Failed to fetch contacts: ${contactsError.message}`);
-    }
-
-    console.log(`Found ${contacts?.length || 0} contacts, fetching tasks...`);
-
     const allTasks: any[] = [];
     const batchSize = 5;
 
-    for (let i = 0; i < (contacts?.length || 0); i += batchSize) {
-      const batch = contacts!.slice(i, i + batchSize);
+    // Process each location
+    for (const credentials of allCredentials) {
+      console.log(`Fetching tasks for location: ${credentials.locationId}`);
       
-      const batchPromises = batch.map(async (contact) => {
-        try {
-          const tasksResponse = await fetch(
-            `https://services.leadconnectorhq.com/contacts/${contact.ghl_id}/tasks`,
-            {
-              headers: {
-                'Authorization': `Bearer ${ghlApiKey}`,
-                'Version': '2021-07-28',
-                'Accept': 'application/json'
+      // Fetch contacts for this location (excluding local-only contacts)
+      const { data: contacts, error: contactsError } = await supabase
+        .from('contacts')
+        .select('ghl_id')
+        .eq('location_id', credentials.locationId)
+        .not('ghl_id', 'like', 'local_%');
+
+      if (contactsError) {
+        console.error(`Failed to fetch contacts for location ${credentials.locationId}: ${contactsError.message}`);
+        continue;
+      }
+
+      console.log(`Found ${contacts?.length || 0} contacts for location ${credentials.locationId}`);
+
+      for (let i = 0; i < (contacts?.length || 0); i += batchSize) {
+        const batch = contacts!.slice(i, i + batchSize);
+        
+        const batchPromises = batch.map(async (contact) => {
+          try {
+            const tasksResponse = await fetch(
+              `https://services.leadconnectorhq.com/contacts/${contact.ghl_id}/tasks`,
+              {
+                headers: {
+                  'Authorization': `Bearer ${credentials.apiKey}`,
+                  'Version': '2021-07-28',
+                  'Accept': 'application/json'
+                }
               }
+            );
+
+            if (tasksResponse.ok) {
+              const tasksData = await tasksResponse.json();
+              const tasks = tasksData.tasks || [];
+              return tasks.map((t: any) => ({ 
+                ...t, 
+                contactId: contact.ghl_id,
+                locationId: credentials.locationId 
+              }));
             }
-          );
-
-          if (tasksResponse.ok) {
-            const tasksData = await tasksResponse.json();
-            const tasks = tasksData.tasks || [];
-            return tasks.map((t: any) => ({ ...t, contactId: contact.ghl_id }));
+            return [];
+          } catch (err) {
+            console.error(`Error fetching tasks for contact ${contact.ghl_id}:`, err);
+            return [];
           }
-          return [];
-        } catch (err) {
-          console.error(`Error fetching tasks for contact ${contact.ghl_id}:`, err);
-          return [];
-        }
-      });
+        });
 
-      const batchResults = await Promise.all(batchPromises);
-      batchResults.forEach(tasks => allTasks.push(...tasks));
-      
-      if (i + batchSize < (contacts?.length || 0)) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        const batchResults = await Promise.all(batchPromises);
+        batchResults.forEach(tasks => allTasks.push(...tasks));
+        
+        if (i + batchSize < (contacts?.length || 0)) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
       }
     }
 
@@ -134,7 +146,7 @@ serve(async (req) => {
             ghl_id: t.id,
             provider: existing.provider ?? 'ghl',
             external_id: existing.external_id ?? t.id,
-            location_id: existing.location_id ?? ghlLocationId,
+            location_id: existing.location_id ?? t.locationId,
             contact_id: existing.contact_id ?? t.contactId,
             title: existing.title ?? t.title ?? 'Untitled Task',
             body: existing.body ?? t.body ?? null,
@@ -153,7 +165,7 @@ serve(async (req) => {
           ghl_id: t.id,
           provider: 'ghl',
           external_id: t.id,
-          location_id: ghlLocationId,
+          location_id: t.locationId,
           contact_id: t.contactId,
           title: t.title || 'Untitled Task',
           body: t.body || null,

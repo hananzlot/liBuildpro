@@ -1,28 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGHLCredentials } from "../_shared/ghl-credentials.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Helper to get the correct GHL credentials based on location_id
-// Returns null if GHL is not configured (local-only mode)
-function getGHLCredentials(locationId: string): { apiKey: string; locationId: string } | null {
-  const location1Id = Deno.env.get('GHL_LOCATION_ID') || '';
-  const location2Id = Deno.env.get('GHL_LOCATION_ID_2') || '';
-  
-  if (locationId === location2Id) {
-    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
-    if (apiKey2) return { apiKey: apiKey2, locationId: location2Id };
-  }
-  
-  // Default to primary credentials
-  const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) return null; // Return null instead of throwing - enables local-only mode
-  return { apiKey: apiKey1, locationId: location1Id };
-}
 
 // Generate a local-only ID for records not synced to GHL
 function generateLocalId(prefix: string): string {
@@ -55,7 +39,7 @@ serve(async (req) => {
       pipelineId,
       pipelineStageId,
       calendarId, // Calendar ID for appointments
-      locationId, // Optional: which GHL location to use
+      locationId, // Required: which GHL location to use
       skipGHLAppointmentSync, // If true, create local-only appointment
       companyId, // Company ID for multi-tenancy
     } = await req.json();
@@ -68,14 +52,23 @@ serve(async (req) => {
       throw new Error('Pipeline and stage are required');
     }
 
-    // Determine which GHL location to use (default to primary)
-    const effectiveLocationId = locationId || Deno.env.get('GHL_LOCATION_ID') || 'local';
-    const ghlCredentials = getGHLCredentials(effectiveLocationId);
+    if (!locationId) {
+      throw new Error('locationId is required');
+    }
+
+    // Get GHL credentials from vault
+    let credentials: { apiKey: string; locationId: string } | null = null;
+    let isLocalOnlyMode = false;
     
-    // If no GHL credentials, create local-only entries
-    const isLocalOnlyMode = !ghlCredentials;
-    const GHL_API_KEY = ghlCredentials?.apiKey;
-    const GHL_LOCATION_ID = ghlCredentials?.locationId || effectiveLocationId;
+    try {
+      credentials = await getGHLCredentials(supabase, locationId);
+    } catch (error) {
+      console.log(`GHL credentials not available for location ${locationId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      isLocalOnlyMode = true;
+    }
+    
+    const GHL_API_KEY = credentials?.apiKey;
+    const GHL_LOCATION_ID = locationId;
 
     console.log(`Creating entry for ${firstName} ${lastName} (location: ${GHL_LOCATION_ID}, local-only: ${isLocalOnlyMode})`);
 

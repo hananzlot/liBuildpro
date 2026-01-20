@@ -1,27 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGHLCredentials } from "../_shared/ghl-credentials.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Helper to get the correct GHL API key based on location_id
-// Returns null if GHL credentials are not configured (local-only mode)
-function getGHLApiKey(locationId: string): string | null {
-  const location1Id = Deno.env.get('GHL_LOCATION_ID');
-  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
-  
-  if (locationId === location2Id) {
-    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
-    if (apiKey2) return apiKey2;
-  }
-  
-  // Default to primary API key
-  const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) return null; // Return null for local-only mode
-  return apiKey1;
-}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -61,19 +45,19 @@ serve(async (req) => {
         .eq('ghl_id', contactId)
         .single();
       
-      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
+      effectiveLocationId = contactData?.location_id;
     }
 
-    const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
+    if (!effectiveLocationId) {
+      throw new Error('Could not determine location_id for contact');
+    }
 
-    // If no GHL credentials, create note locally only
-    if (!GHL_API_KEY) {
-      console.log('No GHL credentials configured, creating local note only (local-only mode)');
+    // Check if this is a local contact (no GHL sync needed)
+    if (contactId.startsWith('local_')) {
+      console.log('Creating local note for local contact:', contactId);
       
-      // Generate local ID
       const localNoteId = `local_note_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
       
-      // Save directly to Supabase
       const { data: newNote, error: insertError } = await supabase
         .from('contact_notes')
         .insert({
@@ -106,13 +90,16 @@ serve(async (req) => {
       );
     }
 
+    // Get GHL credentials from vault
+    const credentials = await getGHLCredentials(supabase, effectiveLocationId);
+
     console.log(`Creating note for contact: ${contactId} (location: ${effectiveLocationId})`);
 
     // Create note in GHL
     const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}/notes`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GHL_API_KEY}`,
+        'Authorization': `Bearer ${credentials.apiKey}`,
         'Version': '2021-07-28',
         'Content-Type': 'application/json',
       },

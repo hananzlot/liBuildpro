@@ -1,27 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGHLCredentials } from "../_shared/ghl-credentials.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Helper to get the correct GHL API key based on location_id
-// Returns null if GHL credentials are not configured (local-only mode)
-function getGHLApiKey(locationId: string): string | null {
-  const location1Id = Deno.env.get('GHL_LOCATION_ID');
-  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
-  
-  if (locationId === location2Id) {
-    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
-    if (apiKey2) return apiKey2;
-  }
-  
-  // Default to primary API key
-  const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) return null; // Return null for local-only mode
-  return apiKey1;
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -44,24 +28,10 @@ serve(async (req) => {
       throw new Error('Missing opportunityId (GHL opportunity ID)');
     }
 
-    // If locationId not provided, look it up from the database
-    let effectiveLocationId = locationId;
-    if (!effectiveLocationId) {
-      const { data: oppData } = await supabase
-        .from('opportunities')
-        .select('location_id')
-        .eq('ghl_id', opportunityId)
-        .single();
-      
-      effectiveLocationId = oppData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
-    }
-
-    const ghlApiKey = getGHLApiKey(effectiveLocationId);
-
-    // Check if this is a local-only opportunity or no GHL credentials
+    // Check if this is a local-only opportunity
     const isLocalOpportunity = opportunityId.startsWith('local_');
-    if (!ghlApiKey || isLocalOpportunity) {
-      console.log(`Deleting opportunity locally only (local-only mode or local opportunity): ${opportunityId}`);
+    if (isLocalOpportunity) {
+      console.log(`Deleting local-only opportunity: ${opportunityId}`);
       
       const { error: deleteError } = await supabase
         .from('opportunities')
@@ -84,13 +54,32 @@ serve(async (req) => {
       );
     }
 
+    // If locationId not provided, look it up from the database
+    let effectiveLocationId = locationId;
+    if (!effectiveLocationId) {
+      const { data: oppData } = await supabase
+        .from('opportunities')
+        .select('location_id')
+        .eq('ghl_id', opportunityId)
+        .single();
+      
+      effectiveLocationId = oppData?.location_id;
+    }
+
+    if (!effectiveLocationId) {
+      throw new Error('Could not determine location_id for opportunity');
+    }
+
+    // Get GHL credentials from vault
+    const credentials = await getGHLCredentials(supabase, effectiveLocationId);
+
     console.log(`Deleting GHL opportunity (location: ${effectiveLocationId}): ${opportunityId}`);
 
     // Delete opportunity in GHL
     const ghlResponse = await fetch(`https://services.leadconnectorhq.com/opportunities/${opportunityId}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${ghlApiKey}`,
+        'Authorization': `Bearer ${credentials.apiKey}`,
         'Version': '2021-07-28',
         'Content-Type': 'application/json',
       },
