@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import {
   Dialog,
@@ -33,6 +34,7 @@ const DEFAULT_LOCATION_ID = "mMXD49n5UApITSmKlWdr";
 
 export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) {
   const { user } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   
   const [formData, setFormData] = useState({
@@ -73,6 +75,7 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
           install_notes: formData.install_notes || null,
           location_id: DEFAULT_LOCATION_ID,
           created_by: user?.id || null,
+          company_id: companyId,
         })
         .select()
         .single();

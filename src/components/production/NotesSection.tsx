@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ interface NotesSectionProps {
 export function NotesSection({ projectId }: NotesSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
+  const { companyId } = useCompanyContext();
   const [newNote, setNewNote] = useState("");
   const [deleteNoteId, setDeleteNoteId] = useState<string | null>(null);
   const [replyingToNoteId, setReplyingToNoteId] = useState<string | null>(null);
@@ -96,6 +98,7 @@ export function NotesSection({ projectId }: NotesSectionProps) {
           project_id: projectId,
           note_text: noteText,
           created_by: user?.id,
+          company_id: companyId,
         });
       if (error) throw error;
     },
@@ -133,6 +136,7 @@ export function NotesSection({ projectId }: NotesSectionProps) {
           note_id: noteId,
           comment_text: commentText,
           created_by: user?.id,
+          company_id: companyId,
         });
       if (error) throw error;
     },

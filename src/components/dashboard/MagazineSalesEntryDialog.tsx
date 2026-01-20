@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ export const MagazineSalesEntryDialog = ({
   userId,
 }: MagazineSalesEntryDialogProps) => {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [buyerName, setBuyerName] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
@@ -319,6 +321,7 @@ export const MagazineSalesEntryDialog = ({
       sections_sold: selectedSections,
       price: Number(price),
       entered_by: userId || null,
+      company_id: companyId,
     };
 
     if (editingSale) {
