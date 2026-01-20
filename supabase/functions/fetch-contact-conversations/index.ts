@@ -18,7 +18,8 @@ interface Message {
 }
 
 // Helper to get the correct GHL credentials based on location_id
-function getGHLCredentials(locationId: string): { apiKey: string; locationId: string } {
+// Returns null if GHL credentials are not configured (local-only mode)
+function getGHLCredentials(locationId: string): { apiKey: string; locationId: string } | null {
   const location1Id = Deno.env.get('GHL_LOCATION_ID') || '';
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2') || '';
   
@@ -29,7 +30,7 @@ function getGHLCredentials(locationId: string): { apiKey: string; locationId: st
   
   // Default to primary credentials
   const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  if (!apiKey1) return null; // Return null for local-only mode
   return { apiKey: apiKey1, locationId: location1Id };
 }
 
@@ -84,10 +85,44 @@ serve(async (req) => {
         .eq('ghl_id', contact_id)
         .single();
       
-      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
     }
 
-    const { apiKey: ghlApiKey, locationId } = getGHLCredentials(effectiveLocationId);
+    const ghlCredentials = getGHLCredentials(effectiveLocationId);
+    
+    // If no GHL credentials, return cached conversations from Supabase only
+    if (!ghlCredentials) {
+      console.log('No GHL credentials configured, returning cached conversations only (local-only mode)');
+      
+      const { data: cachedConversations } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('contact_id', contact_id)
+        .order('last_message_date', { ascending: false });
+      
+      const formattedConversations = (cachedConversations || []).map((conv: any) => ({
+        ghl_id: conv.ghl_id,
+        contact_id: conv.contact_id,
+        type: conv.type,
+        unread_count: conv.unread_count || 0,
+        inbox_status: conv.inbox_status,
+        last_message_body: conv.last_message_body,
+        last_message_date: conv.last_message_date,
+        last_message_type: conv.last_message_type,
+        last_message_direction: conv.last_message_direction,
+        messages: [],
+      }));
+      
+      return new Response(
+        JSON.stringify({ 
+          conversations: formattedConversations,
+          localOnlyMode: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { apiKey: ghlApiKey, locationId } = ghlCredentials;
 
     console.log(`Fetching conversations for contact: ${contact_id} (location: ${locationId})`);
 

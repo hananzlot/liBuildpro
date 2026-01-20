@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 // Helper to get the correct GHL API key based on location_id
-function getGHLApiKey(locationId: string): string {
+// Returns null if GHL credentials are not configured (local-only mode)
+function getGHLApiKey(locationId: string): string | null {
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
   
   if (locationId === location2Id) {
@@ -17,7 +18,7 @@ function getGHLApiKey(locationId: string): string {
   
   // Default to primary API key
   const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  if (!apiKey1) return null; // Return null for local-only mode
   return apiKey1;
 }
 
@@ -91,12 +92,16 @@ serve(async (req) => {
     // If location_id not provided, use from database
     let effectiveLocationId = location_id;
     if (!effectiveLocationId && currentOpp) {
-      effectiveLocationId = currentOpp.location_id || Deno.env.get('GHL_LOCATION_ID');
+      effectiveLocationId = currentOpp.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
     }
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
+    
+    // Check if this is a local-only opportunity or no GHL credentials
+    const isLocalOpportunity = ghl_id.startsWith('local_');
+    const skipGHLSync = !ghlApiKey || isLocalOpportunity;
 
-    console.log(`Updating opportunity ${ghl_id} (location: ${effectiveLocationId}): status=${status}, pipeline_id=${pipeline_id}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
+    console.log(`Updating opportunity ${ghl_id} (location: ${effectiveLocationId}, local-only: ${skipGHLSync}): status=${status}, pipeline_id=${pipeline_id}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
 
     // Build the update payload for GHL
     const ghlPayload: Record<string, string | number> = {};

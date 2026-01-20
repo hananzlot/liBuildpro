@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 // Helper to get the correct GHL API key based on location_id
-function getGHLApiKey(locationId: string): string {
+// Returns null if GHL credentials are not configured (local-only mode)
+function getGHLApiKey(locationId: string): string | null {
   const location1Id = Deno.env.get('GHL_LOCATION_ID');
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
   
@@ -18,7 +19,7 @@ function getGHLApiKey(locationId: string): string {
   
   // Default to primary API key
   const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  if (!apiKey1) return null; // Return null for local-only mode
   return apiKey1;
 }
 
@@ -56,16 +57,52 @@ serve(async (req) => {
         .eq('ghl_id', taskId)
         .single();
       
-      effectiveLocationId = taskData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+      effectiveLocationId = taskData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
     }
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
 
+    // Build the update payload - only include fields that are provided
+    const updatePayload: Record<string, any> = {};
+    if (title !== undefined) updatePayload.title = title;
+    if (body !== undefined) updatePayload.body = body;
+    if (dueDate !== undefined) updatePayload.due_date = dueDate;
+    if (assignedTo !== undefined) updatePayload.assigned_to = assignedTo;
+    if (completed !== undefined) updatePayload.completed = completed;
+
+    // If no GHL credentials or local task, update locally only
+    const isLocalTask = taskId.startsWith('local_');
+    if (!ghlApiKey || isLocalTask) {
+      console.log(`Updating task locally only (local-only mode or local task): taskId=${taskId}`);
+      
+      const { data: updatedTask, error: updateError } = await supabase
+        .from('ghl_tasks')
+        .update(updatePayload)
+        .eq('ghl_id', taskId)
+        .select()
+        .single();
+      
+      if (updateError) {
+        return new Response(
+          JSON.stringify({ error: `Failed to update local task: ${updateError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          task: updatedTask,
+          localOnlyMode: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log(`Updating GHL task (location: ${effectiveLocationId}): taskId=${taskId}, contactId=${contactId}, title=${title}, dueDate=${dueDate}`);
 
-    // Build the update payload - only include fields that are provided
+    // Build the GHL update payload
     const ghlPayload: Record<string, string | boolean> = {};
-    
     if (title !== undefined) ghlPayload.title = title;
     if (body !== undefined) ghlPayload.body = body;
     if (dueDate !== undefined) ghlPayload.dueDate = dueDate;

@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 // Helper to get the correct GHL API key based on location_id
-function getGHLApiKey(locationId: string): string {
+// Returns null if GHL credentials are not configured (local-only mode)
+function getGHLApiKey(locationId: string): string | null {
   const location1Id = Deno.env.get('GHL_LOCATION_ID');
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
   
@@ -18,7 +19,7 @@ function getGHLApiKey(locationId: string): string {
   
   // Default to primary API key
   const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  if (!apiKey1) return null; // Return null for local-only mode
   return apiKey1;
 }
 
@@ -52,10 +53,36 @@ serve(async (req) => {
         .eq('ghl_id', opportunityId)
         .single();
       
-      effectiveLocationId = oppData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+      effectiveLocationId = oppData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
     }
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
+
+    // Check if this is a local-only opportunity or no GHL credentials
+    const isLocalOpportunity = opportunityId.startsWith('local_');
+    if (!ghlApiKey || isLocalOpportunity) {
+      console.log(`Deleting opportunity locally only (local-only mode or local opportunity): ${opportunityId}`);
+      
+      const { error: deleteError } = await supabase
+        .from('opportunities')
+        .delete()
+        .eq('ghl_id', opportunityId);
+      
+      if (deleteError) {
+        return new Response(
+          JSON.stringify({ error: `Failed to delete local opportunity: ${deleteError.message}` }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          localOnlyMode: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log(`Deleting GHL opportunity (location: ${effectiveLocationId}): ${opportunityId}`);
 
