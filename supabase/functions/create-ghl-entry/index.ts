@@ -8,7 +8,8 @@ const corsHeaders = {
 };
 
 // Helper to get the correct GHL credentials based on location_id
-function getGHLCredentials(locationId: string): { apiKey: string; locationId: string } {
+// Returns null if GHL is not configured (local-only mode)
+function getGHLCredentials(locationId: string): { apiKey: string; locationId: string } | null {
   const location1Id = Deno.env.get('GHL_LOCATION_ID') || '';
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2') || '';
   
@@ -19,8 +20,13 @@ function getGHLCredentials(locationId: string): { apiKey: string; locationId: st
   
   // Default to primary credentials
   const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  if (!apiKey1) return null; // Return null instead of throwing - enables local-only mode
   return { apiKey: apiKey1, locationId: location1Id };
+}
+
+// Generate a local-only ID for records not synced to GHL
+function generateLocalId(prefix: string): string {
+  return `local_${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 serve(async (req) => {
@@ -62,24 +68,17 @@ serve(async (req) => {
     }
 
     // Determine which GHL location to use (default to primary)
-    const effectiveLocationId = locationId || Deno.env.get('GHL_LOCATION_ID')!;
-    const { apiKey: GHL_API_KEY, locationId: GHL_LOCATION_ID } = getGHLCredentials(effectiveLocationId);
-
-    console.log(`Creating entry for ${firstName} ${lastName} (location: ${GHL_LOCATION_ID})`);
-
-    // Step 1: Create Contact in GHL
-    const contactPayload: Record<string, unknown> = {
-      firstName,
-      lastName,
-      locationId: GHL_LOCATION_ID,
-    };
-
-    if (phone) contactPayload.phone = phone;
-    if (email) contactPayload.email = email;
-    if (source) contactPayload.source = source;
-    if (assignedTo) contactPayload.assignedTo = assignedTo;
+    const effectiveLocationId = locationId || Deno.env.get('GHL_LOCATION_ID') || 'local';
+    const ghlCredentials = getGHLCredentials(effectiveLocationId);
     
-    // Add custom fields for address and scope
+    // If no GHL credentials, create local-only entries
+    const isLocalOnlyMode = !ghlCredentials;
+    const GHL_API_KEY = ghlCredentials?.apiKey;
+    const GHL_LOCATION_ID = ghlCredentials?.locationId || effectiveLocationId;
+
+    console.log(`Creating entry for ${firstName} ${lastName} (location: ${GHL_LOCATION_ID}, local-only: ${isLocalOnlyMode})`);
+
+    // Prepare custom fields
     const customFields: Array<{ id: string; value: string }> = [];
     if (address) {
       customFields.push({ id: 'b7oTVsUQrLgZt84bHpCn', value: address });
@@ -90,65 +89,6 @@ serve(async (req) => {
     if (notes) {
       customFields.push({ id: '588ddQgiGEg3AWtTQB2i', value: notes });
     }
-    if (customFields.length > 0) {
-      contactPayload.customFields = customFields;
-    }
-
-    console.log('Creating contact in GHL...');
-    const contactResponse = await fetch(
-      'https://services.leadconnectorhq.com/contacts/',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GHL_API_KEY}`,
-          'Content-Type': 'application/json',
-          'Version': '2021-07-28',
-        },
-        body: JSON.stringify(contactPayload),
-      }
-    );
-
-    if (!contactResponse.ok) {
-      const errorText = await contactResponse.text();
-      console.error('GHL Contact API error:', contactResponse.status, errorText);
-      throw new Error(`Failed to create contact: ${errorText}`);
-    }
-
-    const contactData = await contactResponse.json();
-    const contactId = contactData.contact?.id;
-    console.log('Contact created:', contactId);
-
-    // Cache contact in Supabase
-    await supabase.from('contacts').upsert({
-      ghl_id: contactId,
-      location_id: GHL_LOCATION_ID,
-      first_name: firstName,
-      last_name: lastName,
-      contact_name: `${firstName} ${lastName}`,
-      phone: phone || null,
-      email: email || null,
-      source: source || null,
-      assigned_to: assignedTo || null,
-      custom_fields: customFields.length > 0 ? customFields : null,
-      ghl_date_added: new Date().toISOString(),
-      entered_by: enteredBy || null,
-    }, { onConflict: 'ghl_id' });
-
-    // Step 2: Create Opportunity in GHL
-    const oppName = `${firstName} ${lastName}`;
-    console.log('Creating opportunity in GHL...');
-    
-    const oppPayload: Record<string, unknown> = {
-      name: oppName,
-      contactId: contactId,
-      locationId: GHL_LOCATION_ID,
-      status: 'open',
-      pipelineId: pipelineId,
-      pipelineStageId: pipelineStageId,
-    };
-
-    if (assignedTo) oppPayload.assignedTo = assignedTo;
-    if (source) oppPayload.source = source;
 
     // Look up pipeline and stage names from ghl_pipelines
     let pipelineName = null;
@@ -166,66 +106,73 @@ serve(async (req) => {
       if (stage) stageName = stage.name;
     }
 
-    const oppResponse = await fetch(
-      'https://services.leadconnectorhq.com/opportunities/',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GHL_API_KEY}`,
-          'Content-Type': 'application/json',
-          'Version': '2021-07-28',
-        },
-        body: JSON.stringify(oppPayload),
+    let contactId: string;
+    let opportunityId: string | null = null;
+    let appointmentId: string | null = null;
+
+    if (isLocalOnlyMode) {
+      // LOCAL-ONLY MODE: Create entries directly in Supabase without GHL sync
+      console.log('Running in local-only mode (no GHL credentials configured)...');
+      
+      // Create local contact
+      contactId = generateLocalId('contact');
+      const { error: contactError } = await supabase.from('contacts').insert({
+        ghl_id: contactId,
+        location_id: GHL_LOCATION_ID,
+        first_name: firstName,
+        last_name: lastName,
+        contact_name: `${firstName} ${lastName}`,
+        phone: phone || null,
+        email: email || null,
+        source: source || null,
+        assigned_to: assignedTo || null,
+        custom_fields: customFields.length > 0 ? customFields : null,
+        ghl_date_added: new Date().toISOString(),
+        entered_by: enteredBy || null,
+        provider: 'local',
+      });
+
+      if (contactError) {
+        console.error('Error creating local contact:', contactError);
+        throw new Error(`Failed to create local contact: ${contactError.message}`);
       }
-    );
+      console.log('Local contact created:', contactId);
 
-    if (!oppResponse.ok) {
-      const errorText = await oppResponse.text();
-      console.error('GHL Opportunity API error:', oppResponse.status, errorText);
-      // Don't throw - contact was created, just log the opportunity error
-      console.warn('Opportunity creation failed but contact was created');
-    }
-
-    let opportunityId = null;
-    if (oppResponse.ok) {
-      const oppData = await oppResponse.json();
-      opportunityId = oppData.opportunity?.id;
-      console.log('Opportunity created:', opportunityId);
-
-      // Cache opportunity in Supabase with pipeline/stage info
-      await supabase.from('opportunities').upsert({
+      // Create local opportunity
+      opportunityId = generateLocalId('opp');
+      const { error: oppError } = await supabase.from('opportunities').insert({
         ghl_id: opportunityId,
         location_id: GHL_LOCATION_ID,
         contact_id: contactId,
-        name: oppName,
+        name: `${firstName} ${lastName}`,
         status: 'open',
         pipeline_id: pipelineId,
         pipeline_stage_id: pipelineStageId,
         pipeline_name: pipelineName,
         stage_name: stageName,
         assigned_to: assignedTo || null,
+        address: address || null,
+        scope_of_work: scope || null,
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
-      }, { onConflict: 'ghl_id' });
-    }
+        provider: 'local',
+      });
 
-    // Step 3: Create Appointment if date/time provided
-    let appointmentId = null;
-    if (appointmentDateTime) {
-      // Calculate start and end time
-      const startDate = new Date(appointmentDateTime);
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-      const appointmentTitle = `Appointment - ${firstName} ${lastName}`;
+      if (oppError) {
+        console.error('Error creating local opportunity:', oppError);
+      } else {
+        console.log('Local opportunity created:', opportunityId);
+      }
 
-      // If skipGHLAppointmentSync is true, create local-only appointment
-      if (skipGHLAppointmentSync) {
-        console.log('Creating local-only appointment (skipping GHL sync)...');
+      // Create local appointment if date/time provided
+      if (appointmentDateTime) {
+        const startDate = new Date(appointmentDateTime);
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+        const appointmentTitle = `Appointment - ${firstName} ${lastName}`;
         
-        // Generate a local ID for the appointment
-        const localApptId = `local_${crypto.randomUUID()}`;
-        
-        const { error: insertError } = await supabase.from('appointments').insert({
-          ghl_id: localApptId,
+        appointmentId = generateLocalId('appt');
+        const { error: apptError } = await supabase.from('appointments').insert({
+          ghl_id: appointmentId,
           location_id: GHL_LOCATION_ID,
           contact_id: contactId,
           calendar_id: calendarId || null,
@@ -236,90 +183,243 @@ serve(async (req) => {
           assigned_user_id: assignedTo || null,
           address: address || null,
           entered_by: enteredBy || null,
+          provider: 'local',
         });
 
-        if (insertError) {
-          console.error('Error creating local appointment:', insertError);
+        if (apptError) {
+          console.error('Error creating local appointment:', apptError);
         } else {
-          appointmentId = localApptId;
           console.log('Local appointment created:', appointmentId);
         }
-      } else {
-        console.log('Creating appointment in GHL...');
-        
-        // Use provided calendarId or look up from existing appointments
-        let appointmentCalendarId = calendarId;
-        if (!appointmentCalendarId && assignedTo) {
-          const { data: calendarData } = await supabase
-            .from('appointments')
-            .select('calendar_id')
-            .eq('assigned_user_id', assignedTo)
-            .eq('location_id', GHL_LOCATION_ID)
-            .not('calendar_id', 'is', null)
-            .limit(1)
-            .maybeSingle();
-          
-          if (calendarData?.calendar_id) {
-            appointmentCalendarId = calendarData.calendar_id;
-            console.log(`Found calendar ${appointmentCalendarId} for sales rep ${assignedTo}`);
-          }
+      }
+
+    } else {
+      // GHL MODE: Create entries in GHL and sync to Supabase
+      
+      // Step 1: Create Contact in GHL
+      const contactPayload: Record<string, unknown> = {
+        firstName,
+        lastName,
+        locationId: GHL_LOCATION_ID,
+      };
+
+      if (phone) contactPayload.phone = phone;
+      if (email) contactPayload.email = email;
+      if (source) contactPayload.source = source;
+      if (assignedTo) contactPayload.assignedTo = assignedTo;
+      if (customFields.length > 0) {
+        contactPayload.customFields = customFields;
+      }
+
+      console.log('Creating contact in GHL...');
+      const contactResponse = await fetch(
+        'https://services.leadconnectorhq.com/contacts/',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${GHL_API_KEY}`,
+            'Content-Type': 'application/json',
+            'Version': '2021-07-28',
+          },
+          body: JSON.stringify(contactPayload),
         }
+      );
 
-        if (!appointmentCalendarId) {
-          console.warn('No calendar provided or found for sales rep, appointment cannot be created');
-          console.warn('Appointment creation skipped - contact/opportunity were created');
-        } else {
-          const apptPayload: Record<string, unknown> = {
-            contactId: contactId,
-            locationId: GHL_LOCATION_ID,
+      if (!contactResponse.ok) {
+        const errorText = await contactResponse.text();
+        console.error('GHL Contact API error:', contactResponse.status, errorText);
+        throw new Error(`Failed to create contact: ${errorText}`);
+      }
+
+      const contactData = await contactResponse.json();
+      contactId = contactData.contact?.id;
+      console.log('Contact created:', contactId);
+
+      // Cache contact in Supabase
+      await supabase.from('contacts').upsert({
+        ghl_id: contactId,
+        location_id: GHL_LOCATION_ID,
+        first_name: firstName,
+        last_name: lastName,
+        contact_name: `${firstName} ${lastName}`,
+        phone: phone || null,
+        email: email || null,
+        source: source || null,
+        assigned_to: assignedTo || null,
+        custom_fields: customFields.length > 0 ? customFields : null,
+        ghl_date_added: new Date().toISOString(),
+        entered_by: enteredBy || null,
+      }, { onConflict: 'ghl_id' });
+
+      // Step 2: Create Opportunity in GHL
+      const oppName = `${firstName} ${lastName}`;
+      console.log('Creating opportunity in GHL...');
+      
+      const oppPayload: Record<string, unknown> = {
+        name: oppName,
+        contactId: contactId,
+        locationId: GHL_LOCATION_ID,
+        status: 'open',
+        pipelineId: pipelineId,
+        pipelineStageId: pipelineStageId,
+      };
+
+      if (assignedTo) oppPayload.assignedTo = assignedTo;
+      if (source) oppPayload.source = source;
+
+      const oppResponse = await fetch(
+        'https://services.leadconnectorhq.com/opportunities/',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${GHL_API_KEY}`,
+            'Content-Type': 'application/json',
+            'Version': '2021-07-28',
+          },
+          body: JSON.stringify(oppPayload),
+        }
+      );
+
+      if (!oppResponse.ok) {
+        const errorText = await oppResponse.text();
+        console.error('GHL Opportunity API error:', oppResponse.status, errorText);
+        // Don't throw - contact was created, just log the opportunity error
+        console.warn('Opportunity creation failed but contact was created');
+      }
+
+      if (oppResponse.ok) {
+        const oppData = await oppResponse.json();
+        opportunityId = oppData.opportunity?.id;
+        console.log('Opportunity created:', opportunityId);
+
+        // Cache opportunity in Supabase with pipeline/stage info
+        await supabase.from('opportunities').upsert({
+          ghl_id: opportunityId,
+          location_id: GHL_LOCATION_ID,
+          contact_id: contactId,
+          name: oppName,
+          status: 'open',
+          pipeline_id: pipelineId,
+          pipeline_stage_id: pipelineStageId,
+          pipeline_name: pipelineName,
+          stage_name: stageName,
+          assigned_to: assignedTo || null,
+          ghl_date_added: new Date().toISOString(),
+          entered_by: enteredBy || null,
+        }, { onConflict: 'ghl_id' });
+      }
+
+      // Step 3: Create Appointment if date/time provided
+      if (appointmentDateTime) {
+        // Calculate start and end time
+        const startDate = new Date(appointmentDateTime);
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+        const appointmentTitle = `Appointment - ${firstName} ${lastName}`;
+
+        // If skipGHLAppointmentSync is true, create local-only appointment
+        if (skipGHLAppointmentSync) {
+          console.log('Creating local-only appointment (skipping GHL sync)...');
+          
+          // Generate a local ID for the appointment
+          const localApptId = `local_${crypto.randomUUID()}`;
+          
+          const { error: insertError } = await supabase.from('appointments').insert({
+            ghl_id: localApptId,
+            location_id: GHL_LOCATION_ID,
+            contact_id: contactId,
+            calendar_id: calendarId || null,
             title: appointmentTitle,
-            startTime: startDate.toISOString(),
-            endTime: endDate.toISOString(),
-            appointmentStatus: 'confirmed',
-            calendarId: appointmentCalendarId,
-            ignoreFreeSlotValidation: true, // Bypass slot availability check
-          };
+            start_time: startDate.toISOString(),
+            end_time: endDate.toISOString(),
+            appointment_status: 'confirmed',
+            assigned_user_id: assignedTo || null,
+            address: address || null,
+            entered_by: enteredBy || null,
+          });
 
-          apptPayload.assignedUserId = assignedTo;
-          if (address) apptPayload.address = address;
-
-          const apptResponse = await fetch(
-            'https://services.leadconnectorhq.com/calendars/events/appointments',
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${GHL_API_KEY}`,
-                'Content-Type': 'application/json',
-                'Version': '2021-04-15',
-              },
-              body: JSON.stringify(apptPayload),
-            }
-          );
-
-          if (!apptResponse.ok) {
-            const errorText = await apptResponse.text();
-            console.error('GHL Appointment API error:', apptResponse.status, errorText);
-            console.warn('Appointment creation failed but contact/opportunity were created');
+          if (insertError) {
+            console.error('Error creating local appointment:', insertError);
           } else {
-            const apptData = await apptResponse.json();
-            appointmentId = apptData.id || apptData.appointment?.id;
-            console.log('Appointment created:', appointmentId);
+            appointmentId = localApptId;
+            console.log('Local appointment created:', appointmentId);
+          }
+        } else {
+          console.log('Creating appointment in GHL...');
+          
+          // Use provided calendarId or look up from existing appointments
+          let appointmentCalendarId = calendarId;
+          if (!appointmentCalendarId && assignedTo) {
+            const { data: calendarData } = await supabase
+              .from('appointments')
+              .select('calendar_id')
+              .eq('assigned_user_id', assignedTo)
+              .eq('location_id', GHL_LOCATION_ID)
+              .not('calendar_id', 'is', null)
+              .limit(1)
+              .maybeSingle();
+            
+            if (calendarData?.calendar_id) {
+              appointmentCalendarId = calendarData.calendar_id;
+              console.log(`Found calendar ${appointmentCalendarId} for sales rep ${assignedTo}`);
+            }
+          }
 
-            // Cache appointment in Supabase
-            if (appointmentId) {
-              await supabase.from('appointments').upsert({
-                ghl_id: appointmentId,
-                location_id: GHL_LOCATION_ID,
-                contact_id: contactId,
-                calendar_id: appointmentCalendarId,
-                title: appointmentTitle,
-                start_time: startDate.toISOString(),
-                end_time: endDate.toISOString(),
-                appointment_status: 'confirmed',
-                assigned_user_id: assignedTo || null,
-                ghl_date_added: new Date().toISOString(),
-                entered_by: enteredBy || null,
-              }, { onConflict: 'ghl_id' });
+          if (!appointmentCalendarId) {
+            console.warn('No calendar provided or found for sales rep, appointment cannot be created');
+            console.warn('Appointment creation skipped - contact/opportunity were created');
+          } else {
+            const apptPayload: Record<string, unknown> = {
+              contactId: contactId,
+              locationId: GHL_LOCATION_ID,
+              title: appointmentTitle,
+              startTime: startDate.toISOString(),
+              endTime: endDate.toISOString(),
+              appointmentStatus: 'confirmed',
+              calendarId: appointmentCalendarId,
+              ignoreFreeSlotValidation: true, // Bypass slot availability check
+            };
+
+            apptPayload.assignedUserId = assignedTo;
+            if (address) apptPayload.address = address;
+
+            const apptResponse = await fetch(
+              'https://services.leadconnectorhq.com/calendars/events/appointments',
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${GHL_API_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Version': '2021-04-15',
+                },
+                body: JSON.stringify(apptPayload),
+              }
+            );
+
+            if (!apptResponse.ok) {
+              const errorText = await apptResponse.text();
+              console.error('GHL Appointment API error:', apptResponse.status, errorText);
+              console.warn('Appointment creation failed but contact/opportunity were created');
+            } else {
+              const apptData = await apptResponse.json();
+              appointmentId = apptData.id || apptData.appointment?.id;
+              console.log('Appointment created:', appointmentId);
+
+              // Cache appointment in Supabase
+              if (appointmentId) {
+                await supabase.from('appointments').upsert({
+                  ghl_id: appointmentId,
+                  location_id: GHL_LOCATION_ID,
+                  contact_id: contactId,
+                  calendar_id: appointmentCalendarId,
+                  title: appointmentTitle,
+                  start_time: startDate.toISOString(),
+                  end_time: endDate.toISOString(),
+                  appointment_status: 'confirmed',
+                  assigned_user_id: assignedTo || null,
+                  ghl_date_added: new Date().toISOString(),
+                  entered_by: enteredBy || null,
+                }, { onConflict: 'ghl_id' });
+              }
             }
           }
         }
@@ -334,6 +434,7 @@ serve(async (req) => {
         contactId,
         opportunityId,
         appointmentId,
+        localOnlyMode: isLocalOnlyMode,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
