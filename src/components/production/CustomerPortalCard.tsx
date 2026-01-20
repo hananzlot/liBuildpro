@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,14 +40,26 @@ interface CustomerPortalCardProps {
 }
 
 export function CustomerPortalCard({ projectId, customerName, customerEmail }: CustomerPortalCardProps) {
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
   const [showRefreshWarning, setShowRefreshWarning] = useState(false);
 
-  // Fetch company name for display
+  // Fetch company name for display (try company_settings first)
   const { data: companyName } = useQuery({
-    queryKey: ['company-name'],
+    queryKey: ['company-name', companyId],
     queryFn: async () => {
+      // Try company_settings first if we have companyId
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from('company_settings')
+          .select('setting_value')
+          .eq('company_id', companyId)
+          .eq('setting_key', 'company_name')
+          .single();
+        if (companyData?.setting_value) return companyData.setting_value;
+      }
+      // Fall back to app_settings
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_value')

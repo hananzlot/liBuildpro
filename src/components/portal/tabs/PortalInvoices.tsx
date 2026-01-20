@@ -63,10 +63,21 @@ export function PortalInvoices({ paymentSchedule, projectId, project }: PortalIn
     },
   });
 
-  // Fetch company name from settings
+  // Fetch company name from settings (try company_settings first via project's company_id)
   const { data: companyNameData } = useQuery({
-    queryKey: ['app-settings', 'company_name'],
+    queryKey: ['portal-company-name', project?.company_id],
     queryFn: async () => {
+      // Try company_settings first if we have project's company_id
+      if (project?.company_id) {
+        const { data: companyData } = await supabase
+          .from('company_settings')
+          .select('setting_value')
+          .eq('company_id', project.company_id)
+          .eq('setting_key', 'company_name')
+          .single();
+        if (companyData?.setting_value) return companyData.setting_value;
+      }
+      // Fall back to app_settings
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_value')

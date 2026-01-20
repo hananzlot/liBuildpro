@@ -13,23 +13,54 @@ interface CompanyInfo {
   license_holder_name?: string;
 }
 
-export function CompanyHeader() {
+interface CompanyHeaderProps {
+  companyId?: string | null;
+}
+
+export function CompanyHeader({ companyId }: CompanyHeaderProps = {}) {
   const { data: companyInfo } = useQuery({
-    queryKey: ['company-info-header'],
+    queryKey: ['company-info-header', companyId],
     queryFn: async () => {
+      const settingKeys = [
+        'company_logo_url',
+        'company_name',
+        'company_address',
+        'company_phone',
+        'company_website',
+        'license_type',
+        'license_number',
+        'license_holder_name',
+      ];
+
+      // Try company_settings first if we have a companyId
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from('company_settings')
+          .select('setting_key, setting_value')
+          .eq('company_id', companyId)
+          .in('setting_key', settingKeys);
+
+        if (companyData && companyData.length > 0) {
+          const settings: CompanyInfo = {};
+          companyData.forEach((item) => {
+            if (item.setting_key === 'company_logo_url') settings.logo_url = item.setting_value || undefined;
+            if (item.setting_key === 'company_name') settings.company_name = item.setting_value || undefined;
+            if (item.setting_key === 'company_address') settings.company_address = item.setting_value || undefined;
+            if (item.setting_key === 'company_phone') settings.company_phone = item.setting_value || undefined;
+            if (item.setting_key === 'company_website') settings.company_website = item.setting_value || undefined;
+            if (item.setting_key === 'license_type') settings.license_type = item.setting_value || undefined;
+            if (item.setting_key === 'license_number') settings.license_number = item.setting_value || undefined;
+            if (item.setting_key === 'license_holder_name') settings.license_holder_name = item.setting_value || undefined;
+          });
+          return settings;
+        }
+      }
+
+      // Fall back to app_settings for backward compatibility
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_key, setting_value')
-        .in('setting_key', [
-          'company_logo_url',
-          'company_name',
-          'company_address',
-          'company_phone',
-          'company_website',
-          'license_type',
-          'license_number',
-          'license_holder_name',
-        ]);
+        .in('setting_key', settingKeys);
 
       if (error) throw error;
 

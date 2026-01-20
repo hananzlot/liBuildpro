@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -38,14 +38,36 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('project');
 
-  // Fetch company settings
+  // Fetch company settings - will be populated after we get the project's company_id
+  const [projectCompanyId, setProjectCompanyId] = useState<string | null>(null);
+
   const { data: companySettings } = useQuery({
-    queryKey: ['portal-company-settings'],
+    queryKey: ['portal-company-settings', projectCompanyId],
     queryFn: async () => {
+      const settingKeys = ['company_name', 'company_address', 'company_phone', 'company_website', 'portal_upload_limit_mb', 'company_logo_url'];
+      
+      // Try company_settings first if we have projectCompanyId
+      if (projectCompanyId) {
+        const { data: companyData } = await supabase
+          .from('company_settings')
+          .select('setting_key, setting_value')
+          .eq('company_id', projectCompanyId)
+          .in('setting_key', settingKeys);
+        
+        if (companyData && companyData.length > 0) {
+          const settings: Record<string, string> = {};
+          companyData.forEach(s => {
+            settings[s.setting_key] = s.setting_value || '';
+          });
+          return settings;
+        }
+      }
+      
+      // Fall back to app_settings
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_key, setting_value')
-        .in('setting_key', ['company_name', 'company_address', 'company_phone', 'company_website', 'portal_upload_limit_mb', 'company_logo_url']);
+        .in('setting_key', settingKeys);
       if (error) throw error;
       const settings: Record<string, string> = {};
       data?.forEach(s => {
@@ -151,6 +173,13 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
       };
     },
   });
+
+  // Update projectCompanyId when portal data loads
+  useEffect(() => {
+    if (portalData?.project?.company_id && !projectCompanyId) {
+      setProjectCompanyId(portalData.project.company_id);
+    }
+  }, [portalData?.project?.company_id, projectCompanyId]);
 
   const uploadLimitMb = parseInt(companySettings?.portal_upload_limit_mb || '15', 10);
 

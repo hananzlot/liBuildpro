@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ export function SendProposalDialog({
   jobAddress,
   isResend = false,
 }: SendProposalDialogProps) {
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [multipleSigners, setMultipleSigners] = useState(false);
   const [email, setEmail] = useState('');
@@ -56,10 +58,21 @@ export function SendProposalDialog({
     show_details_to_customer: false,
   });
 
-  // Fetch company name from settings
+  // Fetch company name from settings (try company_settings first)
   const { data: companySettings } = useQuery({
-    queryKey: ['company-name-setting'],
+    queryKey: ['company-name-setting', companyId],
     queryFn: async () => {
+      // Try company_settings first if we have companyId from context
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from('company_settings')
+          .select('setting_value')
+          .eq('company_id', companyId)
+          .eq('setting_key', 'company_name')
+          .single();
+        if (companyData?.setting_value) return companyData.setting_value;
+      }
+      // Fall back to app_settings
       const { data } = await supabase
         .from('app_settings')
         .select('setting_value')

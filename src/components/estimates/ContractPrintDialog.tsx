@@ -54,22 +54,48 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
     queryFn: async () => {
       if (!estimateId) return null;
 
-      const [estimateRes, groupsRes, itemsRes, scheduleRes, signatureRes, settingsRes] = await Promise.all([
-        supabase.from("estimates").select("*").eq("id", estimateId).single(),
+      // First get the estimate to get company_id
+      const { data: estimate, error: estimateError } = await supabase
+        .from("estimates")
+        .select("*")
+        .eq("id", estimateId)
+        .single();
+
+      if (estimateError) throw estimateError;
+
+      const settingKeys = [
+        "company_name", "company_address", "company_phone", "company_email",
+        "license_number", "license_type", "license_holder_name"
+      ];
+
+      // Fetch remaining data in parallel
+      const [groupsRes, itemsRes, scheduleRes, signatureRes, companySettingsRes, appSettingsRes] = await Promise.all([
         supabase.from("estimate_groups").select("*").eq("estimate_id", estimateId).order("sort_order"),
         supabase.from("estimate_line_items").select("*").eq("estimate_id", estimateId).order("sort_order"),
         supabase.from("estimate_payment_schedule").select("*").eq("estimate_id", estimateId).order("sort_order"),
         supabase.from("estimate_signatures").select("*").eq("estimate_id", estimateId).maybeSingle(),
-        supabase.from("app_settings").select("setting_key, setting_value").in("setting_key", [
-          "company_name", "company_address", "company_phone", "company_email",
-          "license_number", "license_type", "license_holder_name"
-        ]),
+        // Try company_settings first
+        estimate.company_id 
+          ? supabase.from("company_settings").select("setting_key, setting_value")
+              .eq("company_id", estimate.company_id).in("setting_key", settingKeys)
+          : Promise.resolve({ data: [] }),
+        // Fall back to app_settings
+        supabase.from("app_settings").select("setting_key, setting_value").in("setting_key", settingKeys),
       ]);
 
-      const getSetting = (key: string) => settingsRes.data?.find((s) => s.setting_key === key)?.setting_value || "";
+      // Merge settings: company_settings override app_settings
+      const settingsMap: Record<string, string> = {};
+      appSettingsRes.data?.forEach((s) => {
+        if (s.setting_value) settingsMap[s.setting_key] = s.setting_value;
+      });
+      companySettingsRes.data?.forEach((s) => {
+        if (s.setting_value) settingsMap[s.setting_key] = s.setting_value;
+      });
+
+      const getSetting = (key: string) => settingsMap[key] || "";
       
       return {
-        estimate: estimateRes.data,
+        estimate,
         groups: groupsRes.data as Group[],
         lineItems: itemsRes.data as LineItem[],
         paymentSchedule: scheduleRes.data as PaymentSchedule[],
