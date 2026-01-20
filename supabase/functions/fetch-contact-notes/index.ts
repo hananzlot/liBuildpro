@@ -63,6 +63,53 @@ serve(async (req) => {
       );
     }
 
+    // Skip GHL fetch for local-only contacts
+    if (contact_id.startsWith('local_')) {
+      console.log(`Skipping GHL fetch for local-only contact: ${contact_id}`);
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      
+      if (!supabaseUrl || !supabaseServiceKey) {
+        throw new Error('Missing Supabase credentials');
+      }
+      
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data: cachedNotes } = await supabase
+        .from('contact_notes')
+        .select(`
+          ghl_id,
+          body,
+          user_id,
+          ghl_date_added,
+          entered_by,
+          profiles:entered_by (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq('contact_id', contact_id)
+        .order('ghl_date_added', { ascending: false });
+      
+      const notesWithCreator = (cachedNotes || []).map((note: any) => ({
+        id: note.ghl_id,
+        body: note.body,
+        userId: note.user_id,
+        dateAdded: note.ghl_date_added,
+        enteredBy: note.entered_by,
+        enteredByName: note.profiles?.full_name || null,
+      }));
+      
+      return new Response(
+        JSON.stringify({ 
+          notes: notesWithCreator,
+          localOnlyMode: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -92,13 +139,33 @@ serve(async (req) => {
       
       const { data: cachedNotes } = await supabase
         .from('contact_notes')
-        .select('*')
+        .select(`
+          ghl_id,
+          body,
+          user_id,
+          ghl_date_added,
+          entered_by,
+          profiles:entered_by (
+            id,
+            full_name,
+            email
+          )
+        `)
         .eq('contact_id', contact_id)
         .order('ghl_date_added', { ascending: false });
       
+      const notesWithCreator = (cachedNotes || []).map((note: any) => ({
+        id: note.ghl_id,
+        body: note.body,
+        userId: note.user_id,
+        dateAdded: note.ghl_date_added,
+        enteredBy: note.entered_by,
+        enteredByName: note.profiles?.full_name || null,
+      }));
+      
       return new Response(
         JSON.stringify({ 
-          notes: cachedNotes || [],
+          notes: notesWithCreator,
           localOnlyMode: true,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -127,30 +194,54 @@ serve(async (req) => {
       const data = await response.json();
       notes = data.notes || [];
       ghlFetchSuccessful = true;
-      console.log(`Found ${notes.length} notes for contact ${contact_id}`);
+      console.log(`Found ${notes.length} notes for contact ${contact_id}, applying LOCAL WINS sync strategy`);
 
-      // Upsert notes to Supabase (preserving entered_by if already set)
+      // LOCAL WINS STRATEGY: Only fill null fields, preserve all existing local data
       if (notes.length > 0) {
-        // Get existing notes to preserve entered_by
+        // Fetch ALL existing note fields to preserve local data
         const { data: existingNotes } = await supabase
           .from('contact_notes')
-          .select('ghl_id, entered_by')
+          .select('*')
           .in('ghl_id', notes.map((n: any) => n.id));
 
-        const existingEnteredByMap = new Map(
-          (existingNotes || []).map((n: any) => [n.ghl_id, n.entered_by])
+        const existingNotesMap = new Map(
+          (existingNotes || []).map((n: any) => [n.ghl_id, n])
         );
+        
+        console.log(`Found ${existingNotesMap.size} existing notes to preserve`);
 
-        const notesToUpsert = notes.map((note: any) => ({
-          ghl_id: note.id,
-          contact_id: contact_id,
-          body: note.body || null,
-          user_id: note.userId || null,
-          ghl_date_added: note.dateAdded || note.createdAt || null,
-          location_id: effectiveLocationId,
-          // Preserve existing entered_by if set
-          entered_by: existingEnteredByMap.get(note.id) || null,
-        }));
+        const notesToUpsert = notes.map((note: any) => {
+          const existing = existingNotesMap.get(note.id);
+          
+          // If record exists locally, only fill null fields (LOCAL WINS)
+          if (existing) {
+            return {
+              ghl_id: note.id,
+              contact_id: existing.contact_id ?? contact_id,
+              body: existing.body ?? note.body ?? null,
+              user_id: existing.user_id ?? note.userId ?? null,
+              ghl_date_added: existing.ghl_date_added ?? note.dateAdded ?? note.createdAt ?? null,
+              location_id: existing.location_id ?? effectiveLocationId,
+              entered_by: existing.entered_by, // Always preserve
+              edited_by: existing.edited_by, // Always preserve
+              edited_at: existing.edited_at, // Always preserve
+              provider: existing.provider ?? 'ghl',
+              external_id: existing.external_id ?? note.id,
+            };
+          }
+          
+          // New record - use GHL data
+          return {
+            ghl_id: note.id,
+            contact_id: contact_id,
+            body: note.body || null,
+            user_id: note.userId || null,
+            ghl_date_added: note.dateAdded || note.createdAt || null,
+            location_id: effectiveLocationId,
+            provider: 'ghl',
+            external_id: note.id,
+          };
+        });
 
         const { error: upsertError } = await supabase
           .from('contact_notes')
