@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     }
 
     // Get request body
-    const { email, password, fullName } = await req.json();
+    const { email, password, fullName, companyId, corporationId, role } = await req.json();
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: "Email and password are required" }), {
@@ -80,6 +80,35 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Update profile with company_id and/or corporation_id if provided
+    if (newUser.user && (companyId || corporationId)) {
+      const updateData: { company_id?: string; corporation_id?: string } = {};
+      if (companyId) updateData.company_id = companyId;
+      if (corporationId) updateData.corporation_id = corporationId;
+
+      const { error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .update(updateData)
+        .eq("id", newUser.user.id);
+
+      if (profileError) {
+        console.error("Error updating profile:", profileError);
+        // Don't fail the request, user was created
+      }
+    }
+
+    // Assign role if provided (e.g., 'admin' for company admins)
+    if (newUser.user && role) {
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert({ user_id: newUser.user.id, role });
+
+      if (roleError) {
+        console.error("Error assigning role:", roleError);
+        // Don't fail the request, user was created
+      }
     }
 
     return new Response(JSON.stringify({ user: newUser.user }), {

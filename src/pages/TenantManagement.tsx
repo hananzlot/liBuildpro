@@ -12,14 +12,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Building2, Users, Calendar, DollarSign, Edit, Plus, RefreshCw } from 'lucide-react';
+import { Building2, Users, Calendar, DollarSign, Edit, Plus, RefreshCw, ChevronDown } from 'lucide-react';
 import type { SubscriptionPlan, CompanySubscription, SubscriptionStatus } from '@/types/subscription';
 import { AddCompanyDialog } from '@/components/subscription/AddCompanyDialog';
 import { PlatformUsersSection } from '@/components/subscription/PlatformUsersSection';
 import { PlansEditorSection } from '@/components/subscription/PlansEditorSection';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AVAILABLE_FEATURES } from '@/constants/features';
 
 interface CompanyWithSubscription {
   id: string;
@@ -37,12 +40,14 @@ export default function TenantManagement() {
   const [selectedCompany, setSelectedCompany] = useState<CompanyWithSubscription | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     plan_id: '',
     status: '' as SubscriptionStatus | '',
     billing_cycle: '' as 'monthly' | 'yearly' | '',
     current_period_end: '',
-    max_users_override: '' as string
+    max_users_override: '' as string,
+    features_override: {} as Record<string, boolean>
   });
 
   // Fetch all companies with their subscriptions
@@ -91,6 +96,7 @@ export default function TenantManagement() {
             ...subscription,
             status: subscription.status as SubscriptionStatus,
             billing_cycle: subscription.billing_cycle as 'monthly' | 'yearly',
+            features_override: subscription.features_override as Record<string, boolean> | null,
             plan: subscription.plan as unknown as SubscriptionPlan
           } : undefined,
           user_count: countByCompany[company.id] || 0
@@ -127,6 +133,7 @@ export default function TenantManagement() {
       billingCycle: 'monthly' | 'yearly';
       currentPeriodEnd: string;
       maxUsersOverride: number | null;
+      featuresOverride: Record<string, boolean> | null;
       hasExistingSubscription: boolean;
     }) => {
       if (data.hasExistingSubscription) {
@@ -138,6 +145,7 @@ export default function TenantManagement() {
             billing_cycle: data.billingCycle,
             current_period_end: data.currentPeriodEnd,
             max_users_override: data.maxUsersOverride,
+            features_override: data.featuresOverride,
             updated_at: new Date().toISOString()
           })
           .eq('company_id', data.companyId);
@@ -153,7 +161,8 @@ export default function TenantManagement() {
             billing_cycle: data.billingCycle,
             current_period_start: new Date().toISOString(),
             current_period_end: data.currentPeriodEnd,
-            max_users_override: data.maxUsersOverride
+            max_users_override: data.maxUsersOverride,
+            features_override: data.featuresOverride
           });
 
         if (error) throw error;
@@ -173,6 +182,7 @@ export default function TenantManagement() {
 
   const handleEditClick = (company: CompanyWithSubscription) => {
     setSelectedCompany(company);
+    setFeaturesOpen(false);
     setEditForm({
       plan_id: company.subscription?.plan_id || '',
       status: company.subscription?.status || 'active',
@@ -180,7 +190,8 @@ export default function TenantManagement() {
       current_period_end: company.subscription?.current_period_end 
         ? format(new Date(company.subscription.current_period_end), 'yyyy-MM-dd')
         : format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-      max_users_override: company.subscription?.max_users_override?.toString() || ''
+      max_users_override: company.subscription?.max_users_override?.toString() || '',
+      features_override: company.subscription?.features_override || {}
     });
     setIsEditDialogOpen(true);
   };
@@ -195,6 +206,10 @@ export default function TenantManagement() {
       ? null 
       : parseInt(editForm.max_users_override);
 
+    // Only include features_override if there are actual overrides
+    const hasOverrides = Object.keys(editForm.features_override).length > 0;
+    const featuresOverride = hasOverrides ? editForm.features_override : null;
+
     updateSubscription.mutate({
       companyId: selectedCompany.id,
       planId: editForm.plan_id,
@@ -202,8 +217,43 @@ export default function TenantManagement() {
       billingCycle: editForm.billing_cycle as 'monthly' | 'yearly',
       currentPeriodEnd: new Date(editForm.current_period_end).toISOString(),
       maxUsersOverride,
+      featuresOverride,
       hasExistingSubscription: !!selectedCompany.subscription
     });
+  };
+
+  const toggleFeatureOverride = (featureKey: string) => {
+    const selectedPlan = plans?.find(p => p.id === editForm.plan_id);
+    const planHasFeature = selectedPlan?.features?.[featureKey] ?? false;
+    const currentOverride = editForm.features_override[featureKey];
+    
+    setEditForm(prev => {
+      const newOverrides = { ...prev.features_override };
+      
+      if (currentOverride === undefined) {
+        // First click: override to opposite of plan
+        newOverrides[featureKey] = !planHasFeature;
+      } else if (currentOverride !== planHasFeature) {
+        // Second click: remove override (use plan default)
+        delete newOverrides[featureKey];
+      } else {
+        // Toggle the override
+        newOverrides[featureKey] = !currentOverride;
+      }
+      
+      return { ...prev, features_override: newOverrides };
+    });
+  };
+
+  const getFeatureValue = (featureKey: string): boolean => {
+    const selectedPlan = plans?.find(p => p.id === editForm.plan_id);
+    const planHasFeature = selectedPlan?.features?.[featureKey] ?? false;
+    const override = editForm.features_override[featureKey];
+    return override !== undefined ? override : planHasFeature;
+  };
+
+  const isFeatureOverridden = (featureKey: string): boolean => {
+    return editForm.features_override[featureKey] !== undefined;
   };
 
   const getStatusBadgeVariant = (status?: SubscriptionStatus) => {
@@ -496,6 +546,39 @@ export default function TenantManagement() {
                   Override the plan's user limit for this company. -1 = unlimited. Empty = use plan default.
                 </p>
               </div>
+
+              {/* Features Override */}
+              {editForm.plan_id && (
+                <Collapsible open={featuresOpen} onOpenChange={setFeaturesOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      <span>Features Override</span>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${featuresOpen ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg">
+                      {AVAILABLE_FEATURES.map((feature) => (
+                        <div key={feature.key} className="flex items-center justify-between py-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{feature.label}</span>
+                            {isFeatureOverridden(feature.key) && (
+                              <Badge variant="secondary" className="text-xs">override</Badge>
+                            )}
+                          </div>
+                          <Switch
+                            checked={getFeatureValue(feature.key)}
+                            onCheckedChange={() => toggleFeatureOverride(feature.key)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Toggle to override plan defaults. "override" badge indicates custom setting.
+                    </p>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
 
             <DialogFooter>

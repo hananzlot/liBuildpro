@@ -32,6 +32,7 @@ export interface CompanySubscription {
   canceled_at: string | null;
   grace_period_ends_at: string | null;
   max_users_override: number | null; // Override plan's max_users for this company
+  features_override: Record<string, boolean> | null; // Override plan's features for this company
   created_at: string;
   updated_at: string;
   // Joined data

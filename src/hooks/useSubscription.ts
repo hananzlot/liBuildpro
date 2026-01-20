@@ -41,6 +41,7 @@ export function useSubscription({ companyId, isSuperAdmin }: UseSubscriptionProp
           ...subData,
           status: subData.status as CompanySubscription['status'],
           billing_cycle: subData.billing_cycle as CompanySubscription['billing_cycle'],
+          features_override: subData.features_override as Record<string, boolean> | null,
           plan: planData
         });
         setPlan(planData);
@@ -69,13 +70,18 @@ export function useSubscription({ companyId, isSuperAdmin }: UseSubscriptionProp
     fetchSubscription();
   }, [fetchSubscription]);
 
-  // Calculate derived values
+  // Calculate derived values - merge plan features with subscription overrides
   const features = useMemo(() => {
-    if (!plan?.features) return [];
-    return Object.entries(plan.features)
+    const planFeatures = plan?.features || {};
+    const overrides = subscription?.features_override || {};
+    
+    // Merge: start with plan features, apply overrides
+    const mergedFeatures = { ...planFeatures, ...overrides };
+    
+    return Object.entries(mergedFeatures)
       .filter(([, enabled]) => enabled)
       .map(([key]) => key);
-  }, [plan]);
+  }, [plan, subscription]);
 
   const isSubscriptionActive = useMemo(() => {
     // Super admins always have access
