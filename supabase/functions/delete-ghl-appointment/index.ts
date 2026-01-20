@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 // Helper to get the correct GHL API key based on location_id
-function getGHLApiKey(locationId: string): string {
+// Returns null if GHL credentials are not configured (local-only mode)
+function getGHLApiKey(locationId: string): string | null {
   const location1Id = Deno.env.get('GHL_LOCATION_ID');
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
   
@@ -18,7 +19,7 @@ function getGHLApiKey(locationId: string): string {
   
   // Default to primary API key
   const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  if (!apiKey1) return null; // Return null for local-only mode
   return apiKey1;
 }
 
@@ -52,17 +53,17 @@ serve(async (req) => {
         .eq('ghl_id', appointmentId)
         .single();
       
-      effectiveLocationId = apptData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+      effectiveLocationId = apptData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
     }
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
 
     console.log(`Deleting appointment (location: ${effectiveLocationId}): ${appointmentId}`);
 
-    // Check if this is a local-only appointment (ghl_id starts with "local_")
+    // Check if this is a local-only appointment (ghl_id starts with "local_") or no GHL credentials
     const isLocalAppointment = appointmentId.startsWith('local_');
 
-    if (!isLocalAppointment) {
+    if (!isLocalAppointment && ghlApiKey) {
       // GHL doesn't support DELETE for appointments, so we cancel it first via PUT
       const ghlResponse = await fetch(`https://services.leadconnectorhq.com/calendars/events/appointments/${appointmentId}`, {
         method: 'PUT',

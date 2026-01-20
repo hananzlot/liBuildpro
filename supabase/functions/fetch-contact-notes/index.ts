@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 // Helper to get the correct GHL API key based on location_id
-function getGHLApiKey(locationId: string): string {
+// Returns null if GHL credentials are not configured (local-only mode)
+function getGHLApiKey(locationId: string): string | null {
   const location1Id = Deno.env.get('GHL_LOCATION_ID');
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
   
@@ -18,7 +19,7 @@ function getGHLApiKey(locationId: string): string {
   
   // Default to primary API key
   const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  if (!apiKey1) return null; // Return null for local-only mode
   return apiKey1;
 }
 
@@ -80,10 +81,29 @@ serve(async (req) => {
         .eq('ghl_id', contact_id)
         .single();
       
-      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
     }
 
     const ghlApiKey = getGHLApiKey(effectiveLocationId);
+
+    // If no GHL credentials, return cached notes from Supabase only
+    if (!ghlApiKey) {
+      console.log('No GHL credentials configured, returning cached notes only (local-only mode)');
+      
+      const { data: cachedNotes } = await supabase
+        .from('contact_notes')
+        .select('*')
+        .eq('contact_id', contact_id)
+        .order('ghl_date_added', { ascending: false });
+      
+      return new Response(
+        JSON.stringify({ 
+          notes: cachedNotes || [],
+          localOnlyMode: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log(`Fetching notes for contact: ${contact_id} (location: ${effectiveLocationId})`);
 

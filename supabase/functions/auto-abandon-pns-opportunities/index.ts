@@ -6,7 +6,8 @@ const corsHeaders = {
 };
 
 // Helper to get the correct GHL API key based on location_id
-function getGHLApiKey(locationId: string): string {
+// Returns null if GHL credentials are not configured (local-only mode)
+function getGHLApiKey(locationId: string): string | null {
   const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
   
   if (locationId === location2Id) {
@@ -16,7 +17,7 @@ function getGHLApiKey(locationId: string): string {
   
   // Default to primary API key
   const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) throw new Error('Missing GHL_API_KEY');
+  if (!apiKey1) return null; // Return null for local-only mode
   return apiKey1;
 }
 
@@ -29,6 +30,12 @@ function delay(ms: number): Promise<void> {
 async function updateGHLOpportunityStatus(ghlId: string, locationId: string): Promise<boolean> {
   try {
     const ghlApiKey = getGHLApiKey(locationId);
+    
+    // If no GHL credentials, skip GHL update (local-only mode)
+    if (!ghlApiKey) {
+      console.log(`No GHL credentials, skipping GHL update for ${ghlId} (local-only mode)`);
+      return true; // Return true to allow local update to proceed
+    }
     
     const response = await fetch(`https://services.leadconnectorhq.com/opportunities/${ghlId}`, {
       method: 'PUT',
