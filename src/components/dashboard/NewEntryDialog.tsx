@@ -20,6 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 
 interface User {
   ghl_id: string;
@@ -65,7 +66,10 @@ interface GHLCalendar {
 }
 
 
+const PRIMARY_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
+
 export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps) {
+  const { companyId } = useCompanyContext();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("single");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -375,6 +379,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
           pipelineStageId: selectedStage || null,
           calendarId: selectedCalendar || null,
           skipGHLAppointmentSync: true, // Default to local-only appointments
+          locationId: PRIMARY_LOCATION_ID,
+          companyId: companyId,
         },
       });
 
@@ -572,6 +578,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
             enteredBy: userId || null,
             pipelineId: selectedPipeline || null,
             pipelineStageId: selectedStage || null,
+            locationId: PRIMARY_LOCATION_ID,
+            companyId: companyId,
           },
         });
 
