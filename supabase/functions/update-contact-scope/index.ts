@@ -1,12 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGHLFieldMappings } from "../_shared/ghl-field-mappings.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const SCOPE_OF_WORK_FIELD_ID = "KwQRtJT0aMSHnq3mwR68";
 
 // Helper to get GHL API key from database - returns null if not configured
 async function getGHLApiKey(supabase: any, locationId: string | null): Promise<string | null> {
@@ -44,7 +43,7 @@ serve(async (req) => {
   }
 
   try {
-    const { contactId, scopeOfWork, editedBy, opportunityGhlId } = await req.json();
+    const { contactId, scopeOfWork, editedBy, opportunityGhlId, companyId } = await req.json();
 
     if (!contactId) {
       return new Response(
@@ -58,6 +57,10 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get field mappings from database
+    const fieldMappings = await getGHLFieldMappings(supabase, companyId);
+    const SCOPE_OF_WORK_FIELD_ID = fieldMappings.scope_of_work || "KwQRtJT0aMSHnq3mwR68";
 
     // Fetch contact with current custom_fields to get old scope
     const { data: contact, error: contactError } = await supabase

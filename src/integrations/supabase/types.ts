@@ -2135,6 +2135,44 @@ export type Database = {
           },
         ]
       }
+      ghl_field_mappings: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          description: string | null
+          field_name: string
+          ghl_custom_field_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          field_name: string
+          ghl_custom_field_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          field_name?: string
+          ghl_custom_field_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ghl_field_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ghl_pipelines: {
         Row: {
           company_id: string | null
