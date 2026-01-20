@@ -73,6 +73,7 @@ interface DBProfile {
 }
 
 interface DBContact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;

@@ -31,6 +31,7 @@ import { format } from "date-fns";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { findContactByIdOrGhlId } from "@/lib/utils";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -43,7 +44,7 @@ const getPSTOffset = (utcDate: Date): number => {
 };
 
 interface Contact {
-  id?: string;
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -179,7 +180,7 @@ export function SourceDetailSheet({
   const openTaskDialog = (opp: Opportunity, e: React.MouseEvent) => {
     e.stopPropagation();
     setTaskOpp(opp);
-    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+    const contact = findContactByIdOrGhlId(contacts, undefined, opp.contact_id);
     const contactName = contact?.contact_name || 
       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
     setTaskTitle(`Follow up: ${opp.name || contactName || "Opportunity"}`);
@@ -199,7 +200,7 @@ export function SourceDetailSheet({
     setIsCreatingTask(true);
     try {
       // Get location_id from contact
-      const contact = contacts.find(c => c.ghl_id === taskOpp.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, undefined, taskOpp.contact_id);
       const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
 
       const assignedToValue = taskAssignee && taskAssignee !== "__unassigned__" ? taskAssignee : null;
@@ -365,7 +366,7 @@ export function SourceDetailSheet({
     if (searchFilter.trim()) {
       const term = searchFilter.toLowerCase();
       opps = opps.filter(o => {
-        const contact = contacts.find(c => c.ghl_id === o.contact_id);
+        const contact = findContactByIdOrGhlId(contacts, undefined, o.contact_id);
         const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
         return o.name?.toLowerCase().includes(term) || contactName.toLowerCase().includes(term);
       });
@@ -556,7 +557,7 @@ export function SourceDetailSheet({
                   </p>
                 ) : (
                   displayOpportunities.map((opp) => {
-                    const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, undefined, opp.contact_id);
                     const contactName = contact?.contact_name || 
                       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "Unknown";
                     

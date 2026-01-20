@@ -32,6 +32,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { findContactByIdOrGhlId } from "@/lib/utils";
 
 interface Opportunity {
   id: string;
@@ -48,6 +49,7 @@ interface Opportunity {
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -133,7 +135,7 @@ export function DuplicateOpportunitiesCleanup({
     groupMap.forEach((opps, key) => {
       if (opps.length > 1) {
         const [contactId, pipelineId] = key.split('|');
-        const contact = contacts.find(c => c.ghl_id === contactId);
+        const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
         const contactName = contact?.contact_name || 
           `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim() || 
           'Unknown';

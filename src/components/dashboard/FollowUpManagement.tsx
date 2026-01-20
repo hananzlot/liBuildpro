@@ -962,7 +962,7 @@ export function FollowUpManagement({
   // Helper to get source from contact
   const getContactSource = (contactId: string | null): string => {
     if (!contactId) return "";
-    const contact = contacts.find(c => c.ghl_id === contactId);
+    const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
     return contact?.source || "";
   };
 
@@ -1151,7 +1151,7 @@ export function FollowUpManagement({
 
       // Include if no notes exist OR last note is before appointment
       if (lastNoteDate === null || lastNoteDate < appointmentDate) {
-        const contact = contacts.find(c => c.ghl_id === appointment.contact_id);
+        const contact = findContactByIdOrGhlId(contacts, undefined, appointment.contact_id);
         const daysSinceNote = lastNoteDate ? Math.floor((Date.now() - lastNoteDate.getTime()) / (1000 * 60 * 60 * 24)) : null;
         results.push({
           appointment,
@@ -1217,7 +1217,7 @@ export function FollowUpManagement({
       // Check if any tasks exist for this contact in ghl_tasks
       const contactTasks = ghlTasks.filter(t => t.contact_id === opportunity.contact_id);
       if (contactTasks.length > 0) return;
-      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
       const latestAppointment = oppAppointments.sort((a, b) => new Date(b.start_time || 0).getTime() - new Date(a.start_time || 0).getTime())[0];
       results.push({
         opportunity,
@@ -1271,7 +1271,7 @@ export function FollowUpManagement({
       const isAppointmentConfirmed = appointmentStatus === "confirmed";
       const isPipelineStageAppointmentConfirmed = pipelineStage?.includes("appointment") && pipelineStage?.includes("confirmed");
       if (isAppointmentConfirmed || isPipelineStageAppointmentConfirmed) {
-        const contact = appointment.contact_id ? contacts.find(c => c.ghl_id === appointment.contact_id) : undefined;
+        const contact = appointment.contact_id ? findContactByIdOrGhlId(contacts, undefined, appointment.contact_id) : undefined;
         const daysPast = Math.floor((now.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24));
         results.push({
           appointment,
@@ -1344,7 +1344,7 @@ export function FollowUpManagement({
 
       // MUST HAVE one of: stale notes OR expired/no tasks
       if (!hasStaleOrNoNotes && !hasExpiredOrNoTasks) return;
-      const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
 
       // Find earliest overdue task date
       let earliestOverdueDate: Date | null = null;

@@ -10,7 +10,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
-import { getAddressFromContact as getAddressUtil } from "@/lib/utils";
+import { getAddressFromContact as getAddressUtil, findContactByIdOrGhlId } from "@/lib/utils";
 
 interface Opportunity {
   ghl_id: string;
@@ -39,6 +39,7 @@ interface Appointment {
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -100,7 +101,7 @@ export function OpportunitySearch({
   // Helper to get address with appointment fallback (uses shared utility)
   const getAddressWithFallback = (contactId: string | null): string => {
     if (!contactId) return "";
-    const contact = contacts.find(c => c.ghl_id === contactId);
+    const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
     return getAddressUtil(contact, appointments, contactId) || "";
   };
 
@@ -120,7 +121,7 @@ export function OpportunitySearch({
     return opportunities
       .filter(opp => {
         const name = opp.name?.toLowerCase() || "";
-        const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+        const contact = findContactByIdOrGhlId(contacts, undefined, opp.contact_id);
         const contactName = contact?.contact_name?.toLowerCase() || 
           `${contact?.first_name || ""} ${contact?.last_name || ""}`.toLowerCase();
         
@@ -177,7 +178,7 @@ export function OpportunitySearch({
 
   const getContactName = (contactId: string | null) => {
     if (!contactId) return "Unknown";
-    const contact = contacts.find(c => c.ghl_id === contactId);
+    const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
     return contact?.contact_name || 
       (contact?.first_name && contact?.last_name 
         ? `${contact.first_name} ${contact.last_name}` 

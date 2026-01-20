@@ -256,7 +256,7 @@ export function AppointmentsTable({
   const uniqueSources = useMemo(() => {
     const sources = new Set<string>();
     appointments.forEach(a => {
-      const contact = contacts.find(c => c.ghl_id === a.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, a.contact_uuid, a.contact_id);
       if (contact?.source) sources.add(contact.source);
     });
     return Array.from(sources).sort();
@@ -302,7 +302,7 @@ export function AppointmentsTable({
     // Source filter (multi-select)
     if (sourceFilter.length > 0) {
       filtered = filtered.filter(a => {
-        const contact = contacts.find(c => c.ghl_id === a.contact_id);
+        const contact = findContactByIdOrGhlId(contacts, a.contact_uuid, a.contact_id);
         return contact?.source && sourceFilter.includes(contact.source);
       });
     }

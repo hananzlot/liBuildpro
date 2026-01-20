@@ -448,7 +448,7 @@ export function SalesRepDetailSheet({
                     <div className="p-3 text-sm text-muted-foreground text-center">No opportunities</div>
                   ) : (
                     filteredOpportunities.map((opp) => {
-                      const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+                      const contact = findContactByIdOrGhlId(contacts, opp.contact_uuid, opp.contact_id);
                       return (
                         <div 
                           key={opp.ghl_id} 
