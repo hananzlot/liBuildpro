@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 
 interface SidebarFinancials {
   totalUnpaidAR: number;
@@ -33,9 +34,11 @@ function formatCompactCurrency(amount: number): string {
 }
 
 export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurrency: (amount: number) => string } {
+  const { companyId } = useCompanyContext();
+
   // Fetch the payment focus day setting
   const { data: focusDaySetting } = useQuery({
-    queryKey: ["payment-focus-day-setting"],
+    queryKey: ["payment-focus-day-setting", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("app_settings")
@@ -58,8 +61,9 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
   const focusDateStr = focusDate.toISOString().split('T')[0];
 
   // Fetch ALL unpaid AR (total open balance across all invoices)
+  // RLS filters by company_id automatically
   const { data: arData, isLoading: arLoading } = useQuery({
-    queryKey: ["sidebar-ar-total"],
+    queryKey: ["sidebar-ar-total", companyId],
     queryFn: async () => {
       // Get ALL invoices with open balance (no date filter)
       const { data: invoices, error } = await supabase
@@ -75,11 +79,13 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
       return invoices?.reduce((sum, inv) => sum + (Number(inv.open_balance) || 0), 0) || 0;
     },
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+    enabled: !!companyId,
   });
 
   // Fetch AP (bills with scheduled payments) due by focus day
+  // RLS filters by company_id automatically
   const { data: apData, isLoading: apLoading } = useQuery({
-    queryKey: ["sidebar-ap-due", focusDateStr],
+    queryKey: ["sidebar-ap-due", companyId, focusDateStr],
     queryFn: async () => {
       // Get bills with scheduled_payment_date by focus day
       // Use scheduled_payment_amount if set, otherwise fall back to balance
@@ -102,7 +108,7 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
       }, 0) || 0;
     },
     staleTime: 2 * 60 * 1000, // Cache for 2 minutes
-    enabled: focusDaySetting !== undefined,
+    enabled: !!companyId && focusDaySetting !== undefined,
   });
 
   return {
