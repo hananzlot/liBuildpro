@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,7 @@ export function ClientComments({
   isStaff = false,
 }: ClientCommentsProps) {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [newComment, setNewComment] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -104,6 +106,7 @@ export function ClientComments({
         parent_comment_id: parentId || null,
         is_internal: isStaff && isInternal,
         created_by: isStaff ? (await supabase.auth.getUser()).data.user?.id : null,
+        company_id: companyId,
       }).select().single();
 
       if (error) throw error;

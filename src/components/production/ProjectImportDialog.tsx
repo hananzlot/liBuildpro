@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import {
   Dialog,
   DialogContent,
@@ -105,6 +106,7 @@ const IMPORT_STEPS: ImportStep[] = [
 export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { companyId } = useCompanyContext();
   const [currentStep, setCurrentStep] = useState(0);
   const [stepResults, setStepResults] = useState<Record<string, ImportResult>>({});
   const [isUploading, setIsUploading] = useState(false);
@@ -216,6 +218,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
           sold_under: row['sold_under'] || null,
           location_id: 'location1',
           created_by: user?.id,
+          company_id: companyId,
         }).select('id').single();
 
         if (error) {
@@ -311,6 +314,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
           agreement_signed_date: row['agreement_signed_date'] || null,
           total_price: row['total_price'] ? parseFloat(row['total_price']) : null,
           description_of_work: row['description_of_work'] || null,
+          company_id: companyId,
         }).select('id').single();
 
         if (error) {
@@ -360,6 +364,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
           description: row['description'] || null,
           due_date: row['due_date'] || null,
           amount: row['amount'] ? parseFloat(row['amount']) : null,
+          company_id: companyId,
         }).select('id').single();
 
         if (error) {
@@ -414,6 +419,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
           total_expected: amount,
           payments_received: 0,
           open_balance: amount,
+          company_id: companyId,
         }).select('id').single();
 
         if (error) {
@@ -467,6 +473,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
           payment_fee: row['payment_fee'] ? parseFloat(row['payment_fee']) : 0,
           check_number: row['check_number'] || null,
           deposit_verified: row['deposit_verified']?.toLowerCase() === 'true' || row['deposit_verified'] === '1',
+          company_id: companyId,
         });
 
         if (error) {
@@ -532,6 +539,7 @@ export function ProjectImportDialog({ open, onOpenChange }: ProjectImportDialogP
           memo: row['memo'] || null,
           payment_method: row['payment_method'] || null,
           payment_reference: row['payment_reference'] || null,
+          company_id: companyId,
         });
 
         if (error) {

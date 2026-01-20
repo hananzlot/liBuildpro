@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,7 @@ interface PortalChatDialogProps {
 
 export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDialogProps) {
   const { user } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [reply, setReply] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -116,6 +118,7 @@ export function PortalChatDialog({ projectId, open, onOpenChange }: PortalChatDi
           sender_email: user?.email,
           sender_user_id: user?.id,
           message: message.trim(),
+          company_id: companyId,
         });
       if (error) throw error;
     },

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -178,6 +179,7 @@ const formatDate = (date: string | null) => {
 export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost, totalPl, leadCostPercent, commissionSplitPct, salespeople, onUpdateProject, onNavigateToSubcontractors, autoOpenBillDialog, initialBillsSubTab, highlightInvoiceId }: FinanceSectionProps) {
   const queryClient = useQueryClient();
   const { user, isAdmin, isSuperAdmin } = useAuth();
+  const { companyId } = useCompanyContext();
   const [activeSubTab, setActiveSubTab] = useState(initialBillsSubTab ? "bills" : "agreements");
   const [activeBillsSubTab, setActiveBillsSubTab] = useState<"bills" | "history">(initialBillsSubTab || "bills");
   const [activeInvoicesSubTab, setActiveInvoicesSubTab] = useState<"invoices" | "payments">("invoices");
@@ -382,7 +384,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       } else {
         const { data: newInvoice, error } = await supabase
           .from("project_invoices")
-          .insert({ ...invoice, project_id: projectId })
+          .insert({ ...invoice, project_id: projectId, company_id: companyId })
           .select()
           .single();
         if (error) throw error;
@@ -426,7 +428,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       } else {
         const { data: newPayment, error } = await supabase
           .from("project_payments")
-          .insert({ ...payment, project_id: projectId })
+          .insert({ ...payment, project_id: projectId, company_id: companyId })
           .select()
           .single();
         if (error) throw error;
@@ -504,7 +506,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         // New bill starts with 0 paid and full balance
         const { data: newBill, error } = await supabase
           .from("project_bills")
-          .insert({ ...bill, amount_paid: 0, balance: bill.bill_amount || 0, project_id: projectId })
+          .insert({ ...bill, amount_paid: 0, balance: bill.bill_amount || 0, project_id: projectId, company_id: companyId })
           .select()
           .single();
         if (error) throw error;
@@ -575,7 +577,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       // Insert the payment
       const { data: newPayment, error: paymentError } = await supabase
         .from("bill_payments")
-        .insert({ ...payment, bill_id: billId })
+        .insert({ ...payment, bill_id: billId, company_id: companyId })
         .select()
         .single();
       if (paymentError) throw paymentError;
@@ -722,7 +724,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       } else {
         const { data: newAgreement, error } = await supabase
           .from("project_agreements")
-          .insert({ ...agreement, project_id: projectId })
+          .insert({ ...agreement, project_id: projectId, company_id: companyId })
           .select()
           .single();
         if (error) throw error;
@@ -778,6 +780,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
             due_date: phase.due_date,
             amount: phase.amount,
             agreement_id: phase.agreement_id,
+            company_id: companyId,
           })
           .select()
           .single();
