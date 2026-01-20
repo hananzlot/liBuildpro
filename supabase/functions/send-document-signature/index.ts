@@ -90,6 +90,15 @@ const handler = async (req: Request): Promise<Response> => {
       isReminder,
     });
 
+    // Get document to find company_id
+    const { data: documentData } = await supabase
+      .from("signature_documents")
+      .select("company_id")
+      .eq("id", documentId)
+      .single();
+    
+    const docCompanyId = documentData?.company_id || null;
+
     // Get company settings
     const { data: settings } = await supabase
       .from("app_settings")
@@ -139,6 +148,7 @@ const handler = async (req: Request): Promise<Response> => {
         .insert({
           document_id: documentId,
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          company_id: docCompanyId,
         })
         .select()
         .single();
