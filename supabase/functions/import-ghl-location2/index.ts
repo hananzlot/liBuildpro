@@ -1,16 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAllGHLCredentials, GHLCredentials } from "../_shared/ghl-credentials.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// GHL credentials for both locations - check if configured
-const LOCATION_1_API_KEY = Deno.env.get('GHL_API_KEY');
-const LOCATION_1_ID = Deno.env.get('GHL_LOCATION_ID');
-const LOCATION_2_API_KEY = Deno.env.get('GHL_API_KEY_2');
-const LOCATION_2_ID = Deno.env.get('GHL_LOCATION_ID_2');
 
 // Location 1 pipeline configuration (default pipeline for imported opportunities)
 const LOCATION_1_DEFAULT_PIPELINE_ID = '6bUqC98F6LCM9zuUitXw';
@@ -141,12 +136,12 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
   return response.json();
 }
 
-async function createOpportunityInGHL(opportunity: any, contactId: string, apiKey: string) {
+async function createOpportunityInGHL(opportunity: any, contactId: string, apiKey: string, targetLocationId: string) {
   // Use Location 1's default pipeline since Location 2 has different pipeline IDs
   const payload: any = {
     name: opportunity.name || 'Imported Opportunity',
     contactId: contactId,
-    locationId: LOCATION_1_ID,
+    locationId: targetLocationId,
     pipelineId: LOCATION_1_DEFAULT_PIPELINE_ID,
     pipelineStageId: LOCATION_1_DEFAULT_STAGE_ID,
     status: opportunity.status || 'open',
@@ -184,12 +179,22 @@ serve(async (req) => {
   }
 
   try {
-    // Check if GHL credentials are configured
-    if (!LOCATION_1_API_KEY || !LOCATION_1_ID || !LOCATION_2_API_KEY || !LOCATION_2_ID) {
-      console.log('GHL credentials not fully configured - import unavailable');
+    console.log('Starting import from Location 2 to Location 1...');
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Get all GHL credentials from vault
+    let allCredentials: GHLCredentials[] = [];
+    try {
+      allCredentials = await getAllGHLCredentials(supabase);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Failed to get GHL credentials:', errorMessage);
       return new Response(JSON.stringify({ 
         success: false, 
-        error: 'GHL credentials not configured. Please configure GHL_API_KEY, GHL_LOCATION_ID, GHL_API_KEY_2, and GHL_LOCATION_ID_2 to use the import feature.',
+        error: errorMessage,
         message: 'Import feature requires GHL integration to be enabled'
       }), {
         status: 400,
@@ -197,11 +202,27 @@ serve(async (req) => {
       });
     }
 
-    console.log('Starting import from Location 2 to Location 1...');
+    if (allCredentials.length < 2) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Import requires at least 2 GHL locations configured',
+        message: 'Please configure both source and target GHL integrations in Admin Settings'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Use first location as target (Location 1), second as source (Location 2)
+    const location1Credentials = allCredentials[0];
+    const location2Credentials = allCredentials[1];
     
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const LOCATION_1_ID = location1Credentials.locationId;
+    const LOCATION_1_API_KEY = location1Credentials.apiKey;
+    const LOCATION_2_ID = location2Credentials.locationId;
+    const LOCATION_2_API_KEY = location2Credentials.apiKey;
+
+    console.log(`Importing from Location 2 (${LOCATION_2_ID}) to Location 1 (${LOCATION_1_ID})`);
     
     // Get existing contacts from Location 1 (for email deduplication)
     const { data: location1Contacts } = await supabase
@@ -259,9 +280,6 @@ serve(async (req) => {
       if (importedContacts.has(contactGhlId)) {
         continue;
       }
-      
-      // Note: We don't skip by email anymore - we try to create and handle duplicates
-      // This allows us to update existing contacts with scope data
       
       try {
         // Fetch full contact details from GHL to get address
@@ -365,7 +383,7 @@ serve(async (req) => {
       
       try {
         // Create opportunity in Location 1
-        const newOpportunity = await createOpportunityInGHL(opportunity, targetContactId, LOCATION_1_API_KEY);
+        const newOpportunity = await createOpportunityInGHL(opportunity, targetContactId, LOCATION_1_API_KEY, LOCATION_1_ID);
         const newOppId = newOpportunity.opportunity?.id;
         
         if (newOppId) {
