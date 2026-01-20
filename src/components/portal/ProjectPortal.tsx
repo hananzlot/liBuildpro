@@ -314,6 +314,17 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
                 <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                   {project.project_name || 'Your Project'}
                 </h2>
+                {/* Show all estimate titles if multiple estimates exist */}
+                {estimates.length > 1 && (
+                  <div className="mt-1 space-y-0.5">
+                    {estimates.map((est: any) => (
+                      <p key={est.id} className="text-white/80 text-sm flex items-center gap-2">
+                        <FileText className="h-3 w-3" />
+                        {est.estimate_title}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {project.project_address && (
                   <p className="text-white/70 flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4" />
