@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { stripHtml, findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { OpportunitySalesDialog } from "./OpportunitySalesDialog";
 import { AppointmentEditDialog } from "./AppointmentEditDialog";
@@ -175,6 +176,7 @@ export function OpportunityDetailSheet({
     isAdmin,
     isProduction
   } = useAuth();
+  const { companyId } = useCompanyContext();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedStatus, setEditedStatus] = useState<string>("");
@@ -757,6 +759,7 @@ export function OpportunityDetailSheet({
         new_value: string | null;
         edited_by: string | null;
         location_id: string | null;
+        company_id: string | null;
       }[] = [];
       if (editingTask.ghl_id) {
         if (editingTask.title !== taskTitle.trim()) {
@@ -767,7 +770,8 @@ export function OpportunityDetailSheet({
             old_value: editingTask.title || null,
             new_value: taskTitle.trim(),
             edited_by: user?.id || null,
-            location_id: opportunity?.location_id || null
+            location_id: opportunity?.location_id || null,
+            company_id: companyId,
           });
         }
         if ((editingTask.body || "") !== (taskNotes.trim() || "")) {
@@ -778,7 +782,8 @@ export function OpportunityDetailSheet({
             old_value: editingTask.body || null,
             new_value: taskNotes.trim() || null,
             edited_by: user?.id || null,
-            location_id: opportunity?.location_id || null
+            location_id: opportunity?.location_id || null,
+            company_id: companyId,
           });
         }
         if (editingTask.assigned_to !== assignedToValue) {
@@ -789,7 +794,8 @@ export function OpportunityDetailSheet({
             old_value: editingTask.assigned_to || null,
             new_value: assignedToValue || null,
             edited_by: user?.id || null,
-            location_id: opportunity?.location_id || null
+            location_id: opportunity?.location_id || null,
+            company_id: companyId,
           });
         }
         if (editingTask.due_date !== dueDateValue) {
@@ -800,7 +806,8 @@ export function OpportunityDetailSheet({
             old_value: editingTask.due_date || null,
             new_value: dueDateValue || null,
             edited_by: user?.id || null,
-            location_id: opportunity?.location_id || null
+            location_id: opportunity?.location_id || null,
+            company_id: companyId,
           });
         }
         if (editsToInsert.length > 0) {
@@ -902,7 +909,8 @@ export function OpportunityDetailSheet({
           old_value: String(oldCompleted),
           new_value: String(isCompleted),
           edited_by: user?.id || null,
-          location_id: opportunity?.location_id || null
+          location_id: opportunity?.location_id || null,
+          company_id: companyId,
         });
       }
 
@@ -1367,7 +1375,8 @@ export function OpportunityDetailSheet({
           project_status: "New Job",
           contact_id: oppData.contact_id || null,
           created_by: user?.id || null,
-          lead_source: contact?.source || null
+          lead_source: contact?.source || null,
+          company_id: companyId,
         });
 
       if (createError) {

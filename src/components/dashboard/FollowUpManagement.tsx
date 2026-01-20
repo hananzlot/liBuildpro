@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { stripHtml, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 interface DBOpportunity {
   id: string;
   ghl_id: string;
@@ -125,6 +126,7 @@ export function FollowUpManagement({
   const {
     user
   } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [staleNotesOpen, setStaleNotesOpen] = useState(false);
   const [noTasksOpen, setNoTasksOpen] = useState(false);
@@ -660,6 +662,7 @@ export function FollowUpManagement({
         new_value: newStatus,
         edited_by: user?.id || null,
         location_id: appointment?.location_id || null,
+        company_id: companyId,
       });
 
       toast.success(`Appointment marked as "${newStatus}"`);

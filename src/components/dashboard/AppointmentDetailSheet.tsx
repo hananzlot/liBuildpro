@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { stripHtml, getAddressFromContact, CUSTOM_FIELD_IDS as SHARED_CUSTOM_FIELD_IDS, extractCustomField as sharedExtractCustomField, findContactByIdOrGhlId } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 
 // Helper to get PST/PDT offset in hours
 const getPSTOffset = (utcDate: Date): number => {
@@ -190,6 +191,7 @@ export function AppointmentDetailSheet({
   onRefresh,
 }: AppointmentDetailSheetProps) {
   const { user } = useAuth();
+  const { companyId } = useCompanyContext();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [contactNotes, setContactNotes] = useState<ContactNote[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -356,6 +358,7 @@ export function AppointmentDetailSheet({
           new_value: String(newCompleted),
           edited_by: user?.id || null,
           location_id: appointment?.location_id || null,
+          company_id: companyId,
         });
 
         // Update GHL API
@@ -418,6 +421,7 @@ export function AppointmentDetailSheet({
         new_value: String(newValue),
         edited_by: user?.id || null,
         location_id: appointment.location_id,
+        company_id: companyId,
       });
 
       setSalespersonConfirmed(newValue);
