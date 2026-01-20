@@ -56,10 +56,10 @@ serve(async (req) => {
     for (const credentials of allCredentials) {
       console.log(`Fetching tasks for location: ${credentials.locationId}`);
       
-      // Fetch contacts for this location (excluding local-only contacts)
+      // Fetch contacts for this location (excluding local-only contacts) - include company_id
       const { data: contacts, error: contactsError } = await supabase
         .from('contacts')
-        .select('ghl_id')
+        .select('ghl_id, company_id')
         .eq('location_id', credentials.locationId)
         .not('ghl_id', 'like', 'local_%');
 
@@ -67,6 +67,14 @@ serve(async (req) => {
         console.error(`Failed to fetch contacts for location ${credentials.locationId}: ${contactsError.message}`);
         continue;
       }
+      
+      // Build a contact -> company_id map for later use
+      const contactCompanyMap = new Map<string, string>();
+      (contacts || []).forEach(c => {
+        if (c.company_id) {
+          contactCompanyMap.set(c.ghl_id, c.company_id);
+        }
+      });
 
       console.log(`Found ${contacts?.length || 0} contacts for location ${credentials.locationId}`);
 
@@ -92,7 +100,8 @@ serve(async (req) => {
               return tasks.map((t: any) => ({ 
                 ...t, 
                 contactId: contact.ghl_id,
-                locationId: credentials.locationId 
+                locationId: credentials.locationId,
+                companyId: contactCompanyMap.get(contact.ghl_id) || null
               }));
             }
             return [];
@@ -156,6 +165,7 @@ serve(async (req) => {
             entered_by: existing.entered_by, // Always preserve
             edited_by: existing.edited_by, // Always preserve
             edited_at: existing.edited_at, // Always preserve
+            company_id: existing.company_id ?? t.companyId, // Preserve or set from contact
             last_synced_at: new Date().toISOString(), // Always update sync timestamp
           };
         }
@@ -172,6 +182,7 @@ serve(async (req) => {
           assigned_to: t.assignedTo || null,
           due_date: t.dueDate || null,
           completed: t.completed || false,
+          company_id: t.companyId || null, // Always set company_id from contact
           last_synced_at: new Date().toISOString(),
         };
       });
