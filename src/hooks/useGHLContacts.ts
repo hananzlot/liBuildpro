@@ -206,11 +206,12 @@ export interface DBAppointmentEdit {
 // Location 2 ID - contacts from this location are imported to Location 1, so exclude from display
 const LOCATION_2_ID = "XYDIgpHivVWHii65sId5";
 
-// Generic paginated fetch for any table
+// Generic paginated fetch for any table with company filtering
 async function fetchAllFromTable(
   table: string, 
   orderBy: string,
-  excludeLocationId?: string
+  excludeLocationId?: string,
+  companyId?: string | null
 ): Promise<any[]> {
   const allItems: any[] = [];
   const pageSize = 1000;
@@ -222,6 +223,11 @@ async function fetchAllFromTable(
       .from(table as "contacts" | "opportunities" | "appointments")
       .select("*")
       .order(orderBy as any, { ascending: false });
+    
+    // Filter by company_id if provided
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
     
     // Exclude Location 2 records if specified
     if (excludeLocationId) {
@@ -244,119 +250,163 @@ async function fetchAllFromTable(
   return allItems;
 }
 
-async function fetchContactsFromDB(): Promise<DBContact[]> {
+async function fetchContactsFromDB(companyId?: string | null): Promise<DBContact[]> {
   // Exclude Location 2 contacts - they are imported to Location 1
-  return fetchAllFromTable("contacts", "ghl_date_added", LOCATION_2_ID) as Promise<DBContact[]>;
+  return fetchAllFromTable("contacts", "ghl_date_added", LOCATION_2_ID, companyId) as Promise<DBContact[]>;
 }
 
-async function fetchOpportunitiesFromDB(): Promise<DBOpportunity[]> {
+async function fetchOpportunitiesFromDB(companyId?: string | null): Promise<DBOpportunity[]> {
   // Exclude Location 2 opportunities - they are imported to Location 1  
-  return fetchAllFromTable("opportunities", "ghl_date_added", LOCATION_2_ID) as Promise<DBOpportunity[]>;
+  return fetchAllFromTable("opportunities", "ghl_date_added", LOCATION_2_ID, companyId) as Promise<DBOpportunity[]>;
 }
 
-async function fetchAppointmentsFromDB(): Promise<DBAppointment[]> {
+async function fetchAppointmentsFromDB(companyId?: string | null): Promise<DBAppointment[]> {
   // Exclude Location 2 appointments
-  return fetchAllFromTable("appointments", "start_time", LOCATION_2_ID) as Promise<DBAppointment[]>;
+  return fetchAllFromTable("appointments", "start_time", LOCATION_2_ID, companyId) as Promise<DBAppointment[]>;
 }
 
-async function fetchUsersFromDB(): Promise<DBUser[]> {
-  // Users from both locations are fine - no filtering needed
-  const { data, error } = await supabase.from("ghl_users").select("*");
+async function fetchUsersFromDB(companyId?: string | null): Promise<DBUser[]> {
+  // Users from both locations are fine - but filter by company
+  let query = supabase.from("ghl_users").select("*");
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchConversationsFromDB(): Promise<DBConversation[]> {
+async function fetchConversationsFromDB(companyId?: string | null): Promise<DBConversation[]> {
   // Exclude Location 2 conversations
-  const { data, error } = await supabase
+  let query = supabase
     .from("conversations")
     .select("*")
     .neq("location_id", LOCATION_2_ID)
     .order("last_message_date", { ascending: false });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchTasksFromDB(): Promise<DBTask[]> {
+async function fetchTasksFromDB(companyId?: string | null): Promise<DBTask[]> {
   // Exclude Location 2 tasks
-  const { data, error } = await supabase
+  let query = supabase
     .from("ghl_tasks")
     .select("*")
     .neq("location_id", LOCATION_2_ID)
     .order("due_date", { ascending: true });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchContactNotesFromDB(): Promise<DBContactNote[]> {
+async function fetchContactNotesFromDB(companyId?: string | null): Promise<DBContactNote[]> {
   // Exclude Location 2 notes
-  const { data, error } = await supabase
+  let query = supabase
     .from("contact_notes")
     .select("*")
     .neq("location_id", LOCATION_2_ID)
     .order("ghl_date_added", { ascending: false });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchCallLogsFromDB(): Promise<DBCallLog[]> {
+async function fetchCallLogsFromDB(companyId?: string | null): Promise<DBCallLog[]> {
   // Exclude Location 2 call logs
-  const { data, error } = await supabase
+  let query = supabase
     .from("call_logs")
     .select("*")
     .neq("location_id", LOCATION_2_ID)
     .order("call_date", { ascending: false });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchProfilesFromDB(): Promise<DBProfile[]> {
-  const { data, error } = await supabase.from("profiles").select("*");
+async function fetchProfilesFromDB(companyId?: string | null): Promise<DBProfile[]> {
+  let query = supabase.from("profiles").select("*");
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchOpportunityEditsFromDB(): Promise<DBOpportunityEdit[]> {
-  const { data, error } = await supabase
+async function fetchOpportunityEditsFromDB(companyId?: string | null): Promise<DBOpportunityEdit[]> {
+  let query = supabase
     .from("opportunity_edits")
     .select("*")
     .order("edited_at", { ascending: false });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchOpportunitySalesFromDB(): Promise<DBOpportunitySale[]> {
-  const { data, error } = await supabase
+async function fetchOpportunitySalesFromDB(companyId?: string | null): Promise<DBOpportunitySale[]> {
+  let query = supabase
     .from("opportunity_sales")
     .select("*")
     .order("sold_date", { ascending: false });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchTaskEditsFromDB(): Promise<DBTaskEdit[]> {
-  const { data, error } = await supabase
+async function fetchTaskEditsFromDB(companyId?: string | null): Promise<DBTaskEdit[]> {
+  let query = supabase
     .from("task_edits")
     .select("*")
     .order("edited_at", { ascending: false });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchNoteEditsFromDB(): Promise<DBNoteEdit[]> {
-  const { data, error } = await supabase
+async function fetchNoteEditsFromDB(companyId?: string | null): Promise<DBNoteEdit[]> {
+  let query = supabase
     .from("note_edits")
     .select("*")
     .order("edited_at", { ascending: false });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function fetchAppointmentEditsFromDB(): Promise<DBAppointmentEdit[]> {
-  const { data, error } = await supabase
+async function fetchAppointmentEditsFromDB(companyId?: string | null): Promise<DBAppointmentEdit[]> {
+  let query = supabase
     .from("appointment_edits")
     .select("*")
     .order("edited_at", { ascending: false });
+  if (companyId) {
+    query = query.eq("company_id", companyId);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -935,7 +985,7 @@ export function useContacts() {
 
   return useQuery({
     queryKey: ["contacts", companyId],
-    queryFn: fetchContactsFromDB,
+    queryFn: () => fetchContactsFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -947,7 +997,7 @@ export function useOpportunities() {
 
   return useQuery({
     queryKey: ["opportunities", companyId],
-    queryFn: fetchOpportunitiesFromDB,
+    queryFn: () => fetchOpportunitiesFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -959,7 +1009,7 @@ export function useAppointments() {
 
   return useQuery({
     queryKey: ["appointments", companyId],
-    queryFn: fetchAppointmentsFromDB,
+    queryFn: () => fetchAppointmentsFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -971,7 +1021,7 @@ export function useGHLUsers() {
 
   return useQuery({
     queryKey: ["ghl_users", companyId],
-    queryFn: fetchUsersFromDB,
+    queryFn: () => fetchUsersFromDB(companyId),
     staleTime: 5 * 60 * 1000,
     enabled: !!companyId,
   });
@@ -982,7 +1032,7 @@ export function useConversations() {
 
   return useQuery({
     queryKey: ["conversations", companyId],
-    queryFn: fetchConversationsFromDB,
+    queryFn: () => fetchConversationsFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -994,7 +1044,7 @@ export function useTasks() {
 
   return useQuery({
     queryKey: ["ghl_tasks", companyId],
-    queryFn: fetchTasksFromDB,
+    queryFn: () => fetchTasksFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -1006,7 +1056,7 @@ export function useContactNotes() {
 
   return useQuery({
     queryKey: ["contact_notes", companyId],
-    queryFn: fetchContactNotesFromDB,
+    queryFn: () => fetchContactNotesFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -1018,7 +1068,7 @@ export function useCallLogs() {
 
   return useQuery({
     queryKey: ["call_logs", companyId],
-    queryFn: fetchCallLogsFromDB,
+    queryFn: () => fetchCallLogsFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -1030,7 +1080,7 @@ export function useProfiles() {
 
   return useQuery({
     queryKey: ["profiles", companyId],
-    queryFn: fetchProfilesFromDB,
+    queryFn: () => fetchProfilesFromDB(companyId),
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
     enabled: !!companyId,
@@ -1042,7 +1092,7 @@ export function useOpportunityEdits() {
 
   return useQuery({
     queryKey: ["opportunity_edits", companyId],
-    queryFn: fetchOpportunityEditsFromDB,
+    queryFn: () => fetchOpportunityEditsFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -1054,7 +1104,7 @@ export function useOpportunitySales() {
 
   return useQuery({
     queryKey: ["opportunity_sales", companyId],
-    queryFn: fetchOpportunitySalesFromDB,
+    queryFn: () => fetchOpportunitySalesFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -1066,7 +1116,7 @@ export function useTaskEdits() {
 
   return useQuery({
     queryKey: ["task_edits", companyId],
-    queryFn: fetchTaskEditsFromDB,
+    queryFn: () => fetchTaskEditsFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -1078,7 +1128,7 @@ export function useNoteEdits() {
 
   return useQuery({
     queryKey: ["note_edits", companyId],
-    queryFn: fetchNoteEditsFromDB,
+    queryFn: () => fetchNoteEditsFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
@@ -1090,7 +1140,7 @@ export function useAppointmentEdits() {
 
   return useQuery({
     queryKey: ["appointment_edits", companyId],
-    queryFn: fetchAppointmentEditsFromDB,
+    queryFn: () => fetchAppointmentEditsFromDB(companyId),
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
     enabled: !!companyId,
