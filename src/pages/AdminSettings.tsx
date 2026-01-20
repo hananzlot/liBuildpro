@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -21,6 +21,7 @@ import { EmailTemplatesManager } from "@/components/admin/EmailTemplatesManager"
 import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement";
 import { ChatManagement } from "@/components/admin/ChatManagement";
 import { LogoUpload } from "@/components/admin/LogoUpload";
+import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { format } from "date-fns";
 import {
@@ -427,10 +428,14 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-9">
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              <span className="hidden sm:inline">GHL</span>
             </TabsTrigger>
             <TabsTrigger value="emails" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
@@ -632,6 +637,11 @@ export default function AdminSettings() {
                 </Card>
               </div>
             )}
+          </TabsContent>
+
+          {/* GHL Integrations Tab */}
+          <TabsContent value="integrations" className="mt-6">
+            <GHLIntegrationManager />
           </TabsContent>
 
           {/* Email Templates Tab */}
