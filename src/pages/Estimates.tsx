@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
@@ -224,6 +224,52 @@ export default function Estimates() {
     setBuilderOpen(true);
   };
 
+  // Copy portal link for a proposal
+  const handleCopyPortalLink = async (estimateId: string) => {
+    try {
+      // First check for multi-signer tokens (estimate_portal_tokens)
+      const { data: signerTokens } = await supabase
+        .from("estimate_portal_tokens")
+        .select("token, signer_id, estimate_signers(signer_name, signer_email)")
+        .eq("estimate_id", estimateId)
+        .eq("is_active", true);
+
+      if (signerTokens && signerTokens.length > 0) {
+        // Build links for all signers
+        const baseUrl = window.location.origin;
+        const links = signerTokens.map((t: any) => {
+          const signer = t.estimate_signers;
+          const name = signer?.signer_name || 'Unknown';
+          return `${name}: ${baseUrl}/portal?token=${t.token}`;
+        }).join('\n');
+        
+        await navigator.clipboard.writeText(links);
+        toast.success(`Copied ${signerTokens.length} portal link(s) to clipboard`);
+        return;
+      }
+
+      // Fallback to legacy single-signer token (client_portal_tokens)
+      const { data: legacyToken } = await supabase
+        .from("client_portal_tokens")
+        .select("token")
+        .eq("estimate_id", estimateId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (legacyToken) {
+        const portalLink = `${window.location.origin}/portal?token=${legacyToken.token}`;
+        await navigator.clipboard.writeText(portalLink);
+        toast.success("Portal link copied to clipboard");
+        return;
+      }
+
+      toast.error("No portal link found for this proposal");
+    } catch (error) {
+      console.error("Error copying portal link:", error);
+      toast.error("Failed to copy portal link");
+    }
+  };
+
   const renderEstimateTable = (estimateList: Estimate[], emptyMessage: string, emptyIcon: React.ReactNode, tableType: 'list' | 'proposals' | 'contracts' | 'declined' = 'list') => {
     if (isLoading) {
       return (
@@ -387,17 +433,27 @@ export default function Estimates() {
                         <Edit className="h-4 w-4" />
                       </Button>
                       {isProposalsTab ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setIsResendMode(true);
-                            setSendDialogEstimate(estimate);
-                          }}
-                          title="Resend Proposal"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCopyPortalLink(estimate.id)}
+                            title="Copy Portal Link"
+                          >
+                            <Link2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setIsResendMode(true);
+                              setSendDialogEstimate(estimate);
+                            }}
+                            title="Resend Proposal"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           variant="ghost"
