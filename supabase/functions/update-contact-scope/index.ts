@@ -75,7 +75,16 @@ serve(async (req) => {
 
     // Get field mappings from database using location_id
     const fieldMappings = await getGHLFieldMappings(supabase, { locationId: contact.location_id });
-    const SCOPE_OF_WORK_FIELD_ID = fieldMappings.scope_of_work || "KwQRtJT0aMSHnq3mwR68";
+    const SCOPE_OF_WORK_FIELD_ID = fieldMappings.scope_of_work;
+    
+    // If no scope_of_work field mapping is configured for this integration, skip GHL sync
+    if (!SCOPE_OF_WORK_FIELD_ID) {
+      console.log("No scope_of_work field mapping configured for this integration - skipping update");
+      return new Response(
+        JSON.stringify({ success: true, message: "No field mapping configured" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Extract old scope from custom_fields
     let oldScope = "";
