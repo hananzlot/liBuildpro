@@ -16,8 +16,8 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    if (!GHL_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error('Missing required environment variables');
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Missing Supabase environment variables');
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -68,6 +68,12 @@ serve(async (req) => {
 
     console.log(`Found Lost/DNC stage IDs for ${Object.keys(pipelineLostDncMap).length} pipelines:`, pipelineLostDncMap);
 
+    // Check if GHL API is available
+    const ghlEnabled = !!GHL_API_KEY;
+    if (!ghlEnabled) {
+      console.log('GHL API key not configured - performing local-only stage updates');
+    }
+
     let updatedCount = 0;
     let skippedCount = 0;
     const errors: string[] = [];
@@ -85,24 +91,25 @@ serve(async (req) => {
 
         console.log(`Updating opportunity ${opp.ghl_id} (${opp.name}) from stage "${opp.stage_name}" to "Lost/DNC" (stage ID: ${lostDncStageId})`);
 
-        // Update in GHL
-        const ghlResponse = await fetch(`https://services.leadconnectorhq.com/opportunities/${opp.ghl_id}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${GHL_API_KEY}`,
-            'Content-Type': 'application/json',
-            'Version': '2021-07-28',
-          },
-          body: JSON.stringify({
-            pipelineStageId: lostDncStageId,
-          }),
-        });
+        // Update in GHL only if API key is configured and not a local-only opportunity
+        if (ghlEnabled && opp.ghl_id && !opp.ghl_id.startsWith('local_')) {
+          const ghlResponse = await fetch(`https://services.leadconnectorhq.com/opportunities/${opp.ghl_id}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${GHL_API_KEY}`,
+              'Content-Type': 'application/json',
+              'Version': '2021-07-28',
+            },
+            body: JSON.stringify({
+              pipelineStageId: lostDncStageId,
+            }),
+          });
 
-        if (!ghlResponse.ok) {
-          const errorText = await ghlResponse.text();
-          console.error(`GHL update failed for ${opp.ghl_id}: ${errorText}`);
-          errors.push(`${opp.name}: GHL error - ${errorText}`);
-          continue;
+          if (!ghlResponse.ok) {
+            const errorText = await ghlResponse.text();
+            console.error(`GHL update failed for ${opp.ghl_id}: ${errorText}`);
+            // Continue with local update even if GHL fails
+          }
         }
 
         // Update in Supabase
@@ -140,6 +147,7 @@ serve(async (req) => {
       updated: updatedCount,
       skipped: skippedCount,
       total: opportunities.length,
+      ghlSyncEnabled: ghlEnabled,
       errors: errors.length > 0 ? errors : undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
