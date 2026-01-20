@@ -41,16 +41,13 @@ export default function ClientPortal() {
     enabled: !!estimateToken,
   });
 
-  // Handle legacy client portal token
+  // Handle legacy client portal token using secure RPC function
   const { data: tokenData, isLoading: isLoadingToken, error: tokenError } = useQuery({
     queryKey: ['portal-token-type', token],
     queryFn: async () => {
       if (!token) return null;
       const { data, error } = await supabase
-        .from('client_portal_tokens')
-        .select('project_id, estimate_id')
-        .eq('token', token)
-        .eq('is_active', true)
+        .rpc('validate_portal_token', { p_token: token })
         .maybeSingle();
       if (error) throw error;
       return data;
