@@ -13,21 +13,39 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-// Helper to get the correct GHL API key based on location_id
-// Returns null if GHL credentials are not configured (local-only mode)
-function getGHLApiKey(locationId: string): string | null {
-  const location1Id = Deno.env.get('GHL_LOCATION_ID');
-  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
-  
-  if (locationId === location2Id) {
-    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
-    if (apiKey2) return apiKey2;
+// Helper to get GHL API key from database - throws error if not configured for GHL sync
+async function getGHLApiKey(supabase: any, locationId: string): Promise<string> {
+  if (!locationId) {
+    throw new Error("Location ID is required for GHL sync");
   }
-  
-  // Default to primary API key
-  const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) return null; // Return null for local-only mode
-  return apiKey1;
+
+  const { data: integration, error } = await supabase
+    .from("company_integrations")
+    .select("id, api_key_vault_id")
+    .eq("provider", "ghl")
+    .eq("location_id", locationId)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !integration || !integration.api_key_vault_id) {
+    throw new Error(
+      `GHL integration not configured for location ${locationId}. ` +
+      `Please add the integration in Admin Settings → GHL tab.`
+    );
+  }
+
+  const { data: apiKey, error: vaultError } = await supabase.rpc(
+    "get_ghl_api_key",
+    { secret_id: integration.api_key_vault_id }
+  );
+
+  if (vaultError || !apiKey) {
+    throw new Error(
+      `Failed to retrieve GHL API key for location ${locationId}: ${vaultError?.message || "Key not found"}`
+    );
+  }
+
+  return apiKey;
 }
 
 serve(async (req) => {
@@ -80,7 +98,7 @@ serve(async (req) => {
         .eq('ghl_id', contactId)
         .single();
       
-      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID');
+      effectiveLocationId = contactData?.location_id;
     }
 
     // Calculate end time if not provided (default 1 hour)
@@ -126,7 +144,7 @@ serve(async (req) => {
     }
 
     // --- Full GHL sync path ---
-    const GHL_API_KEY = getGHLApiKey(effectiveLocationId);
+    const GHL_API_KEY = await getGHLApiKey(supabase, effectiveLocationId);
 
     console.log(`Creating appointment for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
 

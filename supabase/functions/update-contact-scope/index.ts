@@ -8,14 +8,34 @@ const corsHeaders = {
 
 const SCOPE_OF_WORK_FIELD_ID = "KwQRtJT0aMSHnq3mwR68";
 
-// Helper to get GHL API key - returns null if not configured (graceful degradation)
-function getGHLApiKey(locationId: string | null): string | null {
-  const locationId2 = Deno.env.get("GHL_LOCATION_ID_2");
-  
-  if (locationId === locationId2) {
-    return Deno.env.get("GHL_API_KEY_2") || null;
+// Helper to get GHL API key from database - returns null if not configured
+async function getGHLApiKey(supabase: any, locationId: string | null): Promise<string | null> {
+  if (!locationId || locationId === 'local') {
+    return null;
   }
-  return Deno.env.get("GHL_API_KEY") || null;
+
+  const { data: integration, error } = await supabase
+    .from("company_integrations")
+    .select("id, api_key_vault_id")
+    .eq("provider", "ghl")
+    .eq("location_id", locationId)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !integration || !integration.api_key_vault_id) {
+    return null;
+  }
+
+  const { data: apiKey, error: vaultError } = await supabase.rpc(
+    "get_ghl_api_key",
+    { secret_id: integration.api_key_vault_id }
+  );
+
+  if (vaultError || !apiKey) {
+    return null;
+  }
+
+  return apiKey;
 }
 
 serve(async (req) => {
@@ -63,7 +83,7 @@ serve(async (req) => {
     const newScope = scopeOfWork || "";
 
     // Get API key - may be null if GHL is not configured
-    const apiKey = getGHLApiKey(contact.location_id);
+    const apiKey = await getGHLApiKey(supabase, contact.location_id);
 
     // Only call GHL API if credentials are configured AND contact is not local-only
     if (apiKey && !contactId.startsWith("local_")) {

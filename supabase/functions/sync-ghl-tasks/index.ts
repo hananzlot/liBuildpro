@@ -6,21 +6,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper to get the correct GHL API key based on location_id
-// Returns null if GHL credentials are not configured (local-only mode)
-function getGHLApiKey(locationId: string): string | null {
-  const location1Id = Deno.env.get('GHL_LOCATION_ID');
-  const location2Id = Deno.env.get('GHL_LOCATION_ID_2');
-  
-  if (locationId === location2Id) {
-    const apiKey2 = Deno.env.get('GHL_API_KEY_2');
-    if (apiKey2) return apiKey2;
+// Helper to get GHL API key from database - returns null if not configured
+async function getGHLApiKey(supabase: any, locationId: string): Promise<string | null> {
+  if (!locationId || locationId === 'local') {
+    return null;
   }
-  
-  // Default to primary API key
-  const apiKey1 = Deno.env.get('GHL_API_KEY');
-  if (!apiKey1) return null; // Return null for local-only mode
-  return apiKey1;
+
+  const { data: integration, error } = await supabase
+    .from("company_integrations")
+    .select("id, api_key_vault_id")
+    .eq("provider", "ghl")
+    .eq("location_id", locationId)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !integration || !integration.api_key_vault_id) {
+    console.error(`GHL integration not configured for location ${locationId}`);
+    return null;
+  }
+
+  const { data: apiKey, error: vaultError } = await supabase.rpc(
+    "get_ghl_api_key",
+    { secret_id: integration.api_key_vault_id }
+  );
+
+  if (vaultError || !apiKey) {
+    console.error(`Failed to retrieve GHL API key: ${vaultError?.message}`);
+    return null;
+  }
+
+  return apiKey;
 }
 
 // Fetch with retry and exponential backoff for rate limiting
@@ -90,10 +105,10 @@ serve(async (req) => {
         .eq('ghl_id', contact_id)
         .single();
       
-      effectiveLocationId = contactData?.location_id || Deno.env.get('GHL_LOCATION_ID') || 'local';
+      effectiveLocationId = contactData?.location_id || 'local';
     }
 
-    const ghlApiKey = getGHLApiKey(effectiveLocationId);
+    const ghlApiKey = await getGHLApiKey(supabase, effectiveLocationId);
 
     // If no GHL credentials, return cached tasks from Supabase only
     if (!ghlApiKey) {

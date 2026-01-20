@@ -1401,117 +1401,12 @@ serve(async (req) => {
       });
     }
 
-    // LEGACY FALLBACK: Use environment variables if no database integrations
-    console.log('No database integrations found, falling back to environment variables...');
-    
-    // Get credentials for Location 1 (primary)
-    const ghlApiKey1 = Deno.env.get('GHL_API_KEY');
-    const locationId1 = Deno.env.get('GHL_LOCATION_ID');
-    
-    // Get credentials for Location 2 (secondary)
-    const ghlApiKey2 = Deno.env.get('GHL_API_KEY_2');
-    const locationId2 = Deno.env.get('GHL_LOCATION_ID_2');
-
-    // Check if GHL credentials are available - if not, return early with success (local-only mode)
-    if (!ghlApiKey1 || !locationId1) {
-      console.log('GHL credentials not configured - running in local-only mode');
-      return new Response(JSON.stringify({
-        success: true,
-        message: 'GHL sync skipped - no GHL credentials configured (local-only mode)',
-        meta: {
-          contacts: 0,
-          opportunities: 0,
-          appointments: 0,
-          tasks: 0,
-          conversations: 0,
-          localOnlyMode: true,
-        },
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('Starting legacy multi-location GHL sync...');
-    
-    // Sync Location 1 (with null companyId for legacy mode)
-    const location1Results = await syncLocationData(supabase, ghlApiKey1, locationId1, 'Location 1 (Primary)', null);
-    
-    // Cleanup stale records for Location 1
-    const staleDeleted1 = await cleanupStaleRecords(supabase, locationId1, null, {
-      contacts: location1Results.contacts,
-      opportunities: location1Results.opportunities,
-      appointments: location1Results.appointments,
-      tasks: location1Results.tasks,
-      conversations: location1Results.conversations,
-    });
-
-    // Sync Location 2 if credentials are available
-    let location2Results = {
-      contacts: 0,
-      opportunities: 0,
-      appointments: 0,
-      users: 0,
-      pipelines: 0,
-      conversations: 0,
-      tasks: 0,
-      callLogs: 0,
-    };
-    let staleDeleted2 = 0;
-
-    if (ghlApiKey2 && locationId2) {
-      console.log('\nLocation 2 credentials found, syncing...');
-      location2Results = await syncLocationData(supabase, ghlApiKey2, locationId2, 'Location 2 (Secondary)', null);
-      
-      staleDeleted2 = await cleanupStaleRecords(supabase, locationId2, null, {
-        contacts: location2Results.contacts,
-        opportunities: location2Results.opportunities,
-        appointments: location2Results.appointments,
-        tasks: location2Results.tasks,
-        conversations: location2Results.conversations,
-      });
-    } else {
-      console.log('\nNo Location 2 credentials found, skipping secondary sync.');
-    }
-
-    // Run UUID backfill after all syncs complete
-    console.log('Running UUID relationship backfill...');
-    const { error: backfillError } = await supabase.rpc('backfill_contact_uuids');
-    if (backfillError) {
-      console.error('UUID backfill error:', backfillError);
-    } else {
-      console.log('UUID backfill completed successfully');
-    }
-
-    console.log('\n========== Full multi-location sync complete! ==========');
-
-    return new Response(JSON.stringify({
-      mode: 'legacy',
-      meta: {
-        location1: {
-          locationId: locationId1,
-          ...location1Results,
-          staleRecordsDeleted: staleDeleted1,
-        },
-        location2: ghlApiKey2 && locationId2 ? {
-          locationId: locationId2,
-          ...location2Results,
-          staleRecordsDeleted: staleDeleted2,
-        } : null,
-        totals: {
-          contacts: location1Results.contacts + location2Results.contacts,
-          opportunities: location1Results.opportunities + location2Results.opportunities,
-          appointments: location1Results.appointments + location2Results.appointments,
-          users: location1Results.users + location2Results.users,
-          pipelines: location1Results.pipelines + location2Results.pipelines,
-          conversations: location1Results.conversations + location2Results.conversations,
-          tasks: location1Results.tasks + location2Results.tasks,
-          callLogs: location1Results.callLogs + location2Results.callLogs,
-          staleRecordsDeleted: staleDeleted1 + staleDeleted2,
-        }
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // NO LEGACY FALLBACK - GHL integrations must be configured in the database
+    throw new Error(
+      'No GHL integrations configured. ' +
+      'Please add GHL integrations in Admin Settings → GHL tab. ' +
+      'Environment variable fallback has been removed.'
+    );
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error in GHL sync:', errorMessage);
