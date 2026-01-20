@@ -247,7 +247,7 @@ export default function Estimates() {
         return;
       }
 
-      // Fallback to legacy single-signer token (client_portal_tokens)
+      // Check for legacy single-signer token linked to this estimate
       const { data: legacyToken } = await supabase
         .from("client_portal_tokens")
         .select("token")
@@ -263,6 +263,32 @@ export default function Estimates() {
         // Open in new tab
         window.open(portalLink, '_blank');
         return;
+      }
+
+      // Fallback: Check for project-based portal token (when estimate shares a project with another estimate)
+      const { data: estimate } = await supabase
+        .from("estimates")
+        .select("project_id")
+        .eq("id", estimateId)
+        .single();
+
+      if (estimate?.project_id) {
+        const { data: projectToken } = await supabase
+          .from("client_portal_tokens")
+          .select("token")
+          .eq("project_id", estimate.project_id)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (projectToken) {
+          const portalLink = `${window.location.origin}/portal?token=${projectToken.token}`;
+          await navigator.clipboard.writeText(portalLink);
+          toast.success("Portal link copied to clipboard (via project)");
+          
+          // Open in new tab
+          window.open(portalLink, '_blank');
+          return;
+        }
       }
 
       toast.error("No portal link found for this proposal");
