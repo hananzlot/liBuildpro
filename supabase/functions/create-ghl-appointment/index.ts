@@ -21,13 +21,13 @@ async function getGHLApiKey(supabase: any, locationId: string): Promise<string> 
 
   const { data: integration, error } = await supabase
     .from("company_integrations")
-    .select("id, api_key_vault_id")
+    .select("id, api_key_encrypted")
     .eq("provider", "ghl")
     .eq("location_id", locationId)
     .eq("is_active", true)
     .single();
 
-  if (error || !integration || !integration.api_key_vault_id) {
+  if (error || !integration || !integration.api_key_encrypted) {
     throw new Error(
       `GHL integration not configured for location ${locationId}. ` +
       `Please add the integration in Admin Settings → GHL tab.`
@@ -35,8 +35,8 @@ async function getGHLApiKey(supabase: any, locationId: string): Promise<string> 
   }
 
   const { data: apiKey, error: vaultError } = await supabase.rpc(
-    "get_ghl_api_key",
-    { secret_id: integration.api_key_vault_id }
+    "get_ghl_api_key_encrypted",
+    { p_integration_id: integration.id }
   );
 
   if (vaultError || !apiKey) {
