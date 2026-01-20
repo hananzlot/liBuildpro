@@ -50,6 +50,38 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${openOpps.length} open opportunities with contacts`);
 
+    // Get unique company IDs to fetch settings
+    const companyIds = [...new Set(openOpps.map(o => o.company_id).filter(Boolean))] as string[];
+    
+    // Fetch AI analysis settings for each company
+    const aiSettingsByCompany: Record<string, { positiveSignals: string; negativeSignals: string; criticalRules: string }> = {};
+    
+    for (const cid of companyIds) {
+      const { data: settings } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', cid)
+        .in('setting_key', [
+          'ai_never_answers_positive_signals',
+          'ai_never_answers_negative_signals',
+          'ai_never_answers_critical_rules'
+        ]);
+      
+      if (settings && settings.length > 0) {
+        const positive = settings.find(s => s.setting_key === 'ai_never_answers_positive_signals');
+        const negative = settings.find(s => s.setting_key === 'ai_never_answers_negative_signals');
+        const rules = settings.find(s => s.setting_key === 'ai_never_answers_critical_rules');
+        
+        aiSettingsByCompany[cid] = {
+          positiveSignals: positive?.setting_value || '',
+          negativeSignals: negative?.setting_value || '',
+          criticalRules: rules?.setting_value || '',
+        };
+      }
+    }
+    
+    console.log(`Loaded AI settings for ${Object.keys(aiSettingsByCompany).length} companies`);
+
     // Get all unique contact IDs
     const contactIds = [...new Set(openOpps.map(o => o.contact_id).filter(Boolean))] as string[];
     console.log(`Unique contacts: ${contactIds.length}`);
@@ -192,6 +224,24 @@ Deno.serve(async (req) => {
     const today = new Date().toISOString().split('T')[0];
     
     for (const opp of opportunitiesToProcess) {
+      // Get company-specific AI settings or use defaults
+      const companySettings = opp.company_id ? aiSettingsByCompany[opp.company_id] : null;
+      
+      const positiveSignals = companySettings?.positiveSignals || `- Scope of work being discussed or documented
+- Price/estimate mentioned
+- Customer providing information (emails, sketches, details)
+- Any meeting or appointment that happened successfully
+- Customer replying or responding in any way
+- Salesperson getting project details`;
+
+      const negativeSignals = companySettings?.negativeSignals || `- Multiple consecutive failed contact attempts with no successful contact after
+- "No answer", "voicemail", "didn't pick up" as the latest activity
+- "Left message", "no response", "no callback" with no follow-up success`;
+
+      const criticalRules = companySettings?.criticalRules || `1. RECENCY IS PARAMOUNT - The most recent notes (especially from today or last 2-3 days) COMPLETELY OVERRIDE older notes
+2. If there are ANY recent notes showing positive engagement (scope of work, estimates, pricing, scheduling, customer responding), this is NOT a "Never Answers" case
+3. Only mark as "Never Answers" if the MOST RECENT activity still shows no contact`;
+
       // Format notes with dates for recency awareness, most recent first
       const notesWithDates = opp.notes.map((n: any) => {
         const noteDate = n.ghl_date_added ? new Date(n.ghl_date_added).toISOString().split('T')[0] : 'unknown';
@@ -203,22 +253,13 @@ Deno.serve(async (req) => {
       const prompt = `Analyze the following notes and tasks for a sales opportunity. Today's date is ${today}.
 
 CRITICAL RULES:
-1. RECENCY IS PARAMOUNT - The most recent notes (especially from today or last 2-3 days) COMPLETELY OVERRIDE older notes
-2. If there are ANY recent notes showing positive engagement (scope of work, estimates, pricing, scheduling, customer responding), this is NOT a "Never Answers" case
-3. Only mark as "Never Answers" if the MOST RECENT activity still shows no contact
+${criticalRules}
 
 POSITIVE ENGAGEMENT SIGNALS (these mean customer IS reachable - DO NOT mark as Never Answers):
-- Scope of work being discussed or documented
-- Price/estimate mentioned
-- Customer providing information (emails, sketches, details)
-- Any meeting or appointment that happened successfully
-- Customer replying or responding in any way
-- Salesperson getting project details
+${positiveSignals}
 
 NEGATIVE SIGNALS (only counts if these are the MOST RECENT notes):
-- Multiple consecutive failed contact attempts with no successful contact after
-- "No answer", "voicemail", "didn't pick up" as the latest activity
-- "Left message", "no response", "no callback" with no follow-up success
+${negativeSignals}
 
 NOTES (ordered from most recent to oldest):
 ${notesWithDates || 'No notes available'}
