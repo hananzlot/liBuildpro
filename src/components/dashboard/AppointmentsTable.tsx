@@ -337,7 +337,7 @@ export function AppointmentsTable({
     const bySource: Record<string, { count: number; value: number }> = {};
     const byStatus: Record<string, { total: number; uniqueContacts: Set<string> }> = {};
     const byOppStatus: Record<string, { count: number; value: number }> = {};
-    const byRep: Record<string, { id: string; name: string; count: number; value: number; countedContacts: Set<string> }> = {};
+    const byRep: Record<string, { id: string; name: string; count: number; value: number; wonValue: number; countedContacts: Set<string> }> = {};
     const wonBySource: Record<string, { count: number; value: number }> = {};
     let totalValue = 0;
     const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
@@ -357,7 +357,7 @@ export function AppointmentsTable({
       const repId = a.assigned_user_id || 'unassigned';
       const repName = getUserName(a.assigned_user_id);
       if (!byRep[repId]) {
-        byRep[repId] = { id: repId, name: repName, count: 0, value: 0, countedContacts: new Set() };
+        byRep[repId] = { id: repId, name: repName, count: 0, value: 0, wonValue: 0, countedContacts: new Set() };
       }
       byRep[repId].count += 1;
       
@@ -365,7 +365,12 @@ export function AppointmentsTable({
       if (a.contact_id && !byRep[repId].countedContacts.has(a.contact_id)) {
         byRep[repId].countedContacts.add(a.contact_id);
         const oppValueForRep = getOpportunityValue(a.contact_id) || 0;
+        const oppStatusForRep = getOpportunityStatus(a.contact_id);
         byRep[repId].value += oppValueForRep;
+        // Track won value per rep
+        if (oppStatusForRep.toLowerCase() === 'won') {
+          byRep[repId].wonValue += oppValueForRep;
+        }
       }
       
       // Only count opportunity value once per contact
@@ -401,19 +406,49 @@ export function AppointmentsTable({
       }
     });
 
+    // Sort byStatus: red statuses (cancelled, no_show) at end
+    const redStatuses = ['cancelled', 'no_show', 'noshow'];
+    const sortedByStatus = Object.entries(byStatus)
+      .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
+      .sort((a, b) => {
+        const aIsRed = redStatuses.includes(a[0].toLowerCase());
+        const bIsRed = redStatuses.includes(b[0].toLowerCase());
+        if (aIsRed && !bIsRed) return 1;
+        if (!aIsRed && bIsRed) return -1;
+        return b[1].total - a[1].total;
+      });
+
+    // Sort byOppStatus: red statuses (lost, abandoned) at end
+    const redOppStatuses = ['lost', 'abandoned'];
+    const sortedByOppStatus = Object.entries(byOppStatus).sort((a, b) => {
+      const aIsRed = redOppStatuses.includes(a[0].toLowerCase());
+      const bIsRed = redOppStatuses.includes(b[0].toLowerCase());
+      if (aIsRed && !bIsRed) return 1;
+      if (!aIsRed && bIsRed) return -1;
+      return b[1].value - a[1].value;
+    });
+
+    // Sort byRep: reps with wins first, then by value
+    const sortedByRep = Object.values(byRep)
+      .map(data => ({ id: data.id, name: data.name, count: data.count, value: data.value, wonValue: data.wonValue }))
+      .sort((a, b) => {
+        // Reps with wins first
+        if (a.wonValue > 0 && b.wonValue === 0) return -1;
+        if (a.wonValue === 0 && b.wonValue > 0) return 1;
+        // Then by won value, then by total value
+        if (a.wonValue !== b.wonValue) return b.wonValue - a.wonValue;
+        return b.value - a.value;
+      });
+
     return {
       total: filteredAppointments.length,
       uniqueContacts: countedContactIds.size,
       totalValue,
       bySource: Object.entries(bySource).sort((a, b) => b[1].value - a[1].value),
-      byStatus: Object.entries(byStatus)
-        .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
-        .sort((a, b) => b[1].total - a[1].total),
-      byOppStatus: Object.entries(byOppStatus).sort((a, b) => b[1].value - a[1].value),
+      byStatus: sortedByStatus,
+      byOppStatus: sortedByOppStatus,
       wonBySource: Object.entries(wonBySource).sort((a, b) => b[1].value - a[1].value),
-      byRep: Object.values(byRep)
-        .map(data => ({ id: data.id, name: data.name, count: data.count, value: data.value }))
-        .sort((a, b) => b.value - a.value),
+      byRep: sortedByRep,
     };
   }, [filteredAppointments, contacts, opportunities, users]);
 
@@ -732,7 +767,10 @@ export function AppointmentsTable({
                       setCurrentPage(1);
                     }}
                   >
-                    {rep.name}: {rep.count} ({formatCurrency(rep.value)})
+                    {rep.name}: {rep.count} ({formatCurrency(rep.value)}
+                    {rep.wonValue > 0 && (
+                      <span className="text-emerald-400 ml-1">/ {formatCurrency(rep.wonValue)} won</span>
+                    )})
                   </Badge>
                 ))}
               </div>
