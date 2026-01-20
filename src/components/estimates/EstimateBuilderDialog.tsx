@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +103,7 @@ const generateId = () => crypto.randomUUID();
 
 export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess }: EstimateBuilderDialogProps) {
   const { user } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   
   // Handle clone mode (creating new estimate from declined one)
@@ -636,6 +638,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_scope_to_customer: formData.show_scope_to_customer,
         show_line_items_to_customer: formData.show_line_items_to_customer,
         salesperson_name: formData.salesperson_name || null,
+        company_id: companyId,
       };
       
       // Only set status for new estimates (not when editing)
@@ -676,6 +679,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             group_name: group.group_name,
             description: group.description || null,
             sort_order: group.sort_order,
+            company_id: companyId,
           })
           .select()
           .single();
@@ -696,6 +700,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             line_total: item.line_total,
             is_taxable: item.is_taxable,
             sort_order: item.sort_order,
+            company_id: companyId,
           }));
           
           const { error: itemsError } = await supabase
@@ -716,6 +721,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           due_date: phase.due_date || null,
           description: phase.description || null,
           sort_order: phase.sort_order,
+          company_id: companyId,
         }));
         
         const { error: scheduleError } = await supabase
@@ -779,6 +785,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_scope_to_customer: formData.show_scope_to_customer,
         show_line_items_to_customer: formData.show_line_items_to_customer,
         salesperson_name: formData.salesperson_name || null,
+        company_id: companyId,
       };
 
       // Create new estimate
@@ -799,6 +806,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             group_name: group.group_name,
             description: group.description || null,
             sort_order: group.sort_order,
+            company_id: companyId,
           })
           .select()
           .single();
@@ -819,6 +827,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             line_total: item.line_total,
             is_taxable: item.is_taxable,
             sort_order: item.sort_order,
+            company_id: companyId,
           }));
           
           const { error: itemsError } = await supabase
@@ -839,6 +848,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           due_date: phase.due_date || null,
           description: phase.description || null,
           sort_order: phase.sort_order,
+          company_id: companyId,
         }));
         
         const { error: scheduleError } = await supabase

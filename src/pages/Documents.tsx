@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,7 @@ const SIGNER_COLORS = [
 
 export default function Documents() {
   const { isAdmin, user } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -186,6 +188,7 @@ export default function Documents() {
           recipient_email: signers[0]?.email || "pending@setup.com",
           notes: notes || null,
           created_by: user?.id,
+          company_id: companyId,
         })
         .select()
         .single();
@@ -237,6 +240,7 @@ export default function Documents() {
         signer_name: s.name,
         signer_email: s.email,
         signer_order: idx + 1,
+        company_id: companyId,
       }));
 
       const { error } = await supabase

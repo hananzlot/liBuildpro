@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,6 +83,7 @@ export function SignatureTemplateDialog({
   onApplyTemplate,
 }: SignatureTemplateDialogProps) {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [activeTab, setActiveTab] = useState("load");
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
@@ -126,6 +128,7 @@ export function SignatureTemplateDialog({
           name: templateName.trim(),
           description: templateDescription.trim() || null,
           created_by: user.id,
+          company_id: companyId,
         })
         .select()
         .single();
@@ -147,6 +150,7 @@ export function SignatureTemplateDialog({
         field_type: field.fieldType,
         is_required: field.isRequired,
         field_label: field.fieldLabel || null,
+        company_id: companyId,
       }));
 
       const { error: itemsError } = await supabase

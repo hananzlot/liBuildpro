@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,6 +94,7 @@ const isImageFile = (fileType: string | null, fileName: string): boolean => {
 
 export function DocumentsSection({ projectId }: DocumentsSectionProps) {
   const { user, isAdmin } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -210,6 +212,7 @@ export function DocumentsSection({ projectId }: DocumentsSectionProps) {
           category: uploadForm.category,
           notes: uploadForm.notes || null,
           uploaded_by: user?.id || null,
+          company_id: companyId,
         });
 
       if (insertError) throw insertError;
