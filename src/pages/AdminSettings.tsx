@@ -135,25 +135,46 @@ export default function AdminSettings() {
   const { data: settings, isLoading } = useQuery({
     queryKey: ["company-settings", companyId],
     queryFn: async () => {
-      // First try company_settings, then fall back to app_settings
-      const { data: companyData, error: companyError } = await supabase
+      // Fetch from company_settings for the current company
+      const { data: companyData } = await supabase
         .from("company_settings")
         .select("*")
         .eq("company_id", companyId)
         .order("setting_key");
 
-      if (!companyError && companyData && companyData.length > 0) {
-        return companyData as AppSetting[];
-      }
-
-      // Fall back to app_settings for backward compatibility
-      const { data, error } = await supabase
+      // Fetch from app_settings for backward compatibility
+      const { data: appData, error: appError } = await supabase
         .from("app_settings")
         .select("*")
         .order("setting_key");
 
-      if (error) throw error;
-      return data as AppSetting[];
+      if (appError) throw appError;
+
+      // Merge: company_settings override app_settings
+      const companySettingsMap = new Map<string, AppSetting>();
+      (companyData || []).forEach((s: AppSetting) => {
+        companySettingsMap.set(s.setting_key, s);
+      });
+
+      // Start with app_settings, override with company_settings
+      const mergedSettings: AppSetting[] = (appData || []).map((appSetting: AppSetting) => {
+        const companySetting = companySettingsMap.get(appSetting.setting_key);
+        if (companySetting) {
+          companySettingsMap.delete(appSetting.setting_key); // Mark as processed
+          return companySetting;
+        }
+        return appSetting;
+      });
+
+      // Add any company_settings that don't exist in app_settings
+      companySettingsMap.forEach((s) => {
+        // Skip internal settings like encryption_key
+        if (!['encryption_key'].includes(s.setting_key)) {
+          mergedSettings.push(s);
+        }
+      });
+
+      return mergedSettings;
     },
     enabled: isAdmin && !!companyId,
   });
@@ -636,26 +657,6 @@ export default function AdminSettings() {
                   </CardContent>
                 </Card>
 
-                <Separator />
-
-                <Card className="border-dashed">
-                  <CardHeader>
-                    <CardTitle className="text-muted-foreground">API Keys</CardTitle>
-                    <CardDescription>
-                      API keys are stored securely as Supabase secrets and cannot be viewed or edited here.
-                      To update the Resend API key, contact your administrator or update it directly in the{" "}
-                      <a
-                        href="https://supabase.com/dashboard/project/mspujwrfhbobrxhofxzv/settings/functions"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline"
-                      >
-                        Supabase dashboard
-                      </a>
-                      .
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
               </div>
             )}
           </TabsContent>
