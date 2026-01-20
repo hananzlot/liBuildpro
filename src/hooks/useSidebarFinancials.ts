@@ -61,14 +61,16 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
   const focusDateStr = focusDate.toISOString().split('T')[0];
 
   // Fetch ALL unpaid AR (total open balance across all invoices)
-  // RLS filters by company_id automatically
+  // Filter explicitly by company_id for tenant isolation
   const { data: arData, isLoading: arLoading } = useQuery({
     queryKey: ["sidebar-ar-total", companyId],
     queryFn: async () => {
-      // Get ALL invoices with open balance (no date filter)
+      if (!companyId) return 0;
+      // Get ALL invoices with open balance for this company
       const { data: invoices, error } = await supabase
         .from("project_invoices")
         .select("id, open_balance")
+        .eq("company_id", companyId)
         .gt("open_balance", 0);
 
       if (error) {
@@ -83,15 +85,16 @@ export function useSidebarFinancials(): SidebarFinancials & { formatCompactCurre
   });
 
   // Fetch AP (bills with scheduled payments) due by focus day
-  // RLS filters by company_id automatically
+  // Filter explicitly by company_id for tenant isolation
   const { data: apData, isLoading: apLoading } = useQuery({
     queryKey: ["sidebar-ap-due", companyId, focusDateStr],
     queryFn: async () => {
-      // Get bills with scheduled_payment_date by focus day
-      // Use scheduled_payment_amount if set, otherwise fall back to balance
+      if (!companyId) return 0;
+      // Get bills with scheduled_payment_date by focus day for this company
       const { data: bills, error } = await supabase
         .from("project_bills")
         .select("id, balance, scheduled_payment_date, scheduled_payment_amount")
+        .eq("company_id", companyId)
         .gt("balance", 0)
         .eq("is_voided", false)
         .lte("scheduled_payment_date", focusDateStr);
