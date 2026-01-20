@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { DuplicateOpportunitiesCleanup } from "./DuplicateOpportunitiesCleanup";
+import { findContactByIdOrGhlId } from "@/lib/utils";
 
 interface Opportunity {
   id: string;
@@ -38,6 +39,7 @@ interface Opportunity {
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -130,7 +132,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
 
   const getContactName = (contactId: string | null) => {
     if (!contactId) return 'Unknown';
-    const contact = contacts.find(c => c.ghl_id === contactId);
+    const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
     if (!contact) return 'Unknown';
     return contact.contact_name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Unknown';
   };

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DollarSign, Search, Calendar, User, Phone, ChevronLeft, ChevronRight } from "lucide-react";
+import { findContactByIdOrGhlId, findOpportunityByIdOrGhlId } from "@/lib/utils";
 
 interface OpportunitySale {
   id: string;
@@ -26,9 +27,11 @@ interface GHLUser {
 }
 
 interface Opportunity {
+  id: string;
   ghl_id: string;
   name: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   status?: string | null;
   monetary_value?: number | null;
   pipeline_id?: string | null;
@@ -42,6 +45,7 @@ interface Opportunity {
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -79,13 +83,13 @@ export function OpportunitySalesSheet({
   };
 
   const getOpportunityName = (oppId: string) => {
-    const opp = opportunities.find(o => o.ghl_id === oppId);
+    const opp = findOpportunityByIdOrGhlId(opportunities, undefined, oppId);
     return opp?.name || "Unknown Opportunity";
   };
 
   const getContactName = (contactId: string | null) => {
     if (!contactId) return null;
-    const contact = contacts.find(c => c.ghl_id === contactId);
+    const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
     if (!contact) return null;
     return contact.contact_name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || null;
   };
@@ -128,7 +132,7 @@ export function OpportunitySalesSheet({
   const totalAmount = sales.reduce((sum, s) => sum + (s.sold_amount || 0), 0);
 
   const handleOpportunityClick = (oppId: string) => {
-    const opp = opportunities.find(o => o.ghl_id === oppId);
+    const opp = findOpportunityByIdOrGhlId(opportunities, undefined, oppId);
     if (opp && onOpportunityClick) {
       onOpportunityClick(opp);
     }

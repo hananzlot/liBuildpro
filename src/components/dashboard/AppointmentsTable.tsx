@@ -16,11 +16,12 @@ import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { DateRange } from "react-day-picker";
-import { getAddressFromContact } from "@/lib/utils";
+import { getAddressFromContact, findContactByIdOrGhlId } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Appointment {
+  id?: string;
   ghl_id: string;
   title: string | null;
   appointment_status: string | null;
@@ -28,6 +29,7 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_user_id: string | null;
   calendar_id: string | null;
   address?: string | null;
@@ -36,6 +38,7 @@ interface Appointment {
 }
 
 interface Opportunity {
+  id?: string;
   ghl_id: string;
   name: string | null;
   status: string | null;
@@ -45,12 +48,14 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   stage_name: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;
@@ -155,22 +160,22 @@ export function AppointmentsTable({
       .join(' ');
   };
 
-  const getContactName = (contactId: string | null): string => {
-    if (!contactId) return 'Unknown';
-    const contact = contacts.find(c => c.ghl_id === contactId);
+  const getContactName = (contactId: string | null, contactUuid?: string | null): string => {
+    if (!contactId && !contactUuid) return 'Unknown';
+    const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
     const name = contact?.contact_name || `${contact?.first_name || ''} ${contact?.last_name || ''}`.trim() || 'Unknown';
     return formatName(name);
   };
 
-  const getContactPhone = (contactId: string | null): string => {
-    if (!contactId) return '-';
-    const contact = contacts.find(c => c.ghl_id === contactId);
+  const getContactPhone = (contactId: string | null, contactUuid?: string | null): string => {
+    if (!contactId && !contactUuid) return '-';
+    const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
     return contact?.phone || '-';
   };
 
-  const getContactSource = (contactId: string | null): string => {
-    if (!contactId) return '-';
-    const contact = contacts.find(c => c.ghl_id === contactId);
+  const getContactSource = (contactId: string | null, contactUuid?: string | null): string => {
+    if (!contactId && !contactUuid) return '-';
+    const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
     return contact?.source || '-';
   };
 
@@ -216,9 +221,7 @@ export function AppointmentsTable({
   };
 
   const getAddress = (appointment: Appointment): string => {
-    const contact = appointment.contact_id 
-      ? contacts.find(c => c.ghl_id === appointment.contact_id) 
-      : undefined;
+    const contact = findContactByIdOrGhlId(contacts, appointment.contact_uuid, appointment.contact_id);
     return getAddressFromContact(contact, appointments, appointment.contact_id) || '-';
   };
 
