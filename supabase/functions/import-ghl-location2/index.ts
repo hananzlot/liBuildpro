@@ -179,13 +179,13 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting import from Location 2 to Location 1...');
+    console.log('Starting GHL Location 2 sync/import...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
-    // Get all GHL credentials from vault
+    // Get all GHL credentials from vault (only active integrations with API keys)
     let allCredentials: GHLCredentials[] = [];
     try {
       allCredentials = await getAllGHLCredentials(supabase);
@@ -195,20 +195,27 @@ serve(async (req) => {
       return new Response(JSON.stringify({ 
         success: false, 
         error: errorMessage,
-        message: 'Import feature requires GHL integration to be enabled'
+        message: 'No active GHL integrations found. Please configure at least one GHL integration in Admin Settings.'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    if (allCredentials.length < 2) {
+    // Handle single integration case - just sync that location's data without cross-location import
+    if (allCredentials.length === 1) {
+      console.log('Only 1 active integration found - syncing data from that location only');
+      const singleCreds = allCredentials[0];
+      
+      // Just return success with info - the main fetch-ghl-contacts already syncs this location
       return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'Import requires at least 2 GHL locations configured',
-        message: 'Please configure both source and target GHL integrations in Admin Settings'
+        success: true, 
+        mode: 'single-location',
+        locationId: singleCreds.locationId,
+        message: 'Only one GHL location is active. Use "Sync GHL (Main)" to sync data from this location. Cross-location import requires 2 active integrations.',
+        contactsImported: 0,
+        opportunitiesImported: 0
       }), {
-        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
