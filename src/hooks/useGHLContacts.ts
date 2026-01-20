@@ -1067,6 +1067,7 @@ export function useSyncContacts() {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
       queryClient.invalidateQueries({ queryKey: ["call_logs"] });
+      queryClient.invalidateQueries({ queryKey: ["sync_timestamps"] });
     },
   });
 }
@@ -1079,14 +1080,47 @@ export function useSyncGHL2() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["sync_timestamps"] });
     },
   });
 }
 
 async function fetchSyncTimestamps(): Promise<{ lastGHLSync: string | null; lastGHL2Import: string | null }> {
+  // Preferred: show timestamps from the integration(s) themselves
+  const { data: integrations, error } = await supabase
+    .from("company_integrations")
+    .select("is_primary, last_sync_at")
+    .eq("provider", "ghl")
+    .eq("is_active", true);
+
+  if (!error && integrations && integrations.length > 0) {
+    const primary = integrations.find((i) => i.is_primary) ?? integrations[0];
+    const secondary =
+      integrations.find((i) => !i.is_primary) ??
+      (integrations.length > 1 ? integrations[1] : null);
+
+    const primaryTs = primary?.last_sync_at || null;
+    const secondaryTs = secondary?.last_sync_at || null;
+
+    return {
+      lastGHLSync: primaryTs,
+      // If there is no “GHL2” integration, fall back to the primary timestamp
+      lastGHL2Import: secondaryTs ?? primaryTs,
+    };
+  }
+
+  // Fallback (legacy): derive timestamps from data tables
   const [ghlResult, ghl2Result] = await Promise.all([
-    supabase.from("contacts").select("last_synced_at").order("last_synced_at", { ascending: false }).limit(1),
-    supabase.from("imported_records").select("imported_at").order("imported_at", { ascending: false }).limit(1),
+    supabase
+      .from("contacts")
+      .select("last_synced_at")
+      .order("last_synced_at", { ascending: false })
+      .limit(1),
+    supabase
+      .from("imported_records")
+      .select("imported_at")
+      .order("imported_at", { ascending: false })
+      .limit(1),
   ]);
 
   return {
