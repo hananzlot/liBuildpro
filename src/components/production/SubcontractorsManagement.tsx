@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +100,7 @@ interface SubcontractorsManagementProps {
 export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: SubcontractorsManagementProps = {}) {
   const queryClient = useQueryClient();
   const { user, isSuperAdmin } = useAuth();
+  const { companyId } = useCompanyContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null);
@@ -146,7 +148,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
 
   // Fetch trades from database
   const { data: tradesData = [] } = useQuery({
-    queryKey: ["trades"],
+    queryKey: ["trades", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("trades")
@@ -155,6 +157,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       if (error) throw error;
       return data.map(t => t.name);
     },
+    enabled: !!companyId,
   });
 
   // Add trade mutation (super admin only)
@@ -162,19 +165,19 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     mutationFn: async (tradeName: string) => {
       const { error } = await supabase
         .from("trades")
-        .insert({ name: tradeName, created_by: user?.id });
+        .insert({ name: tradeName, created_by: user?.id, company_id: companyId });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Trade added");
-      queryClient.invalidateQueries({ queryKey: ["trades"] });
+      queryClient.invalidateQueries({ queryKey: ["trades", companyId] });
     },
     onError: (error) => toast.error(`Failed to add trade: ${error.message}`),
   });
 
   // Fetch subcontractors
   const { data: subcontractors = [], isLoading } = useQuery({
-    queryKey: ["subcontractors"],
+    queryKey: ["subcontractors", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subcontractors")
@@ -183,6 +186,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       if (error) throw error;
       return data as Subcontractor[];
     },
+    enabled: !!companyId,
   });
 
   // Reset form when dialog opens/closes
@@ -300,14 +304,14 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       } else {
         const { error } = await supabase
           .from("subcontractors")
-          .insert({ ...payload, created_by: user?.id });
+          .insert({ ...payload, created_by: user?.id, company_id: companyId });
         if (error) throw error;
       }
     },
     onSuccess: () => {
       toast.success(editingSubcontractor ? "Subcontractor updated" : "Subcontractor added");
-      queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
-      queryClient.invalidateQueries({ queryKey: ["active-subcontractors"] });
+      queryClient.invalidateQueries({ queryKey: ["subcontractors", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["active-subcontractors", companyId] });
       setDialogOpen(false);
       setEditingSubcontractor(null);
       
@@ -365,7 +369,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
     },
     onSuccess: () => {
       toast.success("Subcontractor deleted");
-      queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
+      queryClient.invalidateQueries({ queryKey: ["subcontractors", companyId] });
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
       setDeleteHasPaidBills(false);
@@ -383,7 +387,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["subcontractors"] });
+      queryClient.invalidateQueries({ queryKey: ["subcontractors", companyId] });
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });

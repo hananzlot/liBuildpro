@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { DateRange } from "react-day-picker";
 
 export interface AnalyticsFilters {
@@ -120,9 +121,11 @@ export interface CashFlowTimelinePoint {
 }
 
 export function useProductionAnalytics(filters: AnalyticsFilters) {
+  const { companyId } = useCompanyContext();
+
   // Fetch all projects
   const { data: projects = [], isLoading: loadingProjects } = useQuery({
-    queryKey: ["analytics-projects"],
+    queryKey: ["analytics-projects", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
@@ -132,11 +135,12 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch all financial data
   const { data: agreements = [] } = useQuery({
-    queryKey: ["analytics-agreements"],
+    queryKey: ["analytics-agreements", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_agreements")
@@ -144,10 +148,11 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: invoices = [] } = useQuery({
-    queryKey: ["analytics-invoices"],
+    queryKey: ["analytics-invoices", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_invoices")
@@ -158,10 +163,11 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: payments = [] } = useQuery({
-    queryKey: ["analytics-payments"],
+    queryKey: ["analytics-payments", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payments")
@@ -169,10 +175,11 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: bills = [] } = useQuery({
-    queryKey: ["analytics-bills"],
+    queryKey: ["analytics-bills", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_bills")
@@ -180,10 +187,11 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: billPayments = [] } = useQuery({
-    queryKey: ["analytics-bill-payments"],
+    queryKey: ["analytics-bill-payments", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bill_payments")
@@ -191,10 +199,11 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: commissionPayments = [] } = useQuery({
-    queryKey: ["analytics-commission-payments"],
+    queryKey: ["analytics-commission-payments", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("commission_payments")
@@ -202,6 +211,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Get unique salespeople
