@@ -104,7 +104,7 @@ serve(async (req) => {
     // Fetch current opportunity values BEFORE update
     const { data: currentOpp } = await supabase
       .from('opportunities')
-      .select('status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at')
+      .select('status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at, company_id, contact_id')
       .eq('ghl_id', ghl_id)
       .single();
 
@@ -112,6 +112,22 @@ serve(async (req) => {
     let effectiveLocationId = location_id;
     if (!effectiveLocationId && currentOpp) {
       effectiveLocationId = currentOpp.location_id || 'local';
+    }
+    
+    // If company_id not provided, use from opportunity or derive from contact
+    let effectiveCompanyId = company_id;
+    if (!effectiveCompanyId && currentOpp) {
+      effectiveCompanyId = currentOpp.company_id;
+      
+      // If still no company_id, try to get from contact
+      if (!effectiveCompanyId && currentOpp.contact_id) {
+        const { data: contactData } = await supabase
+          .from('contacts')
+          .select('company_id')
+          .eq('ghl_id', currentOpp.contact_id)
+          .single();
+        effectiveCompanyId = contactData?.company_id;
+      }
     }
 
     const ghlApiKey = await getGHLApiKey(supabase, effectiveLocationId);
@@ -244,7 +260,7 @@ serve(async (req) => {
           new_value: status,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
-          company_id: company_id || null,
+          company_id: effectiveCompanyId || null,
         });
       }
 
@@ -257,7 +273,7 @@ serve(async (req) => {
           new_value: stage_name,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
-          company_id: company_id || null,
+          company_id: effectiveCompanyId || null,
         });
       }
 
@@ -270,7 +286,7 @@ serve(async (req) => {
           new_value: pipeline_name,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
-          company_id: company_id || null,
+          company_id: effectiveCompanyId || null,
         });
       }
 
@@ -286,7 +302,7 @@ serve(async (req) => {
             new_value: newValue.toString(),
             edited_by: edited_by || null,
             location_id: effectiveLocationId,
-            company_id: company_id || null,
+            company_id: effectiveCompanyId || null,
           });
         }
       }
@@ -300,7 +316,7 @@ serve(async (req) => {
           new_value: assigned_to,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
-          company_id: company_id || null,
+          company_id: effectiveCompanyId || null,
         });
       }
 
@@ -313,7 +329,7 @@ serve(async (req) => {
           new_value: won_at,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
-          company_id: company_id || null,
+          company_id: effectiveCompanyId || null,
         });
       }
 
@@ -394,7 +410,7 @@ serve(async (req) => {
             estimated_cost: opportunity.monetary_value || 0,
             sold_dispatch_value: opportunity.monetary_value || 0,
             project_scope_dispatch: projectScope,
-            company_id: company_id || null,
+            company_id: effectiveCompanyId || opportunity.company_id || null,
           };
           
           const { data: newProject, error: projectError } = await supabase
