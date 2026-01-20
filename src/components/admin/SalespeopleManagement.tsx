@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ interface Salesperson {
 
 export function SalespeopleManagement() {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
   const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
@@ -82,6 +84,7 @@ export function SalespeopleManagement() {
           name: data.name,
           phone: data.phone || null,
           email: data.email || null,
+          company_id: companyId,
         });
       if (error) throw error;
     },
@@ -149,7 +152,7 @@ export function SalespeopleManagement() {
       
       const { error } = await supabase
         .from('salespeople')
-        .insert(newNames.map(name => ({ name })));
+        .insert(newNames.map(name => ({ name, company_id: companyId })));
       if (error) throw error;
       return newNames.length;
     },

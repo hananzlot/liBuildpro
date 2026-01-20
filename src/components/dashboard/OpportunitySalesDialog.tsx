@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { toast } from "sonner";
 import { Loader2, DollarSign, Plus, Trash2 } from "lucide-react";
 import { findUserByIdOrGhlId } from "@/lib/utils";
@@ -54,6 +55,7 @@ export function OpportunitySalesDialog({
   userGhlId,
   onSalesUpdated,
 }: OpportunitySalesDialogProps) {
+  const { companyId } = useCompanyContext();
   const [sales, setSales] = useState<OpportunitySale[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -128,6 +130,7 @@ export function OpportunitySalesDialog({
         sold_to_phone: soldToPhone || null,
         sold_by: soldBy || null,
         entered_by: userId,
+        company_id: companyId,
       });
 
       if (error) throw error;

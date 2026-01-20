@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ interface PaymentPhase {
 
 export function PortalProposals({ estimates, projectId, token, portalTokenId, onRefresh }: PortalProposalsProps) {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [viewingProposal, setViewingProposal] = useState(false);
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
@@ -181,6 +183,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         signature_data: signatureData.data,
         signature_font: signatureData.font,
         portal_token_id: portalTokenId,
+        company_id: companyId,
       });
 
       if (sigError) throw sigError;
@@ -207,6 +210,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           agreement_type: 'Contract',
           total_price: selectedEstimate.total || 0,
           description_of_work: selectedEstimate.work_scope_description || selectedEstimate.estimate_title,
+          company_id: companyId,
         }).then(result => {
           if (result.error) console.error('Failed to create agreement:', result.error);
         });
