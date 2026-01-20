@@ -258,8 +258,8 @@ serve(async (req) => {
     const LOCATION_2_ID = location2Credentials.locationId;
     const LOCATION_2_API_KEY = location2Credentials.apiKey;
 
-    // Get field mappings from database
-    const fieldMappings = await getGHLFieldMappings(supabase, location1Credentials.companyId);
+    // Get field mappings from database using the target location's integration
+    const fieldMappings = await getGHLFieldMappings(supabase, { integrationId: location1Credentials.integrationId });
     console.log('Using field mappings:', fieldMappings);
 
     console.log(`Importing from Location 2 (${LOCATION_2_ID}) to Location 1 (${LOCATION_1_ID})`);
