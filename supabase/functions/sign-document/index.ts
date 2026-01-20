@@ -25,6 +25,7 @@ serve(async (req) => {
       initialsType,
       initialsData,
       initialsFont,
+      companyId,
     } = await req.json();
 
     if (!documentId || !signerName || !signatureData) {
@@ -86,6 +87,7 @@ serve(async (req) => {
         user_agent: userAgent || null,
         signed_at: signedAt,
         field_values: mergedFieldValues,
+        company_id: companyId || null,
       })
       .select()
       .single();

@@ -76,7 +76,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at } = await req.json();
+    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at, company_id } = await req.json();
 
     if (!ghl_id) {
       throw new Error('Missing ghl_id');
@@ -213,6 +213,7 @@ serve(async (req) => {
         new_value: string | null;
         edited_by: string | null;
         location_id: string;
+        company_id: string | null;
       }> = [];
 
       // Check status
@@ -224,6 +225,7 @@ serve(async (req) => {
           new_value: status,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
+          company_id: company_id || null,
         });
       }
 
@@ -236,6 +238,7 @@ serve(async (req) => {
           new_value: stage_name,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
+          company_id: company_id || null,
         });
       }
 
@@ -248,6 +251,7 @@ serve(async (req) => {
           new_value: pipeline_name,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
+          company_id: company_id || null,
         });
       }
 
@@ -263,6 +267,7 @@ serve(async (req) => {
             new_value: newValue.toString(),
             edited_by: edited_by || null,
             location_id: effectiveLocationId,
+            company_id: company_id || null,
           });
         }
       }
@@ -276,6 +281,7 @@ serve(async (req) => {
           new_value: assigned_to,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
+          company_id: company_id || null,
         });
       }
 
@@ -288,6 +294,7 @@ serve(async (req) => {
           new_value: won_at,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
+          company_id: company_id || null,
         });
       }
 
@@ -368,6 +375,7 @@ serve(async (req) => {
             estimated_cost: opportunity.monetary_value || 0,
             sold_dispatch_value: opportunity.monetary_value || 0,
             project_scope_dispatch: projectScope,
+            company_id: company_id || null,
           };
           
           const { data: newProject, error: projectError } = await supabase
