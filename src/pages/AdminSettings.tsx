@@ -22,6 +22,7 @@ import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement"
 import { ChatManagement } from "@/components/admin/ChatManagement";
 import { LogoUpload } from "@/components/admin/LogoUpload";
 import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager";
+import { AIAnalysisSettings } from "@/components/admin/AIAnalysisSettings";
 import { GHLFieldMappings } from "@/components/admin/GHLFieldMappings";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
@@ -707,6 +708,7 @@ export default function AdminSettings() {
             </Card>
             <GHLIntegrationManager />
             <GHLFieldMappings />
+            <AIAnalysisSettings />
           </TabsContent>
 
           {/* Email Templates Tab */}
