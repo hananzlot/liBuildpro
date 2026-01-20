@@ -6,11 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// GHL credentials for both locations
-const LOCATION_1_API_KEY = Deno.env.get('GHL_API_KEY')!;
-const LOCATION_1_ID = Deno.env.get('GHL_LOCATION_ID')!;
-const LOCATION_2_API_KEY = Deno.env.get('GHL_API_KEY_2')!;
-const LOCATION_2_ID = Deno.env.get('GHL_LOCATION_ID_2')!;
+// GHL credentials for both locations - check if configured
+const LOCATION_1_API_KEY = Deno.env.get('GHL_API_KEY');
+const LOCATION_1_ID = Deno.env.get('GHL_LOCATION_ID');
+const LOCATION_2_API_KEY = Deno.env.get('GHL_API_KEY_2');
+const LOCATION_2_ID = Deno.env.get('GHL_LOCATION_ID_2');
 
 // Location 1 pipeline configuration (default pipeline for imported opportunities)
 const LOCATION_1_DEFAULT_PIPELINE_ID = '6bUqC98F6LCM9zuUitXw';
@@ -184,6 +184,19 @@ serve(async (req) => {
   }
 
   try {
+    // Check if GHL credentials are configured
+    if (!LOCATION_1_API_KEY || !LOCATION_1_ID || !LOCATION_2_API_KEY || !LOCATION_2_ID) {
+      console.log('GHL credentials not fully configured - import unavailable');
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'GHL credentials not configured. Please configure GHL_API_KEY, GHL_LOCATION_ID, GHL_API_KEY_2, and GHL_LOCATION_ID_2 to use the import feature.',
+        message: 'Import feature requires GHL integration to be enabled'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     console.log('Starting import from Location 2 to Location 1...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

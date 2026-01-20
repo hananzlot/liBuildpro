@@ -8,6 +8,16 @@ const corsHeaders = {
 
 const ADDRESS_FIELD_ID = "b7oTVsUQrLgZt84bHpCn";
 
+// Helper to get GHL API key - returns null if not configured (graceful degradation)
+function getGHLApiKey(locationId: string | null): string | null {
+  const locationId2 = Deno.env.get("GHL_LOCATION_ID_2");
+  
+  if (locationId === locationId2) {
+    return Deno.env.get("GHL_API_KEY_2") || null;
+  }
+  return Deno.env.get("GHL_API_KEY") || null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -52,51 +62,39 @@ serve(async (req) => {
     }
     const newAddress = address || "";
 
-    // Determine which API key to use
-    const locationId2 = Deno.env.get("GHL_LOCATION_ID_2");
-    let apiKey: string;
+    // Get API key - may be null if GHL is not configured
+    const apiKey = getGHLApiKey(contact.location_id);
 
-    if (contact.location_id === locationId2) {
-      apiKey = Deno.env.get("GHL_API_KEY_2")!;
+    // Only call GHL API if credentials are configured AND contact is not local-only
+    if (apiKey && !contactId.startsWith("local_")) {
+      const ghlResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          Version: "2021-07-28",
+        },
+        body: JSON.stringify({
+          customFields: [
+            {
+              id: ADDRESS_FIELD_ID,
+              value: newAddress,
+            },
+          ],
+        }),
+      });
+
+      if (!ghlResponse.ok) {
+        const errorText = await ghlResponse.text();
+        console.error("GHL API error:", ghlResponse.status, errorText);
+        // Continue with local update even if GHL fails
+        console.log("Continuing with local-only update");
+      } else {
+        console.log("GHL address update successful");
+      }
     } else {
-      apiKey = Deno.env.get("GHL_API_KEY")!;
+      console.log("Skipping GHL sync - credentials not configured or local-only contact");
     }
-
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: "API key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Update the contact in GHL
-    const ghlResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        Version: "2021-07-28",
-      },
-      body: JSON.stringify({
-        customFields: [
-          {
-            id: ADDRESS_FIELD_ID,
-            value: newAddress,
-          },
-        ],
-      }),
-    });
-
-    if (!ghlResponse.ok) {
-      const errorText = await ghlResponse.text();
-      console.error("GHL API error:", ghlResponse.status, errorText);
-      return new Response(
-        JSON.stringify({ error: `GHL API error: ${ghlResponse.status}` }),
-        { status: ghlResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log("GHL address update successful");
 
     // Update Supabase custom_fields
     let customFields = Array.isArray(contact.custom_fields) ? [...contact.custom_fields] : [];

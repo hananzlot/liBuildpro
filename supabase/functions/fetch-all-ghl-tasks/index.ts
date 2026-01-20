@@ -17,11 +17,35 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!ghlApiKey || !supabaseUrl || !supabaseServiceKey || !ghlLocationId) {
-      throw new Error('Missing required credentials');
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase credentials');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // If GHL credentials are missing, return cached tasks from Supabase only
+    if (!ghlApiKey || !ghlLocationId) {
+      console.log('GHL credentials not configured - returning cached tasks only');
+      
+      const { data: cachedTasks, error: cacheError } = await supabase
+        .from('ghl_tasks')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (cacheError) {
+        console.error('Error fetching cached tasks:', cacheError);
+      }
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          count: cachedTasks?.length || 0,
+          source: 'cache',
+          message: 'GHL credentials not configured - returning cached tasks'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Fetch all contact GHL IDs from Supabase
     console.log('Fetching contacts from Supabase...');
@@ -42,6 +66,11 @@ serve(async (req) => {
       const batch = contacts!.slice(i, i + batchSize);
       
       const batchPromises = batch.map(async (contact) => {
+        // Skip local-only contacts
+        if (contact.ghl_id?.startsWith('local_')) {
+          return [];
+        }
+        
         try {
           const tasksResponse = await fetch(
             `https://services.leadconnectorhq.com/contacts/${contact.ghl_id}/tasks`,
@@ -99,7 +128,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, count: allTasks.length }),
+      JSON.stringify({ success: true, count: allTasks.length, source: 'ghl' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

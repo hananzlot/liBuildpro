@@ -20,12 +20,18 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const ghlApiKey = Deno.env.get('GHL_API_KEY');
 
-    if (!supabaseUrl || !supabaseServiceKey || !ghlApiKey) {
-      throw new Error('Missing required environment variables');
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase environment variables');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const now = new Date();
+    
+    // Check if GHL API is available
+    const ghlEnabled = !!ghlApiKey;
+    if (!ghlEnabled) {
+      console.log('GHL API key not configured - creating local-only tasks');
+    }
     
     console.log('Starting auto-create-never-answers-tasks job...');
 
@@ -134,49 +140,60 @@ serve(async (req) => {
 
         console.log(`Creating task for ${opp.name} (${opp.contact_id}), due: ${dueDate.toISOString()}`);
 
-        // Create task in GHL
-        const ghlResponse = await fetch(
-          `https://services.leadconnectorhq.com/contacts/${opp.contact_id}/tasks`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${ghlApiKey}`,
-              'Content-Type': 'application/json',
-              'Version': '2021-07-28',
-            },
-            body: JSON.stringify({
-              title: taskTitle,
-              body: taskBody,
-              dueDate: dueDate.toISOString(),
-              completed: false,
-            }),
-          }
-        );
+        let ghlTaskId: string | null = null;
+        let assignedTo: string | null = null;
 
-        if (!ghlResponse.ok) {
-          const errorText = await ghlResponse.text();
-          console.error(`GHL error for ${opp.name}:`, errorText);
-          errors.push(`${opp.name}: ${errorText}`);
-          continue;
+        // Create task in GHL only if API key is configured and contact is not local-only
+        if (ghlEnabled && opp.contact_id && !opp.contact_id.startsWith('local_')) {
+          const ghlResponse = await fetch(
+            `https://services.leadconnectorhq.com/contacts/${opp.contact_id}/tasks`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${ghlApiKey}`,
+                'Content-Type': 'application/json',
+                'Version': '2021-07-28',
+              },
+              body: JSON.stringify({
+                title: taskTitle,
+                body: taskBody,
+                dueDate: dueDate.toISOString(),
+                completed: false,
+              }),
+            }
+          );
+
+          if (!ghlResponse.ok) {
+            const errorText = await ghlResponse.text();
+            console.error(`GHL error for ${opp.name}:`, errorText);
+            // Continue with local-only task creation
+          } else {
+            const ghlData = await ghlResponse.json();
+            const createdTask = ghlData.task;
+            ghlTaskId = createdTask.id;
+            assignedTo = createdTask.assignedTo || null;
+            console.log(`GHL task created: ${ghlTaskId}`);
+          }
         }
 
-        const ghlData = await ghlResponse.json();
-        const createdTask = ghlData.task;
-
-        console.log(`GHL task created: ${createdTask.id}`);
+        // If no GHL task was created, generate a local ID
+        if (!ghlTaskId) {
+          ghlTaskId = `local_task_${crypto.randomUUID()}`;
+          console.log(`Creating local-only task: ${ghlTaskId}`);
+        }
 
         // Save to Supabase
         const { error: insertError } = await supabase
           .from('ghl_tasks')
           .upsert({
-            ghl_id: createdTask.id,
+            ghl_id: ghlTaskId,
             contact_id: opp.contact_id,
             location_id: PRIMARY_LOCATION_ID,
             title: taskTitle,
             body: taskBody,
             due_date: dueDate.toISOString(),
             completed: false,
-            assigned_to: createdTask.assignedTo || null,
+            assigned_to: assignedTo,
             last_synced_at: new Date().toISOString(),
           }, { onConflict: 'ghl_id' });
 
@@ -205,6 +222,7 @@ serve(async (req) => {
       tasksCreated,
       totalOpportunities: opportunities.length,
       oppsNeedingTasks: oppsNeedingTasks.length,
+      ghlSyncEnabled: ghlEnabled,
       errors: errors.length > 0 ? errors : undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
