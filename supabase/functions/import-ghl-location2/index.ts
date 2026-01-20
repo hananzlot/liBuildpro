@@ -202,10 +202,34 @@ serve(async (req) => {
       });
     }
 
-    // Handle single integration case - just sync that location's data without cross-location import
+    // Mark sync started for all active integrations we can see
+    const startedAt = new Date().toISOString();
+    const integrationIds = allCredentials.map((c) => c.integrationId);
+    if (integrationIds.length > 0) {
+      const { error: startedErr } = await supabase
+        .from('company_integrations')
+        .update({ last_sync_started_at: startedAt })
+        .in('id', integrationIds);
+
+      if (startedErr) {
+        console.warn('Failed to update last_sync_started_at:', startedErr);
+      }
+    }
+
+    // Handle single integration case - mark it as synced and exit
     if (allCredentials.length === 1) {
       console.log('Only 1 active integration found - syncing data from that location only');
       const singleCreds = allCredentials[0];
+
+      const finishedAt = new Date().toISOString();
+      const { error: finishErr } = await supabase
+        .from('company_integrations')
+        .update({ last_sync_at: finishedAt })
+        .eq('id', singleCreds.integrationId);
+
+      if (finishErr) {
+        console.warn('Failed to update last_sync_at for single integration:', finishErr);
+      }
       
       // Just return success with info - the main fetch-ghl-contacts already syncs this location
       return new Response(JSON.stringify({ 
