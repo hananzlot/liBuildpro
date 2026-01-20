@@ -180,27 +180,29 @@ export function AppointmentsTable({
     return contact?.source || '-';
   };
 
-  const getOpportunityStatus = (contactId: string | null): string => {
-    if (!contactId) return '-';
-    const opp = opportunities.find(o => o.contact_id === contactId);
+  const findPrimaryOpportunity = (contactId: string | null, contactUuid?: string | null) => {
+    if (!contactId && !contactUuid) return undefined;
+    return opportunities.find(o => (contactId && o.contact_id === contactId) || (contactUuid && o.contact_uuid === contactUuid));
+  };
+
+  const getOpportunityStatus = (contactId: string | null, contactUuid?: string | null): string => {
+    const opp = findPrimaryOpportunity(contactId, contactUuid);
     return opp?.status || '-';
   };
 
-  const getOpportunityValue = (contactId: string | null): number | null => {
-    if (!contactId) return null;
-    const opp = opportunities.find(o => o.contact_id === contactId);
+  const getOpportunityValue = (contactId: string | null, contactUuid?: string | null): number | null => {
+    const opp = findPrimaryOpportunity(contactId, contactUuid);
     return opp?.monetary_value || null;
   };
 
   // Get ALL opportunities for a contact (for proper multi-opp tracking)
-  const getOpportunitiesForContact = (contactId: string | null): Opportunity[] => {
-    if (!contactId) return [];
-    return opportunities.filter(o => o.contact_id === contactId);
+  const getOpportunitiesForContact = (contactId: string | null, contactUuid?: string | null): Opportunity[] => {
+    if (!contactId && !contactUuid) return [];
+    return opportunities.filter(o => (contactId && o.contact_id === contactId) || (contactUuid && o.contact_uuid === contactUuid));
   };
 
-  const getOpportunityStage = (contactId: string | null): string => {
-    if (!contactId) return '-';
-    const opp = opportunities.find(o => o.contact_id === contactId);
+  const getOpportunityStage = (contactId: string | null, contactUuid?: string | null): string => {
+    const opp = findPrimaryOpportunity(contactId, contactUuid);
     return opp?.stage_name || '-';
   };
 
@@ -278,7 +280,7 @@ export function AppointmentsTable({
   const uniqueOppStatuses = useMemo(() => {
     const statuses = new Set<string>();
     appointments.forEach(a => {
-      const opp = opportunities.find(o => o.contact_id === a.contact_id);
+      const opp = findPrimaryOpportunity(a.contact_id, a.contact_uuid);
       if (opp?.status) statuses.add(opp.status.toLowerCase());
     });
     return Array.from(statuses).sort();
@@ -317,7 +319,7 @@ export function AppointmentsTable({
     // Opportunity status filter (multi-select)
     if (oppStatusFilter.length > 0) {
       filtered = filtered.filter(a => {
-        const opp = opportunities.find(o => o.contact_id === a.contact_id);
+        const opp = findPrimaryOpportunity(a.contact_id, a.contact_uuid);
         return opp?.status && oppStatusFilter.includes(opp.status.toLowerCase());
       });
     }
@@ -338,6 +340,36 @@ export function AppointmentsTable({
     return filtered;
   }, [appointments, statusFilter, repFilter, sourceFilter, oppStatusFilter, dateRange, contacts, opportunities]);
 
+  // De-dupe rows: if the same contact shows the same opp value/status/stage (often due to multiple appointment date records),
+  // keep only the most recent appointment for that combination.
+  const dedupedAppointments = useMemo(() => {
+    const byKey = new Map<string, Appointment>();
+
+    for (const appt of filteredAppointments) {
+      const contactKey = appt.contact_id ?? appt.contact_uuid ?? `no-contact:${appt.ghl_id}`;
+      const repKey = appt.assigned_user_id ?? 'unassigned';
+      const opp = findPrimaryOpportunity(appt.contact_id, appt.contact_uuid);
+      const oppValueKey = opp?.monetary_value ?? 'null';
+      const oppStatusKey = (opp?.status ?? '-').toLowerCase();
+      const oppStageKey = (opp?.stage_name ?? '-').toLowerCase();
+      const key = `${contactKey}::${repKey}::${oppStatusKey}::${oppStageKey}::${oppValueKey}`;
+
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, appt);
+        continue;
+      }
+
+      const existingTime = existing.start_time ? new Date(existing.start_time).getTime() : 0;
+      const currentTime = appt.start_time ? new Date(appt.start_time).getTime() : 0;
+      if (currentTime > existingTime) {
+        byKey.set(key, appt);
+      }
+    }
+
+    return Array.from(byKey.values());
+  }, [filteredAppointments, opportunities]);
+
   // Summary stats based on filtered appointments
   // Summary stats based on filtered appointments
   const summaryStats = useMemo(() => {
@@ -350,7 +382,7 @@ export function AppointmentsTable({
     const countedOppIds = new Set<string>(); // Track unique opportunities to avoid double-counting
     const processedContacts = new Set<string>(); // Track contacts we've already processed for opportunity lookup
     
-    filteredAppointments.forEach(a => {
+    dedupedAppointments.forEach(a => {
       // Count by appointment status (all appointments + unique contacts)
       const status = a.appointment_status || 'Unknown';
       if (!byStatus[status]) {
@@ -370,11 +402,12 @@ export function AppointmentsTable({
       byRep[repId].count += 1;
       
       // Process all opportunities for this contact (only once per contact)
-      if (a.contact_id && !processedContacts.has(a.contact_id)) {
-        processedContacts.add(a.contact_id);
+      const contactKey = a.contact_id ?? a.contact_uuid;
+      if (contactKey && !processedContacts.has(contactKey)) {
+        processedContacts.add(contactKey);
         
-        const contactOpps = getOpportunitiesForContact(a.contact_id);
-        const source = getContactSource(a.contact_id);
+        const contactOpps = getOpportunitiesForContact(a.contact_id, a.contact_uuid);
+        const source = getContactSource(a.contact_id, a.contact_uuid);
         
         contactOpps.forEach(opp => {
           const oppId = opp.ghl_id || opp.id || '';
@@ -456,7 +489,7 @@ export function AppointmentsTable({
       });
 
     return {
-      total: filteredAppointments.length,
+      total: dedupedAppointments.length,
       uniqueContacts: processedContacts.size,
       totalValue,
       bySource: Object.entries(bySource).sort((a, b) => b[1].value - a[1].value),
@@ -465,16 +498,16 @@ export function AppointmentsTable({
       wonBySource: Object.entries(wonBySource).sort((a, b) => b[1].value - a[1].value),
       byRep: sortedByRep,
     };
-  }, [filteredAppointments, contacts, opportunities, users]);
+  }, [dedupedAppointments, contacts, opportunities, users]);
 
   // Sort appointments based on selected column and direction
   const sortedAppointments = useMemo(() => {
-    return [...filteredAppointments].sort((a, b) => {
+    return [...dedupedAppointments].sort((a, b) => {
       let comparison = 0;
 
       switch (sortColumn) {
         case 'contact':
-          comparison = getContactName(a.contact_id).localeCompare(getContactName(b.contact_id));
+          comparison = getContactName(a.contact_id, a.contact_uuid).localeCompare(getContactName(b.contact_id, b.contact_uuid));
           break;
         case 'start':
           const dateA = a.start_time ? new Date(a.start_time).getTime() : 0;
@@ -491,17 +524,17 @@ export function AppointmentsTable({
           comparison = getAddress(a).localeCompare(getAddress(b));
           break;
         case 'source':
-          comparison = getContactSource(a.contact_id).localeCompare(getContactSource(b.contact_id));
+          comparison = getContactSource(a.contact_id, a.contact_uuid).localeCompare(getContactSource(b.contact_id, b.contact_uuid));
           break;
         case 'oppStatus':
-          comparison = getOpportunityStatus(a.contact_id).localeCompare(getOpportunityStatus(b.contact_id));
+          comparison = getOpportunityStatus(a.contact_id, a.contact_uuid).localeCompare(getOpportunityStatus(b.contact_id, b.contact_uuid));
           break;
         case 'stage':
-          comparison = getOpportunityStage(a.contact_id).localeCompare(getOpportunityStage(b.contact_id));
+          comparison = getOpportunityStage(a.contact_id, a.contact_uuid).localeCompare(getOpportunityStage(b.contact_id, b.contact_uuid));
           break;
         case 'oppValue':
-          const valA = getOpportunityValue(a.contact_id) || 0;
-          const valB = getOpportunityValue(b.contact_id) || 0;
+          const valA = getOpportunityValue(a.contact_id, a.contact_uuid) || 0;
+          const valB = getOpportunityValue(b.contact_id, b.contact_uuid) || 0;
           comparison = valA - valB;
           break;
         default:
@@ -510,7 +543,7 @@ export function AppointmentsTable({
 
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [filteredAppointments, sortColumn, sortDirection, contacts, users, opportunities]);
+  }, [dedupedAppointments, sortColumn, sortDirection, contacts, users, opportunities]);
 
   const totalPages = Math.ceil(sortedAppointments.length / ITEMS_PER_PAGE);
   const paginatedAppointments = sortedAppointments.slice(
@@ -575,7 +608,7 @@ export function AppointmentsTable({
           <div className="flex flex-row items-center gap-2">
             <Calendar className="h-5 w-5 text-primary" />
             <CardTitle className="text-lg">Appointments</CardTitle>
-            <Badge variant="secondary" className="ml-auto">{filteredAppointments.length}</Badge>
+            <Badge variant="secondary" className="ml-auto">{dedupedAppointments.length}</Badge>
           </div>
           
           {/* Filters */}
@@ -654,7 +687,7 @@ export function AppointmentsTable({
           </div>
 
           {/* Summary Stats */}
-          {filteredAppointments.length > 0 && (
+          {dedupedAppointments.length > 0 && (
             <div className="flex flex-wrap gap-4 pt-2 pb-2 border-t border-border/30 mt-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">Total Value:</span>
@@ -944,19 +977,19 @@ export function AppointmentsTable({
                       {getContactSource(appt.contact_id)}
                     </TableCell>
                     <TableCell className="py-2">
-                      {getOpportunityStatus(appt.contact_id) !== '-' ? (
-                        <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getOpportunityStatusColor(getOpportunityStatus(appt.contact_id))}`}>
-                          {getOpportunityStatus(appt.contact_id)}
+                      {getOpportunityStatus(appt.contact_id, appt.contact_uuid) !== '-' ? (
+                        <Badge variant="outline" className={`text-xs px-1.5 py-0 ${getOpportunityStatusColor(getOpportunityStatus(appt.contact_id, appt.contact_uuid))}`}>
+                          {getOpportunityStatus(appt.contact_id, appt.contact_uuid)}
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs truncate py-2">
-                      {getOpportunityStage(appt.contact_id)}
+                      {getOpportunityStage(appt.contact_id, appt.contact_uuid)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs py-2">
-                      {formatCurrency(getOpportunityValue(appt.contact_id))}
+                      {formatCurrency(getOpportunityValue(appt.contact_id, appt.contact_uuid))}
                     </TableCell>
                   </TableRow>
                 ))
