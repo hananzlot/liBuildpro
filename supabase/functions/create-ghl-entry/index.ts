@@ -57,6 +57,7 @@ serve(async (req) => {
       calendarId, // Calendar ID for appointments
       locationId, // Optional: which GHL location to use
       skipGHLAppointmentSync, // If true, create local-only appointment
+      companyId, // Company ID for multi-tenancy
     } = await req.json();
 
     if (!firstName || !lastName) {
@@ -130,6 +131,7 @@ serve(async (req) => {
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
         provider: 'local',
+        company_id: companyId || null,
       });
 
       if (contactError) {
@@ -156,6 +158,7 @@ serve(async (req) => {
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
         provider: 'local',
+        company_id: companyId || null,
       });
 
       if (oppError) {
@@ -184,6 +187,7 @@ serve(async (req) => {
           address: address || null,
           entered_by: enteredBy || null,
           provider: 'local',
+          company_id: companyId || null,
         });
 
         if (apptError) {
@@ -249,6 +253,7 @@ serve(async (req) => {
         custom_fields: customFields.length > 0 ? customFields : null,
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
+        company_id: companyId || null,
       }, { onConflict: 'ghl_id' });
 
       // Step 2: Create Opportunity in GHL
@@ -306,6 +311,7 @@ serve(async (req) => {
           assigned_to: assignedTo || null,
           ghl_date_added: new Date().toISOString(),
           entered_by: enteredBy || null,
+          company_id: companyId || null,
         }, { onConflict: 'ghl_id' });
       }
 
@@ -335,6 +341,7 @@ serve(async (req) => {
             assigned_user_id: assignedTo || null,
             address: address || null,
             entered_by: enteredBy || null,
+            company_id: companyId || null,
           });
 
           if (insertError) {
@@ -418,6 +425,7 @@ serve(async (req) => {
                   assigned_user_id: assignedTo || null,
                   ghl_date_added: new Date().toISOString(),
                   entered_by: enteredBy || null,
+                  company_id: companyId || null,
                 }, { onConflict: 'ghl_id' });
               }
             }

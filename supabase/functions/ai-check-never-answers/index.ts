@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
     // Step 1: Get all open opportunities with their contact info
     const { data: openOpps, error: oppError } = await supabase
       .from('opportunities')
-      .select('id, ghl_id, name, contact_id, location_id, stage_name, pipeline_id, pipeline_stage_id')
+      .select('id, ghl_id, name, contact_id, location_id, stage_name, pipeline_id, pipeline_stage_id, company_id')
       .eq('status', 'open')
       .not('contact_id', 'is', null);
 
@@ -339,6 +339,7 @@ AI Analysis Result:
               location_id: opp.location_id,
               body: noteBody,
               ghl_date_added: new Date().toISOString(),
+              company_id: opp.company_id || null,
             });
 
           if (noteError) {

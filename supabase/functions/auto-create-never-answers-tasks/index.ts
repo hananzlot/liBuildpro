@@ -38,7 +38,7 @@ serve(async (req) => {
     // 1. Get all opportunities in "Never Answers" stage
     const { data: opportunities, error: oppError } = await supabase
       .from('opportunities')
-      .select('ghl_id, name, contact_id, pipeline_stage_id, stage_name')
+      .select('ghl_id, name, contact_id, pipeline_stage_id, stage_name, company_id')
       .eq('location_id', PRIMARY_LOCATION_ID)
       .eq('pipeline_stage_id', NEVER_ANSWERS_STAGE_ID)
       .eq('status', 'open');
@@ -195,6 +195,7 @@ serve(async (req) => {
             completed: false,
             assigned_to: assignedTo,
             last_synced_at: new Date().toISOString(),
+            company_id: opp.company_id || null,
           }, { onConflict: 'ghl_id' });
 
         if (insertError) {
