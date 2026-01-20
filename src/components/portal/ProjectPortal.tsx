@@ -66,9 +66,10 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
         .select('*')
         .eq('token', token)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
 
       if (tokenError) throw new Error('Invalid or expired link');
+      if (!tokenData) throw new Error('Invalid or expired link');
       
       // Check if token has project_id
       if (!tokenData.project_id) {
@@ -85,9 +86,10 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
         .from('projects')
         .select('*')
         .eq('id', tokenData.project_id)
-        .single();
+        .maybeSingle();
 
       if (projError) throw projError;
+      if (!project) throw new Error('Project not found');
 
       // Get all estimates linked to this project
       const { data: estimates } = await supabase
