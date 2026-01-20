@@ -595,9 +595,17 @@ export default function AdminSettings() {
                     {!isGHLEnabled && (
                       <div className="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
                         <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                        <div className="text-amber-800">
-                          <strong>Local-Only Mode:</strong> New entries will be created locally without syncing to GHL.
-                          The sync button is hidden in this mode.
+                        <div className="text-amber-800 space-y-2">
+                          <p><strong>Local-Only Mode Active</strong></p>
+                          <p>The app is running without GoHighLevel integration. In this mode:</p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li>Contacts, opportunities, and appointments are stored locally only</li>
+                            <li>No data syncs to/from GoHighLevel</li>
+                            <li>Conversations and notes are not fetched from GHL</li>
+                            <li>New records use local IDs (prefixed with "local_")</li>
+                            <li>The sync dropdown is hidden on the dashboard</li>
+                          </ul>
+                          <p className="mt-2">To enable GHL sync, toggle the switch above. Ensure GHL API keys are configured in Supabase secrets.</p>
                         </div>
                       </div>
                     )}
