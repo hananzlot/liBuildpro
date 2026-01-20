@@ -205,6 +205,17 @@ export function SendProposalDialog({
     mutationFn: async () => {
       const { data: user } = await supabase.auth.getUser();
       
+      // Get user's company_id for project creation
+      let userCompanyId: string | null = null;
+      if (user.user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('company_id')
+          .eq('id', user.user.id)
+          .single();
+        userCompanyId = profile?.company_id || null;
+      }
+      
       let projectId = estimateData?.project_id;
       
       // If no project exists, create one
@@ -263,6 +274,7 @@ export function SendProposalDialog({
               project_address: jobAddr,
               location_id: 'default',
               created_by: user.user?.id,
+              company_id: userCompanyId,
             })
             .select()
             .single();
