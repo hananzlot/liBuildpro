@@ -43,24 +43,27 @@ export function SalespeopleManagement() {
   const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
 
   const { data: salespeople = [], isLoading } = useQuery({
-    queryKey: ['salespeople'],
+    queryKey: ['salespeople', companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('salespeople')
         .select('*')
+        .eq('company_id', companyId)
         .order('name');
       if (error) throw error;
       return data as Salesperson[];
     },
+    enabled: !!companyId,
   });
 
   // Fetch existing salesperson names from projects for sync
   const { data: projectSalespeople = [] } = useQuery({
-    queryKey: ['project-salespeople-names'],
+    queryKey: ['project-salespeople-names', companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('projects')
-        .select('primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson, project_manager');
+        .select('primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson, project_manager')
+        .eq('company_id', companyId);
       if (error) throw error;
       
       const names = new Set<string>();
@@ -74,6 +77,7 @@ export function SalespeopleManagement() {
       
       return Array.from(names);
     },
+    enabled: !!companyId,
   });
 
   const createMutation = useMutation({
@@ -90,7 +94,7 @@ export function SalespeopleManagement() {
     },
     onSuccess: () => {
       toast.success('Salesperson added');
-      queryClient.invalidateQueries({ queryKey: ['salespeople'] });
+      queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
       setDialogOpen(false);
       resetForm();
     },
@@ -113,7 +117,7 @@ export function SalespeopleManagement() {
     },
     onSuccess: () => {
       toast.success('Salesperson updated');
-      queryClient.invalidateQueries({ queryKey: ['salespeople'] });
+      queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
       setDialogOpen(false);
       resetForm();
     },
@@ -132,7 +136,7 @@ export function SalespeopleManagement() {
     },
     onSuccess: () => {
       toast.success('Salesperson deleted');
-      queryClient.invalidateQueries({ queryKey: ['salespeople'] });
+      queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
     },
     onError: (error: Error) => {
       toast.error(`Failed to delete: ${error.message}`);
@@ -158,7 +162,7 @@ export function SalespeopleManagement() {
     },
     onSuccess: (count) => {
       toast.success(`Synced ${count} salespeople from projects`);
-      queryClient.invalidateQueries({ queryKey: ['salespeople'] });
+      queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
     },
     onError: (error: Error) => {
       toast.error(error.message);

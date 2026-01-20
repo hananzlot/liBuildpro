@@ -204,7 +204,7 @@ function ProjectSoldCard({
 export default function Production() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { isAdmin, isSimulating } = useAuth();
+  const { isAdmin, isSimulating, companyId } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = searchParams.get('view') || 'projects';
   const currentTab = searchParams.get('tab');
@@ -259,11 +259,12 @@ export default function Production() {
   const [statusChangeProject, setStatusChangeProject] = useState<Project | null>(null);
   const [statusChangeNewStatus, setStatusChangeNewStatus] = useState<string>("");
   const { data: projects = [], isLoading, refetch } = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
         .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number, agreement_signed_date, lead_source")
+        .eq("company_id", companyId)
         .is("deleted_at", null) // Only show non-deleted projects
         .order("project_number", { ascending: false });
       
@@ -284,15 +285,17 @@ export default function Production() {
         customer_email: string | null;
       })[];
     },
+    enabled: !!companyId,
   });
 
   // Fetch archived projects (for admins)
   const { data: archivedProjects = [], refetch: refetchArchived } = useQuery({
-    queryKey: ["archived-projects"],
+    queryKey: ["archived-projects", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
         .select("*, lead_cost_percent, commission_split_pct, primary_commission_pct, secondary_commission_pct, tertiary_commission_pct, quaternary_commission_pct, deleted_at, estimated_project_cost, sold_dispatch_value, legacy_project_number")
+        .eq("company_id", companyId)
         .not("deleted_at", "is", null)
         .order("deleted_at", { ascending: false });
       
@@ -309,97 +312,113 @@ export default function Production() {
         sold_dispatch_value: number | null;
       })[];
     },
-    enabled: isAdmin && showArchived,
+    enabled: isAdmin && showArchived && !!companyId,
   });
 
   // Fetch all financial data for projects
   const { data: allAgreements = [] } = useQuery({
-    queryKey: ["all-project-agreements"],
+    queryKey: ["all-project-agreements", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_agreements")
-        .select("id, project_id, total_price, agreement_type, agreement_number, description_of_work, agreement_signed_date");
+        .select("id, project_id, total_price, agreement_type, agreement_number, description_of_work, agreement_signed_date")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: allPhases = [] } = useQuery({
-    queryKey: ["all-project-phases"],
+    queryKey: ["all-project-phases", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payment_phases")
-        .select("id, project_id, agreement_id, amount, phase_name, due_date");
+        .select("id, project_id, agreement_id, amount, phase_name, due_date")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: allInvoices = [] } = useQuery({
-    queryKey: ["all-project-invoices"],
+    queryKey: ["all-project-invoices", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_invoices")
-        .select("id, project_id, amount, payments_received, open_balance, invoice_number, invoice_date");
+        .select("id, project_id, amount, payments_received, open_balance, invoice_number, invoice_date")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: allPayments = [] } = useQuery({
-    queryKey: ["all-project-payments"],
+    queryKey: ["all-project-payments", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payments")
-        .select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided, bank_name, check_number");
+        .select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided, bank_name, check_number")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: allBills = [] } = useQuery({
-    queryKey: ["all-project-bills"],
+    queryKey: ["all-project-bills", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_bills")
-        .select("id, project_id, bill_amount, amount_paid, is_voided, installer_company, bill_ref, category");
+        .select("id, project_id, bill_amount, amount_paid, is_voided, installer_company, bill_ref, category")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: allBillPayments = [] } = useQuery({
-    queryKey: ["all-bill-payments"],
+    queryKey: ["all-bill-payments", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bill_payments")
-        .select("id, bill_id, payment_amount, payment_date");
+        .select("id, bill_id, payment_amount, payment_date")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   const { data: allCommissionPayments = [] } = useQuery({
-    queryKey: ["all-commission-payments"],
+    queryKey: ["all-commission-payments", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("commission_payments")
-        .select("id, project_id, payment_amount, payment_date");
+        .select("id, project_id, payment_amount, payment_date")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Fetch all checklist items to check for overdue
   const { data: allChecklists = [] } = useQuery({
-    queryKey: ["all-project-checklists"],
+    queryKey: ["all-project-checklists", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_checklists")
-        .select("id, project_id, item, completed, due_date");
+        .select("id, project_id, item, completed, due_date")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Calculate financials for each project
