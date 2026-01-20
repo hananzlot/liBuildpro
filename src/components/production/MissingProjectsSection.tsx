@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/hooks/useAuditLog";
+import { findContactByIdOrGhlId } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +105,7 @@ export function MissingProjectsSection() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
-        .select("ghl_id, contact_name, first_name, last_name, phone, email, source, custom_fields");
+        .select("id, ghl_id, contact_name, first_name, last_name, phone, email, source, custom_fields");
       if (error) throw error;
       return data;
     },

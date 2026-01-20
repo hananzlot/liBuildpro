@@ -383,7 +383,7 @@ function CalendarView({
                   <p className="text-sm text-muted-foreground text-center py-4">No appointments</p>
                 ) : (
                   selectedDateAppointments.map((appt) => {
-                    const contact = contacts.find((c) => c.ghl_id === appt.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
                     const repName = userMap.get(appt.assigned_user_id || "") || "Unassigned";
                     return (
                       <div
@@ -742,7 +742,7 @@ export function UpcomingAppointmentsSheet({
     if (searchFilter.trim()) {
       const term = searchFilter.toLowerCase();
       result = result.filter((a) => {
-        const contact = contacts.find((c) => c.ghl_id === a.contact_id);
+        const contact = findContactByIdOrGhlId(contacts, a.contact_uuid, a.contact_id);
         const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
         return a.title?.toLowerCase().includes(term) || contactName.toLowerCase().includes(term);
       });
@@ -764,7 +764,7 @@ export function UpcomingAppointmentsSheet({
     if (searchFilter.trim()) {
       const term = searchFilter.toLowerCase();
       result = result.filter((a) => {
-        const contact = contacts.find((c) => c.ghl_id === a.contact_id);
+        const contact = findContactByIdOrGhlId(contacts, a.contact_uuid, a.contact_id);
         const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
         return a.title?.toLowerCase().includes(term) || contactName.toLowerCase().includes(term);
       });
@@ -1020,7 +1020,7 @@ export function UpcomingAppointmentsSheet({
                     </h3>
                     <div className="space-y-2">
                       {group.appointments.map((appt) => {
-                        const contact = contacts.find((c) => c.ghl_id === appt.contact_id);
+                        const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
                         const contactName =
                           contact?.contact_name ||
                           `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() ||
