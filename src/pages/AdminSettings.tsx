@@ -75,7 +75,7 @@ interface AuditLog {
 }
 
 export default function AdminSettings() {
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, companyId } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "settings";
@@ -121,8 +121,20 @@ export default function AdminSettings() {
   });
 
   const { data: settings, isLoading } = useQuery({
-    queryKey: ["app-settings"],
+    queryKey: ["company-settings", companyId],
     queryFn: async () => {
+      // First try company_settings, then fall back to app_settings
+      const { data: companyData, error: companyError } = await supabase
+        .from("company_settings")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("setting_key");
+
+      if (!companyError && companyData && companyData.length > 0) {
+        return companyData as AppSetting[];
+      }
+
+      // Fall back to app_settings for backward compatibility
       const { data, error } = await supabase
         .from("app_settings")
         .select("*")
@@ -131,7 +143,7 @@ export default function AdminSettings() {
       if (error) throw error;
       return data as AppSetting[];
     },
-    enabled: isAdmin,
+    enabled: isAdmin && !!companyId,
   });
   
   // Data for cleanup tab
@@ -185,11 +197,12 @@ export default function AdminSettings() {
   
   // Audit log queries
   const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ["audit-logs", startDate, endDate, tableFilter, actionFilter, userFilter],
+    queryKey: ["audit-logs", companyId, startDate, endDate, tableFilter, actionFilter, userFilter],
     queryFn: async () => {
       let query = supabase
         .from("audit_logs")
         .select("*")
+        .eq("company_id", companyId)
         .order("changed_at", { ascending: false })
         .limit(500);
 
@@ -213,21 +226,22 @@ export default function AdminSettings() {
       if (error) throw error;
       return data as AuditLog[];
     },
-    enabled: isAdmin && activeTab === "audit",
+    enabled: isAdmin && activeTab === "audit" && !!companyId,
   });
 
   const { data: distinctTables } = useQuery({
-    queryKey: ["audit-log-tables"],
+    queryKey: ["audit-log-tables", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("audit_logs")
         .select("table_name")
+        .eq("company_id", companyId)
         .order("table_name");
       if (error) throw error;
       const unique = [...new Set(data.map((d) => d.table_name))];
       return unique;
     },
-    enabled: isAdmin && activeTab === "audit",
+    enabled: isAdmin && activeTab === "audit" && !!companyId,
   });
 
   const updateSetting = useMutation({
@@ -243,6 +257,7 @@ export default function AdminSettings() {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
       queryClient.invalidateQueries({ queryKey: ["app-settings"] });
       toast.success("Setting updated successfully");
     },

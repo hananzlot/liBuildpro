@@ -51,7 +51,7 @@ interface AuditLog {
 
 export default function AuditLog() {
   const navigate = useNavigate();
-  const { isAdmin, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: authLoading, companyId } = useAuth();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [tableFilter, setTableFilter] = useState<string>("all");
@@ -60,11 +60,12 @@ export default function AuditLog() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const { data: logs, isLoading } = useQuery({
-    queryKey: ["audit-logs", startDate, endDate, tableFilter, actionFilter, userFilter],
+    queryKey: ["audit-logs", companyId, startDate, endDate, tableFilter, actionFilter, userFilter],
     queryFn: async () => {
       let query = supabase
         .from("audit_logs")
         .select("*")
+        .eq("company_id", companyId)
         .order("changed_at", { ascending: false })
         .limit(500);
 
@@ -88,21 +89,22 @@ export default function AuditLog() {
       if (error) throw error;
       return data as AuditLog[];
     },
-    enabled: isAdmin,
+    enabled: isAdmin && !!companyId,
   });
 
   const { data: distinctTables } = useQuery({
-    queryKey: ["audit-log-tables"],
+    queryKey: ["audit-log-tables", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("audit_logs")
         .select("table_name")
+        .eq("company_id", companyId)
         .order("table_name");
       if (error) throw error;
       const unique = [...new Set(data.map((d) => d.table_name))];
       return unique;
     },
-    enabled: isAdmin,
+    enabled: isAdmin && !!companyId,
   });
 
   const clearFilters = () => {
