@@ -12,6 +12,7 @@ interface GHLIntegration {
   company_id: string;
   location_id: string;
   api_key_vault_id: string | null;
+  api_key_encrypted: string | null;
   name: string;
   is_primary: boolean;
 }
@@ -1291,7 +1292,7 @@ serve(async (req) => {
     // Query company_integrations for active GHL connections
     const { data: integrations, error: intError } = await supabase
       .from('company_integrations')
-      .select('id, company_id, location_id, api_key_vault_id, name, is_primary')
+      .select('id, company_id, location_id, api_key_vault_id, api_key_encrypted, name, is_primary')
       .eq('provider', 'ghl')
       .eq('is_active', true);
 
@@ -1301,7 +1302,7 @@ serve(async (req) => {
 
     // Check if we have integrations configured in the database
     const hasDbIntegrations = integrations && integrations.length > 0 && 
-      integrations.some((i: GHLIntegration) => i.api_key_vault_id);
+      integrations.some((i: GHLIntegration) => i.api_key_encrypted || i.api_key_vault_id);
 
     if (hasDbIntegrations) {
       // New approach: Use company_integrations for multi-tenancy
@@ -1310,17 +1311,17 @@ serve(async (req) => {
       const allResults: any[] = [];
       
       for (const integration of integrations as GHLIntegration[]) {
-        if (!integration.api_key_vault_id) {
+        if (!integration.api_key_encrypted) {
           console.log(`Integration ${integration.id} has no API key configured, skipping`);
           continue;
         }
 
-        // Get decrypted API key from vault
+        // Get decrypted API key using pgcrypto function
         const { data: apiKey, error: vaultError } = await supabase
-          .rpc('get_ghl_api_key', { secret_id: integration.api_key_vault_id });
+          .rpc('get_ghl_api_key_encrypted', { p_integration_id: integration.id });
 
         if (vaultError || !apiKey) {
-          console.error(`Error retrieving API key from vault for integration ${integration.id}:`, vaultError);
+          console.error(`Error retrieving API key for integration ${integration.id}:`, vaultError);
           continue;
         }
 
