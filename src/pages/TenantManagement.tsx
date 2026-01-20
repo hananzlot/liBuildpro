@@ -17,6 +17,9 @@ import { format } from 'date-fns';
 import { Building2, Users, Calendar, DollarSign, Edit, Plus, RefreshCw } from 'lucide-react';
 import type { SubscriptionPlan, CompanySubscription, SubscriptionStatus } from '@/types/subscription';
 import { AddCompanyDialog } from '@/components/subscription/AddCompanyDialog';
+import { PlatformUsersSection } from '@/components/subscription/PlatformUsersSection';
+import { PlansEditorSection } from '@/components/subscription/PlansEditorSection';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface CompanyWithSubscription {
   id: string;
@@ -38,7 +41,8 @@ export default function TenantManagement() {
     plan_id: '',
     status: '' as SubscriptionStatus | '',
     billing_cycle: '' as 'monthly' | 'yearly' | '',
-    current_period_end: ''
+    current_period_end: '',
+    max_users_override: '' as string
   });
 
   // Fetch all companies with their subscriptions
@@ -122,6 +126,7 @@ export default function TenantManagement() {
       status: SubscriptionStatus;
       billingCycle: 'monthly' | 'yearly';
       currentPeriodEnd: string;
+      maxUsersOverride: number | null;
       hasExistingSubscription: boolean;
     }) => {
       if (data.hasExistingSubscription) {
@@ -132,6 +137,7 @@ export default function TenantManagement() {
             status: data.status,
             billing_cycle: data.billingCycle,
             current_period_end: data.currentPeriodEnd,
+            max_users_override: data.maxUsersOverride,
             updated_at: new Date().toISOString()
           })
           .eq('company_id', data.companyId);
@@ -146,7 +152,8 @@ export default function TenantManagement() {
             status: data.status,
             billing_cycle: data.billingCycle,
             current_period_start: new Date().toISOString(),
-            current_period_end: data.currentPeriodEnd
+            current_period_end: data.currentPeriodEnd,
+            max_users_override: data.maxUsersOverride
           });
 
         if (error) throw error;
@@ -172,7 +179,8 @@ export default function TenantManagement() {
       billing_cycle: company.subscription?.billing_cycle || 'monthly',
       current_period_end: company.subscription?.current_period_end 
         ? format(new Date(company.subscription.current_period_end), 'yyyy-MM-dd')
-        : format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
+        : format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
+      max_users_override: company.subscription?.max_users_override?.toString() || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -183,12 +191,17 @@ export default function TenantManagement() {
       return;
     }
 
+    const maxUsersOverride = editForm.max_users_override.trim() === '' 
+      ? null 
+      : parseInt(editForm.max_users_override);
+
     updateSubscription.mutate({
       companyId: selectedCompany.id,
       planId: editForm.plan_id,
       status: editForm.status as SubscriptionStatus,
       billingCycle: editForm.billing_cycle as 'monthly' | 'yearly',
       currentPeriodEnd: new Date(editForm.current_period_end).toISOString(),
+      maxUsersOverride,
       hasExistingSubscription: !!selectedCompany.subscription
     });
   };
@@ -285,8 +298,17 @@ export default function TenantManagement() {
           </Card>
         </div>
 
-        {/* Companies Table */}
-        <Card>
+        {/* Tabs for different sections */}
+        <Tabs defaultValue="companies" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="companies">Companies</TabsTrigger>
+            <TabsTrigger value="plans">Plans</TabsTrigger>
+            <TabsTrigger value="admins">Platform Admins</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="companies">
+            {/* Companies Table */}
+            <Card>
           <CardHeader>
             <CardTitle>Companies</CardTitle>
             <CardDescription>All registered companies and their subscription status</CardDescription>
@@ -333,11 +355,13 @@ export default function TenantManagement() {
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <span>{company.user_count}</span>
-                          {company.subscription?.plan?.max_users !== -1 && (
-                            <span className="text-muted-foreground">
-                              / {company.subscription?.plan?.max_users || '?'}
-                            </span>
-                          )}
+                          {(() => {
+                            const limit = company.subscription?.max_users_override ?? company.subscription?.plan?.max_users;
+                            if (limit && limit !== -1) {
+                              return <span className="text-muted-foreground">/ {limit}</span>;
+                            }
+                            return null;
+                          })()}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -369,6 +393,16 @@ export default function TenantManagement() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="plans">
+            <PlansEditorSection />
+          </TabsContent>
+
+          <TabsContent value="admins">
+            <PlatformUsersSection />
+          </TabsContent>
+        </Tabs>
 
         {/* Edit Subscription Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -448,6 +482,19 @@ export default function TenantManagement() {
                   value={editForm.current_period_end}
                   onChange={(e) => setEditForm(prev => ({ ...prev, current_period_end: e.target.value }))}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Max Users Override</Label>
+                <Input 
+                  type="number"
+                  placeholder="Leave empty to use plan default"
+                  value={editForm.max_users_override}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, max_users_override: e.target.value }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Override the plan's user limit for this company. -1 = unlimited. Empty = use plan default.
+                </p>
               </div>
             </div>
 

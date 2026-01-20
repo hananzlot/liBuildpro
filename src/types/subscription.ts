@@ -31,6 +31,7 @@ export interface CompanySubscription {
   trial_ends_at: string | null;
   canceled_at: string | null;
   grace_period_ends_at: string | null;
+  max_users_override: number | null; // Override plan's max_users for this company
   created_at: string;
   updated_at: string;
   // Joined data
