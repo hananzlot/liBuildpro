@@ -1,0 +1,1 @@
+UPDATE company_integrations SET is_active = false WHERE id = '74ae93da-ca46-4a5f-868a-a270a3912e3d';
