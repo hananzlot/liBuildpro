@@ -160,18 +160,21 @@ export type Database = {
           assigned_user_id: string | null
           calendar_id: string | null
           contact_id: string | null
+          contact_uuid: string | null
           created_at: string
           edited_at: string | null
           edited_by: string | null
           end_time: string | null
           entered_by: string | null
+          external_id: string | null
           ghl_date_added: string | null
           ghl_date_updated: string | null
-          ghl_id: string
+          ghl_id: string | null
           id: string
           last_synced_at: string | null
           location_id: string
           notes: string | null
+          provider: string | null
           salesperson_confirmed: boolean
           salesperson_confirmed_at: string | null
           start_time: string | null
@@ -184,18 +187,21 @@ export type Database = {
           assigned_user_id?: string | null
           calendar_id?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           edited_at?: string | null
           edited_by?: string | null
           end_time?: string | null
           entered_by?: string | null
+          external_id?: string | null
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
-          ghl_id: string
+          ghl_id?: string | null
           id?: string
           last_synced_at?: string | null
           location_id: string
           notes?: string | null
+          provider?: string | null
           salesperson_confirmed?: boolean
           salesperson_confirmed_at?: string | null
           start_time?: string | null
@@ -208,18 +214,21 @@ export type Database = {
           assigned_user_id?: string | null
           calendar_id?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           edited_at?: string | null
           edited_by?: string | null
           end_time?: string | null
           entered_by?: string | null
+          external_id?: string | null
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
-          ghl_id?: string
+          ghl_id?: string | null
           id?: string
           last_synced_at?: string | null
           location_id?: string
           notes?: string | null
+          provider?: string | null
           salesperson_confirmed?: boolean
           salesperson_confirmed_at?: string | null
           start_time?: string | null
@@ -227,6 +236,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_edited_by_fkey"
             columns: ["edited_by"]
@@ -602,46 +618,62 @@ export type Database = {
         Row: {
           body: string | null
           contact_id: string
+          contact_uuid: string | null
           created_at: string
           edited_at: string | null
           edited_by: string | null
           entered_by: string | null
+          external_id: string | null
           ghl_date_added: string | null
-          ghl_id: string
+          ghl_id: string | null
           id: string
           location_id: string
+          provider: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
           body?: string | null
           contact_id: string
+          contact_uuid?: string | null
           created_at?: string
           edited_at?: string | null
           edited_by?: string | null
           entered_by?: string | null
+          external_id?: string | null
           ghl_date_added?: string | null
-          ghl_id: string
+          ghl_id?: string | null
           id?: string
           location_id: string
+          provider?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
           body?: string | null
           contact_id?: string
+          contact_uuid?: string | null
           created_at?: string
           edited_at?: string | null
           edited_by?: string | null
           entered_by?: string | null
+          external_id?: string | null
           ghl_date_added?: string | null
-          ghl_id?: string
+          ghl_id?: string | null
           id?: string
           location_id?: string
+          provider?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contact_notes_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contact_notes_edited_by_fkey"
             columns: ["edited_by"]
@@ -667,15 +699,17 @@ export type Database = {
           custom_fields: Json | null
           email: string | null
           entered_by: string | null
+          external_id: string | null
           first_name: string | null
           ghl_date_added: string | null
           ghl_date_updated: string | null
-          ghl_id: string
+          ghl_id: string | null
           id: string
           last_name: string | null
           last_synced_at: string | null
           location_id: string
           phone: string | null
+          provider: string | null
           source: string | null
           tags: string[] | null
           updated_at: string
@@ -688,15 +722,17 @@ export type Database = {
           custom_fields?: Json | null
           email?: string | null
           entered_by?: string | null
+          external_id?: string | null
           first_name?: string | null
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
-          ghl_id: string
+          ghl_id?: string | null
           id?: string
           last_name?: string | null
           last_synced_at?: string | null
           location_id: string
           phone?: string | null
+          provider?: string | null
           source?: string | null
           tags?: string[] | null
           updated_at?: string
@@ -709,15 +745,17 @@ export type Database = {
           custom_fields?: Json | null
           email?: string | null
           entered_by?: string | null
+          external_id?: string | null
           first_name?: string | null
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
-          ghl_id?: string
+          ghl_id?: string | null
           id?: string
           last_name?: string | null
           last_synced_at?: string | null
           location_id?: string
           phone?: string | null
+          provider?: string | null
           source?: string | null
           tags?: string[] | null
           updated_at?: string
@@ -736,9 +774,10 @@ export type Database = {
         Row: {
           contact_id: string | null
           created_at: string
+          external_id: string | null
           ghl_date_added: string | null
           ghl_date_updated: string | null
-          ghl_id: string
+          ghl_id: string | null
           id: string
           inbox_status: string | null
           last_message_body: string | null
@@ -747,6 +786,7 @@ export type Database = {
           last_message_type: string | null
           last_synced_at: string | null
           location_id: string
+          provider: string | null
           type: string | null
           unread_count: number | null
           updated_at: string
@@ -754,9 +794,10 @@ export type Database = {
         Insert: {
           contact_id?: string | null
           created_at?: string
+          external_id?: string | null
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
-          ghl_id: string
+          ghl_id?: string | null
           id?: string
           inbox_status?: string | null
           last_message_body?: string | null
@@ -765,6 +806,7 @@ export type Database = {
           last_message_type?: string | null
           last_synced_at?: string | null
           location_id: string
+          provider?: string | null
           type?: string | null
           unread_count?: number | null
           updated_at?: string
@@ -772,9 +814,10 @@ export type Database = {
         Update: {
           contact_id?: string | null
           created_at?: string
+          external_id?: string | null
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
-          ghl_id?: string
+          ghl_id?: string | null
           id?: string
           inbox_status?: string | null
           last_message_body?: string | null
@@ -783,6 +826,7 @@ export type Database = {
           last_message_type?: string | null
           last_synced_at?: string | null
           location_id?: string
+          provider?: string | null
           type?: string | null
           unread_count?: number | null
           updated_at?: string
@@ -1407,6 +1451,7 @@ export type Database = {
         Row: {
           billing_address: string | null
           contact_id: string | null
+          contact_uuid: string | null
           created_at: string
           created_by: string | null
           customer_email: string | null
@@ -1429,6 +1474,7 @@ export type Database = {
           job_address: string | null
           notes: string | null
           opportunity_id: string | null
+          opportunity_uuid: string | null
           project_id: string | null
           salesperson_name: string | null
           sent_at: string | null
@@ -1449,6 +1495,7 @@ export type Database = {
         Insert: {
           billing_address?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           created_by?: string | null
           customer_email?: string | null
@@ -1471,6 +1518,7 @@ export type Database = {
           job_address?: string | null
           notes?: string | null
           opportunity_id?: string | null
+          opportunity_uuid?: string | null
           project_id?: string | null
           salesperson_name?: string | null
           sent_at?: string | null
@@ -1491,6 +1539,7 @@ export type Database = {
         Update: {
           billing_address?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           created_by?: string | null
           customer_email?: string | null
@@ -1513,6 +1562,7 @@ export type Database = {
           job_address?: string | null
           notes?: string | null
           opportunity_id?: string | null
+          opportunity_uuid?: string | null
           project_id?: string | null
           salesperson_name?: string | null
           sent_at?: string | null
@@ -1532,6 +1582,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "estimates_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "estimates_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1544,6 +1601,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "opportunities"
             referencedColumns: ["ghl_id"]
+          },
+          {
+            foreignKeyName: "estimates_opportunity_uuid_fkey"
+            columns: ["opportunity_uuid"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "estimates_project_id_fkey"
@@ -1626,15 +1690,18 @@ export type Database = {
           body: string | null
           completed: boolean | null
           contact_id: string
+          contact_uuid: string | null
           created_at: string
           due_date: string | null
           edited_at: string | null
           edited_by: string | null
           entered_by: string | null
-          ghl_id: string
+          external_id: string | null
+          ghl_id: string | null
           id: string
           last_synced_at: string | null
           location_id: string
+          provider: string | null
           title: string
           updated_at: string
         }
@@ -1643,15 +1710,18 @@ export type Database = {
           body?: string | null
           completed?: boolean | null
           contact_id: string
+          contact_uuid?: string | null
           created_at?: string
           due_date?: string | null
           edited_at?: string | null
           edited_by?: string | null
           entered_by?: string | null
-          ghl_id: string
+          external_id?: string | null
+          ghl_id?: string | null
           id?: string
           last_synced_at?: string | null
           location_id: string
+          provider?: string | null
           title: string
           updated_at?: string
         }
@@ -1660,19 +1730,29 @@ export type Database = {
           body?: string | null
           completed?: boolean | null
           contact_id?: string
+          contact_uuid?: string | null
           created_at?: string
           due_date?: string | null
           edited_at?: string | null
           edited_by?: string | null
           entered_by?: string | null
-          ghl_id?: string
+          external_id?: string | null
+          ghl_id?: string | null
           id?: string
           last_synced_at?: string | null
           location_id?: string
+          provider?: string | null
           title?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ghl_tasks_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ghl_tasks_edited_by_fkey"
             columns: ["edited_by"]
@@ -1693,6 +1773,7 @@ export type Database = {
         Row: {
           created_at: string
           email: string | null
+          external_id: string | null
           first_name: string | null
           ghl_id: string
           id: string
@@ -1700,12 +1781,14 @@ export type Database = {
           location_id: string
           name: string | null
           phone: string | null
+          provider: string | null
           role: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           email?: string | null
+          external_id?: string | null
           first_name?: string | null
           ghl_id: string
           id?: string
@@ -1713,12 +1796,14 @@ export type Database = {
           location_id: string
           name?: string | null
           phone?: string | null
+          provider?: string | null
           role?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           email?: string | null
+          external_id?: string | null
           first_name?: string | null
           ghl_id?: string
           id?: string
@@ -1726,6 +1811,7 @@ export type Database = {
           location_id?: string
           name?: string | null
           phone?: string | null
+          provider?: string | null
           role?: string | null
           updated_at?: string
         }
@@ -1950,12 +2036,14 @@ export type Database = {
           address: string | null
           assigned_to: string | null
           contact_id: string | null
+          contact_uuid: string | null
           created_at: string
           custom_fields: Json | null
           entered_by: string | null
+          external_id: string | null
           ghl_date_added: string | null
           ghl_date_updated: string | null
-          ghl_id: string
+          ghl_id: string | null
           id: string
           last_synced_at: string | null
           location_id: string
@@ -1964,6 +2052,7 @@ export type Database = {
           pipeline_id: string | null
           pipeline_name: string | null
           pipeline_stage_id: string | null
+          provider: string | null
           scope_of_work: string | null
           stage_name: string | null
           status: string | null
@@ -1974,12 +2063,14 @@ export type Database = {
           address?: string | null
           assigned_to?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           custom_fields?: Json | null
           entered_by?: string | null
+          external_id?: string | null
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
-          ghl_id: string
+          ghl_id?: string | null
           id?: string
           last_synced_at?: string | null
           location_id: string
@@ -1988,6 +2079,7 @@ export type Database = {
           pipeline_id?: string | null
           pipeline_name?: string | null
           pipeline_stage_id?: string | null
+          provider?: string | null
           scope_of_work?: string | null
           stage_name?: string | null
           status?: string | null
@@ -1998,12 +2090,14 @@ export type Database = {
           address?: string | null
           assigned_to?: string | null
           contact_id?: string | null
+          contact_uuid?: string | null
           created_at?: string
           custom_fields?: Json | null
           entered_by?: string | null
+          external_id?: string | null
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
-          ghl_id?: string
+          ghl_id?: string | null
           id?: string
           last_synced_at?: string | null
           location_id?: string
@@ -2012,6 +2106,7 @@ export type Database = {
           pipeline_id?: string | null
           pipeline_name?: string | null
           pipeline_stage_id?: string | null
+          provider?: string | null
           scope_of_work?: string | null
           stage_name?: string | null
           status?: string | null
@@ -2019,6 +2114,13 @@ export type Database = {
           won_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "opportunities_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "opportunities_entered_by_fkey"
             columns: ["entered_by"]
@@ -3290,6 +3392,7 @@ export type Database = {
           completion_date: string | null
           contact_id: string | null
           contact_preferences: string | null
+          contact_uuid: string | null
           contract_expiration_date: string | null
           contract_number: string | null
           created_at: string | null
@@ -3317,6 +3420,7 @@ export type Database = {
           location_id: string
           lock_box_code: string | null
           opportunity_id: string | null
+          opportunity_uuid: string | null
           permit_numbers: string | null
           primary_commission_pct: number | null
           primary_profit_split_pct: number | null
@@ -3354,6 +3458,7 @@ export type Database = {
           completion_date?: string | null
           contact_id?: string | null
           contact_preferences?: string | null
+          contact_uuid?: string | null
           contract_expiration_date?: string | null
           contract_number?: string | null
           created_at?: string | null
@@ -3381,6 +3486,7 @@ export type Database = {
           location_id: string
           lock_box_code?: string | null
           opportunity_id?: string | null
+          opportunity_uuid?: string | null
           permit_numbers?: string | null
           primary_commission_pct?: number | null
           primary_profit_split_pct?: number | null
@@ -3418,6 +3524,7 @@ export type Database = {
           completion_date?: string | null
           contact_id?: string | null
           contact_preferences?: string | null
+          contact_uuid?: string | null
           contract_expiration_date?: string | null
           contract_number?: string | null
           created_at?: string | null
@@ -3445,6 +3552,7 @@ export type Database = {
           location_id?: string
           lock_box_code?: string | null
           opportunity_id?: string | null
+          opportunity_uuid?: string | null
           permit_numbers?: string | null
           primary_commission_pct?: number | null
           primary_profit_split_pct?: number | null
@@ -3475,10 +3583,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "projects_contact_uuid_fkey"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "projects_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_opportunity_uuid_fkey"
+            columns: ["opportunity_uuid"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
             referencedColumns: ["id"]
           },
         ]
@@ -3890,6 +4012,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      backfill_contact_uuids: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
