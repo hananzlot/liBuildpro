@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, Database, DollarSign, CalendarCheck, Trophy, Pencil, BookOpen, Receipt } from "lucide-react";
+import { Calendar, Database, DollarSign, CalendarCheck, Trophy, Pencil, BookOpen, Receipt, HardDrive } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
+import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { SourceChart } from "@/components/dashboard/SourceChart";
@@ -43,6 +44,7 @@ const Index = () => {
     isProduction,
     isSimulating,
   } = useAuth();
+  const { isGHLEnabled } = useGHLMode();
   
   // Show welcome screen state - persisted in sessionStorage
   const [showWelcome, setShowWelcome] = useState(() => {
@@ -262,6 +264,12 @@ const Index = () => {
               isSyncingGHL={syncMutation.isPending} 
               isSyncingGHL2={syncGHL2Mutation.isPending} 
             />
+            {!isGHLEnabled && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
+                <HardDrive className="h-3 w-3" />
+                Local Mode
+              </div>
+            )}
           </div>
         </div>
 
