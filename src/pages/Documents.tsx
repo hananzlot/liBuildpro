@@ -142,18 +142,21 @@ export default function Documents() {
   ]);
   const [signatureFields, setSignatureFields] = useState<SignatureField[]>([]);
 
-  // Fetch documents with signers
+  // Fetch documents with signers - scoped by companyId for tenant isolation
   const { data: documents, isLoading } = useQuery({
-    queryKey: ["signature-documents"],
+    queryKey: ["signature-documents", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("signature_documents")
         .select("*, document_signers(*)")
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data as SignatureDocument[];
     },
+    enabled: !!companyId,
   });
 
   // Upload document and move to signers step
@@ -330,7 +333,7 @@ export default function Documents() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["signature-documents", companyId] });
       toast.success("Document setup complete!");
       resetForm();
       setUploadDialogOpen(false);
@@ -374,7 +377,7 @@ export default function Documents() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["signature-documents", companyId] });
       toast.success("Document sent to all recipients!");
       setSendDialogOpen(false);
       setSelectedDocument(null);
@@ -412,7 +415,7 @@ export default function Documents() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["signature-documents", companyId] });
       toast.success("Reminder sent successfully!");
       setResendDialogOpen(false);
       setResendSigner(null);
@@ -439,7 +442,7 @@ export default function Documents() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["signature-documents", companyId] });
       toast.success("Document deleted");
     },
     onError: (error) => {
@@ -460,7 +463,7 @@ export default function Documents() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["signature-documents"] });
+      queryClient.invalidateQueries({ queryKey: ["signature-documents", companyId] });
       toast.success("Document cancelled and signers notified");
       setCancelDialogOpen(false);
       setSelectedDocument(null);
