@@ -90,3 +90,38 @@ export const formatCompactCurrency = (value: number | null | undefined): string 
   }
   return `$${value.toFixed(0)}`;
 };
+
+// Helper to find contact using UUID with fallback to GHL ID
+// Supports the Supabase-as-source-of-truth architecture where UUID is preferred
+export function findContactByIdOrGhlId<T extends { id: string; ghl_id?: string | null }>(
+  contacts: T[] | undefined,
+  contactUuid: string | null | undefined,
+  contactGhlId: string | null | undefined
+): T | undefined {
+  if (!contacts) return undefined;
+  if (contactUuid) {
+    const found = contacts.find(c => c.id === contactUuid);
+    if (found) return found;
+  }
+  if (contactGhlId) {
+    return contacts.find(c => c.ghl_id === contactGhlId);
+  }
+  return undefined;
+}
+
+// Helper to find opportunity using UUID with fallback to GHL ID
+export function findOpportunityByIdOrGhlId<T extends { id: string; ghl_id?: string | null }>(
+  opportunities: T[] | undefined,
+  opportunityUuid: string | null | undefined,
+  opportunityGhlId: string | null | undefined
+): T | undefined {
+  if (!opportunities) return undefined;
+  if (opportunityUuid) {
+    const found = opportunities.find(o => o.id === opportunityUuid);
+    if (found) return found;
+  }
+  if (opportunityGhlId) {
+    return opportunities.find(o => o.ghl_id === opportunityGhlId);
+  }
+  return undefined;
+}

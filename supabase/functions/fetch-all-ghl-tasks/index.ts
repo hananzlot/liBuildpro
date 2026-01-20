@@ -80,6 +80,8 @@ serve(async (req) => {
     if (allTasks.length > 0) {
       const tasksToUpsert = allTasks.map(t => ({
         ghl_id: t.id,
+        provider: 'ghl',
+        external_id: t.id,
         location_id: ghlLocationId,
         contact_id: t.contactId,
         title: t.title || 'Untitled Task',
