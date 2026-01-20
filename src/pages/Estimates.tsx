@@ -224,7 +224,7 @@ export default function Estimates() {
     setBuilderOpen(true);
   };
 
-  // Copy portal link for a proposal
+  // Copy portal link for a proposal and open in new tab
   const handleCopyPortalLink = async (estimateId: string) => {
     try {
       // First check for multi-signer tokens (estimate_portal_tokens)
@@ -237,10 +237,13 @@ export default function Estimates() {
       if (signerTokens && signerTokens.length > 0) {
         // Build links for all signers
         const baseUrl = window.location.origin;
-        const links = signerTokens.map((t: any) => `${baseUrl}/portal?token=${t.token}`).join('\n');
+        const links = signerTokens.map((t: any) => `${baseUrl}/portal?token=${t.token}`);
         
-        await navigator.clipboard.writeText(links);
+        await navigator.clipboard.writeText(links.join('\n'));
         toast.success(`Copied ${signerTokens.length} portal link(s) to clipboard`);
+        
+        // Open the first link in a new tab
+        window.open(links[0], '_blank');
         return;
       }
 
@@ -256,6 +259,9 @@ export default function Estimates() {
         const portalLink = `${window.location.origin}/portal?token=${legacyToken.token}`;
         await navigator.clipboard.writeText(portalLink);
         toast.success("Portal link copied to clipboard");
+        
+        // Open in new tab
+        window.open(portalLink, '_blank');
         return;
       }
 
