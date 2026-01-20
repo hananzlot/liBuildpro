@@ -4903,6 +4903,12 @@ export type Database = {
     }
     Functions: {
       backfill_contact_uuids: { Args: never; Returns: undefined }
+      get_user_company_id: { Args: never; Returns: string }
+      get_user_corporation_id: { Args: never; Returns: string }
+      has_company_access: {
+        Args: { target_company_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -4911,6 +4917,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_corp_admin: { Args: { _user_id: string }; Returns: boolean }
       log_audit: {
         Args: {
           p_action: string
@@ -4922,6 +4929,7 @@ export type Database = {
         }
         Returns: string
       }
+      user_in_corporation: { Args: { corp_id: string }; Returns: boolean }
     }
     Enums: {
       app_role:
