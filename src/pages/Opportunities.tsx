@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Database, HardDrive } from "lucide-react";
-import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
+import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
 import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
-import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -18,13 +17,6 @@ const Opportunities = () => {
   const { user } = useAuth();
   const { isGHLEnabled } = useGHLMode();
   
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    return { from: start, to: end };
-  });
-  
   const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
   const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
   const [initialTaskGhlId, setInitialTaskGhlId] = useState<string | null>(null);
@@ -34,7 +26,7 @@ const Opportunities = () => {
     isLoading,
     error,
     refetch
-  } = useGHLMetrics(dateRange);
+  } = useGHLMetrics(undefined);
 
   const syncMutation = useSyncContacts();
 
@@ -104,23 +96,13 @@ const Opportunities = () => {
       <div className="px-6 py-6 space-y-6">
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-foreground">Opportunities</h1>
-            <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
-          </div>
-          <div className="flex items-center gap-2">
-            {dateRange?.from && (
-              <p className="text-sm text-muted-foreground">
-                Showing {metrics?.totalLeads || 0} leads in selected range
-              </p>
-            )}
-            {!isGHLEnabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
-                <HardDrive className="h-3 w-3" />
-                Local Mode
-              </div>
-            )}
-          </div>
+          <h1 className="text-2xl font-bold text-foreground">Opportunities</h1>
+          {!isGHLEnabled && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
+              <HardDrive className="h-3 w-3" />
+              Local Mode
+            </div>
+          )}
         </div>
 
         {/* Opportunities Table */}

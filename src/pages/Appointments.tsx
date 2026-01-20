@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Database, HardDrive } from "lucide-react";
-import { useGHLMetrics, useSyncContacts, type DateRange } from "@/hooks/useGHLContacts";
+import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
-import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { OpportunitySearch } from "@/components/dashboard/OpportunitySearch";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -18,13 +17,6 @@ const Appointments = () => {
   const { user } = useAuth();
   const { isGHLEnabled } = useGHLMode();
   
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    return { from: start, to: end };
-  });
-  
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
 
@@ -33,7 +25,7 @@ const Appointments = () => {
     isLoading,
     error,
     refetch
-  } = useGHLMetrics(dateRange);
+  } = useGHLMetrics(undefined);
 
   const syncMutation = useSyncContacts();
 
@@ -97,18 +89,13 @@ const Appointments = () => {
       <div className="px-6 py-6 space-y-6">
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
-            <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
-          </div>
-          <div className="flex items-center gap-2">
-            {!isGHLEnabled && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
-                <HardDrive className="h-3 w-3" />
-                Local Mode
-              </div>
-            )}
-          </div>
+          <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
+          {!isGHLEnabled && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
+              <HardDrive className="h-3 w-3" />
+              Local Mode
+            </div>
+          )}
         </div>
 
         {/* Appointments Table */}
