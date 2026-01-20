@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { oldSource, newSource, editedBy } = await req.json();
+    const { oldSource, newSource, editedBy, companyId } = await req.json();
 
     if (!oldSource || !newSource) {
       return new Response(
@@ -140,6 +140,7 @@ serve(async (req) => {
             new_value: newSource,
             edited_by: editedBy || null,
             location_id: contact.location_id,
+            company_id: companyId || null,
           });
         }
 
