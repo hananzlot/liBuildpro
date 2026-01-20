@@ -25,7 +25,8 @@ import {
   EyeOff,
   Calculator,
   FileSignature,
-  Send
+  Send,
+  Building2
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -199,6 +200,18 @@ const navSections: NavSection[] = [
       },
     ],
   },
+  {
+    label: "Super Admin",
+    roles: ['super_admin'],
+    items: [
+      { 
+        title: "Tenant Management", 
+        url: "/super-admin/tenants", 
+        icon: Building2,
+        roles: ['super_admin']
+      },
+    ],
+  },
 ];
 
 // Reports sub-menus removed for now - can be added when routes are created
@@ -222,7 +235,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, isAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
+  const { user, profile, isAdmin, isSuperAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
   const { versionString, version } = useAppVersion();
   const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
   const collapsed = state === "collapsed";
@@ -271,7 +284,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     if (item.roles && item.roles.length > 0) {
       const hasRequiredRole = item.roles.some(role => {
         switch (role) {
-          case 'super_admin': return isAdmin;
+          case 'super_admin': return isSuperAdmin;
           case 'admin': return isAdmin;
           case 'magazine': return isMagazine;
           case 'production': return isProduction;
@@ -323,11 +336,10 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     return location.pathname === subUrl;
   };
 
-  // Check if a section is visible based on user roles
   const canViewSection = (section: NavSection): boolean => {
     return section.roles.some(role => {
       switch (role) {
-        case 'super_admin': return isAdmin;
+        case 'super_admin': return isSuperAdmin;
         case 'admin': return isAdmin;
         case 'magazine': return isMagazine;
         case 'production': return isProduction;
