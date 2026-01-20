@@ -46,7 +46,7 @@ serve(async (req: Request) => {
     // Get project details
     const { data: project, error: projectError } = await supabase
       .from("projects")
-      .select("id, project_number, project_name, customer_first_name, customer_last_name, customer_email, project_address")
+      .select("id, project_number, project_name, customer_first_name, customer_last_name, customer_email, project_address, company_id")
       .eq("id", projectId)
       .single();
 
@@ -89,6 +89,7 @@ serve(async (req: Request) => {
           client_name: `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim(),
           client_email: project.customer_email,
           is_active: true,
+          company_id: project.company_id || null,
         })
         .select("token")
         .single();
@@ -264,6 +265,7 @@ The {{company_name}} Team`;
       sent_to_email: project.customer_email,
       sent_by: userId,
       is_automated: false, // Manual send
+      company_id: project.company_id || null,
     });
 
     return new Response(

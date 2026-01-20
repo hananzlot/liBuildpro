@@ -53,6 +53,7 @@ serve(async (req) => {
       notes,
       enteredBy,
       skipGHLSync, // If true, only save to Supabase without calling GHL API
+      companyId,   // Company ID for multi-tenancy
     } = await req.json();
 
     // calendarId is required only when syncing to GHL
@@ -107,6 +108,7 @@ serve(async (req) => {
         notes: notes ? `[LOCAL] ${notes}` : "[LOCAL - not synced to GHL]",
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
+        company_id: companyId || null,
       });
 
       if (dbError) {
@@ -200,6 +202,7 @@ serve(async (req) => {
           notes: notes || null,
           ghl_date_added: new Date().toISOString(),
           entered_by: enteredBy || null,
+          company_id: companyId || null,
         },
         { onConflict: "ghl_id" },
       );

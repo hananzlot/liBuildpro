@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { opportunityGhlId, scopeOfWork, editedBy } = await req.json();
+    const { opportunityGhlId, scopeOfWork, editedBy, companyId } = await req.json();
 
     if (!opportunityGhlId) {
       return new Response(
@@ -75,6 +75,7 @@ serve(async (req) => {
         new_value: newScope || null,
         edited_by: editedBy || null,
         location_id: opportunity.location_id,
+        company_id: companyId || null,
       });
     }
 

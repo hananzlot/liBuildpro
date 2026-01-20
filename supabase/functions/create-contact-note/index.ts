@@ -30,7 +30,7 @@ serve(async (req) => {
   }
 
   try {
-    const { contactId, body, enteredBy, locationId } = await req.json();
+    const { contactId, body, enteredBy, locationId, companyId } = await req.json();
     
     if (!contactId) {
       console.error('Missing contactId parameter');
@@ -84,6 +84,7 @@ serve(async (req) => {
           ghl_date_added: new Date().toISOString(),
           entered_by: enteredBy || null,
           provider: 'local',
+          company_id: companyId || null,
         })
         .select()
         .single();
@@ -141,6 +142,7 @@ serve(async (req) => {
         location_id: effectiveLocationId,
         ghl_date_added: note.dateAdded ? new Date(note.dateAdded).toISOString() : new Date().toISOString(),
         entered_by: enteredBy || null,
+        company_id: companyId || null,
       }, { onConflict: 'ghl_id' });
       
       console.log('Note saved to Supabase');

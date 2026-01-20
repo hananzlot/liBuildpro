@@ -22,7 +22,7 @@ serve(async (req) => {
   }
 
   try {
-    const { contactId, source, editedBy, opportunityGhlId } = await req.json();
+    const { contactId, source, editedBy, opportunityGhlId, companyId } = await req.json();
 
     if (!contactId) {
       return new Response(
@@ -99,6 +99,7 @@ serve(async (req) => {
         new_value: newSource || null,
         edited_by: editedBy || null,
         location_id: contact.location_id,
+        company_id: companyId || null,
       });
       if (editError) {
         console.error("Error tracking edit:", editError);

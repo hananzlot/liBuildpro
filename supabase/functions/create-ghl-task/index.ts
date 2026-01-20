@@ -50,7 +50,8 @@ serve(async (req) => {
       assignedTo, 
       contactId,
       locationId,
-      enteredBy
+      enteredBy,
+      companyId,
     } = await req.json();
 
     if (!title) {
@@ -94,6 +95,7 @@ serve(async (req) => {
           completed: false,
           entered_by: enteredBy || null,
           provider: 'local',
+          company_id: companyId || null,
         })
         .select()
         .single();
@@ -171,7 +173,8 @@ serve(async (req) => {
           contact_id: contactId,
           location_id: effectiveLocationId,
           completed: false,
-          entered_by: enteredBy || null
+          entered_by: enteredBy || null,
+          company_id: companyId || null,
         });
 
       if (supabaseError) {

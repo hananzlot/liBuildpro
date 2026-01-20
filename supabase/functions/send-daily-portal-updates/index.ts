@@ -83,7 +83,8 @@ serve(async (req: Request) => {
           customer_email,
           customer_first_name,
           customer_last_name,
-          updated_at
+          updated_at,
+          company_id
         )
       `)
       .eq("is_active", true)
@@ -283,6 +284,7 @@ serve(async (req: Request) => {
           sent_to_email: customerEmail,
           sent_by: null, // Automated
           is_automated: true,
+          company_id: project.company_id || null,
         });
 
         console.log(`Email sent to ${customerEmail} for project ${project.project_number}`);

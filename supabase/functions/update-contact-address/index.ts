@@ -24,7 +24,7 @@ serve(async (req) => {
   }
 
   try {
-    const { contactId, address, editedBy, opportunityGhlId } = await req.json();
+    const { contactId, address, editedBy, opportunityGhlId, companyId } = await req.json();
 
     if (!contactId) {
       return new Response(
@@ -121,6 +121,7 @@ serve(async (req) => {
         new_value: newAddress || null,
         edited_by: editedBy || null,
         location_id: contact.location_id,
+        company_id: companyId || null,
       });
     }
 
