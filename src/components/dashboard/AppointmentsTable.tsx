@@ -338,6 +338,7 @@ export function AppointmentsTable({
     const byStatus: Record<string, { total: number; uniqueContacts: Set<string> }> = {};
     const byOppStatus: Record<string, { count: number; value: number }> = {};
     const byRep: Record<string, { id: string; name: string; count: number; value: number; countedContacts: Set<string> }> = {};
+    const wonBySource: Record<string, { count: number; value: number }> = {};
     let totalValue = 0;
     const countedContactIds = new Set<string>(); // Track unique contacts to avoid double-counting opportunities
     
@@ -387,6 +388,15 @@ export function AppointmentsTable({
         byOppStatus[oppStatus].count += 1;
         byOppStatus[oppStatus].value += oppValue;
         
+        // Track Won By Source
+        if (oppStatus.toLowerCase() === 'won') {
+          if (!wonBySource[source]) {
+            wonBySource[source] = { count: 0, value: 0 };
+          }
+          wonBySource[source].count += 1;
+          wonBySource[source].value += oppValue;
+        }
+        
         totalValue += oppValue;
       }
     });
@@ -400,6 +410,7 @@ export function AppointmentsTable({
         .map(([status, data]) => [status, { total: data.total, unique: data.uniqueContacts.size }] as [string, { total: number; unique: number }])
         .sort((a, b) => b[1].total - a[1].total),
       byOppStatus: Object.entries(byOppStatus).sort((a, b) => b[1].value - a[1].value),
+      wonBySource: Object.entries(wonBySource).sort((a, b) => b[1].value - a[1].value),
       byRep: Object.values(byRep)
         .map(data => ({ id: data.id, name: data.name, count: data.count, value: data.value }))
         .sort((a, b) => b.value - a.value),
@@ -638,6 +649,20 @@ export function AppointmentsTable({
                   </Badge>
                 ))}
               </div>
+              {summaryStats.wonBySource.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">Won By Source:</span>
+                  {summaryStats.wonBySource.map(([source, data]) => (
+                    <Badge 
+                      key={source} 
+                      variant="outline" 
+                      className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                    >
+                      {source}: {data.count} ({formatCurrency(data.value)})
+                    </Badge>
+                  ))}
+                </div>
+              )}
               <Collapsible className="w-full">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-medium text-muted-foreground">By Source:</span>
