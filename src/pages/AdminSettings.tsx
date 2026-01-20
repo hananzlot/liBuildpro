@@ -24,6 +24,7 @@ import { LogoUpload } from "@/components/admin/LogoUpload";
 import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager";
 import { GHLFieldMappings } from "@/components/admin/GHLFieldMappings";
 import { useGHLMode } from "@/hooks/useGHLMode";
+import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { format } from "date-fns";
 import {
   Table,
@@ -80,6 +81,7 @@ export default function AdminSettings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "settings";
   const { isGHLEnabled } = useGHLMode();
+  const { visibility: kpiVisibility, toggleLeadsResell, toggleMagazineSales, isToggling: isTogglingKPI } = useKPIVisibility();
   
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({});
   
@@ -590,6 +592,44 @@ export default function AdminSettings() {
 
                 {/* Salespeople Management */}
                 <SalespeopleManagement />
+
+                {/* KPI Card Visibility */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-5 w-5" />
+                      Dashboard KPI Visibility
+                    </CardTitle>
+                    <CardDescription>
+                      Control which KPI cards are visible on the main dashboard
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Leads Resell</Label>
+                        <p className="text-xs text-muted-foreground">Show the Leads Resell KPI card on dashboard</p>
+                      </div>
+                      <Switch
+                        checked={kpiVisibility.leads_resell_visible}
+                        onCheckedChange={toggleLeadsResell}
+                        disabled={isTogglingKPI}
+                      />
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label>Magazine Sales</Label>
+                        <p className="text-xs text-muted-foreground">Show the Magazine Sales KPI card on dashboard</p>
+                      </div>
+                      <Switch
+                        checked={kpiVisibility.magazine_sales_visible}
+                        onCheckedChange={toggleMagazineSales}
+                        disabled={isTogglingKPI}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <Separator />
 
