@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PortalChatProvider } from "@/contexts/PortalChatContext";
+import { SubscriptionGuard } from "@/components/subscription/SubscriptionGuard";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Production from "./pages/Production";
@@ -167,12 +168,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <PortalChatProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
+        <SubscriptionGuard>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
             <Route
               path="/"
               element={<DefaultPageRedirect />}
@@ -252,9 +254,10 @@ const App = () => (
             <Route path="/super-admin/tenants" element={<TenantManagement />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </SubscriptionGuard>
       </PortalChatProvider>
     </AuthProvider>
   </QueryClientProvider>
