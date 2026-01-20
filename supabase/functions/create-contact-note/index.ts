@@ -36,16 +36,23 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // If locationId not provided, look it up from the contact
+    // If locationId or companyId not provided, look them up from the contact
     let effectiveLocationId = locationId;
-    if (!effectiveLocationId) {
+    let effectiveCompanyId = companyId;
+    
+    if (!effectiveLocationId || !effectiveCompanyId) {
       const { data: contactData } = await supabase
         .from('contacts')
-        .select('location_id')
+        .select('location_id, company_id')
         .eq('ghl_id', contactId)
         .single();
       
-      effectiveLocationId = contactData?.location_id;
+      if (!effectiveLocationId) {
+        effectiveLocationId = contactData?.location_id;
+      }
+      if (!effectiveCompanyId) {
+        effectiveCompanyId = contactData?.company_id;
+      }
     }
 
     if (!effectiveLocationId) {
@@ -68,7 +75,7 @@ serve(async (req) => {
           ghl_date_added: new Date().toISOString(),
           entered_by: enteredBy || null,
           provider: 'local',
-          company_id: companyId || null,
+          company_id: effectiveCompanyId || null,
         })
         .select()
         .single();
@@ -129,7 +136,7 @@ serve(async (req) => {
         location_id: effectiveLocationId,
         ghl_date_added: note.dateAdded ? new Date(note.dateAdded).toISOString() : new Date().toISOString(),
         entered_by: enteredBy || null,
-        company_id: companyId || null,
+        company_id: effectiveCompanyId || null,
       }, { onConflict: 'ghl_id' });
       
       console.log('Note saved to Supabase');

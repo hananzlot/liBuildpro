@@ -93,16 +93,27 @@ serve(async (req) => {
       );
     }
 
-    // If location_id not provided, look it up from the contact
+    // If location_id not provided, look it up from the contact (also get company_id for syncing)
     let effectiveLocationId = location_id;
+    let contactCompanyId: string | null = null;
+    
     if (!effectiveLocationId) {
       const { data: contactData } = await supabase
         .from('contacts')
-        .select('location_id')
+        .select('location_id, company_id')
         .eq('ghl_id', contact_id)
         .single();
       
       effectiveLocationId = contactData?.location_id;
+      contactCompanyId = contactData?.company_id;
+    } else {
+      // Still fetch company_id for syncing
+      const { data: contactData } = await supabase
+        .from('contacts')
+        .select('company_id')
+        .eq('ghl_id', contact_id)
+        .single();
+      contactCompanyId = contactData?.company_id;
     }
 
     if (!effectiveLocationId) {
@@ -167,6 +178,7 @@ serve(async (req) => {
               edited_at: existing.edited_at, // Always preserve
               provider: existing.provider ?? 'ghl',
               external_id: existing.external_id ?? note.id,
+              company_id: existing.company_id ?? contactCompanyId, // Preserve or set from contact
             };
           }
           
@@ -180,6 +192,7 @@ serve(async (req) => {
             location_id: effectiveLocationId,
             provider: 'ghl',
             external_id: note.id,
+            company_id: contactCompanyId, // Always set company_id from contact
           };
         });
 
