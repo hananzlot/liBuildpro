@@ -97,22 +97,31 @@ export default function AdminSettings() {
   const [userFilter, setUserFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
-  // GHL Integration toggle mutation
+  // GHL Integration toggle mutation (company-scoped)
   const toggleGHLIntegration = useMutation({
     mutationFn: async (enabled: boolean) => {
+      if (!companyId) throw new Error("No company ID");
+
+      // Upsert into company_settings for company-scoped setting
       const { error } = await supabase
-        .from("app_settings")
-        .update({ 
-          setting_value: enabled ? "true" : "false", 
-          updated_at: new Date().toISOString() 
-        })
-        .eq("setting_key", "ghl_integration_enabled");
+        .from("company_settings")
+        .upsert(
+          {
+            company_id: companyId,
+            setting_key: "ghl_integration_enabled",
+            setting_value: enabled ? "true" : "false",
+            setting_type: "boolean",
+            description: "Enable or disable GoHighLevel integration sync",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "company_id,setting_key" }
+        );
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ghl-integration-enabled"] });
-      queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-integration-enabled", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["company-settings", companyId] });
       toast.success("GHL integration setting updated");
     },
     onError: (error: Error) => {

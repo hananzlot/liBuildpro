@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 
 interface GHLModeState {
   isGHLEnabled: boolean;
@@ -7,23 +8,41 @@ interface GHLModeState {
 }
 
 export function useGHLMode(): GHLModeState {
+  const { companyId } = useCompanyContext();
+
   const { data, isLoading } = useQuery({
-    queryKey: ["ghl-integration-enabled"],
+    queryKey: ["ghl-integration-enabled", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!companyId) return true; // Default to enabled if no company
+
+      // First try company_settings (preferred, scoped to company)
+      const { data: companyData, error: companyError } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "ghl_integration_enabled")
+        .maybeSingle();
+
+      if (!companyError && companyData) {
+        return companyData.setting_value !== "false";
+      }
+
+      // Fall back to app_settings for backward compatibility
+      const { data: appData, error: appError } = await supabase
         .from("app_settings")
         .select("setting_value")
         .eq("setting_key", "ghl_integration_enabled")
         .maybeSingle();
       
-      if (error) {
-        console.error("Error fetching GHL mode setting:", error);
+      if (appError) {
+        console.error("Error fetching GHL mode setting:", appError);
         return true; // Default to enabled if error
       }
       
       // Parse the boolean value - default to true if not set
-      return data?.setting_value !== "false";
+      return appData?.setting_value !== "false";
     },
+    enabled: !!companyId,
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
