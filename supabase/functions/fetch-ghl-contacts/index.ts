@@ -542,6 +542,8 @@ async function syncLocationData(
     console.log(`Syncing ${users.length} users...`);
     const usersToUpsert = users.map(u => ({
       ghl_id: u.id,
+      provider: 'ghl',
+      external_id: u.id,
       location_id: locationId,
       name: u.name || null,
       first_name: u.firstName || null,
@@ -609,6 +611,8 @@ async function syncLocationData(
     console.log(`Syncing ${contacts.length} contacts...`);
     const contactsToUpsert = contacts.map(c => ({
       ghl_id: c.id,
+      provider: 'ghl',
+      external_id: c.id,
       location_id: c.locationId || locationId,
       contact_name: c.contactName || null,
       first_name: c.firstName || null,
@@ -739,6 +743,8 @@ async function syncLocationData(
       
       return {
         ghl_id: o.id,
+        provider: 'ghl',
+        external_id: o.id,
         location_id: o.locationId || locationId,
         contact_id: o.contactId || null,
         pipeline_id: o.pipelineId || null,
@@ -771,6 +777,8 @@ async function syncLocationData(
     console.log(`Syncing ${appointments.length} appointments...`);
     const apptsToUpsert = appointments.map(a => ({
       ghl_id: a.id,
+      provider: 'ghl',
+      external_id: a.id,
       location_id: a.locationId || locationId,
       contact_id: a.contactId || null,
       calendar_id: a.calendarId || null,
@@ -811,6 +819,8 @@ async function syncLocationData(
 
     const convsToUpsert = conversations.map(c => ({
       ghl_id: c.id,
+      provider: 'ghl',
+      external_id: c.id,
       location_id: c.locationId || locationId,
       contact_id: c.contactId || null,
       type: c.type || null,
@@ -837,6 +847,8 @@ async function syncLocationData(
     console.log(`Syncing ${tasks.length} tasks...`);
     const tasksToUpsert = tasks.map(t => ({
       ghl_id: t.id,
+      provider: 'ghl',
+      external_id: t.id,
       location_id: locationId,
       contact_id: t.contactId,
       title: t.title || 'Untitled Task',
@@ -1087,6 +1099,15 @@ serve(async (req) => {
       });
     } else {
       console.log('\nNo Location 2 credentials found, skipping secondary sync.');
+    }
+
+    // Run UUID backfill after all syncs complete
+    console.log('Running UUID relationship backfill...');
+    const { error: backfillError } = await supabase.rpc('backfill_contact_uuids');
+    if (backfillError) {
+      console.error('UUID backfill error:', backfillError);
+    } else {
+      console.log('UUID backfill completed successfully');
     }
 
     console.log('\n========== Full multi-location sync complete! ==========');
