@@ -283,17 +283,28 @@ export function FollowUpManagement({
     }, null as Date | null);
   };
 
+  // Get oldest appointment date for a contact (fallback for creation date)
+  const getOldestAppointmentDate = (contactId: string): Date | null => {
+    const contactAppts = appointments.filter(a => a.contact_id === contactId && a.start_time);
+    if (contactAppts.length === 0) return null;
+    return contactAppts.reduce((oldest, appt) => {
+      const apptDate = new Date(appt.start_time!);
+      return !oldest || apptDate < oldest ? apptDate : oldest;
+    }, null as Date | null);
+  };
+
   // Auto-create opportunity for orphaned appointment
   const createOrphanedOpportunity = async (appointment: DBAppointment, contact: DBContact | undefined) => {
-    if (!appointment.contact_id || !contact) return null;
+    if (!appointment.contact_id || !contact || !companyId) return null;
     
     // Skip if already being created or was already created this session
     if (orphanedOpportunitiesCreated.has(appointment.contact_id)) return null;
 
     try {
-      // Get the oldest note date to use as creation date
+      // Get the oldest note date, fallback to oldest appointment date
       const oldestNoteDate = getOldestNoteDate(appointment.contact_id);
-      const creationDate = oldestNoteDate?.toISOString() || new Date().toISOString();
+      const oldestApptDate = getOldestAppointmentDate(appointment.contact_id);
+      const creationDate = (oldestNoteDate || oldestApptDate || new Date()).toISOString();
 
       // Generate a local opportunity ID
       const localOppId = `local_opp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
