@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import type { DashboardMetrics, LeadsBySource, SalesRepPerformance, GHLContact } from "@/types/ghl";
 import type { DateRange } from "react-day-picker";
 
@@ -930,127 +931,169 @@ function processMetrics(
 }
 
 export function useContacts() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["contacts"],
+    queryKey: ["contacts", companyId],
     queryFn: fetchContactsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useOpportunities() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["opportunities"],
+    queryKey: ["opportunities", companyId],
     queryFn: fetchOpportunitiesFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useAppointments() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["appointments"],
+    queryKey: ["appointments", companyId],
     queryFn: fetchAppointmentsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useGHLUsers() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["ghl_users"],
+    queryKey: ["ghl_users", companyId],
     queryFn: fetchUsersFromDB,
     staleTime: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useConversations() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["conversations"],
+    queryKey: ["conversations", companyId],
     queryFn: fetchConversationsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useTasks() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["ghl_tasks"],
+    queryKey: ["ghl_tasks", companyId],
     queryFn: fetchTasksFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useContactNotes() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["contact_notes"],
+    queryKey: ["contact_notes", companyId],
     queryFn: fetchContactNotesFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useCallLogs() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["call_logs"],
+    queryKey: ["call_logs", companyId],
     queryFn: fetchCallLogsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useProfiles() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["profiles"],
+    queryKey: ["profiles", companyId],
     queryFn: fetchProfilesFromDB,
     staleTime: 5 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useOpportunityEdits() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["opportunity_edits"],
+    queryKey: ["opportunity_edits", companyId],
     queryFn: fetchOpportunityEditsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useOpportunitySales() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["opportunity_sales"],
+    queryKey: ["opportunity_sales", companyId],
     queryFn: fetchOpportunitySalesFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useTaskEdits() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["task_edits"],
+    queryKey: ["task_edits", companyId],
     queryFn: fetchTaskEditsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useNoteEdits() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["note_edits"],
+    queryKey: ["note_edits", companyId],
     queryFn: fetchNoteEditsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
 export function useAppointmentEdits() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["appointment_edits"],
+    queryKey: ["appointment_edits", companyId],
     queryFn: fetchAppointmentEditsFromDB,
     staleTime: 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    enabled: !!companyId,
   });
 }
 
@@ -1130,11 +1173,14 @@ async function fetchSyncTimestamps(): Promise<{ lastGHLSync: string | null; last
 }
 
 export function useSyncTimestamps() {
+  const { companyId } = useCompanyContext();
+
   return useQuery({
-    queryKey: ["sync_timestamps"],
+    queryKey: ["sync_timestamps", companyId],
     queryFn: fetchSyncTimestamps,
     staleTime: 60000, // 1 minute
     refetchInterval: 60000,
+    enabled: !!companyId,
   });
 }
 
