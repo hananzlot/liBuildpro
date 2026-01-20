@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { ChevronDown, DollarSign, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -78,13 +79,14 @@ const formatPageCount = (value: number): string => {
 
 export const MagazineSalesTab = () => {
   const { user, isAdmin } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<MagazineSale | null>(null);
 
   const { data: sales = [], isLoading } = useQuery({
-    queryKey: ["magazine-sales"],
+    queryKey: ["magazine-sales", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("magazine_sales")
@@ -93,6 +95,7 @@ export const MagazineSalesTab = () => {
       if (error) throw error;
       return data as MagazineSale[];
     },
+    enabled: !!companyId,
   });
 
   // Calculate KPIs by page size
@@ -148,7 +151,7 @@ export const MagazineSalesTab = () => {
   };
 
   const handleEntrySuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ["magazine-sales"] });
+    queryClient.invalidateQueries({ queryKey: ["magazine-sales", companyId] });
     setEntryDialogOpen(false);
     setEditingSale(null);
   };
