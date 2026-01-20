@@ -126,23 +126,27 @@ serve(async (req) => {
       ghlPayload.assignedTo = assigned_to;
     }
 
-    // Update GHL first with retry logic for rate limiting
-    const ghlResponse = await fetchWithRetry(
-      `https://services.leadconnectorhq.com/opportunities/${ghl_id}`,
-      {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${ghlApiKey}`,
-          'Version': '2021-07-28',
-          'Content-Type': 'application/json',
+    // Update GHL first with retry logic for rate limiting (only if not local-only)
+    if (!skipGHLSync && Object.keys(ghlPayload).length > 0) {
+      const ghlResponse = await fetchWithRetry(
+        `https://services.leadconnectorhq.com/opportunities/${ghl_id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${ghlApiKey}`,
+            'Version': '2021-07-28',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(ghlPayload),
         },
-        body: JSON.stringify(ghlPayload),
-      },
-      3 // max retries
-    );
+        3 // max retries
+      );
 
-    const ghlData = await ghlResponse.json();
-    console.log('GHL update successful:', ghlData);
+      const ghlData = await ghlResponse.json();
+      console.log('GHL update successful:', ghlData);
+    } else {
+      console.log('Skipping GHL sync - local-only opportunity or no GHL credentials');
+    }
 
     // Now update Supabase
     const supabaseUpdate: Record<string, string | number | null> = {};
@@ -383,11 +387,11 @@ serve(async (req) => {
       }
     }
 
-    console.log('Opportunity updated successfully in both GHL and Supabase');
+    console.log('Opportunity updated successfully' + (skipGHLSync ? ' (local only)' : ' in both GHL and Supabase'));
 
     return new Response(JSON.stringify({ 
       success: true, 
-      ghl_data: ghlData 
+      localOnly: skipGHLSync,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
