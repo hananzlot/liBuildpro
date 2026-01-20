@@ -6,6 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Interface for company integration
+interface GHLIntegration {
+  id: string;
+  company_id: string;
+  location_id: string;
+  api_key_vault_id: string | null;
+  name: string;
+  is_primary: boolean;
+}
+
 async function fetchAllFromGHL(
   endpoint: string,
   ghlApiKey: string,
@@ -498,12 +508,13 @@ async function fetchCallLogs(ghlApiKey: string, conversations: any[], locationId
   return allCalls;
 }
 
-// Sync data for a single GHL location
+// Sync data for a single GHL location with company_id support
 async function syncLocationData(
   supabase: any,
   ghlApiKey: string,
   locationId: string,
-  locationLabel: string
+  locationLabel: string,
+  companyId: string | null
 ): Promise<{
   contacts: number;
   opportunities: number;
@@ -514,7 +525,7 @@ async function syncLocationData(
   tasks: number;
   callLogs: number;
 }> {
-  console.log(`\n========== Starting sync for ${locationLabel} (${locationId}) ==========`);
+  console.log(`\n========== Starting sync for ${locationLabel} (${locationId}) | Company: ${companyId || 'none'} ==========`);
 
   // Fetch all data in parallel (including pipelines for name resolution)
   const [contacts, opportunities, appointmentsData, users, pipelines, conversations] = await Promise.all([
@@ -542,6 +553,7 @@ async function syncLocationData(
     console.log(`Syncing ${users.length} users...`);
     const usersToUpsert = users.map(u => ({
       ghl_id: u.id,
+      company_id: companyId,
       provider: 'ghl',
       external_id: u.id,
       location_id: locationId,
@@ -567,6 +579,7 @@ async function syncLocationData(
     console.log(`Syncing ${pipelines.length} pipelines...`);
     const pipelinesToUpsert = pipelines.map((p: any) => ({
       ghl_id: p.id,
+      company_id: companyId,
       location_id: locationId,
       name: p.name || 'Unknown Pipeline',
       stages: (p.stages || []).map((s: any) => ({
@@ -590,6 +603,7 @@ async function syncLocationData(
     console.log(`Syncing ${calendars.length} calendars...`);
     const calendarsToUpsert = calendars.map((c: any) => ({
       ghl_id: c.id,
+      company_id: companyId,
       location_id: locationId,
       name: c.name || null,
       description: c.description || null,
@@ -640,6 +654,7 @@ async function syncLocationData(
       if (existing) {
         return {
           ghl_id: c.id,
+          company_id: existing.company_id ?? companyId, // Preserve existing or set new
           provider: existing.provider ?? 'ghl',
           external_id: existing.external_id ?? c.id,
           location_id: existing.location_id ?? c.locationId ?? locationId,
@@ -663,6 +678,7 @@ async function syncLocationData(
       // New record - use GHL data
       return {
         ghl_id: c.id,
+        company_id: companyId,
         provider: 'ghl',
         external_id: c.id,
         location_id: c.locationId || locationId,
@@ -771,6 +787,7 @@ async function syncLocationData(
         
         return {
           ghl_id: o.id,
+          company_id: existing.company_id ?? companyId, // Preserve existing or set new
           provider: existing.provider ?? 'ghl',
           external_id: existing.external_id ?? o.id,
           location_id: existing.location_id ?? o.locationId ?? locationId,
@@ -823,6 +840,7 @@ async function syncLocationData(
       
       return {
         ghl_id: o.id,
+        company_id: companyId,
         provider: 'ghl',
         external_id: o.id,
         location_id: o.locationId || locationId,
@@ -886,6 +904,7 @@ async function syncLocationData(
       if (existing) {
         return {
           ghl_id: a.id,
+          company_id: existing.company_id ?? companyId, // Preserve existing or set new
           provider: existing.provider ?? 'ghl',
           external_id: existing.external_id ?? a.id,
           location_id: existing.location_id ?? a.locationId ?? locationId,
@@ -912,6 +931,7 @@ async function syncLocationData(
       // New record - use GHL data
       return {
         ghl_id: a.id,
+        company_id: companyId,
         provider: 'ghl',
         external_id: a.id,
         location_id: a.locationId || locationId,
@@ -983,6 +1003,7 @@ async function syncLocationData(
       if (existing) {
         return {
           ghl_id: c.id,
+          company_id: existing.company_id ?? companyId, // Preserve existing or set new
           provider: existing.provider ?? 'ghl',
           external_id: existing.external_id ?? c.id,
           location_id: existing.location_id ?? c.locationId ?? locationId,
@@ -1003,6 +1024,7 @@ async function syncLocationData(
       // New record - use GHL data
       return {
         ghl_id: c.id,
+        company_id: companyId,
         provider: 'ghl',
         external_id: c.id,
         location_id: c.locationId || locationId,
@@ -1061,6 +1083,7 @@ async function syncLocationData(
       if (existing) {
         return {
           ghl_id: t.id,
+          company_id: existing.company_id ?? companyId, // Preserve existing or set new
           provider: existing.provider ?? 'ghl',
           external_id: existing.external_id ?? t.id,
           location_id: existing.location_id ?? locationId,
@@ -1080,6 +1103,7 @@ async function syncLocationData(
       // New record - use GHL data
       return {
         ghl_id: t.id,
+        company_id: companyId,
         provider: 'ghl',
         external_id: t.id,
         location_id: locationId,
@@ -1107,6 +1131,7 @@ async function syncLocationData(
     console.log(`Syncing ${callLogs.length} call logs...`);
     const callsToUpsert = callLogs.map(c => ({
       ghl_message_id: c.messageId,
+      company_id: companyId,
       conversation_id: c.conversationId,
       contact_id: c.contactId,
       direction: c.direction,
@@ -1137,10 +1162,11 @@ async function syncLocationData(
   };
 }
 
-// Run stale record cleanup for a specific location
+// Run stale record cleanup for a specific location with company_id filtering
 async function cleanupStaleRecords(
   supabase: any,
   locationId: string,
+  companyId: string | null,
   counts: { contacts: number; opportunities: number; appointments: number; tasks: number; conversations: number }
 ): Promise<number> {
   // SAFE STALE RECORD CLEANUP
@@ -1159,24 +1185,31 @@ async function cleanupStaleRecords(
   console.log(`Starting safe stale record cleanup for location ${locationId} (1hr threshold)...`);
   let totalDeleted = 0;
 
+  // Build base query with optional company_id filter
+  const buildQuery = (table: string) => {
+    let query = supabase.from(table).select('ghl_id').eq('location_id', locationId);
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+    return query.lt('last_synced_at', staleThreshold).not('ghl_id', 'like', 'local_%');
+  };
+
+  const buildDeleteQuery = (table: string) => {
+    let query = supabase.from(table).delete().eq('location_id', locationId);
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+    return query.lt('last_synced_at', staleThreshold).not('ghl_id', 'like', 'local_%');
+  };
+
   // Cleanup contacts (only if we fetched enough)
   // IMPORTANT: Exclude local-only records (ghl_id starts with 'local_') - these should only be deleted from the app
   if (counts.contacts >= minRecordsForCleanup.contacts) {
-    const { data: staleContacts, error: staleContactsErr } = await supabase
-      .from('contacts')
-      .select('ghl_id')
-      .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold)
-      .not('ghl_id', 'like', 'local_%');
+    const { data: staleContacts, error: staleContactsErr } = await buildQuery('contacts');
     
     if (!staleContactsErr && staleContacts && staleContacts.length > 0) {
       console.log(`Found ${staleContacts.length} stale contacts (excluding local-only)`);
-      const { error: delErr } = await supabase
-        .from('contacts')
-        .delete()
-        .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold)
-        .not('ghl_id', 'like', 'local_%');
+      const { error: delErr } = await buildDeleteQuery('contacts');
       if (!delErr) totalDeleted += staleContacts.length;
       else console.error('Error deleting stale contacts:', delErr);
     }
@@ -1185,21 +1218,11 @@ async function cleanupStaleRecords(
   // Cleanup opportunities (only if we fetched enough)
   // IMPORTANT: Exclude local-only records (ghl_id starts with 'local_') - these should only be deleted from the app
   if (counts.opportunities >= minRecordsForCleanup.opportunities) {
-    const { data: staleOpps, error: staleOppsErr } = await supabase
-      .from('opportunities')
-      .select('ghl_id')
-      .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold)
-      .not('ghl_id', 'like', 'local_%');
+    const { data: staleOpps, error: staleOppsErr } = await buildQuery('opportunities');
     
     if (!staleOppsErr && staleOpps && staleOpps.length > 0) {
       console.log(`Found ${staleOpps.length} stale opportunities (excluding local-only)`);
-      const { error: delErr } = await supabase
-        .from('opportunities')
-        .delete()
-        .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold)
-        .not('ghl_id', 'like', 'local_%');
+      const { error: delErr } = await buildDeleteQuery('opportunities');
       if (!delErr) totalDeleted += staleOpps.length;
       else console.error('Error deleting stale opportunities:', delErr);
     }
@@ -1208,21 +1231,11 @@ async function cleanupStaleRecords(
   // Cleanup appointments (only if we fetched enough)
   // IMPORTANT: Exclude local-only appointments (ghl_id starts with 'local_') from cleanup
   if (counts.appointments >= minRecordsForCleanup.appointments) {
-    const { data: staleAppts, error: staleApptsErr } = await supabase
-      .from('appointments')
-      .select('ghl_id')
-      .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold)
-      .not('ghl_id', 'like', 'local_%');
+    const { data: staleAppts, error: staleApptsErr } = await buildQuery('appointments');
     
     if (!staleApptsErr && staleAppts && staleAppts.length > 0) {
       console.log(`Found ${staleAppts.length} stale appointments (excluding local-only)`);
-      const { error: delErr } = await supabase
-        .from('appointments')
-        .delete()
-        .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold)
-        .not('ghl_id', 'like', 'local_%');
+      const { error: delErr } = await buildDeleteQuery('appointments');
       if (!delErr) totalDeleted += staleAppts.length;
       else console.error('Error deleting stale appointments:', delErr);
     }
@@ -1231,21 +1244,11 @@ async function cleanupStaleRecords(
   // Cleanup tasks (only if we fetched enough)
   // IMPORTANT: Exclude local-only records (ghl_id starts with 'local_') - these should only be deleted from the app
   if (counts.tasks >= minRecordsForCleanup.tasks) {
-    const { data: staleTasks, error: staleTasksErr } = await supabase
-      .from('ghl_tasks')
-      .select('ghl_id')
-      .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold)
-      .not('ghl_id', 'like', 'local_%');
+    const { data: staleTasks, error: staleTasksErr } = await buildQuery('ghl_tasks');
     
     if (!staleTasksErr && staleTasks && staleTasks.length > 0) {
       console.log(`Found ${staleTasks.length} stale tasks (excluding local-only)`);
-      const { error: delErr } = await supabase
-        .from('ghl_tasks')
-        .delete()
-        .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold)
-        .not('ghl_id', 'like', 'local_%');
+      const { error: delErr } = await buildDeleteQuery('ghl_tasks');
       if (!delErr) totalDeleted += staleTasks.length;
       else console.error('Error deleting stale tasks:', delErr);
     }
@@ -1254,21 +1257,11 @@ async function cleanupStaleRecords(
   // Cleanup conversations (only if we fetched enough)
   // IMPORTANT: Exclude local-only records (ghl_id starts with 'local_') - these should only be deleted from the app
   if (counts.conversations >= minRecordsForCleanup.conversations) {
-    const { data: staleConvs, error: staleConvsErr } = await supabase
-      .from('conversations')
-      .select('ghl_id')
-      .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold)
-      .not('ghl_id', 'like', 'local_%');
+    const { data: staleConvs, error: staleConvsErr } = await buildQuery('conversations');
     
     if (!staleConvsErr && staleConvs && staleConvs.length > 0) {
       console.log(`Found ${staleConvs.length} stale conversations (excluding local-only)`);
-      const { error: delErr } = await supabase
-        .from('conversations')
-        .delete()
-        .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold)
-        .not('ghl_id', 'like', 'local_%');
+      const { error: delErr } = await buildDeleteQuery('conversations');
       if (!delErr) totalDeleted += staleConvs.length;
       else console.error('Error deleting stale conversations:', delErr);
     }
@@ -1284,6 +1277,133 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing Supabase credentials');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log('Starting multi-company GHL sync...');
+    
+    // Query company_integrations for active GHL connections
+    const { data: integrations, error: intError } = await supabase
+      .from('company_integrations')
+      .select('id, company_id, location_id, api_key_vault_id, name, is_primary')
+      .eq('provider', 'ghl')
+      .eq('is_active', true);
+
+    if (intError) {
+      console.error('Error fetching company integrations:', intError);
+    }
+
+    // Check if we have integrations configured in the database
+    const hasDbIntegrations = integrations && integrations.length > 0 && 
+      integrations.some((i: GHLIntegration) => i.api_key_vault_id);
+
+    if (hasDbIntegrations) {
+      // New approach: Use company_integrations for multi-tenancy
+      console.log(`Found ${integrations.length} active GHL integrations in database`);
+      
+      const allResults: any[] = [];
+      
+      for (const integration of integrations as GHLIntegration[]) {
+        if (!integration.api_key_vault_id) {
+          console.log(`Integration ${integration.id} has no API key configured, skipping`);
+          continue;
+        }
+
+        // Get decrypted API key from vault
+        const { data: apiKey, error: vaultError } = await supabase
+          .rpc('get_ghl_api_key', { secret_id: integration.api_key_vault_id });
+
+        if (vaultError || !apiKey) {
+          console.error(`Error retrieving API key from vault for integration ${integration.id}:`, vaultError);
+          continue;
+        }
+
+        // Sync this company's data
+        const results = await syncLocationData(
+          supabase,
+          apiKey,
+          integration.location_id,
+          integration.name || `Integration ${integration.id}`,
+          integration.company_id
+        );
+
+        // Cleanup stale records for this company
+        const staleDeleted = await cleanupStaleRecords(supabase, integration.location_id, integration.company_id, {
+          contacts: results.contacts,
+          opportunities: results.opportunities,
+          appointments: results.appointments,
+          tasks: results.tasks,
+          conversations: results.conversations,
+        });
+
+        // Update last_sync_at in company_integrations
+        await supabase
+          .from('company_integrations')
+          .update({ last_sync_at: new Date().toISOString() })
+          .eq('id', integration.id);
+
+        allResults.push({
+          integrationId: integration.id,
+          companyId: integration.company_id,
+          locationId: integration.location_id,
+          name: integration.name,
+          ...results,
+          staleRecordsDeleted: staleDeleted,
+        });
+      }
+
+      // Run UUID backfill after all syncs complete
+      console.log('Running UUID relationship backfill...');
+      const { error: backfillError } = await supabase.rpc('backfill_contact_uuids');
+      if (backfillError) {
+        console.error('UUID backfill error:', backfillError);
+      } else {
+        console.log('UUID backfill completed successfully');
+      }
+
+      console.log('\n========== Full multi-company sync complete! ==========');
+
+      // Calculate totals
+      const totals = allResults.reduce((acc, r) => ({
+        contacts: acc.contacts + r.contacts,
+        opportunities: acc.opportunities + r.opportunities,
+        appointments: acc.appointments + r.appointments,
+        users: acc.users + r.users,
+        pipelines: acc.pipelines + r.pipelines,
+        conversations: acc.conversations + r.conversations,
+        tasks: acc.tasks + r.tasks,
+        callLogs: acc.callLogs + r.callLogs,
+        staleRecordsDeleted: acc.staleRecordsDeleted + r.staleRecordsDeleted,
+      }), {
+        contacts: 0,
+        opportunities: 0,
+        appointments: 0,
+        users: 0,
+        pipelines: 0,
+        conversations: 0,
+        tasks: 0,
+        callLogs: 0,
+        staleRecordsDeleted: 0,
+      });
+
+      return new Response(JSON.stringify({
+        mode: 'multi-company',
+        integrations: allResults,
+        totals,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // LEGACY FALLBACK: Use environment variables if no database integrations
+    console.log('No database integrations found, falling back to environment variables...');
+    
     // Get credentials for Location 1 (primary)
     const ghlApiKey1 = Deno.env.get('GHL_API_KEY');
     const locationId1 = Deno.env.get('GHL_LOCATION_ID');
@@ -1291,9 +1411,6 @@ serve(async (req) => {
     // Get credentials for Location 2 (secondary)
     const ghlApiKey2 = Deno.env.get('GHL_API_KEY_2');
     const locationId2 = Deno.env.get('GHL_LOCATION_ID_2');
-    
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     // Check if GHL credentials are available - if not, return early with success (local-only mode)
     if (!ghlApiKey1 || !locationId1) {
@@ -1314,19 +1431,13 @@ serve(async (req) => {
       });
     }
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase credentials');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    console.log('Starting multi-location GHL sync...');
+    console.log('Starting legacy multi-location GHL sync...');
     
-    // Sync Location 1
-    const location1Results = await syncLocationData(supabase, ghlApiKey1, locationId1, 'Location 1 (Primary)');
+    // Sync Location 1 (with null companyId for legacy mode)
+    const location1Results = await syncLocationData(supabase, ghlApiKey1, locationId1, 'Location 1 (Primary)', null);
     
     // Cleanup stale records for Location 1
-    const staleDeleted1 = await cleanupStaleRecords(supabase, locationId1, {
+    const staleDeleted1 = await cleanupStaleRecords(supabase, locationId1, null, {
       contacts: location1Results.contacts,
       opportunities: location1Results.opportunities,
       appointments: location1Results.appointments,
@@ -1349,9 +1460,9 @@ serve(async (req) => {
 
     if (ghlApiKey2 && locationId2) {
       console.log('\nLocation 2 credentials found, syncing...');
-      location2Results = await syncLocationData(supabase, ghlApiKey2, locationId2, 'Location 2 (Secondary)');
+      location2Results = await syncLocationData(supabase, ghlApiKey2, locationId2, 'Location 2 (Secondary)', null);
       
-      staleDeleted2 = await cleanupStaleRecords(supabase, locationId2, {
+      staleDeleted2 = await cleanupStaleRecords(supabase, locationId2, null, {
         contacts: location2Results.contacts,
         opportunities: location2Results.opportunities,
         appointments: location2Results.appointments,
@@ -1374,6 +1485,7 @@ serve(async (req) => {
     console.log('\n========== Full multi-location sync complete! ==========');
 
     return new Response(JSON.stringify({
+      mode: 'legacy',
       meta: {
         location1: {
           locationId: locationId1,
