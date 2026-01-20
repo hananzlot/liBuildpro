@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2 } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
 
 interface UserManagementProps {
@@ -56,6 +56,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const [settingPasswordForUser, setSettingPasswordForUser] = useState<Profile | null>(null);
   const [directPassword, setDirectPassword] = useState("");
   const [showDirectPassword, setShowDirectPassword] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
   // Fetch all profiles
   const {
@@ -225,6 +226,31 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
     onError: (error) => {
       toast.error(`Failed to set password: ${error.message}`);
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      setDeletingUserId(userId);
+      const response = await supabase.functions.invoke("delete-user", {
+        body: { userId },
+      });
+
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
+      
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PROFILES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ROLES_QUERY_KEY });
+      toast.success("User deleted successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete user: ${error.message}`);
+    },
+    onSettled: () => {
+      setDeletingUserId(null);
     },
   });
 
@@ -446,6 +472,24 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                           title="Set password directly"
                         >
                           <Lock className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-muted-foreground hover:text-destructive"
+                          onClick={() => {
+                            if (confirm(`Delete user ${profile.email}? This action cannot be undone.`)) {
+                              deleteUserMutation.mutate(profile.id);
+                            }
+                          }}
+                          disabled={deletingUserId === profile.id}
+                          title="Delete user"
+                        >
+                          {deletingUserId === profile.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </div>

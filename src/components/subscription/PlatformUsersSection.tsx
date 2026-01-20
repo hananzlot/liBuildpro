@@ -8,27 +8,50 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Trash2, Shield, UserPlus } from 'lucide-react';
+import { Plus, Trash2, Shield, UserPlus, Eye, EyeOff } from 'lucide-react';
 
 interface PlatformUser {
   id: string;
   email: string;
   full_name: string | null;
   company_id: string | null;
+  company_name?: string | null;
   roles: string[];
+}
+
+interface Company {
+  id: string;
+  name: string;
 }
 
 export function PlatformUsersSection() {
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [newUserForm, setNewUserForm] = useState({
     email: '',
     password: '',
-    full_name: ''
+    full_name: '',
+    company_id: ''
   });
 
-  // Fetch all super admins (users with super_admin role and no company)
+  // Fetch all companies for the dropdown
+  const { data: companies } = useQuery({
+    queryKey: ['all-companies'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data as Company[];
+    }
+  });
+
+  // Fetch all super admins (users with super_admin role)
   const { data: platformUsers, isLoading } = useQuery({
     queryKey: ['platform-users'],
     queryFn: async () => {
@@ -52,6 +75,21 @@ export function PlatformUsersSection() {
 
       if (profilesError) throw profilesError;
 
+      // Get company names
+      const companyIds = profiles?.map(p => p.company_id).filter(Boolean) || [];
+      let companyNames: Record<string, string> = {};
+      
+      if (companyIds.length > 0) {
+        const { data: companiesData } = await supabase
+          .from('companies')
+          .select('id, name')
+          .in('id', companyIds);
+        
+        companiesData?.forEach(c => {
+          companyNames[c.id] = c.name;
+        });
+      }
+
       // Get all roles for each user
       const { data: allRoles, error: allRolesError } = await supabase
         .from('user_roles')
@@ -68,6 +106,7 @@ export function PlatformUsersSection() {
 
       return profiles?.map(p => ({
         ...p,
+        company_name: p.company_id ? companyNames[p.company_id] : null,
         roles: rolesByUser[p.id] || []
       })) as PlatformUser[];
     }
@@ -75,15 +114,15 @@ export function PlatformUsersSection() {
 
   // Create new super admin
   const createSuperAdmin = useMutation({
-    mutationFn: async (data: { email: string; password: string; full_name: string }) => {
+    mutationFn: async (data: { email: string; password: string; full_name: string; company_id: string }) => {
       // Call edge function to create user
       const { data: result, error } = await supabase.functions.invoke('create-user', {
         body: {
           email: data.email,
           password: data.password,
-          full_name: data.full_name,
+          fullName: data.full_name,
           role: 'super_admin',
-          company_id: null // No company for platform users
+          companyId: data.company_id || null
         }
       });
 
@@ -96,7 +135,8 @@ export function PlatformUsersSection() {
       queryClient.invalidateQueries({ queryKey: ['platform-users'] });
       toast.success('Super admin created successfully');
       setIsAddDialogOpen(false);
-      setNewUserForm({ email: '', password: '', full_name: '' });
+      setNewUserForm({ email: '', password: '', full_name: '', company_id: '' });
+      setShowPassword(false);
     },
     onError: (error: Error) => {
       console.error('Error creating super admin:', error);
@@ -128,6 +168,10 @@ export function PlatformUsersSection() {
   const handleSubmit = () => {
     if (!newUserForm.email || !newUserForm.password) {
       toast.error('Email and password are required');
+      return;
+    }
+    if (newUserForm.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
       return;
     }
     createSuperAdmin.mutate(newUserForm);
@@ -175,7 +219,7 @@ export function PlatformUsersSection() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>
                     {user.company_id ? (
-                      <Badge variant="outline">Has Company</Badge>
+                      <Badge variant="outline">{user.company_name || 'Unknown'}</Badge>
                     ) : (
                       <Badge variant="secondary">Platform Only</Badge>
                     )}
@@ -243,12 +287,49 @@ export function PlatformUsersSection() {
             </div>
             <div className="space-y-2">
               <Label>Password *</Label>
-              <Input
-                type="password"
-                value={newUserForm.password}
-                onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="Minimum 6 characters"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Assign to Company (optional)</Label>
+              <Select 
+                value={newUserForm.company_id} 
+                onValueChange={(value) => setNewUserForm(prev => ({ ...prev, company_id: value === 'none' ? '' : value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Platform Only (no company)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Platform Only</SelectItem>
+                  {companies?.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                If assigned, user can also see that company's data
+              </p>
             </div>
           </div>
 
