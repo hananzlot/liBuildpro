@@ -13,20 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Edit, Plus, Package } from 'lucide-react';
 import type { SubscriptionPlan } from '@/types/subscription';
-
-// Available features
-const AVAILABLE_FEATURES = [
-  { key: 'dashboard', label: 'Dashboard', category: 'Core' },
-  { key: 'sales_portal', label: 'Sales Portal', category: 'Sales' },
-  { key: 'ghl_integration', label: 'GHL Integration', category: 'Integrations' },
-  { key: 'production', label: 'Production Management', category: 'Operations' },
-  { key: 'estimates', label: 'Estimates & Proposals', category: 'Sales' },
-  { key: 'documents', label: 'Document Signing', category: 'Documents' },
-  { key: 'magazine_sales', label: 'Magazine Sales', category: 'Sales' },
-  { key: 'client_portal', label: 'Client Portal', category: 'Client' },
-  { key: 'analytics', label: 'Advanced Analytics', category: 'Analytics' },
-  { key: 'multi_location', label: 'Multi-Location', category: 'Advanced' },
-];
+import { AVAILABLE_FEATURES } from '@/constants/features';
 
 export function PlansEditorSection() {
   const queryClient = useQueryClient();

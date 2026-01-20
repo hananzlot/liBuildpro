@@ -947,6 +947,7 @@ export type Database = {
           created_at: string
           current_period_end: string
           current_period_start: string
+          features_override: Json | null
           grace_period_ends_at: string | null
           id: string
           max_users_override: number | null
@@ -964,6 +965,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string
           current_period_start?: string
+          features_override?: Json | null
           grace_period_ends_at?: string | null
           id?: string
           max_users_override?: number | null
@@ -981,6 +983,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string
           current_period_start?: string
+          features_override?: Json | null
           grace_period_ends_at?: string | null
           id?: string
           max_users_override?: number | null
@@ -3194,6 +3197,7 @@ export type Database = {
       profiles: {
         Row: {
           company_id: string | null
+          corporation_id: string | null
           created_at: string | null
           email: string
           full_name: string | null
@@ -3203,6 +3207,7 @@ export type Database = {
         }
         Insert: {
           company_id?: string | null
+          corporation_id?: string | null
           created_at?: string | null
           email: string
           full_name?: string | null
@@ -3212,6 +3217,7 @@ export type Database = {
         }
         Update: {
           company_id?: string | null
+          corporation_id?: string | null
           created_at?: string | null
           email?: string
           full_name?: string | null
@@ -3225,6 +3231,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_corporation_id_fkey"
+            columns: ["corporation_id"]
+            isOneToOne: false
+            referencedRelation: "corporations"
             referencedColumns: ["id"]
           },
         ]
