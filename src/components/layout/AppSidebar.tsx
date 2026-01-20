@@ -26,7 +26,8 @@ import {
   Calculator,
   FileSignature,
   Send,
-  Building2
+  Building2,
+  Calendar
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -97,6 +98,18 @@ const navSections: NavSection[] = [
         title: "Dashboard", 
         url: "/", 
         icon: LayoutDashboard,
+        roles: ['super_admin', 'admin', 'dispatch']
+      },
+      { 
+        title: "Opportunities", 
+        url: "/opportunities", 
+        icon: Briefcase,
+        roles: ['super_admin', 'admin', 'dispatch']
+      },
+      { 
+        title: "Appointments", 
+        url: "/appointments", 
+        icon: Calendar,
         roles: ['super_admin', 'admin', 'dispatch']
       },
       { 

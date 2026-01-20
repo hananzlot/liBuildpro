@@ -12,8 +12,6 @@ import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard"
 import { SourceChart } from "@/components/dashboard/SourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
 import { RecentWonDeals } from "@/components/dashboard/RecentWonDeals";
-import { OpportunitiesTable } from "@/components/dashboard/OpportunitiesTable";
-import { AppointmentsTable } from "@/components/dashboard/AppointmentsTable";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { WonOpportunitiesSheet } from "@/components/dashboard/WonOpportunitiesSheet";
 import { UpcomingAppointmentsSheet } from "@/components/dashboard/UpcomingAppointmentsSheet";
@@ -32,7 +30,6 @@ import { SyncDropdown } from "@/components/dashboard/SyncDropdown";
 import { OpportunitySalesSheet } from "@/components/dashboard/OpportunitySalesSheet";
 import { AppointmentsAnalysisDialog } from "@/components/dashboard/AppointmentsAnalysisDialog";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -512,39 +509,6 @@ const Index = () => {
                 onOpportunityClick={handleOpenOpportunity} 
               />
             </>
-          )}
-        </section>
-
-        {/* Tables - Tabbed */}
-        <section>
-          {isLoading ? (
-            <Skeleton className="h-[400px] rounded-2xl" />
-          ) : (
-            <Tabs defaultValue="opportunities" className="w-full">
-              <TabsList>
-                <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
-                <TabsTrigger value="appointments">Appointments</TabsTrigger>
-              </TabsList>
-              <TabsContent value="opportunities" className="mt-4">
-                <OpportunitiesTable 
-                  opportunities={metrics?.allOpportunities || []} 
-                  appointments={metrics?.allAppointments || []} 
-                  contacts={metrics?.allContacts || []} 
-                  users={metrics?.users || []} 
-                  conversations={metrics?.conversations || []} 
-                  notes={metrics?.contactNotes || []} 
-                  tasks={metrics?.tasks || []} 
-                />
-              </TabsContent>
-              <TabsContent value="appointments" className="mt-4">
-                <AppointmentsTable 
-                  appointments={metrics?.allAppointments || []} 
-                  opportunities={metrics?.allOpportunities || []} 
-                  contacts={metrics?.allContacts || []} 
-                  users={metrics?.users || []} 
-                />
-              </TabsContent>
-            </Tabs>
           )}
         </section>
 
