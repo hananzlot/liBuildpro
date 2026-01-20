@@ -47,11 +47,12 @@ serve(async (req) => {
       );
     }
 
-    // Fetch all contact GHL IDs from Supabase
+    // Fetch all contact GHL IDs from Supabase (excluding local-only contacts)
     console.log('Fetching contacts from Supabase...');
     const { data: contacts, error: contactsError } = await supabase
       .from('contacts')
-      .select('ghl_id');
+      .select('ghl_id')
+      .not('ghl_id', 'like', 'local_%');
 
     if (contactsError) {
       throw new Error(`Failed to fetch contacts: ${contactsError.message}`);
@@ -66,11 +67,6 @@ serve(async (req) => {
       const batch = contacts!.slice(i, i + batchSize);
       
       const batchPromises = batch.map(async (contact) => {
-        // Skip local-only contacts
-        if (contact.ghl_id?.startsWith('local_')) {
-          return [];
-        }
-        
         try {
           const tasksResponse = await fetch(
             `https://services.leadconnectorhq.com/contacts/${contact.ghl_id}/tasks`,
@@ -103,22 +99,70 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Found ${allTasks.length} tasks, saving to Supabase...`);
+    console.log(`Found ${allTasks.length} tasks from GHL, applying LOCAL WINS sync strategy...`);
 
-    // Upsert all tasks to Supabase
+    // LOCAL WINS STRATEGY: Fetch existing tasks and only fill null fields
     if (allTasks.length > 0) {
-      const tasksToUpsert = allTasks.map(t => ({
-        ghl_id: t.id,
-        provider: 'ghl',
-        external_id: t.id,
-        location_id: ghlLocationId,
-        contact_id: t.contactId,
-        title: t.title || 'Untitled Task',
-        body: t.body || null,
-        assigned_to: t.assignedTo || null,
-        due_date: t.dueDate || null,
-        completed: t.completed || false,
-      }));
+      // Fetch existing tasks to preserve local data
+      const taskGhlIds = allTasks.map(t => t.id);
+      const existingTasksMap = new Map<string, any>();
+      
+      for (let i = 0; i < taskGhlIds.length; i += 100) {
+        const batchIds = taskGhlIds.slice(i, i + 100);
+        const { data: existingTasks, error: fetchError } = await supabase
+          .from('ghl_tasks')
+          .select('*')
+          .in('ghl_id', batchIds);
+        
+        if (fetchError) {
+          console.error('Error fetching existing tasks for preservation:', fetchError);
+        }
+        
+        (existingTasks || []).forEach((t: any) => {
+          existingTasksMap.set(t.ghl_id, t);
+        });
+      }
+      
+      console.log(`Found ${existingTasksMap.size} existing tasks to preserve`);
+      
+      const tasksToUpsert = allTasks.map(t => {
+        const existing = existingTasksMap.get(t.id);
+        
+        // If record exists locally, only fill null fields (LOCAL WINS)
+        if (existing) {
+          return {
+            ghl_id: t.id,
+            provider: existing.provider ?? 'ghl',
+            external_id: existing.external_id ?? t.id,
+            location_id: existing.location_id ?? ghlLocationId,
+            contact_id: existing.contact_id ?? t.contactId,
+            title: existing.title ?? t.title ?? 'Untitled Task',
+            body: existing.body ?? t.body ?? null,
+            assigned_to: existing.assigned_to ?? t.assignedTo ?? null,
+            due_date: existing.due_date ?? t.dueDate ?? null,
+            completed: existing.completed ?? t.completed ?? false,
+            entered_by: existing.entered_by, // Always preserve
+            edited_by: existing.edited_by, // Always preserve
+            edited_at: existing.edited_at, // Always preserve
+            last_synced_at: new Date().toISOString(), // Always update sync timestamp
+          };
+        }
+        
+        // New record - use GHL data
+        return {
+          ghl_id: t.id,
+          provider: 'ghl',
+          external_id: t.id,
+          location_id: ghlLocationId,
+          contact_id: t.contactId,
+          title: t.title || 'Untitled Task',
+          body: t.body || null,
+          assigned_to: t.assignedTo || null,
+          due_date: t.dueDate || null,
+          completed: t.completed || false,
+          last_synced_at: new Date().toISOString(),
+        };
+      });
 
       for (let i = 0; i < tasksToUpsert.length; i += 100) {
         const batch = tasksToUpsert.slice(i, i + 100);

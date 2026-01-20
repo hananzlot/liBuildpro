@@ -607,27 +607,80 @@ async function syncLocationData(
   }
 
   // Sync contacts with last_synced_at tracking
+  // LOCAL WINS STRATEGY: Only fill in null fields, never overwrite existing local data
   if (contacts.length > 0) {
-    console.log(`Syncing ${contacts.length} contacts...`);
-    const contactsToUpsert = contacts.map(c => ({
-      ghl_id: c.id,
-      provider: 'ghl',
-      external_id: c.id,
-      location_id: c.locationId || locationId,
-      contact_name: c.contactName || null,
-      first_name: c.firstName || null,
-      last_name: c.lastName || null,
-      email: c.email || null,
-      phone: c.phone || null,
-      source: c.source || null,
-      tags: c.tags || [],
-      assigned_to: c.assignedTo || null,
-      ghl_date_added: c.dateAdded || null,
-      ghl_date_updated: c.dateUpdated || null,
-      custom_fields: c.customFields || null,
-      attributions: c.attributions || null,
-      last_synced_at: syncTimestamp,
-    }));
+    console.log(`Syncing ${contacts.length} contacts with LOCAL WINS strategy...`);
+    
+    // Fetch all existing contacts to preserve local data
+    const contactGhlIds = contacts.map(c => c.id);
+    const existingContactsMap = new Map<string, any>();
+    
+    for (let i = 0; i < contactGhlIds.length; i += 100) {
+      const batchIds = contactGhlIds.slice(i, i + 100);
+      const { data: existingContacts, error: fetchError } = await supabase
+        .from('contacts')
+        .select('*')
+        .in('ghl_id', batchIds);
+      
+      if (fetchError) {
+        console.error('Error fetching existing contacts for preservation:', fetchError);
+      }
+      
+      (existingContacts || []).forEach((c: any) => {
+        existingContactsMap.set(c.ghl_id, c);
+      });
+    }
+    
+    console.log(`Found ${existingContactsMap.size} existing contacts to preserve`);
+    
+    const contactsToUpsert = contacts.map(c => {
+      const existing = existingContactsMap.get(c.id);
+      
+      // If record exists locally, only fill null fields (LOCAL WINS)
+      if (existing) {
+        return {
+          ghl_id: c.id,
+          provider: existing.provider ?? 'ghl',
+          external_id: existing.external_id ?? c.id,
+          location_id: existing.location_id ?? c.locationId ?? locationId,
+          contact_name: existing.contact_name ?? c.contactName ?? null,
+          first_name: existing.first_name ?? c.firstName ?? null,
+          last_name: existing.last_name ?? c.lastName ?? null,
+          email: existing.email ?? c.email ?? null,
+          phone: existing.phone ?? c.phone ?? null,
+          source: existing.source ?? c.source ?? null,
+          tags: existing.tags ?? c.tags ?? [],
+          assigned_to: existing.assigned_to ?? c.assignedTo ?? null,
+          ghl_date_added: existing.ghl_date_added ?? c.dateAdded ?? null,
+          ghl_date_updated: existing.ghl_date_updated ?? c.dateUpdated ?? null,
+          custom_fields: existing.custom_fields ?? c.customFields ?? null,
+          attributions: existing.attributions ?? c.attributions ?? null,
+          entered_by: existing.entered_by, // Always preserve
+          last_synced_at: syncTimestamp, // Always update sync timestamp
+        };
+      }
+      
+      // New record - use GHL data
+      return {
+        ghl_id: c.id,
+        provider: 'ghl',
+        external_id: c.id,
+        location_id: c.locationId || locationId,
+        contact_name: c.contactName || null,
+        first_name: c.firstName || null,
+        last_name: c.lastName || null,
+        email: c.email || null,
+        phone: c.phone || null,
+        source: c.source || null,
+        tags: c.tags || [],
+        assigned_to: c.assignedTo || null,
+        ghl_date_added: c.dateAdded || null,
+        ghl_date_updated: c.dateUpdated || null,
+        custom_fields: c.customFields || null,
+        attributions: c.attributions || null,
+        last_synced_at: syncTimestamp,
+      };
+    });
 
     for (let i = 0; i < contactsToUpsert.length; i += 100) {
       const batch = contactsToUpsert.slice(i, i + 100);
@@ -637,33 +690,32 @@ async function syncLocationData(
   }
 
   // Sync opportunities with last_synced_at tracking
-  // IMPORTANT: Preserve won_at field - NEVER overwrite manually set won_at during sync
+  // LOCAL WINS STRATEGY: Preserve ALL existing local fields, only fill nulls from GHL
   if (opportunities.length > 0) {
-    console.log(`Syncing ${opportunities.length} opportunities...`);
+    console.log(`Syncing ${opportunities.length} opportunities with LOCAL WINS strategy...`);
     
-    // Fetch ALL existing opportunity data to preserve won_at values
-    // We need to fetch in batches if there are many opportunities
+    // Fetch ALL existing opportunity data to preserve local values
     const oppGhlIds = opportunities.map(o => o.id);
-    const existingWonAtMap = new Map<string, { won_at: string | null; status: string | null; scope_of_work: string | null; address: string | null }>();
+    const existingOppsMap = new Map<string, any>();
     
     // Fetch in batches of 100 to avoid query limits
     for (let i = 0; i < oppGhlIds.length; i += 100) {
       const batchIds = oppGhlIds.slice(i, i + 100);
       const { data: existingOpps, error: fetchError } = await supabase
         .from('opportunities')
-        .select('ghl_id, won_at, status, scope_of_work, address')
+        .select('*')
         .in('ghl_id', batchIds);
       
       if (fetchError) {
         console.error('Error fetching existing opportunities for preservation:', fetchError);
       }
       
-      (existingOpps || []).forEach((opp: { ghl_id: string; won_at: string | null; status: string | null; scope_of_work: string | null; address: string | null }) => {
-        existingWonAtMap.set(opp.ghl_id, { won_at: opp.won_at, status: opp.status, scope_of_work: opp.scope_of_work, address: opp.address });
+      (existingOpps || []).forEach((opp: any) => {
+        existingOppsMap.set(opp.ghl_id, opp);
       });
     }
     
-    console.log(`Found ${existingWonAtMap.size} existing opportunities with potential values to preserve`);
+    console.log(`Found ${existingOppsMap.size} existing opportunities to preserve`);
     
     // Build a map of contact IDs to their custom_fields for scope extraction
     const contactCustomFieldsMap = new Map<string, any[]>();
@@ -675,70 +727,98 @@ async function syncLocationData(
     console.log(`Built contact custom fields map for ${contactCustomFieldsMap.size} contacts`);
     
     const oppsToUpsert = opportunities.map(o => {
-      const existing = existingWonAtMap.get(o.id);
+      const existing = existingOppsMap.get(o.id);
       
-      // Determine won_at value:
-      // 1. If already has won_at in DB, ALWAYS preserve it (never overwrite manual edits)
-      // 2. If status is 'won' in GHL and we have no won_at, only set it for NEW won opportunities
-      // 3. Otherwise, leave it as-is (null or existing value)
-      let wonAt: string | null = existing?.won_at || null;
-      
-      if (existing?.won_at) {
-        // ALWAYS preserve existing won_at - this is critical for manual edits
-        wonAt = existing.won_at;
-        console.log(`Preserving won_at for ${o.id}: ${wonAt}`);
-      } else if (o.status === 'won' && !existing?.won_at) {
-        // Only set won_at if this is a newly won opportunity without an existing won_at
-        // Use current time, NOT GHL updatedAt (which changes on any edit)
-        wonAt = new Date().toISOString();
-        console.log(`Setting new won_at for ${o.id}: ${wonAt}`);
-      }
-      
-      // Determine status value:
-      // 1. If won_at is set (manually marked as won), ALWAYS preserve 'won' status
-      // 2. If local status differs from GHL status, preserve local status (manual edit)
-      // 3. Otherwise use GHL status
-      let finalStatus = o.status || null;
-      
-      if (wonAt) {
-        // Won opportunities always stay won
-        finalStatus = 'won';
-        if (o.status !== 'won') {
-          console.log(`Preserving 'won' status for ${o.id} (has won_at: ${wonAt}) despite GHL status: ${o.status}`);
+      // If record exists locally, use LOCAL WINS strategy
+      if (existing) {
+        // Special handling for won_at: if already set, ALWAYS preserve
+        let wonAt: string | null = existing.won_at || null;
+        if (!existing.won_at && o.status === 'won') {
+          // Only set won_at if this is a newly won opportunity
+          wonAt = new Date().toISOString();
+          console.log(`Setting new won_at for ${o.id}: ${wonAt}`);
         }
-      } else if (existing?.status && existing.status !== o.status) {
-        // Local status differs from GHL - preserve local status (manual edit)
-        // This prevents sync from reverting manually changed statuses
-        finalStatus = existing.status;
-        console.log(`Preserving local status '${existing.status}' for ${o.id} (GHL has: ${o.status})`);
-      }
-      
-      // Extract scope_of_work and address from contact's custom_fields
-      // Only set if not already in opportunity (preserve existing values)
-      let scopeOfWork: string | null = existing?.scope_of_work || null;
-      let opportunityAddress: string | null = existing?.address || null;
-      
-      const contactCustomFields = contactCustomFieldsMap.get(o.contactId);
-      if (contactCustomFields) {
-        // Scope of work (field ID: KwQRtJT0aMSHnq3mwR68) - only if not already set
-        if (!scopeOfWork) {
-          const scopeField = contactCustomFields.find(
-            (field: { id: string; value?: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
-          );
-          if (scopeField && scopeField.value) {
-            scopeOfWork = scopeField.value;
+        
+        // Special handling for status: won opportunities stay won
+        let finalStatus = existing.status ?? o.status ?? null;
+        if (wonAt) {
+          finalStatus = 'won';
+        }
+        
+        // Extract scope_of_work and address from contact's custom_fields - only if local is null
+        let scopeOfWork: string | null = existing.scope_of_work || null;
+        let opportunityAddress: string | null = existing.address || null;
+        
+        const contactCustomFields = contactCustomFieldsMap.get(o.contactId);
+        if (contactCustomFields) {
+          if (!scopeOfWork) {
+            const scopeField = contactCustomFields.find(
+              (field: { id: string; value?: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+            );
+            if (scopeField && scopeField.value) {
+              scopeOfWork = scopeField.value;
+            }
+          }
+          if (!opportunityAddress) {
+            const addressField = contactCustomFields.find(
+              (field: { id: string; value?: string }) => field.id === 'b7oTVsUQrLgZt84bHpCn'
+            );
+            if (addressField && addressField.value) {
+              opportunityAddress = addressField.value;
+            }
           }
         }
         
-        // Address (field ID: b7oTVsUQrLgZt84bHpCn) - only if not already set
-        if (!opportunityAddress) {
-          const addressField = contactCustomFields.find(
-            (field: { id: string; value?: string }) => field.id === 'b7oTVsUQrLgZt84bHpCn'
-          );
-          if (addressField && addressField.value) {
-            opportunityAddress = addressField.value;
-          }
+        return {
+          ghl_id: o.id,
+          provider: existing.provider ?? 'ghl',
+          external_id: existing.external_id ?? o.id,
+          location_id: existing.location_id ?? o.locationId ?? locationId,
+          contact_id: existing.contact_id ?? o.contactId ?? null,
+          pipeline_id: existing.pipeline_id ?? o.pipelineId ?? null,
+          pipeline_stage_id: existing.pipeline_stage_id ?? o.pipelineStageId ?? null,
+          pipeline_name: existing.pipeline_name ?? pipelineNames.get(o.pipelineId) ?? null,
+          stage_name: existing.stage_name ?? stageNames.get(o.pipelineStageId) ?? o.status ?? null,
+          name: existing.name ?? o.name ?? null,
+          monetary_value: existing.monetary_value ?? o.monetaryValue ?? null,
+          status: finalStatus,
+          assigned_to: existing.assigned_to ?? o.assignedTo ?? null,
+          ghl_date_added: existing.ghl_date_added ?? o.createdAt ?? null,
+          ghl_date_updated: existing.ghl_date_updated ?? o.updatedAt ?? null,
+          custom_fields: existing.custom_fields ?? o.customFields ?? null,
+          entered_by: existing.entered_by, // Always preserve
+          won_at: wonAt,
+          scope_of_work: scopeOfWork,
+          address: opportunityAddress,
+          last_synced_at: syncTimestamp, // Always update sync timestamp
+        };
+      }
+      
+      // New record - extract scope_of_work and address from contact custom fields
+      let scopeOfWork: string | null = null;
+      let opportunityAddress: string | null = null;
+      
+      const contactCustomFields = contactCustomFieldsMap.get(o.contactId);
+      if (contactCustomFields) {
+        const scopeField = contactCustomFields.find(
+          (field: { id: string; value?: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+        );
+        if (scopeField && scopeField.value) {
+          scopeOfWork = scopeField.value;
         }
+        
+        const addressField = contactCustomFields.find(
+          (field: { id: string; value?: string }) => field.id === 'b7oTVsUQrLgZt84bHpCn'
+        );
+        if (addressField && addressField.value) {
+          opportunityAddress = addressField.value;
+        }
+      }
+      
+      // Determine won_at for new records
+      let wonAt: string | null = null;
+      if (o.status === 'won') {
+        wonAt = new Date().toISOString();
       }
       
       return {
@@ -753,7 +833,7 @@ async function syncLocationData(
         stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
         name: o.name || null,
         monetary_value: o.monetaryValue || null,
-        status: finalStatus,
+        status: o.status || null,
         assigned_to: o.assignedTo || null,
         ghl_date_added: o.createdAt || null,
         ghl_date_updated: o.updatedAt || null,
@@ -773,26 +853,82 @@ async function syncLocationData(
   }
 
   // Sync appointments with last_synced_at tracking
+  // LOCAL WINS STRATEGY: Only fill in null fields, never overwrite existing local data
   if (appointments.length > 0) {
-    console.log(`Syncing ${appointments.length} appointments...`);
-    const apptsToUpsert = appointments.map(a => ({
-      ghl_id: a.id,
-      provider: 'ghl',
-      external_id: a.id,
-      location_id: a.locationId || locationId,
-      contact_id: a.contactId || null,
-      calendar_id: a.calendarId || null,
-      title: a.title || null,
-      appointment_status: a.appointmentStatus || a.status || null,
-      assigned_user_id: a.assignedUserId || null,
-      start_time: a.startTime || null,
-      end_time: a.endTime || null,
-      notes: a.notes || null,
-      address: a.address || null,
-      ghl_date_added: a.dateAdded || a.createdAt || null,
-      ghl_date_updated: a.dateUpdated || a.updatedAt || null,
-      last_synced_at: syncTimestamp,
-    }));
+    console.log(`Syncing ${appointments.length} appointments with LOCAL WINS strategy...`);
+    
+    // Fetch existing appointments to preserve local data
+    const apptGhlIds = appointments.map(a => a.id);
+    const existingApptsMap = new Map<string, any>();
+    
+    for (let i = 0; i < apptGhlIds.length; i += 100) {
+      const batchIds = apptGhlIds.slice(i, i + 100);
+      const { data: existingAppts, error: fetchError } = await supabase
+        .from('appointments')
+        .select('*')
+        .in('ghl_id', batchIds);
+      
+      if (fetchError) {
+        console.error('Error fetching existing appointments for preservation:', fetchError);
+      }
+      
+      (existingAppts || []).forEach((a: any) => {
+        existingApptsMap.set(a.ghl_id, a);
+      });
+    }
+    
+    console.log(`Found ${existingApptsMap.size} existing appointments to preserve`);
+    
+    const apptsToUpsert = appointments.map(a => {
+      const existing = existingApptsMap.get(a.id);
+      
+      // If record exists locally, only fill null fields (LOCAL WINS)
+      if (existing) {
+        return {
+          ghl_id: a.id,
+          provider: existing.provider ?? 'ghl',
+          external_id: existing.external_id ?? a.id,
+          location_id: existing.location_id ?? a.locationId ?? locationId,
+          contact_id: existing.contact_id ?? a.contactId ?? null,
+          calendar_id: existing.calendar_id ?? a.calendarId ?? null,
+          title: existing.title ?? a.title ?? null,
+          appointment_status: existing.appointment_status ?? a.appointmentStatus ?? a.status ?? null,
+          assigned_user_id: existing.assigned_user_id ?? a.assignedUserId ?? null,
+          start_time: existing.start_time ?? a.startTime ?? null,
+          end_time: existing.end_time ?? a.endTime ?? null,
+          notes: existing.notes ?? a.notes ?? null,
+          address: existing.address ?? a.address ?? null,
+          ghl_date_added: existing.ghl_date_added ?? a.dateAdded ?? a.createdAt ?? null,
+          ghl_date_updated: existing.ghl_date_updated ?? a.dateUpdated ?? a.updatedAt ?? null,
+          entered_by: existing.entered_by, // Always preserve
+          edited_by: existing.edited_by, // Always preserve
+          edited_at: existing.edited_at, // Always preserve
+          salesperson_confirmed: existing.salesperson_confirmed, // Always preserve
+          salesperson_confirmed_at: existing.salesperson_confirmed_at, // Always preserve
+          last_synced_at: syncTimestamp, // Always update sync timestamp
+        };
+      }
+      
+      // New record - use GHL data
+      return {
+        ghl_id: a.id,
+        provider: 'ghl',
+        external_id: a.id,
+        location_id: a.locationId || locationId,
+        contact_id: a.contactId || null,
+        calendar_id: a.calendarId || null,
+        title: a.title || null,
+        appointment_status: a.appointmentStatus || a.status || null,
+        assigned_user_id: a.assignedUserId || null,
+        start_time: a.startTime || null,
+        end_time: a.endTime || null,
+        notes: a.notes || null,
+        address: a.address || null,
+        ghl_date_added: a.dateAdded || a.createdAt || null,
+        ghl_date_updated: a.dateUpdated || a.updatedAt || null,
+        last_synced_at: syncTimestamp,
+      };
+    });
 
     for (let i = 0; i < apptsToUpsert.length; i += 100) {
       const batch = apptsToUpsert.slice(i, i + 100);
@@ -802,8 +938,9 @@ async function syncLocationData(
   }
 
   // Sync conversations with last_synced_at tracking
+  // LOCAL WINS STRATEGY: Only fill in null fields, never overwrite existing local data
   if (conversations.length > 0) {
-    console.log(`Syncing ${conversations.length} conversations...`);
+    console.log(`Syncing ${conversations.length} conversations with LOCAL WINS strategy...`);
     
     // Helper to convert Unix timestamp (ms) to ISO string
     const toISODate = (val: any): string | null => {
@@ -817,23 +954,71 @@ async function syncLocationData(
       return null;
     };
 
-    const convsToUpsert = conversations.map(c => ({
-      ghl_id: c.id,
-      provider: 'ghl',
-      external_id: c.id,
-      location_id: c.locationId || locationId,
-      contact_id: c.contactId || null,
-      type: c.type || null,
-      unread_count: c.unreadCount || 0,
-      inbox_status: c.inboxStatus || null,
-      last_message_body: c.lastMessageBody || null,
-      last_message_date: toISODate(c.lastMessageDate),
-      last_message_type: c.lastMessageType || null,
-      last_message_direction: c.lastMessageDirection || null,
-      ghl_date_added: toISODate(c.dateAdded) || toISODate(c.createdAt),
-      ghl_date_updated: toISODate(c.dateUpdated) || toISODate(c.updatedAt),
-      last_synced_at: syncTimestamp,
-    }));
+    // Fetch existing conversations to preserve local data
+    const convGhlIds = conversations.map(c => c.id);
+    const existingConvsMap = new Map<string, any>();
+    
+    for (let i = 0; i < convGhlIds.length; i += 100) {
+      const batchIds = convGhlIds.slice(i, i + 100);
+      const { data: existingConvs, error: fetchError } = await supabase
+        .from('conversations')
+        .select('*')
+        .in('ghl_id', batchIds);
+      
+      if (fetchError) {
+        console.error('Error fetching existing conversations for preservation:', fetchError);
+      }
+      
+      (existingConvs || []).forEach((c: any) => {
+        existingConvsMap.set(c.ghl_id, c);
+      });
+    }
+    
+    console.log(`Found ${existingConvsMap.size} existing conversations to preserve`);
+
+    const convsToUpsert = conversations.map(c => {
+      const existing = existingConvsMap.get(c.id);
+      
+      // If record exists locally, only fill null fields (LOCAL WINS)
+      if (existing) {
+        return {
+          ghl_id: c.id,
+          provider: existing.provider ?? 'ghl',
+          external_id: existing.external_id ?? c.id,
+          location_id: existing.location_id ?? c.locationId ?? locationId,
+          contact_id: existing.contact_id ?? c.contactId ?? null,
+          type: existing.type ?? c.type ?? null,
+          unread_count: existing.unread_count ?? c.unreadCount ?? 0,
+          inbox_status: existing.inbox_status ?? c.inboxStatus ?? null,
+          last_message_body: existing.last_message_body ?? c.lastMessageBody ?? null,
+          last_message_date: existing.last_message_date ?? toISODate(c.lastMessageDate),
+          last_message_type: existing.last_message_type ?? c.lastMessageType ?? null,
+          last_message_direction: existing.last_message_direction ?? c.lastMessageDirection ?? null,
+          ghl_date_added: existing.ghl_date_added ?? toISODate(c.dateAdded) ?? toISODate(c.createdAt),
+          ghl_date_updated: existing.ghl_date_updated ?? toISODate(c.dateUpdated) ?? toISODate(c.updatedAt),
+          last_synced_at: syncTimestamp, // Always update sync timestamp
+        };
+      }
+      
+      // New record - use GHL data
+      return {
+        ghl_id: c.id,
+        provider: 'ghl',
+        external_id: c.id,
+        location_id: c.locationId || locationId,
+        contact_id: c.contactId || null,
+        type: c.type || null,
+        unread_count: c.unreadCount || 0,
+        inbox_status: c.inboxStatus || null,
+        last_message_body: c.lastMessageBody || null,
+        last_message_date: toISODate(c.lastMessageDate),
+        last_message_type: c.lastMessageType || null,
+        last_message_direction: c.lastMessageDirection || null,
+        ghl_date_added: toISODate(c.dateAdded) || toISODate(c.createdAt),
+        ghl_date_updated: toISODate(c.dateUpdated) || toISODate(c.updatedAt),
+        last_synced_at: syncTimestamp,
+      };
+    });
 
     for (let i = 0; i < convsToUpsert.length; i += 100) {
       const batch = convsToUpsert.slice(i, i + 100);
@@ -843,21 +1028,70 @@ async function syncLocationData(
   }
 
   // Sync tasks with last_synced_at tracking
+  // LOCAL WINS STRATEGY: Only fill in null fields, never overwrite existing local data
   if (tasks.length > 0) {
-    console.log(`Syncing ${tasks.length} tasks...`);
-    const tasksToUpsert = tasks.map(t => ({
-      ghl_id: t.id,
-      provider: 'ghl',
-      external_id: t.id,
-      location_id: locationId,
-      contact_id: t.contactId,
-      title: t.title || 'Untitled Task',
-      body: t.body || null,
-      assigned_to: t.assignedTo || null,
-      due_date: t.dueDate || null,
-      completed: t.completed || false,
-      last_synced_at: syncTimestamp,
-    }));
+    console.log(`Syncing ${tasks.length} tasks with LOCAL WINS strategy...`);
+    
+    // Fetch existing tasks to preserve local data
+    const taskGhlIds = tasks.map(t => t.id);
+    const existingTasksMap = new Map<string, any>();
+    
+    for (let i = 0; i < taskGhlIds.length; i += 100) {
+      const batchIds = taskGhlIds.slice(i, i + 100);
+      const { data: existingTasks, error: fetchError } = await supabase
+        .from('ghl_tasks')
+        .select('*')
+        .in('ghl_id', batchIds);
+      
+      if (fetchError) {
+        console.error('Error fetching existing tasks for preservation:', fetchError);
+      }
+      
+      (existingTasks || []).forEach((t: any) => {
+        existingTasksMap.set(t.ghl_id, t);
+      });
+    }
+    
+    console.log(`Found ${existingTasksMap.size} existing tasks to preserve`);
+    
+    const tasksToUpsert = tasks.map(t => {
+      const existing = existingTasksMap.get(t.id);
+      
+      // If record exists locally, only fill null fields (LOCAL WINS)
+      if (existing) {
+        return {
+          ghl_id: t.id,
+          provider: existing.provider ?? 'ghl',
+          external_id: existing.external_id ?? t.id,
+          location_id: existing.location_id ?? locationId,
+          contact_id: existing.contact_id ?? t.contactId,
+          title: existing.title ?? t.title ?? 'Untitled Task',
+          body: existing.body ?? t.body ?? null,
+          assigned_to: existing.assigned_to ?? t.assignedTo ?? null,
+          due_date: existing.due_date ?? t.dueDate ?? null,
+          completed: existing.completed ?? t.completed ?? false,
+          entered_by: existing.entered_by, // Always preserve
+          edited_by: existing.edited_by, // Always preserve
+          edited_at: existing.edited_at, // Always preserve
+          last_synced_at: syncTimestamp, // Always update sync timestamp
+        };
+      }
+      
+      // New record - use GHL data
+      return {
+        ghl_id: t.id,
+        provider: 'ghl',
+        external_id: t.id,
+        location_id: locationId,
+        contact_id: t.contactId,
+        title: t.title || 'Untitled Task',
+        body: t.body || null,
+        assigned_to: t.assignedTo || null,
+        due_date: t.dueDate || null,
+        completed: t.completed || false,
+        last_synced_at: syncTimestamp,
+      };
+    });
 
     for (let i = 0; i < tasksToUpsert.length; i += 100) {
       const batch = tasksToUpsert.slice(i, i + 100);
@@ -926,40 +1160,46 @@ async function cleanupStaleRecords(
   let totalDeleted = 0;
 
   // Cleanup contacts (only if we fetched enough)
+  // IMPORTANT: Exclude local-only records (ghl_id starts with 'local_') - these should only be deleted from the app
   if (counts.contacts >= minRecordsForCleanup.contacts) {
     const { data: staleContacts, error: staleContactsErr } = await supabase
       .from('contacts')
       .select('ghl_id')
       .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold);
+      .lt('last_synced_at', staleThreshold)
+      .not('ghl_id', 'like', 'local_%');
     
     if (!staleContactsErr && staleContacts && staleContacts.length > 0) {
-      console.log(`Found ${staleContacts.length} stale contacts`);
+      console.log(`Found ${staleContacts.length} stale contacts (excluding local-only)`);
       const { error: delErr } = await supabase
         .from('contacts')
         .delete()
         .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold);
+        .lt('last_synced_at', staleThreshold)
+        .not('ghl_id', 'like', 'local_%');
       if (!delErr) totalDeleted += staleContacts.length;
       else console.error('Error deleting stale contacts:', delErr);
     }
   }
 
   // Cleanup opportunities (only if we fetched enough)
+  // IMPORTANT: Exclude local-only records (ghl_id starts with 'local_') - these should only be deleted from the app
   if (counts.opportunities >= minRecordsForCleanup.opportunities) {
     const { data: staleOpps, error: staleOppsErr } = await supabase
       .from('opportunities')
       .select('ghl_id')
       .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold);
+      .lt('last_synced_at', staleThreshold)
+      .not('ghl_id', 'like', 'local_%');
     
     if (!staleOppsErr && staleOpps && staleOpps.length > 0) {
-      console.log(`Found ${staleOpps.length} stale opportunities`);
+      console.log(`Found ${staleOpps.length} stale opportunities (excluding local-only)`);
       const { error: delErr } = await supabase
         .from('opportunities')
         .delete()
         .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold);
+        .lt('last_synced_at', staleThreshold)
+        .not('ghl_id', 'like', 'local_%');
       if (!delErr) totalDeleted += staleOpps.length;
       else console.error('Error deleting stale opportunities:', delErr);
     }
@@ -989,40 +1229,46 @@ async function cleanupStaleRecords(
   }
 
   // Cleanup tasks (only if we fetched enough)
+  // IMPORTANT: Exclude local-only records (ghl_id starts with 'local_') - these should only be deleted from the app
   if (counts.tasks >= minRecordsForCleanup.tasks) {
     const { data: staleTasks, error: staleTasksErr } = await supabase
       .from('ghl_tasks')
       .select('ghl_id')
       .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold);
+      .lt('last_synced_at', staleThreshold)
+      .not('ghl_id', 'like', 'local_%');
     
     if (!staleTasksErr && staleTasks && staleTasks.length > 0) {
-      console.log(`Found ${staleTasks.length} stale tasks`);
+      console.log(`Found ${staleTasks.length} stale tasks (excluding local-only)`);
       const { error: delErr } = await supabase
         .from('ghl_tasks')
         .delete()
         .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold);
+        .lt('last_synced_at', staleThreshold)
+        .not('ghl_id', 'like', 'local_%');
       if (!delErr) totalDeleted += staleTasks.length;
       else console.error('Error deleting stale tasks:', delErr);
     }
   }
 
   // Cleanup conversations (only if we fetched enough)
+  // IMPORTANT: Exclude local-only records (ghl_id starts with 'local_') - these should only be deleted from the app
   if (counts.conversations >= minRecordsForCleanup.conversations) {
     const { data: staleConvs, error: staleConvsErr } = await supabase
       .from('conversations')
       .select('ghl_id')
       .eq('location_id', locationId)
-      .lt('last_synced_at', staleThreshold);
+      .lt('last_synced_at', staleThreshold)
+      .not('ghl_id', 'like', 'local_%');
     
     if (!staleConvsErr && staleConvs && staleConvs.length > 0) {
-      console.log(`Found ${staleConvs.length} stale conversations`);
+      console.log(`Found ${staleConvs.length} stale conversations (excluding local-only)`);
       const { error: delErr } = await supabase
         .from('conversations')
         .delete()
         .eq('location_id', locationId)
-        .lt('last_synced_at', staleThreshold);
+        .lt('last_synced_at', staleThreshold)
+        .not('ghl_id', 'like', 'local_%');
       if (!delErr) totalDeleted += staleConvs.length;
       else console.error('Error deleting stale conversations:', delErr);
     }
