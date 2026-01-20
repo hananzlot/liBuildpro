@@ -17,6 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
 import { ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 
 interface DBAppointment {
   id: string;
@@ -556,6 +557,7 @@ export function UpcomingAppointmentsSheet({
   users,
 }: UpcomingAppointmentsSheetProps) {
   const { user } = useAuth();
+  const { companyId } = useCompanyContext();
   const [searchFilter, setSearchFilter] = useState("");
   const [repFilter, setRepFilter] = useState<string>("all");
   const [selectedAppointment, setSelectedAppointment] = useState<DBAppointment | null>(null);
@@ -621,6 +623,7 @@ export function UpcomingAppointmentsSheet({
         new_value: String(newValue),
         edited_by: user?.id || null,
         location_id: appt.location_id,
+        company_id: companyId,
       });
 
       setLocalConfirmedState((prev) => ({ ...prev, [appt.ghl_id]: newValue }));
@@ -671,6 +674,7 @@ export function UpcomingAppointmentsSheet({
         new_value: newStatus,
         edited_by: user?.id || null,
         location_id: appt.location_id,
+        company_id: companyId,
       });
 
       setLocalStatusState((prev) => ({ ...prev, [appt.ghl_id]: newStatus }));

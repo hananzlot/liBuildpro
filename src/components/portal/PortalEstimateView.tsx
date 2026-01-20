@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -268,6 +267,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           portal_token_id: tokenData.id,
           estimate_id: estimate.id,
           page_viewed: 'estimate',
+          company_id: tokenData.company_id,
         });
 
         // Update access count
@@ -334,6 +334,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           signature_data: signatureData.data,
           signature_font: signatureData.font,
           portal_token_id: portalData!.isMultiSigner ? null : portalData!.token.id,
+          company_id: portalData!.token.company_id,
         })
         .select()
         .single();

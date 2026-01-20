@@ -130,6 +130,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
         portal_token_id: tokenData.id,
         project_id: project.id,
         page_viewed: 'project_portal',
+        company_id: tokenData.company_id,
       });
 
       // Update access count
