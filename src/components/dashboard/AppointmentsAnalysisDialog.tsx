@@ -269,6 +269,40 @@ export function AppointmentsAnalysisDialog({
       .sort((a, b) => b.value - a.value);
   }, [nonCancelledAppointments, getOpportunityForContact]);
 
+  // Won By Source breakdown - only won opportunities
+  const wonBySource = useMemo(() => {
+    const sourceMap = new Map<string, { count: number; value: number }>();
+    const seenContacts = new Set<string>();
+
+    nonCancelledAppointments.forEach(apt => {
+      if (!apt.contact_id || seenContacts.has(apt.contact_id)) return;
+      seenContacts.add(apt.contact_id);
+
+      const opp = getOpportunityForContact(apt.contact_id);
+      // Only include won opportunities
+      if (opp?.status?.toLowerCase() !== 'won') return;
+
+      const contact = contactMap.get(apt.contact_id);
+      const source = normalizeSourceName(contact?.source || "Direct");
+      const value = opp.monetary_value || 0;
+
+      if (!sourceMap.has(source)) {
+        sourceMap.set(source, { count: 0, value: 0 });
+      }
+      const stat = sourceMap.get(source)!;
+      stat.count++;
+      stat.value += value;
+    });
+
+    return Array.from(sourceMap.entries())
+      .map(([source, data]) => ({
+        source,
+        count: data.count,
+        value: data.value,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [nonCancelledAppointments, contactMap, getOpportunityForContact]);
+
   // By Source breakdown
   const bySource = useMemo(() => {
     const sourceMap = new Map<string, { count: number; value: number }>();
@@ -750,6 +784,27 @@ export function AppointmentsAnalysisDialog({
                   ))}
                 </div>
               </div>
+
+              {/* Won By Source */}
+              {wonBySource.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                    Won By Source:
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {wonBySource.map(({ source, count, value }) => (
+                      <Badge 
+                        key={source} 
+                        variant="outline" 
+                        className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 px-3 py-1"
+                      >
+                        {source}: {count} ({formatCurrency(value)})
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* By Source */}
               <div className="space-y-2">
