@@ -34,7 +34,7 @@ export default function ClientPortal() {
         .select('*, estimate_signers(*)')
         .eq('token', estimateToken)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -51,7 +51,7 @@ export default function ClientPortal() {
         .select('project_id, estimate_id')
         .eq('token', token)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
