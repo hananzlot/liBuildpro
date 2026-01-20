@@ -89,16 +89,23 @@ serve(async (req) => {
       );
     }
 
-    // If locationId not provided, look it up from the contact
+    // If locationId or companyId not provided, look them up from the contact
     let effectiveLocationId = locationId;
-    if (!effectiveLocationId) {
+    let effectiveCompanyId = companyId;
+    
+    if (!effectiveLocationId || !effectiveCompanyId) {
       const { data: contactData } = await supabase
         .from('contacts')
-        .select('location_id')
+        .select('location_id, company_id')
         .eq('ghl_id', contactId)
         .single();
       
-      effectiveLocationId = contactData?.location_id;
+      if (!effectiveLocationId) {
+        effectiveLocationId = contactData?.location_id;
+      }
+      if (!effectiveCompanyId) {
+        effectiveCompanyId = contactData?.company_id;
+      }
     }
 
     // Calculate end time if not provided (default 1 hour)
@@ -126,7 +133,7 @@ serve(async (req) => {
         notes: notes ? `[LOCAL] ${notes}` : "[LOCAL - not synced to GHL]",
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
-        company_id: companyId || null,
+        company_id: effectiveCompanyId || null,
       });
 
       if (dbError) {
@@ -220,7 +227,7 @@ serve(async (req) => {
           notes: notes || null,
           ghl_date_added: new Date().toISOString(),
           entered_by: enteredBy || null,
-          company_id: companyId || null,
+          company_id: effectiveCompanyId || null,
         },
         { onConflict: "ghl_id" },
       );
