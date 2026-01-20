@@ -5238,6 +5238,24 @@ export type Database = {
         Returns: boolean
       }
       user_in_corporation: { Args: { corp_id: string }; Returns: boolean }
+      validate_portal_token: {
+        Args: { p_token: string }
+        Returns: {
+          access_count: number
+          client_email: string
+          client_name: string
+          company_id: string
+          created_at: string
+          created_by: string
+          estimate_id: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          last_accessed_at: string
+          project_id: string
+          token: string
+        }[]
+      }
     }
     Enums: {
       app_role:

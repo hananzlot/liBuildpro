@@ -60,12 +60,9 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
   const { data: portalData, isLoading, error } = useQuery({
     queryKey: ['project-portal', token],
     queryFn: async () => {
-      // Get the token
+      // Get the token using secure RPC function
       const { data: tokenData, error: tokenError } = await supabase
-        .from('client_portal_tokens')
-        .select('*')
-        .eq('token', token)
-        .eq('is_active', true)
+        .rpc('validate_portal_token', { p_token: token })
         .maybeSingle();
 
       if (tokenError) throw new Error('Invalid or expired link');
