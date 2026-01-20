@@ -691,7 +691,13 @@ export function AppointmentsTable({
                     <Badge 
                       key={source} 
                       variant="outline" 
-                      className="text-xs bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      className={`text-xs cursor-pointer hover:opacity-80 transition-opacity bg-emerald-500/10 text-emerald-400 border-emerald-500/30 ${sourceFilter.length === 1 && sourceFilter[0] === source && oppStatusFilter.length === 1 && oppStatusFilter[0] === 'won' ? 'ring-2 ring-primary' : ''}`}
+                      onClick={() => {
+                        // Filter by both source and won status
+                        setSourceFilter([source]);
+                        setOppStatusFilter(['won']);
+                        setCurrentPage(1);
+                      }}
                     >
                       {source}: {data.count} ({formatCurrency(data.value)})
                     </Badge>
