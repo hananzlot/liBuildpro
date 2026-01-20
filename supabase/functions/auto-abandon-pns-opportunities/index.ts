@@ -79,11 +79,13 @@ Deno.serve(async (req) => {
     // Only process "Never Answer" opportunities now
 
     // Find all opportunities with stage_name containing "Never Answer" (matches "Never Answers" and "Never Answered")
+    // Exclude local-only opportunities (ghl_id starts with 'local_') - these should only be managed from the app
     const { data: neverAnsweredOpportunities, error: naFetchError } = await supabase
       .from('opportunities')
       .select('id, ghl_id, name, stage_name, status, contact_id, location_id')
       .ilike('stage_name', '%Never Answer%')
-      .neq('status', 'abandoned');
+      .neq('status', 'abandoned')
+      .not('ghl_id', 'like', 'local_%');
 
     if (naFetchError) {
       console.error('Error fetching Never Answered opportunities:', naFetchError);

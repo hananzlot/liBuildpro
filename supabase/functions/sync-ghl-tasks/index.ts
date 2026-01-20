@@ -62,6 +62,21 @@ serve(async (req) => {
       );
     }
 
+    // Skip sync for local-only contacts
+    if (contact_id.startsWith('local_')) {
+      console.log(`Skipping GHL sync for local-only contact: ${contact_id}`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          ghl_tasks_count: 0,
+          updated_count: 0,
+          localOnlyMode: true,
+          reason: 'local_contact'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
