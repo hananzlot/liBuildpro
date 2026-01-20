@@ -7,6 +7,7 @@ import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/h
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { SourceChart } from "@/components/dashboard/SourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
@@ -47,6 +48,7 @@ const Index = () => {
   } = useAuth();
   const { companyId } = useCompanyContext();
   const { isGHLEnabled } = useGHLMode();
+  const { visibility: kpiVisibility } = useKPIVisibility();
   
   // Show welcome screen state - persisted in sessionStorage
   const [showWelcome, setShowWelcome] = useState(() => {
@@ -356,15 +358,17 @@ const Index = () => {
                 icon={Trophy} 
                 onClick={() => setWonOpportunitiesSheetOpen(true)} 
               />
-              <ClickableMetricCard 
-                title="Leads Resell" 
-                value={metrics?.opportunitySalesCount || 0} 
-                secondaryValue={formatCurrency(metrics?.totalOpportunitySalesAmount || 0)} 
-                subtitle="In date range" 
-                icon={Receipt} 
-                onClick={() => setOpportunitySalesSheetOpen(true)} 
-              />
-              {(isAdmin || isMagazine) && (
+              {kpiVisibility.leads_resell_visible && (
+                <ClickableMetricCard 
+                  title="Leads Resell" 
+                  value={metrics?.opportunitySalesCount || 0} 
+                  secondaryValue={formatCurrency(metrics?.totalOpportunitySalesAmount || 0)} 
+                  subtitle="In date range" 
+                  icon={Receipt} 
+                  onClick={() => setOpportunitySalesSheetOpen(true)} 
+                />
+              )}
+              {kpiVisibility.magazine_sales_visible && (isAdmin || isMagazine) && (
                 <ClickableMetricCard 
                   title="Magazine Sales" 
                   value={formatCurrency(magazineSalesTotal)} 
