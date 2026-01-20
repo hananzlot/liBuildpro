@@ -22,6 +22,7 @@ import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement"
 import { ChatManagement } from "@/components/admin/ChatManagement";
 import { LogoUpload } from "@/components/admin/LogoUpload";
 import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager";
+import { GHLFieldMappings } from "@/components/admin/GHLFieldMappings";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { format } from "date-fns";
 import {
@@ -640,8 +641,9 @@ export default function AdminSettings() {
           </TabsContent>
 
           {/* GHL Integrations Tab */}
-          <TabsContent value="integrations" className="mt-6">
+          <TabsContent value="integrations" className="mt-6 space-y-6">
             <GHLIntegrationManager />
+            <GHLFieldMappings />
           </TabsContent>
 
           {/* Email Templates Tab */}

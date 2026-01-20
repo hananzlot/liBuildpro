@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAllGHLCredentials, GHLCredentials } from "../_shared/ghl-credentials.ts";
+import { getGHLFieldMappings, GHLFieldMappings } from "../_shared/ghl-field-mappings.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,7 +52,7 @@ async function updateContactInGHL(contactId: string, updates: any, apiKey: strin
   return response.json();
 }
 
-async function createContactInGHL(contact: any, apiKey: string, locationId: string) {
+async function createContactInGHL(contact: any, apiKey: string, locationId: string, fieldMappings: GHLFieldMappings) {
   const payload: any = {
     firstName: contact.firstName || contact.first_name || '',
     lastName: contact.lastName || contact.last_name || '',
@@ -70,7 +71,7 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
   if (contact.postalCode) payload.postalCode = contact.postalCode;
   if (contact.country) payload.country = contact.country;
   
-  // Map Location 2 fields to Location 1 custom fields
+  // Map Location 2 fields to Location 1 custom fields using configurable field IDs
   const customFields: Array<{ id: string; value: string }> = [];
   
   // Get scope from utm_content in attributions array
@@ -81,9 +82,11 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
     utmContent = contact.attributions.utmContent;
   }
   
-  if (utmContent) {
-    customFields.push({ id: 'KwQRtJT0aMSHnq3mwR68', value: utmContent }); // Scope of work
-    console.log(`Mapping utm_content to scope: ${utmContent}`);
+  // Use configurable field ID for scope_of_work
+  const scopeFieldId = fieldMappings.scope_of_work;
+  if (utmContent && scopeFieldId) {
+    customFields.push({ id: scopeFieldId, value: utmContent });
+    console.log(`Mapping utm_content to scope (field ${scopeFieldId}): ${utmContent}`);
   }
   
   // Create address string from address fields for custom field
@@ -94,10 +97,12 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
     contact.postalCode
   ].filter(Boolean);
   
-  if (addressParts.length > 0) {
+  // Use configurable field ID for address
+  const addressFieldId = fieldMappings.address;
+  if (addressParts.length > 0 && addressFieldId) {
     const fullAddress = addressParts.join(', ');
-    customFields.push({ id: 'b7oTVsUQrLgZt84bHpCn', value: fullAddress }); // Address custom field
-    console.log(`Mapping address: ${fullAddress}`);
+    customFields.push({ id: addressFieldId, value: fullAddress });
+    console.log(`Mapping address (field ${addressFieldId}): ${fullAddress}`);
   }
   
   if (customFields.length > 0) {
@@ -253,6 +258,10 @@ serve(async (req) => {
     const LOCATION_2_ID = location2Credentials.locationId;
     const LOCATION_2_API_KEY = location2Credentials.apiKey;
 
+    // Get field mappings from database
+    const fieldMappings = await getGHLFieldMappings(supabase, location1Credentials.companyId);
+    console.log('Using field mappings:', fieldMappings);
+
     console.log(`Importing from Location 2 (${LOCATION_2_ID}) to Location 1 (${LOCATION_1_ID})`);
     
     // Get existing contacts from Location 1 (for email deduplication)
@@ -337,17 +346,18 @@ serve(async (req) => {
         console.log(`Processing contact ${contact.contact_name}, utmContent: ${utmContent}`);
         
         // Create contact in Location 1
-        const newContact = await createContactInGHL(mergedContact, LOCATION_1_API_KEY, LOCATION_1_ID);
+        const newContact = await createContactInGHL(mergedContact, LOCATION_1_API_KEY, LOCATION_1_ID, fieldMappings);
         const newContactId = newContact.contact?.id;
         const alreadyExists = newContact.alreadyExists;
         
         if (newContactId) {
           // If contact already exists, update it with scope custom field
-          if (alreadyExists && utmContent) {
+          const scopeFieldId = fieldMappings.scope_of_work;
+          if (alreadyExists && utmContent && scopeFieldId) {
             console.log(`Contact exists, updating with scope: ${utmContent}`);
             await updateContactInGHL(newContactId, {
               customFields: [
-                { id: 'KwQRtJT0aMSHnq3mwR68', value: utmContent } // Scope of work
+                { id: scopeFieldId, value: utmContent }
               ]
             }, LOCATION_1_API_KEY);
           }
