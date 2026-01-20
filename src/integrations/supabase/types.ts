@@ -5195,6 +5195,14 @@ export type Database = {
     }
     Functions: {
       backfill_contact_uuids: { Args: never; Returns: undefined }
+      generate_company_encryption_key: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
+      get_company_encryption_key: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
       get_ghl_api_key_encrypted: {
         Args: { p_integration_id: string }
         Returns: string
