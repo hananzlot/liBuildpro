@@ -198,6 +198,10 @@ export function FollowUpManagement({
   // Appointment Status Update State
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
   const [updatingPipelineStageId, setUpdatingPipelineStageId] = useState<string | null>(null);
+  
+  // Auto-create orphaned opportunities state
+  const [creatingOrphanedOpportunities, setCreatingOrphanedOpportunities] = useState(false);
+  const [orphanedOpportunitiesCreated, setOrphanedOpportunitiesCreated] = useState<Set<string>>(new Set());
 
   // Scope Dialog State
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
@@ -266,8 +270,122 @@ export function FollowUpManagement({
     if (contactAppts.length === 0) return null;
     return contactAppts.sort((a, b) => 
       new Date(b.start_time!).getTime() - new Date(a.start_time!).getTime()
-    )[0];
+  )[0];
   };
+
+  // Get oldest note date for a contact (for setting opportunity creation date)
+  const getOldestNoteDate = (contactId: string): Date | null => {
+    const notes = contactNotes.filter(n => n.contact_id === contactId && n.ghl_date_added);
+    if (notes.length === 0) return null;
+    return notes.reduce((oldest, note) => {
+      const noteDate = new Date(note.ghl_date_added!);
+      return !oldest || noteDate < oldest ? noteDate : oldest;
+    }, null as Date | null);
+  };
+
+  // Auto-create opportunity for orphaned appointment
+  const createOrphanedOpportunity = async (appointment: DBAppointment, contact: DBContact | undefined) => {
+    if (!appointment.contact_id || !contact) return null;
+    
+    // Skip if already being created or was already created this session
+    if (orphanedOpportunitiesCreated.has(appointment.contact_id)) return null;
+
+    try {
+      // Get the oldest note date to use as creation date
+      const oldestNoteDate = getOldestNoteDate(appointment.contact_id);
+      const creationDate = oldestNoteDate?.toISOString() || new Date().toISOString();
+
+      // Generate a local opportunity ID
+      const localOppId = `local_opp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+      // Create the opportunity in Supabase
+      const { data: newOpp, error } = await supabase
+        .from('opportunities')
+        .insert({
+          ghl_id: localOppId,
+          provider: 'local',
+          contact_id: appointment.contact_id,
+          contact_uuid: contact.id,
+          name: contact.contact_name || `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Unknown',
+          status: 'open',
+          stage_name: 'Follow Up',
+          pipeline_name: 'Sales Pipeline',
+          assigned_to: appointment.assigned_user_id || contact.assigned_to,
+          location_id: contact.location_id || appointment.location_id || DEFAULT_LOCATION_ID,
+          ghl_date_added: creationDate,
+          created_at: creationDate,
+          company_id: companyId,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to create orphaned opportunity:', error);
+        return null;
+      }
+
+      console.log(`Auto-created opportunity for orphaned appointment: ${localOppId} with creation date ${creationDate}`);
+      return newOpp as DBOpportunity;
+    } catch (err) {
+      console.error('Error creating orphaned opportunity:', err);
+      return null;
+    }
+  };
+
+  // Effect to auto-create opportunities for orphaned past confirmed appointments
+  useEffect(() => {
+    const autoCreateOrphanedOpportunities = async () => {
+      if (creatingOrphanedOpportunities || !companyId) return;
+
+      const now = new Date();
+      const orphanedAppointments: Array<{ appointment: DBAppointment; contact: DBContact | undefined }> = [];
+
+      // Find past confirmed appointments without opportunities
+      appointments.forEach(appointment => {
+        if (!appointment.start_time || !appointment.contact_id) return;
+        const appointmentDate = new Date(appointment.start_time);
+        if (appointmentDate >= now) return;
+
+        const appointmentStatus = appointment.appointment_status?.toLowerCase();
+        if (appointmentStatus !== "confirmed") return;
+
+        // Check if already has an opportunity
+        const existingOpp = opportunities.find(o => o.contact_id === appointment.contact_id);
+        if (existingOpp) return;
+
+        // Skip if already processed this session
+        if (orphanedOpportunitiesCreated.has(appointment.contact_id)) return;
+
+        const contact = findContactByIdOrGhlId(contacts, undefined, appointment.contact_id);
+        if (contact) {
+          orphanedAppointments.push({ appointment, contact });
+        }
+      });
+
+      if (orphanedAppointments.length === 0) return;
+
+      setCreatingOrphanedOpportunities(true);
+      console.log(`Auto-creating ${orphanedAppointments.length} opportunities for orphaned appointments...`);
+
+      const createdContactIds = new Set<string>();
+      for (const { appointment, contact } of orphanedAppointments) {
+        const newOpp = await createOrphanedOpportunity(appointment, contact);
+        if (newOpp && appointment.contact_id) {
+          createdContactIds.add(appointment.contact_id);
+        }
+      }
+
+      if (createdContactIds.size > 0) {
+        setOrphanedOpportunitiesCreated(prev => new Set([...prev, ...createdContactIds]));
+        toast.success(`Auto-created ${createdContactIds.size} opportunity${createdContactIds.size > 1 ? 'ies' : ''} for orphaned appointments`);
+        onDataRefresh?.();
+      }
+
+      setCreatingOrphanedOpportunities(false);
+    };
+
+    autoCreateOrphanedOpportunities();
+  }, [appointments, opportunities, contacts, companyId, creatingOrphanedOpportunities, orphanedOpportunitiesCreated]);
 
   // Export Close to Sale data as CSV
   const exportCloseToSaleCSV = () => {
