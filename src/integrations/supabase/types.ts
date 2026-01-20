@@ -1442,6 +1442,24 @@ export type Database = {
           },
         ]
       }
+      encryption_keys: {
+        Row: {
+          created_at: string | null
+          id: string
+          key_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key_name?: string
+        }
+        Relationships: []
+      }
       estimate_attachments: {
         Row: {
           company_id: string | null
@@ -4915,8 +4933,10 @@ export type Database = {
     }
     Functions: {
       backfill_contact_uuids: { Args: never; Returns: undefined }
-      delete_ghl_api_key: { Args: { secret_id: string }; Returns: boolean }
-      get_ghl_api_key: { Args: { secret_id: string }; Returns: string }
+      get_ghl_api_key_encrypted: {
+        Args: { p_integration_id: string }
+        Returns: string
+      }
       get_user_company_id: { Args: never; Returns: string }
       get_user_corporation_id: { Args: never; Returns: string }
       has_company_access: {
@@ -4943,9 +4963,9 @@ export type Database = {
         }
         Returns: string
       }
-      store_ghl_api_key: {
-        Args: { api_key: string; integration_name?: string }
-        Returns: string
+      store_ghl_api_key_encrypted: {
+        Args: { p_api_key: string; p_integration_id: string }
+        Returns: boolean
       }
       user_in_corporation: { Args: { corp_id: string }; Returns: boolean }
     }

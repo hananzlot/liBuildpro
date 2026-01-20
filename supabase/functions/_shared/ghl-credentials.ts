@@ -18,7 +18,7 @@ export async function getGHLCredentials(
   // Query company_integrations for this location
   const { data: integration, error } = await supabase
     .from("company_integrations")
-    .select("id, company_id, location_id, api_key_vault_id")
+    .select("id, company_id, location_id, api_key_encrypted")
     .eq("provider", "ghl")
     .eq("location_id", locationId)
     .eq("is_active", true)
@@ -31,23 +31,23 @@ export async function getGHLCredentials(
     );
   }
 
-  if (!integration.api_key_vault_id) {
+  if (!integration.api_key_encrypted) {
     throw new Error(
       `GHL API key not configured for location ${locationId}. ` +
       `Please update the GHL integration in Admin Settings → GHL tab.`
     );
   }
 
-  // Get decrypted API key from vault
-  const { data: apiKey, error: vaultError } = await supabase.rpc(
-    "get_ghl_api_key",
-    { secret_id: integration.api_key_vault_id }
+  // Get decrypted API key using pgcrypto function
+  const { data: apiKey, error: decryptError } = await supabase.rpc(
+    "get_ghl_api_key_encrypted",
+    { p_integration_id: integration.id }
   );
 
-  if (vaultError || !apiKey) {
+  if (decryptError || !apiKey) {
     throw new Error(
       `Failed to retrieve GHL API key for location ${locationId}. ` +
-      `Vault error: ${vaultError?.message || "Key not found"}`
+      `Error: ${decryptError?.message || "Key not found"}`
     );
   }
 
@@ -69,7 +69,7 @@ export async function getAllGHLCredentials(
   // Query all active GHL integrations
   const { data: integrations, error } = await supabase
     .from("company_integrations")
-    .select("id, company_id, location_id, api_key_vault_id, name")
+    .select("id, company_id, location_id, api_key_encrypted, name")
     .eq("provider", "ghl")
     .eq("is_active", true);
 
@@ -87,23 +87,23 @@ export async function getAllGHLCredentials(
   const credentials: GHLCredentials[] = [];
 
   for (const integration of integrations) {
-    if (!integration.api_key_vault_id) {
+    if (!integration.api_key_encrypted) {
       console.warn(
         `Skipping integration ${integration.name || integration.id}: No API key configured`
       );
       continue;
     }
 
-    // Get decrypted API key from vault
-    const { data: apiKey, error: vaultError } = await supabase.rpc(
-      "get_ghl_api_key",
-      { secret_id: integration.api_key_vault_id }
+    // Get decrypted API key using pgcrypto function
+    const { data: apiKey, error: decryptError } = await supabase.rpc(
+      "get_ghl_api_key_encrypted",
+      { p_integration_id: integration.id }
     );
 
-    if (vaultError || !apiKey) {
+    if (decryptError || !apiKey) {
       console.warn(
         `Skipping integration ${integration.name || integration.id}: ` +
-        `Failed to retrieve API key - ${vaultError?.message || "Key not found"}`
+        `Failed to retrieve API key - ${decryptError?.message || "Key not found"}`
       );
       continue;
     }
@@ -119,7 +119,7 @@ export async function getAllGHLCredentials(
   if (credentials.length === 0) {
     throw new Error(
       "No valid GHL integrations found. " +
-      "All configured integrations are missing API keys or have vault errors."
+      "All configured integrations are missing API keys or have decryption errors."
     );
   }
 

@@ -62,23 +62,7 @@ serve(async (req) => {
     const testData = await testResponse.json();
     console.log(`GHL API test successful. Found ${testData.users?.length || 0} users.`);
 
-    // Step 2: Store the API key in vault
-    console.log("Storing API key in vault...");
-    const integrationName = `GHL API Key - ${name}`;
-    
-    const { data: vaultId, error: vaultError } = await supabase.rpc("store_ghl_api_key", {
-      api_key: apiKey,
-      integration_name: integrationName,
-    });
-
-    if (vaultError) {
-      console.error("Vault storage error:", vaultError);
-      throw new Error(`Failed to store API key securely: ${vaultError.message}`);
-    }
-
-    console.log(`API key stored in vault with ID: ${vaultId}`);
-
-    // Step 3: If setting as primary, unset any existing primary for this company
+    // Step 2: If setting as primary, unset any existing primary for this company
     if (isPrimary && companyId) {
       console.log("Unsetting existing primary integration...");
       await supabase
@@ -89,55 +73,69 @@ serve(async (req) => {
         .eq("is_primary", true);
     }
 
-    // Step 4: Create or update the integration record
-    console.log("Creating/updating integration record...");
-    const integrationData = {
-      company_id: companyId || null,
-      provider: "ghl",
-      name,
-      location_id: locationId,
-      api_key_vault_id: vaultId,
-      is_primary: isPrimary || false,
-      is_active: true,
-      sync_status: "pending",
-      updated_at: new Date().toISOString(),
-    };
-
-    // Check if integration already exists for this company + location
+    // Step 3: Check if integration already exists for this company + location
     const { data: existing } = await supabase
       .from("company_integrations")
-      .select("id, api_key_vault_id")
+      .select("id")
       .eq("provider", "ghl")
       .eq("location_id", locationId)
-      .eq("company_id", companyId || "")
       .maybeSingle();
 
-    if (existing) {
-      // Delete old vault secret if exists
-      if (existing.api_key_vault_id && existing.api_key_vault_id !== vaultId) {
-        await supabase.rpc("delete_ghl_api_key", { secret_id: existing.api_key_vault_id });
-      }
+    let integrationId: string;
 
-      // Update existing
+    if (existing) {
+      // Update existing record
       const { error: updateError } = await supabase
         .from("company_integrations")
-        .update(integrationData)
+        .update({
+          company_id: companyId || null,
+          name,
+          is_primary: isPrimary || false,
+          is_active: true,
+          sync_status: "pending",
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", existing.id);
 
       if (updateError) throw updateError;
-      console.log(`Updated existing integration: ${existing.id}`);
+      integrationId = existing.id;
+      console.log(`Updated existing integration: ${integrationId}`);
     } else {
-      // Insert new
-      const { error: insertError } = await supabase
+      // Insert new record
+      const { data: newIntegration, error: insertError } = await supabase
         .from("company_integrations")
         .insert({
-          ...integrationData,
+          company_id: companyId || null,
+          provider: "ghl",
+          name,
+          location_id: locationId,
+          is_primary: isPrimary || false,
+          is_active: true,
+          sync_status: "pending",
           created_at: new Date().toISOString(),
-        });
+          updated_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
 
       if (insertError) throw insertError;
-      console.log("Created new integration record");
+      integrationId = newIntegration.id;
+      console.log("Created new integration record:", integrationId);
     }
+
+    // Step 4: Store the API key encrypted using pgcrypto
+    console.log("Storing API key encrypted...");
+    const { error: encryptError } = await supabase.rpc("store_ghl_api_key_encrypted", {
+      p_api_key: apiKey,
+      p_integration_id: integrationId,
+    });
+
+    if (encryptError) {
+      console.error("Encryption storage error:", encryptError);
+      throw new Error(`Failed to store API key: ${encryptError.message}`);
+    }
+
+    console.log("API key stored successfully");
 
     return new Response(
       JSON.stringify({ 
