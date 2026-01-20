@@ -7,11 +7,12 @@ export interface GHLFieldMappings {
   [key: string]: string | null;
 }
 
-// Default hardcoded mappings as fallback
-const DEFAULT_MAPPINGS: GHLFieldMappings = {
-  address: "b7oTVsUQrLgZt84bHpCn",
-  scope_of_work: "KwQRtJT0aMSHnq3mwR68",
-  notes: "588ddQgiGEg3AWtTQB2i",
+// Empty mappings - each integration must have its own explicit mappings configured
+// Do NOT use hardcoded defaults as they would cross-contaminate between integrations
+const EMPTY_MAPPINGS: GHLFieldMappings = {
+  address: null,
+  scope_of_work: null,
+  notes: null,
 };
 
 /**
@@ -65,17 +66,17 @@ export async function getGHLFieldMappings(
   }
 
   if (error) {
-    console.warn("Failed to fetch field mappings, using defaults:", error.message);
-    return { ...DEFAULT_MAPPINGS };
+    console.warn("Failed to fetch field mappings:", error.message);
+    return { ...EMPTY_MAPPINGS };
   }
 
   if (!mappings || mappings.length === 0) {
-    console.log("No field mappings found for integration/location, using defaults");
-    return { ...DEFAULT_MAPPINGS };
+    console.log("No field mappings configured for this integration - fields will not be mapped");
+    return { ...EMPTY_MAPPINGS };
   }
 
-  // Build mappings object
-  const result: GHLFieldMappings = { ...DEFAULT_MAPPINGS };
+  // Build mappings object from configured values only (no defaults)
+  const result: GHLFieldMappings = { ...EMPTY_MAPPINGS };
 
   for (const mapping of mappings) {
     result[mapping.field_name] = mapping.ghl_custom_field_id;
