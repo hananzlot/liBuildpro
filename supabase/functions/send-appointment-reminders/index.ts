@@ -113,10 +113,10 @@ const checkAndSendReminders = async () => {
   console.log("1-day window:", oneDayWindowStart.toISOString(), "-", oneDayWindowEnd.toISOString());
   console.log("2-hour window:", twoHoursWindowStart.toISOString(), "-", twoHoursWindowEnd.toISOString());
 
-  // Fetch appointments in both windows
+  // Fetch appointments in both windows (including company_id)
   const { data: appointments, error: apptError } = await supabase
     .from("appointments")
-    .select("*")
+    .select("*, company_id")
     .or(`and(start_time.gte.${oneDayWindowStart.toISOString()},start_time.lte.${oneDayWindowEnd.toISOString()}),and(start_time.gte.${twoHoursWindowStart.toISOString()},start_time.lte.${twoHoursWindowEnd.toISOString()})`)
     .neq("appointment_status", "cancelled");
 
@@ -208,6 +208,7 @@ const checkAndSendReminders = async () => {
               reminder_type: reminder.type,
               recipient_type: "sales_rep",
               recipient_email: user.email,
+              company_id: appt.company_id || null,
             });
             sentCount++;
             console.log(`Sent ${reminder.type} reminder to sales rep:`, user.email);
@@ -256,6 +257,7 @@ const checkAndSendReminders = async () => {
               reminder_type: reminder.type,
               recipient_type: "contact",
               recipient_email: contact.email,
+              company_id: appt.company_id || null,
             });
             sentCount++;
             console.log(`Sent ${reminder.type} reminder to contact:`, contact.email);
