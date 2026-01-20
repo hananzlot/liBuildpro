@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useGHLMetrics, useSyncContacts, useSyncGHL2, type DateRange } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { ClickableMetricCard } from "@/components/dashboard/ClickableMetricCard";
 import { SourceChart } from "@/components/dashboard/SourceChart";
 import { SalesRepLeaderboard } from "@/components/dashboard/SalesRepLeaderboard";
@@ -44,6 +45,7 @@ const Index = () => {
     isProduction,
     isSimulating,
   } = useAuth();
+  const { companyId } = useCompanyContext();
   const { isGHLEnabled } = useGHLMode();
   
   // Show welcome screen state - persisted in sessionStorage
@@ -114,13 +116,13 @@ const Index = () => {
 
   // Fetch magazine sales for dashboard KPI (only if user has access)
   const { data: magazineSales = [] } = useQuery({
-    queryKey: ["magazine-sales-dashboard"],
+    queryKey: ["magazine-sales-dashboard", companyId],
     queryFn: async () => {
       const { data, error } = await supabase.from("magazine_sales").select("price, page_size, sections_sold");
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin || isMagazine
+    enabled: !!companyId && (isAdmin || isMagazine)
   });
 
   // Calculate magazine sales total
