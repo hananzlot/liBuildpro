@@ -642,7 +642,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
         {/* Company Header */}
-        <CompanyHeader />
+        <CompanyHeader companyId={portalData?.token?.company_id || portalData?.estimate?.company_id} />
 
         {/* Multi-signer Progress */}
         {portalData.isMultiSigner && allSigners.length > 1 && (

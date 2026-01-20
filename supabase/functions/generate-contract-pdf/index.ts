@@ -39,12 +39,20 @@ serve(async (req) => {
     }
 
     // Fetch related data
-    const [groupsRes, itemsRes, scheduleRes, signaturesRes, settingsRes] = await Promise.all([
+    const settingKeys = ['company_name', 'company_address', 'company_phone', 'license_number', 'license_type', 'license_holder_name'];
+    
+    const [groupsRes, itemsRes, scheduleRes, signaturesRes, companySettingsRes, appSettingsRes] = await Promise.all([
       supabase.from('estimate_groups').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_line_items').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_payment_schedule').select('*').eq('estimate_id', estimateId).order('sort_order'),
       supabase.from('estimate_signatures').select('*').eq('estimate_id', estimateId).order('signed_at'),
-      supabase.from('app_settings').select('setting_key, setting_value').in('setting_key', ['company_name', 'company_address', 'company_phone']),
+      // Try company_settings first using estimate's company_id
+      estimate.company_id 
+        ? supabase.from('company_settings').select('setting_key, setting_value')
+            .eq('company_id', estimate.company_id).in('setting_key', settingKeys)
+        : Promise.resolve({ data: [] }),
+      // Fall back to app_settings
+      supabase.from('app_settings').select('setting_key, setting_value').in('setting_key', settingKeys),
     ]);
 
     const groups = groupsRes.data || [];
@@ -52,9 +60,13 @@ serve(async (req) => {
     const paymentSchedule = scheduleRes.data || [];
     const signatures = signaturesRes.data || [];
     
+    // Merge settings: company_settings override app_settings
     const settingsMap: Record<string, string> = {};
-    settingsRes.data?.forEach((s: any) => {
-      settingsMap[s.setting_key] = s.setting_value || '';
+    appSettingsRes.data?.forEach((s: any) => {
+      if (s.setting_value) settingsMap[s.setting_key] = s.setting_value;
+    });
+    companySettingsRes.data?.forEach((s: any) => {
+      if (s.setting_value) settingsMap[s.setting_key] = s.setting_value;
     });
 
     const companyName = settingsMap['company_name'] || 'Company';

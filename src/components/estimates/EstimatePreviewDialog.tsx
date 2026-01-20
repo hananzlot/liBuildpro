@@ -236,7 +236,7 @@ export function EstimatePreviewDialog({
           ) : (
             <div className="p-6 space-y-6 bg-muted/30">
               {/* Company Header */}
-              <CompanyHeader />
+              <CompanyHeader companyId={estimate.company_id} />
 
               {/* Status Banner */}
               {isSigned && signatures.length > 0 && (
