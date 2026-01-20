@@ -13,6 +13,72 @@ serve(async (req) => {
   }
 
   try {
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      throw new Error("Missing Supabase credentials");
+    }
+
+    // === AUTHENTICATION CHECK ===
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Missing or invalid authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create a client with the user's token to verify authentication
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized: Invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claimsData.claims.sub;
+
+    // Create service role client for database operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // === AUTHORIZATION CHECK: Verify user has admin role ===
+    const { data: userRoles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .in("role", ["admin", "super_admin"]);
+
+    if (rolesError || !userRoles || userRoles.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Admin role required to configure integrations" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get user's company from profile
+    const { data: userProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("company_id")
+      .eq("id", userId)
+      .single();
+
+    if (profileError || !userProfile?.company_id) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: User not associated with a company" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { name, locationId, apiKey, companyId, isPrimary } = await req.json();
 
     // Validate required fields
@@ -23,15 +89,20 @@ serve(async (req) => {
       );
     }
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error("Missing Supabase credentials");
+    // === COMPANY ACCESS CHECK ===
+    // Use user's company if companyId not provided, otherwise verify access
+    const targetCompanyId = companyId || userProfile.company_id;
+    
+    // Check if user is super_admin (can access any company) or if company matches
+    const isSuperAdmin = userRoles.some(r => r.role === "super_admin");
+    if (!isSuperAdmin && targetCompanyId !== userProfile.company_id) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: Cannot configure integrations for another company" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log(`User ${userId} (admin) configuring GHL integration for company ${targetCompanyId}`);
 
     // Step 1: Test the API key with GHL
     console.log(`Testing GHL API key for location ${locationId}...`);
@@ -63,12 +134,12 @@ serve(async (req) => {
     console.log(`GHL API test successful. Found ${testData.users?.length || 0} users.`);
 
     // Step 2: If setting as primary, unset any existing primary for this company
-    if (isPrimary && companyId) {
+    if (isPrimary && targetCompanyId) {
       console.log("Unsetting existing primary integration...");
       await supabase
         .from("company_integrations")
         .update({ is_primary: false })
-        .eq("company_id", companyId)
+        .eq("company_id", targetCompanyId)
         .eq("provider", "ghl")
         .eq("is_primary", true);
     }
@@ -88,7 +159,7 @@ serve(async (req) => {
       const { error: updateError } = await supabase
         .from("company_integrations")
         .update({
-          company_id: companyId || null,
+          company_id: targetCompanyId,
           name,
           is_primary: isPrimary || false,
           is_active: true,
@@ -105,7 +176,7 @@ serve(async (req) => {
       const { data: newIntegration, error: insertError } = await supabase
         .from("company_integrations")
         .insert({
-          company_id: companyId || null,
+          company_id: targetCompanyId,
           provider: "ghl",
           name,
           location_id: locationId,
