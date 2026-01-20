@@ -342,21 +342,28 @@ export function FollowUpManagement({
     })).sort((a, b) => a.name.localeCompare(b.name));
   }, [appointments, users]);
 
-  // Fetch GHL Tasks
+  // Fetch GHL Tasks (scoped to current company)
   const fetchGhlTasks = async () => {
+    if (!companyId) {
+      setGhlTasks([]);
+      return;
+    }
+
     setIsLoadingTasks(true);
     try {
-      const {
-        data,
-        error
-      } = await supabase.from("ghl_tasks").select("*").eq("completed", false).order("due_date", {
-        ascending: true
-      });
+      const { data, error } = await supabase
+        .from("ghl_tasks")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("completed", false)
+        .order("due_date", { ascending: true });
+
       if (error) {
         console.error("Error fetching tasks:", error);
         toast.error("Failed to fetch tasks");
         return;
       }
+
       setGhlTasks(data || []);
     } catch (err) {
       console.error("Failed to fetch tasks:", err);
@@ -365,9 +372,11 @@ export function FollowUpManagement({
       setIsLoadingTasks(false);
     }
   };
+
   useEffect(() => {
     fetchGhlTasks();
-  }, []);
+    // Re-fetch when switching/simulating companies
+  }, [companyId]);
 
   // Get unique assignees from GHL tasks
   const uniqueTaskAssignees = useMemo(() => {
