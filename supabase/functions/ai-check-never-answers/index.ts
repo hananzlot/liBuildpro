@@ -189,28 +189,47 @@ Deno.serve(async (req) => {
     const processedOpportunities: any[] = [];
 
     // Step 5: Use AI to analyze each opportunity's notes and tasks
+    const today = new Date().toISOString().split('T')[0];
+    
     for (const opp of opportunitiesToProcess) {
-      const notesText = opp.notes.map((n: any) => n.body || '').filter((b: string) => b.trim()).join('\n---\n');
+      // Format notes with dates for recency awareness, most recent first
+      const notesWithDates = opp.notes.map((n: any) => {
+        const noteDate = n.ghl_date_added ? new Date(n.ghl_date_added).toISOString().split('T')[0] : 'unknown';
+        return `[${noteDate}] ${n.body || ''}`;
+      }).filter((b: string) => b.trim()).join('\n---\n');
+      
       const tasksText = opp.tasks.map((t: any) => `${t.title}: ${t.body || ''} (${t.completed ? 'completed' : 'pending'})`).join('\n');
 
-      const prompt = `Analyze the following notes and tasks for a sales opportunity. Determine if the customer appears to be unreachable or never answers calls/messages.
+      const prompt = `Analyze the following notes and tasks for a sales opportunity. Today's date is ${today}.
 
-Look for patterns such as:
-- Multiple failed contact attempts
-- "No answer", "voicemail", "didn't pick up", "couldn't reach"
-- "Left message", "no response", "no callback"
-- Multiple follow-up tasks that remain incomplete
-- Repeated attempts to schedule without success
+CRITICAL RULES:
+1. RECENCY IS PARAMOUNT - The most recent notes (especially from today or last 2-3 days) COMPLETELY OVERRIDE older notes
+2. If there are ANY recent notes showing positive engagement (scope of work, estimates, pricing, scheduling, customer responding), this is NOT a "Never Answers" case
+3. Only mark as "Never Answers" if the MOST RECENT activity still shows no contact
 
-NOTES:
-${notesText || 'No notes available'}
+POSITIVE ENGAGEMENT SIGNALS (these mean customer IS reachable - DO NOT mark as Never Answers):
+- Scope of work being discussed or documented
+- Price/estimate mentioned
+- Customer providing information (emails, sketches, details)
+- Any meeting or appointment that happened successfully
+- Customer replying or responding in any way
+- Salesperson getting project details
+
+NEGATIVE SIGNALS (only counts if these are the MOST RECENT notes):
+- Multiple consecutive failed contact attempts with no successful contact after
+- "No answer", "voicemail", "didn't pick up" as the latest activity
+- "Left message", "no response", "no callback" with no follow-up success
+
+NOTES (ordered from most recent to oldest):
+${notesWithDates || 'No notes available'}
 
 TASKS:
 ${tasksText || 'No tasks available'}
 
-Based on this information, does the customer appear to be someone who never answers or is unreachable?
+Based on the MOST RECENT activity, does the customer appear to be unreachable?
+If there are recent positive engagement notes, answer neverAnswers: false.
 Respond with ONLY a JSON object in this exact format:
-{"neverAnswers": true/false, "confidence": "high/medium/low", "reason": "brief explanation"}`;
+{"neverAnswers": true/false, "confidence": "high/medium/low", "reason": "brief explanation focusing on the most recent notes"}`;
 
       try {
         const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
