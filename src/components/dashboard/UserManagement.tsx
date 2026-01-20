@@ -523,25 +523,36 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
 
                     {/* Role toggles */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-2 ml-13">
-                      {userRolesForProfile.map((roleInfo) => (
-                        <div key={roleInfo.role} className="flex items-center gap-2">
-                          {roleInfo.isUpdating ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Switch
-                              checked={roleInfo.active}
-                              onCheckedChange={() => {
-                                toggleRoleMutation.mutate({
-                                  userId: profile.id,
-                                  role: roleInfo.role,
-                                  hasRole: roleInfo.active,
-                                });
-                              }}
-                            />
-                          )}
-                          <span className="text-xs text-muted-foreground">{roleInfo.label}</span>
-                        </div>
-                      ))}
+                      {userRolesForProfile.map((roleInfo) => {
+                        // Only super_admin users can modify super_admin role
+                        const isSuperAdminRole = roleInfo.role === 'super_admin';
+                        const canModifyThisRole = isSuperAdminRole ? isSuperAdmin : true;
+                        const isDisabled = !canModifyThisRole;
+
+                        return (
+                          <div key={roleInfo.role} className="flex items-center gap-2">
+                            {roleInfo.isUpdating ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Switch
+                                checked={roleInfo.active}
+                                disabled={isDisabled}
+                                onCheckedChange={() => {
+                                  toggleRoleMutation.mutate({
+                                    userId: profile.id,
+                                    role: roleInfo.role,
+                                    hasRole: roleInfo.active,
+                                  });
+                                }}
+                              />
+                            )}
+                            <span className={`text-xs ${isDisabled ? 'text-muted-foreground/50' : 'text-muted-foreground'}`}>
+                              {roleInfo.label}
+                              {isDisabled && ' 🔒'}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
