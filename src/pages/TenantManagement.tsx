@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Building2, Users, Calendar, DollarSign, Edit, Plus, RefreshCw } from 'lucide-react';
 import type { SubscriptionPlan, CompanySubscription, SubscriptionStatus } from '@/types/subscription';
+import { AddCompanyDialog } from '@/components/subscription/AddCompanyDialog';
 
 interface CompanyWithSubscription {
   id: string;
@@ -32,6 +33,7 @@ export default function TenantManagement() {
   const queryClient = useQueryClient();
   const [selectedCompany, setSelectedCompany] = useState<CompanyWithSubscription | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     plan_id: '',
     status: '' as SubscriptionStatus | '',
@@ -231,10 +233,16 @@ export default function TenantManagement() {
             <h1 className="text-3xl font-bold">Tenant Management</h1>
             <p className="text-muted-foreground">Manage company subscriptions and billing</p>
           </div>
-          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['tenant-companies'] })} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Company
+            </Button>
+            <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['tenant-companies'] })} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Metrics Cards */}
@@ -453,6 +461,13 @@ export default function TenantManagement() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Add Company Dialog */}
+        <AddCompanyDialog 
+          open={isAddDialogOpen} 
+          onOpenChange={setIsAddDialogOpen}
+          plans={plans || []}
+        />
       </div>
     </AppLayout>
   );
