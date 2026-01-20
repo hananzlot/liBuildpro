@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckSquare, FileText, User, Calendar, MapPin, History, ArrowRight, Clock, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { findContactByIdOrGhlId, findUserByIdOrGhlId, findOpportunityByIdOrGhlId } from "@/lib/utils";
 
 import type { DBOpportunityEdit, DBTaskEdit, DBNoteEdit, DBAppointmentEdit } from "@/hooks/useGHLContacts";
 
@@ -79,9 +80,11 @@ interface DBContact {
   first_name: string | null;
   last_name: string | null;
   custom_fields?: unknown;
+  contact_uuid?: string | null;
 }
 
 interface DBUser {
+  id?: string;
   ghl_id: string;
   name: string | null;
   first_name: string | null;
@@ -146,7 +149,7 @@ const getContactName = (contact: DBContact | undefined): string => {
 
 const getUserName = (userId: string | null, users: DBUser[]): string => {
   if (!userId) return "Unassigned";
-  const user = users.find(u => u.ghl_id === userId);
+  const user = findUserByIdOrGhlId(users, undefined, userId);
   if (!user) return "Unknown";
   return user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown";
 };
@@ -668,11 +671,11 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   groupedEdits.map(({ oppGhlId, edits }) => {
-                    const opportunity = editedOpportunities.find(o => o.ghl_id === oppGhlId);
+                    const opportunity = findOpportunityByIdOrGhlId(editedOpportunities, undefined, oppGhlId);
                     const contact = opportunity?.contact_id 
-                      ? contacts.find(c => c.ghl_id === opportunity.contact_id) 
+                      ? findContactByIdOrGhlId(contacts, undefined, opportunity.contact_id) 
                       : edits[0]?.contact_ghl_id 
-                        ? contacts.find(c => c.ghl_id === edits[0].contact_ghl_id)
+                        ? findContactByIdOrGhlId(contacts, undefined, edits[0].contact_ghl_id)
                         : undefined;
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     
@@ -746,7 +749,7 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   appointmentActivityItems.map(({ appointment: appt, activity }) => {
-                    const contact = contacts.find(c => c.ghl_id === appt.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, undefined, appt.contact_id);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const actorName = getCreatorName(activity.editedBy, profiles);
                     return (
@@ -883,10 +886,10 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   taskActivityItems.map(({ task, activity }) => {
-                    const contact = contacts.find(c => c.ghl_id === task.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, undefined, task.contact_id);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                    const relatedOpp = editedOpportunities.find(o => o.contact_id === task.contact_id) 
+                    const relatedOpp = findContactByIdOrGhlId(editedOpportunities, undefined, task.contact_id) as DBOpportunity | undefined
                       || allOpportunities.find(o => o.contact_id === task.contact_id);
                     const actorName = getCreatorName(activity.editedBy, profiles);
                     return (
@@ -1042,10 +1045,10 @@ export function ActivitySheet({
                   </p>
                 ) : (
                   noteActivityItems.map(({ note, activity }) => {
-                    const contact = contacts.find(c => c.ghl_id === note.contact_id);
+                    const contact = findContactByIdOrGhlId(contacts, undefined, note.contact_id);
                     const address = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
                     const scopeOfWork = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
-                    const relatedOpp = editedOpportunities.find(o => o.contact_id === note.contact_id)
+                    const relatedOpp = findContactByIdOrGhlId(editedOpportunities, undefined, note.contact_id) as DBOpportunity | undefined
                       || allOpportunities.find(o => o.contact_id === note.contact_id);
                     const actorName = getCreatorName(activity.editedBy, profiles);
                     return (

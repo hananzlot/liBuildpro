@@ -26,6 +26,7 @@ interface Opportunity {
 }
 
 interface Contact {
+  id: string;
   ghl_id: string;
   contact_name: string | null;
   first_name: string | null;

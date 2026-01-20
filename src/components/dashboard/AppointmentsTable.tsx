@@ -16,7 +16,7 @@ import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { DateRange } from "react-day-picker";
-import { getAddressFromContact, findContactByIdOrGhlId } from "@/lib/utils";
+import { getAddressFromContact, findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -67,6 +67,7 @@ interface Contact {
 }
 
 interface GHLUser {
+  id?: string;
   ghl_id: string;
   name: string | null;
   first_name: string | null;
@@ -148,7 +149,7 @@ export function AppointmentsTable({
 
   const getUserName = (userId: string | null): string => {
     if (!userId) return 'Unassigned';
-    const user = users.find(u => u.ghl_id === userId);
+    const user = findUserByIdOrGhlId(users, undefined, userId);
     return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Unknown';
   };
 

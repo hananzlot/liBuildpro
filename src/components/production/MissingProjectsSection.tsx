@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { logAudit } from "@/hooks/useAuditLog";
-import { findContactByIdOrGhlId } from "@/lib/utils";
+import { findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -142,7 +142,7 @@ export function MissingProjectsSection() {
   const missingOpportunities: WonOpportunity[] = wonOpportunities
     .filter(opp => !existingOpportunityIds.has(opp.ghl_id))
     .map(opp => {
-      const contact = contacts.find(c => c.ghl_id === opp.contact_id);
+      const contact = findContactByIdOrGhlId(contacts, undefined, opp.contact_id);
       return {
         ...opp,
         contact: contact || null,
@@ -151,7 +151,7 @@ export function MissingProjectsSection() {
 
   const getSalespersonName = (assignedTo: string | null) => {
     if (!assignedTo) return "-";
-    const user = ghlUsers.find(u => u.ghl_id === assignedTo);
+    const user = findUserByIdOrGhlId(ghlUsers, undefined, assignedTo);
     if (user) {
       return user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || assignedTo;
     }
