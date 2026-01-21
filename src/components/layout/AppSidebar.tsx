@@ -570,11 +570,14 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   // Get visible sections
   const visibleSections = navSections.filter(canViewSection);
 
+  // For super admins, show warning if no company selected
+  const noCompanyContext = isSuperAdmin && !company;
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div 
-          className={`flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors ${isViewingOtherCompany ? 'bg-amber-500/5 border border-amber-500/30' : ''}`}
+          className={`flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors ${isViewingOtherCompany ? 'bg-amber-500/5 border border-amber-500/30' : ''} ${noCompanyContext ? 'bg-destructive/5 border border-destructive/30' : ''}`}
           onClick={() => {
             if (collapsed) {
               setOpen(true);
@@ -588,14 +591,16 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               className="h-8 w-8 rounded-lg object-contain shrink-0"
             />
           ) : (
-            <div className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold text-sm shrink-0 ${isViewingOtherCompany ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}>
-              {(company?.name || "CO").substring(0, 2).toUpperCase()}
+            <div className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold text-sm shrink-0 ${noCompanyContext ? 'bg-destructive/20 text-destructive' : isViewingOtherCompany ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}>
+              {noCompanyContext ? "?" : (company?.name || "CO").substring(0, 2).toUpperCase()}
             </div>
           )}
           {!collapsed && (
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1">
-                <span className="text-sm font-semibold truncate">{company?.name || "Company"}</span>
+                <span className={`text-sm font-semibold truncate ${noCompanyContext ? 'text-destructive' : ''}`}>
+                  {noCompanyContext ? "Select a Company" : company?.name || "Company"}
+                </span>
                 {isViewingOtherCompany && (
                   <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
                     Viewing
@@ -603,14 +608,20 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                 )}
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground">{versionString}</span>
-                {isAdmin && (
-                  <VersionBumpDialog currentVersion={version} />
-                )}
-                {isSimulating && (
-                  <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
-                    Simulating
-                  </Badge>
+                {noCompanyContext ? (
+                  <span className="text-xs text-muted-foreground">Use switcher below</span>
+                ) : (
+                  <>
+                    <span className="text-xs text-muted-foreground">{versionString}</span>
+                    {isAdmin && (
+                      <VersionBumpDialog currentVersion={version} />
+                    )}
+                    {isSimulating && (
+                      <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                        Simulating
+                      </Badge>
+                    )}
+                  </>
                 )}
               </div>
             </div>
