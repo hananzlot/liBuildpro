@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +65,7 @@ export default function Estimates() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = (searchParams.get("view") as ViewType) || "list";
   const { isAdmin } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [builderOpen, setBuilderOpen] = useState(false);
@@ -79,26 +81,31 @@ export default function Estimates() {
 
   // Fetch estimates
   const { data: estimates, isLoading } = useQuery({
-    queryKey: ["estimates"],
+    queryKey: ["estimates", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("estimates")
         .select("*")
+        .eq("company_id", companyId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data as Estimate[];
     },
+    enabled: !!companyId,
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (estimateId: string) => {
+      if (!companyId) throw new Error("No company selected");
       // Get all client_portal_tokens for this estimate (we need ids to clean up dependent rows)
       const { data: tokens, error: tokenFetchError } = await supabase
         .from("client_portal_tokens")
         .select("id")
-        .eq("estimate_id", estimateId);
+        .eq("estimate_id", estimateId)
+        .eq("company_id", companyId);
 
       if (tokenFetchError) throw tokenFetchError;
 
@@ -173,12 +180,13 @@ export default function Estimates() {
       const { error } = await supabase
         .from("estimates")
         .delete()
-        .eq("id", estimateId);
+        .eq("id", estimateId)
+        .eq("company_id", companyId);
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
       toast.success("Estimate deleted successfully");
     },
     onError: (error) => {
@@ -705,7 +713,7 @@ export default function Estimates() {
         open={builderOpen}
         onOpenChange={setBuilderOpen}
         estimateId={editingEstimateId}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["estimates"] })}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["estimates", companyId] })}
       />
 
       {/* Send Proposal Dialog */}
