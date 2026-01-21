@@ -135,7 +135,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
             <div>${item.description}</div>
             ${showDetails ? `
               <div class="line-item-detail">
-                ${item.quantity} ${item.unit} × ${formatCurrency(item.unit_price)}
+                ${item.quantity} ${item.unit} × <span class="unit-price">${formatCurrency(item.unit_price)}</span>
               </div>
             ` : ""}
           </div>
@@ -154,7 +154,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
     const paymentHtml = data.paymentSchedule?.map((phase) => `
       <div class="payment-item">
         <span>${phase.phase_name}</span>
-        <span>${phase.percent}% (${formatCurrency((data.estimate.total * phase.percent) / 100)})</span>
+        <span class="payment-amount">${phase.percent}% (${formatCurrency((data.estimate.total * phase.percent) / 100)})</span>
       </div>
     `).join("") || "";
 
@@ -408,10 +408,14 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
               font-size: 12px;
               color: #666;
             }
+            .line-item-detail .unit-price {
+              font-family: 'Courier New', monospace;
+            }
             .line-item-total {
               font-weight: 500;
               min-width: 100px;
               text-align: right;
+              font-family: 'Courier New', monospace;
             }
             .totals {
               margin-top: 20px;
@@ -430,6 +434,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
             .total-row span:last-child {
               text-align: right;
               min-width: 120px;
+              font-family: 'Courier New', monospace;
             }
             .total-row.grand-total {
               font-size: 18px;
@@ -446,6 +451,10 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
               justify-content: space-between;
               padding: 10px 0;
               border-bottom: 1px solid #eee;
+            }
+            .payment-item .payment-amount {
+              text-align: right;
+              font-family: 'Courier New', monospace;
             }
             .signature-section {
               margin-top: 40px;
