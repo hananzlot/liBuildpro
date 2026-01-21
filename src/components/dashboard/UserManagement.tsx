@@ -138,22 +138,19 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
 
   const loadError = profilesError || rolesError;
 
-  // Filter roles based on company's available features
+  // Filter roles based on user type - admins see all roles except super_admin toggle
   const availableRoles = useMemo(() => {
-    // Super admins see all roles
+    // Super admins see all roles including super_admin toggle
     if (isSuperAdmin) return ROLE_CONFIG;
     
+    // Regular admins see all roles EXCEPT super_admin toggle
+    // They can manage all other roles for users in their company
     return ROLE_CONFIG.filter(roleConfig => {
       // Hide super_admin toggle from regular admins - they can't use it anyway
       if (roleConfig.role === 'super_admin') return false;
-      
-      const requiredFeature = ROLE_FEATURE_MAP[roleConfig.role];
-      // If no feature requirement, always show (admin)
-      if (!requiredFeature) return true;
-      // Check if company has access to this feature
-      return canUseFeature(requiredFeature);
+      return true;
     });
-  }, [isSuperAdmin, canUseFeature]);
+  }, [isSuperAdmin]);
 
   // Roles available for new user creation (exclude super_admin for non-super admins)
   const creatableRoles = useMemo(() => {
@@ -562,6 +559,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
 
                 const activeRoles = userRolesForProfile.filter(r => r.active);
                 const isUserAdmin = hasRole(profile.id, 'super_admin') || hasRole(profile.id, 'admin');
+                const isUserSuperAdmin = hasRole(profile.id, 'super_admin');
 
                 return (
                   <div
@@ -587,6 +585,12 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
 
                       <div className="flex items-center gap-2">
                         <div className="flex flex-wrap gap-1">
+                          {/* Show super_admin badge to all admins so they know who platform admins are */}
+                          {isUserSuperAdmin && !isSuperAdmin && (
+                            <Badge variant="secondary" className="text-xs bg-red-500/10 text-red-500">
+                              Super Admin
+                            </Badge>
+                          )}
                           {isSuperAdmin && (
                             <Badge variant="outline" className="text-xs">
                               {getCompanyName(profile.company_id)}
