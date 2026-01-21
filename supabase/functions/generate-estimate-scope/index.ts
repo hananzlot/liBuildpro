@@ -40,13 +40,37 @@ serve(async (req) => {
   }
 
   try {
-    const { projectType, projectDescription, workScopeDescription, jobAddress, existingGroups, defaultMarkupPercent } = await req.json();
+    const { projectType, projectDescription, workScopeDescription, jobAddress, existingGroups, defaultMarkupPercent, companyId } = await req.json();
 
-    console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent });
+    console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent, companyId });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
+    // Fetch AI variability setting from company_settings
+    let aiTemperature = 0.2; // Default
+    if (companyId) {
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const { data: setting } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('company_id', companyId)
+        .eq('setting_key', 'ai_estimate_variability')
+        .maybeSingle();
+      
+      if (setting?.setting_value) {
+        const parsed = parseFloat(setting.setting_value);
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+          aiTemperature = parsed;
+        }
+      }
+      console.log('Using AI temperature:', aiTemperature);
     }
 
     // Extract ZIP code and get regional pricing info
@@ -182,7 +206,7 @@ Use the EXACT measurements from the work scope description when provided.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.2,
+        temperature: aiTemperature,
         max_tokens: 4000,
       }),
     });

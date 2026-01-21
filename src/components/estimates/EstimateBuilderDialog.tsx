@@ -433,6 +433,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           jobAddress: formData.job_address,
           existingGroups: groups.map(g => g.group_name),
           defaultMarkupPercent: formData.default_markup_percent,
+          companyId: companyId,
         },
       });
 
