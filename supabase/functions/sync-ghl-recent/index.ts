@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getGHLFieldMappings } from "../_shared/ghl-field-mappings.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -149,6 +150,37 @@ function buildContactDisplayName(contact: {
     contact.email ||
     null
   );
+}
+
+// Extract address from GHL contact - try native fields first, then custom field mapping
+function extractContactAddress(
+  contact: any,
+  addressFieldId: string | null
+): string | null {
+  // Try native GHL address fields first
+  const parts: string[] = [];
+  if (contact.address1) parts.push(contact.address1);
+  if (contact.city) parts.push(contact.city);
+  if (contact.state) parts.push(contact.state);
+  if (contact.postalCode) parts.push(contact.postalCode);
+  if (contact.country && contact.country !== 'US') parts.push(contact.country);
+  
+  if (parts.length > 0) {
+    return parts.join(', ');
+  }
+  
+  // Fall back to custom field mapping if configured
+  if (addressFieldId && contact.customFields) {
+    const customFields = Array.isArray(contact.customFields) 
+      ? contact.customFields 
+      : [];
+    const addressField = customFields.find((f: any) => f.id === addressFieldId);
+    if (addressField?.value) {
+      return addressField.value;
+    }
+  }
+  
+  return null;
 }
 
 // Fetch a single contact by ID
@@ -346,6 +378,11 @@ serve(async (req) => {
       // Fetch pipeline names for resolution
       const { pipelineNames, stageNames } = await fetchPipelines(apiKey, integration.location_id);
 
+      // Load field mappings for this integration (address, scope_of_work, etc.)
+      const fieldMappings = await getGHLFieldMappings(supabase, { integrationId: integration.id });
+      const addressFieldId = fieldMappings.address;
+      console.log(`Field mappings loaded - address field: ${addressFieldId || 'not configured'}`);
+
       // Fetch recent opportunities
       const opportunities = await fetchRecentOpportunities(apiKey, integration.location_id, sinceDate);
 
@@ -380,6 +417,8 @@ serve(async (req) => {
       const contactAttributions = new Map<string, any[]>();
       // Map to store contact display names for opportunity name fallback
       const contactDisplayNames = new Map<string, string>();
+      // Map to store contact addresses
+      const contactAddresses = new Map<string, string>();
 
       const contactsToUpsert: any[] = [];
       for (const contactId of missingContactIds) {
@@ -392,6 +431,9 @@ serve(async (req) => {
             phone: contact.phone || null,
             email: contact.email || null,
           });
+
+          // Extract address from contact
+          const contactAddress = extractContactAddress(contact, addressFieldId);
 
           contactsToUpsert.push({
             ghl_id: contact.id,
@@ -420,6 +462,9 @@ serve(async (req) => {
           if (displayName) {
             contactDisplayNames.set(contact.id, displayName);
           }
+          if (contactAddress) {
+            contactAddresses.set(contact.id, contactAddress);
+          }
         }
         // Small delay to avoid rate limits
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -435,14 +480,14 @@ serve(async (req) => {
         console.log(`Upserted ${contactsToUpsert.length} contacts`);
       }
 
-      // Fetch attributions for existing contacts that we didn't just fetch
+      // Fetch attributions and addresses for existing contacts that we didn't just fetch
       const existingContactsToQuery = Array.from(contactIds).filter(id => existingContactIds.has(id));
       if (existingContactsToQuery.length > 0) {
         for (let i = 0; i < existingContactsToQuery.length; i += 100) {
           const batch = existingContactsToQuery.slice(i, i + 100);
           const { data: existingContacts } = await supabase
             .from('contacts')
-            .select('ghl_id, attributions, contact_name, first_name, last_name, phone, email')
+            .select('ghl_id, attributions, contact_name, first_name, last_name, phone, email, custom_fields')
             .in('ghl_id', batch);
           
           (existingContacts || []).forEach((c: any) => {
@@ -454,19 +499,65 @@ serve(async (req) => {
             if (displayName) {
               contactDisplayNames.set(c.ghl_id, displayName);
             }
+
+            // Extract address from stored contact custom_fields
+            if (addressFieldId && c.custom_fields) {
+              const customFields = Array.isArray(c.custom_fields) ? c.custom_fields : [];
+              const addressField = customFields.find((f: any) => f.id === addressFieldId);
+              if (addressField?.value) {
+                contactAddresses.set(c.ghl_id, addressField.value);
+              }
+            }
+          });
+        }
+      }
+
+      // Build a set of existing contact_id + name combinations to skip duplicates
+      const existingOppKeys = new Set<string>();
+      const allContactIdsForOpps = opportunities.map(o => o.contactId).filter(Boolean);
+      if (allContactIdsForOpps.length > 0) {
+        for (let i = 0; i < allContactIdsForOpps.length; i += 100) {
+          const batch = allContactIdsForOpps.slice(i, i + 100);
+          const { data: existingOpps } = await supabase
+            .from('opportunities')
+            .select('contact_id, name')
+            .in('contact_id', batch)
+            .eq('company_id', integration.company_id);
+          
+          (existingOpps || []).forEach((o: any) => {
+            if (o.contact_id && o.name) {
+              existingOppKeys.add(`${o.contact_id}::${o.name.toLowerCase()}`);
+            }
           });
         }
       }
 
       // Prepare opportunities for upsert with scope_of_work from Facebook campaigns
-      const oppsToUpsert = opportunities.map(o => {
+      // Filter out duplicates where contact_id + name already exists
+      const oppsToUpsert: any[] = [];
+      let skippedDuplicates = 0;
+
+      for (const o of opportunities) {
         // Try to extract scope from contact's attributions
         const attributions = o.contactId ? contactAttributions.get(o.contactId) : null;
         const scopeFromCampaign = extractScopeFromAttribution(attributions || null);
-
         const fallbackName = o.contactId ? contactDisplayNames.get(o.contactId) : null;
+        const contactAddress = o.contactId ? contactAddresses.get(o.contactId) : null;
         
-        return {
+        const oppName = o.name || fallbackName || null;
+        
+        // Check if this contact_id + name combination already exists (skip if duplicate)
+        if (o.contactId && oppName) {
+          const dedupKey = `${o.contactId}::${oppName.toLowerCase()}`;
+          if (existingOppKeys.has(dedupKey)) {
+            skippedDuplicates++;
+            continue; // Skip this duplicate opportunity
+          }
+          // Add to set to prevent duplicates within same sync batch
+          existingOppKeys.add(dedupKey);
+        }
+        
+        oppsToUpsert.push({
           ghl_id: o.id,
           company_id: integration.company_id,
           provider: 'ghl',
@@ -477,8 +568,7 @@ serve(async (req) => {
           pipeline_stage_id: o.pipelineStageId || null,
           pipeline_name: pipelineNames.get(o.pipelineId) || null,
           stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
-          // Some GHL opportunities come back with name null; fall back to contact name so they are visible in UI.
-          name: o.name || fallbackName || null,
+          name: oppName,
           monetary_value: o.monetaryValue || null,
           status: o.status || null,
           assigned_to: o.assignedTo || null,
@@ -486,9 +576,14 @@ serve(async (req) => {
           ghl_date_updated: o.updatedAt || null,
           custom_fields: o.customFields || null,
           scope_of_work: scopeFromCampaign, // Auto-populate from Facebook campaign
+          address: contactAddress, // Auto-populate from contact address
           last_synced_at: syncTimestamp,
-        };
-      });
+        });
+      }
+
+      if (skippedDuplicates > 0) {
+        console.log(`Skipped ${skippedDuplicates} duplicate opportunities (contact_id + name already exists)`);
+      }
 
       // Upsert opportunities
       if (oppsToUpsert.length > 0) {
