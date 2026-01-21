@@ -473,32 +473,33 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       setGroups(prev => [...prev, ...newGroups]);
 
-      // Add payment schedule if provided
-      if (scope.payment_schedule?.length > 0) {
-        const newSchedule: PaymentPhase[] = scope.payment_schedule.map((p: any, idx: number) => {
-          // For the first payment, prefer the AI's first_payment_name if available
-          let phaseName = p.phase_name;
-          if (idx === 0 && scope.first_payment_name) {
-            phaseName = scope.first_payment_name;
-          }
-          // Never use "Deposit" - replace with a generic if needed
-          if (phaseName?.toLowerCase() === 'deposit') {
-            phaseName = scope.first_payment_name || 'Initial Payment';
-          }
-          
-          return {
-            id: generateId(),
-            phase_name: phaseName,
-            percent: p.percent || 0,
-            amount: 0,
-            due_type: p.due_type || "milestone",
-            due_date: null,
-            description: p.description || "",
-            sort_order: idx,
-          };
-        });
-        setPaymentSchedule(newSchedule);
-      }
+      // Build payment schedule: always start with deposit, then add AI phases
+      const depositPhase: PaymentPhase = {
+        id: generateId(),
+        phase_name: "Deposit",
+        percent: 0, // Will be calculated based on min(percent, max) logic
+        amount: 0,
+        due_type: "on_approval",
+        due_date: null,
+        description: "Due upon contract signing",
+        sort_order: 0,
+      };
+      
+      // Filter out any "Deposit" phases from AI and add remaining phases
+      const aiPhases: PaymentPhase[] = (scope.payment_schedule || [])
+        .filter((p: any) => p.phase_name?.toLowerCase() !== 'deposit')
+        .map((p: any, idx: number) => ({
+          id: generateId(),
+          phase_name: p.phase_name || (idx === 0 ? 'Site Prep' : `Phase ${idx + 1}`),
+          percent: p.percent || 0,
+          amount: 0,
+          due_type: p.due_type || "milestone",
+          due_date: null,
+          description: p.description || "",
+          sort_order: idx + 1,
+        }));
+      
+      setPaymentSchedule([depositPhase, ...aiPhases]);
 
       // Update tax rate and deposit if suggested
       if (scope.suggested_tax_rate) {
