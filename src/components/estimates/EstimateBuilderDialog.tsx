@@ -1624,9 +1624,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               </SelectContent>
                             </Select>
                             <Input
-                              type="number"
-                              value={formData.discount_value}
-                              onChange={(e) => setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })}
+                              type="text"
+                              inputMode="decimal"
+                              value={formData.discount_value || ''}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                setFormData({ ...formData, discount_value: parseFloat(val) || 0 });
+                              }}
                               className="w-20 h-8"
                             />
                             {totals.discountAmount > 0 && (
