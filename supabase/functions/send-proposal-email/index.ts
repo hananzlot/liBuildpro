@@ -57,51 +57,61 @@ serve(async (req) => {
     const body: EmailRequest = await req.json();
     const companyId = body.companyId;
 
-    let fromEmail = "proposals@caprobuilders.com";
-    let fromName = "Capro Builders";
-    let companyName = "Capro Builders";
+    let fromEmail: string | null = null;
+    let fromName: string | null = null;
+    let companyName: string | null = null;
 
-    // First try to get settings from company_settings if companyId is provided
-    if (companyId) {
-      const { data: companySettings } = await supabase
-        .from("company_settings")
-        .select("setting_key, setting_value")
-        .eq("company_id", companyId)
-        .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
-
-      if (companySettings && companySettings.length > 0) {
-        const settingsMap = companySettings.reduce((acc: Record<string, string>, s: any) => {
-          acc[s.setting_key] = s.setting_value;
-          return acc;
-        }, {});
-
-        fromEmail = settingsMap.resend_from_email || fromEmail;
-        fromName = settingsMap.resend_from_name || fromName;
-        companyName = settingsMap.company_name || companyName;
-        
-        console.log(`Using company_settings for company ${companyId}: ${fromName} <${fromEmail}>`);
-      }
+    // Get settings from company_settings - companyId is required
+    if (!companyId) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Email settings not configured. Please go to Admin Settings and configure your Resend email settings (From Email, From Name, and Company Name) before sending proposals.",
+          settingsRequired: true
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    // Fallback to app_settings if company settings not found
-    if (fromEmail === "proposals@caprobuilders.com") {
-      const { data: appSettings } = await supabase
-        .from("app_settings")
-        .select("setting_key, setting_value")
-        .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
+    const { data: companySettings } = await supabase
+      .from("company_settings")
+      .select("setting_key, setting_value")
+      .eq("company_id", companyId)
+      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
 
-      if (appSettings && appSettings.length > 0) {
-        const settingsMap = appSettings.reduce((acc: Record<string, string>, s: any) => {
-          acc[s.setting_key] = s.setting_value;
-          return acc;
-        }, {});
+    if (companySettings && companySettings.length > 0) {
+      const settingsMap = companySettings.reduce((acc: Record<string, string>, s: any) => {
+        acc[s.setting_key] = s.setting_value;
+        return acc;
+      }, {});
 
-        fromEmail = settingsMap.resend_from_email || fromEmail;
-        fromName = settingsMap.resend_from_name || fromName;
-        companyName = settingsMap.company_name || companyName;
-        
-        console.log(`Fallback to app_settings: ${fromName} <${fromEmail}>`);
-      }
+      fromEmail = settingsMap.resend_from_email || null;
+      fromName = settingsMap.resend_from_name || null;
+      companyName = settingsMap.company_name || null;
+      
+      console.log(`Using company_settings for company ${companyId}: ${fromName} <${fromEmail}>`);
+    }
+
+    // Check if required email settings are configured
+    if (!fromEmail || !fromName || !companyName) {
+      const missingSettings = [];
+      if (!fromEmail) missingSettings.push("From Email (resend_from_email)");
+      if (!fromName) missingSettings.push("From Name (resend_from_name)");
+      if (!companyName) missingSettings.push("Company Name");
+      
+      return new Response(
+        JSON.stringify({ 
+          error: `Email settings not configured. Please go to Admin Settings and set up the following: ${missingSettings.join(", ")}. Make sure your Resend domain is verified before sending emails.`,
+          settingsRequired: true,
+          missingSettings
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     // Helper function to generate HTML email content
