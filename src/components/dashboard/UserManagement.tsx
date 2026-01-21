@@ -654,10 +654,12 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                     {/* Role toggles */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-4 gap-y-2 ml-13">
                       {userRolesForProfile.map((roleInfo) => {
+                        // Regular admins cannot modify any roles for super_admin users
+                        const cannotModifySuperAdminUser = isUserSuperAdmin && !isSuperAdmin;
                         // Only super_admin users can modify super_admin role
                         const isSuperAdminRole = roleInfo.role === 'super_admin';
                         const canModifyThisRole = isSuperAdminRole ? isSuperAdmin : true;
-                        const isDisabled = !canModifyThisRole;
+                        const isDisabled = !canModifyThisRole || cannotModifySuperAdminUser;
 
                         return (
                           <div key={roleInfo.role} className="flex items-center gap-2">
