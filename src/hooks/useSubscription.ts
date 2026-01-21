@@ -11,16 +11,24 @@ export function useSubscription({ companyId, isSuperAdmin }: UseSubscriptionProp
   const [subscription, setSubscription] = useState<CompanySubscription | null>(null);
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [userCount, setUserCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [loadedForCompanyId, setLoadedForCompanyId] = useState<string | null>(null);
+
+  // Loading is true immediately when companyId changes (prevents UI flicker),
+  // and also true while a fetch is in-flight.
+  const isLoading = isFetching || (!!companyId && loadedForCompanyId !== companyId);
 
   const fetchSubscription = useCallback(async () => {
     if (!companyId) {
       setSubscription(null);
       setPlan(null);
       setUserCount(0);
-      setIsLoading(false);
+      setIsFetching(false);
+      setLoadedForCompanyId(null);
       return;
     }
+
+    setIsFetching(true);
 
     try {
       // Fetch subscription with plan
@@ -62,7 +70,8 @@ export function useSubscription({ companyId, isSuperAdmin }: UseSubscriptionProp
     } catch (error) {
       console.error('Error in useSubscription:', error);
     } finally {
-      setIsLoading(false);
+      setIsFetching(false);
+      setLoadedForCompanyId(companyId);
     }
   }, [companyId]);
 

@@ -59,6 +59,7 @@ interface AuthContextType {
   userRoles: AppRole[];
   isLoading: boolean;
   isProfileLoading: boolean;
+  isSubscriptionLoading: boolean;
   // Role simulation for admins
   simulatedRole: AppRole | null;
   isSimulating: boolean;
@@ -265,6 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshCompanyContext = async () => {
     if (user?.id) {
+      setIsProfileLoading(true);
       await fetchProfileAndCompany(user.id);
     }
   };
@@ -350,6 +352,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userRoles,
       isLoading,
       isProfileLoading,
+      isSubscriptionLoading: subscriptionData.isLoading,
       // Role simulation
       simulatedRole,
       isSimulating,
