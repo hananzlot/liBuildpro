@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -76,107 +77,140 @@ interface ArchivedChatMessage {
 
 export function ChatManagement() {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [activeTab, setActiveTab] = useState('settings');
 
-  // Fetch daily email setting
+  // Fetch daily email setting (company-scoped)
   const { data: dailyEmailEnabled, isLoading: settingLoading } = useQuery({
-    queryKey: ['daily-email-setting'],
+    queryKey: ['daily-email-setting', companyId],
     queryFn: async () => {
+      if (!companyId) return false;
+      
+      // Try company_settings first
+      const { data: companyData } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('company_id', companyId)
+        .eq('setting_key', 'daily_portal_email_enabled')
+        .maybeSingle();
+      
+      if (companyData) {
+        return companyData.setting_value === 'true';
+      }
+      
+      // Fallback to app_settings
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_value')
         .eq('setting_key', 'daily_portal_email_enabled')
         .single();
-      if (error) throw error;
+      if (error) return false;
       return data?.setting_value === 'true';
     },
+    enabled: !!companyId,
   });
 
-  // Fetch current chat messages
+  // Fetch current chat messages (company-scoped)
   const { data: currentChats = [], isLoading: currentLoading } = useQuery({
-    queryKey: ['admin-current-chats'],
+    queryKey: ['admin-current-chats', companyId],
     queryFn: async () => {
+      if (!companyId) return [];
+      
       const { data, error } = await supabase
         .from('portal_chat_messages')
         .select(`
           *,
           project:projects(project_number, project_name, customer_first_name, customer_last_name)
         `)
+        .eq('company_id', companyId)
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
       return data as ChatMessage[];
     },
-    enabled: activeTab === 'current',
+    enabled: activeTab === 'current' && !!companyId,
   });
 
-  // Fetch archived chat messages
+  // Fetch archived chat messages (company-scoped)
   const { data: archivedChats = [], isLoading: archivedLoading } = useQuery({
-    queryKey: ['admin-archived-chats'],
+    queryKey: ['admin-archived-chats', companyId],
     queryFn: async () => {
+      if (!companyId) return [];
+      
       const { data, error } = await supabase
         .from('portal_chat_messages_archived')
         .select(`
           *,
           project:projects(project_number, project_name, customer_first_name, customer_last_name)
         `)
+        .eq('company_id', companyId)
         .order('archived_at', { ascending: false })
         .limit(500);
       if (error) throw error;
       return data as ArchivedChatMessage[];
     },
-    enabled: activeTab === 'archived',
+    enabled: activeTab === 'archived' && !!companyId,
   });
 
-  // Toggle daily email setting
+  // Toggle daily email setting (company-scoped)
   const toggleDailyEmailMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
+      if (!companyId) throw new Error("No company selected");
+      
       const { error } = await supabase
-        .from('app_settings')
-        .update({ setting_value: enabled ? 'true' : 'false', updated_at: new Date().toISOString() })
-        .eq('setting_key', 'daily_portal_email_enabled');
+        .from('company_settings')
+        .upsert({
+          company_id: companyId,
+          setting_key: 'daily_portal_email_enabled',
+          setting_value: enabled ? 'true' : 'false',
+          setting_type: 'boolean',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'company_id,setting_key' });
       if (error) throw error;
     },
     onSuccess: (_, enabled) => {
       toast.success(enabled ? 'Daily portal emails enabled' : 'Daily portal emails disabled');
-      queryClient.invalidateQueries({ queryKey: ['daily-email-setting'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-email-setting', companyId] });
     },
     onError: (error: Error) => {
       toast.error(error.message);
     },
   });
 
-  // Clear all current chats
+  // Clear all current chats (company-scoped)
   const clearCurrentChatsMutation = useMutation({
     mutationFn: async () => {
-      // Delete all chat messages by selecting and deleting in batches if needed
+      if (!companyId) throw new Error("No company selected");
+      
       const { error } = await supabase
         .from('portal_chat_messages')
         .delete()
-        .gte('created_at', '1970-01-01'); // This matches all records
+        .eq('company_id', companyId);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('All current chat messages cleared');
-      queryClient.invalidateQueries({ queryKey: ['admin-current-chats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-current-chats', companyId] });
     },
     onError: (error: Error) => {
       toast.error(`Failed to clear messages: ${error.message}`);
     },
   });
 
-  // Clear all archived chats
+  // Clear all archived chats (company-scoped)
   const clearArchivedChatsMutation = useMutation({
     mutationFn: async () => {
+      if (!companyId) throw new Error("No company selected");
+      
       const { error } = await supabase
         .from('portal_chat_messages_archived')
         .delete()
-        .gte('archived_at', '1970-01-01'); // This matches all records
+        .eq('company_id', companyId);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('All archived chat messages cleared');
-      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats', companyId] });
     },
     onError: (error: Error) => {
       toast.error(`Failed to clear archived messages: ${error.message}`);
@@ -186,14 +220,16 @@ export function ChatManagement() {
   // Manual archive trigger (older than 24h)
   const triggerArchiveMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('archive-portal-chats');
+      const { data, error } = await supabase.functions.invoke('archive-portal-chats', {
+        body: { companyId }
+      });
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
       toast.success(data?.message || 'Archive completed');
-      queryClient.invalidateQueries({ queryKey: ['admin-current-chats'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-current-chats', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats', companyId] });
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -204,15 +240,15 @@ export function ChatManagement() {
   const archiveAllMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke('archive-portal-chats', {
-        body: { archiveAll: true }
+        body: { archiveAll: true, companyId }
       });
       if (error) throw error;
       return data;
     },
     onSuccess: (data) => {
       toast.success(data?.message || 'All chats archived');
-      queryClient.invalidateQueries({ queryKey: ['admin-current-chats'] });
-      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-current-chats', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['admin-archived-chats', companyId] });
     },
     onError: (error: Error) => {
       toast.error(error.message);

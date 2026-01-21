@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -172,56 +173,100 @@ const TEMPLATE_META: Record<string, { name: string; description: string; icon: R
 
 export function EmailTemplatesManager() {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [editedTemplates, setEditedTemplates] = useState<Record<string, { subject: string; body: string }>>({});
   const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
 
-  // Fetch email templates from app_settings
+  // Fetch email templates from company_settings (with app_settings fallback)
   const { data: settings, isLoading } = useQuery({
-    queryKey: ["email-templates"],
+    queryKey: ["email-templates", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      if (!companyId) return [];
+      
+      // First try company_settings
+      const { data: companyData } = await supabase
+        .from("company_settings")
+        .select("*")
+        .eq("company_id", companyId)
+        .like("setting_key", "email_template_%");
+
+      // Fall back to app_settings for templates not in company_settings
+      const { data: appData, error } = await supabase
         .from("app_settings")
         .select("*")
         .like("setting_key", "email_template_%");
 
       if (error) throw error;
-      return data;
+      
+      // Merge: company_settings override app_settings
+      const companyMap = new Map((companyData || []).map(s => [s.setting_key, s]));
+      const merged = (appData || []).map(appSetting => {
+        const companySetting = companyMap.get(appSetting.setting_key);
+        if (companySetting) {
+          companyMap.delete(appSetting.setting_key);
+          return companySetting;
+        }
+        return appSetting;
+      });
+      
+      // Add remaining company-specific templates
+      companyMap.forEach(s => merged.push(s));
+      
+      return merged;
     },
+    enabled: !!companyId,
   });
 
   // Fetch company name for preview
   const { data: companySettings } = useQuery({
-    queryKey: ["company-settings"],
+    queryKey: ["company-settings-name", companyId],
     queryFn: async () => {
+      if (!companyId) return {};
+      
       const { data } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["company_name"]);
+      
+      if (data && data.length > 0) {
+        return data.reduce((acc, s) => ({ ...acc, [s.setting_key]: s.setting_value }), {}) as Record<string, string>;
+      }
+      
+      // Fallback to app_settings
+      const { data: appData } = await supabase
         .from("app_settings")
         .select("setting_key, setting_value")
         .in("setting_key", ["company_name"]);
-      return data?.reduce((acc, s) => ({ ...acc, [s.setting_key]: s.setting_value }), {}) as Record<string, string>;
+      return appData?.reduce((acc, s) => ({ ...acc, [s.setting_key]: s.setting_value }), {}) as Record<string, string>;
     },
+    enabled: !!companyId,
   });
 
   const saveMutation = useMutation({
     mutationFn: async ({ key, subject, body }: { key: string; subject: string; body: string }) => {
+      if (!companyId) throw new Error("No company selected");
+      
       const value = JSON.stringify({ subject, body });
       
-      // Upsert the template
+      // Upsert the template to company_settings
       const { error } = await supabase
-        .from("app_settings")
+        .from("company_settings")
         .upsert({
+          company_id: companyId,
           setting_key: `email_template_${key}`,
           setting_value: value,
           setting_type: "json",
           description: TEMPLATE_META[key]?.description || "Email template",
           updated_at: new Date().toISOString(),
         }, {
-          onConflict: "setting_key",
+          onConflict: "company_id,setting_key",
         });
 
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["email-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["email-templates", companyId] });
       toast.success("Template saved successfully");
       setEditedTemplates((prev) => {
         const newState = { ...prev };
