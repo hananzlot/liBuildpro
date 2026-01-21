@@ -7,7 +7,8 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PortalChatProvider } from "@/contexts/PortalChatContext";
 import { SubscriptionGuard } from "@/components/subscription/SubscriptionGuard";
 import { FeatureLockedPrompt } from "@/components/subscription/FeatureLockedPrompt";
-import Index from "./pages/Index";
+import Home from "./pages/Home";
+import Dashboard from "./pages/Index";
 import Auth from "./pages/Auth";
 import Production from "./pages/Production";
 import AuditLog from "./pages/AuditLog";
@@ -114,7 +115,7 @@ function ProtectedRoute({
 
 // Component to handle role-based default page routing
 function DefaultPageRedirect() {
-  const { user, isLoading, isAdmin, isDispatch, isProduction, isMagazine, isContractManager, isSales } = useAuth();
+  const { user, isLoading, isSuperAdmin, isAdmin, isDispatch, isProduction, isMagazine, isContractManager, isSales } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -139,12 +140,11 @@ function DefaultPageRedirect() {
     return <Navigate to="/auth" replace />;
   }
 
-  // Role-based routing - redirect to first authorized page
-  // Priority order: Admin/Dispatch → Dashboard, then role-specific pages
-  
-  // Admin and Dispatch see the main dashboard
-  if (isAdmin || isDispatch) {
-    return <Index />;
+  // All authenticated users go to the Home page
+  // The Home page will show role-appropriate quick access cards
+  // Super admins, admins, and dispatch all see the home selector
+  if (isSuperAdmin || isAdmin || isDispatch) {
+    return <Home />;
   }
 
   // Production role goes to production page
@@ -194,6 +194,15 @@ const App = () => (
             <Route
               path="/"
               element={<DefaultPageRedirect />}
+            />
+            {/* Dispatch Dashboard */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute blockSalesOnly requiredFeature="dashboard">
+                  <Dashboard />
+                </ProtectedRoute>
+              }
             />
             {/* Sales portal - sales only */}
             <Route
