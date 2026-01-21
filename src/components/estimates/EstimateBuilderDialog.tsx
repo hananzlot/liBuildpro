@@ -1837,7 +1837,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
               
               {formData.deposit_required && (
                 <div className="flex justify-between text-primary">
-                  <span>Deposit ({formData.deposit_percent}%)</span>
+                  <span>Deposit</span>
                   <span className="font-medium">{formatCurrency(totals.depositAmount)}</span>
                 </div>
               )}

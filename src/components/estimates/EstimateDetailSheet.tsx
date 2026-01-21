@@ -437,8 +437,8 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
               </div>
               {estimate.deposit_required && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Deposit Required ({estimate.deposit_percent}%)</span>
-                  <span>{formatCurrency((estimate.total * estimate.deposit_percent) / 100)}</span>
+                  <span>Deposit</span>
+                  <span>{formatCurrency(Math.min((estimate.total * estimate.deposit_percent) / 100, (estimate as any).deposit_max_amount || 1000))}</span>
                 </div>
               )}
             </CardContent>

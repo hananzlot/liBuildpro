@@ -886,7 +886,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
               </div>
               {estimate.deposit_required && (estimate.deposit_amount || 0) > 0 && (
                 <div className="flex justify-between text-sm font-medium text-primary">
-                  <span>Deposit Due ({estimate.deposit_percent}%)</span>
+                  <span>Deposit Due</span>
                   <span>{formatCurrency(estimate.deposit_amount)}</span>
                 </div>
               )}
