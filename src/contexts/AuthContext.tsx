@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -14,7 +14,7 @@ interface Profile {
   company_id: string | null;
 }
 
-interface Company {
+export interface Company {
   id: string;
   corporation_id: string | null;
   name: string;
@@ -46,6 +46,11 @@ interface AuthContextType {
   corporationId: string | null;
   company: Company | null;
   corporation: Corporation | null;
+  // Super admin company switching
+  viewingCompanyId: string | null;
+  viewingCompany: Company | null;
+  setViewingCompanyId: (companyId: string | null) => void;
+  isViewingOtherCompany: boolean;
   // Role checks
   isSuperAdmin: boolean;
   isAdmin: boolean; // true if super_admin OR admin
@@ -102,10 +107,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [simulatedRole, setSimulatedRole] = useState<AppRole | null>(null);
+  
+  // Super admin company switching
+  const [viewingCompanyId, setViewingCompanyIdState] = useState<string | null>(null);
+  const [viewingCompany, setViewingCompany] = useState<Company | null>(null);
 
-  // Derive company and corporation IDs
-  const companyId = profile?.company_id ?? null;
-  const corporationId = company?.corporation_id ?? null;
+  // Derive base company and corporation IDs from profile
+  const baseCompanyId = profile?.company_id ?? null;
+  const baseCorporationId = company?.corporation_id ?? null;
 
   // Calculate actual role flags
   const actualIsSuperAdmin = actualRoles.includes('super_admin');
@@ -161,8 +170,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ? [simulatedRole!] 
     : actualRoles;
 
-  // Use subscription hook
+  // Determine effective company context (super admin override or own company)
+  const isViewingOtherCompany = actualIsSuperAdmin && viewingCompanyId !== null && viewingCompanyId !== baseCompanyId;
+  const companyId = isViewingOtherCompany ? viewingCompanyId : baseCompanyId;
+  const corporationId = isViewingOtherCompany ? (viewingCompany?.corporation_id ?? null) : baseCorporationId;
+  const effectiveCompany = isViewingOtherCompany ? viewingCompany : company;
+
+  // Use subscription hook with the effective company
   const subscriptionData = useSubscription({ companyId, isSuperAdmin });
+  
+  // Fetch company data when super admin switches to viewing a different company
+  const fetchViewingCompany = useCallback(async (targetCompanyId: string) => {
+    const { data, error } = await supabase
+      .from("companies")
+      .select("*")
+      .eq("id", targetCompanyId)
+      .single();
+    
+    if (!error && data) {
+      setViewingCompany(data as Company);
+    } else {
+      console.error("Failed to fetch viewing company:", error);
+      setViewingCompany(null);
+    }
+  }, []);
+
+  const setViewingCompanyId = useCallback((newCompanyId: string | null) => {
+    if (!actualIsSuperAdmin) return; // Only super admins can switch
+    
+    setViewingCompanyIdState(newCompanyId);
+    
+    if (newCompanyId && newCompanyId !== baseCompanyId) {
+      fetchViewingCompany(newCompanyId);
+    } else {
+      setViewingCompany(null);
+    }
+  }, [actualIsSuperAdmin, baseCompanyId, fetchViewingCompany]);
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -337,8 +380,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Multi-tenancy context
       companyId,
       corporationId,
-      company,
+      company: effectiveCompany,
       corporation,
+      // Super admin company switching
+      viewingCompanyId,
+      viewingCompany,
+      setViewingCompanyId,
+      isViewingOtherCompany,
       // Role checks
       isSuperAdmin,
       isCorpAdmin,

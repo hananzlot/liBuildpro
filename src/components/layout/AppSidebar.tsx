@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import { useSidebarFinancials } from "@/hooks/useSidebarFinancials";
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
+import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
   LayoutDashboard, 
@@ -271,7 +272,11 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, company, isAdmin, isSuperAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles, canUseFeature } = useAuth();
+  const { 
+    user, profile, company, isAdmin, isSuperAdmin, isMagazine, isProduction, 
+    isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, 
+    setSimulatedRole, availableRoles, canUseFeature, isViewingOtherCompany 
+  } = useAuth();
   const { versionString, version } = useAppVersion();
   const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
   const collapsed = state === "collapsed";
@@ -569,7 +574,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
         <div 
-          className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors"
+          className={`flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors ${isViewingOtherCompany ? 'bg-amber-500/5 border border-amber-500/30' : ''}`}
           onClick={() => {
             if (collapsed) {
               setOpen(true);
@@ -583,13 +588,20 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               className="h-8 w-8 rounded-lg object-contain shrink-0"
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold text-sm shrink-0">
+            <div className={`flex h-8 w-8 items-center justify-center rounded-lg font-bold text-sm shrink-0 ${isViewingOtherCompany ? 'bg-amber-500 text-white' : 'bg-primary text-primary-foreground'}`}>
               {(company?.name || "CO").substring(0, 2).toUpperCase()}
             </div>
           )}
           {!collapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold truncate">{company?.name || "Company"}</span>
+              <div className="flex items-center gap-1">
+                <span className="text-sm font-semibold truncate">{company?.name || "Company"}</span>
+                {isViewingOtherCompany && (
+                  <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    Viewing
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground">{versionString}</span>
                 {isAdmin && (
@@ -604,6 +616,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
             </div>
           )}
         </div>
+        
+        {/* Company Switcher for Super Admins */}
+        {isSuperAdmin && !collapsed && <CompanySwitcher />}
       </SidebarHeader>
 
       <SidebarContent onClickCapture={handleSidebarContentClickCapture}>
