@@ -103,8 +103,13 @@ async function fetchRecentOpportunities(
 function extractScopeFromAttribution(attributions: any[] | null): string | null {
   if (!attributions || !Array.isArray(attributions)) return null;
   
-  // Look for Facebook/Paid Social attribution with campaign info
   for (const attr of attributions) {
+    // Check utmContent first - this is often the specific scope/product
+    if (attr.utmContent) {
+      console.log(`Extracted scope from utmContent: ${attr.utmContent}`);
+      return attr.utmContent;
+    }
+    
     // Check if this is from Facebook/Paid Social
     const isFacebookLead = attr.medium === 'facebook' || 
                            attr.adSource === 'facebook' ||
