@@ -439,6 +439,12 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                     {selectedEstimate.job_address}
                   </p>
                 )}
+                {selectedEstimate.salesperson_name && (
+                  <p className="text-sm flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    Sales Rep: {selectedEstimate.salesperson_name}
+                  </p>
+                )}
                 <div className="flex gap-4 text-sm">
                   <span className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />

@@ -213,10 +213,23 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   const totals = calculateTotals();
 
-  // Fetch default terms & conditions and markup from admin settings
+  // Fetch default terms & conditions from company settings first, then app settings
   const { data: defaultTerms } = useQuery({
-    queryKey: ["default-terms-conditions"],
+    queryKey: ["default-terms-conditions", companyId],
     queryFn: async () => {
+      // Try company_settings first if companyId is available
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from("company_settings")
+          .select("setting_value")
+          .eq("company_id", companyId)
+          .eq("setting_key", "default_terms_and_conditions")
+          .maybeSingle();
+        if (companyData?.setting_value) {
+          return companyData.setting_value;
+        }
+      }
+      // Fall back to app_settings
       const { data } = await supabase
         .from("app_settings")
         .select("setting_value")
