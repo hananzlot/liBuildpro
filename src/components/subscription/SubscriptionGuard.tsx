@@ -11,23 +11,31 @@ interface SubscriptionGuardProps {
 export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   const { 
     user,
+    profile,
     company,
     subscription,
     isSubscriptionActive,
     isPastDue,
     isSuperAdmin,
     isLoading,
+    isProfileLoading,
     signOut,
     daysUntilExpiration
   } = useAuth();
 
-  // Still loading - show nothing (loading state handled elsewhere)
-  if (isLoading) {
+  // Still loading auth or profile - show nothing (loading state handled elsewhere)
+  if (isLoading || isProfileLoading) {
     return <>{children}</>;
   }
 
   // Not logged in - let normal auth flow handle it
   if (!user) {
+    return <>{children}</>;
+  }
+
+  // Profile exists but company still loading - wait a bit more
+  // This handles the race condition where profile is set but company fetch is still in progress
+  if (user && !profile) {
     return <>{children}</>;
   }
 
