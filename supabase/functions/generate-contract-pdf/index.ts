@@ -287,12 +287,23 @@ serve(async (req) => {
         const groupItems = lineItems.filter((item: any) => item.group_id === group.id);
         
         // Table header - conditionally show Qty and Unit Price columns
+        const rightEdge = width - margin;
+        const totalColWidth = 80;
+        const unitPriceColWidth = 80;
+        const qtyColWidth = 50;
+        
         page.drawText('Description', { x: margin + 5, y: yPos, size: 9, font: helveticaBold, color: gray });
         if (showDetails) {
-          page.drawText('Qty', { x: margin + 280, y: yPos, size: 9, font: helveticaBold, color: gray });
-          page.drawText('Unit Price', { x: margin + 340, y: yPos, size: 9, font: helveticaBold, color: gray });
+          page.drawText('Qty', { x: rightEdge - totalColWidth - unitPriceColWidth - qtyColWidth, y: yPos, size: 9, font: helveticaBold, color: gray });
+          // Right-align "Unit Price" header
+          const unitPriceHeader = 'Unit Price';
+          const unitPriceHeaderWidth = helveticaBold.widthOfTextAtSize(unitPriceHeader, 9);
+          page.drawText(unitPriceHeader, { x: rightEdge - totalColWidth - unitPriceColWidth + (unitPriceColWidth - unitPriceHeaderWidth), y: yPos, size: 9, font: helveticaBold, color: gray });
         }
-        page.drawText('Total', { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: gray });
+        // Right-align "Total" header
+        const totalHeader = 'Total';
+        const totalHeaderWidth = helveticaBold.widthOfTextAtSize(totalHeader, 9);
+        page.drawText(totalHeader, { x: rightEdge - totalColWidth + (totalColWidth - totalHeaderWidth), y: yPos, size: 9, font: helveticaBold, color: gray });
         yPos -= 5;
         page.drawLine({
           start: { x: margin, y: yPos },
@@ -312,10 +323,16 @@ serve(async (req) => {
           
           page.drawText(desc, { x: margin + 5, y: yPos, size: 9, font: helvetica, color: black });
           if (showDetails) {
-            page.drawText(`${item.quantity} ${item.unit || ''}`, { x: margin + 280, y: yPos, size: 9, font: helvetica, color: black });
-            page.drawText(formatCurrency(item.unit_price), { x: margin + 340, y: yPos, size: 9, font: helvetica, color: black });
+            page.drawText(`${item.quantity} ${item.unit || ''}`, { x: rightEdge - totalColWidth - unitPriceColWidth - qtyColWidth, y: yPos, size: 9, font: helvetica, color: black });
+            // Right-align unit price
+            const unitPriceText = formatCurrency(item.unit_price);
+            const unitPriceWidth = helvetica.widthOfTextAtSize(unitPriceText, 9);
+            page.drawText(unitPriceText, { x: rightEdge - totalColWidth - unitPriceColWidth + (unitPriceColWidth - unitPriceWidth), y: yPos, size: 9, font: helvetica, color: black });
           }
-          page.drawText(formatCurrency(item.line_total), { x: margin + 440, y: yPos, size: 9, font: helveticaBold, color: black });
+          // Right-align line total
+          const lineTotalText = formatCurrency(item.line_total);
+          const lineTotalWidth = helveticaBold.widthOfTextAtSize(lineTotalText, 9);
+          page.drawText(lineTotalText, { x: rightEdge - totalColWidth + (totalColWidth - lineTotalWidth), y: yPos, size: 9, font: helveticaBold, color: black });
           yPos -= 14;
         }
         yPos -= 10;
@@ -335,21 +352,29 @@ serve(async (req) => {
     });
 
     const totalsX = margin + 310;
+    const totalsRightEdge = width - margin - 10;
     yPos -= 5;
     
+    // Right-align subtotal
+    const subtotalText = formatCurrency(estimate.subtotal);
+    const subtotalWidth = helvetica.widthOfTextAtSize(subtotalText, 10);
     page.drawText('Subtotal:', { x: totalsX, y: yPos, size: 10, font: helvetica, color: black });
-    page.drawText(formatCurrency(estimate.subtotal), { x: totalsX + 130, y: yPos, size: 10, font: helvetica, color: black });
+    page.drawText(subtotalText, { x: totalsRightEdge - subtotalWidth, y: yPos, size: 10, font: helvetica, color: black });
     yPos -= 16;
 
     if ((estimate.tax_amount || 0) > 0) {
+      const taxText = formatCurrency(estimate.tax_amount);
+      const taxWidth = helvetica.widthOfTextAtSize(taxText, 10);
       page.drawText(`Tax (${estimate.tax_rate}%):`, { x: totalsX, y: yPos, size: 10, font: helvetica, color: black });
-      page.drawText(formatCurrency(estimate.tax_amount), { x: totalsX + 130, y: yPos, size: 10, font: helvetica, color: black });
+      page.drawText(taxText, { x: totalsRightEdge - taxWidth, y: yPos, size: 10, font: helvetica, color: black });
       yPos -= 16;
     }
 
     if ((estimate.discount_amount || 0) > 0) {
+      const discountText = `-${formatCurrency(estimate.discount_amount)}`;
+      const discountWidth = helvetica.widthOfTextAtSize(discountText, 10);
       page.drawText('Discount:', { x: totalsX, y: yPos, size: 10, font: helvetica, color: black });
-      page.drawText(`-${formatCurrency(estimate.discount_amount)}`, { x: totalsX + 130, y: yPos, size: 10, font: helvetica, color: black });
+      page.drawText(discountText, { x: totalsRightEdge - discountWidth, y: yPos, size: 10, font: helvetica, color: black });
       yPos -= 16;
     }
 
@@ -361,8 +386,11 @@ serve(async (req) => {
     });
     yPos -= 5;
 
+    // Right-align grand total
+    const totalText = formatCurrency(estimate.total);
+    const totalWidth = helveticaBold.widthOfTextAtSize(totalText, 14);
     page.drawText('TOTAL:', { x: totalsX, y: yPos, size: 14, font: helveticaBold, color: black });
-    page.drawText(formatCurrency(estimate.total), { x: totalsX + 130, y: yPos, size: 14, font: helveticaBold, color: black });
+    page.drawText(totalText, { x: totalsRightEdge - totalWidth, y: yPos, size: 14, font: helveticaBold, color: black });
     yPos -= 40;
 
     // PAYMENT SCHEDULE
@@ -379,11 +407,15 @@ serve(async (req) => {
       });
       yPos -= 15;
 
+      const paymentRightEdge = width - margin;
       for (const phase of paymentSchedule) {
         checkNewPage(20);
         page.drawText(phase.phase_name, { x: margin + 5, y: yPos, size: 10, font: helvetica, color: black });
         page.drawText(`${phase.percent}%`, { x: margin + 300, y: yPos, size: 10, font: helvetica, color: black });
-        page.drawText(formatCurrency((estimate.total * phase.percent) / 100), { x: margin + 400, y: yPos, size: 10, font: helveticaBold, color: black });
+        // Right-align payment amount
+        const paymentAmtText = formatCurrency((estimate.total * phase.percent) / 100);
+        const paymentAmtWidth = helveticaBold.widthOfTextAtSize(paymentAmtText, 10);
+        page.drawText(paymentAmtText, { x: paymentRightEdge - paymentAmtWidth, y: yPos, size: 10, font: helveticaBold, color: black });
         yPos -= 14;
       }
       yPos -= 20;
