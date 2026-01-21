@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,7 @@ const KNOWN_FIELDS = [
 
 export function GHLFieldMappings() {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -78,11 +80,13 @@ export function GHLFieldMappings() {
 
   // Fetch active GHL integrations
   const { data: integrations, isLoading: integrationsLoading } = useQuery({
-    queryKey: ["ghl-integrations-active"],
+    queryKey: ["ghl-integrations-active", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("company_integrations")
         .select("id, name, location_id, is_active")
+        .eq("company_id", companyId)
         .eq("provider", "ghl")
         .eq("is_active", true)
         .order("name");
@@ -90,36 +94,43 @@ export function GHLFieldMappings() {
       if (error) throw error;
       return (data || []) as GHLIntegration[];
     },
+    enabled: !!companyId,
   });
 
-  // Auto-select first integration
-  const effectiveIntegrationId = selectedIntegrationId || integrations?.[0]?.id || null;
+  // Keep selection stable but never allow a cross-company stale integration id
+  const selectedIntegrationIsValid = !!selectedIntegrationId && !!integrations?.some((i) => i.id === selectedIntegrationId);
+  const effectiveIntegrationId = (selectedIntegrationIsValid ? selectedIntegrationId : integrations?.[0]?.id) || null;
+
+  useEffect(() => {
+    if (selectedIntegrationId && !selectedIntegrationIsValid) {
+      setSelectedIntegrationId(null);
+    }
+  }, [selectedIntegrationId, selectedIntegrationIsValid]);
 
   // Fetch field mappings for selected integration
   const { data: mappings, isLoading: mappingsLoading } = useQuery({
-    queryKey: ["ghl-field-mappings", effectiveIntegrationId],
+    queryKey: ["ghl-field-mappings", companyId, effectiveIntegrationId],
     queryFn: async () => {
-      if (!effectiveIntegrationId) return [];
+      if (!companyId || !effectiveIntegrationId) return [];
       
       const { data, error } = await supabase
         .from("ghl_field_mappings")
         .select("*")
+        .eq("company_id", companyId)
         .eq("integration_id", effectiveIntegrationId)
         .order("field_name");
 
       if (error) throw error;
       return (data || []) as FieldMapping[];
     },
-    enabled: !!effectiveIntegrationId,
+    enabled: !!companyId && !!effectiveIntegrationId,
   });
 
   // Add/update mapping mutation
   const upsertMapping = useMutation({
     mutationFn: async (data: { fieldName: string; ghlFieldId: string; description: string }) => {
+      if (!companyId) throw new Error("No company selected");
       if (!effectiveIntegrationId) throw new Error("No integration selected");
-      
-      // Get the integration's company_id
-      const integration = integrations?.find(i => i.id === effectiveIntegrationId);
       
       // Check if mapping exists for this field on this integration
       const existing = mappings?.find(m => m.field_name === data.fieldName);
@@ -136,11 +147,17 @@ export function GHLFieldMappings() {
         if (error) throw error;
       } else {
         // Get company_id from integration
-        const { data: integrationData } = await supabase
+        const { data: integrationData, error: integrationError } = await supabase
           .from("company_integrations")
           .select("company_id")
           .eq("id", effectiveIntegrationId)
           .single();
+
+        if (integrationError) throw integrationError;
+        if (!integrationData?.company_id) throw new Error("Integration is missing company_id");
+        if (integrationData.company_id !== companyId) {
+          throw new Error("Selected integration does not belong to the active company");
+        }
         
         // Insert new with integration_id
         const { error } = await supabase
@@ -150,13 +167,13 @@ export function GHLFieldMappings() {
             ghl_custom_field_id: data.ghlFieldId,
             description: data.description,
             integration_id: effectiveIntegrationId,
-            company_id: integrationData?.company_id || null,
+            company_id: integrationData.company_id,
           });
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ghl-field-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-field-mappings", companyId] });
       toast.success("Field mapping saved");
       resetForm();
       setAddDialogOpen(false);
@@ -170,14 +187,16 @@ export function GHLFieldMappings() {
   // Delete mapping mutation
   const deleteMapping = useMutation({
     mutationFn: async (id: string) => {
+      if (!companyId) throw new Error("No company selected");
       const { error } = await supabase
         .from("ghl_field_mappings")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("company_id", companyId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ghl-field-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-field-mappings", companyId] });
       toast.success("Field mapping deleted");
     },
     onError: (error: Error) => {
@@ -188,14 +207,16 @@ export function GHLFieldMappings() {
   // Inline update mutation
   const inlineUpdate = useMutation({
     mutationFn: async ({ id, ghlFieldId }: { id: string; ghlFieldId: string }) => {
+      if (!companyId) throw new Error("No company selected");
       const { error } = await supabase
         .from("ghl_field_mappings")
         .update({ ghl_custom_field_id: ghlFieldId })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("company_id", companyId);
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ghl-field-mappings"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-field-mappings", companyId] });
       toast.success("Field mapping updated");
       setEditingId(null);
     },
