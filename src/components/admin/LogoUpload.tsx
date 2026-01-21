@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Upload, Loader2, Trash2, Image, Link, Save } from "lucide-react";
+import { Upload, Loader2, Trash2, Image, Link, Save, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -164,6 +164,30 @@ export function LogoUpload() {
     updateLogoUrl.mutate("");
   };
 
+  const handleDownloadLogo = async () => {
+    if (!currentLogoUrl) return;
+    
+    try {
+      const response = await fetch(currentLogoUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      // Extract filename from URL or use default
+      const urlParts = currentLogoUrl.split('/');
+      const filename = urlParts[urlParts.length - 1] || 'company-logo.png';
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success("Logo downloaded successfully");
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Failed to download logo");
+    }
+  };
+
   const handleUrlChange = (value: string) => {
     setUrlInput(value);
     setHasUrlChanges(value !== currentLogoUrl);
@@ -201,15 +225,25 @@ export function LogoUpload() {
                   }}
                 />
               </div>
-              <Button 
-                variant="destructive" 
-                size="sm"
-                onClick={handleRemoveLogo}
-                disabled={updateLogoUrl.isPending}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Remove Logo
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleDownloadLogo}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={handleRemoveLogo}
+                  disabled={updateLogoUrl.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove
+                </Button>
+              </div>
             </div>
           </div>
         )}
