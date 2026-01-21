@@ -31,14 +31,16 @@ function ProtectedRoute({
   children, 
   requiredRole,
   allowedRoles,
-  blockSalesOnly = false
+  blockSalesOnly = false,
+  requiredFeature
 }: { 
   children: React.ReactNode; 
   requiredRole?: 'admin' | 'production' | 'contract_manager';
   allowedRoles?: ('admin' | 'magazine' | 'contract_manager' | 'sales')[];
   blockSalesOnly?: boolean;
+  requiredFeature?: string;
 }) {
-  const { user, isLoading, isAdmin, isProduction, isMagazine, isContractManager, isDispatch, isSales } = useAuth();
+  const { user, isLoading, isAdmin, isProduction, isMagazine, isContractManager, isDispatch, isSales, canUseFeature, isSuperAdmin } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -62,6 +64,23 @@ function ProtectedRoute({
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Check subscription feature access (super admins bypass this check)
+  if (requiredFeature && !isSuperAdmin && !canUseFeature(requiredFeature)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+            <Loader2 className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold">Feature Not Available</h1>
+          <p className="text-muted-foreground">
+            This feature is not included in your current subscription plan. Please contact your administrator to upgrade.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Sales-only users (no other roles) can only access sales-portal
@@ -185,7 +204,7 @@ const App = () => (
             <Route
               path="/sales-portal"
               element={
-                <ProtectedRoute allowedRoles={['sales', 'admin']}>
+                <ProtectedRoute allowedRoles={['sales', 'admin']} requiredFeature="sales_portal">
                   <SalesPortal />
                 </ProtectedRoute>
               }
@@ -193,7 +212,7 @@ const App = () => (
             <Route
               path="/opportunities"
               element={
-                <ProtectedRoute blockSalesOnly>
+                <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
                   <Opportunities />
                 </ProtectedRoute>
               }
@@ -201,7 +220,7 @@ const App = () => (
             <Route
               path="/appointments"
               element={
-                <ProtectedRoute blockSalesOnly>
+                <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
                   <Appointments />
                 </ProtectedRoute>
               }
@@ -209,7 +228,7 @@ const App = () => (
             <Route
               path="/follow-up"
               element={
-                <ProtectedRoute blockSalesOnly>
+                <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
                   <FollowUp />
                 </ProtectedRoute>
               }
@@ -217,7 +236,7 @@ const App = () => (
             <Route
               path="/magazine-sales"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'magazine']}>
+                <ProtectedRoute allowedRoles={['admin', 'magazine']} requiredFeature="magazine_sales">
                   <MagazineSales />
                 </ProtectedRoute>
               }
@@ -225,7 +244,7 @@ const App = () => (
             <Route
               path="/production"
               element={
-                <ProtectedRoute requiredRole="production">
+                <ProtectedRoute requiredRole="production" requiredFeature="production">
                   <Production />
                 </ProtectedRoute>
               }
@@ -233,7 +252,7 @@ const App = () => (
             <Route
               path="/audit-log"
               element={
-                <ProtectedRoute requiredRole="production">
+                <ProtectedRoute requiredRole="production" requiredFeature="production">
                   <AuditLog />
                 </ProtectedRoute>
               }
@@ -241,7 +260,7 @@ const App = () => (
             <Route
               path="/estimates"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'contract_manager']}>
+                <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
                   <Estimates />
                 </ProtectedRoute>
               }
@@ -259,7 +278,7 @@ const App = () => (
             <Route
               path="/documents"
               element={
-                <ProtectedRoute allowedRoles={['admin', 'contract_manager']}>
+                <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="documents">
                   <Documents />
                 </ProtectedRoute>
               }
