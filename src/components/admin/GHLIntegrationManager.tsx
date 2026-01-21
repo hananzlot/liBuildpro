@@ -63,13 +63,16 @@ export function GHLIntegrationManager() {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Fetch integrations
+  // Fetch integrations for current company
   const { data: integrations, isLoading } = useQuery({
     queryKey: ["ghl-integrations", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
+      
       const { data, error } = await supabase
         .from("company_integrations")
         .select("*")
+        .eq("company_id", companyId)
         .eq("provider", "ghl")
         .order("is_primary", { ascending: false })
         .order("created_at", { ascending: true });
@@ -78,6 +81,7 @@ export function GHLIntegrationManager() {
       // Cast to our interface which includes optional vault fields
       return (data || []) as unknown as GHLIntegration[];
     },
+    enabled: !!companyId,
   });
 
   // Add integration mutation

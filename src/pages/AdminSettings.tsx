@@ -179,53 +179,57 @@ export default function AdminSettings() {
     enabled: isAdmin && !!companyId,
   });
   
-  // Data for cleanup tab
+  // Data for cleanup tab - scoped by company
   const { data: opportunities = [] } = useQuery({
-    queryKey: ["admin-opportunities"],
+    queryKey: ["admin-opportunities", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("opportunities")
-        .select("*");
+        .select("*")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin && activeTab === "cleanup",
+    enabled: isAdmin && activeTab === "cleanup" && !!companyId,
   });
   
   const { data: contacts = [] } = useQuery({
-    queryKey: ["admin-contacts"],
+    queryKey: ["admin-contacts", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contacts")
-        .select("id, ghl_id, contact_name, first_name, last_name, source");
+        .select("id, ghl_id, contact_name, first_name, last_name, source")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin && (activeTab === "cleanup" || activeTab === "sources"),
+    enabled: isAdmin && (activeTab === "cleanup" || activeTab === "sources") && !!companyId,
   });
   
   const { data: appointments = [] } = useQuery({
-    queryKey: ["admin-appointments"],
+    queryKey: ["admin-appointments", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
-        .select("*");
+        .select("*")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin && activeTab === "cleanup",
+    enabled: isAdmin && activeTab === "cleanup" && !!companyId,
   });
   
   const { data: ghlUsers = [] } = useQuery({
-    queryKey: ["admin-ghl-users"],
+    queryKey: ["admin-ghl-users", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ghl_users")
-        .select("ghl_id, name, first_name, last_name");
+        .select("ghl_id, name, first_name, last_name")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin && activeTab === "cleanup",
+    enabled: isAdmin && activeTab === "cleanup" && !!companyId,
   });
   
   // Audit log queries
