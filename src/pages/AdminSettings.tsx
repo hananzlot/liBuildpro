@@ -386,7 +386,7 @@ export default function AdminSettings() {
   );
 
   const portalSettings = settings?.filter((s) =>
-    ["portal_upload_limit_mb"].includes(s.setting_key)
+    ["portal_upload_limit_mb", "app_base_url"].includes(s.setting_key)
   );
 
   const estimateSettings = settings?.filter((s) =>
@@ -592,7 +592,7 @@ export default function AdminSettings() {
                       Customer Portal Settings
                     </CardTitle>
                     <CardDescription>
-                      Configure settings for the customer portal experience
+                      Configure settings for the customer portal experience. The App Base URL is used for all portal links in emails (e.g., your custom domain).
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
