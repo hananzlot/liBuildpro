@@ -772,17 +772,22 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       // Insert payment schedule
       if (paymentSchedule.length > 0) {
-        const scheduleToInsert = paymentSchedule.map(phase => ({
-          estimate_id: savedEstimateId,
-          phase_name: phase.phase_name,
-          percent: phase.percent,
-          amount: (total * phase.percent) / 100,
-          due_type: phase.due_type,
-          due_date: phase.due_date || null,
-          description: phase.description || null,
-          sort_order: phase.sort_order,
-          company_id: companyId,
-        }));
+        const remainingTotal = Math.max(0, total - depositAmount);
+        const scheduleToInsert = paymentSchedule.map((phase) => {
+          const isDepositPhase = phase.phase_name === "Deposit";
+          return {
+            estimate_id: savedEstimateId,
+            phase_name: phase.phase_name,
+            // Deposit is a fixed amount (capped by deposit_max_amount), so don't store it as a percent.
+            percent: isDepositPhase ? 0 : phase.percent,
+            amount: isDepositPhase ? depositAmount : (remainingTotal * (phase.percent || 0)) / 100,
+            due_type: phase.due_type,
+            due_date: phase.due_date || null,
+            description: phase.description || null,
+            sort_order: phase.sort_order,
+            company_id: companyId,
+          };
+        });
         
         const { error: scheduleError } = await supabase
           .from("estimate_payment_schedule")
@@ -815,7 +820,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         throw new Error("Validation failed");
       }
 
-      const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
+      const { subtotal, taxAmount, discountAmount, total, depositAmount } = calculateTotals();
       
       // Prepare estimate data for a new estimate
       const estimateData = {
@@ -900,17 +905,21 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       // Insert payment schedule
       if (paymentSchedule.length > 0) {
-        const scheduleToInsert = paymentSchedule.map(phase => ({
-          estimate_id: savedEstimateId,
-          phase_name: phase.phase_name,
-          percent: phase.percent,
-          amount: (total * phase.percent) / 100,
-          due_type: phase.due_type,
-          due_date: phase.due_date || null,
-          description: phase.description || null,
-          sort_order: phase.sort_order,
-          company_id: companyId,
-        }));
+        const remainingTotal = Math.max(0, total - depositAmount);
+        const scheduleToInsert = paymentSchedule.map((phase) => {
+          const isDepositPhase = phase.phase_name === "Deposit";
+          return {
+            estimate_id: savedEstimateId,
+            phase_name: phase.phase_name,
+            percent: isDepositPhase ? 0 : phase.percent,
+            amount: isDepositPhase ? depositAmount : (remainingTotal * (phase.percent || 0)) / 100,
+            due_type: phase.due_type,
+            due_date: phase.due_date || null,
+            description: phase.description || null,
+            sort_order: phase.sort_order,
+            company_id: companyId,
+          };
+        });
         
         const { error: scheduleError } = await supabase
           .from("estimate_payment_schedule")
@@ -1656,7 +1665,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               <div className="flex items-center gap-2">
                                 <Input
                                   type="number"
-                                  value={phase.percent}
+                                  value={phase.phase_name === "Deposit" ? 0 : phase.percent}
+                                  disabled={phase.phase_name === "Deposit"}
                                   onChange={(e) => updatePaymentPhase(phase.id, { percent: parseFloat(e.target.value) || 0 })}
                                   className="w-20"
                                 />
@@ -1664,9 +1674,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               </div>
                               <span className="text-sm text-muted-foreground">
                                 = {formatCurrency(
-                                  phase.phase_name === 'Deposit' 
-                                    ? Math.min((totals.total * phase.percent) / 100, formData.deposit_max_amount)
-                                    : (totals.total * phase.percent) / 100
+                                  phase.phase_name === "Deposit"
+                                    ? totals.depositAmount
+                                    : (Math.max(0, totals.total - totals.depositAmount) * (phase.percent || 0)) / 100
                                 )}
                               </span>
                               <Select
