@@ -192,7 +192,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .single();
     
     if (!error && data) {
-      setViewingCompany(data as Company);
+      // Also fetch logo from company_settings if not set in companies table
+      let logoUrl = data.logo_url;
+      if (!logoUrl) {
+        const { data: logoSetting } = await supabase
+          .from("company_settings")
+          .select("setting_value")
+          .eq("company_id", targetCompanyId)
+          .eq("setting_key", "company_logo_url")
+          .maybeSingle();
+        
+        if (logoSetting?.setting_value) {
+          logoUrl = logoSetting.setting_value;
+        }
+      }
+      
+      setViewingCompany({ ...data, logo_url: logoUrl } as Company);
     } else {
       console.error("Failed to fetch viewing company:", error);
       setViewingCompany(null);
@@ -275,7 +290,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .single();
 
           if (!companyError && companyData) {
-            setCompany(companyData as Company);
+            // Also fetch logo from company_settings if not set in companies table
+            let logoUrl = companyData.logo_url;
+            if (!logoUrl) {
+              const { data: logoSetting } = await supabase
+                .from("company_settings")
+                .select("setting_value")
+                .eq("company_id", profileData.company_id)
+                .eq("setting_key", "company_logo_url")
+                .maybeSingle();
+              
+              if (logoSetting?.setting_value) {
+                logoUrl = logoSetting.setting_value;
+              }
+            }
+            
+            setCompany({ ...companyData, logo_url: logoUrl } as Company);
 
             // Fetch corporation if company has corporation_id
             if (companyData.corporation_id) {
