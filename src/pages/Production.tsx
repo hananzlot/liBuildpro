@@ -1568,9 +1568,36 @@ export default function Production() {
               {/* Collapsible KPI Cards Section */}
               <Collapsible defaultOpen={false}>
                 <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground p-0 h-auto">
-                    <ChevronRight className="h-4 w-4 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground p-0 h-auto group">
+                    <ChevronRight className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-90" />
                     <span>KPI Summary</span>
+                    <div className="flex items-center gap-3 ml-2 text-[11px] group-data-[state=open]:hidden">
+                      <span className="flex items-center gap-1">
+                        <span className="text-muted-foreground">Projects:</span>
+                        <span className="font-semibold text-foreground">{totalProjects}</span>
+                      </span>
+                      <span className="text-border">•</span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-muted-foreground">In Progress:</span>
+                        <span className="font-semibold text-amber-500">{inProgressProjects}</span>
+                      </span>
+                      <span className="text-border">•</span>
+                      <span className="flex items-center gap-1">
+                        <span className="text-muted-foreground">Sold:</span>
+                        <span className="font-semibold text-foreground">{formatCurrency(filteredFinancialsTotal)}</span>
+                      </span>
+                      {isAdmin && (
+                        <>
+                          <span className="text-border">•</span>
+                          <span className="flex items-center gap-1">
+                            <span className="text-muted-foreground">Profit:</span>
+                            <span className={`font-semibold ${(profitKPIs.expectedProfit + profitKPIs.realizedProfit) >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                              {formatCurrency(profitKPIs.expectedProfit + profitKPIs.realizedProfit)}
+                            </span>
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-3 space-y-3">
