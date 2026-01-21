@@ -23,6 +23,7 @@ import { PlatformUsersSection } from '@/components/subscription/PlatformUsersSec
 import { PlansEditorSection } from '@/components/subscription/PlansEditorSection';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AVAILABLE_FEATURES } from '@/constants/features';
+import { PlatformEmailSettings } from '@/components/admin/PlatformEmailSettings';
 
 interface CompanyWithSubscription {
   id: string;
@@ -354,6 +355,7 @@ export default function TenantManagement() {
             <TabsTrigger value="companies">Companies</TabsTrigger>
             <TabsTrigger value="plans">Plans</TabsTrigger>
             <TabsTrigger value="admins">Platform Admins</TabsTrigger>
+            <TabsTrigger value="email">Email Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="companies">
@@ -451,6 +453,10 @@ export default function TenantManagement() {
 
           <TabsContent value="admins">
             <PlatformUsersSection />
+          </TabsContent>
+
+          <TabsContent value="email">
+            <PlatformEmailSettings />
           </TabsContent>
         </Tabs>
 
