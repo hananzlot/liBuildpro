@@ -132,6 +132,25 @@ function extractScopeFromAttribution(attributions: any[] | null): string | null 
   return null;
 }
 
+// Build a stable display name for an opportunity from its related contact.
+function buildContactDisplayName(contact: {
+  contact_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+} | null | undefined): string | null {
+  if (!contact) return null;
+  const fullName = `${contact.first_name || ""} ${contact.last_name || ""}`.trim();
+  return (
+    contact.contact_name ||
+    (fullName.length > 0 ? fullName : null) ||
+    contact.phone ||
+    contact.email ||
+    null
+  );
+}
+
 // Fetch a single contact by ID
 async function fetchContact(ghlApiKey: string, contactId: string): Promise<any | null> {
   try {
@@ -359,11 +378,21 @@ serve(async (req) => {
 
       // Map to store contact attributions for scope extraction
       const contactAttributions = new Map<string, any[]>();
+      // Map to store contact display names for opportunity name fallback
+      const contactDisplayNames = new Map<string, string>();
 
       const contactsToUpsert: any[] = [];
       for (const contactId of missingContactIds) {
         const contact = await fetchContact(apiKey, contactId);
         if (contact) {
+          const displayName = buildContactDisplayName({
+            contact_name: contact.contactName || null,
+            first_name: contact.firstName || null,
+            last_name: contact.lastName || null,
+            phone: contact.phone || null,
+            email: contact.email || null,
+          });
+
           contactsToUpsert.push({
             ghl_id: contact.id,
             company_id: integration.company_id,
@@ -388,6 +417,9 @@ serve(async (req) => {
           if (contact.attributions) {
             contactAttributions.set(contact.id, contact.attributions);
           }
+          if (displayName) {
+            contactDisplayNames.set(contact.id, displayName);
+          }
         }
         // Small delay to avoid rate limits
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -410,12 +442,17 @@ serve(async (req) => {
           const batch = existingContactsToQuery.slice(i, i + 100);
           const { data: existingContacts } = await supabase
             .from('contacts')
-            .select('ghl_id, attributions')
+            .select('ghl_id, attributions, contact_name, first_name, last_name, phone, email')
             .in('ghl_id', batch);
           
           (existingContacts || []).forEach((c: any) => {
             if (c.attributions) {
               contactAttributions.set(c.ghl_id, c.attributions);
+            }
+
+            const displayName = buildContactDisplayName(c);
+            if (displayName) {
+              contactDisplayNames.set(c.ghl_id, displayName);
             }
           });
         }
@@ -426,6 +463,8 @@ serve(async (req) => {
         // Try to extract scope from contact's attributions
         const attributions = o.contactId ? contactAttributions.get(o.contactId) : null;
         const scopeFromCampaign = extractScopeFromAttribution(attributions || null);
+
+        const fallbackName = o.contactId ? contactDisplayNames.get(o.contactId) : null;
         
         return {
           ghl_id: o.id,
@@ -438,7 +477,8 @@ serve(async (req) => {
           pipeline_stage_id: o.pipelineStageId || null,
           pipeline_name: pipelineNames.get(o.pipelineId) || null,
           stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
-          name: o.name || null,
+          // Some GHL opportunities come back with name null; fall back to contact name so they are visible in UI.
+          name: o.name || fallbackName || null,
           monetary_value: o.monetaryValue || null,
           status: o.status || null,
           assigned_to: o.assignedTo || null,
