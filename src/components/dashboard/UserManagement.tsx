@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2 } from "lucide-react";
+import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2, Building2 } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -25,6 +25,12 @@ interface Profile {
   email: string;
   full_name: string | null;
   ghl_user_id: string | null;
+  company_id: string | null;
+}
+
+interface Company {
+  id: string;
+  name: string;
 }
 
 interface UserRole {
@@ -54,6 +60,7 @@ const ROLE_CONFIG: { role: AppRole; label: string; color: string }[] = [
 
 const PROFILES_QUERY_KEY = ["user-management", "profiles"] as const;
 const ROLES_QUERY_KEY = ["user-management", "roles"] as const;
+const COMPANIES_QUERY_KEY = ["user-management", "companies"] as const;
 
 export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const { isSuperAdmin, canUseFeature, companyId } = useAuth();
@@ -71,6 +78,8 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const [directPassword, setDirectPassword] = useState("");
   const [showDirectPassword, setShowDirectPassword] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [reassigningCompanyForUser, setReassigningCompanyForUser] = useState<Profile | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
 
   // Fetch all profiles
   const {
@@ -80,13 +89,34 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   } = useQuery({
     queryKey: PROFILES_QUERY_KEY,
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").order("email");
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, ghl_user_id, company_id")
+        .order("email");
 
       if (error) throw error;
       return data as Profile[];
     },
     enabled: open,
     refetchOnMount: "always",
+  });
+
+  // Fetch all companies (for super admin company reassignment)
+  const {
+    data: companies = [],
+    isLoading: companiesLoading,
+  } = useQuery({
+    queryKey: COMPANIES_QUERY_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("companies")
+        .select("id, name")
+        .order("name");
+
+      if (error) throw error;
+      return data as Company[];
+    },
+    enabled: open && isSuperAdmin,
   });
 
   // Fetch all user roles
@@ -300,6 +330,31 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
   });
 
+  // Mutation to reassign user to a different company (super admin only)
+  const reassignCompanyMutation = useMutation({
+    mutationFn: async ({ userId, newCompanyId }: { userId: string; newCompanyId: string | null }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ company_id: newCompanyId })
+        .eq("id", userId);
+
+      if (error) throw error;
+      return { userId, newCompanyId };
+    },
+    onSuccess: (data) => {
+      const companyName = data.newCompanyId 
+        ? companies.find(c => c.id === data.newCompanyId)?.name || "Unknown"
+        : "None";
+      queryClient.invalidateQueries({ queryKey: PROFILES_QUERY_KEY });
+      toast.success(`User reassigned to ${companyName}`);
+      setReassigningCompanyForUser(null);
+      setSelectedCompanyId("");
+    },
+    onError: (error) => {
+      toast.error(`Failed to reassign company: ${error.message}`);
+    },
+  });
+
   const handleSetPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!settingPasswordForUser || !directPassword) {
@@ -331,7 +386,13 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     });
   };
 
-  const isLoading = profilesLoading || rolesLoading;
+  const isLoading = profilesLoading || rolesLoading || (isSuperAdmin && companiesLoading);
+
+  // Helper to get company name for a profile
+  const getCompanyName = (companyId: string | null) => {
+    if (!companyId) return "No Company";
+    return companies.find(c => c.id === companyId)?.name || "Unknown";
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -523,12 +584,32 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
 
                       <div className="flex items-center gap-2">
                         <div className="flex flex-wrap gap-1">
+                          {isSuperAdmin && (
+                            <Badge variant="outline" className="text-xs">
+                              {getCompanyName(profile.company_id)}
+                            </Badge>
+                          )}
                           {activeRoles.map(r => (
                             <Badge key={r.role} variant="secondary" className={`text-xs ${r.color}`}>
                               {r.label}
                             </Badge>
                           ))}
                         </div>
+                        {/* Company reassignment button - super admin only */}
+                        {isSuperAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setReassigningCompanyForUser(profile);
+                              setSelectedCompanyId(profile.company_id || "");
+                            }}
+                            title="Change company assignment"
+                          >
+                            <Building2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -665,6 +746,68 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                   </Button>
                 </div>
               </form>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Reassign Company Dialog - Super Admin only */}
+        {reassigningCompanyForUser && isSuperAdmin && (
+          <Dialog open={!!reassigningCompanyForUser} onOpenChange={() => setReassigningCompanyForUser(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Change Company for {reassigningCompanyForUser.full_name || reassigningCompanyForUser.email}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="companySelect">Assign to Company</Label>
+                  <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+                    <SelectTrigger id="companySelect">
+                      <SelectValue placeholder="Select a company" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Company (Platform User)</SelectItem>
+                      {companies.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setReassigningCompanyForUser(null);
+                      setSelectedCompanyId("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      reassignCompanyMutation.mutate({
+                        userId: reassigningCompanyForUser.id,
+                        newCompanyId: selectedCompanyId === "none" ? null : selectedCompanyId,
+                      });
+                    }}
+                    disabled={reassignCompanyMutation.isPending}
+                  >
+                    {reassignCompanyMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Reassigning...
+                      </>
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+                </div>
+              </div>
             </DialogContent>
           </Dialog>
         )}
