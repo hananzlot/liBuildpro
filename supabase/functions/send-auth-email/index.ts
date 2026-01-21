@@ -85,14 +85,48 @@ function getEmailSubject(emailType: string): string {
   }
 }
 
+function buildConfirmationUrl(
+  emailType: string,
+  payload: AuthEmailPayload,
+  supabaseUrl: string
+): string {
+  const tokenHash = payload.email_data.token_hash || '';
+  const redirectTo = payload.email_data.redirect_to || payload.email_data.site_url || '';
+  
+  if (!tokenHash) return '';
+  
+  // Build the Supabase verification URL
+  // Format: {SUPABASE_URL}/auth/v1/verify?token={token_hash}&type={type}&redirect_to={redirect}
+  let verifyType = 'signup';
+  switch (emailType) {
+    case 'signup': verifyType = 'signup'; break;
+    case 'recovery': verifyType = 'recovery'; break;
+    case 'magic_link': verifyType = 'magiclink'; break;
+    case 'email_change': verifyType = 'email_change'; break;
+    case 'invite': verifyType = 'invite'; break;
+  }
+  
+  const params = new URLSearchParams({
+    token: tokenHash,
+    type: verifyType,
+  });
+  
+  if (redirectTo) {
+    params.set('redirect_to', redirectTo);
+  }
+  
+  return `${supabaseUrl}/auth/v1/verify?${params.toString()}`;
+}
+
 function generateEmailHtml(
   emailType: string,
   settings: PlatformSettings,
-  payload: AuthEmailPayload
+  payload: AuthEmailPayload,
+  supabaseUrl: string
 ): string {
   const userName = payload.user.user_metadata?.full_name || payload.user.email.split('@')[0];
   const token = payload.email_data.token || '';
-  const confirmationUrl = payload.email_data.confirmation_url || '';
+  const confirmationUrl = buildConfirmationUrl(emailType, payload, supabaseUrl);
   const fromName = settings.from_name || 'Our Team';
   const supportEmail = settings.support_email || '';
   
@@ -110,21 +144,30 @@ function generateEmailHtml(
 
   switch (emailType) {
     case 'signup':
-      contentHtml = `
-        <h2 style="font-size: 20px; color: #1a1a1a; margin-bottom: 16px;">Welcome, ${userName}!</h2>
-        <p style="font-size: 16px; color: #4a4a4a; margin-bottom: 24px;">
-          Thanks for signing up! Please confirm your email address by entering the code below:
-        </p>
-        <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
-          <span style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #1a1a1a;">${token}</span>
-        </div>
-        <p style="font-size: 14px; color: #666;">
-          Or click the link below to confirm:
-        </p>
-        <a href="${confirmationUrl}" style="display: inline-block; background: #1a1a1a; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin-top: 12px;">
-          Confirm Email
-        </a>
-      `;
+      if (confirmationUrl) {
+        contentHtml = `
+          <h2 style="font-size: 20px; color: #1a1a1a; margin-bottom: 16px;">Welcome, ${userName}!</h2>
+          <p style="font-size: 16px; color: #4a4a4a; margin-bottom: 24px;">
+            Thanks for signing up! Please confirm your email address by clicking the button below:
+          </p>
+          <a href="${confirmationUrl}" style="display: inline-block; background: #1a1a1a; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin-bottom: 24px;">
+            Confirm Email
+          </a>
+          <p style="font-size: 14px; color: #666; margin-top: 24px;">
+            Or use this code: <strong style="font-size: 18px; letter-spacing: 2px;">${token}</strong>
+          </p>
+        `;
+      } else {
+        contentHtml = `
+          <h2 style="font-size: 20px; color: #1a1a1a; margin-bottom: 16px;">Welcome, ${userName}!</h2>
+          <p style="font-size: 16px; color: #4a4a4a; margin-bottom: 24px;">
+            Thanks for signing up! Please confirm your email address using this code:
+          </p>
+          <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 24px;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #1a1a1a;">${token}</span>
+          </div>
+        `;
+      }
       break;
 
     case 'recovery':
@@ -324,7 +367,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Generate email content
     const subject = getEmailSubject(emailType);
-    const html = generateEmailHtml(emailType, settings, payload);
+    const html = generateEmailHtml(emailType, settings, payload, supabaseUrl);
 
     // Send via Resend
     const resend = new Resend(resendApiKey);
