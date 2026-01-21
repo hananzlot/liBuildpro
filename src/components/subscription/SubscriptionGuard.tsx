@@ -60,8 +60,10 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
     );
   }
 
-  // Subscription expired
-  if (subscription.status === 'expired') {
+  // Subscription expired (by status or past end date)
+  const isExpiredByDate = subscription.current_period_end && new Date(subscription.current_period_end) < new Date();
+  
+  if (subscription.status === 'expired' || (subscription.status === 'active' && isExpiredByDate)) {
     return (
       <SubscriptionBlockedScreen
         title="Subscription Expired"
