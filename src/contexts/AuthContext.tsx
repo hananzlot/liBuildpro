@@ -58,6 +58,7 @@ interface AuthContextType {
   isContractManager: boolean;
   userRoles: AppRole[];
   isLoading: boolean;
+  isProfileLoading: boolean;
   // Role simulation for admins
   simulatedRole: AppRole | null;
   isSimulating: boolean;
@@ -98,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [corporation, setCorporation] = useState<Corporation | null>(null);
   const [actualRoles, setActualRoles] = useState<AppRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [simulatedRole, setSimulatedRole] = useState<AppRole | null>(null);
 
   // Derive company and corporation IDs
@@ -200,41 +202,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchProfileAndCompany = async (userId: string) => {
-    // Fetch profile
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("id, email, full_name, ghl_user_id, company_id")
-      .eq("id", userId)
-      .single();
+    setIsProfileLoading(true);
+    try {
+      // Fetch profile
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, ghl_user_id, company_id")
+        .eq("id", userId)
+        .single();
 
-    if (!profileError && profileData) {
-      setProfile(profileData as Profile);
+      if (!profileError && profileData) {
+        setProfile(profileData as Profile);
 
-      // Fetch company if profile has company_id
-      if (profileData.company_id) {
-        const { data: companyData, error: companyError } = await supabase
-          .from("companies")
-          .select("*")
-          .eq("id", profileData.company_id)
-          .single();
+        // Fetch company if profile has company_id
+        if (profileData.company_id) {
+          const { data: companyData, error: companyError } = await supabase
+            .from("companies")
+            .select("*")
+            .eq("id", profileData.company_id)
+            .single();
 
-        if (!companyError && companyData) {
-          setCompany(companyData as Company);
+          if (!companyError && companyData) {
+            setCompany(companyData as Company);
 
-          // Fetch corporation if company has corporation_id
-          if (companyData.corporation_id) {
-            const { data: corpData, error: corpError } = await supabase
-              .from("corporations")
-              .select("*")
-              .eq("id", companyData.corporation_id)
-              .single();
+            // Fetch corporation if company has corporation_id
+            if (companyData.corporation_id) {
+              const { data: corpData, error: corpError } = await supabase
+                .from("corporations")
+                .select("*")
+                .eq("id", companyData.corporation_id)
+                .single();
 
-            if (!corpError && corpData) {
-              setCorporation(corpData as Corporation);
+              if (!corpError && corpData) {
+                setCorporation(corpData as Corporation);
+              }
             }
           }
         }
       }
+    } finally {
+      setIsProfileLoading(false);
     }
   };
 
@@ -338,6 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isContractManager,
       userRoles,
       isLoading,
+      isProfileLoading,
       // Role simulation
       simulatedRole,
       isSimulating,
