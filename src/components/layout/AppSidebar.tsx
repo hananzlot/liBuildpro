@@ -306,8 +306,11 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     closeSidebar();
   };
 
-  // Track which collapsible menus are open
+  // Track which collapsible menus are open (for items with subItems)
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+  
+  // Track which sections are open (collapsed by default, auto-expand active section)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   const handleLogout = async () => {
     await signOut();
@@ -318,6 +321,13 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     setOpenMenus(prev => ({
       ...prev,
       [title]: !prev[title]
+    }));
+  };
+
+  const toggleSection = (label: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [label]: !prev[label]
     }));
   };
 
@@ -399,6 +409,15 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
         case 'contract_manager': return isContractManager;
         default: return false;
       }
+    });
+  };
+
+  // Check if any item in a section is currently active
+  const isSectionActive = (section: NavSection): boolean => {
+    return section.items.some(item => {
+      if (item.url && isUrlActive(item.url)) return true;
+      if (item.subItems) return item.subItems.some(sub => isSubItemUrlActive(sub.url));
+      return false;
     });
   };
 
@@ -633,20 +652,37 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       </SidebarHeader>
 
       <SidebarContent onClickCapture={handleSidebarContentClickCapture}>
-        {/* Navigation Sections */}
-        {visibleSections.map((section, idx) => {
+        {/* Navigation Sections - Collapsible, auto-expand active section */}
+        {visibleSections.map((section) => {
           const visibleItems = section.items.filter(canViewItem);
           if (visibleItems.length === 0) return null;
           
+          const sectionHasActiveItem = isSectionActive(section);
+          const isSectionOpen = openSections[section.label] ?? sectionHasActiveItem;
+          
           return (
-            <SidebarGroup key={section.label}>
-              <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {visibleItems.map(renderNavItem)}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
+            <Collapsible
+              key={section.label}
+              open={isSectionOpen}
+              onOpenChange={() => toggleSection(section.label)}
+              className="group/collapsible"
+            >
+              <SidebarGroup>
+                <CollapsibleTrigger asChild>
+                  <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors flex items-center justify-between pr-2">
+                    <span>{section.label}</span>
+                    <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${isSectionOpen ? 'rotate-90' : ''}`} />
+                  </SidebarGroupLabel>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {visibleItems.map(renderNavItem)}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
           );
         })}
 
