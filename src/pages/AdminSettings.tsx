@@ -390,7 +390,7 @@ export default function AdminSettings() {
   );
 
   const estimateSettings = settings?.filter((s) =>
-    ["default_terms_and_conditions", "default_markup_percent"].includes(s.setting_key)
+    ["default_terms_and_conditions", "default_markup_percent", "default_deposit_percent", "default_deposit_max_amount"].includes(s.setting_key)
   );
 
   const payablesReceivablesSettings = settings?.filter((s) =>
@@ -613,9 +613,62 @@ export default function AdminSettings() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {estimateSettings?.map((setting) => 
-                      setting.setting_key === "default_markup_percent" 
-                        ? renderSettingField(setting) 
-                        : renderTextareaSettingField(setting)
+                      setting.setting_key === "default_terms_and_conditions" 
+                        ? renderTextareaSettingField(setting)
+                        : renderSettingField(setting)
+                    )}
+                    
+                    {/* Add deposit settings if they don't exist yet */}
+                    {!estimateSettings?.some(s => s.setting_key === "default_deposit_percent") && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="default_deposit_percent">Default Deposit Percent</Label>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              updateSetting.mutate({ key: "default_deposit_percent", value: editedSettings["default_deposit_percent"] || "10" });
+                            }}
+                            disabled={updateSetting.isPending}
+                          >
+                            <Save className="h-3 w-3 mr-1" />
+                            Save
+                          </Button>
+                        </div>
+                        <Input
+                          id="default_deposit_percent"
+                          type="number"
+                          value={editedSettings["default_deposit_percent"] ?? "10"}
+                          onChange={(e) => handleChange("default_deposit_percent", e.target.value)}
+                          placeholder="10"
+                        />
+                        <p className="text-xs text-muted-foreground">Default deposit percentage for new estimates</p>
+                      </div>
+                    )}
+                    
+                    {!estimateSettings?.some(s => s.setting_key === "default_deposit_max_amount") && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="default_deposit_max_amount">Default Deposit Max Amount ($)</Label>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              updateSetting.mutate({ key: "default_deposit_max_amount", value: editedSettings["default_deposit_max_amount"] || "1000" });
+                            }}
+                            disabled={updateSetting.isPending}
+                          >
+                            <Save className="h-3 w-3 mr-1" />
+                            Save
+                          </Button>
+                        </div>
+                        <Input
+                          id="default_deposit_max_amount"
+                          type="number"
+                          value={editedSettings["default_deposit_max_amount"] ?? "1000"}
+                          onChange={(e) => handleChange("default_deposit_max_amount", e.target.value)}
+                          placeholder="1000"
+                        />
+                        <p className="text-xs text-muted-foreground">Maximum deposit amount (deposit = min of percent or this cap)</p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
