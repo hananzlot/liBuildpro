@@ -403,8 +403,13 @@ serve(async (req) => {
       });
       yPos -= 15;
 
-      // Draw terms preserving paragraph structure
-      drawWrappedText(estimate.terms_and_conditions, margin + 5, contentWidth - 10, 9, helvetica, gray);
+      // Draw terms preserving paragraph structure - skip if first line is just the title repeated
+      let termsText = estimate.terms_and_conditions;
+      const firstLine = termsText.split('\n')[0]?.trim().toUpperCase();
+      if (firstLine === 'TERMS AND CONDITIONS') {
+        termsText = termsText.split('\n').slice(1).join('\n').trim();
+      }
+      drawWrappedText(termsText, margin + 5, contentWidth - 10, 9, helvetica, gray);
       yPos -= 20;
     }
 
@@ -490,7 +495,7 @@ serve(async (req) => {
       }
     }
 
-    // FOOTER
+    // FOOTER - different message based on status
     checkNewPage(30);
     page.drawLine({
       start: { x: margin, y: yPos + 10 },
@@ -498,7 +503,10 @@ serve(async (req) => {
       thickness: 0.5,
       color: lightGray,
     });
-    page.drawText(`This is a legally binding contract. Generated on ${formatDate(new Date().toISOString())}`, {
+    const footerText = estimate.status === 'accepted' 
+      ? `This is a legally binding contract. Generated on ${formatDate(new Date().toISOString())}`
+      : `This is a non-binding proposal prepared for your review and approval. Generated on ${formatDate(new Date().toISOString())}`;
+    page.drawText(footerText, {
       x: margin,
       y: yPos - 5,
       size: 8,
