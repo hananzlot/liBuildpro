@@ -801,14 +801,21 @@ async function syncLocationData(
     
     console.log(`Found ${existingOppsMap.size} existing opportunities to preserve`);
     
-    // Build a map of contact IDs to their custom_fields for scope extraction
-    const contactCustomFieldsMap = new Map<string, any[]>();
-    contacts.forEach(c => {
-      if (c.id && c.customFields && Array.isArray(c.customFields)) {
-        contactCustomFieldsMap.set(c.id, c.customFields);
-      }
-    });
-    console.log(`Built contact custom fields map for ${contactCustomFieldsMap.size} contacts`);
+      // Build maps of contact IDs to their custom_fields and attributions for scope extraction
+      const contactCustomFieldsMap = new Map<string, any[]>();
+      const contactAttributionsMap = new Map<string, any[]>();
+      contacts.forEach(c => {
+        if (c.id && c.customFields && Array.isArray(c.customFields)) {
+          contactCustomFieldsMap.set(c.id, c.customFields);
+        }
+        if (c.id && c.attributions && Array.isArray(c.attributions)) {
+          contactAttributionsMap.set(c.id, c.attributions);
+        }
+      });
+      console.log(`Built contact custom fields map for ${contactCustomFieldsMap.size} contacts`);
+      console.log(`Built contact attributions map for ${contactAttributionsMap.size} contacts`);
+      console.log(`Using scope_of_work field mapping: ${fieldMappings.scope_of_work || 'not configured'}`);
+      console.log(`Using address field mapping: ${fieldMappings.address || 'not configured'}`);
     
     const oppsToUpsert = opportunities.map(o => {
       const existing = existingOppsMap.get(o.id);
@@ -829,27 +836,39 @@ async function syncLocationData(
           finalStatus = 'won';
         }
         
-        // Extract scope_of_work and address from contact's custom_fields - only if local is null
+        // Extract scope_of_work and address from contact's custom_fields using field mappings - only if local is null
         let scopeOfWork: string | null = existing.scope_of_work || null;
         let opportunityAddress: string | null = existing.address || null;
         
         const contactCustomFields = contactCustomFieldsMap.get(o.contactId);
-        if (contactCustomFields) {
-          if (!scopeOfWork) {
+        const contactAttributions = contactAttributionsMap.get(o.contactId);
+        
+        if (!scopeOfWork) {
+          // Try custom field first using field mappings (not hardcoded ID)
+          if (contactCustomFields && fieldMappings.scope_of_work) {
             const scopeField = contactCustomFields.find(
-              (field: { id: string; value?: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+              (field: { id: string; value?: string }) => field.id === fieldMappings.scope_of_work
             );
             if (scopeField && scopeField.value) {
               scopeOfWork = scopeField.value;
             }
           }
-          if (!opportunityAddress) {
-            const addressField = contactCustomFields.find(
-              (field: { id: string; value?: string }) => field.id === 'b7oTVsUQrLgZt84bHpCn'
-            );
-            if (addressField && addressField.value) {
-              opportunityAddress = addressField.value;
+          // Fallback: extract from utmContent in attributions (Facebook leads)
+          if (!scopeOfWork && contactAttributions) {
+            const attrWithUtm = contactAttributions.find((a: any) => a.utmContent);
+            if (attrWithUtm?.utmContent) {
+              scopeOfWork = attrWithUtm.utmContent;
+              console.log(`Extracted scope from UTM content for opp ${o.id}: ${scopeOfWork}`);
             }
+          }
+        }
+        
+        if (!opportunityAddress && contactCustomFields && fieldMappings.address) {
+          const addressField = contactCustomFields.find(
+            (field: { id: string; value?: string }) => field.id === fieldMappings.address
+          );
+          if (addressField && addressField.value) {
+            opportunityAddress = addressField.value;
           }
         }
         
@@ -879,21 +898,35 @@ async function syncLocationData(
         };
       }
       
-      // New record - extract scope_of_work and address from contact custom fields
+      // New record - extract scope_of_work and address from contact custom fields using field mappings
       let scopeOfWork: string | null = null;
       let opportunityAddress: string | null = null;
       
       const contactCustomFields = contactCustomFieldsMap.get(o.contactId);
-      if (contactCustomFields) {
+      const contactAttributions = contactAttributionsMap.get(o.contactId);
+      
+      // Try custom field first using field mappings (not hardcoded ID)
+      if (contactCustomFields && fieldMappings.scope_of_work) {
         const scopeField = contactCustomFields.find(
-          (field: { id: string; value?: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+          (field: { id: string; value?: string }) => field.id === fieldMappings.scope_of_work
         );
         if (scopeField && scopeField.value) {
           scopeOfWork = scopeField.value;
         }
-        
+      }
+      // Fallback: extract from utmContent in attributions (Facebook leads)
+      if (!scopeOfWork && contactAttributions) {
+        const attrWithUtm = contactAttributions.find((a: any) => a.utmContent);
+        if (attrWithUtm?.utmContent) {
+          scopeOfWork = attrWithUtm.utmContent;
+          console.log(`Extracted scope from UTM content for new opp ${o.id}: ${scopeOfWork}`);
+        }
+      }
+      
+      // Extract address using field mappings
+      if (contactCustomFields && fieldMappings.address) {
         const addressField = contactCustomFields.find(
-          (field: { id: string; value?: string }) => field.id === 'b7oTVsUQrLgZt84bHpCn'
+          (field: { id: string; value?: string }) => field.id === fieldMappings.address
         );
         if (addressField && addressField.value) {
           opportunityAddress = addressField.value;
