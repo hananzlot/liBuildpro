@@ -29,22 +29,45 @@ serve(async (req: Request) => {
 
     console.log("Starting daily portal update check...");
 
-    // Get company settings including the enable/disable setting
-    const { data: settings } = await supabase
+    // Get global app_settings as base defaults
+    const settingKeys = ["resend_from_email", "resend_from_name", "company_name", "daily_portal_email_enabled", "app_base_url"];
+    
+    const { data: appSettings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "daily_portal_email_enabled", "app_base_url"]);
+      .in("setting_key", settingKeys);
 
-    const settingsMap: Record<string, string> = (settings || []).reduce((acc, s) => {
-      acc[s.setting_key] = s.setting_value || "";
+    const globalSettingsMap: Record<string, string> = (appSettings || []).reduce((acc, s) => {
+      if (s.setting_value) acc[s.setting_key] = s.setting_value;
       return acc;
     }, {} as Record<string, string>);
 
-    const fromEmail = settingsMap.resend_from_email || "portal@caprobuilders.com";
-    const fromName = settingsMap.resend_from_name || "Capro Builders";
-    const companyName = settingsMap.company_name || "Capro Builders";
-    const appBaseUrl = settingsMap.app_base_url || "https://crm.ca-probuilders.com";
-    const dailyEmailEnabled = settingsMap.daily_portal_email_enabled === "true";
+    // Check global daily email enabled flag first (all companies)
+    const dailyEmailEnabled = globalSettingsMap.daily_portal_email_enabled === "true";
+    
+    // Pre-fetch all company settings for efficiency
+    const { data: allCompanySettings } = await supabase
+      .from("company_settings")
+      .select("company_id, setting_key, setting_value")
+      .in("setting_key", settingKeys);
+
+    // Group by company_id
+    const companySettingsCache: Record<string, Record<string, string>> = {};
+    for (const cs of allCompanySettings || []) {
+      if (!cs.company_id) continue;
+      if (!companySettingsCache[cs.company_id]) {
+        companySettingsCache[cs.company_id] = {};
+      }
+      if (cs.setting_value) {
+        companySettingsCache[cs.company_id][cs.setting_key] = cs.setting_value;
+      }
+    }
+
+    // Helper to get merged settings for a specific company
+    const getCompanySettings = (companyId: string | null): Record<string, string> => {
+      if (!companyId) return globalSettingsMap;
+      return { ...globalSettingsMap, ...(companySettingsCache[companyId] || {}) };
+    };
 
     // Check if daily emails are enabled (default is disabled)
     if (!dailyEmailEnabled) {
@@ -203,6 +226,13 @@ serve(async (req: Request) => {
         skipped++;
         continue;
       }
+
+      // Get company-specific settings for this project
+      const projectSettings = getCompanySettings(project.company_id);
+      const fromEmail = projectSettings.resend_from_email || "portal@caprobuilders.com";
+      const fromName = projectSettings.resend_from_name || "Capro Builders";
+      const companyName = projectSettings.company_name || "Capro Builders";
+      const appBaseUrl = projectSettings.app_base_url || "https://crm.ca-probuilders.com";
 
       // Send the email - use query parameter format for portal URL
       const portalUrl = `${appBaseUrl}/portal?token=${portal.token}`;

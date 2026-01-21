@@ -104,16 +104,36 @@ serve(async (req: Request) => {
       portalToken = createdToken?.token;
     }
 
-    // Get company settings and email template
-    const { data: settings } = await supabase
+    // Get company-specific settings first, then fallback to app_settings
+    const settingKeys = ["resend_from_email", "resend_from_name", "company_name", "email_template_daily_portal_update", "app_base_url"];
+    
+    let companySettingsMap: Record<string, string> = {};
+    if (project.company_id) {
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", project.company_id)
+        .in("setting_key", settingKeys);
+      
+      companySettingsMap = (companySettings || []).reduce((acc, s) => {
+        if (s.setting_value) acc[s.setting_key] = s.setting_value;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    // Fallback to app_settings for any missing keys
+    const { data: appSettings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "email_template_daily_portal_update", "app_base_url"]);
+      .in("setting_key", settingKeys);
 
-    const settingsMap: Record<string, string> = (settings || []).reduce((acc, s) => {
-      acc[s.setting_key] = s.setting_value || "";
+    const appSettingsMap: Record<string, string> = (appSettings || []).reduce((acc, s) => {
+      if (s.setting_value) acc[s.setting_key] = s.setting_value;
       return acc;
     }, {} as Record<string, string>);
+
+    // Merge: company settings override app settings
+    const settingsMap = { ...appSettingsMap, ...companySettingsMap };
 
     const fromEmail = settingsMap.resend_from_email || "portal@caprobuilders.com";
     const fromName = settingsMap.resend_from_name || "Capro Builders";
