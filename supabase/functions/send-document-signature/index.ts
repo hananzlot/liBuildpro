@@ -99,24 +99,41 @@ const handler = async (req: Request): Promise<Response> => {
     
     const docCompanyId = documentData?.company_id || null;
 
-    // Get company settings
-    const { data: settings } = await supabase
+    // Get company-specific settings first, then fallback to app_settings
+    const settingKeys = ["company_name", "resend_from_email", "resend_from_name", "app_base_url"];
+    
+    let companySettingsMap: Record<string, string> = {};
+    if (docCompanyId) {
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", docCompanyId)
+        .in("setting_key", settingKeys);
+      
+      companySettingsMap = (companySettings || []).reduce((acc, s) => {
+        if (s.setting_value) acc[s.setting_key] = s.setting_value;
+        return acc;
+      }, {} as Record<string, string>);
+    }
+
+    // Fallback to app_settings for any missing keys
+    const { data: appSettings } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["company_name", "resend_from_email", "resend_from_name", "app_base_url"]);
+      .in("setting_key", settingKeys);
 
-    const companyName =
-      settings?.find((s) => s.setting_key === "company_name")?.setting_value ||
-      "CA Pro Builders";
-    const fromEmail =
-      settings?.find((s) => s.setting_key === "resend_from_email")?.setting_value ||
-      "onboarding@resend.dev";
-    const fromName =
-      settings?.find((s) => s.setting_key === "resend_from_name")?.setting_value ||
-      companyName;
-    const appBaseUrl =
-      settings?.find((s) => s.setting_key === "app_base_url")?.setting_value ||
-      "https://crm.ca-probuilders.com";
+    const appSettingsMap: Record<string, string> = (appSettings || []).reduce((acc, s) => {
+      if (s.setting_value) acc[s.setting_key] = s.setting_value;
+      return acc;
+    }, {} as Record<string, string>);
+
+    // Merge: company settings override app settings
+    const settingsMap = { ...appSettingsMap, ...companySettingsMap };
+
+    const companyName = settingsMap.company_name || "CA Pro Builders";
+    const fromEmail = settingsMap.resend_from_email || "onboarding@resend.dev";
+    const fromName = settingsMap.resend_from_name || companyName;
+    const appBaseUrl = settingsMap.app_base_url || "https://crm.ca-probuilders.com";
 
     const emailSubject = isReminder
       ? `Reminder: Document Signature Required - ${documentName}`
