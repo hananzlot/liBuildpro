@@ -256,8 +256,9 @@ async function fetchContactsFromDB(companyId?: string | null): Promise<DBContact
 }
 
 async function fetchOpportunitiesFromDB(companyId?: string | null): Promise<DBOpportunity[]> {
-  // Exclude Location 2 opportunities - they are imported to Location 1  
-  return fetchAllFromTable("opportunities", "ghl_date_added", LOCATION_2_ID, companyId) as Promise<DBOpportunity[]>;
+  // Do NOT exclude Location 2 opportunities here; otherwise valid opportunities (e.g. Raya Gamburd)
+  // can be hidden from the Opportunities table.
+  return fetchAllFromTable("opportunities", "ghl_date_added", undefined, companyId) as Promise<DBOpportunity[]>;
 }
 
 async function fetchAppointmentsFromDB(companyId?: string | null): Promise<DBAppointment[]> {
