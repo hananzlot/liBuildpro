@@ -24,7 +24,8 @@ import {
   RotateCcw,
   TrendingUp,
   DollarSign,
-  Mail
+  Mail,
+  ChevronRight
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,7 @@ import { CashFlowChart } from "@/components/production/CashFlowChart";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FinancialSearchResultsSheet } from "@/components/production/FinancialSearchResultsSheet";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 
 interface Project {
@@ -1563,119 +1565,126 @@ export default function Production() {
                 onStatusFilterChange={setStatusFilter}
               />
 
-              <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="p-0">
-                  <CardHeader className="pb-1 pt-3 px-4">
-                    <CardDescription className="text-xs">Total Projects</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-3 px-4">
-                    <p className="text-2xl font-bold">{totalProjects}</p>
-                  </CardContent>
-                </Card>
-                <Card className="p-0">
-                  <CardHeader className="pb-1 pt-3 px-4">
-                    <CardDescription className="text-xs">In Progress</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-3 px-4">
-                    <p className="text-2xl font-bold text-amber-500">{inProgressProjects}</p>
-                  </CardContent>
-                </Card>
-                <Card className="p-0">
-                  <CardHeader className="pb-1 pt-3 px-4">
-                    <CardDescription className="text-xs">Completed</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-3 px-4">
-                    <p className="text-2xl font-bold text-emerald-500">{completedProjects}</p>
-                  </CardContent>
-                </Card>
-                <Card 
-                  className="p-0 cursor-pointer hover:border-primary/50 transition-colors"
-                  onClick={() => setTotalSoldSheetOpen(true)}
-                >
-                  <CardHeader className="pb-1 pt-3 px-4">
-                    <CardDescription className="text-xs">Total Sold</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-3 px-4">
-                    <p className="text-2xl font-bold">{formatCurrency(filteredFinancialsTotal)}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                      Click to view details
-                    </p>
-                  </CardContent>
-                </Card>
-              </section>
-
-              {/* Admin-only KPI Section */}
-              {isAdmin && (
-                <div className="space-y-3">
-                  
-                  {/* Profit and Cash Flow KPIs */}
-                  <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Card 
-                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-emerald-500/30 bg-emerald-500/5"
-                      onClick={() => {
-                        setProfitSheetType('expected');
-                        setProfitSheetOpen(true);
-                      }}
-                    >
+              {/* Collapsible KPI Cards Section */}
+              <Collapsible defaultOpen={false}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground p-0 h-auto">
+                    <ChevronRight className="h-4 w-4 transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+                    <span>KPI Summary</span>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-3 space-y-3">
+                  <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Card className="p-0">
                       <CardHeader className="pb-1 pt-3 px-4">
-                        <CardDescription className="text-xs flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3" />
-                          Expected Profit (In-Progress)
-                        </CardDescription>
+                        <CardDescription className="text-xs">Total Projects</CardDescription>
                       </CardHeader>
                       <CardContent className="pb-3 px-4">
-                        <p className={`text-2xl font-bold ${profitKPIs.expectedProfit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                          {formatCurrency(profitKPIs.expectedProfit)}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {profitKPIs.expectedProfitProjects.length} project{profitKPIs.expectedProfitProjects.length !== 1 ? 's' : ''}
-                        </p>
+                        <p className="text-2xl font-bold">{totalProjects}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="p-0">
+                      <CardHeader className="pb-1 pt-3 px-4">
+                        <CardDescription className="text-xs">In Progress</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-3 px-4">
+                        <p className="text-2xl font-bold text-amber-500">{inProgressProjects}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="p-0">
+                      <CardHeader className="pb-1 pt-3 px-4">
+                        <CardDescription className="text-xs">Completed</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-3 px-4">
+                        <p className="text-2xl font-bold text-emerald-500">{completedProjects}</p>
                       </CardContent>
                     </Card>
                     <Card 
-                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-blue-500/30 bg-blue-500/5"
-                      onClick={() => {
-                        setProfitSheetType('realized');
-                        setProfitSheetOpen(true);
-                      }}
+                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors"
+                      onClick={() => setTotalSoldSheetOpen(true)}
                     >
                       <CardHeader className="pb-1 pt-3 px-4">
-                        <CardDescription className="text-xs flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3" />
-                          Realized Profit (Completed)
-                        </CardDescription>
+                        <CardDescription className="text-xs">Total Sold</CardDescription>
                       </CardHeader>
                       <CardContent className="pb-3 px-4">
-                        <p className={`text-2xl font-bold ${profitKPIs.realizedProfit >= 0 ? 'text-blue-600' : 'text-destructive'}`}>
-                          {formatCurrency(profitKPIs.realizedProfit)}
-                        </p>
+                        <p className="text-2xl font-bold">{formatCurrency(filteredFinancialsTotal)}</p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {profitKPIs.realizedProfitProjects.length} project{profitKPIs.realizedProfitProjects.length !== 1 ? 's' : ''}
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card 
-                      className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-primary/30 bg-primary/5"
-                      onClick={() => setCashFlowSheetOpen(true)}
-                    >
-                      <CardHeader className="pb-1 pt-3 px-4">
-                        <CardDescription className="text-xs flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          Cash Flow from Projects
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pb-3 px-4">
-                        <p className={`text-2xl font-bold ${cashFlowKPI.netCashFlow >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                          {formatCurrency(cashFlowKPI.netCashFlow)}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          In: {formatCurrency(cashFlowKPI.invoicesReceived)} • Out: {formatCurrency(cashFlowKPI.billsPaid + cashFlowKPI.commissionsPaid)}
+                          Click to view details
                         </p>
                       </CardContent>
                     </Card>
                   </section>
-                </div>
-              )}
+
+                  {/* Admin-only KPI Section */}
+                  {isAdmin && (
+                    <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <Card 
+                        className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-emerald-500/30 bg-emerald-500/5"
+                        onClick={() => {
+                          setProfitSheetType('expected');
+                          setProfitSheetOpen(true);
+                        }}
+                      >
+                        <CardHeader className="pb-1 pt-3 px-4">
+                          <CardDescription className="text-xs flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            Expected Profit (In-Progress)
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pb-3 px-4">
+                          <p className={`text-2xl font-bold ${profitKPIs.expectedProfit >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                            {formatCurrency(profitKPIs.expectedProfit)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {profitKPIs.expectedProfitProjects.length} project{profitKPIs.expectedProfitProjects.length !== 1 ? 's' : ''}
+                          </p>
+                        </CardContent>
+                      </Card>
+                      <Card 
+                        className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-blue-500/30 bg-blue-500/5"
+                        onClick={() => {
+                          setProfitSheetType('realized');
+                          setProfitSheetOpen(true);
+                        }}
+                      >
+                        <CardHeader className="pb-1 pt-3 px-4">
+                          <CardDescription className="text-xs flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            Realized Profit (Completed)
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pb-3 px-4">
+                          <p className={`text-2xl font-bold ${profitKPIs.realizedProfit >= 0 ? 'text-blue-600' : 'text-destructive'}`}>
+                            {formatCurrency(profitKPIs.realizedProfit)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {profitKPIs.realizedProfitProjects.length} project{profitKPIs.realizedProfitProjects.length !== 1 ? 's' : ''}
+                          </p>
+                        </CardContent>
+                      </Card>
+                      <Card 
+                        className="p-0 cursor-pointer hover:border-primary/50 transition-colors border-primary/30 bg-primary/5"
+                        onClick={() => setCashFlowSheetOpen(true)}
+                      >
+                        <CardHeader className="pb-1 pt-3 px-4">
+                          <CardDescription className="text-xs flex items-center gap-1">
+                            <DollarSign className="h-3 w-3" />
+                            Cash Flow from Projects
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pb-3 px-4">
+                          <p className={`text-2xl font-bold ${cashFlowKPI.netCashFlow >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                            {formatCurrency(cashFlowKPI.netCashFlow)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            In: {formatCurrency(cashFlowKPI.invoicesReceived)} • Out: {formatCurrency(cashFlowKPI.billsPaid + cashFlowKPI.commissionsPaid)}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </section>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
 
           {/* Warnings Section - Two Columns */}
           {(totalWarnings > 0 || totalBookkeepingWarnings > 0) && (
