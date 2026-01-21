@@ -626,7 +626,8 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                             setDirectPassword("");
                             setShowDirectPassword(false);
                           }}
-                          title="Set password directly"
+                          disabled={isUserSuperAdmin && !isSuperAdmin}
+                          title={isUserSuperAdmin && !isSuperAdmin ? "Cannot modify super admin" : "Set password directly"}
                         >
                           <Lock className="h-4 w-4" />
                         </Button>
@@ -639,8 +640,8 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                               deleteUserMutation.mutate(profile.id);
                             }
                           }}
-                          disabled={deletingUserId === profile.id}
-                          title="Delete user"
+                          disabled={deletingUserId === profile.id || (isUserSuperAdmin && !isSuperAdmin)}
+                          title={isUserSuperAdmin && !isSuperAdmin ? "Cannot delete super admin" : "Delete user"}
                         >
                           {deletingUserId === profile.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
