@@ -226,7 +226,16 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const hookSecret = Deno.env.get("SEND_EMAIL_HOOK_SECRET");
+    // Supabase provides: "v1,whsec_<base64_secret>" (see Supabase Send Email Hook docs)
+    // standardwebhooks expects the raw base64 secret (no prefix). Some projects produce
+    // base64url secrets ("-"/"_") and/or omit padding.
+    const hookSecretRaw = (Deno.env.get("SEND_EMAIL_HOOK_SECRET") || "").trim();
+    let hookSecret = hookSecretRaw
+      .replace(/^v\d+,whsec_/, "")
+      .replace(/^whsec_/, "");
+    hookSecret = hookSecret.replace(/-/g, "+").replace(/_/g, "/");
+    const padLen = (4 - (hookSecret.length % 4)) % 4;
+    if (padLen) hookSecret = hookSecret + "=".repeat(padLen);
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -288,13 +297,7 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       try {
-        // The secret from Supabase may have 'whsec_' prefix or be raw base64
-        // standardwebhooks expects the raw base64 secret
-        const secretForVerification = hookSecret.startsWith('whsec_') 
-          ? hookSecret.substring(6) 
-          : hookSecret;
-        
-        const wh = new Webhook(secretForVerification);
+        const wh = new Webhook(hookSecret);
         payload = wh.verify(body, {
           "webhook-id": webhookId,
           "webhook-timestamp": webhookTimestamp,
@@ -302,9 +305,7 @@ serve(async (req: Request): Promise<Response> => {
         }) as AuthEmailPayload;
       } catch (verifyError) {
         console.error("Webhook verification failed:", verifyError);
-        // Log more details for debugging
         console.error("Hook secret length:", hookSecret.length);
-        console.error("Hook secret starts with whsec_:", hookSecret.startsWith('whsec_'));
         return new Response(
           JSON.stringify({ error: "Invalid webhook signature" }),
           { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
