@@ -170,14 +170,16 @@ export function GHLIntegrationManager() {
   // Sync now mutation
   const syncNow = useMutation({
     mutationFn: async () => {
-      const response = await supabase.functions.invoke("fetch-ghl-contacts");
+      const response = await supabase.functions.invoke("sync-ghl-recent");
       if (response.error) throw new Error(response.error.message);
       return response.data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["ghl-integrations"] });
-      const totalContacts = data?.totals?.contacts || data?.meta?.totals?.contacts || 0;
-      toast.success(`Sync complete! Synced ${totalContacts} contacts`);
+      const totalOpps = data?.totals?.opportunities || 0;
+      const totalContacts = data?.totals?.contacts || 0;
+      const totalAppts = data?.totals?.appointments || 0;
+      toast.success(`Sync complete! ${totalOpps} opportunities, ${totalContacts} contacts, ${totalAppts} appointments`);
     },
     onError: (error: Error) => {
       toast.error(`Sync failed: ${error.message}`);

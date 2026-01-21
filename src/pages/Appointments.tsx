@@ -30,10 +30,10 @@ const Appointments = () => {
   const syncMutation = useSyncContacts();
 
   const handleSync = async () => {
-    toast.info("Syncing all data from GHL...");
+    toast.info("Syncing recent data from GHL...");
     try {
       const result = await syncMutation.mutateAsync();
-      toast.success(`Sync complete! ${result.total} contacts synced`);
+      toast.success(`Sync complete! ${result.opportunities} opportunities, ${result.total} contacts, ${result.appointments} appointments synced`);
     } catch (err) {
       toast.error(`Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }

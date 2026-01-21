@@ -411,13 +411,15 @@ async function fetchAppointmentEditsFromDB(companyId?: string | null): Promise<D
   return data || [];
 }
 
-async function syncContacts(): Promise<{ total: number }> {
-  const { data, error } = await supabase.functions.invoke("fetch-ghl-contacts", {
-    body: { syncToDb: true },
-  });
+async function syncContacts(): Promise<{ total: number; opportunities: number; appointments: number }> {
+  const { data, error } = await supabase.functions.invoke("sync-ghl-recent");
 
   if (error) throw new Error(error.message);
-  return { total: data.meta?.contacts || 0 };
+  return { 
+    total: data?.totals?.contacts || 0,
+    opportunities: data?.totals?.opportunities || 0,
+    appointments: data?.totals?.appointments || 0,
+  };
 }
 
 async function syncGHL2(): Promise<{ contactsImported: number; opportunitiesImported: number }> {
