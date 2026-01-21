@@ -565,9 +565,9 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                   </div>
                   {selectedEstimate.deposit_required && selectedEstimate.deposit_percent > 0 && (
                     <div className="flex justify-between text-sm bg-primary/10 p-3 rounded-lg">
-                      <span>Deposit Required ({selectedEstimate.deposit_percent}%)</span>
+                      <span>Deposit</span>
                       <span className="font-medium">
-                        {formatCurrency((selectedEstimate.total || 0) * (selectedEstimate.deposit_percent / 100))}
+                        {formatCurrency(Math.min((selectedEstimate.total || 0) * (selectedEstimate.deposit_percent / 100), (selectedEstimate as any).deposit_max_amount || 1000))}
                       </span>
                     </div>
                   )}
