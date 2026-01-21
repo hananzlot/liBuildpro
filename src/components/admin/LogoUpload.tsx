@@ -8,26 +8,44 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Upload, Loader2, Trash2, Image, Link, Save } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function LogoUpload() {
+  const { company } = useAuth();
+  const companyId = company?.id;
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const [hasUrlChanges, setHasUrlChanges] = useState(false);
 
-  // Fetch current logo URL from settings
+  // Fetch current logo URL from company_settings first, fallback to app_settings
   const { data: logoSetting, isLoading } = useQuery({
-    queryKey: ["company-logo-setting"],
+    queryKey: ["company-logo-setting", companyId],
     queryFn: async () => {
+      // Try company_settings first if we have a companyId
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from("company_settings")
+          .select("*")
+          .eq("company_id", companyId)
+          .eq("setting_key", "company_logo_url")
+          .maybeSingle();
+
+        if (companyData) {
+          return { ...companyData, source: 'company' as const };
+        }
+      }
+
+      // Fallback to app_settings
       const { data, error } = await supabase
         .from("app_settings")
         .select("*")
         .eq("setting_key", "company_logo_url")
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== "PGRST116") throw error;
-      return data;
+      return data ? { ...data, source: 'app' as const } : null;
     },
   });
 
@@ -35,19 +53,52 @@ export function LogoUpload() {
 
   const updateLogoUrl = useMutation({
     mutationFn: async (url: string) => {
-      const { error } = await supabase
-        .from("app_settings")
-        .update({ 
-          setting_value: url, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq("setting_key", "company_logo_url");
+      // Save to company_settings if we have a companyId
+      if (companyId) {
+        // Check if setting exists
+        const { data: existing } = await supabase
+          .from("company_settings")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("setting_key", "company_logo_url")
+          .maybeSingle();
 
-      if (error) throw error;
+        if (existing) {
+          const { error } = await supabase
+            .from("company_settings")
+            .update({ 
+              setting_value: url, 
+              updated_at: new Date().toISOString() 
+            })
+            .eq("company_id", companyId)
+            .eq("setting_key", "company_logo_url");
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("company_settings")
+            .insert({ 
+              company_id: companyId,
+              setting_key: "company_logo_url",
+              setting_value: url
+            });
+          if (error) throw error;
+        }
+      } else {
+        // Fallback to app_settings
+        const { error } = await supabase
+          .from("app_settings")
+          .update({ 
+            setting_value: url, 
+            updated_at: new Date().toISOString() 
+          })
+          .eq("setting_key", "company_logo_url");
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["company-logo-setting"] });
       queryClient.invalidateQueries({ queryKey: ["app-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["company-settings"] });
       toast.success("Logo updated successfully");
       setHasUrlChanges(false);
     },
