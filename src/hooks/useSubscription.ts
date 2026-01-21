@@ -97,8 +97,8 @@ export function useSubscription({ companyId, isSuperAdmin }: UseSubscriptionProp
     if (isSuperAdmin) return true;
     // No subscription means no access (unless super admin)
     if (!subscription) return false;
-    // Check status
-    return subscription.status === 'active' || subscription.status === 'trialing';
+    // Check status - past_due still allows access (grace period), only expired/canceled blocks
+    return subscription.status === 'active' || subscription.status === 'trialing' || subscription.status === 'past_due';
   }, [subscription, isSuperAdmin]);
 
   const isTrialing = subscription?.status === 'trialing';
