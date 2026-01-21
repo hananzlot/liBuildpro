@@ -603,7 +603,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                 </span>
                 {isViewingOtherCompany && (
                   <Badge variant="outline" className="h-4 px-1 text-[9px] bg-amber-500/10 text-amber-600 border-amber-500/30">
-                    Viewing
+                    Working
                   </Badge>
                 )}
               </div>
