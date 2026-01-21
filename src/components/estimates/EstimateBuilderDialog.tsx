@@ -662,7 +662,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         throw new Error("Validation failed");
       }
 
-      const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
+      const { subtotal, taxAmount, discountAmount, total, depositAmount } = calculateTotals();
       
       // When editing, preserve existing status; for new estimates use draft
       const currentStatus = isEditing && existingEstimate?.estimate?.status 
