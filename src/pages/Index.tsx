@@ -42,6 +42,8 @@ const Index = () => {
     isMagazine,
     isProduction,
     isSimulating,
+    company,
+    isSuperAdmin,
   } = useAuth();
   const { companyId } = useCompanyContext();
   const { isGHLEnabled } = useGHLMode();
@@ -53,19 +55,8 @@ const Index = () => {
     return !dismissed;
   });
 
-  // Fetch company name from app_settings
-  const { data: companyName } = useQuery({
-    queryKey: ["company-name"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("app_settings")
-        .select("setting_value")
-        .eq("setting_key", "company_name")
-        .maybeSingle();
-      if (error) throw error;
-      return data?.setting_value || "Your Company";
-    },
-  });
+  // Use company name from auth context (the selected/active company)
+  const companyName = company?.name;
 
   const handleEnterDashboard = () => {
     sessionStorage.setItem('crm-welcome-dismissed', 'true');
@@ -206,8 +197,8 @@ const Index = () => {
     );
   }
 
-  // Welcome screen for admins
-  if (showWelcome && isAdmin) {
+  // Welcome screen for admins (skip for super admins without a company selected)
+  if (showWelcome && isAdmin && !isSuperAdmin) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center">
         <div className="text-center space-y-8 p-8">
@@ -228,6 +219,22 @@ const Index = () => {
           </Button>
         </div>
       </div>
+    );
+  }
+
+  // Super admin prompt to select a company if none selected
+  if (isSuperAdmin && !companyId) {
+    return (
+      <AppLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4 p-8">
+            <h2 className="text-2xl font-semibold text-foreground">Select a Company</h2>
+            <p className="text-muted-foreground max-w-md">
+              As a Super Admin, please use the company switcher in the sidebar to select which company you want to work on.
+            </p>
+          </div>
+        </div>
+      </AppLayout>
     );
   }
 
