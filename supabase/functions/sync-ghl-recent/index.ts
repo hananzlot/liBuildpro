@@ -68,9 +68,16 @@ async function fetchRecentOpportunities(
       if (seenIds.has(opp.id)) continue;
       seenIds.add(opp.id);
       
-      // Filter by creation date - only include opportunities created since sinceDate
+      // Filter by creation OR update date - include opportunities created or modified since sinceDate
       const oppCreatedAt = opp.createdAt ? new Date(opp.createdAt) : null;
-      if (oppCreatedAt && oppCreatedAt >= sinceDate) {
+      const oppUpdatedAt = opp.updatedAt ? new Date(opp.updatedAt) : null;
+      
+      // Include if created since sinceDate, updated since sinceDate, or if no dates available (new record)
+      const isInRange = (oppCreatedAt && oppCreatedAt >= sinceDate) || 
+                        (oppUpdatedAt && oppUpdatedAt >= sinceDate) ||
+                        (!oppCreatedAt && !oppUpdatedAt);
+      
+      if (isInRange) {
         allOpportunities.push(opp);
         newInRangeCount++;
       }
