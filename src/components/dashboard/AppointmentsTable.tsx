@@ -250,10 +250,17 @@ export function AppointmentsTable({
 
   const uniqueReps = useMemo(() => {
     const reps = new Set(appointments.map(a => a.assigned_user_id).filter(Boolean));
-    return Array.from(reps).map(id => ({
+    let hasUnassigned = appointments.some(a => !a.assigned_user_id);
+    const repList = Array.from(reps).map(id => ({
       id: id!,
       name: getUserName(id!)
     })).sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Add unassigned option at the end if there are unassigned appointments
+    if (hasUnassigned) {
+      repList.push({ id: 'unassigned', name: 'Unassigned' });
+    }
+    return repList;
   }, [appointments, users]);
 
   // Format reps for multi-select
@@ -313,9 +320,15 @@ export function AppointmentsTable({
       filtered = filtered.filter(a => a.appointment_status && statusFilter.includes(a.appointment_status.toLowerCase()));
     }
 
-    // Rep filter (multi-select)
+    // Rep filter (multi-select) - handles "unassigned" for null/empty user IDs
     if (repFilter.length > 0) {
-      filtered = filtered.filter(a => a.assigned_user_id && repFilter.includes(a.assigned_user_id));
+      filtered = filtered.filter(a => {
+        // Check if we're filtering for "unassigned" which matches null/empty user IDs
+        if (repFilter.includes('unassigned')) {
+          if (!a.assigned_user_id) return true;
+        }
+        return a.assigned_user_id && repFilter.includes(a.assigned_user_id);
+      });
     }
 
     // Source filter (multi-select) - handles "(No Source)" for null/empty sources
