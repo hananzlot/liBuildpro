@@ -568,7 +568,14 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-2">
+        <div 
+          className="flex items-center gap-2 px-2 py-2 cursor-pointer hover:bg-sidebar-accent/50 rounded-md transition-colors"
+          onClick={() => {
+            if (collapsed) {
+              setOpen(true);
+            }
+          }}
+        >
           {company?.logo_url ? (
             <img 
               src={company.logo_url} 
