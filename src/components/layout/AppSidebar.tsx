@@ -318,12 +318,8 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
 
   const canViewItem = (item: NavItem): boolean => {
     // Check feature access first (super admins bypass this)
-    if (item.requiredFeature) {
-      const hasFeature = canUseFeature(item.requiredFeature);
-      console.log(`[FeatureGate] Item: ${item.title}, Feature: ${item.requiredFeature}, isSuperAdmin: ${isSuperAdmin}, hasFeature: ${hasFeature}, isSimulating: ${isSimulating}`);
-      if (!isSuperAdmin && !hasFeature) {
-        return false;
-      }
+    if (item.requiredFeature && !isSuperAdmin && !canUseFeature(item.requiredFeature)) {
+      return false;
     }
 
     if (item.roles && item.roles.length > 0) {
