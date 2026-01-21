@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Trash2, Shield, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Shield, UserPlus, Eye, EyeOff, Pencil } from 'lucide-react';
 
 interface PlatformUser {
   id: string;
@@ -29,10 +29,16 @@ interface Company {
 export function PlatformUsersSection() {
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [newUserForm, setNewUserForm] = useState({
     email: '',
     password: '',
+    full_name: '',
+    company_id: ''
+  });
+  const [editForm, setEditForm] = useState({
     full_name: '',
     company_id: ''
   });
@@ -144,6 +150,31 @@ export function PlatformUsersSection() {
     }
   });
 
+  // Update super admin profile
+  const updateSuperAdmin = useMutation({
+    mutationFn: async (data: { userId: string; full_name: string; company_id: string | null }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: data.full_name,
+          company_id: data.company_id
+        })
+        .eq('id', data.userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['platform-users'] });
+      toast.success('Super admin updated successfully');
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+    },
+    onError: (error: Error) => {
+      console.error('Error updating super admin:', error);
+      toast.error('Failed to update super admin');
+    }
+  });
+
   // Remove super admin role
   const removeSuperAdminRole = useMutation({
     mutationFn: async (userId: string) => {
@@ -175,6 +206,24 @@ export function PlatformUsersSection() {
       return;
     }
     createSuperAdmin.mutate(newUserForm);
+  };
+
+  const handleEditClick = (user: PlatformUser) => {
+    setSelectedUser(user);
+    setEditForm({
+      full_name: user.full_name || '',
+      company_id: user.company_id || ''
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditSubmit = () => {
+    if (!selectedUser) return;
+    updateSuperAdmin.mutate({
+      userId: selectedUser.id,
+      full_name: editForm.full_name,
+      company_id: editForm.company_id || null
+    });
   };
 
   return (
@@ -234,17 +283,26 @@ export function PlatformUsersSection() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        if (confirm('Remove super admin role from this user?')) {
-                          removeSuperAdminRole.mutate(user.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditClick(user)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm('Remove super admin role from this user?')) {
+                            removeSuperAdminRole.mutate(user.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -339,6 +397,71 @@ export function PlatformUsersSection() {
             </Button>
             <Button onClick={handleSubmit} disabled={createSuperAdmin.isPending}>
               {createSuperAdmin.isPending ? 'Creating...' : 'Create Super Admin'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Super Admin Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Super Admin</DialogTitle>
+            <DialogDescription>
+              Update {selectedUser?.email}'s profile information.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                value={selectedUser?.email || ''}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">
+                Email cannot be changed
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Full Name</Label>
+              <Input
+                value={editForm.full_name}
+                onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
+                placeholder="John Doe"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Assign to Company</Label>
+              <Select 
+                value={editForm.company_id || 'none'} 
+                onValueChange={(value) => setEditForm(prev => ({ ...prev, company_id: value === 'none' ? '' : value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Platform Only (no company)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Platform Only</SelectItem>
+                  {companies?.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                If assigned, user can also see that company's data
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditSubmit} disabled={updateSuperAdmin.isPending}>
+              {updateSuperAdmin.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </DialogContent>
