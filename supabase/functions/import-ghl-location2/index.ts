@@ -403,6 +403,7 @@ serve(async (req) => {
             source_ghl_id: contactGhlId,
             record_type: 'contact',
             target_ghl_id: newContactId,
+            company_id: location1Credentials.companyId,
           });
           
           importedContacts.set(contactGhlId, newContactId);
@@ -454,6 +455,7 @@ serve(async (req) => {
           source_ghl_id: oppGhlId,
           record_type: 'opportunity',
           target_ghl_id: null,
+          company_id: location1Credentials.companyId,
         });
         continue;
       }
@@ -469,6 +471,7 @@ serve(async (req) => {
             source_ghl_id: oppGhlId,
             record_type: 'opportunity',
             target_ghl_id: newOppId,
+            company_id: location1Credentials.companyId,
           });
           
           opportunitiesImported++;
