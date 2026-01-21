@@ -1553,10 +1553,14 @@ export default function Production() {
         <div className="py-4 px-4 lg:px-6 space-y-4">
           {activeView === 'projects' && (
             <div className="space-y-4">
-              {/* Date Range Filter for KPIs */}
+              {/* Date Range Filter for KPIs + Search/Status Filters */}
               <AdminKPIFilters
                 dateRange={kpiDateRange}
                 onDateRangeChange={setKpiDateRange}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                statusFilter={statusFilter}
+                onStatusFilterChange={setStatusFilter}
               />
 
               <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1805,42 +1809,9 @@ export default function Production() {
               {/* Subcontractor Expiration Warnings */}
               <SubcontractorWarningsCard />
 
-              {/* Filters & Search */}
+              {/* Action Buttons */}
           <section className="flex flex-col gap-2">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex gap-2 items-center flex-wrap">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Search by name, address, or amount..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 w-72"
-                      />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <p className="text-xs">Search by project name, address, customer, salesperson, project manager, or enter an amount to find matching invoices, phases, bills, and payments.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Proposal">Proposal</SelectItem>
-                    <SelectItem value="New Job">New Job</SelectItem>
-                    <SelectItem value="In-Progress">In-Progress</SelectItem>
-                    <SelectItem value="On-Hold">On-Hold</SelectItem>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                    <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-end">
               <div className="flex gap-2">
                 {isAdmin && (
                   <Button 
