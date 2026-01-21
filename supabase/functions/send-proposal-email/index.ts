@@ -17,6 +17,7 @@ interface SingleEmailRequest {
   portalLink: string;
   customerName: string;
   estimateId: string;
+  companyId?: string;
   isReminder?: boolean;
   salespersonName?: string;
 }
@@ -31,6 +32,7 @@ interface BatchEmailRequest {
   subject: string;
   message: string;
   estimateId: string;
+  companyId?: string;
   isReminder?: boolean;
   totalSigners?: number;
   salespersonName?: string;
@@ -52,22 +54,55 @@ serve(async (req) => {
     // Initialize Supabase client to fetch settings
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch email settings from database
-    const { data: settings } = await supabase
-      .from("app_settings")
-      .select("setting_key, setting_value")
-      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
-
-    const settingsMap = (settings || []).reduce((acc: Record<string, string>, s: any) => {
-      acc[s.setting_key] = s.setting_value;
-      return acc;
-    }, {});
-
-    const fromEmail = settingsMap.resend_from_email || "proposals@caprobuilders.com";
-    const fromName = settingsMap.resend_from_name || "Capro Builders";
-    const companyName = settingsMap.company_name || "Capro Builders";
-
     const body: EmailRequest = await req.json();
+    const companyId = body.companyId;
+
+    let fromEmail = "proposals@caprobuilders.com";
+    let fromName = "Capro Builders";
+    let companyName = "Capro Builders";
+
+    // First try to get settings from company_settings if companyId is provided
+    if (companyId) {
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
+
+      if (companySettings && companySettings.length > 0) {
+        const settingsMap = companySettings.reduce((acc: Record<string, string>, s: any) => {
+          acc[s.setting_key] = s.setting_value;
+          return acc;
+        }, {});
+
+        fromEmail = settingsMap.resend_from_email || fromEmail;
+        fromName = settingsMap.resend_from_name || fromName;
+        companyName = settingsMap.company_name || companyName;
+        
+        console.log(`Using company_settings for company ${companyId}: ${fromName} <${fromEmail}>`);
+      }
+    }
+
+    // Fallback to app_settings if company settings not found
+    if (fromEmail === "proposals@caprobuilders.com") {
+      const { data: appSettings } = await supabase
+        .from("app_settings")
+        .select("setting_key, setting_value")
+        .in("setting_key", ["resend_from_email", "resend_from_name", "company_name"]);
+
+      if (appSettings && appSettings.length > 0) {
+        const settingsMap = appSettings.reduce((acc: Record<string, string>, s: any) => {
+          acc[s.setting_key] = s.setting_value;
+          return acc;
+        }, {});
+
+        fromEmail = settingsMap.resend_from_email || fromEmail;
+        fromName = settingsMap.resend_from_name || fromName;
+        companyName = settingsMap.company_name || companyName;
+        
+        console.log(`Fallback to app_settings: ${fromName} <${fromEmail}>`);
+      }
+    }
 
     // Helper function to generate HTML email content
     const generateHtmlContent = (
