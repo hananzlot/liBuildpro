@@ -56,16 +56,11 @@ export function CompanySwitcher() {
   if (!isSuperAdmin) return null;
 
   const selectedCompany = viewingCompanyId 
-    ? companies.find(c => c.id === viewingCompanyId) || company
-    : company;
+    ? companies.find(c => c.id === viewingCompanyId)
+    : null;
 
   const handleSelect = (companyId: string) => {
-    if (companyId === company?.id) {
-      // Switching back to own company
-      setViewingCompanyId(null);
-    } else {
-      setViewingCompanyId(companyId);
-    }
+    setViewingCompanyId(companyId);
     setOpen(false);
   };
 
@@ -73,6 +68,9 @@ export function CompanySwitcher() {
     e.stopPropagation();
     setViewingCompanyId(null);
   };
+
+  // Show a prompt if no company is selected
+  const noCompanySelected = !viewingCompanyId;
 
   return (
     <div className="px-2 py-2">
@@ -84,22 +82,26 @@ export function CompanySwitcher() {
             aria-expanded={open}
             className={cn(
               "w-full justify-between text-left font-normal h-auto py-2",
-              isViewingOtherCompany && "border-amber-500/50 bg-amber-500/5"
+              noCompanySelected && "border-destructive/50 bg-destructive/5",
+              viewingCompanyId && "border-amber-500/50 bg-amber-500/5"
             )}
           >
             <div className="flex items-center gap-2 min-w-0">
               <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="flex flex-col min-w-0">
                 <span className="text-xs text-muted-foreground">
-                  {isViewingOtherCompany ? "Viewing as:" : "Switch Company"}
+                  {noCompanySelected ? "Select Company" : "Viewing as:"}
                 </span>
-                <span className="text-sm font-medium truncate">
-                  {selectedCompany?.name || "Select company..."}
+                <span className={cn(
+                  "text-sm font-medium truncate",
+                  noCompanySelected && "text-destructive"
+                )}>
+                  {selectedCompany?.name || "No company selected"}
                 </span>
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              {isViewingOtherCompany && (
+              {viewingCompanyId && (
                 <Badge 
                   variant="outline" 
                   className="h-5 px-1.5 text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 cursor-pointer hover:bg-amber-500/20"
@@ -134,9 +136,7 @@ export function CompanySwitcher() {
                     <Check
                       className={cn(
                         "h-4 w-4 shrink-0",
-                        (viewingCompanyId === c.id || (!viewingCompanyId && company?.id === c.id))
-                          ? "opacity-100"
-                          : "opacity-0"
+                        viewingCompanyId === c.id ? "opacity-100" : "opacity-0"
                       )}
                     />
                   </CommandItem>

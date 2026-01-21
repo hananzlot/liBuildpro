@@ -170,16 +170,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ? [simulatedRole!] 
     : actualRoles;
 
-  // Determine effective company context (super admin override or own company)
-  const isViewingOtherCompany = actualIsSuperAdmin && viewingCompanyId !== null && viewingCompanyId !== baseCompanyId;
-  const companyId = isViewingOtherCompany ? viewingCompanyId : baseCompanyId;
-  const corporationId = isViewingOtherCompany ? (viewingCompany?.corporation_id ?? null) : baseCorporationId;
-  const effectiveCompany = isViewingOtherCompany ? viewingCompany : company;
+  // Determine effective company context
+  // Super admins: companyId comes ONLY from the switcher (viewingCompanyId)
+  // Regular users: companyId comes from their profile
+  const isViewingOtherCompany = actualIsSuperAdmin && viewingCompanyId !== null;
+  const companyId = actualIsSuperAdmin ? viewingCompanyId : baseCompanyId;
+  const corporationId = actualIsSuperAdmin 
+    ? (viewingCompany?.corporation_id ?? null) 
+    : baseCorporationId;
+  const effectiveCompany = actualIsSuperAdmin ? viewingCompany : company;
 
   // Use subscription hook with the effective company
   const subscriptionData = useSubscription({ companyId, isSuperAdmin });
   
-  // Fetch company data when super admin switches to viewing a different company
+  // Fetch company data when super admin selects a company
   const fetchViewingCompany = useCallback(async (targetCompanyId: string) => {
     const { data, error } = await supabase
       .from("companies")
@@ -200,12 +204,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     setViewingCompanyIdState(newCompanyId);
     
-    if (newCompanyId && newCompanyId !== baseCompanyId) {
+    if (newCompanyId) {
       fetchViewingCompany(newCompanyId);
     } else {
       setViewingCompany(null);
     }
-  }, [actualIsSuperAdmin, baseCompanyId, fetchViewingCompany]);
+  }, [actualIsSuperAdmin, fetchViewingCompany]);
 
   useEffect(() => {
     // Set up auth state listener FIRST
