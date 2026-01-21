@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.sign-document]
 verify_jwt = false
+
+[functions.send-auth-email]
+verify_jwt = false
