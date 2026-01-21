@@ -101,7 +101,7 @@ const navSections: NavSection[] = [
     items: [
       { 
         title: "Dashboard", 
-        url: "/", 
+        url: "/dashboard", 
         icon: LayoutDashboard,
         roles: ['super_admin', 'admin', 'dispatch'],
         requiredFeature: 'dashboard'
