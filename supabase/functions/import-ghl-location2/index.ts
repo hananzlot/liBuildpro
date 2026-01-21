@@ -12,8 +12,43 @@ const corsHeaders = {
 const LOCATION_1_DEFAULT_PIPELINE_ID = '6bUqC98F6LCM9zuUitXw';
 const LOCATION_1_DEFAULT_STAGE_ID = 'bb6ea1e4-3cf0-44cb-a498-faca5cd59a1a'; // New Lead stage
 
+// Helper for rate-limited requests with exponential backoff
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  maxRetries = 6
+): Promise<Response> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    
+    if (response.status === 429) {
+      if (attempt === maxRetries) {
+        return response; // Return the 429 response to let caller handle it
+      }
+      
+      // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s
+      const retryAfterHeader = response.headers.get('retry-after');
+      const retryAfterMs = retryAfterHeader && !Number.isNaN(Number(retryAfterHeader))
+        ? Math.max(0, Number(retryAfterHeader) * 1000)
+        : 0;
+      
+      const expBackoffMs = Math.min(60000, 1000 * Math.pow(2, attempt - 1));
+      const jitterMs = Math.floor(Math.random() * 500);
+      const waitTime = Math.max(retryAfterMs, expBackoffMs) + jitterMs;
+      
+      console.log(`Rate limited (attempt ${attempt}/${maxRetries}), waiting ${waitTime}ms before retry...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      continue;
+    }
+    
+    return response;
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+
 async function fetchContactDetails(contactId: string, apiKey: string) {
-  const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
+  const response = await fetchWithRetry(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Version': '2021-07-28',
@@ -33,7 +68,7 @@ async function fetchContactDetails(contactId: string, apiKey: string) {
 async function updateContactInGHL(contactId: string, updates: any, apiKey: string) {
   console.log(`Updating contact ${contactId} with:`, JSON.stringify(updates, null, 2));
   
-  const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
+  const response = await fetchWithRetry(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -51,6 +86,7 @@ async function updateContactInGHL(contactId: string, updates: any, apiKey: strin
   
   return response.json();
 }
+
 
 async function createContactInGHL(contact: any, apiKey: string, locationId: string, fieldMappings: GHLFieldMappings) {
   const payload: any = {
@@ -112,7 +148,7 @@ async function createContactInGHL(contact: any, apiKey: string, locationId: stri
   console.log(`Creating contact in Location 1: ${payload.firstName} ${payload.lastName}`);
   console.log('Contact payload:', JSON.stringify(payload, null, 2));
   
-  const response = await fetch('https://services.leadconnectorhq.com/contacts/', {
+  const response = await fetchWithRetry('https://services.leadconnectorhq.com/contacts/', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -159,7 +195,7 @@ async function createOpportunityInGHL(opportunity: any, contactId: string, apiKe
   console.log(`Creating opportunity in Location 1: ${payload.name}`);
   console.log('Opportunity payload:', JSON.stringify(payload, null, 2));
   
-  const response = await fetch('https://services.leadconnectorhq.com/opportunities/', {
+  const response = await fetchWithRetry('https://services.leadconnectorhq.com/opportunities/', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -375,7 +411,7 @@ serve(async (req) => {
           console.log(`${alreadyExists ? 'Linked existing' : 'Imported'} contact: ${contact.contact_name} -> ${newContactId}`);
         }
         
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
         console.error(`Failed to import contact ${contactGhlId}:`, error);
       }
@@ -439,7 +475,7 @@ serve(async (req) => {
           console.log(`Imported opportunity: ${opportunity.name} -> ${newOppId}`);
         }
         
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
         console.error(`Failed to import opportunity ${oppGhlId}:`, error);
       }
