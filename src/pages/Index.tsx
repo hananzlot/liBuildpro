@@ -261,9 +261,7 @@ const Index = () => {
             {!isLoading && <NewEntryDialog users={metrics?.users || []} onSuccess={refetch} userId={user?.id} />}
             <SyncDropdown 
               onSyncGHL={handleSync} 
-              onSyncGHL2={handleSyncGHL2} 
               isSyncingGHL={syncMutation.isPending} 
-              isSyncingGHL2={syncGHL2Mutation.isPending} 
             />
             {!isGHLEnabled && (
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded-full border border-amber-200">
