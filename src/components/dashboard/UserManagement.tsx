@@ -144,8 +144,11 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     if (isSuperAdmin) return ROLE_CONFIG;
     
     return ROLE_CONFIG.filter(roleConfig => {
+      // Hide super_admin toggle from regular admins - they can't use it anyway
+      if (roleConfig.role === 'super_admin') return false;
+      
       const requiredFeature = ROLE_FEATURE_MAP[roleConfig.role];
-      // If no feature requirement, always show (admin, super_admin)
+      // If no feature requirement, always show (admin)
       if (!requiredFeature) return true;
       // Check if company has access to this feature
       return canUseFeature(requiredFeature);
