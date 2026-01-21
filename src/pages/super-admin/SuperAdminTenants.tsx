@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import { AppLayout } from '@/components/layout/AppLayout';
+import { SuperAdminLayout } from '@/components/layout/SuperAdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -16,14 +14,10 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Building2, Users, Calendar, DollarSign, Edit, Plus, RefreshCw, ChevronDown } from 'lucide-react';
+import { Edit, Plus, RefreshCw, ChevronDown } from 'lucide-react';
 import type { SubscriptionPlan, CompanySubscription, SubscriptionStatus } from '@/types/subscription';
 import { AddCompanyDialog } from '@/components/subscription/AddCompanyDialog';
-import { PlatformUsersSection } from '@/components/subscription/PlatformUsersSection';
-import { PlansEditorSection } from '@/components/subscription/PlansEditorSection';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AVAILABLE_FEATURES } from '@/constants/features';
-import { PlatformEmailSettings } from '@/components/admin/PlatformEmailSettings';
 
 interface CompanyWithSubscription {
   id: string;
@@ -35,8 +29,7 @@ interface CompanyWithSubscription {
   user_count: number;
 }
 
-export default function TenantManagement() {
-  const { isSuperAdmin, isLoading: authLoading } = useAuth();
+export default function SuperAdminTenants() {
   const queryClient = useQueryClient();
   const [selectedCompany, setSelectedCompany] = useState<CompanyWithSubscription | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -106,7 +99,6 @@ export default function TenantManagement() {
 
       return result;
     },
-    enabled: isSuperAdmin
   });
 
   // Fetch all plans for the dropdown
@@ -122,7 +114,6 @@ export default function TenantManagement() {
       if (error) throw error;
       return data as SubscriptionPlan[];
     },
-    enabled: isSuperAdmin
   });
 
   // Update subscription mutation
@@ -269,98 +260,25 @@ export default function TenantManagement() {
     }
   };
 
-  // Calculate metrics
-  const metrics = {
-    totalCompanies: companies?.length || 0,
-    activeSubscriptions: companies?.filter(c => c.subscription?.status === 'active').length || 0,
-    totalUsers: companies?.reduce((sum, c) => sum + c.user_count, 0) || 0,
-    mrr: companies?.reduce((sum, c) => {
-      if (c.subscription?.status === 'active' && c.subscription.plan) {
-        const price = c.subscription.billing_cycle === 'yearly' 
-          ? c.subscription.plan.price_yearly / 12 
-          : c.subscription.plan.price_monthly;
-        return sum + price;
-      }
-      return sum;
-    }, 0) || 0
-  };
-
-  if (!authLoading && !isSuperAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
   return (
-    <AppLayout>
+    <SuperAdminLayout 
+      title="Tenant Management" 
+      description="Manage company subscriptions and billing"
+    >
       <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Tenant Management</h1>
-            <p className="text-muted-foreground">Manage company subscriptions and billing</p>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Company
-            </Button>
-            <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['tenant-companies'] })} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
+        <div className="flex items-center justify-end gap-2">
+          <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Company
+          </Button>
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['tenant-companies'] })} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
         </div>
 
-        {/* Metrics Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Companies</CardTitle>
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.totalCompanies}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.activeSubscriptions}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{metrics.totalUsers}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${metrics.mrr.toLocaleString()}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Tabs for different sections */}
-        <Tabs defaultValue="companies" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="companies">Companies</TabsTrigger>
-            <TabsTrigger value="plans">Plans</TabsTrigger>
-            <TabsTrigger value="admins">Platform Admins</TabsTrigger>
-            <TabsTrigger value="email">Email Settings</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="companies">
-            {/* Companies Table */}
-            <Card>
+        {/* Companies Table */}
+        <Card>
           <CardHeader>
             <CardTitle>Companies</CardTitle>
             <CardDescription>All registered companies and their subscription status</CardDescription>
@@ -445,33 +363,16 @@ export default function TenantManagement() {
             )}
           </CardContent>
         </Card>
-          </TabsContent>
-
-          <TabsContent value="plans">
-            <PlansEditorSection />
-          </TabsContent>
-
-          <TabsContent value="admins">
-            <PlatformUsersSection />
-          </TabsContent>
-
-          <TabsContent value="email">
-            <PlatformEmailSettings />
-          </TabsContent>
-        </Tabs>
 
         {/* Edit Subscription Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {selectedCompany?.subscription ? 'Edit Subscription' : 'Create Subscription'}
+                {selectedCompany?.subscription ? 'Edit' : 'Create'} Subscription
               </DialogTitle>
               <DialogDescription>
-                {selectedCompany?.subscription 
-                  ? `Modify subscription for ${selectedCompany?.name}`
-                  : `Create a new subscription for ${selectedCompany?.name}`
-                }
+                {selectedCompany?.name}
               </DialogDescription>
             </DialogHeader>
 
@@ -480,7 +381,7 @@ export default function TenantManagement() {
                 <Label>Plan</Label>
                 <Select 
                   value={editForm.plan_id} 
-                  onValueChange={(value) => setEditForm(prev => ({ ...prev, plan_id: value }))}
+                  onValueChange={(v) => setEditForm(prev => ({ ...prev, plan_id: v }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a plan" />
@@ -488,7 +389,7 @@ export default function TenantManagement() {
                   <SelectContent>
                     {plans?.map((plan) => (
                       <SelectItem key={plan.id} value={plan.id}>
-                        {plan.name} - ${plan.price_monthly}/mo
+                        {plan.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -499,7 +400,7 @@ export default function TenantManagement() {
                 <Label>Status</Label>
                 <Select 
                   value={editForm.status} 
-                  onValueChange={(value) => setEditForm(prev => ({ ...prev, status: value as SubscriptionStatus }))}
+                  onValueChange={(v) => setEditForm(prev => ({ ...prev, status: v as SubscriptionStatus }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -519,7 +420,7 @@ export default function TenantManagement() {
                 <Label>Billing Cycle</Label>
                 <Select 
                   value={editForm.billing_cycle} 
-                  onValueChange={(value) => setEditForm(prev => ({ ...prev, billing_cycle: value as 'monthly' | 'yearly' }))}
+                  onValueChange={(v) => setEditForm(prev => ({ ...prev, billing_cycle: v as 'monthly' | 'yearly' }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select billing cycle" />
@@ -532,7 +433,7 @@ export default function TenantManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label>Period End Date</Label>
+                <Label>Current Period End</Label>
                 <Input 
                   type="date" 
                   value={editForm.current_period_end}
@@ -543,48 +444,50 @@ export default function TenantManagement() {
               <div className="space-y-2">
                 <Label>Max Users Override</Label>
                 <Input 
-                  type="number"
+                  type="number" 
                   placeholder="Leave empty to use plan default"
                   value={editForm.max_users_override}
                   onChange={(e) => setEditForm(prev => ({ ...prev, max_users_override: e.target.value }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Override the plan's user limit for this company. -1 = unlimited. Empty = use plan default.
+                  Plan default: {plans?.find(p => p.id === editForm.plan_id)?.max_users === -1 
+                    ? 'Unlimited' 
+                    : plans?.find(p => p.id === editForm.plan_id)?.max_users || 'N/A'}
                 </p>
               </div>
 
-              {/* Features Override */}
-              {editForm.plan_id && (
-                <Collapsible open={featuresOpen} onOpenChange={setFeaturesOpen}>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="outline" className="w-full justify-between">
-                      <span>Features Override</span>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${featuresOpen ? 'rotate-180' : ''}`} />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2">
-                    <div className="grid grid-cols-2 gap-2 p-3 border rounded-lg">
-                      {AVAILABLE_FEATURES.map((feature) => (
-                        <div key={feature.key} className="flex items-center justify-between py-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm">{feature.label}</span>
-                            {isFeatureOverridden(feature.key) && (
-                              <Badge variant="secondary" className="text-xs">override</Badge>
-                            )}
-                          </div>
-                          <Switch
-                            checked={getFeatureValue(feature.key)}
-                            onCheckedChange={() => toggleFeatureOverride(feature.key)}
-                          />
-                        </div>
-                      ))}
+              {/* Feature Overrides */}
+              <Collapsible open={featuresOpen} onOpenChange={setFeaturesOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    Feature Overrides
+                    <ChevronDown className={`h-4 w-4 transition-transform ${featuresOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4 space-y-3">
+                  {editForm.plan_id && AVAILABLE_FEATURES.map((feature) => (
+                    <div key={feature.key} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{feature.label}</span>
+                        {isFeatureOverridden(feature.key) && (
+                          <Badge variant="secondary" className="text-xs">
+                            Overridden
+                          </Badge>
+                        )}
+                      </div>
+                      <Switch
+                        checked={getFeatureValue(feature.key)}
+                        onCheckedChange={() => toggleFeatureOverride(feature.key)}
+                      />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Toggle to override plan defaults. "override" badge indicates custom setting.
+                  ))}
+                  {!editForm.plan_id && (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      Select a plan first to configure features
                     </p>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             <DialogFooter>
@@ -592,7 +495,7 @@ export default function TenantManagement() {
                 Cancel
               </Button>
               <Button onClick={handleSave} disabled={updateSubscription.isPending}>
-                {updateSubscription.isPending ? 'Saving...' : 'Save'}
+                {updateSubscription.isPending ? 'Saving...' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -605,6 +508,6 @@ export default function TenantManagement() {
           plans={plans || []}
         />
       </div>
-    </AppLayout>
+    </SuperAdminLayout>
   );
 }

@@ -241,8 +241,8 @@ const navSections: NavSection[] = [
     roles: ['super_admin'],
     items: [
       { 
-        title: "Tenant Management", 
-        url: "/super-admin/tenants", 
+        title: "Admin Portal", 
+        url: "/super-admin", 
         icon: Building2,
         roles: ['super_admin']
       },

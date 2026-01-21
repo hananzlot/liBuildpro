@@ -19,10 +19,16 @@ import ClientPortal from "./pages/ClientPortal";
 import DocumentPortal from "./pages/DocumentPortal";
 import AdminSettings from "./pages/AdminSettings";
 import SalesPortal from "./pages/SalesPortal";
-import TenantManagement from "./pages/TenantManagement";
 import Opportunities from "./pages/Opportunities";
 import Appointments from "./pages/Appointments";
 import NotFound from "./pages/NotFound";
+// Super Admin Portal Pages
+import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
+import SuperAdminTenants from "./pages/super-admin/SuperAdminTenants";
+import AppDefaultSettings from "./pages/super-admin/AppDefaultSettings";
+import PlatformAdmins from "./pages/super-admin/PlatformAdmins";
+import SubscriptionPlans from "./pages/super-admin/SubscriptionPlans";
+import PlatformEmailSettingsPage from "./pages/super-admin/PlatformEmailSettings";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -276,10 +282,17 @@ const App = () => (
             <Route path="/portal" element={<ClientPortal />} />
             {/* Public document portal - no auth required */}
             <Route path="/document-portal" element={<DocumentPortal />} />
-            {/* Super Admin tenant management */}
-            <Route path="/super-admin/tenants" element={<TenantManagement />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
+            
+            {/* Super Admin Portal Routes */}
+            <Route path="/super-admin" element={<SuperAdminDashboard />} />
+            <Route path="/super-admin/tenants" element={<SuperAdminTenants />} />
+            <Route path="/super-admin/app-settings" element={<AppDefaultSettings />} />
+            <Route path="/super-admin/admins" element={<PlatformAdmins />} />
+            <Route path="/super-admin/plans" element={<SubscriptionPlans />} />
+            <Route path="/super-admin/email-settings" element={<PlatformEmailSettingsPage />} />
+            
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
           </TooltipProvider>
