@@ -117,8 +117,10 @@ export function useSubscription({ companyId, isSuperAdmin }: UseSubscriptionProp
   const userLimit = subscription?.max_users_override ?? plan?.max_users ?? -1;
   const userLimitReached = userLimit !== -1 && userCount >= userLimit;
 
+  // Note: canUseFeature depends on isSuperAdmin prop which should reflect
+  // the simulated role state from AuthContext for proper testing
   const canUseFeature = useCallback((featureKey: string): boolean => {
-    // Super admins can use all features
+    // Super admins can use all features (but this should be false when simulating non-super-admin roles)
     if (isSuperAdmin) return true;
     // No active subscription means no features
     if (!isSubscriptionActive) return false;
