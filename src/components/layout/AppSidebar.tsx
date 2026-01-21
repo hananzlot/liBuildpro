@@ -70,6 +70,7 @@ interface NavSubItem {
   title: string;
   url: string;
   icon?: React.ComponentType<{ className?: string }>;
+  requiredFeature?: string;
 }
 
 interface NavItem {
@@ -81,135 +82,157 @@ interface NavItem {
   excludeRoles?: AppRole[];
   subItems?: NavSubItem[];
   dynamicSuffix?: 'ar' | 'ap';
+  requiredFeature?: string;
 }
 
 interface NavSection {
   label: string;
   roles: AppRole[];
   items: NavItem[];
+  requiredFeature?: string;
 }
 
 const navSections: NavSection[] = [
   {
     label: "Dispatch",
     roles: ['super_admin', 'admin', 'dispatch'],
+    requiredFeature: 'dashboard',
     items: [
       { 
         title: "Dashboard", 
         url: "/", 
         icon: LayoutDashboard,
-        roles: ['super_admin', 'admin', 'dispatch']
+        roles: ['super_admin', 'admin', 'dispatch'],
+        requiredFeature: 'dashboard'
       },
       { 
         title: "Opportunities", 
         url: "/opportunities", 
         icon: Briefcase,
-        roles: ['super_admin', 'admin', 'dispatch']
+        roles: ['super_admin', 'admin', 'dispatch'],
+        requiredFeature: 'ghl_integration'
       },
       { 
         title: "Appointments", 
         url: "/appointments", 
         icon: Calendar,
-        roles: ['super_admin', 'admin', 'dispatch']
+        roles: ['super_admin', 'admin', 'dispatch'],
+        requiredFeature: 'ghl_integration'
       },
       { 
         title: "Follow-up", 
         url: "/follow-up", 
         icon: ListChecks,
-        roles: ['super_admin', 'admin', 'dispatch']
+        roles: ['super_admin', 'admin', 'dispatch'],
+        requiredFeature: 'ghl_integration'
       },
     ],
   },
   {
     label: "Production",
     roles: ['super_admin', 'admin', 'production'],
+    requiredFeature: 'production',
     items: [
       { 
         title: "Projects", 
         url: "/production?view=projects", 
         icon: FolderKanban,
-        roles: ['super_admin', 'admin', 'production']
+        roles: ['super_admin', 'admin', 'production'],
+        requiredFeature: 'production'
       },
       { 
         title: "Analytics", 
         url: "/production?view=analytics", 
         icon: BarChart3,
-        roles: ['super_admin', 'admin']
+        roles: ['super_admin', 'admin'],
+        requiredFeature: 'analytics'
       },
       { 
         title: "Outstanding AR", 
         dynamicSuffix: "ar",
         url: "/production?view=analytics&tab=cashflow&kpi=outstandingAR", 
         icon: FileText,
-        roles: ['super_admin', 'admin', 'production']
+        roles: ['super_admin', 'admin', 'production'],
+        requiredFeature: 'production'
       },
       { 
         title: "Outstanding AP", 
         dynamicSuffix: "ap",
         url: "/production?view=analytics&tab=cashflow&section=payables", 
         icon: Briefcase,
-        roles: ['super_admin', 'admin', 'production']
+        roles: ['super_admin', 'admin', 'production'],
+        requiredFeature: 'production'
       },
       { 
         title: "Subcontractors", 
         url: "/production?view=subcontractors", 
         icon: HardHat,
-        roles: ['super_admin', 'admin', 'production']
+        roles: ['super_admin', 'admin', 'production'],
+        requiredFeature: 'production'
       },
     ],
   },
   {
     label: "Sales",
     roles: ['super_admin', 'admin', 'sales'],
+    requiredFeature: 'sales_portal',
     items: [
       { 
         title: "Palisades", 
         url: "https://palisades.ca-probuilders.com", 
         icon: ExternalLink,
         external: true,
-        roles: ['super_admin', 'admin', 'sales']
+        roles: ['super_admin', 'admin', 'sales'],
+        requiredFeature: 'sales_portal'
       },
     ],
   },
   {
     label: "Estimates & Contracts",
     roles: ['super_admin', 'admin', 'contract_manager'],
+    requiredFeature: 'estimates',
     items: [
       { 
         title: "Estimates", 
         url: "/estimates?view=list", 
         icon: Calculator,
-        roles: ['super_admin', 'admin', 'contract_manager']
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'estimates'
       },
       { 
         title: "Proposals", 
         url: "/estimates?view=proposals", 
         icon: Send,
-        roles: ['super_admin', 'admin', 'contract_manager']
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'estimates'
       },
       { 
         title: "Contracts", 
         url: "/estimates?view=contracts", 
         icon: FileSignature,
-        roles: ['super_admin', 'admin', 'contract_manager']
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'estimates'
       },
       { 
         title: "E-Sign Misc Docs", 
         url: "/documents", 
         icon: FileText,
-        roles: ['super_admin', 'admin', 'contract_manager']
+        roles: ['super_admin', 'admin', 'contract_manager'],
+        requiredFeature: 'documents'
       },
     ],
   },
   {
     label: "Magazines",
     roles: ['super_admin', 'admin', 'magazine'],
+    requiredFeature: 'magazine_sales',
     items: [
       { 
         title: "Magazine Sales", 
         url: "/magazine-sales", 
         icon: BookOpen,
-        roles: ['super_admin', 'admin', 'magazine']
+        roles: ['super_admin', 'admin', 'magazine'],
+        requiredFeature: 'magazine_sales'
       },
     ],
   },
@@ -248,7 +271,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { state, setOpenMobile, setOpen, isMobile } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, company, isAdmin, isSuperAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles } = useAuth();
+  const { user, profile, company, isAdmin, isSuperAdmin, isMagazine, isProduction, isDispatch, isSales, isContractManager, signOut, simulatedRole, isSimulating, setSimulatedRole, availableRoles, canUseFeature } = useAuth();
   const { versionString, version } = useAppVersion();
   const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
   const collapsed = state === "collapsed";
@@ -294,6 +317,11 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   };
 
   const canViewItem = (item: NavItem): boolean => {
+    // Check feature access first (super admins bypass this)
+    if (item.requiredFeature && !isSuperAdmin && !canUseFeature(item.requiredFeature)) {
+      return false;
+    }
+
     if (item.roles && item.roles.length > 0) {
       const hasRequiredRole = item.roles.some(role => {
         switch (role) {
@@ -350,6 +378,11 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   };
 
   const canViewSection = (section: NavSection): boolean => {
+    // Check feature access first (super admins bypass this)
+    if (section.requiredFeature && !isSuperAdmin && !canUseFeature(section.requiredFeature)) {
+      return false;
+    }
+
     return section.roles.some(role => {
       switch (role) {
         case 'super_admin': return isSuperAdmin;
