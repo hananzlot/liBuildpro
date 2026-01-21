@@ -1663,7 +1663,11 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 <span className="text-muted-foreground">%</span>
                               </div>
                               <span className="text-sm text-muted-foreground">
-                                = {formatCurrency((totals.total * phase.percent) / 100)}
+                                = {formatCurrency(
+                                  phase.phase_name === 'Deposit' 
+                                    ? Math.min((totals.total * phase.percent) / 100, formData.deposit_max_amount)
+                                    : (totals.total * phase.percent) / 100
+                                )}
                               </span>
                               <Select
                                 value={phase.due_type}
