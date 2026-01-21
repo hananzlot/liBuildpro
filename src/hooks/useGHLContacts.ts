@@ -251,8 +251,8 @@ async function fetchAllFromTable(
 }
 
 async function fetchContactsFromDB(companyId?: string | null): Promise<DBContact[]> {
-  // Exclude Location 2 contacts - they are imported to Location 1
-  return fetchAllFromTable("contacts", "ghl_date_added", LOCATION_2_ID, companyId) as Promise<DBContact[]>;
+  // Include all locations - GHL Location 2 has equal priority
+  return fetchAllFromTable("contacts", "ghl_date_added", undefined, companyId) as Promise<DBContact[]>;
 }
 
 async function fetchOpportunitiesFromDB(companyId?: string | null): Promise<DBOpportunity[]> {
@@ -262,8 +262,8 @@ async function fetchOpportunitiesFromDB(companyId?: string | null): Promise<DBOp
 }
 
 async function fetchAppointmentsFromDB(companyId?: string | null): Promise<DBAppointment[]> {
-  // Exclude Location 2 appointments
-  return fetchAllFromTable("appointments", "start_time", LOCATION_2_ID, companyId) as Promise<DBAppointment[]>;
+  // Include all locations - GHL Location 2 has equal priority
+  return fetchAllFromTable("appointments", "start_time", undefined, companyId) as Promise<DBAppointment[]>;
 }
 
 async function fetchUsersFromDB(companyId?: string | null): Promise<DBUser[]> {
@@ -278,11 +278,10 @@ async function fetchUsersFromDB(companyId?: string | null): Promise<DBUser[]> {
 }
 
 async function fetchConversationsFromDB(companyId?: string | null): Promise<DBConversation[]> {
-  // Exclude Location 2 conversations
+  // Include all locations - GHL Location 2 has equal priority
   let query = supabase
     .from("conversations")
     .select("*")
-    .neq("location_id", LOCATION_2_ID)
     .order("last_message_date", { ascending: false });
   if (companyId) {
     query = query.eq("company_id", companyId);
@@ -293,11 +292,10 @@ async function fetchConversationsFromDB(companyId?: string | null): Promise<DBCo
 }
 
 async function fetchTasksFromDB(companyId?: string | null): Promise<DBTask[]> {
-  // Exclude Location 2 tasks
+  // Include all locations - GHL Location 2 has equal priority
   let query = supabase
     .from("ghl_tasks")
     .select("*")
-    .neq("location_id", LOCATION_2_ID)
     .order("due_date", { ascending: true });
   if (companyId) {
     query = query.eq("company_id", companyId);
@@ -308,11 +306,10 @@ async function fetchTasksFromDB(companyId?: string | null): Promise<DBTask[]> {
 }
 
 async function fetchContactNotesFromDB(companyId?: string | null): Promise<DBContactNote[]> {
-  // Exclude Location 2 notes
+  // Include all locations - GHL Location 2 has equal priority
   let query = supabase
     .from("contact_notes")
     .select("*")
-    .neq("location_id", LOCATION_2_ID)
     .order("ghl_date_added", { ascending: false });
   if (companyId) {
     query = query.eq("company_id", companyId);
@@ -323,11 +320,10 @@ async function fetchContactNotesFromDB(companyId?: string | null): Promise<DBCon
 }
 
 async function fetchCallLogsFromDB(companyId?: string | null): Promise<DBCallLog[]> {
-  // Exclude Location 2 call logs
+  // Include all locations - GHL Location 2 has equal priority
   let query = supabase
     .from("call_logs")
     .select("*")
-    .neq("location_id", LOCATION_2_ID)
     .order("call_date", { ascending: false });
   if (companyId) {
     query = query.eq("company_id", companyId);
