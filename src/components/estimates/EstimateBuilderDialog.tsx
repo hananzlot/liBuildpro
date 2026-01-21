@@ -475,16 +475,28 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       // Add payment schedule if provided
       if (scope.payment_schedule?.length > 0) {
-        const newSchedule: PaymentPhase[] = scope.payment_schedule.map((p: any, idx: number) => ({
-          id: generateId(),
-          phase_name: p.phase_name,
-          percent: p.percent || 0,
-          amount: 0,
-          due_type: p.due_type || "milestone",
-          due_date: null,
-          description: p.description || "",
-          sort_order: idx,
-        }));
+        const newSchedule: PaymentPhase[] = scope.payment_schedule.map((p: any, idx: number) => {
+          // For the first payment, prefer the AI's first_payment_name if available
+          let phaseName = p.phase_name;
+          if (idx === 0 && scope.first_payment_name) {
+            phaseName = scope.first_payment_name;
+          }
+          // Never use "Deposit" - replace with a generic if needed
+          if (phaseName?.toLowerCase() === 'deposit') {
+            phaseName = scope.first_payment_name || 'Initial Payment';
+          }
+          
+          return {
+            id: generateId(),
+            phase_name: phaseName,
+            percent: p.percent || 0,
+            amount: 0,
+            due_type: p.due_type || "milestone",
+            due_date: null,
+            description: p.description || "",
+            sort_order: idx,
+          };
+        });
         setPaymentSchedule(newSchedule);
       }
 

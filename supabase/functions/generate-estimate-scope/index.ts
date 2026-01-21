@@ -146,7 +146,7 @@ Return a JSON object with this exact structure:
   ],
   "payment_schedule": [
     {
-      "phase_name": "Deposit|Materials|Rough Complete|Final",
+      "phase_name": "string - Name the phase based on the actual project work, NOT 'Deposit'. Examples: 'Materials & Ordering' for material-heavy jobs, 'Mobilization' for large projects, 'Pre-Construction' for remodels, 'Roof Materials' for roofing, 'Cabinet Order' for kitchens. Be creative and specific to the job scope.",
       "percent": number,
       "due_type": "on_approval|milestone|date",
       "description": "When this payment is due"
@@ -154,7 +154,8 @@ Return a JSON object with this exact structure:
   ],
   "suggested_deposit_percent": number (typically 30-50% depending on project size),
   "suggested_tax_rate": 9.5,
-  "notes": "Include note about ${regionInfo.region} pricing and any regional considerations"
+  "notes": "Include note about ${regionInfo.region} pricing and any regional considerations",
+  "first_payment_name": "string - A short, project-specific name for the initial payment. DO NOT use 'Deposit'. Instead, name it after what the money funds: 'Materials & Scheduling', 'Cabinet Order', 'Roof Materials', 'Mobilization', 'Pre-Construction', 'Initial Materials', etc. Be specific to this job's scope."
 }
 
 EXAMPLES OF CORRECT UNIT COSTS (adjusted for ${regionInfo.region}):
