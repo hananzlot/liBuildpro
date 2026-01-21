@@ -91,6 +91,40 @@ async function fetchRecentOpportunities(
   return allOpportunities;
 }
 
+// Extract scope of work from Facebook campaign attribution
+function extractScopeFromAttribution(attributions: any[] | null): string | null {
+  if (!attributions || !Array.isArray(attributions)) return null;
+  
+  // Look for Facebook/Paid Social attribution with campaign info
+  for (const attr of attributions) {
+    // Check if this is from Facebook/Paid Social
+    const isFacebookLead = attr.medium === 'facebook' || 
+                           attr.adSource === 'facebook' ||
+                           attr.utmSessionSource === 'Paid Social';
+    
+    if (isFacebookLead && attr.utmCampaign) {
+      // Extract the product/service type from campaign name
+      // Campaign format: "Product Name | Price | Date" or "[Lead Gen] Product Name"
+      const campaign = attr.utmCampaign as string;
+      
+      // Remove [Lead Gen] prefix if present
+      let cleanCampaign = campaign.replace(/^\[Lead Gen\]\s*/i, '');
+      cleanCampaign = cleanCampaign.replace(/^\d{4}\/\d{2}\/\d{2}\s*\[Lead Gen\]\s*/i, '');
+      
+      // Extract the product name (before the first | or the whole thing)
+      const parts = cleanCampaign.split('|');
+      const productName = parts[0].trim();
+      
+      if (productName) {
+        console.log(`Extracted scope "${productName}" from campaign: ${campaign}`);
+        return productName;
+      }
+    }
+  }
+  
+  return null;
+}
+
 // Fetch a single contact by ID
 async function fetchContact(ghlApiKey: string, contactId: string): Promise<any | null> {
   try {
@@ -316,6 +350,9 @@ serve(async (req) => {
       const missingContactIds = Array.from(contactIds).filter(id => !existingContactIds.has(id));
       console.log(`Need to fetch ${missingContactIds.length} missing contacts`);
 
+      // Map to store contact attributions for scope extraction
+      const contactAttributions = new Map<string, any[]>();
+
       const contactsToUpsert: any[] = [];
       for (const contactId of missingContactIds) {
         const contact = await fetchContact(apiKey, contactId);
@@ -340,6 +377,10 @@ serve(async (req) => {
             attributions: contact.attributions || null,
             last_synced_at: syncTimestamp,
           });
+          // Store attributions for scope extraction
+          if (contact.attributions) {
+            contactAttributions.set(contact.id, contact.attributions);
+          }
         }
         // Small delay to avoid rate limits
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -355,27 +396,52 @@ serve(async (req) => {
         console.log(`Upserted ${contactsToUpsert.length} contacts`);
       }
 
-      // Prepare opportunities for upsert
-      const oppsToUpsert = opportunities.map(o => ({
-        ghl_id: o.id,
-        company_id: integration.company_id,
-        provider: 'ghl',
-        external_id: o.id,
-        location_id: o.locationId || integration.location_id,
-        contact_id: o.contactId || null,
-        pipeline_id: o.pipelineId || null,
-        pipeline_stage_id: o.pipelineStageId || null,
-        pipeline_name: pipelineNames.get(o.pipelineId) || null,
-        stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
-        name: o.name || null,
-        monetary_value: o.monetaryValue || null,
-        status: o.status || null,
-        assigned_to: o.assignedTo || null,
-        ghl_date_added: o.createdAt || null,
-        ghl_date_updated: o.updatedAt || null,
-        custom_fields: o.customFields || null,
-        last_synced_at: syncTimestamp,
-      }));
+      // Fetch attributions for existing contacts that we didn't just fetch
+      const existingContactsToQuery = Array.from(contactIds).filter(id => existingContactIds.has(id));
+      if (existingContactsToQuery.length > 0) {
+        for (let i = 0; i < existingContactsToQuery.length; i += 100) {
+          const batch = existingContactsToQuery.slice(i, i + 100);
+          const { data: existingContacts } = await supabase
+            .from('contacts')
+            .select('ghl_id, attributions')
+            .in('ghl_id', batch);
+          
+          (existingContacts || []).forEach((c: any) => {
+            if (c.attributions) {
+              contactAttributions.set(c.ghl_id, c.attributions);
+            }
+          });
+        }
+      }
+
+      // Prepare opportunities for upsert with scope_of_work from Facebook campaigns
+      const oppsToUpsert = opportunities.map(o => {
+        // Try to extract scope from contact's attributions
+        const attributions = o.contactId ? contactAttributions.get(o.contactId) : null;
+        const scopeFromCampaign = extractScopeFromAttribution(attributions || null);
+        
+        return {
+          ghl_id: o.id,
+          company_id: integration.company_id,
+          provider: 'ghl',
+          external_id: o.id,
+          location_id: o.locationId || integration.location_id,
+          contact_id: o.contactId || null,
+          pipeline_id: o.pipelineId || null,
+          pipeline_stage_id: o.pipelineStageId || null,
+          pipeline_name: pipelineNames.get(o.pipelineId) || null,
+          stage_name: stageNames.get(o.pipelineStageId) || o.status || null,
+          name: o.name || null,
+          monetary_value: o.monetaryValue || null,
+          status: o.status || null,
+          assigned_to: o.assignedTo || null,
+          ghl_date_added: o.createdAt || null,
+          ghl_date_updated: o.updatedAt || null,
+          custom_fields: o.customFields || null,
+          scope_of_work: scopeFromCampaign, // Auto-populate from Facebook campaign
+          last_synced_at: syncTimestamp,
+        };
+      });
 
       // Upsert opportunities
       if (oppsToUpsert.length > 0) {
