@@ -172,6 +172,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // Defer profile fetch to avoid deadlock
         if (session?.user) {
+          // Set profile loading BEFORE setTimeout so there's no gap
+          setIsProfileLoading(true);
           setTimeout(() => {
             fetchProfileAndCompany(session.user.id);
             checkUserRoles(session.user.id);
@@ -182,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setCorporation(null);
           setActualRoles([]);
           setSimulatedRole(null);
+          setIsProfileLoading(false);
         }
       }
     );
@@ -192,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        setIsProfileLoading(true);
         fetchProfileAndCompany(session.user.id);
         checkUserRoles(session.user.id);
       }
@@ -202,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchProfileAndCompany = async (userId: string) => {
-    setIsProfileLoading(true);
+    // Note: isProfileLoading is set to true by the caller before this runs
     try {
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
