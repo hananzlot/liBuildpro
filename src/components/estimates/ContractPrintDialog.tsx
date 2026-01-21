@@ -275,13 +275,6 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
       ` : ""}
 
       ${signatureHtml}
-
-      ${data.estimate.notes ? `
-        <div class="section" style="margin-top: 30px">
-          <div class="section-title">Notes</div>
-          <p style="white-space: pre-wrap; font-size: 14px">${data.estimate.notes}</p>
-        </div>
-      ` : ""}
     `;
   };
 

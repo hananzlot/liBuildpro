@@ -930,25 +930,14 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           </Card>
         )}
 
-        {/* Terms & Notes */}
-        {(estimate.terms_and_conditions || estimate.notes) && (
+        {/* Terms & Conditions - Notes are internal only, not shown to customer */}
+        {estimate.terms_and_conditions && (
           <Card>
             <CardHeader>
               <CardTitle>Terms & Conditions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {estimate.notes && (
-                <div>
-                  <h4 className="font-medium mb-2">Notes</h4>
-                  <p className="text-sm whitespace-pre-wrap">{estimate.notes}</p>
-                </div>
-              )}
-              {estimate.terms_and_conditions && (
-                <div>
-                  <h4 className="font-medium mb-2">Terms</h4>
-                  <p className="text-sm whitespace-pre-wrap">{estimate.terms_and_conditions}</p>
-                </div>
-              )}
+              <p className="text-sm whitespace-pre-wrap">{estimate.terms_and_conditions}</p>
             </CardContent>
           </Card>
         )}
