@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PortalChatProvider } from "@/contexts/PortalChatContext";
 import { SubscriptionGuard } from "@/components/subscription/SubscriptionGuard";
+import { FeatureLockedPrompt } from "@/components/subscription/FeatureLockedPrompt";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Production from "./pages/Production";
@@ -68,19 +69,7 @@ function ProtectedRoute({
 
   // Check subscription feature access (super admins bypass this check)
   if (requiredFeature && !isSuperAdmin && !canUseFeature(requiredFeature)) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center space-y-4 max-w-md">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-            <Loader2 className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold">Feature Not Available</h1>
-          <p className="text-muted-foreground">
-            This feature is not included in your current subscription plan. Please contact your administrator to upgrade.
-          </p>
-        </div>
-      </div>
-    );
+    return <FeatureLockedPrompt featureKey={requiredFeature} />;
   }
 
   // Sales-only users (no other roles) can only access sales-portal
