@@ -90,7 +90,7 @@ export function CompanySwitcher() {
               <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="flex flex-col min-w-0">
                 <span className="text-xs text-muted-foreground">
-                  {noCompanySelected ? "Select Company" : "Viewing as:"}
+                  {noCompanySelected ? "Select Company" : "Working on:"}
                 </span>
                 <span className={cn(
                   "text-sm font-medium truncate",
