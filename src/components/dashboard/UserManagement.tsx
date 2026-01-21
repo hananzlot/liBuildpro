@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Users, Shield, ShieldCheck, Loader2, UserPlus, Eye, EyeOff, Lock, AlertTriangle, Trash2 } from "lucide-react";
 import type { AppRole } from "@/contexts/AuthContext";
@@ -55,7 +56,7 @@ const PROFILES_QUERY_KEY = ["user-management", "profiles"] as const;
 const ROLES_QUERY_KEY = ["user-management", "roles"] as const;
 
 export function UserManagement({ open, onOpenChange }: UserManagementProps) {
-  const { isSuperAdmin, canUseFeature } = useAuth();
+  const { isSuperAdmin, canUseFeature, companyId } = useAuth();
   const queryClient = useQueryClient();
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
@@ -63,6 +64,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newFullName, setNewFullName] = useState("");
+  const [newRole, setNewRole] = useState<AppRole | "">("");
   const [showPassword, setShowPassword] = useState(false);
   const [resettingUserId, setResettingUserId] = useState<string | null>(null);
   const [settingPasswordForUser, setSettingPasswordForUser] = useState<Profile | null>(null);
@@ -120,15 +122,30 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     });
   }, [isSuperAdmin, canUseFeature]);
 
+  // Roles available for new user creation (exclude super_admin for non-super admins)
+  const creatableRoles = useMemo(() => {
+    return availableRoles.filter(roleConfig => {
+      // Only super admins can create super admins
+      if (roleConfig.role === 'super_admin' && !isSuperAdmin) return false;
+      return true;
+    });
+  }, [availableRoles, isSuperAdmin]);
+
   const createUserMutation = useMutation({
-    mutationFn: async ({ email, password, fullName }: { email: string; password: string; fullName: string }) => {
+    mutationFn: async ({ email, password, fullName, role }: { email: string; password: string; fullName: string; role?: AppRole }) => {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       
       if (!token) throw new Error("Not authenticated");
 
       const response = await supabase.functions.invoke("create-user", {
-        body: { email, password, fullName },
+        body: { 
+          email, 
+          password, 
+          fullName,
+          companyId: companyId || undefined, // Auto-assign to admin's company
+          role: role || undefined, // Optional initial role
+        },
       });
 
       if (response.error) throw response.error;
@@ -138,10 +155,12 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PROFILES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ROLES_QUERY_KEY });
       toast.success("User created successfully");
       setNewEmail("");
       setNewPassword("");
       setNewFullName("");
+      setNewRole("");
       setShowCreateForm(false);
     },
     onError: (error) => {
@@ -304,7 +323,12 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
       toast.error("Password must be at least 6 characters");
       return;
     }
-    createUserMutation.mutate({ email: newEmail, password: newPassword, fullName: newFullName });
+    createUserMutation.mutate({ 
+      email: newEmail, 
+      password: newPassword, 
+      fullName: newFullName,
+      role: newRole || undefined,
+    });
   };
 
   const isLoading = profilesLoading || rolesLoading;
@@ -374,31 +398,48 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="newPassword">Password *</Label>
-              <div className="relative">
-                <Input
-                  id="newPassword"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Minimum 6 characters"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  minLength={6}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </Button>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Password *</Label>
+                <div className="relative">
+                  <Input
+                    id="newPassword"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Minimum 6 characters"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="newRole">Initial Role (optional)</Label>
+                <Select value={newRole} onValueChange={(value) => setNewRole(value as AppRole)}>
+                  <SelectTrigger id="newRole">
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {creatableRoles.map((roleConfig) => (
+                      <SelectItem key={roleConfig.role} value={roleConfig.role}>
+                        {roleConfig.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="flex gap-2 justify-end">
@@ -410,6 +451,7 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
                   setNewEmail("");
                   setNewPassword("");
                   setNewFullName("");
+                  setNewRole("");
                 }}
               >
                 Cancel
