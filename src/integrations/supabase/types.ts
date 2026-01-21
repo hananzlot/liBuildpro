@@ -2048,6 +2048,7 @@ export type Database = {
           declined_at: string | null
           deposit_amount: number | null
           deposit_due_rule: string | null
+          deposit_max_amount: number | null
           deposit_percent: number | null
           deposit_required: boolean | null
           discount_amount: number | null
@@ -2093,6 +2094,7 @@ export type Database = {
           declined_at?: string | null
           deposit_amount?: number | null
           deposit_due_rule?: string | null
+          deposit_max_amount?: number | null
           deposit_percent?: number | null
           deposit_required?: boolean | null
           discount_amount?: number | null
@@ -2138,6 +2140,7 @@ export type Database = {
           declined_at?: string | null
           deposit_amount?: number | null
           deposit_due_rule?: string | null
+          deposit_max_amount?: number | null
           deposit_percent?: number | null
           deposit_required?: boolean | null
           discount_amount?: number | null

@@ -75,6 +75,7 @@ interface EstimateFormData {
   expiration_date: string;
   deposit_required: boolean;
   deposit_percent: number;
+  deposit_max_amount: number;
   tax_rate: number;
   default_markup_percent: number;
   discount_type: string;
@@ -123,6 +124,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     deposit_required: true,
     deposit_percent: 10,
+    deposit_max_amount: 1000,
     tax_rate: 9.5,
     default_markup_percent: 50,
     discount_type: "percent",
@@ -200,12 +202,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
     
     const total = subtotal + taxAmount - discountAmount;
-    const depositAmount = (total * formData.deposit_percent) / 100;
+    // Deposit = min(total * percent, max_amount)
+    const percentDeposit = (total * formData.deposit_percent) / 100;
+    const depositAmount = Math.min(percentDeposit, formData.deposit_max_amount);
     const grossProfit = subtotal - totalCost;
     const marginPercent = subtotal > 0 ? (grossProfit / subtotal) * 100 : 0;
     
     return { subtotal, totalCost, grossProfit, marginPercent, taxAmount, discountAmount, total, depositAmount };
-  }, [groups, formData.tax_rate, formData.discount_type, formData.discount_value, formData.deposit_percent]);
+  }, [groups, formData.tax_rate, formData.discount_type, formData.discount_value, formData.deposit_percent, formData.deposit_max_amount]);
 
   const totals = calculateTotals();
 
@@ -234,6 +238,35 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return data?.setting_value ? parseFloat(data.setting_value) : 50;
     },
     enabled: open && !estimateId, // Only fetch for new estimates
+  });
+
+  // Fetch default deposit settings from company settings
+  const { data: depositSettings } = useQuery({
+    queryKey: ["default-deposit-settings", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["default_deposit_percent", "default_deposit_max_amount"]);
+      
+      const settings: { percent: number; maxAmount: number } = {
+        percent: 10,
+        maxAmount: 1000,
+      };
+      
+      (data || []).forEach((s: any) => {
+        if (s.setting_key === "default_deposit_percent" && s.setting_value) {
+          settings.percent = parseFloat(s.setting_value);
+        }
+        if (s.setting_key === "default_deposit_max_amount" && s.setting_value) {
+          settings.maxAmount = parseFloat(s.setting_value);
+        }
+      });
+      
+      return settings;
+    },
+    enabled: open && !estimateId && !!companyId, // Only fetch for new estimates
   });
 
   // Fetch existing estimate if editing or cloning
@@ -281,6 +314,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         expiration_date: est.expiration_date || "",
         deposit_required: est.deposit_required || false,
         deposit_percent: est.deposit_percent || 10,
+        deposit_max_amount: (est as any).deposit_max_amount || 1000,
         tax_rate: est.tax_rate || 9.5,
         default_markup_percent: existingMarkup,
         discount_type: est.discount_type || "percent",
@@ -326,6 +360,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         deposit_required: true,
         deposit_percent: 10,
+        deposit_max_amount: 1000,
         tax_rate: 9.5,
         default_markup_percent: 50,
         discount_type: "percent",
@@ -364,6 +399,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       }));
     }
   }, [open, estimateId, defaultMarkupSetting]);
+
+  // Apply default deposit settings when loaded for new estimates
+  useEffect(() => {
+    if (open && !estimateId && depositSettings) {
+      setFormData(prev => ({
+        ...prev,
+        deposit_percent: depositSettings.percent,
+        deposit_max_amount: depositSettings.maxAmount,
+      }));
+    }
+  }, [open, estimateId, depositSettings]);
 
   // AI Scope Generation
   const generateScope = async () => {
@@ -622,6 +668,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         expiration_date: formData.expiration_date || null,
         deposit_required: formData.deposit_required,
         deposit_percent: formData.deposit_percent,
+        deposit_max_amount: formData.deposit_max_amount,
         tax_rate: formData.tax_rate,
         discount_type: formData.discount_type,
         discount_value: formData.discount_value,
@@ -769,6 +816,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         expiration_date: formData.expiration_date || null,
         deposit_required: formData.deposit_required,
         deposit_percent: formData.deposit_percent,
+        deposit_max_amount: formData.deposit_max_amount,
         tax_rate: formData.tax_rate,
         discount_type: formData.discount_type,
         discount_value: formData.discount_value,
@@ -1521,7 +1569,19 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               className="w-16 h-8"
                             />
                             <span className="text-sm text-muted-foreground">%</span>
+                            <span className="text-sm text-muted-foreground">or max</span>
+                            <span className="text-sm text-muted-foreground">$</span>
+                            <Input
+                              type="number"
+                              value={formData.deposit_max_amount}
+                              onChange={(e) => setFormData({ ...formData, deposit_max_amount: parseFloat(e.target.value) || 0 })}
+                              disabled={!formData.deposit_required}
+                              className="w-20 h-8"
+                            />
                           </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Deposit = min({formData.deposit_percent}% or ${formData.deposit_max_amount.toLocaleString()})
+                          </p>
                         </div>
 
                         {/* Discount */}
