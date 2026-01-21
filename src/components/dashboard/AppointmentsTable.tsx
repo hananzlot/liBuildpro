@@ -175,9 +175,9 @@ export function AppointmentsTable({
   };
 
   const getContactSource = (contactId: string | null, contactUuid?: string | null): string => {
-    if (!contactId && !contactUuid) return '-';
+    if (!contactId && !contactUuid) return '(No Source)';
     const contact = findContactByIdOrGhlId(contacts, contactUuid, contactId);
-    return contact?.source || '-';
+    return contact?.source || '(No Source)';
   };
 
   const findPrimaryOpportunity = (contactId: string | null, contactUuid?: string | null) => {
@@ -261,14 +261,24 @@ export function AppointmentsTable({
     return uniqueReps.map(rep => ({ value: rep.id, label: rep.name }));
   }, [uniqueReps]);
 
-  // Get unique sources for filter
+  // Get unique sources for filter (including null/empty as "Unknown")
   const uniqueSources = useMemo(() => {
     const sources = new Set<string>();
+    let hasNullSource = false;
     appointments.forEach(a => {
       const contact = findContactByIdOrGhlId(contacts, a.contact_uuid, a.contact_id);
-      if (contact?.source) sources.add(contact.source);
+      if (contact?.source) {
+        sources.add(contact.source);
+      } else {
+        hasNullSource = true;
+      }
     });
-    return Array.from(sources).sort();
+    const result = Array.from(sources).sort();
+    // Add placeholder for null/empty sources at the end
+    if (hasNullSource) {
+      result.push('(No Source)');
+    }
+    return result;
   }, [appointments, contacts]);
 
   // Format sources for multi-select
@@ -308,11 +318,16 @@ export function AppointmentsTable({
       filtered = filtered.filter(a => a.assigned_user_id && repFilter.includes(a.assigned_user_id));
     }
 
-    // Source filter (multi-select)
+    // Source filter (multi-select) - handles "(No Source)" for null/empty sources
     if (sourceFilter.length > 0) {
       filtered = filtered.filter(a => {
         const contact = findContactByIdOrGhlId(contacts, a.contact_uuid, a.contact_id);
-        return contact?.source && sourceFilter.includes(contact.source);
+        const contactSource = contact?.source;
+        // Check if we're filtering for "(No Source)" which matches null/empty sources
+        if (sourceFilter.includes('(No Source)')) {
+          if (!contactSource) return true;
+        }
+        return contactSource && sourceFilter.includes(contactSource);
       });
     }
 
