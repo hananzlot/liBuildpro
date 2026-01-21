@@ -267,12 +267,20 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
         </div>
       ` : ""}
 
-      ${data.estimate.terms_and_conditions ? `
-        <div class="terms">
-          <div class="terms-title">Terms and Conditions</div>
-          <div style="white-space: pre-wrap">${data.estimate.terms_and_conditions}</div>
-        </div>
-      ` : ""}
+      ${data.estimate.terms_and_conditions ? (() => {
+        // Skip the first line if it's just "TERMS AND CONDITIONS" to avoid duplication
+        let termsText = data.estimate.terms_and_conditions;
+        const firstLine = termsText.split('\n')[0]?.trim().toUpperCase();
+        if (firstLine === 'TERMS AND CONDITIONS') {
+          termsText = termsText.split('\n').slice(1).join('\n').trim();
+        }
+        return `
+          <div class="terms">
+            <div class="terms-title">Terms and Conditions</div>
+            <div style="white-space: pre-wrap">${termsText}</div>
+          </div>
+        `;
+      })() : ""}
 
       ${signatureHtml}
     `;
@@ -407,6 +415,8 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
             }
             .totals {
               margin-top: 20px;
+              margin-left: auto;
+              max-width: 350px;
               padding: 20px;
               background: #f9f9f9;
               border-radius: 8px;
@@ -415,6 +425,11 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
               display: flex;
               justify-content: space-between;
               padding: 5px 0;
+              gap: 40px;
+            }
+            .total-row span:last-child {
+              text-align: right;
+              min-width: 120px;
             }
             .total-row.grand-total {
               font-size: 18px;
