@@ -5225,6 +5225,7 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_corp_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_super_admin: { Args: { _user_id?: string }; Returns: boolean }
       log_audit: {
         Args: {
           p_action: string
