@@ -19,13 +19,14 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
     isSuperAdmin,
     isLoading,
     isProfileLoading,
+    isSubscriptionLoading,
     signOut,
     daysUntilExpiration
   } = useAuth();
 
-  // Still loading auth or profile - show nothing (loading state handled elsewhere)
-  if (isLoading || isProfileLoading) {
-    return <>{children}</>;
+  // Still loading auth/profile/subscription: show a neutral screen to avoid flicker
+  if (isLoading || isProfileLoading || isSubscriptionLoading) {
+    return <div className="min-h-screen bg-background" />;
   }
 
   // Not logged in - let normal auth flow handle it
