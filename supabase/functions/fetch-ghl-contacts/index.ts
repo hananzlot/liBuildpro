@@ -801,6 +801,21 @@ async function syncLocationData(
     
     console.log(`Found ${existingOppsMap.size} existing opportunities to preserve`);
     
+    // CROSS-LOCATION DUPLICATE PREVENTION: Fetch ALL opportunity names for this company
+    // to prevent the same lead from being created in multiple GHL locations
+    const crossLocationOppNames = new Set<string>();
+    const { data: companyOpps } = await supabase
+      .from('opportunities')
+      .select('name')
+      .eq('company_id', companyId);
+    
+    (companyOpps || []).forEach((o: any) => {
+      if (o.name) {
+        crossLocationOppNames.add(o.name.toLowerCase());
+      }
+    });
+    console.log(`Loaded ${crossLocationOppNames.size} existing opportunity names for cross-location duplicate check`);
+    
       // Build maps of contact IDs to their custom_fields and attributions for scope extraction
       const contactCustomFieldsMap = new Map<string, any[]>();
       const contactAttributionsMap = new Map<string, any[]>();
@@ -817,8 +832,21 @@ async function syncLocationData(
       console.log(`Using scope_of_work field mapping: ${fieldMappings.scope_of_work || 'not configured'}`);
       console.log(`Using address field mapping: ${fieldMappings.address || 'not configured'}`);
     
+    let skippedCrossLocationDuplicates = 0;
     const oppsToUpsert = opportunities.map(o => {
       const existing = existingOppsMap.get(o.id);
+      
+      // CROSS-LOCATION DUPLICATE CHECK for NEW records only
+      // Skip if same name already exists in ANY location for this company
+      if (!existing && o.name && crossLocationOppNames.has(o.name.toLowerCase())) {
+        console.log(`Skipping cross-location duplicate opportunity: ${o.name}`);
+        skippedCrossLocationDuplicates++;
+        return null; // Will be filtered out
+      }
+      // Add to set to prevent duplicates within same sync batch
+      if (o.name) {
+        crossLocationOppNames.add(o.name.toLowerCase());
+      }
       
       // If record exists locally, use LOCAL WINS strategy
       if (existing) {
@@ -962,7 +990,11 @@ async function syncLocationData(
         scope_of_work: scopeOfWork,
         address: opportunityAddress,
       };
-    });
+    }).filter(Boolean); // Filter out null entries (cross-location duplicates)
+    
+    if (skippedCrossLocationDuplicates > 0) {
+      console.log(`Skipped ${skippedCrossLocationDuplicates} cross-location duplicate opportunities`);
+    }
 
     for (let i = 0; i < oppsToUpsert.length; i += 100) {
       const batch = oppsToUpsert.slice(i, i + 100);

@@ -537,6 +537,21 @@ serve(async (req) => {
         }
       }
 
+      // CROSS-LOCATION DUPLICATE PREVENTION: Fetch ALL opportunity names for this company
+      // to prevent the same lead from being created in multiple GHL locations
+      const crossLocationOppNames = new Set<string>();
+      const { data: companyOpps } = await supabase
+        .from('opportunities')
+        .select('name')
+        .eq('company_id', integration.company_id);
+      
+      (companyOpps || []).forEach((o: any) => {
+        if (o.name) {
+          crossLocationOppNames.add(o.name.toLowerCase());
+        }
+      });
+      console.log(`Loaded ${crossLocationOppNames.size} existing opportunity names for cross-location duplicate check`);
+
       // Prepare opportunities for upsert with scope_of_work from Facebook campaigns
       // Filter out duplicates where contact_id + name already exists
       const oppsToUpsert: any[] = [];
@@ -560,6 +575,18 @@ serve(async (req) => {
           }
           // Add to set to prevent duplicates within same sync batch
           existingOppKeys.add(dedupKey);
+        }
+        
+        // CROSS-LOCATION DUPLICATE CHECK: Skip if same name exists in ANY location for this company
+        // This prevents the same lead from being synced from multiple GHL locations
+        if (oppName && crossLocationOppNames.has(oppName.toLowerCase())) {
+          console.log(`Skipping cross-location duplicate opportunity: ${oppName}`);
+          skippedDuplicates++;
+          continue;
+        }
+        // Add to set to prevent duplicates within same sync batch
+        if (oppName) {
+          crossLocationOppNames.add(oppName.toLowerCase());
         }
         
         oppsToUpsert.push({
