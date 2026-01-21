@@ -287,8 +287,14 @@ serve(async (req: Request): Promise<Response> => {
         );
       }
 
-      const wh = new Webhook(hookSecret);
       try {
+        // The secret from Supabase may have 'whsec_' prefix or be raw base64
+        // standardwebhooks expects the raw base64 secret
+        const secretForVerification = hookSecret.startsWith('whsec_') 
+          ? hookSecret.substring(6) 
+          : hookSecret;
+        
+        const wh = new Webhook(secretForVerification);
         payload = wh.verify(body, {
           "webhook-id": webhookId,
           "webhook-timestamp": webhookTimestamp,
@@ -296,6 +302,9 @@ serve(async (req: Request): Promise<Response> => {
         }) as AuthEmailPayload;
       } catch (verifyError) {
         console.error("Webhook verification failed:", verifyError);
+        // Log more details for debugging
+        console.error("Hook secret length:", hookSecret.length);
+        console.error("Hook secret starts with whsec_:", hookSecret.startsWith('whsec_'));
         return new Response(
           JSON.stringify({ error: "Invalid webhook signature" }),
           { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
