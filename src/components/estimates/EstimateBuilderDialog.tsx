@@ -1626,11 +1626,18 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             <Input
                               type="text"
                               inputMode="decimal"
-                              value={formData.discount_value || ''}
+                              value={formData.discount_value === 0 ? '' : formData.discount_value}
                               onChange={(e) => {
-                                const val = e.target.value.replace(/[^0-9.]/g, '');
-                                setFormData({ ...formData, discount_value: parseFloat(val) || 0 });
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  setFormData({ ...formData, discount_value: val === '' ? 0 : (val.endsWith('.') ? val : parseFloat(val) || 0) as number });
+                                }
                               }}
+                              onBlur={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setFormData({ ...formData, discount_value: val });
+                              }}
+                              placeholder="0"
                               className="w-20 h-8"
                             />
                             {totals.discountAmount > 0 && (
@@ -1638,6 +1645,34 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 -{formatCurrency(totals.discountAmount)}
                               </span>
                             )}
+                          </div>
+                        </div>
+
+                        {/* Final Price Override */}
+                        <div className="border rounded-lg p-3 bg-background">
+                          <Label className="text-xs text-muted-foreground mb-1 block">Or Set Final Price</Label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">$</span>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder={formatCurrency(totals.total).replace('$', '')}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                const finalPrice = parseFloat(val);
+                                if (!isNaN(finalPrice) && finalPrice >= 0) {
+                                  const preTaxTotal = totals.subtotal + totals.taxAmount;
+                                  const newDiscount = Math.max(0, preTaxTotal - finalPrice);
+                                  setFormData({ 
+                                    ...formData, 
+                                    discount_type: 'fixed',
+                                    discount_value: Math.round(newDiscount * 100) / 100 
+                                  });
+                                }
+                              }}
+                              className="w-24 h-8"
+                            />
+                            <span className="text-xs text-muted-foreground">Auto-calculates discount</span>
                           </div>
                         </div>
                       </div>
