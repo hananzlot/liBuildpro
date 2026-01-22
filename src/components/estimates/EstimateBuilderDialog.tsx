@@ -147,6 +147,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Draft string values for money inputs so users can type decimals (e.g. "12.")
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
   const [unitPriceDrafts, setUnitPriceDrafts] = useState<Record<string, string>>({});
+  // Draft for final price input (auto-discount calculation)
+  const [finalPriceDraft, setFinalPriceDraft] = useState<string>("");
 
   // Fetch projects for linking
   const { data: projects = [] } = useQuery({
@@ -1669,10 +1671,18 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             <Input
                               type="text"
                               inputMode="decimal"
+                              value={finalPriceDraft}
                               placeholder={formatCurrency(totals.total).replace('$', '')}
                               onChange={(e) => {
                                 const val = e.target.value.replace(/[^0-9.]/g, '');
-                                const finalPrice = parseFloat(val);
+                                // Allow typing with decimal points (e.g., "12.")
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  setFinalPriceDraft(val);
+                                }
+                              }}
+                              onBlur={() => {
+                                // Calculate discount on blur when we have a valid final price
+                                const finalPrice = parseFloat(finalPriceDraft);
                                 if (!isNaN(finalPrice) && finalPrice >= 0) {
                                   const preTaxTotal = totals.subtotal + totals.taxAmount;
                                   const newDiscount = Math.max(0, preTaxTotal - finalPrice);
@@ -1681,6 +1691,25 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                     discount_type: 'fixed',
                                     discount_value: Math.round(newDiscount * 100) / 100 
                                   });
+                                }
+                                // Clear the draft after applying
+                                setFinalPriceDraft('');
+                              }}
+                              onKeyDown={(e) => {
+                                // Also apply on Enter key
+                                if (e.key === 'Enter') {
+                                  const finalPrice = parseFloat(finalPriceDraft);
+                                  if (!isNaN(finalPrice) && finalPrice >= 0) {
+                                    const preTaxTotal = totals.subtotal + totals.taxAmount;
+                                    const newDiscount = Math.max(0, preTaxTotal - finalPrice);
+                                    setFormData({ 
+                                      ...formData, 
+                                      discount_type: 'fixed',
+                                      discount_value: Math.round(newDiscount * 100) / 100 
+                                    });
+                                  }
+                                  setFinalPriceDraft('');
+                                  (e.target as HTMLInputElement).blur();
                                 }
                               }}
                               className="w-24 h-8"
