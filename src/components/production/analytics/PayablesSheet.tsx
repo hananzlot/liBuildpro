@@ -36,6 +36,7 @@ import { PayableWithCashImpact } from "@/hooks/useProductionAnalytics";
 import { format, nextFriday, previousSaturday, isSameDay, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { toast } from "sonner";
 
 interface PayablesSheetProps {
@@ -108,6 +109,7 @@ export function PayablesSheet({
   hideCloseButton,
 }: PayablesSheetProps) {
   const { isAdmin, isProduction } = useAuth();
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   
   const [activeTab, setActiveTab] = useState<"outstanding" | "history">("outstanding");
@@ -130,10 +132,11 @@ export function PayablesSheet({
   const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  // Fetch bill payments for history tab
+  // Fetch bill payments for history tab - scoped by company
   const { data: billPayments = [], isLoading: loadingPayments } = useQuery({
-    queryKey: ["bill-payments-history", historyStartDate?.toISOString(), historyEndDate?.toISOString()],
+    queryKey: ["bill-payments-history", companyId, historyStartDate?.toISOString(), historyEndDate?.toISOString()],
     queryFn: async () => {
+      if (!companyId) return [];
       const startDateStr = historyStartDate ? format(historyStartDate, 'yyyy-MM-dd') : null;
       const endDateStr = historyEndDate ? format(historyEndDate, 'yyyy-MM-dd') : null;
       
@@ -156,6 +159,7 @@ export function PayablesSheet({
             )
           )
         `)
+        .eq("company_id", companyId)
         .order("payment_date", { ascending: false });
       
       if (startDateStr) {
@@ -173,22 +177,24 @@ export function PayablesSheet({
       
       if (projectIds.length === 0) return data || [];
       
-      // Fetch payments received per project
+      // Fetch payments received per project - scoped by company
       const { data: projectPayments, error: paymentsError } = await supabase
         .from("project_payments")
         .select("project_id, payment_amount")
+        .eq("company_id", companyId)
         .in("project_id", projectIds)
         .eq("is_voided", false);
       
       if (paymentsError) throw paymentsError;
       
-      // Fetch bills paid per project (sum of bill_payments)
+      // Fetch bills paid per project (sum of bill_payments) - scoped by company
       const { data: billPaymentsTotals, error: billPaymentsError } = await supabase
         .from("bill_payments")
         .select(`
           payment_amount,
           project_bills!inner (project_id)
-        `);
+        `)
+        .eq("company_id", companyId);
       
       if (billPaymentsError) throw billPaymentsError;
       
@@ -216,7 +222,7 @@ export function PayablesSheet({
         projectCashLeft: projectCashMap.get(bp.project_bills?.projects?.id) ?? null
       }));
     },
-    enabled: open && activeTab === "history",
+    enabled: open && activeTab === "history" && !!companyId,
   });
 
   // Delete bill payment mutation
