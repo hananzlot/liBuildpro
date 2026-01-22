@@ -58,31 +58,55 @@ export function SendProposalDialog({
     show_details_to_customer: false,
   });
 
-  // Fetch company name from settings (try company_settings first)
+  // Fetch company name and base URL from settings (try company_settings first)
   const { data: companySettings } = useQuery({
-    queryKey: ['company-name-setting', companyId],
+    queryKey: ['company-settings-for-proposal', companyId],
     queryFn: async () => {
+      const settingKeys = ['company_name', 'app_base_url'];
+      
       // Try company_settings first if we have companyId from context
       if (companyId) {
         const { data: companyData } = await supabase
           .from('company_settings')
-          .select('setting_value')
+          .select('setting_key, setting_value')
           .eq('company_id', companyId)
-          .eq('setting_key', 'company_name')
-          .single();
-        if (companyData?.setting_value) return companyData.setting_value;
+          .in('setting_key', settingKeys);
+        
+        const companyMap = new Map(companyData?.map(s => [s.setting_key, s.setting_value]) || []);
+        
+        // Check if we have the needed settings
+        if (companyMap.get('company_name') || companyMap.get('app_base_url')) {
+          // Fall back to app_settings for any missing keys
+          const { data: appData } = await supabase
+            .from('app_settings')
+            .select('setting_key, setting_value')
+            .in('setting_key', settingKeys);
+          
+          const appMap = new Map(appData?.map(s => [s.setting_key, s.setting_value]) || []);
+          
+          return {
+            companyName: companyMap.get('company_name') || appMap.get('company_name') || 'Our Company',
+            appBaseUrl: companyMap.get('app_base_url') || appMap.get('app_base_url') || window.location.origin,
+          };
+        }
       }
+      
       // Fall back to app_settings
       const { data } = await supabase
         .from('app_settings')
-        .select('setting_value')
-        .eq('setting_key', 'company_name')
-        .maybeSingle();
-      return data?.setting_value || 'Our Company';
+        .select('setting_key, setting_value')
+        .in('setting_key', settingKeys);
+      
+      const appMap = new Map(data?.map(s => [s.setting_key, s.setting_value]) || []);
+      return {
+        companyName: appMap.get('company_name') || 'Our Company',
+        appBaseUrl: appMap.get('app_base_url') || window.location.origin,
+      };
     },
   });
 
-  const companyName = companySettings || 'Our Company';
+  const companyName = companySettings?.companyName || 'Our Company';
+  const appBaseUrl = companySettings?.appBaseUrl || window.location.origin;
 
   // Reset form when dialog opens with new data
   useEffect(() => {
@@ -187,11 +211,11 @@ export function SendProposalDialog({
 
   // Auto-set portal link if existing token found (single signer mode)
   useEffect(() => {
-    if (existingToken && !portalLink && !multipleSigners) {
-      const link = `${window.location.origin}/portal?token=${existingToken.token}`;
+    if (existingToken && !portalLink && !multipleSigners && appBaseUrl) {
+      const link = `${appBaseUrl}/portal?token=${existingToken.token}`;
       setPortalLink(link);
     }
-  }, [existingToken, portalLink, multipleSigners]);
+  }, [existingToken, portalLink, multipleSigners, appBaseUrl]);
 
   // Update visibility setting and save to DB
   const updateVisibilitySetting = async (key: keyof typeof visibilitySettings, value: boolean) => {
@@ -402,7 +426,7 @@ export function SendProposalDialog({
         // For multi-signer, we don't set a single portal link
         setPortalLink('multi-signer');
       } else {
-        const link = `${window.location.origin}/portal?token=${data.token.token}`;
+        const link = `${appBaseUrl}/portal?token=${data.token.token}`;
         setPortalLink(link);
         toast.success('Portal link generated!');
       }
@@ -433,7 +457,7 @@ export function SendProposalDialog({
           throw new Error('No signers found. Please generate links first.');
         }
 
-        // Prepare batch email data
+        // Prepare batch email data - use company's configured base URL
         const recipients = signersWithTokens.map(signer => {
           const token = signer.estimate_portal_tokens?.[0]?.token;
           if (!token) throw new Error(`No token found for signer ${signer.signer_name}`);
@@ -441,7 +465,7 @@ export function SendProposalDialog({
           return {
             email: signer.signer_email,
             name: signer.signer_name,
-            portalLink: `${window.location.origin}/portal?estimate_token=${token}`,
+            portalLink: `${appBaseUrl}/portal?estimate_token=${token}`,
           };
         });
 
