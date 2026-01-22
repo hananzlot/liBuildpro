@@ -642,6 +642,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Save estimate
   // Validation before save
   const validateEstimate = (): boolean => {
+    if (!companyId) {
+      toast.error("No company selected. Please select a company first.");
+      return false;
+    }
     if (!formData.customer_name?.trim()) {
       toast.error("Customer name is required");
       setActiveTab("customer");
@@ -723,18 +727,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       let savedEstimateId = sourceEstimateId;
 
       if (isEditing && sourceEstimateId) {
-        // Update existing estimate
+        // Update existing estimate - scope by company_id for security
         const { error: updateError } = await supabase
           .from("estimates")
           .update(estimateData)
-          .eq("id", sourceEstimateId);
+          .eq("id", sourceEstimateId)
+          .eq("company_id", companyId);
         if (updateError) throw updateError;
 
-        // Delete existing line items, groups, and schedule
+        // Delete existing line items, groups, and schedule - scope by company_id
         // Must delete line items first since they reference groups
-        await supabase.from("estimate_line_items").delete().eq("estimate_id", sourceEstimateId);
-        await supabase.from("estimate_groups").delete().eq("estimate_id", sourceEstimateId);
-        await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", sourceEstimateId);
+        await supabase.from("estimate_line_items").delete().eq("estimate_id", sourceEstimateId).eq("company_id", companyId);
+        await supabase.from("estimate_groups").delete().eq("estimate_id", sourceEstimateId).eq("company_id", companyId);
+        await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", sourceEstimateId).eq("company_id", companyId);
       } else {
         // Create new estimate (including clone mode - creates a brand new estimate with new number)
         const { data: newEstimate, error: insertError } = await supabase
@@ -814,7 +819,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return savedEstimateId;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
       toast.success(isEditing ? "Estimate updated successfully!" : "Estimate created successfully!");
       onOpenChange(false);
       onSuccess?.();
@@ -946,7 +951,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return savedEstimateId;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
       toast.success("New estimate created from copy!");
       onOpenChange(false);
       onSuccess?.();
