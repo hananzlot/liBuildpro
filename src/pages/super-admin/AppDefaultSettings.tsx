@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Save, Loader2, Building, Mail, FileText, Settings, Upload, AlertTriangle, Key } from "lucide-react";
+import { Save, Loader2, Building, Mail, FileText, Settings, Upload, AlertTriangle, Key, CheckCircle2 } from "lucide-react";
 
 interface AppSetting {
   id: string;
@@ -22,6 +22,7 @@ interface AppSetting {
 export default function AppDefaultSettings() {
   const queryClient = useQueryClient();
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({});
+  const [testingApiKey, setTestingApiKey] = useState<string | null>(null);
 
   // Fetch app_settings (global defaults)
   const { data: settings, isLoading } = useQuery({
@@ -99,6 +100,36 @@ export default function AppDefaultSettings() {
     return editedSettings[key] !== undefined;
   };
 
+  const testApiKey = async (keyType: "openai" | "resend") => {
+    const settingKey = keyType === "openai" ? "openai_api_key" : "resend_api_key";
+    const apiKey = editedSettings[settingKey] ?? apiKeySettings?.find(s => s.setting_key === settingKey)?.setting_value;
+    
+    if (!apiKey) {
+      toast.error(`No ${keyType === "openai" ? "OpenAI" : "Resend"} API key to test`);
+      return;
+    }
+
+    setTestingApiKey(keyType);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-api-key", {
+        body: { keyType, apiKey },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(data.message || `${keyType === "openai" ? "OpenAI" : "Resend"} API key is valid!`);
+      } else {
+        toast.error(data?.error || `Invalid ${keyType === "openai" ? "OpenAI" : "Resend"} API key`);
+      }
+    } catch (err) {
+      console.error("Error testing API key:", err);
+      toast.error(`Failed to test API key: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setTestingApiKey(null);
+    }
+  };
+
   const formatLabel = (key: string) => {
     return key
       .replace(/_/g, " ")
@@ -126,37 +157,59 @@ export default function AppDefaultSettings() {
     ["openai_api_key", "resend_api_key"].includes(s.setting_key)
   );
 
-  const renderPasswordSettingField = (setting: AppSetting) => (
-    <div key={setting.id} className="space-y-2">
-      <div className="flex items-center justify-between">
-        <Label htmlFor={setting.setting_key}>{formatLabel(setting.setting_key)}</Label>
-        {hasChanges(setting.setting_key) && (
-          <Button
-            size="sm"
-            onClick={() => handleSave(setting.setting_key)}
-            disabled={updateSetting.isPending}
-          >
-            {updateSetting.isPending ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Save className="h-3 w-3 mr-1" />
+  const renderPasswordSettingField = (setting: AppSetting) => {
+    const keyType = setting.setting_key === "openai_api_key" ? "openai" : setting.setting_key === "resend_api_key" ? "resend" : null;
+    const hasValue = !!(editedSettings[setting.setting_key] ?? setting.setting_value);
+    
+    return (
+      <div key={setting.id} className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor={setting.setting_key}>{formatLabel(setting.setting_key)}</Label>
+          <div className="flex gap-2">
+            {keyType && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => testApiKey(keyType as "openai" | "resend")}
+                disabled={testingApiKey === keyType || !hasValue}
+              >
+                {testingApiKey === keyType ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : (
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                )}
+                Test
+              </Button>
             )}
-            Save
-          </Button>
+            {hasChanges(setting.setting_key) && (
+              <Button
+                size="sm"
+                onClick={() => handleSave(setting.setting_key)}
+                disabled={updateSetting.isPending}
+              >
+                {updateSetting.isPending ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Save className="h-3 w-3 mr-1" />
+                )}
+                Save
+              </Button>
+            )}
+          </div>
+        </div>
+        <Input
+          id={setting.setting_key}
+          type="password"
+          value={getValue(setting)}
+          onChange={(e) => handleChange(setting.setting_key, e.target.value)}
+          placeholder={setting.description || ""}
+        />
+        {setting.description && (
+          <p className="text-xs text-muted-foreground">{setting.description}</p>
         )}
       </div>
-      <Input
-        id={setting.setting_key}
-        type="password"
-        value={getValue(setting)}
-        onChange={(e) => handleChange(setting.setting_key, e.target.value)}
-        placeholder={setting.description || ""}
-      />
-      {setting.description && (
-        <p className="text-xs text-muted-foreground">{setting.description}</p>
-      )}
-    </div>
-  );
+    );
+  };
 
   const renderSettingField = (setting: AppSetting) => (
     <div key={setting.id} className="space-y-2">
@@ -338,20 +391,35 @@ export default function AppDefaultSettings() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="openai_api_key">OpenAI API Key</Label>
-                    {hasChanges("openai_api_key") && (
+                    <div className="flex gap-2">
                       <Button
                         size="sm"
-                        onClick={() => handleSave("openai_api_key")}
-                        disabled={updateSetting.isPending}
+                        variant="outline"
+                        onClick={() => testApiKey("openai")}
+                        disabled={testingApiKey === "openai" || !editedSettings["openai_api_key"]}
                       >
-                        {updateSetting.isPending ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                        {testingApiKey === "openai" ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         ) : (
-                          <Save className="h-3 w-3 mr-1" />
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
                         )}
-                        Save
+                        Test
                       </Button>
-                    )}
+                      {hasChanges("openai_api_key") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave("openai_api_key")}
+                          disabled={updateSetting.isPending}
+                        >
+                          {updateSetting.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Save className="h-3 w-3 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <Input
                     id="openai_api_key"
@@ -367,20 +435,35 @@ export default function AppDefaultSettings() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="resend_api_key">Resend API Key</Label>
-                    {hasChanges("resend_api_key") && (
+                    <div className="flex gap-2">
                       <Button
                         size="sm"
-                        onClick={() => handleSave("resend_api_key")}
-                        disabled={updateSetting.isPending}
+                        variant="outline"
+                        onClick={() => testApiKey("resend")}
+                        disabled={testingApiKey === "resend" || !editedSettings["resend_api_key"]}
                       >
-                        {updateSetting.isPending ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
+                        {testingApiKey === "resend" ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
                         ) : (
-                          <Save className="h-3 w-3 mr-1" />
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
                         )}
-                        Save
+                        Test
                       </Button>
-                    )}
+                      {hasChanges("resend_api_key") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave("resend_api_key")}
+                          disabled={updateSetting.isPending}
+                        >
+                          {updateSetting.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Save className="h-3 w-3 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <Input
                     id="resend_api_key"
