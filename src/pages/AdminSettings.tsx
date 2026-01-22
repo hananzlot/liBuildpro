@@ -531,7 +531,7 @@ export default function AdminSettings() {
             </TabsTrigger>
             <TabsTrigger value="custom" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">Custom</span>
+              <span className="hidden sm:inline">Custom/API</span>
             </TabsTrigger>
             <TabsTrigger value="emails" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
@@ -712,116 +712,6 @@ export default function AdminSettings() {
                   </CardContent>
                 </Card>
 
-                {/* API Keys Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Key className="h-5 w-5" />
-                      API Keys
-                    </CardTitle>
-                    <CardDescription>
-                      Configure API keys for external integrations. These keys are stored securely and used for AI features and email delivery.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* OpenAI API Key */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="openai_api_key">OpenAI API Key</Label>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => testApiKey("openai")}
-                            disabled={testingApiKey === "openai" || !((editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value))}
-                          >
-                            {testingApiKey === "openai" ? (
-                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            ) : (
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                            )}
-                            Test
-                          </Button>
-                          {hasChanges("openai_api_key") && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleSave("openai_api_key")}
-                              disabled={updateSetting.isPending}
-                            >
-                              {updateSetting.isPending ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Save className="h-3 w-3 mr-1" />
-                              )}
-                              Save
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      <Input
-                        id="openai_api_key"
-                        type="password"
-                        value={editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value ?? ""}
-                        onChange={(e) => handleChange("openai_api_key", e.target.value)}
-                        placeholder="sk-..."
-                      />
-                      <p className="text-xs text-muted-foreground">Used for AI-powered features like estimate generation</p>
-                    </div>
-
-                    {/* Resend API Key */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="resend_api_key">Resend API Key</Label>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => testApiKey("resend")}
-                            disabled={testingApiKey === "resend" || !((editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value))}
-                          >
-                            {testingApiKey === "resend" ? (
-                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            ) : (
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                            )}
-                            Test
-                          </Button>
-                          {hasChanges("resend_api_key") && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleSave("resend_api_key")}
-                              disabled={updateSetting.isPending}
-                            >
-                              {updateSetting.isPending ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Save className="h-3 w-3 mr-1" />
-                              )}
-                              Save
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      <Input
-                        id="resend_api_key"
-                        type="password"
-                        value={editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value ?? ""}
-                        onChange={(e) => handleChange("resend_api_key", e.target.value)}
-                        placeholder="re_..."
-                      />
-                      <p className="text-xs text-muted-foreground">Used for sending emails via Resend</p>
-                    </div>
-
-                    <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                      <div className="text-muted-foreground">
-                        <strong>Security Note:</strong> API keys are stored encrypted in your company settings. 
-                        If left empty, platform-level keys will be used as fallback.
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Salespeople Management */}
                 <SalespeopleManagement />
 
@@ -923,6 +813,116 @@ export default function AdminSettings() {
 
           {/* Custom Settings Tab */}
           <TabsContent value="custom" className="mt-6 space-y-6">
+            {/* API Keys Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  API Keys
+                </CardTitle>
+                <CardDescription>
+                  Configure API keys for external integrations. These keys are stored securely and used for AI features and email delivery.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* OpenAI API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="openai_api_key">OpenAI API Key</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => testApiKey("openai")}
+                        disabled={testingApiKey === "openai" || !((editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value))}
+                      >
+                        {testingApiKey === "openai" ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        ) : (
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                        )}
+                        Test
+                      </Button>
+                      {hasChanges("openai_api_key") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave("openai_api_key")}
+                          disabled={updateSetting.isPending}
+                        >
+                          {updateSetting.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Save className="h-3 w-3 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <Input
+                    id="openai_api_key"
+                    type="password"
+                    value={editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value ?? ""}
+                    onChange={(e) => handleChange("openai_api_key", e.target.value)}
+                    placeholder="sk-..."
+                  />
+                  <p className="text-xs text-muted-foreground">Used for AI-powered features like estimate generation</p>
+                </div>
+
+                {/* Resend API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="resend_api_key">Resend API Key</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => testApiKey("resend")}
+                        disabled={testingApiKey === "resend" || !((editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value))}
+                      >
+                        {testingApiKey === "resend" ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        ) : (
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                        )}
+                        Test
+                      </Button>
+                      {hasChanges("resend_api_key") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave("resend_api_key")}
+                          disabled={updateSetting.isPending}
+                        >
+                          {updateSetting.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Save className="h-3 w-3 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <Input
+                    id="resend_api_key"
+                    type="password"
+                    value={editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value ?? ""}
+                    onChange={(e) => handleChange("resend_api_key", e.target.value)}
+                    placeholder="re_..."
+                  />
+                  <p className="text-xs text-muted-foreground">Used for sending emails via Resend</p>
+                </div>
+
+                <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="text-muted-foreground">
+                    <strong>Security Note:</strong> API keys are stored encrypted in your company settings. 
+                    If left empty, platform-level keys will be used as fallback.
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <AIAnalysisSettings />
           </TabsContent>
 
