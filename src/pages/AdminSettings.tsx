@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -85,6 +85,7 @@ export default function AdminSettings() {
   const { visibility: kpiVisibility, toggleLeadsResell, toggleMagazineSales, isToggling: isTogglingKPI } = useKPIVisibility();
   
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({});
+  const [testingApiKey, setTestingApiKey] = useState<string | null>(null);
   
   // Source management dialog state
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
@@ -352,6 +353,36 @@ export default function AdminSettings() {
     setTableFilter("all");
     setActionFilter("all");
     setUserFilter("");
+  };
+
+  const testApiKey = async (keyType: "openai" | "resend") => {
+    const settingKey = keyType === "openai" ? "openai_api_key" : "resend_api_key";
+    const apiKey = editedSettings[settingKey] ?? apiKeySettings?.find(s => s.setting_key === settingKey)?.setting_value;
+    
+    if (!apiKey) {
+      toast.error(`No ${keyType === "openai" ? "OpenAI" : "Resend"} API key to test`);
+      return;
+    }
+
+    setTestingApiKey(keyType);
+    try {
+      const { data, error } = await supabase.functions.invoke("test-api-key", {
+        body: { keyType, apiKey },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(data.message || `${keyType === "openai" ? "OpenAI" : "Resend"} API key is valid!`);
+      } else {
+        toast.error(data?.error || `Invalid ${keyType === "openai" ? "OpenAI" : "Resend"} API key`);
+      }
+    } catch (err) {
+      console.error("Error testing API key:", err);
+      toast.error(`Failed to test API key: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setTestingApiKey(null);
+    }
   };
 
   const getActionBadgeVariant = (action: string) => {
@@ -697,20 +728,35 @@ export default function AdminSettings() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="openai_api_key">OpenAI API Key</Label>
-                        {hasChanges("openai_api_key") && (
+                        <div className="flex gap-2">
                           <Button
                             size="sm"
-                            onClick={() => handleSave("openai_api_key")}
-                            disabled={updateSetting.isPending}
+                            variant="outline"
+                            onClick={() => testApiKey("openai")}
+                            disabled={testingApiKey === "openai" || !((editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value))}
                           >
-                            {updateSetting.isPending ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
+                            {testingApiKey === "openai" ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
                             ) : (
-                              <Save className="h-3 w-3 mr-1" />
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
                             )}
-                            Save
+                            Test
                           </Button>
-                        )}
+                          {hasChanges("openai_api_key") && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave("openai_api_key")}
+                              disabled={updateSetting.isPending}
+                            >
+                              {updateSetting.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Save className="h-3 w-3 mr-1" />
+                              )}
+                              Save
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <Input
                         id="openai_api_key"
@@ -726,20 +772,35 @@ export default function AdminSettings() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="resend_api_key">Resend API Key</Label>
-                        {hasChanges("resend_api_key") && (
+                        <div className="flex gap-2">
                           <Button
                             size="sm"
-                            onClick={() => handleSave("resend_api_key")}
-                            disabled={updateSetting.isPending}
+                            variant="outline"
+                            onClick={() => testApiKey("resend")}
+                            disabled={testingApiKey === "resend" || !((editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value))}
                           >
-                            {updateSetting.isPending ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
+                            {testingApiKey === "resend" ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
                             ) : (
-                              <Save className="h-3 w-3 mr-1" />
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
                             )}
-                            Save
+                            Test
                           </Button>
-                        )}
+                          {hasChanges("resend_api_key") && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave("resend_api_key")}
+                              disabled={updateSetting.isPending}
+                            >
+                              {updateSetting.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Save className="h-3 w-3 mr-1" />
+                              )}
+                              Save
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <Input
                         id="resend_api_key"
