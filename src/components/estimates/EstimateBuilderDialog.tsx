@@ -121,7 +121,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     billing_address: "",
     estimate_title: "",
     estimate_date: new Date().toISOString().split("T")[0],
-    expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    expiration_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // Default 7 days
     deposit_required: true,
     deposit_percent: 10,
     deposit_max_amount: 1000,
@@ -259,19 +259,20 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     enabled: open && !estimateId, // Only fetch for new estimates
   });
 
-  // Fetch default deposit settings from company settings
-  const { data: depositSettings } = useQuery({
-    queryKey: ["default-deposit-settings", companyId],
+  // Fetch default deposit settings and expiration days from company settings
+  const { data: estimateDefaults } = useQuery({
+    queryKey: ["default-estimate-settings", companyId],
     queryFn: async () => {
       const { data } = await supabase
         .from("company_settings")
         .select("setting_key, setting_value")
         .eq("company_id", companyId)
-        .in("setting_key", ["default_deposit_percent", "default_deposit_max_amount"]);
+        .in("setting_key", ["default_deposit_percent", "default_deposit_max_amount", "estimate_expiration_days"]);
       
-      const settings: { percent: number; maxAmount: number } = {
+      const settings: { percent: number; maxAmount: number; expirationDays: number } = {
         percent: 10,
         maxAmount: 1000,
+        expirationDays: 7, // Default to 7 days
       };
       
       (data || []).forEach((s: any) => {
@@ -280,6 +281,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         }
         if (s.setting_key === "default_deposit_max_amount" && s.setting_value) {
           settings.maxAmount = parseFloat(s.setting_value);
+        }
+        if (s.setting_key === "estimate_expiration_days" && s.setting_value) {
+          settings.expirationDays = parseInt(s.setting_value, 10);
         }
       });
       
@@ -376,7 +380,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         billing_address: "",
         estimate_title: "",
         estimate_date: new Date().toISOString().split("T")[0],
-        expiration_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        expiration_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0], // Default 7 days
         deposit_required: true,
         deposit_percent: 10,
         deposit_max_amount: 1000,
@@ -419,16 +423,18 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
   }, [open, estimateId, defaultMarkupSetting]);
 
-  // Apply default deposit settings when loaded for new estimates
+  // Apply default deposit and expiration settings when loaded for new estimates
   useEffect(() => {
-    if (open && !estimateId && depositSettings) {
+    if (open && !estimateId && estimateDefaults) {
+      const expirationDate = new Date(Date.now() + estimateDefaults.expirationDays * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
       setFormData(prev => ({
         ...prev,
-        deposit_percent: depositSettings.percent,
-        deposit_max_amount: depositSettings.maxAmount,
+        deposit_percent: estimateDefaults.percent,
+        deposit_max_amount: estimateDefaults.maxAmount,
+        expiration_date: expirationDate,
       }));
     }
-  }, [open, estimateId, depositSettings]);
+  }, [open, estimateId, estimateDefaults]);
 
   // AI Scope Generation
   const generateScope = async () => {
