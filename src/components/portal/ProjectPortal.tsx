@@ -46,35 +46,34 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
     queryFn: async () => {
       const settingKeys = ['company_name', 'company_address', 'company_phone', 'company_website', 'portal_upload_limit_mb', 'company_logo_url'];
       
-      // Try company_settings first if we have projectCompanyId
-      if (projectCompanyId) {
-        const { data: companyData } = await supabase
-          .from('company_settings')
-          .select('setting_key, setting_value')
-          .eq('company_id', projectCompanyId)
-          .in('setting_key', settingKeys);
-        
-        if (companyData && companyData.length > 0) {
-          const settings: Record<string, string> = {};
-          companyData.forEach(s => {
-            settings[s.setting_key] = s.setting_value || '';
-          });
-          return settings;
-        }
-      }
+      // Fetch company-specific settings
+      const { data: companyData } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', projectCompanyId!)
+        .in('setting_key', settingKeys);
       
-      // Fall back to app_settings
-      const { data, error } = await supabase
+      // Fetch app_settings as fallback for any missing keys
+      const { data: appData } = await supabase
         .from('app_settings')
         .select('setting_key, setting_value')
         .in('setting_key', settingKeys);
-      if (error) throw error;
+      
+      // Build fallback map from app_settings
+      const appMap = new Map(appData?.map(s => [s.setting_key, s.setting_value || '']) || []);
+      
+      // Build company map (overrides app_settings)
+      const companyMap = new Map(companyData?.map(s => [s.setting_key, s.setting_value || '']) || []);
+      
+      // Merge: company settings take priority, fall back to app settings
       const settings: Record<string, string> = {};
-      data?.forEach(s => {
-        settings[s.setting_key] = s.setting_value || '';
+      settingKeys.forEach(key => {
+        settings[key] = companyMap.get(key) || appMap.get(key) || '';
       });
+      
       return settings;
     },
+    enabled: !!projectCompanyId, // Only fetch once we have the company ID
     staleTime: 1000 * 60 * 5,
   });
 
