@@ -1,11 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, User, MapPin, Mail, Phone, Calendar, DollarSign, FileText, Percent, PenTool } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, User, MapPin, Mail, Phone, Calendar, DollarSign, FileText, Percent, PenTool, Upload, File, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 interface EstimateDetailSheetProps {
   estimateId: string | null;
@@ -83,6 +88,12 @@ const itemTypeLabels: Record<string, string> = {
 };
 
 export function EstimateDetailSheet({ estimateId, open, onOpenChange }: EstimateDetailSheetProps) {
+  const { user } = useAuth();
+  const { companyId } = useCompanyContext();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   // Fetch estimate details
   const { data: estimate, isLoading: loadingEstimate } = useQuery({
     queryKey: ["estimate", estimateId],
@@ -162,6 +173,107 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
     },
     enabled: !!estimateId,
   });
+
+  // Fetch documents linked to the project (if estimate has project_id)
+  const projectId = estimate?.project_id;
+  const { data: documents = [] } = useQuery({
+    queryKey: ["proposal-documents", projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from("project_documents")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("category", "Proposal Documents")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+
+  // Upload document mutation
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!projectId) throw new Error("No project linked to this estimate");
+      
+      setIsUploading(true);
+      
+      // Upload to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${projectId}/proposal-docs/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("project-attachments")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("project-attachments")
+        .getPublicUrl(uploadData.path);
+
+      // Create document record
+      const { error: insertError } = await supabase
+        .from("project_documents")
+        .insert({
+          project_id: projectId,
+          file_name: file.name,
+          file_url: publicUrl,
+          file_type: file.type,
+          category: "Proposal Documents",
+          notes: `Uploaded for estimate #${estimate?.estimate_number}`,
+          uploaded_by: user?.id || null,
+          company_id: companyId,
+        });
+
+      if (insertError) throw insertError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["proposal-documents", projectId] });
+      toast.success("Document uploaded successfully");
+      setIsUploading(false);
+    },
+    onError: (error) => {
+      toast.error(`Upload failed: ${error.message}`);
+      setIsUploading(false);
+    },
+  });
+
+  // Delete document mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      const { error } = await supabase
+        .from("project_documents")
+        .delete()
+        .eq("id", docId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["proposal-documents", projectId] });
+      toast.success("Document deleted");
+    },
+    onError: (error) => {
+      toast.error(`Delete failed: ${error.message}`);
+    },
+  });
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size must be less than 10MB");
+      return;
+    }
+    
+    uploadMutation.mutate(file);
+    e.target.value = ''; // Reset input
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -443,6 +555,76 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
               )}
             </CardContent>
           </Card>
+
+          {/* Documents Upload - only show if estimate has a linked project */}
+          {projectId && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    Proposal Documents
+                  </CardTitle>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-1" />
+                    )}
+                    Upload
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                    onChange={handleFileSelect}
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No documents uploaded yet
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div 
+                        key={doc.id} 
+                        className="flex items-center justify-between p-2 rounded-md border bg-muted/30"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <File className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <a 
+                            href={doc.file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sm truncate hover:underline text-primary"
+                          >
+                            {doc.file_name}
+                          </a>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0"
+                          onClick={() => deleteMutation.mutate(doc.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Notes */}
           {estimate.notes && (
