@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import {
   Sheet,
@@ -99,6 +100,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin, isSuperAdmin, user } = useAuth();
+  const { companyId } = useCompanyContext();
   const [activeTab, setActiveTab] = useState(initialTab || "overview");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null);
@@ -220,17 +222,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
   // Fetch salespeople from the salespeople table
   const { data: existingSalespeople = [] } = useQuery({
-    queryKey: ["salespeople-names"],
+    queryKey: ["salespeople-names", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("salespeople")
         .select("name")
+        .eq("company_id", companyId)
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
       return data.map(s => s.name);
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // State for combobox inputs
@@ -391,47 +395,52 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
 
   // Fetch project statuses from database
   const { data: projectStatuses = [] } = useQuery({
-    queryKey: ["project-statuses"],
+    queryKey: ["project-statuses", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("project_statuses")
         .select("*")
+        .eq("company_id", companyId)
         .order("sort_order");
       if (error) throw error;
       return data;
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // Fetch project types from database
   const { data: projectTypes = [] } = useQuery({
-    queryKey: ["project-types"],
+    queryKey: ["project-types", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("project_types")
         .select("*")
+        .eq("company_id", companyId)
         .order("name", { ascending: true });
       if (error) throw error;
       return data;
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // Add new status mutation
   const addStatusMutation = useMutation({
     mutationFn: async (name: string) => {
+      if (!companyId) throw new Error("No company selected");
       const maxSort = projectStatuses.length > 0 
         ? Math.max(...projectStatuses.map(s => s.sort_order || 0)) 
         : 0;
       const { error } = await supabase
         .from("project_statuses")
-        .insert({ name, sort_order: maxSort + 1 });
+        .insert({ name, sort_order: maxSort + 1, company_id: companyId });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Status added");
       setNewStatusValue("");
-      queryClient.invalidateQueries({ queryKey: ["project-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["project-statuses", companyId] });
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
@@ -439,18 +448,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   // Add new type mutation
   const addTypeMutation = useMutation({
     mutationFn: async (name: string) => {
+      if (!companyId) throw new Error("No company selected");
       const maxSort = projectTypes.length > 0 
         ? Math.max(...projectTypes.map(t => t.sort_order || 0)) 
         : 0;
       const { error } = await supabase
         .from("project_types")
-        .insert({ name, sort_order: maxSort + 1 });
+        .insert({ name, sort_order: maxSort + 1, company_id: companyId });
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Type added");
       setNewTypeValue("");
-      queryClient.invalidateQueries({ queryKey: ["project-types"] });
+      queryClient.invalidateQueries({ queryKey: ["project-types", companyId] });
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
@@ -458,17 +468,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      if (!companyId) throw new Error("No company selected");
       const { error } = await supabase
         .from("project_statuses")
         .update({ name })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("company_id", companyId);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Status renamed");
       setEditingStatusId(null);
       setEditingStatusName("");
-      queryClient.invalidateQueries({ queryKey: ["project-statuses"] });
+      queryClient.invalidateQueries({ queryKey: ["project-statuses", companyId] });
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
@@ -476,17 +488,19 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
   // Update type mutation
   const updateTypeMutation = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      if (!companyId) throw new Error("No company selected");
       const { error } = await supabase
         .from("project_types")
         .update({ name })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("company_id", companyId);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Type renamed");
       setEditingTypeId(null);
       setEditingTypeName("");
-      queryClient.invalidateQueries({ queryKey: ["project-types"] });
+      queryClient.invalidateQueries({ queryKey: ["project-types", companyId] });
     },
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });

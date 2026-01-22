@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ export function MarkAsPaidDialog({
   onSave,
 }: MarkAsPaidDialogProps) {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [amount, setAmount] = useState<string>("");
   const [bankName, setBankName] = useState<string>("");
@@ -58,29 +60,33 @@ export function MarkAsPaidDialog({
 
   // Fetch banks
   const { data: banks = [] } = useQuery({
-    queryKey: ["banks"],
+    queryKey: ["banks", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("banks")
         .select("*")
+        .eq("company_id", companyId)
         .order("name");
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Mutation to add new bank
   const addBankMutation = useMutation({
     mutationFn: async (newBankName: string) => {
+      if (!companyId) throw new Error("No company selected");
       const { error } = await supabase
         .from("banks")
-        .insert({ name: newBankName })
+        .insert({ name: newBankName, company_id: companyId })
         .select()
         .single();
       if (error && !error.message.includes('duplicate')) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["banks"] });
+      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
     },
   });
 
