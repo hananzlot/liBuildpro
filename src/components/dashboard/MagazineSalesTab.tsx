@@ -88,9 +88,11 @@ export const MagazineSalesTab = () => {
   const { data: sales = [], isLoading } = useQuery({
     queryKey: ["magazine-sales", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("magazine_sales")
         .select("*")
+        .eq("company_id", companyId)
         .order("magazine_issue_date", { ascending: false });
       if (error) throw error;
       return data as MagazineSale[];

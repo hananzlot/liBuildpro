@@ -152,32 +152,36 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   // Fetch projects for linking
   const { data: projects = [] } = useQuery({
-    queryKey: ["projects-for-linking"],
+    queryKey: ["projects-for-linking", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("projects")
         .select("id, project_number, project_name, customer_first_name, customer_last_name, project_address")
+        .eq("company_id", companyId)
         .order("project_number", { ascending: false })
         .limit(100);
       if (error) throw error;
       return data || [];
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // Fetch salespeople for selection
   const { data: salespeople = [] } = useQuery({
-    queryKey: ["salespeople-for-estimate"],
+    queryKey: ["salespeople-for-estimate", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("salespeople")
         .select("id, name")
+        .eq("company_id", companyId)
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
       return data || [];
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // Calculate totals including cost and profit

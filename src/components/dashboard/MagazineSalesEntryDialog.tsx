@@ -249,15 +249,17 @@ export const MagazineSalesEntryDialog = ({
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (!companyId) throw new Error("No company selected");
       const { error } = await supabase
         .from("magazine_sales")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("company_id", companyId);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Magazine sale entry deleted");
-      queryClient.invalidateQueries({ queryKey: ["magazine-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["magazine-sales", companyId] });
       onOpenChange(false);
     },
     onError: (error) => {

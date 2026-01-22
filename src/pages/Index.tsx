@@ -92,7 +92,8 @@ const Index = () => {
   const { data: magazineSales = [] } = useQuery({
     queryKey: ["magazine-sales-dashboard", companyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("magazine_sales").select("price, page_size, sections_sold");
+      if (!companyId) return [];
+      const { data, error } = await supabase.from("magazine_sales").select("price, page_size, sections_sold").eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
