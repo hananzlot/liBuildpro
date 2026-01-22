@@ -425,7 +425,7 @@ export default function AdminSettings() {
   );
 
   const estimateSettings = settings?.filter((s) =>
-    ["default_terms_and_conditions", "default_markup_percent", "default_deposit_percent", "default_deposit_max_amount"].includes(s.setting_key)
+    ["default_terms_and_conditions", "default_markup_percent", "default_deposit_percent", "default_deposit_max_amount", "estimate_expiration_days"].includes(s.setting_key)
   );
 
   const payablesReceivablesSettings = settings?.filter((s) =>
@@ -707,6 +707,34 @@ export default function AdminSettings() {
                           placeholder="1000"
                         />
                         <p className="text-xs text-muted-foreground">Maximum deposit amount (deposit = min of percent or this cap)</p>
+                      </div>
+                    )}
+                    
+                    {/* Estimate Expiration Days */}
+                    {!estimateSettings?.some(s => s.setting_key === "estimate_expiration_days") && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="estimate_expiration_days">Estimate Expiration (Days)</Label>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              updateSetting.mutate({ key: "estimate_expiration_days", value: editedSettings["estimate_expiration_days"] || "7" });
+                            }}
+                            disabled={updateSetting.isPending}
+                          >
+                            <Save className="h-3 w-3 mr-1" />
+                            Save
+                          </Button>
+                        </div>
+                        <Input
+                          id="estimate_expiration_days"
+                          type="number"
+                          min="1"
+                          value={editedSettings["estimate_expiration_days"] ?? "7"}
+                          onChange={(e) => handleChange("estimate_expiration_days", e.target.value)}
+                          placeholder="7"
+                        />
+                        <p className="text-xs text-muted-foreground">Number of days until a proposal expires (from date sent). Default: 7 days</p>
                       </div>
                     )}
                   </CardContent>
