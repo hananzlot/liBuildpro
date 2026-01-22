@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -401,6 +401,10 @@ export default function AdminSettings() {
     ["payment_focus_day"].includes(s.setting_key)
   );
 
+  const apiKeySettings = settings?.filter((s) =>
+    ["openai_api_key", "resend_api_key"].includes(s.setting_key)
+  );
+
   const formatLabel = (key: string) => {
     return key
       .replace(/_/g, " ")
@@ -674,6 +678,122 @@ export default function AdminSettings() {
                         <p className="text-xs text-muted-foreground">Maximum deposit amount (deposit = min of percent or this cap)</p>
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+
+                {/* API Keys Settings */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Key className="h-5 w-5" />
+                      API Keys
+                    </CardTitle>
+                    <CardDescription>
+                      Configure API keys for external integrations. These keys are stored securely and used for AI features and email delivery.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {apiKeySettings && apiKeySettings.length > 0 ? (
+                      apiKeySettings.map((setting) => (
+                        <div key={setting.id} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor={setting.setting_key}>{formatLabel(setting.setting_key)}</Label>
+                            {hasChanges(setting.setting_key) && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleSave(setting.setting_key)}
+                                disabled={updateSetting.isPending}
+                              >
+                                {updateSetting.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Save className="h-3 w-3 mr-1" />
+                                )}
+                                Save
+                              </Button>
+                            )}
+                          </div>
+                          <Input
+                            id={setting.setting_key}
+                            type="password"
+                            value={getValue(setting)}
+                            onChange={(e) => handleChange(setting.setting_key, e.target.value)}
+                            placeholder={setting.description || `Enter ${formatLabel(setting.setting_key)}`}
+                          />
+                          {setting.description && (
+                            <p className="text-xs text-muted-foreground">{setting.description}</p>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        {/* OpenAI API Key */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="openai_api_key">OpenAI API Key</Label>
+                            {hasChanges("openai_api_key") && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleSave("openai_api_key")}
+                                disabled={updateSetting.isPending}
+                              >
+                                {updateSetting.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Save className="h-3 w-3 mr-1" />
+                                )}
+                                Save
+                              </Button>
+                            )}
+                          </div>
+                          <Input
+                            id="openai_api_key"
+                            type="password"
+                            value={editedSettings["openai_api_key"] ?? ""}
+                            onChange={(e) => handleChange("openai_api_key", e.target.value)}
+                            placeholder="sk-..."
+                          />
+                          <p className="text-xs text-muted-foreground">Used for AI-powered features like estimate generation</p>
+                        </div>
+
+                        {/* Resend API Key */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="resend_api_key">Resend API Key</Label>
+                            {hasChanges("resend_api_key") && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleSave("resend_api_key")}
+                                disabled={updateSetting.isPending}
+                              >
+                                {updateSetting.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Save className="h-3 w-3 mr-1" />
+                                )}
+                                Save
+                              </Button>
+                            )}
+                          </div>
+                          <Input
+                            id="resend_api_key"
+                            type="password"
+                            value={editedSettings["resend_api_key"] ?? ""}
+                            onChange={(e) => handleChange("resend_api_key", e.target.value)}
+                            placeholder="re_..."
+                          />
+                          <p className="text-xs text-muted-foreground">Used for sending emails via Resend</p>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="text-muted-foreground">
+                        <strong>Security Note:</strong> API keys are stored encrypted in your company settings. 
+                        If left empty, platform-level keys will be used as fallback.
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 

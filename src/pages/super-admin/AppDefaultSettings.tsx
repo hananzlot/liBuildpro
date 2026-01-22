@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Save, Loader2, Building, Mail, FileText, Settings, Upload, AlertTriangle } from "lucide-react";
+import { Save, Loader2, Building, Mail, FileText, Settings, Upload, AlertTriangle, Key } from "lucide-react";
 
 interface AppSetting {
   id: string;
@@ -120,6 +120,42 @@ export default function AppDefaultSettings() {
 
   const estimateSettings = settings?.filter((s) =>
     ["default_terms_and_conditions", "default_markup_percent", "default_deposit_percent", "default_deposit_max_amount"].includes(s.setting_key)
+  );
+
+  const apiKeySettings = settings?.filter((s) =>
+    ["openai_api_key", "resend_api_key"].includes(s.setting_key)
+  );
+
+  const renderPasswordSettingField = (setting: AppSetting) => (
+    <div key={setting.id} className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label htmlFor={setting.setting_key}>{formatLabel(setting.setting_key)}</Label>
+        {hasChanges(setting.setting_key) && (
+          <Button
+            size="sm"
+            onClick={() => handleSave(setting.setting_key)}
+            disabled={updateSetting.isPending}
+          >
+            {updateSetting.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Save className="h-3 w-3 mr-1" />
+            )}
+            Save
+          </Button>
+        )}
+      </div>
+      <Input
+        id={setting.setting_key}
+        type="password"
+        value={getValue(setting)}
+        onChange={(e) => handleChange(setting.setting_key, e.target.value)}
+        placeholder={setting.description || ""}
+      />
+      {setting.description && (
+        <p className="text-xs text-muted-foreground">{setting.description}</p>
+      )}
+    </div>
   );
 
   const renderSettingField = (setting: AppSetting) => (
@@ -279,6 +315,92 @@ export default function AppDefaultSettings() {
                 ? renderTextareaSettingField(setting)
                 : renderSettingField(setting)
             )}
+          </CardContent>
+        </Card>
+
+        {/* API Keys Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Platform API Keys
+            </CardTitle>
+            <CardDescription>
+              Default API keys for the platform. Companies can override these in their own settings.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {apiKeySettings && apiKeySettings.length > 0 ? (
+              apiKeySettings.map(renderPasswordSettingField)
+            ) : (
+              <>
+                {/* OpenAI API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="openai_api_key">OpenAI API Key</Label>
+                    {hasChanges("openai_api_key") && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleSave("openai_api_key")}
+                        disabled={updateSetting.isPending}
+                      >
+                        {updateSetting.isPending ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Save className="h-3 w-3 mr-1" />
+                        )}
+                        Save
+                      </Button>
+                    )}
+                  </div>
+                  <Input
+                    id="openai_api_key"
+                    type="password"
+                    value={editedSettings["openai_api_key"] ?? ""}
+                    onChange={(e) => handleChange("openai_api_key", e.target.value)}
+                    placeholder="sk-..."
+                  />
+                  <p className="text-xs text-muted-foreground">Platform-wide OpenAI API key for AI-powered features</p>
+                </div>
+
+                {/* Resend API Key */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="resend_api_key">Resend API Key</Label>
+                    {hasChanges("resend_api_key") && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleSave("resend_api_key")}
+                        disabled={updateSetting.isPending}
+                      >
+                        {updateSetting.isPending ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Save className="h-3 w-3 mr-1" />
+                        )}
+                        Save
+                      </Button>
+                    )}
+                  </div>
+                  <Input
+                    id="resend_api_key"
+                    type="password"
+                    value={editedSettings["resend_api_key"] ?? ""}
+                    onChange={(e) => handleChange("resend_api_key", e.target.value)}
+                    placeholder="re_..."
+                  />
+                  <p className="text-xs text-muted-foreground">Platform-wide Resend API key for email delivery</p>
+                </div>
+              </>
+            )}
+
+            <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="text-muted-foreground">
+                <strong>Note:</strong> These platform-level API keys serve as defaults. 
+                Individual companies can override them by setting their own keys in Company Settings.
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
