@@ -829,20 +829,35 @@ export default function AdminSettings() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="openai_api_key">OpenAI API Key</Label>
-                        {hasChanges("openai_api_key") && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleSave("openai_api_key")}
-                            disabled={updateSetting.isPending}
-                          >
-                            {updateSetting.isPending ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Save className="h-3 w-3 mr-1" />
-                            )}
-                            Save
-                          </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => testApiKey("openai")}
+                        disabled={testingApiKey === "openai" || !((editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value))}
+                      >
+                        {testingApiKey === "openai" ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        ) : (
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
                         )}
+                        Test
+                      </Button>
+                      {hasChanges("openai_api_key") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave("openai_api_key")}
+                          disabled={updateSetting.isPending}
+                        >
+                          {updateSetting.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Save className="h-3 w-3 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <Input
                     id="openai_api_key"
@@ -858,20 +873,35 @@ export default function AdminSettings() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="resend_api_key">Resend API Key</Label>
-                        {hasChanges("resend_api_key") && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleSave("resend_api_key")}
-                            disabled={updateSetting.isPending}
-                          >
-                            {updateSetting.isPending ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Save className="h-3 w-3 mr-1" />
-                            )}
-                            Save
-                          </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => testApiKey("resend")}
+                        disabled={testingApiKey === "resend" || !((editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value))}
+                      >
+                        {testingApiKey === "resend" ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        ) : (
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
                         )}
+                        Test
+                      </Button>
+                      {hasChanges("resend_api_key") && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave("resend_api_key")}
+                          disabled={updateSetting.isPending}
+                        >
+                          {updateSetting.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Save className="h-3 w-3 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <Input
                     id="resend_api_key"
