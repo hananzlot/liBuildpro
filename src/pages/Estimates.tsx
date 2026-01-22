@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2 } from "lucide-react";
+import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
@@ -19,6 +19,7 @@ import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDia
 import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 import { ContractPrintDialog } from "@/components/estimates/ContractPrintDialog";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
+import { ProposalUploadDialog } from "@/components/estimates/ProposalUploadDialog";
 
 type ViewType = "list" | "proposals" | "contracts" | "declined";
 
@@ -74,6 +75,7 @@ export default function Estimates() {
   const [isResendMode, setIsResendMode] = useState(false);
   const [printEstimateId, setPrintEstimateId] = useState<string | null>(null);
   const [previewEstimateId, setPreviewEstimateId] = useState<string | null>(null);
+  const [uploadDialogEstimate, setUploadDialogEstimate] = useState<Estimate | null>(null);
 
   const handleViewChange = (view: string) => {
     setSearchParams({ view });
@@ -473,6 +475,14 @@ export default function Estimates() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => setUploadDialogEstimate(estimate)}
+                            title="Upload Documents"
+                          >
+                            <Upload className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleCopyPortalLink(estimate.id)}
                             title="Copy Portal Link"
                           >
@@ -746,6 +756,17 @@ export default function Estimates() {
         open={!!previewEstimateId}
         onOpenChange={(open) => !open && setPreviewEstimateId(null)}
       />
+
+      {/* Proposal Upload Dialog */}
+      {uploadDialogEstimate && (
+        <ProposalUploadDialog
+          open={!!uploadDialogEstimate}
+          onOpenChange={(open) => !open && setUploadDialogEstimate(null)}
+          estimateId={uploadDialogEstimate.id}
+          estimateNumber={uploadDialogEstimate.estimate_number}
+          customerName={uploadDialogEstimate.customer_name}
+        />
+      )}
     </AppLayout>
   );
 }
