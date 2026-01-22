@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMemo, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import type { DateRange } from "@/hooks/useGHLContacts";
 import { differenceInCalendarDays } from "date-fns";
 import { getAddressFromContact } from "@/lib/utils";
@@ -70,6 +71,7 @@ function parseGhlDate(value: string | null | undefined): Date | null {
 }
 
 export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], dateRange, onOpportunityClick }: RecentWonDealsProps) {
+  const { companyId } = useCompanyContext();
   const [projectCosts, setProjectCosts] = useState<Map<string, number>>(new Map());
 
   const contactMap = new Map<string, Contact>();
@@ -102,15 +104,16 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
     );
   }, [wonOpportunities, dateRange]);
 
-  // Fetch project costs for filtered won opportunities
+  // Fetch project costs for filtered won opportunities scoped by company
   useEffect(() => {
     const fetchCosts = async () => {
-      if (filteredWon.length === 0) return;
+      if (filteredWon.length === 0 || !companyId) return;
 
       const oppIds = filteredWon.map((o) => o.ghl_id);
       const { data, error } = await supabase
         .from("project_costs")
         .select("opportunity_id, estimated_cost")
+        .eq("company_id", companyId)
         .in("opportunity_id", oppIds);
 
       if (error) {
@@ -126,7 +129,7 @@ export function RecentWonDeals({ wonOpportunities, contacts, appointments = [], 
     };
 
     fetchCosts();
-  }, [filteredWon]);
+  }, [filteredWon, companyId]);
 
   const getContactName = (contactId: string | null): string => {
     if (!contactId) return "Unknown";

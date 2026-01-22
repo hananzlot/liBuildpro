@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { logAudit } from "@/hooks/useAuditLog";
 import { findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,13 +70,15 @@ const formatDate = (date: string | null | undefined) => {
 
 export function MissingProjectsSection() {
   const queryClient = useQueryClient();
+  const { companyId } = useCompanyContext();
   const [selectedOpportunities, setSelectedOpportunities] = useState<Set<string>>(new Set());
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
-  // Fetch won opportunities
+  // Fetch won opportunities scoped by company
   const { data: wonOpportunities = [], isLoading: loadingOpportunities } = useQuery({
-    queryKey: ["won-opportunities"],
+    queryKey: ["won-opportunities", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("opportunities")
         .select(`
@@ -92,48 +95,59 @@ export function MissingProjectsSection() {
           scope_of_work
         `)
         .eq("status", "won")
+        .eq("company_id", companyId)
         .order("ghl_date_added", { ascending: false });
       
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
-  // Fetch contacts for won opportunities
+  // Fetch contacts for won opportunities scoped by company
   const { data: contacts = [] } = useQuery({
-    queryKey: ["won-opportunities-contacts"],
+    queryKey: ["won-opportunities-contacts", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("contacts")
-        .select("id, ghl_id, contact_name, first_name, last_name, phone, email, source, custom_fields");
+        .select("id, ghl_id, contact_name, first_name, last_name, phone, email, source, custom_fields")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
-  // Fetch existing projects to check which opportunities already have projects
+  // Fetch existing projects to check which opportunities already have projects scoped by company
   const { data: existingProjects = [] } = useQuery({
-    queryKey: ["existing-projects-opportunity-ids"],
+    queryKey: ["existing-projects-opportunity-ids", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("projects")
         .select("opportunity_id")
+        .eq("company_id", companyId)
         .not("opportunity_id", "is", null);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
-  // Fetch GHL users for salesperson names
+  // Fetch GHL users for salesperson names scoped by company
   const { data: ghlUsers = [] } = useQuery({
-    queryKey: ["ghl-users-for-opportunities"],
+    queryKey: ["ghl-users-for-opportunities", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("ghl_users")
-        .select("ghl_id, name, first_name, last_name");
+        .select("ghl_id, name, first_name, last_name")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
+    enabled: !!companyId,
   });
 
   // Calculate missing opportunities

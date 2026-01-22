@@ -356,9 +356,10 @@ export function OpportunityDetailSheet({
   // Fetch active calendars on mount
   useEffect(() => {
     const fetchCalendars = async () => {
+      if (!companyId) return;
       const {
         data
-      } = await supabase.from("ghl_calendars").select("ghl_id, name, team_members").eq("is_active", true).eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
+      } = await supabase.from("ghl_calendars").select("ghl_id, name, team_members").eq("is_active", true).eq("company_id", companyId);
       if (data) {
         // Parse team_members from JSON if needed
         const calendarsWithTeam = data.map(cal => ({
@@ -393,11 +394,11 @@ export function OpportunityDetailSheet({
 
   // Fetch pipelines when sheet opens
   useEffect(() => {
-    if (!open) return;
+    if (!open || !companyId) return;
     const fetchPipelines = async () => {
       const {
         data
-      } = await supabase.from("ghl_pipelines").select("ghl_id, name, stages").eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
+      } = await supabase.from("ghl_pipelines").select("ghl_id, name, stages").eq("company_id", companyId);
       if (data) {
         console.log('Fetched pipeline data:', data);
         setPipelineData(data as {
@@ -1527,7 +1528,8 @@ export function OpportunityDetailSheet({
       } = await supabase.from("project_costs").upsert({
         opportunity_id: opportunity.ghl_id,
         estimated_cost: costValue,
-        entered_by: user?.id || null
+        entered_by: user?.id || null,
+        company_id: companyId
       }, {
         onConflict: "opportunity_id"
       });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,18 +29,22 @@ interface ExpirationWarning {
 
 export function SubcontractorWarningsCard() {
   const navigate = useNavigate();
+  const { companyId } = useCompanyContext();
   const [isOpen, setIsOpen] = useState(false);
 
   const { data: subcontractors = [] } = useQuery({
-    queryKey: ["subcontractors-active"],
+    queryKey: ["subcontractors-active", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("subcontractors")
         .select("id, company_name, license_expiration_date, insurance_expiration_date, is_active, do_not_require_license, do_not_require_insurance, subcontractor_type")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("company_id", companyId);
       if (error) throw error;
       return data as Subcontractor[];
     },
+    enabled: !!companyId,
   });
 
   // Calculate warnings for expiring/expired documents

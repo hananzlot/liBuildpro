@@ -109,14 +109,14 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
 
   // Fetch pipelines/stages when dialog opens from ghl_pipelines table
   useEffect(() => {
-    if (!open) return;
+    if (!open || !companyId) return;
     
     const fetchPipelineStages = async () => {
-      // First try to get from ghl_pipelines table
+      // First try to get from ghl_pipelines table scoped by company
       const { data: pipelineData } = await supabase
         .from("ghl_pipelines")
         .select("ghl_id, name, stages")
-        .eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
+        .eq("company_id", companyId);
 
       console.log('NewEntryDialog fetched pipeline data:', pipelineData);
 
@@ -149,10 +149,11 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
         return;
       }
 
-      // Fall back to deriving from opportunities
+      // Fall back to deriving from opportunities scoped by company
       const { data } = await supabase
         .from("opportunities")
         .select("pipeline_id, pipeline_name, pipeline_stage_id, stage_name")
+        .eq("company_id", companyId)
         .not("pipeline_id", "is", null)
         .not("pipeline_stage_id", "is", null);
 
@@ -183,30 +184,33 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       }
     };
     fetchPipelineStages();
-  }, [open]);
+  }, [open, companyId]);
 
-  // Fetch active calendars on mount
+  // Fetch active calendars on mount scoped by company
   useEffect(() => {
+    if (!companyId) return;
     const fetchCalendars = async () => {
       const { data } = await supabase
         .from("ghl_calendars")
         .select("ghl_id, name, is_active, team_members")
         .eq("is_active", true)
-        .eq("location_id", "pVeFrqvtYWNIPRIi0Fmr");
+        .eq("company_id", companyId);
 
       if (data) {
         setCalendars(data as GHLCalendar[]);
       }
     };
     fetchCalendars();
-  }, []);
+  }, [companyId]);
 
-  // Fetch available sources from contacts table + custom sources from localStorage
+  // Fetch available sources from contacts table + custom sources from localStorage (scoped by company)
   useEffect(() => {
+    if (!companyId) return;
     const fetchSources = async () => {
       const { data } = await supabase
         .from("contacts")
         .select("source")
+        .eq("company_id", companyId)
         .not("source", "is", null);
 
       // Normalize to title case and get unique sources
@@ -236,7 +240,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
       setAvailableSources(uniqueSources);
     };
     fetchSources();
-  }, []);
+  }, [companyId]);
 
   // Auto-select first calendar when rep is selected (or clear if no calendars)
   useEffect(() => {

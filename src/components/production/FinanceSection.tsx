@@ -2494,6 +2494,7 @@ function PaymentDialog({
   isPending: boolean;
   invoices: Invoice[];
 }) {
+  const { companyId } = useCompanyContext();
   const [formData, setFormData] = useState({
     bank_name: "",
     projected_received_date: "",
@@ -2508,34 +2509,37 @@ function PaymentDialog({
   const [bankSearch, setBankSearch] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
 
-  // Fetch existing bank names from banks table
+  // Fetch existing bank names from banks table scoped by company
   const { data: existingBanks = [] } = useQuery({
-    queryKey: ["banks"],
+    queryKey: ["banks", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("banks")
         .select("name")
+        .eq("company_id", companyId)
         .order("name");
       if (error) throw error;
       return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   const queryClient = useQueryClient();
 
-  // Mutation to add new bank
+  // Mutation to add new bank scoped by company
   const addBankMutation = useMutation({
     mutationFn: async (bankName: string) => {
+      if (!companyId) throw new Error("No company selected");
       const { error } = await supabase
         .from("banks")
-        .insert({ name: bankName })
+        .insert({ name: bankName, company_id: companyId })
         .select()
         .single();
       if (error && !error.message.includes('duplicate')) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["banks"] });
+      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
     },
   });
 
@@ -2805,28 +2809,33 @@ function BillDialog({
     );
   }, [allBills, formData.agreement_id, isOffsetEligible, bill?.id, formData.installer_company]);
 
-  // Fetch active subcontractors from subcontractors table
+  // Fetch active subcontractors from subcontractors table scoped by company
+  const { companyId } = useCompanyContext();
   const { data: activeSubcontractors = [] } = useQuery({
-    queryKey: ["active-subcontractors"],
+    queryKey: ["active-subcontractors", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("subcontractors")
         .select("id, company_name")
         .eq("is_active", true)
+        .eq("company_id", companyId)
         .order("company_name", { ascending: true });
       if (error) throw error;
       return data;
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
-  // Fetch unique categories (combining predefined + existing)
+  // Fetch unique categories (combining predefined + existing) scoped by company
   const { data: existingCategories = [] } = useQuery({
-    queryKey: ["bill-categories"],
+    queryKey: ["bill-categories", companyId],
     queryFn: async () => {
+      if (!companyId) return Array.from(new Set<string>(predefinedCategories)).sort();
       const { data, error } = await supabase
         .from("project_bills")
-        .select("category");
+        .select("category")
+        .eq("company_id", companyId);
       if (error) throw error;
       
       const categories = new Set<string>(predefinedCategories);
@@ -3627,6 +3636,7 @@ function QuickPayDialog({
   onSave: (payment: Omit<BillPayment, 'id' | 'bill_id'>) => void;
   isPending: boolean;
 }) {
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     payment_date: new Date().toISOString().split('T')[0],
@@ -3638,32 +3648,35 @@ function QuickPayDialog({
   const [bankSearch, setBankSearch] = useState("");
   const [bankOpen, setBankOpen] = useState(false);
 
-  // Fetch existing bank names
+  // Fetch existing bank names scoped by company
   const { data: existingBanks = [] } = useQuery({
-    queryKey: ["banks"],
+    queryKey: ["banks", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("banks")
         .select("name")
+        .eq("company_id", companyId)
         .order("name");
       if (error) throw error;
       return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
-  // Mutation to add new bank
+  // Mutation to add new bank scoped by company
   const addBankMutation = useMutation({
     mutationFn: async (bankName: string) => {
+      if (!companyId) throw new Error("No company selected");
       const { error } = await supabase
         .from("banks")
-        .insert({ name: bankName })
+        .insert({ name: bankName, company_id: companyId })
         .select()
         .single();
       if (error && !error.message.includes('duplicate')) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["banks"] });
+      queryClient.invalidateQueries({ queryKey: ["banks", companyId] });
     },
   });
 
@@ -4488,18 +4501,21 @@ function CommissionPaymentDialog({
     bank_name: "",
   });
 
-  // Fetch existing bank names from banks table
+  // Fetch existing bank names from banks table scoped by company
+  const { companyId } = useCompanyContext();
   const { data: existingBanks = [] } = useQuery({
-    queryKey: ["banks"],
+    queryKey: ["banks", companyId],
     queryFn: async () => {
+      if (!companyId) return [];
       const { data, error } = await supabase
         .from("banks")
         .select("name")
+        .eq("company_id", companyId)
         .order("name");
       if (error) throw error;
       return data.map(b => b.name).filter((name): name is string => typeof name === 'string');
     },
-    enabled: open,
+    enabled: open && !!companyId,
   });
 
   // Reset form when dialog opens/closes or editing changes
