@@ -553,15 +553,17 @@ export function AppointmentDetailSheet({
     setAppointmentEditDialogOpen(true);
   };
 
-  // Fetch calendars for the location
+  // Fetch calendars for the location scoped by company
   const fetchCalendars = async () => {
-    if (!appointment?.location_id) return;
+    if (!appointment?.location_id || !companyId) return;
     try {
+      // Scope by company_id for tenant isolation
       const { data, error } = await supabase
         .from("ghl_calendars")
         .select("ghl_id, name, is_active, location_id, team_members")
-        .eq("location_id", appointment.location_id)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("company_id", companyId);
+      
       if (error) throw error;
       // Parse team_members from JSON if needed
       const calendarsWithTeam = (data || []).map(cal => ({
