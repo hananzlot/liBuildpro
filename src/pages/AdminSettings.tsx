@@ -693,99 +693,63 @@ export default function AdminSettings() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {apiKeySettings && apiKeySettings.length > 0 ? (
-                      apiKeySettings.map((setting) => (
-                        <div key={setting.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor={setting.setting_key}>{formatLabel(setting.setting_key)}</Label>
-                            {hasChanges(setting.setting_key) && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleSave(setting.setting_key)}
-                                disabled={updateSetting.isPending}
-                              >
-                                {updateSetting.isPending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Save className="h-3 w-3 mr-1" />
-                                )}
-                                Save
-                              </Button>
+                    {/* OpenAI API Key */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="openai_api_key">OpenAI API Key</Label>
+                        {hasChanges("openai_api_key") && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleSave("openai_api_key")}
+                            disabled={updateSetting.isPending}
+                          >
+                            {updateSetting.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Save className="h-3 w-3 mr-1" />
                             )}
-                          </div>
-                          <Input
-                            id={setting.setting_key}
-                            type="password"
-                            value={getValue(setting)}
-                            onChange={(e) => handleChange(setting.setting_key, e.target.value)}
-                            placeholder={setting.description || `Enter ${formatLabel(setting.setting_key)}`}
-                          />
-                          {setting.description && (
-                            <p className="text-xs text-muted-foreground">{setting.description}</p>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <>
-                        {/* OpenAI API Key */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="openai_api_key">OpenAI API Key</Label>
-                            {hasChanges("openai_api_key") && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleSave("openai_api_key")}
-                                disabled={updateSetting.isPending}
-                              >
-                                {updateSetting.isPending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Save className="h-3 w-3 mr-1" />
-                                )}
-                                Save
-                              </Button>
-                            )}
-                          </div>
-                          <Input
-                            id="openai_api_key"
-                            type="password"
-                            value={editedSettings["openai_api_key"] ?? ""}
-                            onChange={(e) => handleChange("openai_api_key", e.target.value)}
-                            placeholder="sk-..."
-                          />
-                          <p className="text-xs text-muted-foreground">Used for AI-powered features like estimate generation</p>
-                        </div>
+                            Save
+                          </Button>
+                        )}
+                      </div>
+                      <Input
+                        id="openai_api_key"
+                        type="password"
+                        value={editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value ?? ""}
+                        onChange={(e) => handleChange("openai_api_key", e.target.value)}
+                        placeholder="sk-..."
+                      />
+                      <p className="text-xs text-muted-foreground">Used for AI-powered features like estimate generation</p>
+                    </div>
 
-                        {/* Resend API Key */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="resend_api_key">Resend API Key</Label>
-                            {hasChanges("resend_api_key") && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleSave("resend_api_key")}
-                                disabled={updateSetting.isPending}
-                              >
-                                {updateSetting.isPending ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Save className="h-3 w-3 mr-1" />
-                                )}
-                                Save
-                              </Button>
+                    {/* Resend API Key */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="resend_api_key">Resend API Key</Label>
+                        {hasChanges("resend_api_key") && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleSave("resend_api_key")}
+                            disabled={updateSetting.isPending}
+                          >
+                            {updateSetting.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Save className="h-3 w-3 mr-1" />
                             )}
-                          </div>
-                          <Input
-                            id="resend_api_key"
-                            type="password"
-                            value={editedSettings["resend_api_key"] ?? ""}
-                            onChange={(e) => handleChange("resend_api_key", e.target.value)}
-                            placeholder="re_..."
-                          />
-                          <p className="text-xs text-muted-foreground">Used for sending emails via Resend</p>
-                        </div>
-                      </>
-                    )}
+                            Save
+                          </Button>
+                        )}
+                      </div>
+                      <Input
+                        id="resend_api_key"
+                        type="password"
+                        value={editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value ?? ""}
+                        onChange={(e) => handleChange("resend_api_key", e.target.value)}
+                        placeholder="re_..."
+                      />
+                      <p className="text-xs text-muted-foreground">Used for sending emails via Resend</p>
+                    </div>
 
                     <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
                       <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
