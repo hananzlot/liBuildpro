@@ -130,6 +130,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       const { data, error } = await supabase
         .from("projects")
         .select("*")
+        .eq("company_id", companyId)
         .is("deleted_at", null)
         .order("project_number", { ascending: false });
       if (error) throw error;
@@ -144,7 +145,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_agreements")
-        .select("id, project_id, total_price, agreement_signed_date");
+        .select("id, project_id, total_price, agreement_signed_date")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
@@ -159,7 +161,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
         .select(`
           id, project_id, invoice_number, invoice_date, amount, payments_received, open_balance,
           payment_phase:project_payment_phases(phase_name, description)
-        `);
+        `)
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
@@ -171,7 +174,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payments")
-        .select("id, project_id, payment_amount, payment_status, bank_name, projected_received_date, payment_schedule");
+        .select("id, project_id, payment_amount, payment_status, bank_name, projected_received_date, payment_schedule")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
@@ -183,7 +187,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_bills")
-        .select("id, project_id, bill_amount, amount_paid, balance, installer_company, category, bill_ref, memo, scheduled_payment_date, scheduled_payment_amount, is_voided");
+        .select("id, project_id, bill_amount, amount_paid, balance, installer_company, category, bill_ref, memo, scheduled_payment_date, scheduled_payment_amount, is_voided")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
@@ -195,7 +200,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bill_payments")
-        .select("id, bill_id, payment_amount, payment_date, payment_method");
+        .select("id, bill_id, payment_amount, payment_date, payment_method")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },
@@ -207,7 +213,8 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("commission_payments")
-        .select("id, project_id, salesperson_name, payment_amount, payment_date, payment_method");
+        .select("id, project_id, salesperson_name, payment_amount, payment_date, payment_method")
+        .eq("company_id", companyId);
       if (error) throw error;
       return data;
     },

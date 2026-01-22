@@ -182,6 +182,7 @@ export function SubcontractorsManagement({ onSubcontractorAdded, autoOpenAdd }: 
       const { data, error } = await supabase
         .from("subcontractors")
         .select("*")
+        .eq("company_id", companyId)
         .order("company_name", { ascending: true });
       if (error) throw error;
       return data as Subcontractor[];
