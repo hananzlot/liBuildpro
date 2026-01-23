@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.test-api-key]
 verify_jwt = false
+
+[functions.backfill-scope-of-work]
+verify_jwt = false
