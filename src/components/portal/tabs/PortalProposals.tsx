@@ -506,7 +506,9 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                               </p>
                             )}
                           </div>
-                          <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                          {selectedEstimate.show_details_to_customer && (
+                            <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -528,7 +530,9 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                             </p>
                           )}
                         </div>
-                        <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                        {selectedEstimate.show_details_to_customer && (
+                          <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                        )}
                       </div>
                     ))}
                   </div>

@@ -876,7 +876,9 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                           </p>
                         )}
                       </div>
-                      <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                      {estimate.show_details_to_customer && (
+                        <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -898,7 +900,9 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                         </p>
                       )}
                     </div>
-                    <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                    {estimate.show_details_to_customer && (
+                      <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                    )}
                   </div>
                 ))}
               </div>

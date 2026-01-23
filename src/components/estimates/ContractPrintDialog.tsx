@@ -139,7 +139,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
               </div>
             ` : ""}
           </div>
-          <div class="line-item-total">${formatCurrency(item.line_total)}</div>
+          ${showDetails ? `<div class="line-item-total">${formatCurrency(item.line_total)}</div>` : ""}
         </div>
       `).join("");
       
