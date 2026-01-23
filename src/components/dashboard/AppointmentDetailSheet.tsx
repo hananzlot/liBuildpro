@@ -226,6 +226,8 @@ export function AppointmentDetailSheet({
   
   // Direct status update state
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // Local status state to reflect changes immediately in UI
+  const [localStatus, setLocalStatus] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -386,10 +388,11 @@ export function AppointmentDetailSheet({
     }
   };
 
-  // Sync salesperson confirmed state with appointment prop
+  // Sync salesperson confirmed state and local status with appointment prop
   useEffect(() => {
     if (appointment) {
       setSalespersonConfirmed(appointment.salesperson_confirmed || false);
+      setLocalStatus(appointment.appointment_status || null);
     }
   }, [appointment]);
 
@@ -459,6 +462,9 @@ export function AppointmentDetailSheet({
         .eq('ghl_id', appointment.ghl_id);
       if (dbError) throw dbError;
 
+      // Update local status immediately so UI reflects change
+      setLocalStatus(newStatus);
+      
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       toast.success(`Status updated to ${newStatus}`);
       
@@ -873,11 +879,11 @@ export function AppointmentDetailSheet({
                 {/* Status badges + Sales Rep + Value on same line */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <Select
-                    value={appointment.appointment_status === 'noshow' ? 'no_show' : (appointment.appointment_status || '')}
+                    value={(localStatus || appointment.appointment_status) === 'noshow' ? 'no_show' : (localStatus || appointment.appointment_status || '')}
                     onValueChange={handleUpdateStatusDirect}
                     disabled={isUpdatingStatus}
                   >
-                    <SelectTrigger className={`h-6 w-[100px] text-xs ${getStatusColor(appointment.appointment_status)}`}>
+                    <SelectTrigger className={`h-6 w-[100px] text-xs ${getStatusColor(localStatus || appointment.appointment_status)}`}>
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
