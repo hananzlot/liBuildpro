@@ -564,11 +564,12 @@ const Index = () => {
             assigned_to: opp.assigned_to,
             ghl_date_added: opp.ghl_date_added,
             ghl_date_updated: opp.ghl_date_updated,
-            won_at: opp.won_at
+            won_at: opp.won_at,
+            scope_of_work: opp.scope_of_work
           });
           setOpportunitiesSheetOpen(false);
           setOppDetailSheetOpen(true);
-        }} 
+        }}
       />
 
       {/* Date Range Appointments Sheet (for KPI card click) */}
