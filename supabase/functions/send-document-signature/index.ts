@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getResendApiKey } from "../_shared/get-resend-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,12 +35,6 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-
-    if (!resendApiKey) {
-      throw new Error("Missing RESEND_API_KEY");
-    }
-
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body: DocumentSignatureRequest = await req.json();
@@ -98,6 +93,18 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
     
     const docCompanyId = documentData?.company_id || null;
+
+    // Get company-specific Resend API key
+    const resendApiKey = await getResendApiKey(supabase, docCompanyId);
+    if (!resendApiKey) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: "Resend API key not configured. Please go to Admin Settings → Emails tab and configure your Resend API key." 
+        }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } },
+      );
+    }
 
     // Get company-specific settings first, then fallback to app_settings
     const settingKeys = ["company_name", "resend_from_email", "resend_from_name", "app_base_url"];

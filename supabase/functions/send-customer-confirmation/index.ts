@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getResendApiKey } from "../_shared/get-resend-key.ts";
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -67,13 +67,6 @@ serve(async (req) => {
   }
 
   try {
-    if (!RESEND_API_KEY) {
-      console.log("RESEND_API_KEY not configured, skipping customer email");
-      return new Response(JSON.stringify({ success: true, skipped: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { estimateId, action, customerEmail, customerName }: EmailRequest = await req.json();
 
     if (!customerEmail) {
@@ -88,28 +81,62 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch settings and estimate
-    const [settingsRes, estimateRes] = await Promise.all([
-      supabase
-        .from("app_settings")
-        .select("setting_key, setting_value")
-        .or(`setting_key.eq.resend_from_email,setting_key.eq.resend_from_name,setting_key.eq.company_name,setting_key.like.email_template_proposal_${action}`),
-      supabase.from("estimates").select("*").eq("id", estimateId).single(),
-    ]);
+    // Get estimate first to determine company_id
+    const { data: estimate, error: estimateError } = await supabase
+      .from("estimates")
+      .select("*")
+      .eq("id", estimateId)
+      .single();
 
-    const settingsMap = (settingsRes.data || []).reduce((acc: Record<string, string>, s: any) => {
-      acc[s.setting_key] = s.setting_value;
+    if (estimateError || !estimate) {
+      throw new Error("Estimate not found");
+    }
+
+    const companyId = estimate.company_id || null;
+
+    // Get company-specific Resend API key
+    const RESEND_API_KEY = await getResendApiKey(supabase, companyId);
+    if (!RESEND_API_KEY) {
+      console.log("RESEND_API_KEY not configured, skipping customer email");
+      return new Response(JSON.stringify({ success: true, skipped: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get company-specific settings first, then fallback to app_settings
+    const settingKeys = ["resend_from_email", "resend_from_name", "company_name", `email_template_proposal_${action}`];
+    
+    let companySettingsMap: Record<string, string> = {};
+    if (companyId) {
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", settingKeys);
+      
+      companySettingsMap = (companySettings || []).reduce((acc: Record<string, string>, s: any) => {
+        if (s.setting_value) acc[s.setting_key] = s.setting_value;
+        return acc;
+      }, {});
+    }
+
+    // Fallback to app_settings
+    const { data: appSettingsData } = await supabase
+      .from("app_settings")
+      .select("setting_key, setting_value")
+      .in("setting_key", settingKeys);
+
+    const appSettingsMap = (appSettingsData || []).reduce((acc: Record<string, string>, s: any) => {
+      if (s.setting_value) acc[s.setting_key] = s.setting_value;
       return acc;
     }, {});
+
+    // Merge: company settings override app settings
+    const settingsMap = { ...appSettingsMap, ...companySettingsMap };
 
     const fromEmail = settingsMap.resend_from_email || "proposals@caprobuilders.com";
     const fromName = settingsMap.resend_from_name || "Capro Builders";
     const companyName = settingsMap.company_name || "Capro Builders";
-
-    const estimate = estimateRes.data;
-    if (!estimate) {
-      throw new Error("Estimate not found");
-    }
 
     // Get template - either custom or default
     const templateKey = `email_template_proposal_${action}`;

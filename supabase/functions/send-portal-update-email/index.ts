@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getResendApiKey } from "../_shared/get-resend-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,18 +19,8 @@ serve(async (req: Request) => {
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    if (!RESEND_API_KEY) {
-      console.log("RESEND_API_KEY not configured");
-      return new Response(
-        JSON.stringify({ success: false, error: "Email service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     const { projectId, customMessage }: PortalUpdateEmailRequest = await req.json();
@@ -62,6 +53,16 @@ serve(async (req: Request) => {
       return new Response(
         JSON.stringify({ success: false, error: "Customer email not available for this project" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get company-specific Resend API key
+    const RESEND_API_KEY = await getResendApiKey(supabase, project.company_id);
+    if (!RESEND_API_KEY) {
+      console.log("RESEND_API_KEY not configured");
+      return new Response(
+        JSON.stringify({ success: false, error: "Email service not configured. Please configure Resend API key in Admin Settings → Emails tab." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

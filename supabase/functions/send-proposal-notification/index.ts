@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getResendApiKey } from "../_shared/get-resend-key.ts";
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -20,6 +20,7 @@ interface NotificationRequest {
   recipientEmail?: string;
   declineReason?: string;
   signedAt?: string;
+  companyId?: string;
 }
 
 serve(async (req) => {
@@ -52,11 +53,38 @@ serve(async (req) => {
       recipientName,
       recipientEmail,
       declineReason,
-      signedAt 
+      signedAt,
+      companyId: requestCompanyId 
     } = body;
 
     console.log(`Processing ${action} notification`, body);
 
+    // Initialize Supabase client
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    // Determine the company_id from the estimate or document
+    let companyId = requestCompanyId || null;
+    
+    if (!companyId && estimateId) {
+      const { data: estimate } = await supabase
+        .from("estimates")
+        .select("company_id")
+        .eq("id", estimateId)
+        .single();
+      companyId = estimate?.company_id || null;
+    }
+    
+    if (!companyId && documentId) {
+      const { data: document } = await supabase
+        .from("signature_documents")
+        .select("company_id")
+        .eq("id", documentId)
+        .single();
+      companyId = document?.company_id || null;
+    }
+
+    // Get company-specific Resend API key
+    const RESEND_API_KEY = await getResendApiKey(supabase, companyId);
     if (!RESEND_API_KEY) {
       console.log("RESEND_API_KEY not configured, skipping notification email");
       return new Response(JSON.stringify({ success: true, skipped: true }), {
@@ -64,19 +92,36 @@ serve(async (req) => {
       });
     }
 
-    // Initialize Supabase client
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    // Get company-specific settings first, then fallback to app_settings
+    const settingKeys = ["resend_from_email", "resend_from_name", "company_name", "notification_email"];
+    
+    let companySettingsMap: Record<string, string> = {};
+    if (companyId) {
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", settingKeys);
+      
+      companySettingsMap = (companySettings || []).reduce((acc: Record<string, string>, s: any) => {
+        if (s.setting_value) acc[s.setting_key] = s.setting_value;
+        return acc;
+      }, {});
+    }
 
-    // Fetch email settings
-    const { data: settingsData } = await supabase
+    // Fallback to app_settings
+    const { data: appSettingsData } = await supabase
       .from("app_settings")
       .select("setting_key, setting_value")
-      .in("setting_key", ["resend_from_email", "resend_from_name", "company_name", "notification_email"]);
+      .in("setting_key", settingKeys);
 
-    const settingsMap = (settingsData || []).reduce((acc: Record<string, string>, s: any) => {
-      acc[s.setting_key] = s.setting_value;
+    const appSettingsMap = (appSettingsData || []).reduce((acc: Record<string, string>, s: any) => {
+      if (s.setting_value) acc[s.setting_key] = s.setting_value;
       return acc;
     }, {});
+
+    // Merge: company settings override app settings
+    const settingsMap = { ...appSettingsMap, ...companySettingsMap };
 
     const fromEmail = settingsMap.resend_from_email || "proposals@caprobuilders.com";
     const fromName = settingsMap.resend_from_name || "Capro Builders";
