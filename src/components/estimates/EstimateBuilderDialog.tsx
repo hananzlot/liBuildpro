@@ -1714,92 +1714,94 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         Pricing & Payment Settings
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-2">
+                    <CardContent className="pt-0">
+                      <div className="flex items-start gap-2 flex-wrap">
                         {/* Markup */}
-                        <div className="border rounded-lg p-3 bg-background">
-                          <Label htmlFor="default_markup_percent" className="text-xs text-muted-foreground mb-1 block">Markup %</Label>
-                          <Input
-                            id="default_markup_percent"
-                            type="text"
-                            inputMode="decimal"
-                            value={formData.default_markup_percent}
-                            onChange={(e) => {
-                              const newMarkup = parseFloat(e.target.value) || 0;
-                              setFormData({ ...formData, default_markup_percent: newMarkup });
-                              setGroups(prevGroups => prevGroups.map(g => ({
-                                ...g,
-                                items: g.items.map(item => {
-                                  const newUnitPrice = item.cost * (1 + newMarkup / 100);
-                                  return {
-                                    ...item,
-                                    markup_percent: newMarkup,
-                                    unit_price: newUnitPrice,
-                                    line_total: item.quantity * newUnitPrice,
-                                  };
-                                }),
-                              })));
-                            }}
-                            className="w-20 h-8"
-                            placeholder="50"
-                          />
+                        <div className="border rounded p-2 bg-background min-w-0">
+                          <Label htmlFor="default_markup_percent" className="text-[10px] text-muted-foreground mb-0.5 block">Markup</Label>
+                          <div className="flex items-center gap-1">
+                            <Input
+                              id="default_markup_percent"
+                              type="text"
+                              inputMode="decimal"
+                              value={formData.default_markup_percent}
+                              onChange={(e) => {
+                                const newMarkup = parseFloat(e.target.value) || 0;
+                                setFormData({ ...formData, default_markup_percent: newMarkup });
+                                setGroups(prevGroups => prevGroups.map(g => ({
+                                  ...g,
+                                  items: g.items.map(item => {
+                                    const newUnitPrice = item.cost * (1 + newMarkup / 100);
+                                    return {
+                                      ...item,
+                                      markup_percent: newMarkup,
+                                      unit_price: newUnitPrice,
+                                      line_total: item.quantity * newUnitPrice,
+                                    };
+                                  }),
+                                })));
+                              }}
+                              className="w-14 h-7 text-sm"
+                              placeholder="50"
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
                         </div>
 
                         {/* Tax Rate */}
-                        <div className="border rounded-lg p-3 bg-background">
-                          <Label htmlFor="tax_rate" className="text-xs text-muted-foreground mb-1 block">Tax %</Label>
-                          <Input
-                            id="tax_rate"
-                            type="text"
-                            inputMode="decimal"
-                            value={formData.tax_rate}
-                            onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
-                            className="w-20 h-8"
-                            placeholder="9.5"
-                          />
+                        <div className="border rounded p-2 bg-background min-w-0">
+                          <Label htmlFor="tax_rate" className="text-[10px] text-muted-foreground mb-0.5 block">Tax</Label>
+                          <div className="flex items-center gap-1">
+                            <Input
+                              id="tax_rate"
+                              type="text"
+                              inputMode="decimal"
+                              value={formData.tax_rate}
+                              onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
+                              className="w-12 h-7 text-sm"
+                              placeholder="9.5"
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
                         </div>
 
                         {/* Deposit */}
-                        <div className="border rounded-lg p-3 bg-background">
-                          <Label className="text-xs text-muted-foreground mb-1 block">Deposit</Label>
-                          <div className="flex items-center gap-2">
+                        <div className="border rounded p-2 bg-background min-w-0">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Deposit</Label>
+                          <div className="flex items-center gap-1">
                             <Switch
                               id="deposit_required"
                               checked={formData.deposit_required}
                               onCheckedChange={(v) => setFormData({ ...formData, deposit_required: v })}
+                              className="scale-75"
                             />
                             <Input
                               type="number"
                               value={formData.deposit_percent}
                               onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
                               disabled={!formData.deposit_required}
-                              className="w-16 h-8"
+                              className="w-12 h-7 text-sm"
                             />
-                            <span className="text-sm text-muted-foreground">%</span>
-                            <span className="text-sm text-muted-foreground">or max</span>
-                            <span className="text-sm text-muted-foreground">$</span>
+                            <span className="text-[10px] text-muted-foreground">% max $</span>
                             <Input
                               type="number"
                               value={formData.deposit_max_amount}
                               onChange={(e) => setFormData({ ...formData, deposit_max_amount: parseFloat(e.target.value) || 0 })}
                               disabled={!formData.deposit_required}
-                              className="w-20 h-8"
+                              className="w-16 h-7 text-sm"
                             />
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Deposit = min({formData.deposit_percent}% or ${formData.deposit_max_amount.toLocaleString()})
-                          </p>
                         </div>
 
                         {/* Discount */}
-                        <div className="border rounded-lg p-3 bg-background">
-                          <Label className="text-xs text-muted-foreground mb-1 block">Discount</Label>
-                          <div className="flex items-center gap-2">
+                        <div className="border rounded p-2 bg-background min-w-0">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Discount</Label>
+                          <div className="flex items-center gap-1">
                             <Select
                               value={formData.discount_type}
                               onValueChange={(v) => setFormData({ ...formData, discount_type: v })}
                             >
-                              <SelectTrigger className="w-16 h-8">
+                              <SelectTrigger className="w-12 h-7 text-sm">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -1822,10 +1824,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 setFormData({ ...formData, discount_value: val });
                               }}
                               placeholder="0"
-                              className="w-20 h-8"
+                              className="w-16 h-7 text-sm"
                             />
                             {totals.discountAmount > 0 && (
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                                 -{formatCurrency(totals.discountAmount)}
                               </span>
                             )}
@@ -1833,49 +1835,35 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         </div>
 
                         {/* Final Price Override */}
-                        <div className="border rounded-lg p-3 bg-background">
-                          <Label className="text-xs text-muted-foreground mb-1 block">Or Set Final Price</Label>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">$</span>
+                        <div className="border rounded p-2 bg-background min-w-0">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Final Price</Label>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">$</span>
                             <Input
                               type="text"
                               inputMode="decimal"
                               value={finalPriceDraft}
-                              placeholder={formatCurrency(totals.total).replace('$', '')}
+                              placeholder={formatCurrency(totals.total).replace('$', '').replace(',', '')}
                               onChange={(e) => {
                                 const val = e.target.value.replace(/[^0-9.]/g, '');
-                                // Allow typing with decimal points (e.g., "12.")
                                 if (val === '' || /^\d*\.?\d*$/.test(val)) {
                                   setFinalPriceDraft(val);
                                 }
                               }}
                               onBlur={() => {
-                                // Calculate discount on blur when we have a valid final price
                                 const finalPrice = parseFloat(finalPriceDraft);
                                 if (!isNaN(finalPrice) && finalPrice >= 0) {
                                   const preTaxTotal = totals.subtotal + totals.taxAmount;
                                   
                                   if (finalPrice > preTaxTotal) {
-                                    // Desired price is HIGHER than current total
-                                    // Increase markup to reach (finalPrice + $1200), then calculate discount to hit exact desired
                                     const bufferAmount = 1200;
                                     
                                     if (totals.subtotal > 0 && totals.totalCost > 0) {
-                                      // Calculate the multiplier needed to scale subtotal
-                                      // We want: newSubtotal + newTax = finalPrice + bufferAmount
-                                      // Since tax is proportional: newTax = newSubtotal * (taxableRatio) * taxRate/100
-                                      // Simplified: scale the subtotal proportionally
                                       const targetPreDiscountTotal = finalPrice + bufferAmount;
                                       const currentPreDiscountTotal = totals.subtotal + totals.taxAmount;
                                       const scaleFactor = targetPreDiscountTotal / currentPreDiscountTotal;
-                                      
-                                      // New markup = scale factor applied to get new unit prices
-                                      // newUnitPrice = cost * (1 + newMarkup/100)
-                                      // We need: newSubtotal = currentSubtotal * scaleFactor
-                                      // So: newMarkup = ((currentSubtotal * scaleFactor / totalCost) - 1) * 100
                                       const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
                                       
-                                      // Calculate the new subtotal and tax using ROUNDED values (matches what will be stored)
                                       let newSubtotal = 0;
                                       let newTaxableAmount = 0;
                                       groups.forEach(g => {
@@ -1890,11 +1878,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                       });
                                       const newTaxAmount = (newTaxableAmount * formData.tax_rate) / 100;
                                       const newPreDiscountTotal = newSubtotal + newTaxAmount;
-                                      
-                                      // Calculate exact discount needed - keep full decimal precision
                                       const requiredDiscount = Math.round((newPreDiscountTotal - finalPrice) * 100) / 100;
                                       
-                                      // Update markup on all line items
                                       setGroups(prevGroups => prevGroups.map(g => ({
                                         ...g,
                                         items: g.items.map(item => {
@@ -1908,7 +1893,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                         }),
                                       })));
                                       
-                                      // Set the calculated discount and update markup in form
                                       setFormData(prev => ({ 
                                         ...prev, 
                                         discount_type: 'fixed',
@@ -1917,7 +1901,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                       }));
                                     }
                                   } else {
-                                    // Desired price is lower or equal - just apply discount as before
                                     const newDiscount = Math.max(0, preTaxTotal - finalPrice);
                                     setFormData({ 
                                       ...formData, 
@@ -1926,79 +1909,15 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                     });
                                   }
                                 }
-                                // Clear the draft after applying
                                 setFinalPriceDraft('');
                               }}
                               onKeyDown={(e) => {
-                                // Also apply on Enter key - same logic as onBlur
                                 if (e.key === 'Enter') {
-                                  const finalPrice = parseFloat(finalPriceDraft);
-                                  if (!isNaN(finalPrice) && finalPrice >= 0) {
-                                    const preTaxTotal = totals.subtotal + totals.taxAmount;
-                                    
-                                    if (finalPrice > preTaxTotal) {
-                                      // Desired price is HIGHER than current total
-                                      const bufferAmount = 1200;
-                                      
-                                      if (totals.subtotal > 0 && totals.totalCost > 0) {
-                                        const targetPreDiscountTotal = finalPrice + bufferAmount;
-                                        const currentPreDiscountTotal = totals.subtotal + totals.taxAmount;
-                                        const scaleFactor = targetPreDiscountTotal / currentPreDiscountTotal;
-                                        const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
-                                        
-                                        // Calculate using ROUNDED values to match stored data
-                                        let newSubtotal = 0;
-                                        let newTaxableAmount = 0;
-                                        groups.forEach(g => {
-                                          g.items.forEach(item => {
-                                            const newUnitPrice = Math.round(item.cost * (1 + newMarkupPercent / 100) * 100) / 100;
-                                            const newLineTotal = Math.round(item.quantity * newUnitPrice * 100) / 100;
-                                            newSubtotal += newLineTotal;
-                                            if (item.is_taxable) {
-                                              newTaxableAmount += newLineTotal;
-                                            }
-                                          });
-                                        });
-                                        const newTaxAmount = (newTaxableAmount * formData.tax_rate) / 100;
-                                        const newPreDiscountTotal = newSubtotal + newTaxAmount;
-                                        const requiredDiscount = Math.round((newPreDiscountTotal - finalPrice) * 100) / 100;
-                                        
-                                        setGroups(prevGroups => prevGroups.map(g => ({
-                                          ...g,
-                                          items: g.items.map(item => {
-                                            const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
-                                            return {
-                                              ...item,
-                                              markup_percent: Math.round(newMarkupPercent * 100) / 100,
-                                              unit_price: Math.round(newUnitPrice * 100) / 100,
-                                              line_total: Math.round(item.quantity * newUnitPrice * 100) / 100,
-                                            };
-                                          }),
-                                        })));
-                                        
-                                        setFormData(prev => ({ 
-                                          ...prev, 
-                                          discount_type: 'fixed',
-                                          discount_value: requiredDiscount,
-                                          default_markup_percent: Math.round(newMarkupPercent * 100) / 100
-                                        }));
-                                      }
-                                    } else {
-                                      const newDiscount = Math.max(0, preTaxTotal - finalPrice);
-                                      setFormData({ 
-                                        ...formData, 
-                                        discount_type: 'fixed',
-                                        discount_value: Math.round(newDiscount * 100) / 100 
-                                      });
-                                    }
-                                  }
-                                  setFinalPriceDraft('');
                                   (e.target as HTMLInputElement).blur();
                                 }
                               }}
-                              className="w-24 h-8"
+                              className="w-20 h-7 text-sm"
                             />
-                            <span className="text-xs text-muted-foreground">Auto-calculates discount</span>
                           </div>
                         </div>
                       </div>
