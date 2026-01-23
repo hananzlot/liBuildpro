@@ -5139,6 +5139,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_assign_role: {
+        Args: {
+          target_role: Database["public"]["Enums"]["app_role"]
+          target_user_id: string
+        }
+        Returns: undefined
+      }
       backfill_contact_uuids: { Args: never; Returns: undefined }
       generate_company_encryption_key: {
         Args: { p_company_id: string }
