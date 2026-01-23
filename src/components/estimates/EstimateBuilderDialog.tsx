@@ -714,6 +714,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setActiveTab("customer");
       return false;
     }
+    
+    // Validate payment phases total equals estimate total
+    if (paymentSchedule.length > 0) {
+      const { total } = calculateTotals();
+      const phasesTotal = paymentSchedule.reduce((sum, phase) => sum + (phase.amount || 0), 0);
+      // Allow small floating point tolerance (1 cent)
+      if (Math.abs(phasesTotal - total) > 0.01) {
+        toast.error(`Payment phases total ($${phasesTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) must equal the estimate total ($${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`);
+        setActiveTab("payments");
+        return false;
+      }
+    }
+    
     return true;
   };
 
