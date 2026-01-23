@@ -314,12 +314,11 @@ export const MagazinePageAvailability = ({ sales, onEditSale, onNewEntry }: Maga
               {editingPageCount ? (
                 <div className="flex items-center gap-1">
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     value={tempPageCount}
-                    onChange={(e) => setTempPageCount(e.target.value)}
+                    onChange={(e) => { const val = e.target.value; if (val === '' || /^\d+$/.test(val)) setTempPageCount(val); }}
                     className="w-20 h-9"
-                    min={1}
-                    max={200}
                   />
                   <Button size="sm" variant="ghost" onClick={handleSavePageCount}>
                     <Check className="h-4 w-4" />

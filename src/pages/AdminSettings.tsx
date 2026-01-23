@@ -736,9 +736,10 @@ export default function AdminSettings() {
                             </div>
                             <Input
                               id="default_deposit_percent"
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               value={editedSettings["default_deposit_percent"] ?? "10"}
-                              onChange={(e) => handleChange("default_deposit_percent", e.target.value)}
+                              onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange("default_deposit_percent", val); }}
                               placeholder="10"
                             />
                             <p className="text-xs text-muted-foreground">Default deposit percentage for new estimates</p>
@@ -762,9 +763,10 @@ export default function AdminSettings() {
                             </div>
                             <Input
                               id="default_deposit_max_amount"
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               value={editedSettings["default_deposit_max_amount"] ?? "1000"}
-                              onChange={(e) => handleChange("default_deposit_max_amount", e.target.value)}
+                              onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) handleChange("default_deposit_max_amount", val); }}
                               placeholder="1000"
                             />
                             <p className="text-xs text-muted-foreground">Maximum deposit amount (deposit = min of percent or this cap)</p>
@@ -789,10 +791,10 @@ export default function AdminSettings() {
                             </div>
                             <Input
                               id="estimate_expiration_days"
-                              type="number"
-                              min="1"
+                              type="text"
+                              inputMode="numeric"
                               value={editedSettings["estimate_expiration_days"] ?? "7"}
-                              onChange={(e) => handleChange("estimate_expiration_days", e.target.value)}
+                              onChange={(e) => { const val = e.target.value; if (val === '' || /^\d+$/.test(val)) handleChange("estimate_expiration_days", val); }}
                               placeholder="7"
                             />
                             <p className="text-xs text-muted-foreground">Number of days until a proposal expires (from date sent). Default: 7 days</p>

@@ -2034,7 +2034,7 @@ export function OpportunityDetailSheet({
                   </Button>
                   {isEditing ? <div className="flex items-center gap-1">
                       <span className="text-lg font-bold text-emerald-400">$</span>
-                      <Input type="number" value={editedMonetaryValue} onChange={e => setEditedMonetaryValue(e.target.value)} className="text-lg font-bold h-8 w-28" min="0" step="100" />
+                      <Input type="text" inputMode="decimal" value={editedMonetaryValue} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditedMonetaryValue(val); }} className="text-lg font-bold h-8 w-28" />
                     </div> : <div className="text-lg font-bold text-emerald-400">
                       {formatCurrency(savedValues.monetary_value ?? opportunity.monetary_value)}
                     </div>}
@@ -2044,7 +2044,7 @@ export function OpportunityDetailSheet({
                   <span className="text-muted-foreground">Est. Cost:</span>
                   {isEditingCost ? <div className="flex items-center gap-1">
                       <span className="text-amber-500">$</span>
-                      <Input type="number" value={estimatedCost} onChange={e => setEstimatedCost(e.target.value)} className="h-6 w-20 text-xs" min="0" step="100" />
+                      <Input type="text" inputMode="decimal" value={estimatedCost} onChange={e => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEstimatedCost(val); }} className="h-6 w-20 text-xs" />
                       <Button size="sm" className="h-6 px-2 text-xs" onClick={handleSaveEstimatedCost} disabled={isSavingCost}>
                         {isSavingCost ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
                       </Button>

@@ -274,12 +274,11 @@ export function OpportunitySalesDialog({
               <div className="space-y-2">
                 <Label>Sold Amount *</Label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={soldAmount}
-                  onChange={(e) => setSoldAmount(e.target.value)}
+                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setSoldAmount(val); }}
                   placeholder="Enter amount"
-                  min="0"
-                  step="100"
                 />
               </div>
               <div className="space-y-2">

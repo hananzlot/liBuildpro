@@ -444,10 +444,11 @@ export default function SuperAdminTenants() {
               <div className="space-y-2">
                 <Label>Max Users Override</Label>
                 <Input 
-                  type="number" 
+                  type="text"
+                  inputMode="numeric"
                   placeholder="Leave empty to use plan default"
                   value={editForm.max_users_override}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, max_users_override: e.target.value }))}
+                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*$/.test(val)) setEditForm(prev => ({ ...prev, max_users_override: val })); }}
                 />
                 <p className="text-xs text-muted-foreground">
                   Plan default: {plans?.find(p => p.id === editForm.plan_id)?.max_users === -1 
