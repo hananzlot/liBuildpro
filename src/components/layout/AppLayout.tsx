@@ -67,7 +67,7 @@ export function AppLayout({
         
         <div className="flex-1 min-w-0 flex flex-col">
           {/* Header */}
-          <header className="h-14 border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10 flex items-center justify-between px-4">
+          <header className="h-14 border-b border-border/50 sticky top-0 z-10 flex items-center justify-between px-4">
             <div className="flex items-center gap-2 min-w-0">
               <SidebarTrigger />
               {headerContent}
