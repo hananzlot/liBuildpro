@@ -1468,13 +1468,13 @@ export default function Production() {
       contractMismatch: 0,
     };
     
-    // Only count warnings for non-Proposal projects
-    const nonProposalProjectIds = new Set(
-      projects.filter(p => p.project_status !== 'Proposal').map(p => p.id)
+    // Only count warnings for non-Proposal and non-archived projects
+    const activeProjectIds = new Set(
+      projects.filter(p => p.project_status !== 'Proposal' && !p.deleted_at).map(p => p.id)
     );
     
     Object.entries(projectFinancials).forEach(([projectId, f]) => {
-      if (!nonProposalProjectIds.has(projectId)) return;
+      if (!activeProjectIds.has(projectId)) return;
       if (f.hasMissingContract) counts.missingContract++;
       if (f.hasMissingPhases) counts.missingPhases++;
       if (f.hasPhaseMismatch) counts.phaseMismatch++;
@@ -1495,10 +1495,10 @@ export default function Production() {
       overdueChecklists: 0,
     };
     
-    // Exclude Proposal status projects from bookkeeping warnings
-    const nonProposalProjects = projects.filter(p => p.project_status !== 'Proposal');
+    // Exclude Proposal status and archived projects from bookkeeping warnings
+    const activeProjects = projects.filter(p => p.project_status !== 'Proposal' && !p.deleted_at);
     
-    nonProposalProjects.forEach((p) => {
+    activeProjects.forEach((p) => {
       if (!p.primary_salesperson || p.primary_salesperson.trim() === '') {
         counts.missingSalesperson++;
       }
@@ -1540,12 +1540,12 @@ export default function Production() {
           }
         }
       });
-      return projects.filter(p => p.project_status !== 'Proposal' && projectsWithOverdue.has(p.id));
+      return projects.filter(p => p.project_status !== 'Proposal' && !p.deleted_at && projectsWithOverdue.has(p.id));
     }
     
-    // Exclude Proposal status projects from all warnings
+    // Exclude Proposal status and archived projects from all warnings
     return projects.filter(p => {
-      if (p.project_status === 'Proposal') return false;
+      if (p.project_status === 'Proposal' || p.deleted_at) return false;
       const f = projectFinancials[p.id];
       switch (type) {
         case 'missingContract': return f?.hasMissingContract;
