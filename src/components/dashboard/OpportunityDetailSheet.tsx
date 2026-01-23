@@ -1963,6 +1963,21 @@ export function OpportunityDetailSheet({
                 Project
               </Button>
             )}
+            {isSuperAdmin && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7 text-muted-foreground" 
+                onClick={() => {
+                  const debugInfo = `UUID: ${opportunity.id}\nGHL ID: ${opportunity.ghl_id}\nContact ID: ${opportunity.contact_id}\nContact UUID: ${opportunity.contact_uuid}`;
+                  navigator.clipboard.writeText(debugInfo);
+                  toast.success("Debug info copied to clipboard");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5 mr-1" />
+                Debug
+              </Button>
+            )}
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Opportunity</AlertDialogTitle>
