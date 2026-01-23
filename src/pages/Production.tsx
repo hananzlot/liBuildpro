@@ -1468,7 +1468,13 @@ export default function Production() {
       contractMismatch: 0,
     };
     
-    Object.values(projectFinancials).forEach((f) => {
+    // Only count warnings for non-Proposal projects
+    const nonProposalProjectIds = new Set(
+      projects.filter(p => p.project_status !== 'Proposal').map(p => p.id)
+    );
+    
+    Object.entries(projectFinancials).forEach(([projectId, f]) => {
+      if (!nonProposalProjectIds.has(projectId)) return;
       if (f.hasMissingContract) counts.missingContract++;
       if (f.hasMissingPhases) counts.missingPhases++;
       if (f.hasPhaseMismatch) counts.phaseMismatch++;
@@ -1476,7 +1482,7 @@ export default function Production() {
     });
     
     return counts;
-  }, [projectFinancials]);
+  }, [projectFinancials, projects]);
 
   // Calculate bookkeeping warning counts
   const bookkeepingWarningCounts = useMemo(() => {
@@ -1489,7 +1495,10 @@ export default function Production() {
       overdueChecklists: 0,
     };
     
-    projects.forEach((p) => {
+    // Exclude Proposal status projects from bookkeeping warnings
+    const nonProposalProjects = projects.filter(p => p.project_status !== 'Proposal');
+    
+    nonProposalProjects.forEach((p) => {
       if (!p.primary_salesperson || p.primary_salesperson.trim() === '') {
         counts.missingSalesperson++;
       }
@@ -1531,10 +1540,12 @@ export default function Production() {
           }
         }
       });
-      return projects.filter(p => projectsWithOverdue.has(p.id));
+      return projects.filter(p => p.project_status !== 'Proposal' && projectsWithOverdue.has(p.id));
     }
     
+    // Exclude Proposal status projects from all warnings
     return projects.filter(p => {
+      if (p.project_status === 'Proposal') return false;
       const f = projectFinancials[p.id];
       switch (type) {
         case 'missingContract': return f?.hasMissingContract;
