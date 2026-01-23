@@ -3428,64 +3428,6 @@ export type Database = {
           },
         ]
       }
-      project_cases: {
-        Row: {
-          case_number: string | null
-          closed_at: string | null
-          company_id: string | null
-          created_at: string | null
-          created_by: string | null
-          customer_status: string | null
-          id: string
-          notes: string | null
-          project_id: string | null
-        }
-        Insert: {
-          case_number?: string | null
-          closed_at?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          customer_status?: string | null
-          id?: string
-          notes?: string | null
-          project_id?: string | null
-        }
-        Update: {
-          case_number?: string | null
-          closed_at?: string | null
-          company_id?: string | null
-          created_at?: string | null
-          created_by?: string | null
-          customer_status?: string | null
-          id?: string
-          notes?: string | null
-          project_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_cases_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_cases_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "project_cases_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       project_checklists: {
         Row: {
           company_id: string | null
