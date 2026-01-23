@@ -363,7 +363,9 @@ export function EstimatePreviewDialog({
                                 </p>
                               )}
                             </div>
-                            <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                            {showDetails && (
+                              <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -385,7 +387,9 @@ export function EstimatePreviewDialog({
                               </p>
                             )}
                           </div>
-                          <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                          {showDetails && (
+                            <p className="font-medium">{formatCurrency(item.line_total)}</p>
+                          )}
                         </div>
                       ))}
                     </div>

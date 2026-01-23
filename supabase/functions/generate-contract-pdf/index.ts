@@ -39,7 +39,7 @@ serve(async (req) => {
     }
 
     // Fetch related data
-    const settingKeys = ['company_name', 'company_address', 'company_phone', 'license_number', 'license_type', 'license_holder_name'];
+    const settingKeys = ['company_name', 'company_address', 'company_phone', 'license_number', 'license_type', 'license_holder_name', 'app_base_url'];
     
     const [groupsRes, itemsRes, scheduleRes, signaturesRes, companySettingsRes, appSettingsRes] = await Promise.all([
       supabase.from('estimate_groups').select('*').eq('estimate_id', estimateId).order('sort_order'),
