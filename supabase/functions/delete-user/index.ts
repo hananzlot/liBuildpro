@@ -55,6 +55,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    const isSuperAdmin = adminRoles.some(r => r.role === "super_admin");
+
     // Get request body
     const { userId } = await req.json();
 
@@ -71,6 +73,53 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Company access validation for non-super-admins
+    if (!isSuperAdmin) {
+      // Get requesting user's company
+      const { data: requestingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("company_id")
+        .eq("id", requestingUser.id)
+        .single();
+
+      // Get target user's company
+      const { data: targetProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("company_id")
+        .eq("id", userId)
+        .single();
+
+      if (!targetProfile) {
+        return new Response(JSON.stringify({ error: "Target user not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if target user is a super_admin (non-super-admins cannot delete super_admins)
+      const { data: targetRoles } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "super_admin");
+
+      if (targetRoles && targetRoles.length > 0) {
+        return new Response(JSON.stringify({ error: "Cannot delete super admin users" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify same company
+      if (requestingProfile?.company_id !== targetProfile.company_id) {
+        console.log(`Access denied: User ${requestingUser.id} (company: ${requestingProfile?.company_id}) tried to delete user ${userId} (company: ${targetProfile.company_id})`);
+        return new Response(JSON.stringify({ error: "Cannot delete users from other companies" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Delete the user (this will cascade to profiles and user_roles due to foreign keys)
