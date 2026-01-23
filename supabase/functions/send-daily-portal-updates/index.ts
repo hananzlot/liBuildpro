@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getResendApiKey } from "../_shared/get-resend-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,18 +14,8 @@ serve(async (req: Request) => {
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    if (!RESEND_API_KEY) {
-      console.log("RESEND_API_KEY not configured, skipping daily updates");
-      return new Response(
-        JSON.stringify({ success: true, skipped: true, reason: "Email service not configured" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     console.log("Starting daily portal update check...");
@@ -127,6 +118,9 @@ serve(async (req: Request) => {
     let skipped = 0;
     const errors: string[] = [];
 
+    // Cache for Resend API keys by company_id
+    const resendKeyCache: Record<string, string | null> = {};
+
     for (const portal of activePortals || []) {
       const project = portal.projects as any;
       
@@ -223,6 +217,19 @@ serve(async (req: Request) => {
 
       if (!hasChanges) {
         console.log(`Skipping project ${project.project_number}: no significant changes`);
+        skipped++;
+        continue;
+      }
+
+      // Get company-specific Resend API key (with caching)
+      const companyId = project.company_id || '_global';
+      if (!(companyId in resendKeyCache)) {
+        resendKeyCache[companyId] = await getResendApiKey(supabase, project.company_id);
+      }
+      const RESEND_API_KEY = resendKeyCache[companyId];
+      
+      if (!RESEND_API_KEY) {
+        console.log(`Skipping project ${project.project_number}: No Resend API key for company ${project.company_id || 'global'}`);
         skipped++;
         continue;
       }

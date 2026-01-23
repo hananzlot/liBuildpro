@@ -1271,49 +1271,7 @@ export default function AdminSettings() {
                   <p className="text-xs text-muted-foreground">Used for AI-powered features like estimate generation</p>
                 </div>
 
-                {/* Resend API Key */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="resend_api_key">Resend API Key</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => testApiKey("resend")}
-                        disabled={testingApiKey === "resend" || !((editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value))}
-                      >
-                        {testingApiKey === "resend" ? (
-                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        ) : (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        )}
-                        Test
-                      </Button>
-                      {hasChanges("resend_api_key") && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSave("resend_api_key")}
-                          disabled={updateSetting.isPending}
-                        >
-                          {updateSetting.isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Save className="h-3 w-3 mr-1" />
-                          )}
-                          Save
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <Input
-                    id="resend_api_key"
-                    type="password"
-                    value={editedSettings["resend_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "resend_api_key")?.setting_value ?? ""}
-                    onChange={(e) => handleChange("resend_api_key", e.target.value)}
-                    placeholder="re_..."
-                  />
-                  <p className="text-xs text-muted-foreground">Used for sending emails via Resend</p>
-                </div>
+                {/* Note: Resend API Key has been moved to the Emails tab with encrypted storage */}
 
                 <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
                   <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />

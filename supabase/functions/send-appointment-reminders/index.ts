@@ -1,12 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getResendApiKey } from "../_shared/get-resend-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -21,6 +20,7 @@ interface Appointment {
   contact_id: string | null;
   assigned_user_id: string | null;
   appointment_status: string | null;
+  company_id: string | null;
 }
 
 interface Contact {
@@ -52,16 +52,23 @@ const formatDate = (dateStr: string): string => {
   });
 };
 
-const sendEmail = async (to: string, subject: string, html: string) => {
+const sendEmail = async (
+  resendApiKey: string,
+  to: string,
+  subject: string,
+  html: string,
+  fromEmail: string,
+  fromName: string
+) => {
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Authorization": `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "CA Pro Builders <reminders@resend.dev>",
+        from: `${fromName} <${fromEmail}>`,
         to: [to],
         subject,
         html,
@@ -151,9 +158,55 @@ const checkAndSendReminders = async () => {
   const userMap = new Map<string, GHLUser>();
   users?.forEach(u => userMap.set(u.ghl_id, u));
 
+  // Cache for Resend API keys and settings by company_id
+  const resendKeyCache: Record<string, string | null> = {};
+  const settingsCache: Record<string, { fromEmail: string; fromName: string; companyName: string }> = {};
+
+  // Helper to get settings for a company
+  const getCompanyEmailSettings = async (companyId: string | null): Promise<{ fromEmail: string; fromName: string; companyName: string }> => {
+    const cacheKey = companyId || '_global';
+    if (settingsCache[cacheKey]) return settingsCache[cacheKey];
+
+    const settingKeys = ["resend_from_email", "resend_from_name", "company_name"];
+    let settings: Record<string, string> = {};
+
+    // Get company-specific settings if companyId provided
+    if (companyId) {
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", settingKeys);
+      
+      for (const s of companySettings || []) {
+        if (s.setting_value) settings[s.setting_key] = s.setting_value;
+      }
+    }
+
+    // Fallback to app_settings
+    const { data: appSettings } = await supabase
+      .from("app_settings")
+      .select("setting_key, setting_value")
+      .in("setting_key", settingKeys);
+    
+    for (const s of appSettings || []) {
+      if (s.setting_value && !settings[s.setting_key]) {
+        settings[s.setting_key] = s.setting_value;
+      }
+    }
+
+    settingsCache[cacheKey] = {
+      fromEmail: settings.resend_from_email || "reminders@resend.dev",
+      fromName: settings.resend_from_name || settings.company_name || "CA Pro Builders",
+      companyName: settings.company_name || "CA Pro Builders",
+    };
+
+    return settingsCache[cacheKey];
+  };
+
   let sentCount = 0;
 
-  for (const appt of appointments) {
+  for (const appt of appointments as Appointment[]) {
     const startTime = new Date(appt.start_time!);
     const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null;
     const user = appt.assigned_user_id ? userMap.get(appt.assigned_user_id) : null;
@@ -163,6 +216,21 @@ const checkAndSendReminders = async () => {
       "Customer";
     const userName = user?.name || "Team Member";
     const formattedTime = formatDate(appt.start_time!);
+
+    // Get company-specific Resend API key (with caching)
+    const companyId = appt.company_id || '_global';
+    if (!(companyId in resendKeyCache)) {
+      resendKeyCache[companyId] = await getResendApiKey(supabase, appt.company_id);
+    }
+    const resendApiKey = resendKeyCache[companyId];
+    
+    if (!resendApiKey) {
+      console.log(`Skipping appointment ${appt.ghl_id}: No Resend API key for company ${appt.company_id || 'global'}`);
+      continue;
+    }
+
+    // Get company email settings
+    const emailSettings = await getCompanyEmailSettings(appt.company_id);
 
     // Determine which reminder type based on time difference
     const timeDiff = startTime.getTime() - now.getTime();
@@ -197,10 +265,10 @@ const checkAndSendReminders = async () => {
               <li><strong>When:</strong> ${formattedTime}</li>
               ${contact?.phone ? `<li><strong>Phone:</strong> ${contact.phone}</li>` : ""}
             </ul>
-            <p>Best regards,<br>CA Pro Builders</p>
+            <p>Best regards,<br>${emailSettings.companyName}</p>
           `;
 
-          const sent = await sendEmail(user.email, subject, html);
+          const sent = await sendEmail(resendApiKey, user.email, subject, html, emailSettings.fromEmail, emailSettings.fromName);
           if (sent) {
             await supabase.from("appointment_reminders").insert({
               appointment_id: appt.id,
@@ -235,7 +303,7 @@ const checkAndSendReminders = async () => {
           .maybeSingle();
 
         if (!existing) {
-          const subject = `Reminder: Your Appointment ${reminder.label} with CA Pro Builders`;
+          const subject = `Reminder: Your Appointment ${reminder.label} with ${emailSettings.companyName}`;
           const html = `
             <h2>Appointment Reminder</h2>
             <p>Hi ${contactName},</p>
@@ -246,10 +314,10 @@ const checkAndSendReminders = async () => {
               <li><strong>With:</strong> ${userName}</li>
             </ul>
             <p>We look forward to seeing you!</p>
-            <p>Best regards,<br>CA Pro Builders Team</p>
+            <p>Best regards,<br>${emailSettings.companyName} Team</p>
           `;
 
-          const sent = await sendEmail(contact.email, subject, html);
+          const sent = await sendEmail(resendApiKey, contact.email, subject, html, emailSettings.fromEmail, emailSettings.fromName);
           if (sent) {
             await supabase.from("appointment_reminders").insert({
               appointment_id: appt.id,

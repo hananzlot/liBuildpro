@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { getResendApiKey } from "../_shared/get-resend-key.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -279,7 +280,6 @@ serve(async (req: Request): Promise<Response> => {
     hookSecret = hookSecret.replace(/-/g, "+").replace(/_/g, "/");
     const padLen = (4 - (hookSecret.length % 4)) % 4;
     if (padLen) hookSecret = hookSecret + "=".repeat(padLen);
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -313,6 +313,9 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
+    // Get Resend API key - auth emails use platform-level key (no company context)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resendApiKey = await getResendApiKey(supabase as any, null);
     if (!resendApiKey) {
       console.error("Missing RESEND_API_KEY");
       return new Response(
