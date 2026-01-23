@@ -136,13 +136,13 @@ export function SendProposalDialog({
     }
   }, [open, customerEmail, customerName, isResend, companyName]);
 
-  // Check if estimate already has a project and get visibility settings
+  // Check if estimate already has a project and get visibility settings + opportunity link
   const { data: estimateData } = useQuery({
     queryKey: ['estimate-project-check', estimateId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('estimates')
-        .select('project_id, estimate_title, job_address, customer_phone, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer, salesperson_name')
+        .select('project_id, estimate_title, job_address, customer_phone, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer, salesperson_name, opportunity_uuid, opportunity_id')
         .eq('id', estimateId)
         .single();
       if (error) throw error;
@@ -526,6 +526,24 @@ export function SendProposalDialog({
             sent_at: new Date().toISOString(),
           })
           .eq('id', estimateId);
+        
+        // Update linked opportunity stage to "Proposal Sent"
+        const opportunityGhlId = estimateData?.opportunity_id;
+        if (opportunityGhlId) {
+          try {
+            await supabase.functions.invoke("update-ghl-opportunity", {
+              body: {
+                ghl_id: opportunityGhlId,
+                stage_name: "Proposal Sent",
+                company_id: companyId,
+              },
+            });
+            console.log("Updated opportunity stage to 'Proposal Sent'");
+          } catch (err) {
+            console.error("Failed to update opportunity stage:", err);
+            // Don't fail the send for this
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -537,6 +555,7 @@ export function SendProposalDialog({
       );
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
       queryClient.invalidateQueries({ queryKey: ['estimate-signers', estimateId] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
       onOpenChange(false);
     },
     onError: (error: Error) => {

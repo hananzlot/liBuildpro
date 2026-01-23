@@ -302,6 +302,16 @@ export function OpportunityDetailSheet({
   // Associated project for production link
   const [associatedProjectId, setAssociatedProjectId] = useState<string | null>(null);
 
+  // Linked estimates
+  const [linkedEstimates, setLinkedEstimates] = useState<{
+    id: string;
+    estimate_number: number;
+    estimate_title: string;
+    status: string;
+    total: number;
+    created_at: string;
+  }[]>([]);
+
   // Reset saved values only when sheet opens fresh (was closed, now open)
   useEffect(() => {
     if (open && !wasOpen) {
@@ -312,29 +322,41 @@ export function OpportunityDetailSheet({
       setIsEditingWonAt(false);
       setSavedCreatedAt(null);
       setIsEditingCreatedAt(false);
+      setLinkedEstimates([]);
     }
     setWasOpen(open);
   }, [open]);
 
-  // Fetch associated project when sheet opens
+  // Fetch associated project and estimates when sheet opens
   useEffect(() => {
     if (!open || !opportunity?.ghl_id) {
       setAssociatedProjectId(null);
+      setLinkedEstimates([]);
       return;
     }
     
-    const fetchProject = async () => {
-      const { data } = await supabase
+    const fetchProjectAndEstimates = async () => {
+      const { data: projectData } = await supabase
         .from("projects")
         .select("id")
         .eq("opportunity_id", opportunity.ghl_id)
         .maybeSingle();
       
-      setAssociatedProjectId(data?.id ?? null);
+      setAssociatedProjectId(projectData?.id ?? null);
+
+      // Fetch linked estimates (by opportunity_id or opportunity_uuid)
+      const { data: estimatesData } = await supabase
+        .from("estimates")
+        .select("id, estimate_number, estimate_title, status, total, created_at")
+        .or(`opportunity_id.eq.${opportunity.ghl_id},opportunity_uuid.eq.${opportunity.id || 'none'}`)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      
+      setLinkedEstimates(estimatesData || []);
     };
     
-    fetchProject();
-  }, [open, opportunity?.ghl_id]);
+    fetchProjectAndEstimates();
+  }, [open, opportunity?.ghl_id, opportunity?.id, companyId]);
 
   // Filter users to primary location only and deduplicate by ghl_id
   const filteredUsers = useMemo(() => {
