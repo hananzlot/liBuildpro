@@ -1838,14 +1838,42 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   
                                   if (finalPrice > preTaxTotal) {
                                     // Desired price is HIGHER than current total
-                                    // Increase markup to reach (finalPrice + $1200), then apply $1200 discount
-                                    const targetSubtotal = finalPrice + 1200 - totals.taxAmount;
-                                    const currentSubtotal = totals.subtotal;
+                                    // Increase markup to reach (finalPrice + $1200), then calculate discount to hit exact desired
+                                    const bufferAmount = 1200;
                                     
-                                    if (currentSubtotal > 0 && totals.totalCost > 0) {
-                                      // Calculate the new markup percent needed to hit target subtotal
-                                      // subtotal = totalCost * (1 + markup/100) => markup = ((subtotal/totalCost) - 1) * 100
-                                      const newMarkupPercent = ((targetSubtotal / totals.totalCost) - 1) * 100;
+                                    if (totals.subtotal > 0 && totals.totalCost > 0) {
+                                      // Calculate the multiplier needed to scale subtotal
+                                      // We want: newSubtotal + newTax = finalPrice + bufferAmount
+                                      // Since tax is proportional: newTax = newSubtotal * (taxableRatio) * taxRate/100
+                                      // Simplified: scale the subtotal proportionally
+                                      const targetPreDiscountTotal = finalPrice + bufferAmount;
+                                      const currentPreDiscountTotal = totals.subtotal + totals.taxAmount;
+                                      const scaleFactor = targetPreDiscountTotal / currentPreDiscountTotal;
+                                      
+                                      // New markup = scale factor applied to get new unit prices
+                                      // newUnitPrice = cost * (1 + newMarkup/100)
+                                      // We need: newSubtotal = currentSubtotal * scaleFactor
+                                      // So: newMarkup = ((currentSubtotal * scaleFactor / totalCost) - 1) * 100
+                                      const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
+                                      
+                                      // Calculate the new subtotal and tax after markup change
+                                      let newSubtotal = 0;
+                                      let newTaxableAmount = 0;
+                                      groups.forEach(g => {
+                                        g.items.forEach(item => {
+                                          const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
+                                          const newLineTotal = item.quantity * newUnitPrice;
+                                          newSubtotal += newLineTotal;
+                                          if (item.is_taxable) {
+                                            newTaxableAmount += newLineTotal;
+                                          }
+                                        });
+                                      });
+                                      const newTaxAmount = (newTaxableAmount * formData.tax_rate) / 100;
+                                      const newPreDiscountTotal = newSubtotal + newTaxAmount;
+                                      
+                                      // Calculate exact discount needed to hit the desired final price
+                                      const requiredDiscount = Math.round((newPreDiscountTotal - finalPrice) * 100) / 100;
                                       
                                       // Update markup on all line items
                                       setGroups(prevGroups => prevGroups.map(g => ({
@@ -1861,11 +1889,11 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                         }),
                                       })));
                                       
-                                      // Set discount to $1200 and update markup in form
+                                      // Set the calculated discount and update markup in form
                                       setFormData(prev => ({ 
                                         ...prev, 
                                         discount_type: 'fixed',
-                                        discount_value: 1200,
+                                        discount_value: requiredDiscount,
                                         default_markup_percent: Math.round(newMarkupPercent * 100) / 100
                                       }));
                                     }
@@ -1891,10 +1919,30 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                     
                                     if (finalPrice > preTaxTotal) {
                                       // Desired price is HIGHER than current total
-                                      const targetSubtotal = finalPrice + 1200 - totals.taxAmount;
+                                      const bufferAmount = 1200;
                                       
                                       if (totals.subtotal > 0 && totals.totalCost > 0) {
-                                        const newMarkupPercent = ((targetSubtotal / totals.totalCost) - 1) * 100;
+                                        const targetPreDiscountTotal = finalPrice + bufferAmount;
+                                        const currentPreDiscountTotal = totals.subtotal + totals.taxAmount;
+                                        const scaleFactor = targetPreDiscountTotal / currentPreDiscountTotal;
+                                        const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
+                                        
+                                        // Calculate the new subtotal and tax after markup change
+                                        let newSubtotal = 0;
+                                        let newTaxableAmount = 0;
+                                        groups.forEach(g => {
+                                          g.items.forEach(item => {
+                                            const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
+                                            const newLineTotal = item.quantity * newUnitPrice;
+                                            newSubtotal += newLineTotal;
+                                            if (item.is_taxable) {
+                                              newTaxableAmount += newLineTotal;
+                                            }
+                                          });
+                                        });
+                                        const newTaxAmount = (newTaxableAmount * formData.tax_rate) / 100;
+                                        const newPreDiscountTotal = newSubtotal + newTaxAmount;
+                                        const requiredDiscount = Math.round((newPreDiscountTotal - finalPrice) * 100) / 100;
                                         
                                         setGroups(prevGroups => prevGroups.map(g => ({
                                           ...g,
@@ -1912,7 +1960,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                         setFormData(prev => ({ 
                                           ...prev, 
                                           discount_type: 'fixed',
-                                          discount_value: 1200,
+                                          discount_value: requiredDiscount,
                                           default_markup_percent: Math.round(newMarkupPercent * 100) / 100
                                         }));
                                       }
