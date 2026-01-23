@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -52,6 +52,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Filter, X } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface AppSetting {
   id: string;
@@ -520,7 +525,7 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-10">
+          <TabsList className="grid w-full grid-cols-11">
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
@@ -540,6 +545,10 @@ export default function AdminSettings() {
             <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               <span className="hidden sm:inline">Chat</span>
+            </TabsTrigger>
+            <TabsTrigger value="salespeople" className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4" />
+              <span className="hidden sm:inline">Sales</span>
             </TabsTrigger>
             <TabsTrigger value="payables" className="flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
@@ -575,37 +584,55 @@ export default function AdminSettings() {
                 {/* Company Logo */}
                 <LogoUpload />
 
-                {/* Company Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Building className="h-5 w-5" />
-                      Company Settings
-                    </CardTitle>
-                    <CardDescription>
-                      General company information used in emails and documents
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {companySettings?.map(renderSettingField)}
-                  </CardContent>
-                </Card>
+                {/* Company Settings - Collapsible */}
+                <Collapsible defaultOpen={false}>
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Building className="h-5 w-5" />
+                            Company Settings
+                          </span>
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </CardTitle>
+                        <CardDescription>
+                          General company information used in emails and documents
+                        </CardDescription>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        {companySettings?.map(renderSettingField)}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
-                {/* Portal Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Settings className="h-5 w-5" />
-                      Customer Portal Settings
-                    </CardTitle>
-                    <CardDescription>
-                      Configure settings for the customer portal experience. The App Base URL is used for all portal links in emails (e.g., your custom domain).
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {portalSettings?.map(renderSettingField)}
-                  </CardContent>
-                </Card>
+                {/* Portal Settings - Collapsible */}
+                <Collapsible defaultOpen={false}>
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Settings className="h-5 w-5" />
+                            Customer Portal Settings
+                          </span>
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </CardTitle>
+                        <CardDescription>
+                          Configure settings for the customer portal experience. The App Base URL is used for all portal links in emails (e.g., your custom domain).
+                        </CardDescription>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        {portalSettings?.map(renderSettingField)}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
                 {/* Estimate Settings */}
                 <Card>
@@ -708,8 +735,6 @@ export default function AdminSettings() {
                   </CardContent>
                 </Card>
 
-                {/* Salespeople Management */}
-                <SalespeopleManagement />
 
                 {/* KPI Card Visibility */}
                 <Card>
@@ -1022,6 +1047,11 @@ export default function AdminSettings() {
           {/* Chat Management Tab */}
           <TabsContent value="chat" className="mt-6">
             <ChatManagement />
+          </TabsContent>
+
+          {/* Salespeople Tab */}
+          <TabsContent value="salespeople" className="mt-6">
+            <SalespeopleManagement />
           </TabsContent>
 
           {/* Data Cleanup Tab */}
