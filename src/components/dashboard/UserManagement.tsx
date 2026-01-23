@@ -81,23 +81,29 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
   const [reassigningCompanyForUser, setReassigningCompanyForUser] = useState<Profile | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
 
-  // Fetch all profiles
+  // Fetch profiles - super admins see all, regular admins see only their company
   const {
     data: profiles = [],
     isLoading: profilesLoading,
     error: profilesError,
   } = useQuery({
-    queryKey: PROFILES_QUERY_KEY,
+    queryKey: [...PROFILES_QUERY_KEY, isSuperAdmin ? 'all' : companyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("profiles")
-        .select("id, email, full_name, ghl_user_id, company_id")
-        .order("email");
+        .select("id, email, full_name, ghl_user_id, company_id");
+      
+      // Regular admins only see users in their company
+      if (!isSuperAdmin && companyId) {
+        query = query.eq("company_id", companyId);
+      }
+      
+      const { data, error } = await query.order("email");
 
       if (error) throw error;
       return data as Profile[];
     },
-    enabled: open,
+    enabled: open && (isSuperAdmin || !!companyId),
     refetchOnMount: "always",
   });
 
