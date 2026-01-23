@@ -219,7 +219,10 @@ function extractContactAddress(
 }
 
 // Fetch a single contact by ID (V2 API)
-async function fetchContact(ghlApiKey: string, contactId: string): Promise<any | null> {
+async function fetchContact(ghlApiKey: string, contactId: string, locationId?: string): Promise<any | null> {
+  const GHL_LOCATION_2_ID = 'XYDIgpHivVWHii65sId5';
+  const isLocation2 = locationId === GHL_LOCATION_2_ID;
+  
   try {
     const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
       method: 'GET',
@@ -236,11 +239,101 @@ async function fetchContact(ghlApiKey: string, contactId: string): Promise<any |
     }
 
     const data = await response.json();
-    return data.contact || null;
+    const contact = data.contact || null;
+    
+    // DEBUG: Log full V2 API response for Location 2 contacts to find UTM data fields
+    if (isLocation2 && contact) {
+      console.log(`V2 API CONTACT RESPONSE for ${contactId}:`, JSON.stringify({
+        // Log specific fields we're looking for
+        hasAttributions: !!contact.attributions,
+        attributionsLength: contact.attributions?.length || 0,
+        attributions: contact.attributions || null,
+        // Check for singular attributionSource (different from attributions array)
+        hasAttributionSource: !!contact.attributionSource,
+        attributionSource: contact.attributionSource || null,
+        // Check for direct UTM fields on contact object
+        utmCampaign: contact.utmCampaign || null,
+        utmSource: contact.utmSource || null,
+        utmMedium: contact.utmMedium || null,
+        utmContent: contact.utmContent || null,
+        // Check for other potential attribution fields
+        firstAttribution: contact.firstAttribution || null,
+        lastAttribution: contact.lastAttribution || null,
+        // Standard fields
+        source: contact.source || null,
+        tags: contact.tags || null,
+        // Log all top-level keys to find where UTM data lives
+        allKeys: Object.keys(contact),
+      }, null, 2));
+    }
+    
+    return contact;
   } catch (err) {
     console.error(`Error fetching contact ${contactId}:`, err);
     return null;
   }
+}
+
+// Extract scope from ALL possible locations in V2 contact object
+// This checks attributions array, attributionSource object, and direct UTM fields
+function extractScopeFromContactV2(contact: any): string | null {
+  if (!contact) return null;
+  
+  // 1. Check attributions array (standard V2 format)
+  if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
+    const scope = extractScopeFromAttribution(contact.attributions);
+    if (scope) {
+      console.log(`Found scope from V2 attributions array: "${scope}"`);
+      return scope;
+    }
+  }
+  
+  // 2. Check singular attributionSource object (may contain first attribution details)
+  if (contact.attributionSource) {
+    const attr = contact.attributionSource;
+    if (attr.utmCampaign) {
+      const scope = cleanCampaignName(attr.utmCampaign);
+      console.log(`Found scope from attributionSource.utmCampaign: "${scope}"`);
+      return scope;
+    }
+    if (attr.campaign) {
+      const scope = cleanCampaignName(attr.campaign);
+      console.log(`Found scope from attributionSource.campaign: "${scope}"`);
+      return scope;
+    }
+    // Also check formName as it may contain campaign info
+    if (attr.formName) {
+      console.log(`Found formName in attributionSource: "${attr.formName}"`);
+      // formName often contains the campaign info like "2025/12/22 Pavers & Turf"
+      const scope = cleanCampaignName(attr.formName);
+      if (scope) return scope;
+    }
+  }
+  
+  // 3. Check firstAttribution object (another possible location)
+  if (contact.firstAttribution) {
+    const attr = contact.firstAttribution;
+    if (attr.utmCampaign) {
+      const scope = cleanCampaignName(attr.utmCampaign);
+      console.log(`Found scope from firstAttribution.utmCampaign: "${scope}"`);
+      return scope;
+    }
+  }
+  
+  // 4. Check direct UTM fields on contact object
+  if (contact.utmCampaign) {
+    const scope = cleanCampaignName(contact.utmCampaign);
+    console.log(`Found scope from direct utmCampaign: "${scope}"`);
+    return scope;
+  }
+  
+  // 5. Check formName directly on contact (may contain campaign info)
+  if (contact.formName) {
+    console.log(`Found direct formName: "${contact.formName}"`);
+    return cleanCampaignName(contact.formName);
+  }
+  
+  return null;
 }
 
 // Fetch contact using GHL V1 API to get activity/history data including UTM campaigns
@@ -621,10 +714,10 @@ serve(async (req) => {
       const contactAddresses = new Map<string, string>();
 
       const contactsToUpsert: any[] = [];
-      const GHL_LOCATION_2_ID = 'XYDIgpHivVWHii65sId5'; // Results Grow - needs V1 API for UTM data
+      const GHL_LOCATION_2_ID = 'XYDIgpHivVWHii65sId5'; // Results Grow - needs enhanced UTM extraction
       
       for (const contactId of allContactsToFetch) {
-        const contact = await fetchContact(apiKey, contactId);
+        const contact = await fetchContact(apiKey, contactId, integration.location_id);
         if (contact) {
           const displayName = buildContactDisplayName({
             contact_name: contact.contactName || null,
@@ -658,12 +751,23 @@ serve(async (req) => {
             last_synced_at: syncTimestamp,
           });
           
-          // Store attributions for scope extraction from V2 API
-          if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
+          // First try to extract scope from ALL possible V2 fields
+          const scopeFromV2 = extractScopeFromContactV2(contact);
+          
+          if (scopeFromV2) {
+            console.log(`Found scope from V2 API for ${contactId} (${displayName}): "${scopeFromV2}"`);
+            // Store as synthetic attribution for scope extraction
+            contactAttributions.set(contact.id, [{ 
+              utmCampaign: scopeFromV2, 
+              source: 'v2_api_enhanced',
+              medium: 'facebook' 
+            }]);
+          } else if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
+            // Store original attributions for scope extraction
             contactAttributions.set(contact.id, contact.attributions);
           } else if (integration.location_id === GHL_LOCATION_2_ID) {
-            // For Location 2 contacts without attributions, try V1 API to get UTM campaign data
-            console.log(`Contact ${contactId} (${displayName}) has no attributions, trying V1 API...`);
+            // For Location 2 contacts without any V2 UTM data, try V1 API as fallback
+            console.log(`Contact ${contactId} (${displayName}) has no V2 UTM data, trying V1 API...`);
             const v1Contact = await fetchContactV1(apiKey, contactId);
             if (v1Contact) {
               const scopeFromV1 = extractScopeFromV1Contact(v1Contact);
