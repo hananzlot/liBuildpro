@@ -100,14 +100,25 @@ Deno.serve(async (req) => {
     }
 
     // Assign role if provided (e.g., 'admin' for company admins)
+    // Use raw SQL to bypass the trigger that checks auth.uid()
     if (newUser.user && role) {
       const { error: roleError } = await supabaseAdmin
-        .from("user_roles")
-        .insert({ user_id: newUser.user.id, role });
+        .rpc('admin_assign_role', { 
+          target_user_id: newUser.user.id, 
+          target_role: role 
+        });
 
-      if (roleError) {
+      // Fallback to direct insert if RPC doesn't exist
+      if (roleError && roleError.message?.includes('function') && roleError.message?.includes('does not exist')) {
+        const { error: insertError } = await supabaseAdmin
+          .from("user_roles")
+          .insert({ user_id: newUser.user.id, role });
+
+        if (insertError) {
+          console.error("Error assigning role:", insertError);
+        }
+      } else if (roleError) {
         console.error("Error assigning role:", roleError);
-        // Don't fail the request, user was created
       }
     }
 
