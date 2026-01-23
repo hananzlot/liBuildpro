@@ -1960,7 +1960,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     <CardContent className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
-                          <Label>Show Scope Description</Label>
+                          <Label>Show SalesRep Scope Description</Label>
                           <p className="text-sm text-muted-foreground">
                             Show the scope of work text description from the Scope tab
                           </p>
@@ -1972,9 +1972,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </div>
                       <div className="flex items-center justify-between pt-4 border-t">
                         <div className="space-y-0.5">
-                          <Label>Show Line Items</Label>
+                          <Label>Show AI Generated Line Items</Label>
                           <p className="text-sm text-muted-foreground">
-                            Show the itemized scope breakdown (titles and totals only)
+                            Show the itemized scope breakdown (titles only)
                           </p>
                         </div>
                         <Switch
@@ -1984,7 +1984,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       </div>
                       <div className="flex items-center justify-between pt-4 border-t">
                         <div className="space-y-0.5">
-                          <Label>Show Line Item Details</Label>
+                          <Label>Show AI Driven Line Item Details</Label>
                           <p className="text-sm text-muted-foreground">
                             Show quantity, unit, and unit price for each line item
                           </p>
