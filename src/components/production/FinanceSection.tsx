@@ -3988,86 +3988,260 @@ function BillPaymentHistoryDialog({
   const totalPaid = payments.reduce((sum, p) => sum + (p.payment_amount || 0), 0);
   const canDelete = isAdmin || isSuperAdmin;
 
+  const [activeTab, setActiveTab] = useState<string>("details");
+
+  // Reset tab when dialog opens
+  useEffect(() => {
+    if (open) {
+      setActiveTab("details");
+    }
+  }, [open]);
+
+  const isPaid = (bill?.balance || 0) <= 0;
+  const paymentProgress = bill?.bill_amount ? ((bill?.amount_paid || 0) / bill.bill_amount) * 100 : 0;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Payment History</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              Bill Details
+            </DialogTitle>
             <DialogDescription>
-              {bill?.installer_company && <span className="font-medium">{bill.installer_company}</span>}
-              {bill?.installer_company && " • "}
-              Bill Ref: <span className="font-medium">{bill?.bill_ref || "N/A"}</span>
-              {" • "}
-              Bill Amount: <span className="font-semibold">{formatCurrency(bill?.bill_amount)}</span>
+              View bill information and payment history
             </DialogDescription>
           </DialogHeader>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin" />
-            </div>
-          ) : payments.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No payments recorded yet
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Date</TableHead>
-                    <TableHead className="text-xs">Bank Account</TableHead>
-                    <TableHead className="text-xs">Method</TableHead>
-                    <TableHead className="text-xs">Reference</TableHead>
-                    <TableHead className="text-xs text-right">Amount</TableHead>
-                    {canDelete && <TableHead className="text-xs w-12"></TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((payment) => (
-                    <TableRow key={payment.id}>
-                      <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
-                      <TableCell className="text-xs">
-                        {payment.bank_name ? (
-                          <Badge variant="outline" className="text-[10px]">{payment.bank_name}</Badge>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
-                      <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
-                      <TableCell className="text-xs text-right text-emerald-600 font-medium">
-                        {formatCurrency(payment.payment_amount)}
-                      </TableCell>
-                      {canDelete && (
-                        <TableCell>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 text-destructive hover:text-destructive"
-                            onClick={() => setDeletePaymentId(payment.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                  <TableRow className="bg-muted/50 font-semibold">
-                    <TableCell colSpan={4} className="text-xs">Total Paid</TableCell>
-                    <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalPaid)}</TableCell>
-                    {canDelete && <TableCell />}
-                  </TableRow>
-                </TableBody>
-              </Table>
-              <div className="flex justify-between text-sm border-t pt-3">
-                <span className="text-muted-foreground">Remaining Balance:</span>
-                <span className={cn("font-semibold", (bill?.balance || 0) > 0 ? "text-amber-600" : "text-emerald-600")}>
-                  {formatCurrency(bill?.balance)}
-                </span>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="details" className="text-xs">
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                Bill Details
+              </TabsTrigger>
+              <TabsTrigger value="payments" className="text-xs">
+                <History className="h-3.5 w-3.5 mr-1.5" />
+                Payment History ({payments.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Bill Details Tab */}
+            <TabsContent value="details" className="mt-4 space-y-4">
+              {/* Status Banner */}
+              <div className={cn(
+                "rounded-lg p-4 border",
+                isPaid ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800" : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800"
+              )}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge className={cn(
+                      "text-xs",
+                      isPaid 
+                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" 
+                        : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"
+                    )}>
+                      {isPaid ? "Paid in Full" : "Outstanding Balance"}
+                    </Badge>
+                    {bill?.is_voided && (
+                      <Badge variant="destructive" className="text-xs">Voided</Badge>
+                    )}
+                  </div>
+                  <span className={cn(
+                    "text-lg font-bold",
+                    isPaid ? "text-emerald-700 dark:text-emerald-400" : "text-amber-700 dark:text-amber-400"
+                  )}>
+                    {formatCurrency(bill?.bill_amount)}
+                  </span>
+                </div>
+                {!isPaid && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-muted-foreground">Payment Progress</span>
+                      <span className="font-medium">{paymentProgress.toFixed(0)}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-emerald-500 rounded-full transition-all"
+                        style={{ width: `${Math.min(paymentProgress, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+
+              {/* Bill Information Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="border">
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">Vendor / Company</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3">
+                    <p className="font-semibold">{bill?.installer_company || "N/A"}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">Bill Reference</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3">
+                    <p className="font-semibold">{bill?.bill_ref || "N/A"}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">Category</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3">
+                    <Badge variant="secondary" className="text-xs">{bill?.category || "Uncategorized"}</Badge>
+                  </CardContent>
+                </Card>
+                <Card className="border">
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-xs font-medium text-muted-foreground">Created</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3">
+                    <p className="font-semibold">{formatDate(bill?.created_at || null)}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Financial Summary */}
+              <Card className="border">
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm">Financial Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Original Amount:</span>
+                    <span className="font-medium">{formatCurrency(bill?.original_bill_amount || bill?.bill_amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Current Bill Amount:</span>
+                    <span className="font-medium">{formatCurrency(bill?.bill_amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Amount Paid:</span>
+                    <span className="font-medium text-emerald-600">{formatCurrency(bill?.amount_paid)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t pt-2">
+                    <span className="font-medium">Balance Due:</span>
+                    <span className={cn(
+                      "font-bold",
+                      (bill?.balance || 0) > 0 ? "text-amber-600" : "text-emerald-600"
+                    )}>
+                      {formatCurrency(bill?.balance)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Memo */}
+              {bill?.memo && (
+                <Card className="border">
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-sm">Memo / Notes</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3">
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{bill.memo}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Attachment */}
+              {bill?.attachment_url && (
+                <Card className="border">
+                  <CardHeader className="pb-2 pt-3 px-4">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Paperclip className="h-4 w-4" />
+                      Attachment
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-3">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(bill.attachment_url!, '_blank')}
+                    >
+                      View Attachment
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Payment History Tab */}
+            <TabsContent value="payments" className="mt-4">
+              {isLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
+              ) : payments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No payments recorded yet</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Date</TableHead>
+                        <TableHead className="text-xs">Bank Account</TableHead>
+                        <TableHead className="text-xs">Method</TableHead>
+                        <TableHead className="text-xs">Reference</TableHead>
+                        <TableHead className="text-xs text-right">Amount</TableHead>
+                        {canDelete && <TableHead className="text-xs w-12"></TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
+                          <TableCell className="text-xs">
+                            {payment.bank_name ? (
+                              <Badge variant="outline" className="text-[10px]">{payment.bank_name}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
+                          <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
+                          <TableCell className="text-xs text-right text-emerald-600 font-medium">
+                            {formatCurrency(payment.payment_amount)}
+                          </TableCell>
+                          {canDelete && (
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-destructive hover:text-destructive"
+                                onClick={() => setDeletePaymentId(payment.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      ))}
+                      <TableRow className="bg-muted/50 font-semibold">
+                        <TableCell colSpan={4} className="text-xs">Total Paid</TableCell>
+                        <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalPaid)}</TableCell>
+                        {canDelete && <TableCell />}
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                  <div className="flex justify-between text-sm border-t pt-3">
+                    <span className="text-muted-foreground">Remaining Balance:</span>
+                    <span className={cn("font-semibold", (bill?.balance || 0) > 0 ? "text-amber-600" : "text-emerald-600")}>
+                      {formatCurrency(bill?.balance)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
           </DialogFooter>
