@@ -64,6 +64,16 @@ serve(async (req) => {
           JSON.stringify({ success: true, message: "Resend API key is valid" }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      } else if (response.status === 429) {
+        // Rate limited - key might be valid, just too many requests
+        console.log("Resend API rate limited - key is likely valid");
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: "Resend API key appears valid (rate limited)" 
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error("Resend API key validation failed:", errorData);
