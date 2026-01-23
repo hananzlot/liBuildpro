@@ -21,6 +21,8 @@ import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { OpportunitySalesDialog } from "./OpportunitySalesDialog";
 import { AppointmentEditDialog } from "./AppointmentEditDialog";
+import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
+import type { LinkedOpportunity } from "@/components/estimates/EstimateSourceDialog";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -311,6 +313,9 @@ export function OpportunityDetailSheet({
     total: number;
     created_at: string;
   }[]>([]);
+
+  // Estimate builder dialog state
+  const [estimateBuilderOpen, setEstimateBuilderOpen] = useState(false);
 
   // Reset saved values only when sheet opens fresh (was closed, now open)
   useEffect(() => {
@@ -2741,7 +2746,7 @@ export function OpportunityDetailSheet({
                     className="h-6 px-2"
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/estimates?view=list`);
+                      setEstimateBuilderOpen(true);
                     }}
                   >
                     <Plus className="h-3 w-3 mr-1" />
@@ -3015,5 +3020,41 @@ export function OpportunityDetailSheet({
       {opportunity && <OpportunitySalesDialog open={salesDialogOpen} onOpenChange={setSalesDialogOpen} opportunityId={opportunity.ghl_id} contactId={opportunity.contact_id} locationId="pVeFrqvtYWNIPRIi0Fmr" users={users} userId={user?.id} userGhlId={profile?.ghl_user_id} onSalesUpdated={() => queryClient.invalidateQueries({
       queryKey: ["opportunity_sales"]
     })} />}
+
+      {/* Estimate Builder Dialog - Pre-linked to this opportunity */}
+      {opportunity && (
+        <EstimateBuilderDialog
+          open={estimateBuilderOpen}
+          onOpenChange={setEstimateBuilderOpen}
+          linkedOpportunity={{
+            id: opportunity.id || '',
+            ghl_id: opportunity.ghl_id,
+            name: opportunity.name,
+            contact_id: opportunity.contact_id,
+            contact_uuid: opportunity.contact_uuid || undefined,
+            address: opportunity.address,
+            scope_of_work: opportunity.scope_of_work,
+            monetary_value: opportunity.monetary_value,
+            contact_name: contact?.contact_name || contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}`.trim() : null,
+            contact_email: contact?.email,
+            contact_phone: contact?.phone,
+          } as LinkedOpportunity}
+          onSuccess={() => {
+            // Refresh linked estimates
+            const fetchEstimates = async () => {
+              const { data: estimatesData } = await supabase
+                .from("estimates")
+                .select("id, estimate_number, estimate_title, status, total, created_at")
+                .or(`opportunity_id.eq.${opportunity.ghl_id},opportunity_uuid.eq.${opportunity.id || 'none'}`)
+                .eq("company_id", companyId)
+                .order("created_at", { ascending: false });
+              
+              setLinkedEstimates(estimatesData || []);
+            };
+            fetchEstimates();
+            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+          }}
+        />
+      )}
     </Sheet>;
 }
