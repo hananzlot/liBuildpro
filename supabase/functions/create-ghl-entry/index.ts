@@ -60,11 +60,19 @@ serve(async (req) => {
     let credentials: { apiKey: string; locationId: string } | null = null;
     let isLocalOnlyMode = false;
     
-    try {
-      credentials = await getGHLCredentials(supabase, locationId);
-    } catch (error) {
-      console.log(`GHL credentials not available for location ${locationId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    // Check if pipeline is a local-only pipeline (not from GHL)
+    const isLocalPipeline = pipelineId?.startsWith('local_pipeline_');
+    
+    if (isLocalPipeline) {
+      console.log('Using local-only mode: pipeline is a locally-configured pipeline');
       isLocalOnlyMode = true;
+    } else {
+      try {
+        credentials = await getGHLCredentials(supabase, locationId);
+      } catch (error) {
+        console.log(`GHL credentials not available for location ${locationId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        isLocalOnlyMode = true;
+      }
     }
     
     const GHL_API_KEY = credentials?.apiKey;
