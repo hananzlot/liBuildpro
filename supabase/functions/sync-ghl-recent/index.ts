@@ -100,37 +100,67 @@ async function fetchRecentOpportunities(
 }
 
 // Extract scope of work from Facebook campaign attribution
+// Handles formats like:
+// - utmCampaign: "Deck & Patio Cover | $3,995 | 2025/12/04"
+// - utmCampaign: "2025/12/18 Paver & Turf Sale"
+// - utmCampaign: "[Lead Gen] Product Name"
+// - utmContent: "Static 2025/12/04 Deck & Patio Cover"
 function extractScopeFromAttribution(attributions: any[] | null): string | null {
   if (!attributions || !Array.isArray(attributions)) return null;
   
   for (const attr of attributions) {
-    // Check utmContent first - this is often the specific scope/product
-    if (attr.utmContent) {
-      console.log(`Extracted scope from utmContent: ${attr.utmContent}`);
-      return attr.utmContent;
-    }
-    
-    // Check if this is from Facebook/Paid Social
+    // Check if this is from Facebook/Paid Social - prioritize utmCampaign for these
     const isFacebookLead = attr.medium === 'facebook' || 
                            attr.adSource === 'facebook' ||
                            attr.utmSessionSource === 'Paid Social';
     
+    // For Facebook leads, extract from utmCampaign first (has the sale/product info)
     if (isFacebookLead && attr.utmCampaign) {
-      // Extract the product/service type from campaign name
-      // Campaign format: "Product Name | Price | Date" or "[Lead Gen] Product Name"
       const campaign = attr.utmCampaign as string;
       
-      // Remove [Lead Gen] prefix if present
-      let cleanCampaign = campaign.replace(/^\[Lead Gen\]\s*/i, '');
-      cleanCampaign = cleanCampaign.replace(/^\d{4}\/\d{2}\/\d{2}\s*\[Lead Gen\]\s*/i, '');
+      // Handle format: "Product Name | Price | Date" -> extract "Product Name"
+      if (campaign.includes('|')) {
+        const parts = campaign.split('|');
+        const productName = parts[0].trim();
+        if (productName) {
+          console.log(`Extracted scope "${productName}" from campaign (pipe format): ${campaign}`);
+          return productName;
+        }
+      }
       
-      // Extract the product name (before the first | or the whole thing)
-      const parts = cleanCampaign.split('|');
-      const productName = parts[0].trim();
+      // Handle format: "(Lead Gen) 2025/12/18 Paver & Turf Sale" or "2025/12/18 Paver & Turf Sale"
+      // First remove (Lead Gen) or [Lead Gen] prefix anywhere
+      let cleanCampaign = campaign
+        .replace(/^\(Lead Gen\)\s*/i, '')
+        .replace(/^\[Lead Gen\]\s*/i, '');
       
-      if (productName) {
-        console.log(`Extracted scope "${productName}" from campaign: ${campaign}`);
-        return productName;
+      // Then remove date prefix like "2025/12/18 "
+      cleanCampaign = cleanCampaign.replace(/^\d{4}\/\d{2}\/\d{2}\s*/, '').trim();
+      
+      // Also handle [Lead Gen] or (Lead Gen) after date
+      cleanCampaign = cleanCampaign
+        .replace(/^\(Lead Gen\)\s*/i, '')
+        .replace(/^\[Lead Gen\]\s*/i, '')
+        .trim();
+      
+      if (cleanCampaign && cleanCampaign !== campaign) {
+        console.log(`Extracted scope "${cleanCampaign}" from campaign: ${campaign}`);
+        return cleanCampaign;
+      }
+      
+      // Otherwise return the full campaign name as scope
+      console.log(`Using full campaign as scope: ${campaign}`);
+      return campaign;
+    }
+    
+    // Fall back to utmContent if no campaign found
+    if (attr.utmContent) {
+      // Clean up utmContent format like "Static 2025/12/04 Deck & Patio Cover"
+      let content = attr.utmContent as string;
+      content = content.replace(/^Static\s+\d{4}\/\d{2}\/\d{2}\s*/i, '').trim();
+      if (content) {
+        console.log(`Extracted scope from utmContent: ${content}`);
+        return content;
       }
     }
   }
@@ -399,24 +429,33 @@ serve(async (req) => {
         }
       }
 
-      // Check which contacts already exist in DB
+      // Check which contacts already exist in DB and whether they have attributions
       const existingContactIds = new Set<string>();
+      const contactsNeedingAttributions = new Set<string>(); // Existing contacts with null attributions
       if (contactIds.size > 0) {
         const contactIdArray = Array.from(contactIds);
         for (let i = 0; i < contactIdArray.length; i += 100) {
           const batch = contactIdArray.slice(i, i + 100);
           const { data: existingContacts } = await supabase
             .from('contacts')
-            .select('ghl_id')
+            .select('ghl_id, attributions')
             .in('ghl_id', batch);
           
-          (existingContacts || []).forEach((c: any) => existingContactIds.add(c.ghl_id));
+          (existingContacts || []).forEach((c: any) => {
+            existingContactIds.add(c.ghl_id);
+            // Track contacts that exist but have null attributions - we need to refresh from GHL
+            if (!c.attributions || (Array.isArray(c.attributions) && c.attributions.length === 0)) {
+              contactsNeedingAttributions.add(c.ghl_id);
+            }
+          });
         }
       }
 
-      // Fetch missing contacts from GHL
+      // Fetch missing contacts from GHL AND existing contacts that need attributions
       const missingContactIds = Array.from(contactIds).filter(id => !existingContactIds.has(id));
-      console.log(`Need to fetch ${missingContactIds.length} missing contacts`);
+      const contactsToRefresh = Array.from(contactsNeedingAttributions);
+      const allContactsToFetch = [...missingContactIds, ...contactsToRefresh];
+      console.log(`Need to fetch ${missingContactIds.length} missing contacts and ${contactsToRefresh.length} existing contacts needing attributions`);
 
       // Map to store contact attributions for scope extraction
       const contactAttributions = new Map<string, any[]>();
@@ -426,7 +465,7 @@ serve(async (req) => {
       const contactAddresses = new Map<string, string>();
 
       const contactsToUpsert: any[] = [];
-      for (const contactId of missingContactIds) {
+      for (const contactId of allContactsToFetch) {
         const contact = await fetchContact(apiKey, contactId);
         if (contact) {
           const displayName = buildContactDisplayName({
@@ -475,7 +514,7 @@ serve(async (req) => {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      // Upsert contacts
+      // Upsert contacts (including updates for contacts that needed attributions)
       if (contactsToUpsert.length > 0) {
         for (let i = 0; i < contactsToUpsert.length; i += 50) {
           const batch = contactsToUpsert.slice(i, i + 50);
@@ -486,7 +525,9 @@ serve(async (req) => {
       }
 
       // Fetch attributions and addresses for existing contacts that we didn't just fetch
-      const existingContactsToQuery = Array.from(contactIds).filter(id => existingContactIds.has(id));
+      const existingContactsToQuery = Array.from(contactIds).filter(id => 
+        existingContactIds.has(id) && !contactsNeedingAttributions.has(id)
+      );
       if (existingContactsToQuery.length > 0) {
         for (let i = 0; i < existingContactsToQuery.length; i += 100) {
           const batch = existingContactsToQuery.slice(i, i + 100);
@@ -517,21 +558,27 @@ serve(async (req) => {
         }
       }
 
-      // Build a set of existing contact_id + name combinations to skip duplicates
+      // Build a set of existing contact_id + name combinations to skip new duplicates
+      // Also track existing opportunities that need scope updates
       const existingOppKeys = new Set<string>();
+      const oppsNeedingScopeUpdate = new Map<string, string>(); // ghl_id -> contact_id for opportunities with null scope
       const allContactIdsForOpps = opportunities.map(o => o.contactId).filter(Boolean);
       if (allContactIdsForOpps.length > 0) {
         for (let i = 0; i < allContactIdsForOpps.length; i += 100) {
           const batch = allContactIdsForOpps.slice(i, i + 100);
           const { data: existingOpps } = await supabase
             .from('opportunities')
-            .select('contact_id, name')
+            .select('ghl_id, contact_id, name, scope_of_work')
             .in('contact_id', batch)
             .eq('company_id', integration.company_id);
           
           (existingOpps || []).forEach((o: any) => {
             if (o.contact_id && o.name) {
               existingOppKeys.add(`${o.contact_id}::${o.name.toLowerCase()}`);
+              // Track opportunities that exist but have no scope_of_work - we need to update them
+              if (!o.scope_of_work && o.ghl_id) {
+                oppsNeedingScopeUpdate.set(o.ghl_id, o.contact_id);
+              }
             }
           });
         }
@@ -551,10 +598,12 @@ serve(async (req) => {
         }
       });
       console.log(`Loaded ${crossLocationOppNames.size} existing opportunity names for cross-location duplicate check`);
+      console.log(`Found ${oppsNeedingScopeUpdate.size} existing opportunities that need scope updates`);
 
       // Prepare opportunities for upsert with scope_of_work from Facebook campaigns
       // Filter out duplicates where contact_id + name already exists
       const oppsToUpsert: any[] = [];
+      const scopeUpdates: { ghlId: string; scope: string }[] = [];
       let skippedDuplicates = 0;
 
       for (const o of opportunities) {
@@ -566,12 +615,18 @@ serve(async (req) => {
         
         const oppName = o.name || fallbackName || null;
         
+        // Check if this opportunity needs a scope update (exists but has no scope)
+        if (oppsNeedingScopeUpdate.has(o.id) && scopeFromCampaign) {
+          scopeUpdates.push({ ghlId: o.id, scope: scopeFromCampaign });
+          console.log(`Will update scope for existing opportunity ${oppName}: "${scopeFromCampaign}"`);
+        }
+        
         // Check if this contact_id + name combination already exists (skip if duplicate)
         if (o.contactId && oppName) {
           const dedupKey = `${o.contactId}::${oppName.toLowerCase()}`;
           if (existingOppKeys.has(dedupKey)) {
             skippedDuplicates++;
-            continue; // Skip this duplicate opportunity
+            continue; // Skip this duplicate opportunity (already handled scope update above)
           }
           // Add to set to prevent duplicates within same sync batch
           existingOppKeys.add(dedupKey);
@@ -617,7 +672,21 @@ serve(async (req) => {
         console.log(`Skipped ${skippedDuplicates} duplicate opportunities (contact_id + name already exists)`);
       }
 
-      // Upsert opportunities
+      // Update scope_of_work for existing opportunities that need it
+      if (scopeUpdates.length > 0) {
+        for (const update of scopeUpdates) {
+          const { error } = await supabase
+            .from('opportunities')
+            .update({ scope_of_work: update.scope, last_synced_at: syncTimestamp })
+            .eq('ghl_id', update.ghlId);
+          if (error) {
+            console.error(`Failed to update scope for ${update.ghlId}:`, error);
+          }
+        }
+        console.log(`Updated scope_of_work for ${scopeUpdates.length} existing opportunities`);
+      }
+
+      // Upsert new opportunities
       if (oppsToUpsert.length > 0) {
         for (let i = 0; i < oppsToUpsert.length; i += 50) {
           const batch = oppsToUpsert.slice(i, i + 50);
