@@ -237,18 +237,6 @@ const navSections: NavSection[] = [
       },
     ],
   },
-  {
-    label: "Super Admin",
-    roles: ['super_admin'],
-    items: [
-      { 
-        title: "Admin Portal", 
-        url: "/super-admin", 
-        icon: Building2,
-        roles: ['super_admin']
-      },
-    ],
-  },
 ];
 
 // Reports sub-menus removed for now - can be added when routes are created
@@ -695,6 +683,23 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
               <SidebarGroupLabel>Admin Tools</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
+                  {/* Super Admin Portal - first item for super admins */}
+                  {isSuperAdmin && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton 
+                        tooltip="Super Admin Portal"
+                        isActive={location.pathname.startsWith('/super-admin')}
+                        onClick={() => {
+                          closeSidebar();
+                          navigate('/super-admin');
+                        }}
+                      >
+                        <Building2 className="h-4 w-4" />
+                        {!collapsed && <span>Super Admin Portal</span>}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+
                   {/* Role Simulation Toggle */}
                   <SidebarMenuItem>
                     <DropdownMenu>
