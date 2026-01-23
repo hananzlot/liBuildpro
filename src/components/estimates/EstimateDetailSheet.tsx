@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, User, MapPin, Mail, Phone, Calendar, DollarSign, FileText, Percent, PenTool, Upload, File, Trash2 } from "lucide-react";
+import { Loader2, User, MapPin, Mail, Phone, Calendar, DollarSign, FileText, Percent, PenTool, Upload, File, Trash2, Copy } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -88,7 +88,7 @@ const itemTypeLabels: Record<string, string> = {
 };
 
 export function EstimateDetailSheet({ estimateId, open, onOpenChange }: EstimateDetailSheetProps) {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -313,9 +313,26 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
             <SheetTitle className="text-xl">
               Estimate #{estimate.estimate_number}
             </SheetTitle>
-            <Badge className={`${statusColors[estimate.status]} text-white`}>
-              {statusLabels[estimate.status]}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {isSuperAdmin && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-muted-foreground" 
+                  onClick={() => {
+                    const debugInfo = `Estimate ID: ${estimate.id}\nEstimate #: ${estimate.estimate_number}\nOpportunity ID: ${estimate.opportunity_id || 'null'}\nOpportunity UUID: ${estimate.opportunity_uuid || 'null'}\nProject ID: ${estimate.project_id || 'null'}\nContact ID: ${estimate.contact_id || 'null'}\nContact UUID: ${estimate.contact_uuid || 'null'}`;
+                    navigator.clipboard.writeText(debugInfo);
+                    toast.success("Debug info copied to clipboard");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  Debug
+                </Button>
+              )}
+              <Badge className={`${statusColors[estimate.status]} text-white`}>
+                {statusLabels[estimate.status]}
+              </Badge>
+            </div>
           </div>
           <SheetDescription>{estimate.estimate_title}</SheetDescription>
         </SheetHeader>
