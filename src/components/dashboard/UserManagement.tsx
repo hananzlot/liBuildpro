@@ -388,6 +388,22 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
 
   const isLoading = profilesLoading || rolesLoading || (isSuperAdmin && companiesLoading);
 
+  // Filter out super_admin users for non-super-admin viewers
+  const filteredProfiles = useMemo(() => {
+    // Super admins see everyone
+    if (isSuperAdmin) return profiles;
+    
+    // Get all user IDs that have super_admin role
+    const superAdminUserIds = new Set(
+      userRoles
+        .filter(r => r.role === 'super_admin')
+        .map(r => r.user_id)
+    );
+    
+    // Filter out users who are super admins
+    return profiles.filter(profile => !superAdminUserIds.has(profile.id));
+  }, [profiles, userRoles, isSuperAdmin]);
+
   // Helper to get company name for a profile
   const getCompanyName = (companyId: string | null) => {
     if (!companyId) return "No Company";
@@ -550,7 +566,11 @@ export function UserManagement({ open, onOpenChange }: UserManagementProps) {
         ) : (
           <ScrollArea className="max-h-[50vh]">
             <div className="space-y-2">
-              {profiles.map((profile) => {
+              {filteredProfiles.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No users found
+                </div>
+              ) : filteredProfiles.map((profile) => {
                 const userRolesForProfile = availableRoles.map(cfg => ({
                   ...cfg,
                   active: hasRole(profile.id, cfg.role),
