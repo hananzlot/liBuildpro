@@ -2440,9 +2440,15 @@ function InvoiceDialog({
             <div>
               <Label>Amount ($)</Label>
               <Input 
-                type="number" 
+                type="text"
+                inputMode="decimal"
                 value={formData.amount} 
-                onChange={(e) => handleAmountChange(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                    handleAmountChange(val);
+                  }
+                }}
                 disabled={!!prePopulatedData}
                 className={prePopulatedData ? "opacity-70 bg-muted" : ""}
               />
@@ -2712,9 +2718,16 @@ function PaymentDialog({
             <div>
               <Label>Amount ($)</Label>
               <Input 
-                type="number" 
+                type="text"
+                inputMode="decimal"
                 value={formData.payment_amount} 
-                onChange={(e) => { setFormData(p => ({ ...p, payment_amount: e.target.value })); setAmountError(""); }} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                    setFormData(p => ({ ...p, payment_amount: val }));
+                    setAmountError("");
+                  }
+                }} 
               />
               {amountError && <p className="text-xs text-destructive mt-1">{amountError}</p>}
               {selectedInvoice && <p className="text-xs text-muted-foreground mt-1">Max: {formatCurrency(maxAmount)}</p>}
@@ -2735,7 +2748,7 @@ function PaymentDialog({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Fee ($)</Label>
-              <Input type="number" value={formData.payment_fee} onChange={(e) => setFormData(p => ({ ...p, payment_fee: e.target.value }))} />
+              <Input type="text" inputMode="decimal" value={formData.payment_fee} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, payment_fee: val })); }} />
             </div>
             <div>
               <Label>Check #</Label>
@@ -3040,7 +3053,7 @@ function BillDialog({
             </div>
             <div>
               <Label>Bill Amount ($)</Label>
-              <Input type="number" value={formData.bill_amount} onChange={(e) => setFormData(p => ({ ...p, bill_amount: e.target.value }))} />
+              <Input type="text" inputMode="decimal" value={formData.bill_amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, bill_amount: val })); }} />
             </div>
             <div>
               <Label>Bill Reference</Label>
@@ -3253,7 +3266,7 @@ function AgreementDialog({
             </div>
             <div>
               <Label>Total Value ($)</Label>
-              <Input type="number" value={formData.total_price} onChange={(e) => setFormData(p => ({ ...p, total_price: e.target.value }))} />
+              <Input type="text" inputMode="decimal" value={formData.total_price} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, total_price: val })); }} />
             </div>
           </div>
           <div>
@@ -3445,7 +3458,7 @@ function PhaseDialog({
           </div>
           <div>
             <Label>Amount ($)</Label>
-            <Input type="number" value={formData.amount} onChange={(e) => setFormData(p => ({ ...p, amount: e.target.value }))} />
+            <Input type="text" inputMode="decimal" value={formData.amount} onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, amount: val })); }} />
           </div>
           {validationWarning && (
             <div className={cn(
@@ -3514,9 +3527,10 @@ function SoldAmountOriginalCard({
       {isEditing ? (
         <div className="flex items-center gap-1">
           <Input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setValue(val); }}
             onKeyDown={handleKeyDown}
             className="h-5 w-20 text-xs px-1"
             autoFocus
@@ -3592,9 +3606,10 @@ function EstimatedProjectCostsCard({
       {isEditing ? (
         <div className="flex items-center gap-1">
           <Input
-            type="number"
+            type="text"
+            inputMode="decimal"
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setValue(val); }}
             onKeyDown={handleKeyDown}
             className="h-5 w-20 text-xs px-1"
             autoFocus
@@ -3849,9 +3864,10 @@ function QuickPayDialog({
             <div>
               <Label>Amount ($)</Label>
               <Input 
-                type="number" 
+                type="text"
+                inputMode="decimal"
                 value={formData.payment_amount} 
-                onChange={(e) => setFormData(p => ({ ...p, payment_amount: e.target.value }))} 
+                onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, payment_amount: val })); }} 
                 className={isOverpaying ? "border-destructive" : ""}
               />
               {isOverpaying && (
@@ -4782,10 +4798,10 @@ function CommissionPaymentDialog({
             <div>
               <Label>Amount ($) *</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={formData.payment_amount}
-                onChange={(e) => setFormData(p => ({ ...p, payment_amount: e.target.value }))}
+                onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, payment_amount: val })); }}
                 className={isOverpaying ? "border-amber-500" : ""}
               />
               {isOverpaying && (

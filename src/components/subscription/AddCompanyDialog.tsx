@@ -306,9 +306,10 @@ export function AddCompanyDialog({ open, onOpenChange, plans }: AddCompanyDialog
               <div className="space-y-2">
                 <Label>Initial Period (days)</Label>
                 <Input 
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={form.period_days}
-                  onChange={(e) => setForm(prev => ({ ...prev, period_days: e.target.value }))}
+                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d+$/.test(val)) setForm(prev => ({ ...prev, period_days: val })); }}
                   placeholder="30"
                 />
               </div>

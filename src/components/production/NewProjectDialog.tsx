@@ -193,9 +193,10 @@ export function NewProjectDialog({ open, onOpenChange }: NewProjectDialogProps) 
                 <Label htmlFor="estimated_cost">Estimated Cost ($)</Label>
                 <Input
                   id="estimated_cost"
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={formData.estimated_cost}
-                  onChange={(e) => updateField("estimated_cost", e.target.value)}
+                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateField("estimated_cost", val); }}
                   placeholder="0"
                 />
               </div>

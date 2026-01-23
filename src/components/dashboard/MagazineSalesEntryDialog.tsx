@@ -503,11 +503,10 @@ export const MagazineSalesEntryDialog = ({
             <Label htmlFor="price">Price ($) *</Label>
             <Input
               id="price"
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setPrice(val); }}
               placeholder="1000"
             />
           </div>

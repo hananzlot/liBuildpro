@@ -208,11 +208,11 @@ export function MarkAsPaidDialog({
           <div className="space-y-2">
             <Label>Payment Amount</Label>
             <Input
-              type="number"
+              type="text"
+              inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setAmount(val); }}
               placeholder="Enter amount"
-              min={0}
             />
           </div>
 

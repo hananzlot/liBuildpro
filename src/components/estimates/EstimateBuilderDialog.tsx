@@ -1572,9 +1572,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                         />
                                         <div className="flex items-center gap-2 mt-1">
                                           <Input
-                                            type="number"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={item.quantity}
-                                            onChange={(e) => updateLineItem(group.id, item.id, { quantity: parseFloat(e.target.value) || 0 })}
+                                            onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateLineItem(group.id, item.id, { quantity: parseFloat(val) || 0 }); }}
                                             className="w-20 h-8 text-sm"
                                           />
                                           <Select
@@ -1635,22 +1636,25 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                           />
                                           {/* Markup % field - aligned */}
                                           <Input
-                                            type="number"
+                                            type="text"
+                                            inputMode="decimal"
                                             value={item.markup_percent}
                                             onChange={(e) => {
-                                              updateLineItem(group.id, item.id, {
-                                                markup_percent: parseFloat(e.target.value) || 0,
-                                              });
-                                              // Markup changes recalc unit price; drop any manual price draft
-                                              setUnitPriceDrafts((prev) => {
-                                                if (!(item.id in prev)) return prev;
-                                                const next = { ...prev };
-                                                delete next[item.id];
-                                                return next;
-                                              });
+                                              const val = e.target.value;
+                                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                updateLineItem(group.id, item.id, {
+                                                  markup_percent: parseFloat(val) || 0,
+                                                });
+                                                // Markup changes recalc unit price; drop any manual price draft
+                                                setUnitPriceDrafts((prev) => {
+                                                  if (!(item.id in prev)) return prev;
+                                                  const next = { ...prev };
+                                                  delete next[item.id];
+                                                  return next;
+                                                });
+                                              }
                                             }}
                                             className="w-20 h-8 text-sm"
-                                            step="1"
                                             placeholder="35"
                                           />
                                           {/* Price field - 2 decimal display */}
@@ -1961,10 +1965,11 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               />
                               <div className="flex items-center gap-2">
                                 <Input
-                                  type="number"
+                                  type="text"
+                                  inputMode="decimal"
                                   value={phase.phase_name === "Deposit" ? 0 : phase.percent}
                                   disabled={phase.phase_name === "Deposit"}
-                                  onChange={(e) => updatePaymentPhase(phase.id, { percent: parseFloat(e.target.value) || 0 })}
+                                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updatePaymentPhase(phase.id, { percent: parseFloat(val) || 0 }); }}
                                   className="w-20"
                                 />
                                 <span className="text-muted-foreground">%</span>

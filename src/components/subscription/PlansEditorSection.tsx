@@ -307,25 +307,28 @@ export function PlansEditorSection() {
               <div className="space-y-2">
                 <Label>Monthly Price ($)</Label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={editForm.price_monthly}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, price_monthly: e.target.value }))}
+                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditForm(prev => ({ ...prev, price_monthly: val })); }}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Yearly Price ($)</Label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   value={editForm.price_yearly}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, price_yearly: e.target.value }))}
+                  onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setEditForm(prev => ({ ...prev, price_yearly: val })); }}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Max Users (-1 = unlimited)</Label>
                 <Input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={editForm.max_users}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, max_users: e.target.value }))}
+                  onChange={(e) => { const val = e.target.value; if (val === '' || /^-?\d*$/.test(val)) setEditForm(prev => ({ ...prev, max_users: val })); }}
                 />
               </div>
             </div>
