@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Target } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -433,6 +433,10 @@ export default function AdminSettings() {
     ["default_terms_and_conditions", "default_markup_percent", "default_deposit_percent", "default_deposit_max_amount", "estimate_expiration_days"].includes(s.setting_key)
   );
 
+  const opportunityStageSettings = settings?.filter((s) =>
+    ["stage_estimate_prepared", "stage_proposal_sent"].includes(s.setting_key)
+  );
+
   const payablesReceivablesSettings = settings?.filter((s) =>
     ["payment_focus_day"].includes(s.setting_key)
   );
@@ -744,6 +748,82 @@ export default function AdminSettings() {
                   </Card>
                 </Collapsible>
 
+                {/* Opportunity Stage Names */}
+                <Collapsible className="group">
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Target className="h-5 w-5" />
+                            Opportunity Stage Names
+                          </span>
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </CardTitle>
+                        <CardDescription>
+                          Customize stage names for estimate and proposal workflows
+                        </CardDescription>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        {opportunityStageSettings?.map((setting) => renderSettingField(setting))}
+                        
+                        {/* Estimate Prepared Stage */}
+                        {!opportunityStageSettings?.some(s => s.setting_key === "stage_estimate_prepared") && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="stage_estimate_prepared">Estimate Prepared Stage</Label>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  updateSetting.mutate({ key: "stage_estimate_prepared", value: editedSettings["stage_estimate_prepared"] || "Estimate Prepared" });
+                                }}
+                                disabled={updateSetting.isPending}
+                              >
+                                <Save className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                            </div>
+                            <Input
+                              id="stage_estimate_prepared"
+                              value={editedSettings["stage_estimate_prepared"] ?? "Estimate Prepared"}
+                              onChange={(e) => handleChange("stage_estimate_prepared", e.target.value)}
+                              placeholder="Estimate Prepared"
+                            />
+                            <p className="text-xs text-muted-foreground">Stage name set when an estimate is created from an opportunity</p>
+                          </div>
+                        )}
+                        
+                        {/* Proposal Sent Stage */}
+                        {!opportunityStageSettings?.some(s => s.setting_key === "stage_proposal_sent") && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="stage_proposal_sent">Proposal Sent Stage</Label>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  updateSetting.mutate({ key: "stage_proposal_sent", value: editedSettings["stage_proposal_sent"] || "Proposal Sent" });
+                                }}
+                                disabled={updateSetting.isPending}
+                              >
+                                <Save className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                            </div>
+                            <Input
+                              id="stage_proposal_sent"
+                              value={editedSettings["stage_proposal_sent"] ?? "Proposal Sent"}
+                              onChange={(e) => handleChange("stage_proposal_sent", e.target.value)}
+                              placeholder="Proposal Sent"
+                            />
+                            <p className="text-xs text-muted-foreground">Stage name set when a proposal email is sent</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
                 {/* KPI Card Visibility */}
                 <Card>

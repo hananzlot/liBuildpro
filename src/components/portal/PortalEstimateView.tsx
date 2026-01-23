@@ -392,6 +392,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
             }).catch((err) => console.error('Failed to generate contract PDF:', err));
           }
 
+          // Update linked opportunity status to "won"
+          if (portalData!.estimate.opportunity_id) {
+            supabase.functions.invoke('update-ghl-opportunity', {
+              body: {
+                ghl_id: portalData!.estimate.opportunity_id,
+                status: 'won',
+                company_id: portalData!.estimate.company_id,
+              },
+            }).catch((err) => console.error('Failed to update opportunity status:', err));
+          }
+
           // Send notification that all parties have signed
           supabase.functions.invoke('send-proposal-notification', {
             body: {
@@ -444,6 +455,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
               signedAt: new Date().toISOString(),
             },
           }).catch((err) => console.error('Failed to generate contract PDF:', err));
+        }
+
+        // Update linked opportunity status to "won"
+        if (portalData!.estimate.opportunity_id) {
+          supabase.functions.invoke('update-ghl-opportunity', {
+            body: {
+              ghl_id: portalData!.estimate.opportunity_id,
+              status: 'won',
+              company_id: portalData!.estimate.company_id,
+            },
+          }).catch((err) => console.error('Failed to update opportunity status:', err));
         }
 
         // Send notification email to admin

@@ -2724,6 +2724,99 @@ export function OpportunityDetailSheet({
             </CollapsibleContent>
           </Collapsible>
 
+          {/* Estimates & Proposals */}
+          <Collapsible className="border rounded-lg overflow-hidden" defaultOpen={linkedEstimates.length > 0}>
+            <CollapsibleTrigger asChild>
+              <button className="bg-muted/30 px-3 py-2 w-full flex items-center justify-between border-b cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Estimates & Proposals ({linkedEstimates.length})
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/estimates?view=list`);
+                    }}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    <span className="text-xs">Create</span>
+                  </Button>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </div>
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              {linkedEstimates.length === 0 ? (
+                <div className="p-4 text-center text-sm text-muted-foreground/60 italic">
+                  No estimates linked to this opportunity
+                </div>
+              ) : (
+                <div className="divide-y max-h-60 overflow-y-auto">
+                  {linkedEstimates.map((est) => {
+                    const statusColors: Record<string, string> = {
+                      draft: "bg-muted text-muted-foreground",
+                      sent: "bg-blue-100 text-blue-700",
+                      viewed: "bg-purple-100 text-purple-700",
+                      needs_changes: "bg-amber-100 text-amber-700",
+                      accepted: "bg-green-100 text-green-700",
+                      declined: "bg-red-100 text-red-700",
+                    };
+                    const statusLabels: Record<string, string> = {
+                      draft: "Draft",
+                      sent: "Sent",
+                      viewed: "Viewed",
+                      needs_changes: "Needs Changes",
+                      accepted: "Accepted",
+                      declined: "Declined",
+                    };
+                    return (
+                      <div key={est.id} className="p-3 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {est.status === 'accepted' ? `CNT-${est.estimate_number}` : `EST-${est.estimate_number}`}
+                            </span>
+                            <span className="font-medium text-sm truncate">
+                              {est.estimate_title || "Untitled"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge className={`text-xs ${statusColors[est.status] || "bg-muted"}`}>
+                              {statusLabels[est.status] || est.status}
+                            </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => navigate(`/estimates?view=list&highlight=${est.id}`)}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="font-semibold text-foreground">
+                            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(est.total || 0)}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {new Date(est.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+
           {/* Timeline */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
             <span>Updated: {formatDate(opportunity.ghl_date_updated)}</span>
