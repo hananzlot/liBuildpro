@@ -55,6 +55,8 @@ Deno.serve(async (req) => {
       });
     }
 
+    const isSuperAdmin = adminRoles.some(r => r.role === "super_admin");
+
     // Get request body
     const { email, password, fullName, companyId, corporationId, role } = await req.json();
 
@@ -63,6 +65,37 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Company access validation for non-super-admins
+    let targetCompanyId = companyId;
+    if (!isSuperAdmin) {
+      // Get requesting user's company
+      const { data: requestingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("company_id")
+        .eq("id", requestingUser.id)
+        .single();
+
+      // Non-super-admins can only create users in their own company
+      if (companyId && companyId !== requestingProfile?.company_id) {
+        console.log(`Access denied: User ${requestingUser.id} (company: ${requestingProfile?.company_id}) tried to create user in company ${companyId}`);
+        return new Response(JSON.stringify({ error: "Cannot create users in other companies" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Force the new user to be in the admin's company
+      targetCompanyId = requestingProfile?.company_id;
+
+      // Non-super-admins cannot assign super_admin role
+      if (role === "super_admin") {
+        return new Response(JSON.stringify({ error: "Cannot assign super_admin role" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Create the user
@@ -83,9 +116,9 @@ Deno.serve(async (req) => {
     }
 
     // Update profile with company_id and/or corporation_id if provided
-    if (newUser.user && (companyId || corporationId)) {
+    if (newUser.user && (targetCompanyId || corporationId)) {
       const updateData: { company_id?: string; corporation_id?: string } = {};
-      if (companyId) updateData.company_id = companyId;
+      if (targetCompanyId) updateData.company_id = targetCompanyId;
       if (corporationId) updateData.corporation_id = corporationId;
 
       const { error: profileError } = await supabaseAdmin
