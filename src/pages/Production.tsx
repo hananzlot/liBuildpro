@@ -227,7 +227,7 @@ export default function Production() {
   }, [isAdmin, activeView, currentTab, setSearchParams]);
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
@@ -839,7 +839,7 @@ export default function Production() {
         ));
 
       const matchesStatus =
-        statusFilter === "all" || project.project_status === statusFilter;
+        selectedStatuses.length === 0 || selectedStatuses.includes(project.project_status || '');
 
       return matchesSearch && matchesStatus;
     });
@@ -899,7 +899,7 @@ export default function Production() {
 
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [projects, searchQuery, statusFilter, sortColumn, sortDirection, projectFinancials]);
+  }, [projects, searchQuery, selectedStatuses, sortColumn, sortDirection, projectFinancials]);
 
   // Create test project mutation
   const createTestProjectMutation = useMutation({
@@ -1351,8 +1351,8 @@ export default function Production() {
     let filtered = projects;
     
     // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(p => p.project_status === statusFilter);
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter(p => selectedStatuses.includes(p.project_status || ''));
     }
     
     // Apply date range filter (using best available date: agreement_signed_date > install_start_date > created_at)
@@ -1364,7 +1364,7 @@ export default function Production() {
     }
     
     return filtered;
-  }, [projects, statusFilter, kpiDateRange, isWithinKpiRange, getProjectFilterDate]);
+  }, [projects, selectedStatuses, kpiDateRange, isWithinKpiRange, getProjectFilterDate]);
 
   const totalProjects = filteredByStatus.length;
   const inProgressProjects = filteredByStatus.filter(p => p.project_status === "In-Progress").length;
@@ -1584,8 +1584,8 @@ export default function Production() {
                 onDateRangeChange={setKpiDateRange}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
-                statusFilter={statusFilter}
-                onStatusFilterChange={setStatusFilter}
+                selectedStatuses={selectedStatuses}
+                onStatusesChange={setSelectedStatuses}
               />
 
               {/* Collapsible KPI Cards Section */}

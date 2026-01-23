@@ -2,23 +2,23 @@ import { DateRange } from "react-day-picker";
 import { DateRangeFilter } from "@/components/dashboard/DateRangeFilter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { RotateCcw, Search, Filter } from "lucide-react";
+
+// All available project statuses
+export const PROJECT_STATUSES = ["Proposal", "New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"];
+
+// Default statuses - all except Proposal
+export const DEFAULT_PROJECT_STATUSES = ["New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"];
 
 interface AdminKPIFiltersProps {
   dateRange: DateRange | undefined;
   onDateRangeChange: (range: DateRange | undefined) => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
-  statusFilter?: string;
-  onStatusFilterChange?: (status: string) => void;
+  selectedStatuses?: string[];
+  onStatusesChange?: (statuses: string[]) => void;
 }
 
 export function AdminKPIFilters({
@@ -26,9 +26,14 @@ export function AdminKPIFilters({
   onDateRangeChange,
   searchQuery = "",
   onSearchChange,
-  statusFilter = "all",
-  onStatusFilterChange,
+  selectedStatuses = DEFAULT_PROJECT_STATUSES,
+  onStatusesChange,
 }: AdminKPIFiltersProps) {
+  const statusOptions = PROJECT_STATUSES.map(status => ({
+    value: status,
+    label: status,
+  }));
+
   return (
     <div className="flex items-center gap-3 flex-wrap justify-between">
       <div className="flex items-center gap-2 flex-wrap">
@@ -51,7 +56,7 @@ export function AdminKPIFilters({
         )}
       </div>
       
-      {onSearchChange && onStatusFilterChange && (
+      {onSearchChange && onStatusesChange && (
         <div className="flex items-center gap-2 flex-wrap">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -69,21 +74,14 @@ export function AdminKPIFilters({
               <p className="text-xs">Search by project name, address, customer, salesperson, project manager, or enter an amount to find matching invoices, phases, bills, and payments.</p>
             </TooltipContent>
           </Tooltip>
-          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-            <SelectTrigger className="w-40 h-9">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="Proposal">Proposal</SelectItem>
-              <SelectItem value="New Job">New Job</SelectItem>
-              <SelectItem value="In-Progress">In-Progress</SelectItem>
-              <SelectItem value="On-Hold">On-Hold</SelectItem>
-              <SelectItem value="Completed">Completed</SelectItem>
-              <SelectItem value="Cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
+          <MultiSelectFilter
+            options={statusOptions}
+            selected={selectedStatuses}
+            onChange={onStatusesChange}
+            placeholder="Status"
+            icon={<Filter className="h-3.5 w-3.5" />}
+            className="w-[160px]"
+          />
         </div>
       )}
     </div>
