@@ -1765,8 +1765,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
 
                         {/* Deposit */}
                         <div className="border rounded p-2 bg-background min-w-0">
-                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Deposit</Label>
-                          <div className="flex items-center gap-1">
+                          <Label className="text-[10px] text-muted-foreground mb-0.5 block">Deposit (min of % or max $)</Label>
+                          <div className="flex items-center gap-1.5">
                             <Switch
                               id="deposit_required"
                               checked={formData.deposit_required}
@@ -1778,15 +1778,17 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               value={formData.deposit_percent}
                               onChange={(e) => setFormData({ ...formData, deposit_percent: parseFloat(e.target.value) || 0 })}
                               disabled={!formData.deposit_required}
-                              className="w-12 h-7 text-sm"
+                              className="w-14 h-7 text-sm"
                             />
-                            <span className="text-[10px] text-muted-foreground">% max $</span>
+                            <span className="text-[10px] text-muted-foreground">%</span>
+                            <span className="text-[10px] text-muted-foreground">or max</span>
+                            <span className="text-[10px] text-muted-foreground">$</span>
                             <Input
                               type="number"
                               value={formData.deposit_max_amount}
                               onChange={(e) => setFormData({ ...formData, deposit_max_amount: parseFloat(e.target.value) || 0 })}
                               disabled={!formData.deposit_required}
-                              className="w-16 h-7 text-sm"
+                              className="w-20 h-7 text-sm"
                             />
                           </div>
                         </div>
