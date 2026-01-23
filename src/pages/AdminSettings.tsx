@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Target } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Target, GitBranch, Plus, Trash2 } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -105,6 +105,10 @@ export default function AdminSettings() {
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [userFilter, setUserFilter] = useState("");
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  
+  // Pipeline configuration state
+  const [pipelineStages, setPipelineStages] = useState<string[]>([]);
+  const [newStageName, setNewStageName] = useState("");
 
   // GHL Integration toggle mutation (company-scoped)
   const toggleGHLIntegration = useMutation({
@@ -403,6 +407,28 @@ export default function AdminSettings() {
     }
   };
 
+  // Parse pipeline stages from settings - moved before early returns
+  const getDefaultPipelineStages = React.useCallback((): string[] => {
+    if (!settings) return [];
+    const stagesSetting = settings.find(s => s.setting_key === "pipeline_stages");
+    if (stagesSetting?.setting_value) {
+      try {
+        return JSON.parse(stagesSetting.setting_value);
+      } catch {
+        return stagesSetting.setting_value.split(",").map(s => s.trim());
+      }
+    }
+    // Default stages
+    return ["Lead", "Contacted", "Appointment Set", "2nd Appointment", "Estimate Prepared", "Proposal Sent", "Close to Sale", "Won", "Lost/DNC"];
+  }, [settings]);
+
+  // Initialize pipeline stages when settings load
+  React.useEffect(() => {
+    if (settings && pipelineStages.length === 0) {
+      setPipelineStages(getDefaultPipelineStages());
+    }
+  }, [settings, getDefaultPipelineStages]);
+
   if (authLoading) {
     return (
       <AppLayout>
@@ -437,9 +463,38 @@ export default function AdminSettings() {
     ["stage_estimate_prepared", "stage_proposal_sent"].includes(s.setting_key)
   );
 
+  const pipelineSettings = settings?.filter((s) =>
+    ["default_pipeline_name", "pipeline_stages"].includes(s.setting_key)
+  );
+
   const payablesReceivablesSettings = settings?.filter((s) =>
     ["payment_focus_day"].includes(s.setting_key)
   );
+
+  // Update stages when settings change
+  const handleAddStage = () => {
+    if (newStageName.trim() && !pipelineStages.includes(newStageName.trim())) {
+      setPipelineStages([...pipelineStages, newStageName.trim()]);
+      setNewStageName("");
+    }
+  };
+
+  const handleRemoveStage = (index: number) => {
+    setPipelineStages(pipelineStages.filter((_, i) => i !== index));
+  };
+
+  const handleMoveStage = (index: number, direction: "up" | "down") => {
+    const newStages = [...pipelineStages];
+    const newIndex = direction === "up" ? index - 1 : index + 1;
+    if (newIndex >= 0 && newIndex < newStages.length) {
+      [newStages[index], newStages[newIndex]] = [newStages[newIndex], newStages[index]];
+      setPipelineStages(newStages);
+    }
+  };
+
+  const handleSavePipelineStages = () => {
+    updateSetting.mutate({ key: "pipeline_stages", value: JSON.stringify(pipelineStages) });
+  };
 
   const apiKeySettings = settings?.filter((s) =>
     ["openai_api_key", "resend_api_key"].includes(s.setting_key)
@@ -825,7 +880,158 @@ export default function AdminSettings() {
                   </Card>
                 </Collapsible>
 
-                {/* KPI Card Visibility */}
+                {/* Pipeline Configuration */}
+                <Collapsible className="group">
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <GitBranch className="h-5 w-5" />
+                            Pipeline Configuration
+                          </span>
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </CardTitle>
+                        <CardDescription>
+                          Configure default pipeline name and stages for opportunities
+                        </CardDescription>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-6 pt-0">
+                        {/* Default Pipeline Name */}
+                        {pipelineSettings?.find(s => s.setting_key === "default_pipeline_name") ? (
+                          renderSettingField(pipelineSettings.find(s => s.setting_key === "default_pipeline_name")!)
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="default_pipeline_name">Default Pipeline Name</Label>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  updateSetting.mutate({ key: "default_pipeline_name", value: editedSettings["default_pipeline_name"] || "Main" });
+                                }}
+                                disabled={updateSetting.isPending}
+                              >
+                                <Save className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                            </div>
+                            <Input
+                              id="default_pipeline_name"
+                              value={editedSettings["default_pipeline_name"] ?? "Main"}
+                              onChange={(e) => handleChange("default_pipeline_name", e.target.value)}
+                              placeholder="Main"
+                            />
+                            <p className="text-xs text-muted-foreground">The default pipeline name for new opportunities</p>
+                          </div>
+                        )}
+
+                        <Separator />
+
+                        {/* Pipeline Stages */}
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label>Pipeline Stages</Label>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Define the stages in your sales pipeline (in order)
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={handleSavePipelineStages}
+                              disabled={updateSetting.isPending}
+                            >
+                              {updateSetting.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              ) : (
+                                <Save className="h-3 w-3 mr-1" />
+                              )}
+                              Save Stages
+                            </Button>
+                          </div>
+
+                          {/* Stage List */}
+                          <div className="space-y-2">
+                            {pipelineStages.map((stage, index) => (
+                              <div
+                                key={index}
+                                className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30"
+                              >
+                                <span className="text-sm text-muted-foreground w-6">{index + 1}.</span>
+                                <Input
+                                  value={stage}
+                                  onChange={(e) => {
+                                    const newStages = [...pipelineStages];
+                                    newStages[index] = e.target.value;
+                                    setPipelineStages(newStages);
+                                  }}
+                                  className="flex-1"
+                                />
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleMoveStage(index, "up")}
+                                    disabled={index === 0}
+                                  >
+                                    ↑
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleMoveStage(index, "down")}
+                                    disabled={index === pipelineStages.length - 1}
+                                  >
+                                    ↓
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemoveStage(index)}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Add New Stage */}
+                          <div className="flex gap-2">
+                            <Input
+                              value={newStageName}
+                              onChange={(e) => setNewStageName(e.target.value)}
+                              placeholder="New stage name..."
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  handleAddStage();
+                                }
+                              }}
+                            />
+                            <Button
+                              variant="outline"
+                              onClick={handleAddStage}
+                              disabled={!newStageName.trim()}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+
+                          <div className="p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                            <strong>Note:</strong> These stages define the default flow for new opportunities in your pipeline. 
+                            Common stages include Lead → Contacted → Appointment → Proposal → Won/Lost.
+                          </div>
+                        </div>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
