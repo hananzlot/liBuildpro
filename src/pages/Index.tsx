@@ -224,7 +224,7 @@ const Index = () => {
         </div>
 
         {/* Metrics Grid */}
-        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+        <section className="flex flex-wrap gap-3 [&>*]:flex-1 [&>*]:min-w-[200px] [&>*]:max-w-full">
           {isLoading ? (
             <>
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
