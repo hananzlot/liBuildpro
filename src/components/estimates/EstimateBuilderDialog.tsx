@@ -1835,28 +1835,95 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 const finalPrice = parseFloat(finalPriceDraft);
                                 if (!isNaN(finalPrice) && finalPrice >= 0) {
                                   const preTaxTotal = totals.subtotal + totals.taxAmount;
-                                  const newDiscount = Math.max(0, preTaxTotal - finalPrice);
-                                  setFormData({ 
-                                    ...formData, 
-                                    discount_type: 'fixed',
-                                    discount_value: Math.round(newDiscount * 100) / 100 
-                                  });
-                                }
-                                // Clear the draft after applying
-                                setFinalPriceDraft('');
-                              }}
-                              onKeyDown={(e) => {
-                                // Also apply on Enter key
-                                if (e.key === 'Enter') {
-                                  const finalPrice = parseFloat(finalPriceDraft);
-                                  if (!isNaN(finalPrice) && finalPrice >= 0) {
-                                    const preTaxTotal = totals.subtotal + totals.taxAmount;
+                                  
+                                  if (finalPrice > preTaxTotal) {
+                                    // Desired price is HIGHER than current total
+                                    // Increase markup to reach (finalPrice + $1200), then apply $1200 discount
+                                    const targetSubtotal = finalPrice + 1200 - totals.taxAmount;
+                                    const currentSubtotal = totals.subtotal;
+                                    
+                                    if (currentSubtotal > 0 && totals.totalCost > 0) {
+                                      // Calculate the new markup percent needed to hit target subtotal
+                                      // subtotal = totalCost * (1 + markup/100) => markup = ((subtotal/totalCost) - 1) * 100
+                                      const newMarkupPercent = ((targetSubtotal / totals.totalCost) - 1) * 100;
+                                      
+                                      // Update markup on all line items
+                                      setGroups(prevGroups => prevGroups.map(g => ({
+                                        ...g,
+                                        items: g.items.map(item => {
+                                          const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
+                                          return {
+                                            ...item,
+                                            markup_percent: Math.round(newMarkupPercent * 100) / 100,
+                                            unit_price: Math.round(newUnitPrice * 100) / 100,
+                                            line_total: Math.round(item.quantity * newUnitPrice * 100) / 100,
+                                          };
+                                        }),
+                                      })));
+                                      
+                                      // Set discount to $1200 and update markup in form
+                                      setFormData(prev => ({ 
+                                        ...prev, 
+                                        discount_type: 'fixed',
+                                        discount_value: 1200,
+                                        default_markup_percent: Math.round(newMarkupPercent * 100) / 100
+                                      }));
+                                    }
+                                  } else {
+                                    // Desired price is lower or equal - just apply discount as before
                                     const newDiscount = Math.max(0, preTaxTotal - finalPrice);
                                     setFormData({ 
                                       ...formData, 
                                       discount_type: 'fixed',
                                       discount_value: Math.round(newDiscount * 100) / 100 
                                     });
+                                  }
+                                }
+                                // Clear the draft after applying
+                                setFinalPriceDraft('');
+                              }}
+                              onKeyDown={(e) => {
+                                // Also apply on Enter key - same logic as onBlur
+                                if (e.key === 'Enter') {
+                                  const finalPrice = parseFloat(finalPriceDraft);
+                                  if (!isNaN(finalPrice) && finalPrice >= 0) {
+                                    const preTaxTotal = totals.subtotal + totals.taxAmount;
+                                    
+                                    if (finalPrice > preTaxTotal) {
+                                      // Desired price is HIGHER than current total
+                                      const targetSubtotal = finalPrice + 1200 - totals.taxAmount;
+                                      
+                                      if (totals.subtotal > 0 && totals.totalCost > 0) {
+                                        const newMarkupPercent = ((targetSubtotal / totals.totalCost) - 1) * 100;
+                                        
+                                        setGroups(prevGroups => prevGroups.map(g => ({
+                                          ...g,
+                                          items: g.items.map(item => {
+                                            const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
+                                            return {
+                                              ...item,
+                                              markup_percent: Math.round(newMarkupPercent * 100) / 100,
+                                              unit_price: Math.round(newUnitPrice * 100) / 100,
+                                              line_total: Math.round(item.quantity * newUnitPrice * 100) / 100,
+                                            };
+                                          }),
+                                        })));
+                                        
+                                        setFormData(prev => ({ 
+                                          ...prev, 
+                                          discount_type: 'fixed',
+                                          discount_value: 1200,
+                                          default_markup_percent: Math.round(newMarkupPercent * 100) / 100
+                                        }));
+                                      }
+                                    } else {
+                                      const newDiscount = Math.max(0, preTaxTotal - finalPrice);
+                                      setFormData({ 
+                                        ...formData, 
+                                        discount_type: 'fixed',
+                                        discount_value: Math.round(newDiscount * 100) / 100 
+                                      });
+                                    }
                                   }
                                   setFinalPriceDraft('');
                                   (e.target as HTMLInputElement).blur();
