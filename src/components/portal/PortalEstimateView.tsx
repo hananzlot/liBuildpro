@@ -372,12 +372,23 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
           // Update project status to "Contract Signed" if there's a linked project
           if (portalData!.estimate.project_id) {
+            // Also link the project to the opportunity if not already linked
+            const projectUpdate: Record<string, unknown> = {
+              project_status: 'Contract Signed',
+              agreement_signed_date: new Date().toISOString().split('T')[0],
+            };
+            
+            // Link opportunity to project if estimate has opportunity_id
+            if (portalData!.estimate.opportunity_id) {
+              projectUpdate.opportunity_id = portalData!.estimate.opportunity_id;
+            }
+            if (portalData!.estimate.opportunity_uuid) {
+              projectUpdate.opportunity_uuid = portalData!.estimate.opportunity_uuid;
+            }
+            
             await supabase
               .from('projects')
-              .update({
-                project_status: 'Contract Signed',
-                agreement_signed_date: new Date().toISOString().split('T')[0],
-              })
+              .update(projectUpdate)
               .eq('id', portalData!.estimate.project_id);
 
             // Generate contract PDF
@@ -438,12 +449,23 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
         // Update project status to "Contract Signed" if there's a linked project
         if (portalData!.estimate.project_id) {
+          // Also link the project to the opportunity if not already linked
+          const projectUpdate: Record<string, unknown> = {
+            project_status: 'Contract Signed',
+            agreement_signed_date: new Date().toISOString().split('T')[0],
+          };
+          
+          // Link opportunity to project if estimate has opportunity_id
+          if (portalData!.estimate.opportunity_id) {
+            projectUpdate.opportunity_id = portalData!.estimate.opportunity_id;
+          }
+          if (portalData!.estimate.opportunity_uuid) {
+            projectUpdate.opportunity_uuid = portalData!.estimate.opportunity_uuid;
+          }
+          
           await supabase
             .from('projects')
-            .update({
-              project_status: 'Contract Signed',
-              agreement_signed_date: new Date().toISOString().split('T')[0],
-            })
+            .update(projectUpdate)
             .eq('id', portalData!.estimate.project_id);
 
           // Generate contract PDF
