@@ -328,11 +328,11 @@ serve(async (req) => {
             const unitPriceText = formatCurrency(item.unit_price);
             const unitPriceWidth = helvetica.widthOfTextAtSize(unitPriceText, 9);
             page.drawText(unitPriceText, { x: rightEdge - totalColWidth - unitPriceColWidth + (unitPriceColWidth - unitPriceWidth), y: yPos, size: 9, font: helvetica, color: black });
+            // Right-align line total (only when showing details)
+            const lineTotalText = formatCurrency(item.line_total);
+            const lineTotalWidth = helveticaBold.widthOfTextAtSize(lineTotalText, 9);
+            page.drawText(lineTotalText, { x: rightEdge - totalColWidth + (totalColWidth - lineTotalWidth), y: yPos, size: 9, font: helveticaBold, color: black });
           }
-          // Right-align line total
-          const lineTotalText = formatCurrency(item.line_total);
-          const lineTotalWidth = helveticaBold.widthOfTextAtSize(lineTotalText, 9);
-          page.drawText(lineTotalText, { x: rightEdge - totalColWidth + (totalColWidth - lineTotalWidth), y: yPos, size: 9, font: helveticaBold, color: black });
           yPos -= 14;
         }
         yPos -= 10;
