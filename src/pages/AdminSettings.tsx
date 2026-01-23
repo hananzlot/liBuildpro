@@ -571,38 +571,6 @@ export default function AdminSettings() {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Email Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Mail className="h-5 w-5" />
-                      Email Settings (Resend)
-                    </CardTitle>
-                    <CardDescription>
-                      Configure email sending for proposals and notifications. Make sure your domain is verified at{" "}
-                      <a
-                        href="https://resend.com/domains"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary underline"
-                      >
-                        resend.com/domains
-                      </a>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {emailSettings?.map(renderSettingField)}
-
-                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
-                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                      <div className="text-amber-800">
-                        <strong>Important:</strong> The "From Email" must use a domain you've verified in Resend.
-                        For example, if you verified <code>caprobuilders.com</code>, use an email like{" "}
-                        <code>proposals@caprobuilders.com</code>.
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
 
                 {/* Company Logo */}
                 <LogoUpload />
@@ -954,8 +922,42 @@ export default function AdminSettings() {
             <AIAnalysisSettings />
           </TabsContent>
 
-          {/* Email Templates Tab */}
-          <TabsContent value="emails" className="mt-6">
+          {/* Emails Tab */}
+          <TabsContent value="emails" className="mt-6 space-y-6">
+            {/* Email Settings (Resend) - First */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Email Settings (Resend)
+                </CardTitle>
+                <CardDescription>
+                  Configure email sending for proposals and notifications. Make sure your domain is verified at{" "}
+                  <a
+                    href="https://resend.com/domains"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                  >
+                    resend.com/domains
+                  </a>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {emailSettings?.map(renderSettingField)}
+
+                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="text-amber-800">
+                    <strong>Important:</strong> The "From Email" must use a domain you've verified in Resend.
+                    For example, if you verified <code>caprobuilders.com</code>, use an email like{" "}
+                    <code>proposals@caprobuilders.com</code>.
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Email Templates */}
             <EmailTemplatesManager />
           </TabsContent>
 
