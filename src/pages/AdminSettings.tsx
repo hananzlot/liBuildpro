@@ -634,106 +634,115 @@ export default function AdminSettings() {
                   </Card>
                 </Collapsible>
 
-                {/* Estimate Settings */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Estimate Settings
-                    </CardTitle>
-                    <CardDescription>
-                      Default settings for new estimates
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {estimateSettings?.map((setting) => 
-                      setting.setting_key === "default_terms_and_conditions" 
-                        ? renderTextareaSettingField(setting)
-                        : renderSettingField(setting)
-                    )}
-                    
-                    {/* Add deposit settings if they don't exist yet */}
-                    {!estimateSettings?.some(s => s.setting_key === "default_deposit_percent") && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="default_deposit_percent">Default Deposit Percent</Label>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              updateSetting.mutate({ key: "default_deposit_percent", value: editedSettings["default_deposit_percent"] || "10" });
-                            }}
-                            disabled={updateSetting.isPending}
-                          >
-                            <Save className="h-3 w-3 mr-1" />
-                            Save
-                          </Button>
-                        </div>
-                        <Input
-                          id="default_deposit_percent"
-                          type="number"
-                          value={editedSettings["default_deposit_percent"] ?? "10"}
-                          onChange={(e) => handleChange("default_deposit_percent", e.target.value)}
-                          placeholder="10"
-                        />
-                        <p className="text-xs text-muted-foreground">Default deposit percentage for new estimates</p>
-                      </div>
-                    )}
-                    
-                    {!estimateSettings?.some(s => s.setting_key === "default_deposit_max_amount") && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="default_deposit_max_amount">Default Deposit Max Amount ($)</Label>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              updateSetting.mutate({ key: "default_deposit_max_amount", value: editedSettings["default_deposit_max_amount"] || "1000" });
-                            }}
-                            disabled={updateSetting.isPending}
-                          >
-                            <Save className="h-3 w-3 mr-1" />
-                            Save
-                          </Button>
-                        </div>
-                        <Input
-                          id="default_deposit_max_amount"
-                          type="number"
-                          value={editedSettings["default_deposit_max_amount"] ?? "1000"}
-                          onChange={(e) => handleChange("default_deposit_max_amount", e.target.value)}
-                          placeholder="1000"
-                        />
-                        <p className="text-xs text-muted-foreground">Maximum deposit amount (deposit = min of percent or this cap)</p>
-                      </div>
-                    )}
-                    
-                    {/* Estimate Expiration Days */}
-                    {!estimateSettings?.some(s => s.setting_key === "estimate_expiration_days") && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="estimate_expiration_days">Estimate Expiration (Days)</Label>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              updateSetting.mutate({ key: "estimate_expiration_days", value: editedSettings["estimate_expiration_days"] || "7" });
-                            }}
-                            disabled={updateSetting.isPending}
-                          >
-                            <Save className="h-3 w-3 mr-1" />
-                            Save
-                          </Button>
-                        </div>
-                        <Input
-                          id="estimate_expiration_days"
-                          type="number"
-                          min="1"
-                          value={editedSettings["estimate_expiration_days"] ?? "7"}
-                          onChange={(e) => handleChange("estimate_expiration_days", e.target.value)}
-                          placeholder="7"
-                        />
-                        <p className="text-xs text-muted-foreground">Number of days until a proposal expires (from date sent). Default: 7 days</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                {/* Estimate Settings - Collapsible */}
+                <Collapsible defaultOpen={false}>
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <FileText className="h-5 w-5" />
+                            Estimate Settings
+                          </span>
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </CardTitle>
+                        <CardDescription>
+                          Default settings for new estimates
+                        </CardDescription>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        {estimateSettings?.map((setting) => 
+                          setting.setting_key === "default_terms_and_conditions" 
+                            ? renderTextareaSettingField(setting)
+                            : renderSettingField(setting)
+                        )}
+                        
+                        {/* Add deposit settings if they don't exist yet */}
+                        {!estimateSettings?.some(s => s.setting_key === "default_deposit_percent") && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="default_deposit_percent">Default Deposit Percent</Label>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  updateSetting.mutate({ key: "default_deposit_percent", value: editedSettings["default_deposit_percent"] || "10" });
+                                }}
+                                disabled={updateSetting.isPending}
+                              >
+                                <Save className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                            </div>
+                            <Input
+                              id="default_deposit_percent"
+                              type="number"
+                              value={editedSettings["default_deposit_percent"] ?? "10"}
+                              onChange={(e) => handleChange("default_deposit_percent", e.target.value)}
+                              placeholder="10"
+                            />
+                            <p className="text-xs text-muted-foreground">Default deposit percentage for new estimates</p>
+                          </div>
+                        )}
+                        
+                        {!estimateSettings?.some(s => s.setting_key === "default_deposit_max_amount") && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="default_deposit_max_amount">Default Deposit Max Amount ($)</Label>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  updateSetting.mutate({ key: "default_deposit_max_amount", value: editedSettings["default_deposit_max_amount"] || "1000" });
+                                }}
+                                disabled={updateSetting.isPending}
+                              >
+                                <Save className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                            </div>
+                            <Input
+                              id="default_deposit_max_amount"
+                              type="number"
+                              value={editedSettings["default_deposit_max_amount"] ?? "1000"}
+                              onChange={(e) => handleChange("default_deposit_max_amount", e.target.value)}
+                              placeholder="1000"
+                            />
+                            <p className="text-xs text-muted-foreground">Maximum deposit amount (deposit = min of percent or this cap)</p>
+                          </div>
+                        )}
+                        
+                        {/* Estimate Expiration Days */}
+                        {!estimateSettings?.some(s => s.setting_key === "estimate_expiration_days") && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="estimate_expiration_days">Estimate Expiration (Days)</Label>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  updateSetting.mutate({ key: "estimate_expiration_days", value: editedSettings["estimate_expiration_days"] || "7" });
+                                }}
+                                disabled={updateSetting.isPending}
+                              >
+                                <Save className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                            </div>
+                            <Input
+                              id="estimate_expiration_days"
+                              type="number"
+                              min="1"
+                              value={editedSettings["estimate_expiration_days"] ?? "7"}
+                              onChange={(e) => handleChange("estimate_expiration_days", e.target.value)}
+                              placeholder="7"
+                            />
+                            <p className="text-xs text-muted-foreground">Number of days until a proposal expires (from date sent). Default: 7 days</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
 
                 {/* KPI Card Visibility */}
