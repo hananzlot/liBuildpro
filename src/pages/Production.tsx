@@ -1138,10 +1138,7 @@ export default function Production() {
       const { error } = await supabase.from('project_messages').delete().eq('project_id', projectId);
       if (error) throw error;
     }
-    {
-      const { error } = await supabase.from('project_cases').delete().eq('project_id', projectId);
-      if (error) throw error;
-    }
+    // project_cases table was dropped (unused feature)
     {
       const { error } = await supabase.from('project_feedback').delete().eq('project_id', projectId);
       if (error) throw error;
