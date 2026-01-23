@@ -107,7 +107,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // Fetch pipelines/stages when dialog opens from ghl_pipelines table
+  // Fetch pipelines/stages when dialog opens - first from ghl_pipelines, then company_settings, then opportunities
   useEffect(() => {
     if (!open || !companyId) return;
     
@@ -140,13 +140,48 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
         });
         setPipelineStages(stages);
 
-        // Set default to Annabella > New Lead
-        const defaultStage = stages.find((s) => s.stage_name === "New Lead (No Contacted Yet)");
-        if (defaultStage) {
-          setSelectedPipeline(defaultStage.pipeline_id);
-          setSelectedStage(defaultStage.pipeline_stage_id);
+        // Set default to first stage
+        if (stages.length > 0) {
+          setSelectedPipeline(stages[0].pipeline_id);
+          setSelectedStage(stages[0].pipeline_stage_id);
         }
         return;
+      }
+
+      // Try to get from company_settings (admin-configured pipeline)
+      const { data: settingsData } = await supabase
+        .from("company_settings")
+        .select("setting_key, setting_value")
+        .eq("company_id", companyId)
+        .in("setting_key", ["default_pipeline_name", "pipeline_stages"]);
+
+      const pipelineNameSetting = settingsData?.find(s => s.setting_key === "default_pipeline_name");
+      const stagesSetting = settingsData?.find(s => s.setting_key === "pipeline_stages");
+
+      if (stagesSetting?.setting_value) {
+        try {
+          const configuredStages = JSON.parse(stagesSetting.setting_value) as string[];
+          const pipelineName = pipelineNameSetting?.setting_value || "Main";
+          const pipelineId = `local_pipeline_${companyId}`;
+          
+          const stages: PipelineStage[] = configuredStages.map((stageName, index) => ({
+            pipeline_id: pipelineId,
+            pipeline_name: pipelineName,
+            pipeline_stage_id: `local_stage_${index}`,
+            stage_name: stageName,
+          }));
+
+          setPipelineStages(stages);
+
+          // Set default to first stage (typically "Lead")
+          if (stages.length > 0) {
+            setSelectedPipeline(stages[0].pipeline_id);
+            setSelectedStage(stages[0].pipeline_stage_id);
+          }
+          return;
+        } catch (e) {
+          console.error("Failed to parse pipeline_stages setting:", e);
+        }
       }
 
       // Fall back to deriving from opportunities scoped by company
@@ -157,7 +192,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
         .not("pipeline_id", "is", null)
         .not("pipeline_stage_id", "is", null);
 
-      if (data) {
+      if (data && data.length > 0) {
         // Get unique pipeline/stage combinations
         const uniqueStages = data.reduce((acc: PipelineStage[], curr) => {
           const exists = acc.find(
@@ -175,13 +210,27 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
         }, []);
         setPipelineStages(uniqueStages);
 
-        // Set default to Annabella > New Lead
-        const defaultStage = uniqueStages.find((s) => s.stage_name === "New Lead (No Contacted Yet)");
-        if (defaultStage) {
-          setSelectedPipeline(defaultStage.pipeline_id);
-          setSelectedStage(defaultStage.pipeline_stage_id);
+        // Set default to first stage
+        if (uniqueStages.length > 0) {
+          setSelectedPipeline(uniqueStages[0].pipeline_id);
+          setSelectedStage(uniqueStages[0].pipeline_stage_id);
         }
+        return;
       }
+
+      // Final fallback: use hardcoded default stages
+      const defaultStageNames = ["Lead", "Contacted", "Appointment Set", "2nd Appointment", "Estimate Prepared", "Proposal Sent", "Close to Sale", "Won", "Lost/DNC"];
+      const pipelineId = `local_pipeline_${companyId}`;
+      const fallbackStages: PipelineStage[] = defaultStageNames.map((stageName, index) => ({
+        pipeline_id: pipelineId,
+        pipeline_name: "Main",
+        pipeline_stage_id: `local_stage_${index}`,
+        stage_name: stageName,
+      }));
+      
+      setPipelineStages(fallbackStages);
+      setSelectedPipeline(fallbackStages[0].pipeline_id);
+      setSelectedStage(fallbackStages[0].pipeline_stage_id);
     };
     fetchPipelineStages();
   }, [open, companyId]);
