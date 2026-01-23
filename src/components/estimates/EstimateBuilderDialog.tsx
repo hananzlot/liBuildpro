@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 
 import type { LinkedOpportunity } from "./EstimateSourceDialog";
 
@@ -860,19 +861,28 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       // Handle opportunity updates/creation for new estimates only
       if (!isEditing) {
-        // If linked to existing opportunity, update its stage and monetary value
+        // If linked to existing opportunity, update its stage and recalculate aggregated value
         if (linkedOpportunityGhlId) {
           try {
+            // First update the stage
             await supabase.functions.invoke("update-ghl-opportunity", {
               body: {
                 ghl_id: linkedOpportunityGhlId,
                 stage_name: "Estimate Prepared",
-                monetary_value: total, // Update opportunity value with estimate total
                 edited_by: user?.id,
                 company_id: companyId,
               },
             });
-            console.log("Updated opportunity stage to 'Estimate Prepared' and monetary_value to", total);
+            
+            // Then recalculate aggregated value from all linked estimates
+            await updateOpportunityValueFromEstimates(
+              linkedOpportunityUuid || null,
+              linkedOpportunityGhlId,
+              companyId!,
+              user?.id
+            );
+            
+            console.log("Updated opportunity stage to 'Estimate Prepared' and recalculated aggregated value");
           } catch (err) {
             console.error("Failed to update opportunity:", err);
             // Don't fail the save for this

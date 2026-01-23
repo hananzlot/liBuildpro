@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Calculator, Send, FileSignature, Plus, Trash2, Edit, Loader2, ExternalLink, Printer, RefreshCw, FileSearch, Link2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { format } from "date-fns";
 import { EstimateDetailSheet } from "@/components/estimates/EstimateDetailSheet";
 import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
@@ -124,6 +125,18 @@ export default function Estimates() {
   const deleteMutation = useMutation({
     mutationFn: async (estimateId: string) => {
       if (!companyId) throw new Error("No company selected");
+      
+      // First, get the estimate to find linked opportunity for value recalculation
+      const { data: estimateToDelete } = await supabase
+        .from("estimates")
+        .select("opportunity_id, opportunity_uuid")
+        .eq("id", estimateId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+
+      const linkedOppGhlId = estimateToDelete?.opportunity_id;
+      const linkedOppUuid = estimateToDelete?.opportunity_uuid;
+      
       // Get all client_portal_tokens for this estimate (we need ids to clean up dependent rows)
       const { data: tokens, error: tokenFetchError } = await supabase
         .from("client_portal_tokens")
@@ -208,9 +221,19 @@ export default function Estimates() {
         .eq("company_id", companyId);
 
       if (error) throw error;
+
+      // After successful deletion, recalculate opportunity value
+      if (linkedOppGhlId) {
+        await updateOpportunityValueFromEstimates(
+          linkedOppUuid || null,
+          linkedOppGhlId,
+          companyId
+        );
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
       toast.success("Estimate deleted successfully");
     },
     onError: (error) => {
