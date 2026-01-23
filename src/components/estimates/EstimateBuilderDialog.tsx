@@ -1790,9 +1790,15 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             <span className="text-[10px] text-muted-foreground">or max</span>
                             <span className="text-[10px] text-muted-foreground">$</span>
                             <Input
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               value={formData.deposit_max_amount}
-                              onChange={(e) => setFormData({ ...formData, deposit_max_amount: parseFloat(e.target.value) || 0 })}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                  setFormData({ ...formData, deposit_max_amount: parseFloat(val) || 0 });
+                                }
+                              }}
                               disabled={!formData.deposit_required}
                               className="w-20 h-7 text-sm"
                             />
