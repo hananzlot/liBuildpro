@@ -986,6 +986,32 @@ export default function Production() {
 
   // Admin: hard-delete project AND all related records (so the project delete never gets blocked)
   const deleteProjectCascade = async (projectId: string) => {
+    // 1. Delete all files from storage first (before database records are removed)
+    try {
+      // List and delete all files in the project's folder
+      const { data: files } = await supabase.storage
+        .from('project-attachments')
+        .list(projectId);
+      
+      if (files && files.length > 0) {
+        const filePaths = files.map(file => `${projectId}/${file.name}`);
+        await supabase.storage.from('project-attachments').remove(filePaths);
+      }
+      
+      // Also check for proposal-docs subfolder
+      const { data: proposalFiles } = await supabase.storage
+        .from('project-attachments')
+        .list(`proposal-docs/${projectId}`);
+      
+      if (proposalFiles && proposalFiles.length > 0) {
+        const proposalPaths = proposalFiles.map(file => `proposal-docs/${projectId}/${file.name}`);
+        await supabase.storage.from('project-attachments').remove(proposalPaths);
+      }
+    } catch (storageError) {
+      console.error('Error cleaning up storage files:', storageError);
+      // Continue with deletion even if storage cleanup fails
+    }
+
     // Disconnect estimates (set project_id to null instead of deleting)
     {
       const { error } = await supabase
