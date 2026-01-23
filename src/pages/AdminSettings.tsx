@@ -418,7 +418,7 @@ export default function AdminSettings() {
   }
 
   const emailSettings = settings?.filter((s) =>
-    ["resend_from_email", "resend_from_name"].includes(s.setting_key)
+    ["resend_from_email", "resend_from_name", "notification_email"].includes(s.setting_key)
   );
 
   const companySettings = settings?.filter((s) =>
@@ -970,6 +970,34 @@ export default function AdminSettings() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {emailSettings?.map(renderSettingField)}
+
+                {/* Add notification_email if it doesn't exist */}
+                {!emailSettings?.some(s => s.setting_key === "notification_email") && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="notification_email">Notification Email(s)</Label>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          updateSetting.mutate({ key: "notification_email", value: editedSettings["notification_email"] || "" });
+                        }}
+                        disabled={updateSetting.isPending || !editedSettings["notification_email"]}
+                      >
+                        <Save className="h-3 w-3 mr-1" />
+                        Save
+                      </Button>
+                    </div>
+                    <Input
+                      id="notification_email"
+                      value={editedSettings["notification_email"] ?? ""}
+                      onChange={(e) => handleChange("notification_email", e.target.value)}
+                      placeholder="admin@company.com, sales@company.com"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Comma-separated list of emails to receive proposal accepted/declined notifications
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
                   <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
