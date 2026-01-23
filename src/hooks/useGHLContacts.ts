@@ -489,12 +489,12 @@ function processMetrics(
     contactDateMap.set(c.ghl_id, c.ghl_date_added || null);
   });
 
-  // Filter opportunities by their contact's creation date (not opportunity date)
+  // Filter opportunities by their own creation date (ghl_date_added)
   const filteredOpportunities = dateRange?.from
     ? opportunities.filter((opp) => {
-        const contactDate = opp.contact_id ? contactDateMap.get(opp.contact_id) : null;
-        if (!contactDate) return false;
-        const date = new Date(contactDate);
+        const oppDate = opp.ghl_date_added;
+        if (!oppDate) return false;
+        const date = new Date(oppDate);
         const startDate = dateRange.from!;
         const endDate = dateRange.to || new Date();
         endDate.setHours(23, 59, 59, 999);
