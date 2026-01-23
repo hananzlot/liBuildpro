@@ -2086,6 +2086,31 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             const isBalanced = Math.abs(difference) < 0.01;
                             const percentTotal = paymentSchedule.reduce((sum, p) => sum + p.percent, 0);
                             
+                            // Find the last non-deposit phase for auto-balance
+                            const nonDepositPhases = paymentSchedule.filter(p => p.phase_name !== "Deposit");
+                            const lastPhase = nonDepositPhases[nonDepositPhases.length - 1];
+                            const canAutoBalance = lastPhase && !isBalanced && totals.total > 0;
+                            
+                            const handleAutoBalance = () => {
+                              if (!lastPhase) return;
+                              
+                              // Calculate the remaining amount after deposit
+                              const remainingAfterDeposit = Math.max(0, totals.total - totals.depositAmount);
+                              if (remainingAfterDeposit <= 0) return;
+                              
+                              // Calculate sum of all other non-deposit phases (excluding last one)
+                              const otherPhasesPercent = nonDepositPhases
+                                .filter(p => p.id !== lastPhase.id)
+                                .reduce((sum, p) => sum + (p.percent || 0), 0);
+                              
+                              // The last phase needs to cover the remaining percentage
+                              const newLastPhasePercent = Math.round((100 - otherPhasesPercent) * 100) / 100;
+                              
+                              if (newLastPhasePercent >= 0 && newLastPhasePercent <= 100) {
+                                updatePaymentPhase(lastPhase.id, { percent: newLastPhasePercent });
+                              }
+                            };
+                            
                             return (
                               <div className={`mt-4 p-3 rounded-lg border ${isBalanced ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
                                 <div className="flex items-center justify-between text-sm">
@@ -2099,10 +2124,23 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                       {isBalanced ? 'Phases balanced' : 'Phases not balanced'}
                                     </span>
                                   </div>
-                                  <span className="text-muted-foreground">
-                                    {percentTotal}% of remaining
-                                    {percentTotal !== 100 && <span className="text-amber-500 ml-1">(should be 100%)</span>}
-                                  </span>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-muted-foreground">
+                                      {percentTotal}% of remaining
+                                      {percentTotal !== 100 && <span className="text-amber-500 ml-1">(should be 100%)</span>}
+                                    </span>
+                                    {canAutoBalance && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleAutoBalance}
+                                        className="h-6 text-xs border-amber-500/50 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                                      >
+                                        Auto-balance
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
                                   <div>
