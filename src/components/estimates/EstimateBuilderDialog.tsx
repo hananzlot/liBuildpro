@@ -2068,12 +2068,57 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               </Button>
                             </div>
                           ))}
-                          <div className="text-right text-sm">
-                            Total: {paymentSchedule.reduce((sum, p) => sum + p.percent, 0)}%
-                            {paymentSchedule.reduce((sum, p) => sum + p.percent, 0) !== 100 && (
-                              <span className="text-amber-500 ml-2">(should equal 100%)</span>
-                            )}
-                          </div>
+                          {/* Payment phases total vs estimate total indicator */}
+                          {(() => {
+                            const phasesTotal = paymentSchedule.reduce((sum, phase) => {
+                              if (phase.phase_name === "Deposit") {
+                                return sum + totals.depositAmount;
+                              }
+                              return sum + ((Math.max(0, totals.total - totals.depositAmount) * (phase.percent || 0)) / 100);
+                            }, 0);
+                            const difference = Math.round((phasesTotal - totals.total) * 100) / 100;
+                            const isBalanced = Math.abs(difference) < 0.01;
+                            const percentTotal = paymentSchedule.reduce((sum, p) => sum + p.percent, 0);
+                            
+                            return (
+                              <div className={`mt-4 p-3 rounded-lg border ${isBalanced ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                                <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center gap-2">
+                                    {isBalanced ? (
+                                      <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                                    ) : (
+                                      <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                    )}
+                                    <span className={isBalanced ? 'text-emerald-600 dark:text-emerald-400 font-medium' : 'text-amber-600 dark:text-amber-400 font-medium'}>
+                                      {isBalanced ? 'Phases balanced' : 'Phases not balanced'}
+                                    </span>
+                                  </div>
+                                  <span className="text-muted-foreground">
+                                    {percentTotal}% of remaining
+                                    {percentTotal !== 100 && <span className="text-amber-500 ml-1">(should be 100%)</span>}
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-4 mt-2 text-sm">
+                                  <div>
+                                    <span className="text-muted-foreground">Phases Total:</span>
+                                    <span className={`ml-2 font-medium ${isBalanced ? 'text-foreground' : 'text-amber-600 dark:text-amber-400'}`}>
+                                      {formatCurrency(phasesTotal)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Estimate Total:</span>
+                                    <span className="ml-2 font-medium">{formatCurrency(totals.total)}</span>
+                                  </div>
+                                  <div>
+                                    <span className="text-muted-foreground">Difference:</span>
+                                    <span className={`ml-2 font-medium ${isBalanced ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                                      {difference > 0 ? '+' : ''}{formatCurrency(difference)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
                     </CardContent>
