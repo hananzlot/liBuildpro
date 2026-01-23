@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Plus, Trash2, Save, Wand2, Loader2, GripVertical, 
   User, MapPin, Calendar, DollarSign, Percent, FileText,
-  ChevronDown, ChevronRight, FolderPlus, TrendingUp
+  ChevronDown, ChevronRight, FolderPlus, TrendingUp, Copy
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -108,7 +108,7 @@ const units = ["hours", "sqft", "linear ft", "each", "set", "unit", "day", "week
 const generateId = () => crypto.randomUUID();
 
 export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, linkedOpportunity, createOpportunityOnSave = false }: EstimateBuilderDialogProps) {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   
@@ -1162,6 +1162,21 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               {isEditing ? "Edit Estimate" : isCloneMode ? "New Estimate (from Declined)" : "New Estimate"}
             </DialogTitle>
             <div className="flex items-center gap-2">
+              {isSuperAdmin && isEditing && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="text-muted-foreground" 
+                  onClick={() => {
+                    const debugInfo = `Estimate ID: ${estimateId}\nOpportunity GHL ID: ${linkedOpportunityGhlId || 'null'}\nOpportunity UUID: ${linkedOpportunityUuid || 'null'}\nProject ID: ${linkedProjectId || 'null'}`;
+                    navigator.clipboard.writeText(debugInfo);
+                    toast.success("Debug info copied to clipboard");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  Debug
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={generateScope}
