@@ -100,25 +100,30 @@ Deno.serve(async (req) => {
     }
 
     // Assign role if provided (e.g., 'admin' for company admins)
-    // Use raw SQL to bypass the trigger that checks auth.uid()
+    // Create a client with the requesting user's JWT to call the RPC
+    // This allows the RPC to check auth.uid() and verify the caller is a super_admin
     if (newUser.user && role) {
-      const { error: roleError } = await supabaseAdmin
+      const supabaseWithUserAuth = createClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      });
+
+      const { error: roleError } = await supabaseWithUserAuth
         .rpc('admin_assign_role', { 
           target_user_id: newUser.user.id, 
           target_role: role 
         });
 
-      // Fallback to direct insert if RPC doesn't exist
-      if (roleError && roleError.message?.includes('function') && roleError.message?.includes('does not exist')) {
-        const { error: insertError } = await supabaseAdmin
-          .from("user_roles")
-          .insert({ user_id: newUser.user.id, role });
-
-        if (insertError) {
-          console.error("Error assigning role:", insertError);
-        }
-      } else if (roleError) {
+      if (roleError) {
         console.error("Error assigning role:", roleError);
+        // Don't fail the request, user was created successfully
       }
     }
 
