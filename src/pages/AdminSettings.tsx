@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTheme } from "@/theme";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -12,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Palette, Sun, Moon, Monitor, Contrast } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -79,6 +80,127 @@ interface AuditLog {
   new_values: Record<string, unknown> | null;
   changes: Record<string, unknown> | null;
   description: string | null;
+}
+
+// Theme Settings Card Component
+function ThemeSettingsCard() {
+  const { themeMode, colorMode, contrastMode, setThemeMode, setColorMode, setContrastMode } = useTheme();
+  
+  return (
+    <Collapsible defaultOpen={false}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Theme Settings
+              </span>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </CardTitle>
+            <CardDescription>
+              Customize the application appearance and theme
+            </CardDescription>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-6 pt-0">
+            {/* Theme Mode Toggle */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Theme Style</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={themeMode === 'base' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setThemeMode('base')}
+                  className="flex-1"
+                >
+                  Base Theme
+                </Button>
+                <Button
+                  variant={themeMode === 'premium' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setThemeMode('premium')}
+                  className="flex-1"
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  Premium Theme
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Switch between the standard and premium UI theme
+              </p>
+            </div>
+
+            <Separator />
+
+            {/* Color Mode Toggle */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Color Mode</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={colorMode === 'light' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setColorMode('light')}
+                  className="flex-1"
+                >
+                  <Sun className="h-4 w-4 mr-1" />
+                  Light
+                </Button>
+                <Button
+                  variant={colorMode === 'dark' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setColorMode('dark')}
+                  className="flex-1"
+                >
+                  <Moon className="h-4 w-4 mr-1" />
+                  Dark
+                </Button>
+                <Button
+                  variant={colorMode === 'system' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setColorMode('system')}
+                  className="flex-1"
+                >
+                  <Monitor className="h-4 w-4 mr-1" />
+                  System
+                </Button>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Contrast Mode Toggle */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Accessibility</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={contrastMode === 'normal' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setContrastMode('normal')}
+                  className="flex-1"
+                >
+                  Normal Contrast
+                </Button>
+                <Button
+                  variant={contrastMode === 'high' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setContrastMode('high')}
+                  className="flex-1"
+                >
+                  <Contrast className="h-4 w-4 mr-1" />
+                  High Contrast
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enable high contrast mode for better visibility
+              </p>
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
 }
 
 export default function AdminSettings() {
@@ -583,6 +705,9 @@ export default function AdminSettings() {
 
                 {/* Company Logo */}
                 <LogoUpload />
+
+                {/* Theme Settings */}
+                <ThemeSettingsCard />
 
                 {/* Company Settings - Collapsible */}
                 <Collapsible defaultOpen={false}>
