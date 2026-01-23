@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Target, GitBranch, Plus, Trash2 } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -91,6 +91,10 @@ export default function AdminSettings() {
   
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({});
   const [testingApiKey, setTestingApiKey] = useState<string | null>(null);
+  const [resendApiKey, setResendApiKey] = useState("");
+  const [resendKeyConfigured, setResendKeyConfigured] = useState<boolean | null>(null);
+  const [savingResendKey, setSavingResendKey] = useState(false);
+  const [showResendKey, setShowResendKey] = useState(false);
   
   // Source management dialog state
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
@@ -188,6 +192,28 @@ export default function AdminSettings() {
     },
     enabled: isAdmin && !!companyId,
   });
+
+  // Check if Resend API key is configured for this company
+  const { data: resendKeyStatus, refetch: refetchResendKeyStatus } = useQuery({
+    queryKey: ["resend-key-status", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("company_settings")
+        .select("setting_key")
+        .eq("company_id", companyId)
+        .eq("setting_key", "resend_api_key_encrypted")
+        .maybeSingle();
+      return { isConfigured: !!data };
+    },
+    enabled: isAdmin && !!companyId && activeTab === "emails",
+  });
+
+  // Update state when resend key status changes
+  React.useEffect(() => {
+    if (resendKeyStatus) {
+      setResendKeyConfigured(resendKeyStatus.isConfigured);
+    }
+  }, [resendKeyStatus]);
   
   // Data for cleanup tab - scoped by company
   const { data: opportunities = [] } = useQuery({
@@ -388,6 +414,64 @@ export default function AdminSettings() {
       }
     } catch (err) {
       console.error("Error testing API key:", err);
+      toast.error(`Failed to test API key: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setTestingApiKey(null);
+    }
+  };
+
+  const handleSaveResendKey = async () => {
+    if (!resendApiKey.trim() || !companyId) {
+      toast.error("Please enter a valid Resend API key");
+      return;
+    }
+
+    setSavingResendKey(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("store-resend-key", {
+        body: { apiKey: resendApiKey.trim(), companyId },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(data.message || "Resend API key saved successfully!");
+        setResendApiKey("");
+        setResendKeyConfigured(true);
+        refetchResendKeyStatus();
+      } else {
+        toast.error(data?.error || "Failed to save Resend API key");
+      }
+    } catch (err) {
+      console.error("Error saving Resend key:", err);
+      toast.error(`Failed to save API key: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setSavingResendKey(false);
+    }
+  };
+
+  const handleTestResendKey = async () => {
+    const keyToTest = resendApiKey.trim();
+    if (!keyToTest || !companyId) {
+      toast.error("Please enter a Resend API key to test");
+      return;
+    }
+
+    setTestingApiKey("resend");
+    try {
+      const { data, error } = await supabase.functions.invoke("store-resend-key", {
+        body: { apiKey: keyToTest, companyId, testOnly: true },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast.success(data.message || "Resend API key is valid!");
+      } else {
+        toast.error(data?.error || "Invalid Resend API key");
+      }
+    } catch (err) {
+      console.error("Error testing Resend key:", err);
       toast.error(`Failed to test API key: ${err instanceof Error ? err.message : "Unknown error"}`);
     } finally {
       setTestingApiKey(null);
@@ -1246,12 +1330,124 @@ export default function AdminSettings() {
 
           {/* Emails Tab */}
           <TabsContent value="emails" className="mt-6 space-y-6">
-            {/* Email Settings (Resend) - First */}
+            {/* Resend API Configuration - Collapsible */}
+            <Collapsible defaultOpen={!resendKeyConfigured}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Key className="h-5 w-5" />
+                        Resend API Configuration
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {resendKeyConfigured === true && (
+                          <Badge variant="default" className="bg-green-600">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Configured
+                          </Badge>
+                        )}
+                        {resendKeyConfigured === false && (
+                          <Badge variant="destructive">
+                            <XCircle className="h-3 w-3 mr-1" />
+                            Not Configured
+                          </Badge>
+                        )}
+                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </div>
+                    </CardTitle>
+                    <CardDescription>
+                      Configure your Resend API key for email delivery. Get your API key from{" "}
+                      <a
+                        href="https://resend.com/api-keys"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline inline-flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        resend.com/api-keys
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 pt-0">
+                    <div className="space-y-2">
+                      <Label htmlFor="resend_api_key_new">Resend API Key</Label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Input
+                            id="resend_api_key_new"
+                            type={showResendKey ? "text" : "password"}
+                            value={resendApiKey}
+                            onChange={(e) => setResendApiKey(e.target.value)}
+                            placeholder={resendKeyConfigured ? "Enter new key to update..." : "re_..."}
+                            className="pr-10"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                            onClick={() => setShowResendKey(!showResendKey)}
+                          >
+                            {showResendKey ? (
+                              <EyeOff className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                        </div>
+                        <Button
+                          variant="outline"
+                          onClick={handleTestResendKey}
+                          disabled={testingApiKey === "resend" || !resendApiKey.trim()}
+                        >
+                          {testingApiKey === "resend" ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                          )}
+                          Test
+                        </Button>
+                        <Button
+                          onClick={handleSaveResendKey}
+                          disabled={savingResendKey || !resendApiKey.trim()}
+                        >
+                          {savingResendKey ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                          ) : (
+                            <Save className="h-4 w-4 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {resendKeyConfigured 
+                          ? "Your Resend API key is configured. Enter a new key above to update it."
+                          : "Enter your Resend API key to enable email sending for proposals and notifications."}
+                      </p>
+                    </div>
+
+                    <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="text-muted-foreground">
+                        <strong>Security:</strong> Your API key is encrypted and stored securely. 
+                        It's never exposed in your browser or logs.
+                      </div>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+
+            {/* Email Settings (Resend) */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="h-5 w-5" />
-                  Email Settings (Resend)
+                  Email Sender Settings
                 </CardTitle>
                 <CardDescription>
                   Configure email sending for proposals and notifications. Make sure your domain is verified at{" "}

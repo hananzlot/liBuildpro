@@ -137,3 +137,6 @@ verify_jwt = false
 
 [functions.backfill-scope-of-work]
 verify_jwt = false
+
+[functions.store-resend-key]
+verify_jwt = false

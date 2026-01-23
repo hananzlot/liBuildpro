@@ -5159,6 +5159,10 @@ export type Database = {
         Args: { p_integration_id: string }
         Returns: string
       }
+      get_resend_api_key_encrypted: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
       get_user_company_id: { Args: never; Returns: string }
       get_user_corporation_id: { Args: never; Returns: string }
       has_company_access: {
@@ -5188,6 +5192,10 @@ export type Database = {
       }
       store_ghl_api_key_encrypted: {
         Args: { p_api_key: string; p_integration_id: string }
+        Returns: boolean
+      }
+      store_resend_api_key_encrypted: {
+        Args: { p_api_key: string; p_company_id: string }
         Returns: boolean
       }
       user_in_corporation: { Args: { corp_id: string }; Returns: boolean }
