@@ -81,16 +81,24 @@ serve(async (req) => {
     const fromEmail = settingsMap.resend_from_email || "proposals@caprobuilders.com";
     const fromName = settingsMap.resend_from_name || "Capro Builders";
     const companyName = settingsMap.company_name || "Capro Builders";
-    const notificationEmail = settingsMap.notification_email;
+    const notificationEmails = settingsMap.notification_email;
 
-    // Get recipients
+    // Get recipients - support comma-separated list
     const recipients: string[] = [];
-    if (notificationEmail) {
-      recipients.push(notificationEmail);
-    } else {
-      // Fallback to first admin
+    if (notificationEmails) {
+      // Parse comma-separated emails, trim whitespace, filter empty/invalid
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const parsedEmails = notificationEmails
+        .split(',')
+        .map((email: string) => email.trim())
+        .filter((email: string) => email && emailRegex.test(email));
+      recipients.push(...parsedEmails);
+    }
+    
+    // Fallback to first admin if no valid emails configured
+    if (recipients.length === 0) {
       const { data: usersData } = await supabase.from("profiles").select("email").limit(1);
-      if (usersData && usersData.length > 0) {
+      if (usersData && usersData.length > 0 && usersData[0].email) {
         recipients.push(usersData[0].email);
       }
     }
