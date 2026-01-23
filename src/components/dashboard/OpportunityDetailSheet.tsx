@@ -174,7 +174,8 @@ export function OpportunityDetailSheet({
     user,
     profile,
     isAdmin,
-    isProduction
+    isProduction,
+    isSuperAdmin
   } = useAuth();
   const { companyId } = useCompanyContext();
   const [isEditing, setIsEditing] = useState(false);
@@ -292,6 +293,12 @@ export function OpportunityDetailSheet({
   const [isSavingWonAt, setIsSavingWonAt] = useState(false);
   const [savedWonAt, setSavedWonAt] = useState<string | null>(null);
 
+  // Created date editing (super admin only)
+  const [isEditingCreatedAt, setIsEditingCreatedAt] = useState(false);
+  const [editedCreatedAtDate, setEditedCreatedAtDate] = useState("");
+  const [isSavingCreatedAt, setIsSavingCreatedAt] = useState(false);
+  const [savedCreatedAt, setSavedCreatedAt] = useState<string | null>(null);
+
   // Associated project for production link
   const [associatedProjectId, setAssociatedProjectId] = useState<string | null>(null);
 
@@ -303,6 +310,8 @@ export function OpportunityDetailSheet({
       setAssociatedProjectId(null);
       setSavedWonAt(null);
       setIsEditingWonAt(false);
+      setSavedCreatedAt(null);
+      setIsEditingCreatedAt(false);
     }
     setWasOpen(open);
   }, [open]);
@@ -1691,6 +1700,44 @@ export function OpportunityDetailSheet({
     }
   };
 
+  // Super Admin only: Save ghl_date_added (created date)
+  const handleSaveCreatedAt = async () => {
+    if (!opportunity || !isSuperAdmin) return;
+    setIsSavingCreatedAt(true);
+    try {
+      let createdAtValue: string | null = null;
+      if (editedCreatedAtDate) {
+        // Use noon PST as default time for date-only storage
+        const timeStr = "12:00";
+        const pstOffset = getPSTOffset(new Date(`${editedCreatedAtDate}T12:00:00Z`));
+        const tempUtcDate = new Date(`${editedCreatedAtDate}T${timeStr}:00.000Z`);
+        const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+        createdAtValue = utcDate.toISOString();
+      }
+
+      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+        body: {
+          ghl_id: opportunity.ghl_id,
+          ghl_date_added: createdAtValue,
+          edited_by: user?.id || null
+        }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setSavedCreatedAt(createdAtValue);
+      toast.success("Created date updated");
+      setIsEditingCreatedAt(false);
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+    } catch (error) {
+      console.error("Error saving created date:", error);
+      toast.error("Failed to save created date");
+    } finally {
+      setIsSavingCreatedAt(false);
+    }
+  };
+
   const handleDeleteOpportunity = async () => {
     if (!opportunity) return;
     setIsDeletingOpportunity(true);
@@ -2194,7 +2241,54 @@ export function OpportunityDetailSheet({
             {/* Created */}
             <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[90px]">
               <div className="text-muted-foreground text-xs mb-[1px]">Created</div>
-              <div className="font-medium truncate">{formatDate(opportunity.ghl_date_added)}</div>
+              {isEditingCreatedAt && isSuperAdmin ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="date"
+                    value={editedCreatedAtDate}
+                    onChange={(e) => setEditedCreatedAtDate(e.target.value)}
+                    className="h-6 text-xs w-28 px-1"
+                  />
+                  <Button
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={handleSaveCreatedAt}
+                    disabled={isSavingCreatedAt}
+                  >
+                    {isSavingCreatedAt ? "..." : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => setIsEditingCreatedAt(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  className={`font-medium truncate ${isSuperAdmin ? "hover:underline cursor-pointer" : ""}`}
+                  onClick={() => {
+                    if (!isSuperAdmin) return;
+                    const currentCreated = savedCreatedAt ?? opportunity.ghl_date_added;
+                    if (currentCreated) {
+                      const d = new Date(currentCreated);
+                      const yyyy = d.getFullYear();
+                      const mm = String(d.getMonth() + 1).padStart(2, "0");
+                      const dd = String(d.getDate()).padStart(2, "0");
+                      setEditedCreatedAtDate(`${yyyy}-${mm}-${dd}`);
+                    } else {
+                      setEditedCreatedAtDate("");
+                    }
+                    setIsEditingCreatedAt(true);
+                  }}
+                  disabled={!isSuperAdmin}
+                >
+                  {formatDate(savedCreatedAt ?? opportunity.ghl_date_added)}
+                  {isSuperAdmin && <Pencil className="h-2.5 w-2.5 inline ml-1 opacity-50" />}
+                </button>
+              )}
             </div>
 
             {/* Assigned To */}

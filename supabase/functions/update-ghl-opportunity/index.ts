@@ -95,7 +95,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at, company_id } = await req.json();
+    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at, ghl_date_added, company_id } = await req.json();
 
     if (!ghl_id) {
       throw new Error('Missing ghl_id');
@@ -104,7 +104,7 @@ serve(async (req) => {
     // Fetch current opportunity values BEFORE update
     const { data: currentOpp } = await supabase
       .from('opportunities')
-      .select('status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at, company_id, contact_id')
+      .select('status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at, ghl_date_added, company_id, contact_id')
       .eq('ghl_id', ghl_id)
       .single();
 
@@ -219,6 +219,12 @@ serve(async (req) => {
       console.log(`Auto-setting won_at to current time for status change to won`);
     }
 
+    // Handle ghl_date_added (super admin only - created date edit)
+    if (ghl_date_added !== undefined) {
+      supabaseUpdate.ghl_date_added = ghl_date_added;
+      console.log(`Setting ghl_date_added to explicitly provided value: ${ghl_date_added}`);
+    }
+
     console.log(`Supabase update payload for ${ghl_id}:`, JSON.stringify(supabaseUpdate));
 
     // Only update if there are fields to update
@@ -327,6 +333,19 @@ serve(async (req) => {
           field_name: 'won_at',
           old_value: currentOpp.won_at || null,
           new_value: won_at,
+          edited_by: edited_by || null,
+          location_id: effectiveLocationId,
+          company_id: effectiveCompanyId || null,
+        });
+      }
+
+      // Check ghl_date_added (only if explicitly provided - super admin edits)
+      if (ghl_date_added !== undefined && currentOpp.ghl_date_added !== ghl_date_added) {
+        editsToInsert.push({
+          opportunity_ghl_id: ghl_id,
+          field_name: 'ghl_date_added',
+          old_value: currentOpp.ghl_date_added || null,
+          new_value: ghl_date_added,
           edited_by: edited_by || null,
           location_id: effectiveLocationId,
           company_id: effectiveCompanyId || null,
