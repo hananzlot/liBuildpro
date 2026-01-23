@@ -11,7 +11,12 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Save, Eye, Loader2, Mail, FileText, CheckCircle, XCircle, Send } from "lucide-react";
+import { Save, Eye, Loader2, Mail, FileText, CheckCircle, XCircle, Send, ChevronDown } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface EmailTemplate {
   id: string;
@@ -422,73 +427,94 @@ export function EmailTemplatesManager() {
         const changed = hasChanges(key);
 
         return (
-          <Card key={key}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  {meta.icon}
-                  <div>
-                    <CardTitle className="text-base">{meta.name}</CardTitle>
-                    <CardDescription className="text-xs">{meta.description}</CardDescription>
+          <Collapsible key={key} defaultOpen={false}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {meta.icon}
+                      <div>
+                        <CardTitle className="text-base">{meta.name}</CardTitle>
+                        <CardDescription className="text-xs">{meta.description}</CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {changed && (
+                        <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
+                      )}
+                      <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPreviewTemplate(key)}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    Preview
-                  </Button>
-                  {changed && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleReset(key)}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => handleSave(key)}
-                        disabled={saveMutation.isPending}
-                      >
-                        {saveMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Save className="h-4 w-4 mr-1" />
-                        )}
-                        Save
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor={`${key}-subject`}>Subject Line</Label>
-                <Input
-                  id={`${key}-subject`}
-                  value={template.subject}
-                  onChange={(e) => handleChange(key, "subject", e.target.value)}
-                  placeholder="Email subject..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor={`${key}-body`}>Email Body</Label>
-                <Textarea
-                  id={`${key}-body`}
-                  value={template.body}
-                  onChange={(e) => handleChange(key, "body", e.target.value)}
-                  placeholder="Email content..."
-                  className="min-h-[200px] font-mono text-sm"
-                />
-              </div>
-            </CardContent>
-          </Card>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="space-y-4 pt-0">
+                  <div className="flex items-center justify-end gap-2 mb-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewTemplate(key);
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Preview
+                    </Button>
+                    {changed && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReset(key);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSave(key);
+                          }}
+                          disabled={saveMutation.isPending}
+                        >
+                          {saveMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Save className="h-4 w-4 mr-1" />
+                          )}
+                          Save
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`${key}-subject`}>Subject Line</Label>
+                    <Input
+                      id={`${key}-subject`}
+                      value={template.subject}
+                      onChange={(e) => handleChange(key, "subject", e.target.value)}
+                      placeholder="Email subject..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`${key}-body`}>Email Body</Label>
+                    <Textarea
+                      id={`${key}-body`}
+                      value={template.body}
+                      onChange={(e) => handleChange(key, "body", e.target.value)}
+                      placeholder="Email content..."
+                      className="min-h-[200px] font-mono text-sm"
+                    />
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
         );
       })}
 
