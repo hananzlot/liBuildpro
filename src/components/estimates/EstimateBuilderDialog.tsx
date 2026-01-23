@@ -23,11 +23,15 @@ import {
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
+import type { LinkedOpportunity } from "./EstimateSourceDialog";
+
 interface EstimateBuilderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   estimateId?: string | null;
   onSuccess?: () => void;
+  linkedOpportunity?: LinkedOpportunity | null;
+  createOpportunityOnSave?: boolean;
 }
 
 interface LineItem {
@@ -102,7 +106,7 @@ const units = ["hours", "sqft", "linear ft", "each", "set", "unit", "day", "week
 
 const generateId = () => crypto.randomUUID();
 
-export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess }: EstimateBuilderDialogProps) {
+export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, linkedOpportunity, createOpportunityOnSave = false }: EstimateBuilderDialogProps) {
   const { user } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -143,6 +147,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [isGeneratingScope, setIsGeneratingScope] = useState(false);
   const [activeTab, setActiveTab] = useState("customer");
   const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
+  
+  // Linked opportunity tracking
+  const [linkedOpportunityUuid, setLinkedOpportunityUuid] = useState<string | null>(null);
+  const [linkedOpportunityGhlId, setLinkedOpportunityGhlId] = useState<string | null>(null);
 
   // Draft string values for money inputs so users can type decimals (e.g. "12.")
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
@@ -400,8 +408,30 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setPaymentSchedule([]);
       setActiveTab("customer");
       setLinkedProjectId(null);
+      setLinkedOpportunityUuid(null);
+      setLinkedOpportunityGhlId(null);
     }
   }, [open, estimateId]);
+
+  // Auto-populate from linked opportunity when provided
+  useEffect(() => {
+    if (open && linkedOpportunity && !estimateId) {
+      // Set opportunity tracking
+      setLinkedOpportunityUuid(linkedOpportunity.id);
+      setLinkedOpportunityGhlId(linkedOpportunity.ghl_id);
+      
+      // Auto-fill form data from opportunity
+      setFormData(prev => ({
+        ...prev,
+        customer_name: linkedOpportunity.contact_name || prev.customer_name,
+        customer_email: linkedOpportunity.contact_email || prev.customer_email,
+        customer_phone: linkedOpportunity.contact_phone || prev.customer_phone,
+        job_address: linkedOpportunity.address || prev.job_address,
+        work_scope_description: linkedOpportunity.scope_of_work || prev.work_scope_description,
+        estimate_title: linkedOpportunity.name || prev.estimate_title,
+      }));
+    }
+  }, [open, linkedOpportunity, estimateId]);
 
   // Apply default terms when they're loaded for new estimates
   useEffect(() => {
@@ -729,6 +759,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_line_items_to_customer: formData.show_line_items_to_customer,
         salesperson_name: formData.salesperson_name || null,
         company_id: companyId,
+        opportunity_uuid: linkedOpportunityUuid || null,
+        opportunity_id: linkedOpportunityGhlId || null,
       };
       
       // Only set status for new estimates (not when editing)
@@ -826,10 +858,102 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         if (scheduleError) throw scheduleError;
       }
 
+      // Handle opportunity updates/creation for new estimates only
+      if (!isEditing) {
+        // If linked to existing opportunity, update its stage
+        if (linkedOpportunityGhlId) {
+          try {
+            await supabase.functions.invoke("update-ghl-opportunity", {
+              body: {
+                ghl_id: linkedOpportunityGhlId,
+                stage_name: "Estimate Prepared",
+                edited_by: user?.id,
+                company_id: companyId,
+              },
+            });
+            console.log("Updated opportunity stage to 'Estimate Prepared'");
+          } catch (err) {
+            console.error("Failed to update opportunity stage:", err);
+            // Don't fail the save for this
+          }
+        }
+        // If createOpportunityOnSave is true, create a new opportunity
+        else if (createOpportunityOnSave) {
+          try {
+            // Parse customer name into first/last
+            const nameParts = formData.customer_name.trim().split(" ");
+            const firstName = nameParts[0] || "";
+            const lastName = nameParts.slice(1).join(" ") || "";
+
+            // Get default pipeline info
+            const { data: defaultPipeline } = await supabase
+              .from("ghl_pipelines")
+              .select("ghl_id, name, stages")
+              .eq("company_id", companyId)
+              .limit(1)
+              .maybeSingle();
+
+            const pipelineId = defaultPipeline?.ghl_id || null;
+            const pipelineName = defaultPipeline?.name || null;
+            const stages = defaultPipeline?.stages as { id: string; name: string; position: number }[] | null;
+            const firstStage = stages?.sort((a, b) => a.position - b.position)[0];
+
+            // Get location_id from company settings
+            const { data: locationSetting } = await supabase
+              .from("company_integrations")
+              .select("location_id")
+              .eq("company_id", companyId)
+              .eq("provider", "ghl")
+              .eq("is_active", true)
+              .maybeSingle();
+
+            const locationId = locationSetting?.location_id || "local";
+
+            // Create opportunity via edge function
+            const { data: createResult, error: createError } = await supabase.functions.invoke("create-ghl-entry", {
+              body: {
+                firstName,
+                lastName,
+                phone: formData.customer_phone || undefined,
+                email: formData.customer_email || undefined,
+                address: formData.job_address || undefined,
+                scope: formData.work_scope_description || undefined,
+                source: "Manual estimate created",
+                pipelineId,
+                pipelineName,
+                pipelineStageId: firstStage?.id || null,
+                stageName: "Estimate Prepared",
+                monetaryValue: total,
+                locationId,
+                companyId,
+              },
+            });
+
+            if (createError) {
+              console.error("Failed to create opportunity:", createError);
+            } else if (createResult?.opportunityId) {
+              // Update estimate with the new opportunity ID
+              await supabase
+                .from("estimates")
+                .update({
+                  opportunity_id: createResult.opportunityId,
+                })
+                .eq("id", savedEstimateId);
+              
+              console.log("Created new opportunity and linked to estimate:", createResult.opportunityId);
+            }
+          } catch (err) {
+            console.error("Failed to create opportunity:", err);
+            // Don't fail the save for this
+          }
+        }
+      }
+
       return savedEstimateId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
       toast.success(isEditing ? "Estimate updated successfully!" : "Estimate created successfully!");
       onOpenChange(false);
       onSuccess?.();

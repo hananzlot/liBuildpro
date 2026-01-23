@@ -20,6 +20,7 @@ import { SendProposalDialog } from "@/components/estimates/SendProposalDialog";
 import { ContractPrintDialog } from "@/components/estimates/ContractPrintDialog";
 import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import { ProposalUploadDialog } from "@/components/estimates/ProposalUploadDialog";
+import { EstimateSourceDialog, LinkedOpportunity } from "@/components/estimates/EstimateSourceDialog";
 
 type ViewType = "list" | "proposals" | "contracts" | "declined";
 
@@ -76,6 +77,27 @@ export default function Estimates() {
   const [printEstimateId, setPrintEstimateId] = useState<string | null>(null);
   const [previewEstimateId, setPreviewEstimateId] = useState<string | null>(null);
   const [uploadDialogEstimate, setUploadDialogEstimate] = useState<Estimate | null>(null);
+  
+  // New estimate source dialog state
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [linkedOpportunity, setLinkedOpportunity] = useState<LinkedOpportunity | null>(null);
+  const [createOpportunityOnSave, setCreateOpportunityOnSave] = useState(false);
+
+  // Handle source dialog continue
+  const handleSourceDialogContinue = (opportunity: LinkedOpportunity | null, createOpp: boolean) => {
+    setLinkedOpportunity(opportunity);
+    setCreateOpportunityOnSave(createOpp);
+    setSourceDialogOpen(false);
+    setEditingEstimateId(null);
+    setBuilderOpen(true);
+  };
+
+  // Handle new estimate button click
+  const handleNewEstimateClick = () => {
+    setLinkedOpportunity(null);
+    setCreateOpportunityOnSave(false);
+    setSourceDialogOpen(true);
+  };
 
   const handleViewChange = (view: string) => {
     setSearchParams({ view });
@@ -329,10 +351,7 @@ export default function Estimates() {
             {tableType === "declined" && "Declined proposals will appear here."}
           </p>
           {tableType === "list" && (
-            <Button onClick={() => {
-              setEditingEstimateId(null);
-              setBuilderOpen(true);
-            }}>
+            <Button onClick={handleNewEstimateClick}>
               <Plus className="mr-2 h-4 w-4" />
               Create Estimate
             </Button>
@@ -560,10 +579,7 @@ export default function Estimates() {
               Create estimates, send proposals, and manage contracts
             </p>
           </div>
-          <Button onClick={() => {
-            setEditingEstimateId(null);
-            setBuilderOpen(true);
-          }}>
+          <Button onClick={handleNewEstimateClick}>
             <Plus className="mr-2 h-4 w-4" />
             New Estimate
           </Button>
@@ -718,11 +734,26 @@ export default function Estimates() {
         onOpenChange={(open) => !open && setSelectedEstimateId(null)}
       />
 
+      {/* Estimate Source Dialog */}
+      <EstimateSourceDialog
+        open={sourceDialogOpen}
+        onOpenChange={setSourceDialogOpen}
+        onContinue={handleSourceDialogContinue}
+      />
+
       {/* Estimate Builder Dialog */}
       <EstimateBuilderDialog
         open={builderOpen}
-        onOpenChange={setBuilderOpen}
+        onOpenChange={(open) => {
+          setBuilderOpen(open);
+          if (!open) {
+            setLinkedOpportunity(null);
+            setCreateOpportunityOnSave(false);
+          }
+        }}
         estimateId={editingEstimateId}
+        linkedOpportunity={linkedOpportunity}
+        createOpportunityOnSave={createOpportunityOnSave}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ["estimates", companyId] })}
       />
 
