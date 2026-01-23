@@ -558,13 +558,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       
       setPaymentSchedule([depositPhase, ...aiPhases]);
 
-      // Update tax rate and deposit if suggested
+      // Update tax rate if suggested (but NOT deposit - keep company defaults)
       if (scope.suggested_tax_rate) {
         setFormData(prev => ({ ...prev, tax_rate: scope.suggested_tax_rate }));
       }
-      if (scope.suggested_deposit_percent) {
-        setFormData(prev => ({ ...prev, deposit_percent: scope.suggested_deposit_percent }));
-      }
+      // Note: We no longer override deposit_percent from AI - company settings take precedence
       if (scope.notes) {
         setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes}\n\n${scope.notes}` : scope.notes }));
       }
