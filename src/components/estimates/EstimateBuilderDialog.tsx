@@ -717,11 +717,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     
     // Validate payment phases total equals estimate total
     if (paymentSchedule.length > 0) {
-      const { total } = calculateTotals();
-      const phasesTotal = paymentSchedule.reduce((sum, phase) => sum + (phase.amount || 0), 0);
+      const { total, depositAmount } = calculateTotals();
+      // Calculate phases total same way as the visual indicator
+      const phasesTotal = paymentSchedule.reduce((sum, phase) => {
+        if (phase.phase_name === "Deposit") {
+          return sum + depositAmount;
+        }
+        return sum + ((Math.max(0, total - depositAmount) * (phase.percent || 0)) / 100);
+      }, 0);
       // Allow small floating point tolerance (1 cent)
       if (Math.abs(phasesTotal - total) > 0.01) {
-        toast.error(`Payment phases total ($${phasesTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}) must equal the estimate total ($${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`);
+        toast.warning(`Cannot save - Payment phases total (${formatCurrency(phasesTotal)}) doesn't equal the estimate total (${formatCurrency(total)}). Difference: ${formatCurrency(Math.abs(phasesTotal - total))}`);
         setActiveTab("payments");
         return false;
       }
