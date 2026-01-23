@@ -54,9 +54,6 @@ verify_jwt = false
 [functions.import-ghl-location2]
 verify_jwt = false
 
-[functions.fix-location2-scope]
-verify_jwt = false
-
 [functions.update-contact-scope]
 verify_jwt = false
 
