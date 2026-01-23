@@ -218,7 +218,7 @@ function extractContactAddress(
   return null;
 }
 
-// Fetch a single contact by ID
+// Fetch a single contact by ID (V2 API)
 async function fetchContact(ghlApiKey: string, contactId: string): Promise<any | null> {
   try {
     const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}`, {
@@ -241,6 +241,162 @@ async function fetchContact(ghlApiKey: string, contactId: string): Promise<any |
     console.error(`Error fetching contact ${contactId}:`, err);
     return null;
   }
+}
+
+// Fetch contact using GHL V1 API to get activity/history data including UTM campaigns
+// The V1 API (rest.gohighlevel.com) may require an Agency API key rather than the Location API key
+async function fetchContactV1(ghlApiKey: string, contactId: string): Promise<any | null> {
+  try {
+    console.log(`Fetching contact ${contactId} via V1 API for activity data...`);
+    
+    // First try with the provided API key (in case it's an Agency key)
+    let response = await fetch(
+      `https://rest.gohighlevel.com/v1/contacts/${contactId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${ghlApiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    // If 401, try with the legacy GHL_API_KEY_2 env var (Agency key for Location 2)
+    if (response.status === 401) {
+      const legacyApiKey2 = Deno.env.get('GHL_API_KEY_2');
+      if (legacyApiKey2) {
+        console.log(`V1 API returned 401, trying with legacy GHL_API_KEY_2...`);
+        response = await fetch(
+          `https://rest.gohighlevel.com/v1/contacts/${contactId}`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${legacyApiKey2}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+    }
+
+    if (!response.ok) {
+      console.log(`V1 API returned ${response.status} for contact ${contactId}`);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    // Log the FULL V1 response to understand the structure and find UTM data
+    console.log(`V1 API FULL RESPONSE for ${contactId}:`, JSON.stringify(data, null, 2));
+    
+    return data.contact || data || null;
+  } catch (err) {
+    console.error(`Error fetching contact V1 ${contactId}:`, err);
+    return null;
+  }
+}
+
+// Extract UTM campaign from V1 API response (different structure than V2)
+function extractScopeFromV1Contact(contact: any): string | null {
+  if (!contact) return null;
+  
+  // Log all top-level keys to understand structure
+  console.log(`V1 Contact keys: ${Object.keys(contact).join(', ')}`);
+  
+  // Check attributionSource (singular, V1 format)
+  if (contact.attributionSource?.utmCampaign) {
+    console.log(`Found utmCampaign in attributionSource: ${contact.attributionSource.utmCampaign}`);
+    return cleanCampaignName(contact.attributionSource.utmCampaign);
+  }
+  
+  // Check direct utmCampaign field
+  if (contact.utmCampaign) {
+    console.log(`Found direct utmCampaign: ${contact.utmCampaign}`);
+    return cleanCampaignName(contact.utmCampaign);
+  }
+  
+  // Check attributions (array, same as V2)
+  if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
+    const scope = extractScopeFromAttribution(contact.attributions);
+    if (scope) {
+      console.log(`Found scope from V1 attributions array: ${scope}`);
+      return scope;
+    }
+  }
+  
+  // Check source field for campaign info
+  if (contact.source && typeof contact.source === 'string') {
+    console.log(`V1 Contact source: ${contact.source}`);
+  }
+  
+  // Check customField array (V1 uses customField, not customFields)
+  if (contact.customField && Array.isArray(contact.customField)) {
+    console.log(`V1 customField array has ${contact.customField.length} fields`);
+    for (const field of contact.customField) {
+      console.log(`V1 customField: id=${field.id}, value=${field.value}`);
+      if (field.value && typeof field.value === 'string') {
+        // Check if field value looks like a campaign name
+        const lowerValue = field.value.toLowerCase();
+        if (lowerValue.includes('paver') || 
+            lowerValue.includes('turf') ||
+            lowerValue.includes('sale') ||
+            lowerValue.includes('deck') ||
+            lowerValue.includes('patio')) {
+          console.log(`Found potential scope in customField ${field.id}: ${field.value}`);
+          return field.value;
+        }
+      }
+    }
+  }
+  
+  // Check tags for campaign info
+  if (contact.tags && Array.isArray(contact.tags)) {
+    console.log(`V1 tags: ${contact.tags.join(', ')}`);
+    for (const tag of contact.tags) {
+      if (typeof tag === 'string') {
+        const lowerTag = tag.toLowerCase();
+        if (lowerTag.includes('paver') || 
+            lowerTag.includes('turf') ||
+            lowerTag.includes('campaign') ||
+            lowerTag.includes('sale')) {
+          console.log(`Found potential scope in tag: ${tag}`);
+          return tag;
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+// Clean campaign name by removing date prefixes and [Lead Gen] tags
+function cleanCampaignName(campaign: string): string {
+  if (!campaign) return campaign;
+  
+  // Handle format: "Product Name | Price | Date" -> extract "Product Name"
+  if (campaign.includes('|')) {
+    const parts = campaign.split('|');
+    const productName = parts[0].trim();
+    if (productName) {
+      return productName;
+    }
+  }
+  
+  // Remove (Lead Gen) or [Lead Gen] prefix
+  let clean = campaign
+    .replace(/^\(Lead Gen\)\s*/i, '')
+    .replace(/^\[Lead Gen\]\s*/i, '');
+  
+  // Remove date prefix like "2025/12/18 "
+  clean = clean.replace(/^\d{4}\/\d{2}\/\d{2}\s*/, '').trim();
+  
+  // Remove [Lead Gen] or (Lead Gen) after date
+  clean = clean
+    .replace(/^\(Lead Gen\)\s*/i, '')
+    .replace(/^\[Lead Gen\]\s*/i, '')
+    .trim();
+  
+  return clean || campaign;
 }
 
 // Fetch recent appointments
@@ -465,6 +621,8 @@ serve(async (req) => {
       const contactAddresses = new Map<string, string>();
 
       const contactsToUpsert: any[] = [];
+      const GHL_LOCATION_2_ID = 'XYDIgpHivVWHii65sId5'; // Results Grow - needs V1 API for UTM data
+      
       for (const contactId of allContactsToFetch) {
         const contact = await fetchContact(apiKey, contactId);
         if (contact) {
@@ -499,10 +657,28 @@ serve(async (req) => {
             attributions: contact.attributions || null,
             last_synced_at: syncTimestamp,
           });
-          // Store attributions for scope extraction
-          if (contact.attributions) {
+          
+          // Store attributions for scope extraction from V2 API
+          if (contact.attributions && Array.isArray(contact.attributions) && contact.attributions.length > 0) {
             contactAttributions.set(contact.id, contact.attributions);
+          } else if (integration.location_id === GHL_LOCATION_2_ID) {
+            // For Location 2 contacts without attributions, try V1 API to get UTM campaign data
+            console.log(`Contact ${contactId} (${displayName}) has no attributions, trying V1 API...`);
+            const v1Contact = await fetchContactV1(apiKey, contactId);
+            if (v1Contact) {
+              const scopeFromV1 = extractScopeFromV1Contact(v1Contact);
+              if (scopeFromV1) {
+                console.log(`Found scope from V1 API for ${contactId}: "${scopeFromV1}"`);
+                // Store as synthetic attribution for scope extraction
+                contactAttributions.set(contactId, [{ 
+                  utmCampaign: scopeFromV1, 
+                  source: 'v1_api',
+                  medium: 'facebook' 
+                }]);
+              }
+            }
           }
+          
           if (displayName) {
             contactDisplayNames.set(contact.id, displayName);
           }
