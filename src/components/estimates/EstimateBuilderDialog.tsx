@@ -1856,13 +1856,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                       // So: newMarkup = ((currentSubtotal * scaleFactor / totalCost) - 1) * 100
                                       const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
                                       
-                                      // Calculate the new subtotal and tax after markup change
+                                      // Calculate the new subtotal and tax using ROUNDED values (matches what will be stored)
                                       let newSubtotal = 0;
                                       let newTaxableAmount = 0;
                                       groups.forEach(g => {
                                         g.items.forEach(item => {
-                                          const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
-                                          const newLineTotal = item.quantity * newUnitPrice;
+                                          const newUnitPrice = Math.round(item.cost * (1 + newMarkupPercent / 100) * 100) / 100;
+                                          const newLineTotal = Math.round(item.quantity * newUnitPrice * 100) / 100;
                                           newSubtotal += newLineTotal;
                                           if (item.is_taxable) {
                                             newTaxableAmount += newLineTotal;
@@ -1872,7 +1872,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                       const newTaxAmount = (newTaxableAmount * formData.tax_rate) / 100;
                                       const newPreDiscountTotal = newSubtotal + newTaxAmount;
                                       
-                                      // Calculate exact discount needed to hit the desired final price
+                                      // Calculate exact discount needed - keep full decimal precision
                                       const requiredDiscount = Math.round((newPreDiscountTotal - finalPrice) * 100) / 100;
                                       
                                       // Update markup on all line items
@@ -1927,13 +1927,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                         const scaleFactor = targetPreDiscountTotal / currentPreDiscountTotal;
                                         const newMarkupPercent = ((totals.subtotal * scaleFactor / totals.totalCost) - 1) * 100;
                                         
-                                        // Calculate the new subtotal and tax after markup change
+                                        // Calculate using ROUNDED values to match stored data
                                         let newSubtotal = 0;
                                         let newTaxableAmount = 0;
                                         groups.forEach(g => {
                                           g.items.forEach(item => {
-                                            const newUnitPrice = item.cost * (1 + newMarkupPercent / 100);
-                                            const newLineTotal = item.quantity * newUnitPrice;
+                                            const newUnitPrice = Math.round(item.cost * (1 + newMarkupPercent / 100) * 100) / 100;
+                                            const newLineTotal = Math.round(item.quantity * newUnitPrice * 100) / 100;
                                             newSubtotal += newLineTotal;
                                             if (item.is_taxable) {
                                               newTaxableAmount += newLineTotal;
