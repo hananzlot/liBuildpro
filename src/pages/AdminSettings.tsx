@@ -24,6 +24,7 @@ import { LogoUpload } from "@/components/admin/LogoUpload";
 import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager";
 import { AIAnalysisSettings } from "@/components/admin/AIAnalysisSettings";
 import { GHLFieldMappings } from "@/components/admin/GHLFieldMappings";
+import { GoogleCalendarManager } from "@/components/admin/GoogleCalendarManager";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { format } from "date-fns";
@@ -1363,6 +1364,9 @@ export default function AdminSettings() {
             </Card>
 
             <AIAnalysisSettings />
+            
+            {/* Google Calendar Connections */}
+            <GoogleCalendarManager />
           </TabsContent>
 
           {/* Emails Tab */}
