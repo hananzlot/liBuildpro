@@ -65,6 +65,14 @@ interface GHLCalendar {
   team_members: string[];
 }
 
+interface GoogleCalendarConnection {
+  id: string;
+  calendar_id: string;
+  calendar_name: string;
+  is_company_calendar: boolean;
+  is_active: boolean;
+}
+
 
 const PRIMARY_LOCATION_ID = "pVeFrqvtYWNIPRIi0Fmr";
 
@@ -98,6 +106,7 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   // Calendar state
   const [calendars, setCalendars] = useState<GHLCalendar[]>([]);
   const [selectedCalendar, setSelectedCalendar] = useState("");
+  const [googleCalendar, setGoogleCalendar] = useState<GoogleCalendarConnection | null>(null);
 
   // Available sources state
   const [availableSources, setAvailableSources] = useState<string[]>([]);
@@ -235,10 +244,28 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     fetchPipelineStages();
   }, [open, companyId]);
 
-  // Fetch active calendars on mount scoped by company
+  // Fetch company Google Calendar first, fallback to GHL calendars
   useEffect(() => {
     if (!companyId) return;
     const fetchCalendars = async () => {
+      // First try to get a company Google Calendar
+      const { data: googleData } = await supabase
+        .from("google_calendar_connections")
+        .select("id, calendar_id, calendar_name, is_company_calendar, is_active")
+        .eq("company_id", companyId)
+        .eq("is_company_calendar", true)
+        .eq("is_active", true)
+        .limit(1);
+
+      if (googleData && googleData.length > 0) {
+        setGoogleCalendar(googleData[0] as GoogleCalendarConnection);
+        // Clear GHL calendars since we're using Google
+        setCalendars([]);
+        return;
+      }
+
+      // Fallback to GHL calendars if no Google Calendar
+      setGoogleCalendar(null);
       const { data } = await supabase
         .from("ghl_calendars")
         .select("ghl_id, name, is_active, team_members")
@@ -310,10 +337,10 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
     }
   }, [assignedTo, calendars]);
 
-  // Check if there are active calendars available
+  // Check if there are active calendars available (Google or GHL)
   const hasActiveCalendars = useMemo(() => {
-    return calendars.length > 0;
-  }, [calendars]);
+    return googleCalendar !== null || calendars.length > 0;
+  }, [googleCalendar, calendars]);
 
   // Get unique pipelines and stages for current pipeline
   const uniquePipelines = pipelineStages.reduce((acc: { id: string; name: string }[], curr) => {
@@ -430,7 +457,8 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
           enteredBy: userId || null,
           pipelineId: selectedPipeline || null,
           pipelineStageId: selectedStage || null,
-          calendarId: selectedCalendar || null,
+          calendarId: googleCalendar ? googleCalendar.id : (selectedCalendar || null),
+          googleCalendarId: googleCalendar ? googleCalendar.calendar_id : null,
           skipGHLAppointmentSync: true, // Default to local-only appointments
           locationId: PRIMARY_LOCATION_ID,
           companyId: companyId,
@@ -880,15 +908,21 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
                 </div>
               </div>
 
-              {/* Calendar selector and warning */}
+              {/* Calendar info - auto-selected for Google, selector for GHL */}
               {assignedTo && (
                 <div className="space-y-2">
-                  <Label htmlFor="calendar">Calendar *</Label>
-                  {!hasActiveCalendars ? (
+                  <Label htmlFor="calendar">Calendar</Label>
+                  {googleCalendar ? (
+                    <div className="flex items-center gap-2 p-3 rounded-md bg-muted border">
+                      <span className="text-sm text-muted-foreground">
+                        Using: <span className="font-medium text-foreground">{googleCalendar.calendar_name}</span>
+                      </span>
+                    </div>
+                  ) : !hasActiveCalendars ? (
                     <div className="flex items-center gap-2 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/30 text-yellow-600 dark:text-yellow-400">
                       <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                       <span className="text-sm">
-                        No active calendars available. Please activate a calendar in GHL.
+                        No active calendars available. Connect a Google Calendar in Admin Settings.
                       </span>
                     </div>
                   ) : (
