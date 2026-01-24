@@ -464,7 +464,7 @@ export function AppointmentEditDialog({
           {/* Local only indicator */}
           <div className="pt-2 border-t border-border/50">
             <p className="text-xs text-muted-foreground">
-              {appointment.ghl_id.startsWith("local_") 
+              {appointment.ghl_id?.startsWith("local_") 
                 ? "✓ Local-only appointment (not synced to GHL)"
                 : "Synced to GHL"}
             </p>
