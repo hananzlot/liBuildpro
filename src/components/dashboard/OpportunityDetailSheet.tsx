@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle, FolderOpen, Trophy } from "lucide-react";
+import { DollarSign, User, Target, Calendar, Clock, FileText, MapPin, Phone, Mail, Briefcase, Megaphone, Pencil, Save, X, Loader2, MessageSquare, RefreshCw, Send, CheckSquare, Plus, Trash2, Check, ExternalLink, ChevronDown, Copy, Receipt, AlertTriangle, FolderOpen, Trophy, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { OpportunitySalesDialog } from "./OpportunitySalesDialog";
 import { AppointmentEditDialog } from "./AppointmentEditDialog";
 import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
+import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 import type { LinkedOpportunity } from "@/components/estimates/EstimateSourceDialog";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
@@ -316,6 +317,9 @@ export function OpportunityDetailSheet({
 
   // Estimate builder dialog state
   const [estimateBuilderOpen, setEstimateBuilderOpen] = useState(false);
+  
+  // Estimate preview dialog state
+  const [previewEstimateId, setPreviewEstimateId] = useState<string | null>(null);
 
   // Reset saved values only when sheet opens fresh (was closed, now open)
   useEffect(() => {
@@ -2814,9 +2818,10 @@ export function OpportunityDetailSheet({
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={() => navigate(`/estimates?view=list&highlight=${est.id}`)}
+                              onClick={() => setPreviewEstimateId(est.id)}
+                              title={est.status === 'accepted' ? "Preview Contract" : "Preview Proposal"}
                             >
-                              <ExternalLink className="h-3 w-3" />
+                              <Eye className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
@@ -3071,5 +3076,12 @@ export function OpportunityDetailSheet({
           }}
         />
       )}
+
+      {/* Estimate Preview Dialog */}
+      <EstimatePreviewDialog
+        estimateId={previewEstimateId}
+        open={!!previewEstimateId}
+        onOpenChange={(open) => !open && setPreviewEstimateId(null)}
+      />
     </Sheet>;
 }
