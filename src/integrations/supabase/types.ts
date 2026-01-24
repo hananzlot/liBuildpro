@@ -192,6 +192,8 @@ export type Database = {
           ghl_date_added: string | null
           ghl_date_updated: string | null
           ghl_id: string | null
+          google_calendar_id: string | null
+          google_event_id: string | null
           id: string
           last_synced_at: string | null
           location_id: string
@@ -200,6 +202,9 @@ export type Database = {
           salesperson_confirmed: boolean
           salesperson_confirmed_at: string | null
           start_time: string | null
+          sync_source:
+            | Database["public"]["Enums"]["appointment_sync_source"]
+            | null
           title: string | null
           updated_at: string
         }
@@ -220,6 +225,8 @@ export type Database = {
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
           ghl_id?: string | null
+          google_calendar_id?: string | null
+          google_event_id?: string | null
           id?: string
           last_synced_at?: string | null
           location_id: string
@@ -228,6 +235,9 @@ export type Database = {
           salesperson_confirmed?: boolean
           salesperson_confirmed_at?: string | null
           start_time?: string | null
+          sync_source?:
+            | Database["public"]["Enums"]["appointment_sync_source"]
+            | null
           title?: string | null
           updated_at?: string
         }
@@ -248,6 +258,8 @@ export type Database = {
           ghl_date_added?: string | null
           ghl_date_updated?: string | null
           ghl_id?: string | null
+          google_calendar_id?: string | null
+          google_event_id?: string | null
           id?: string
           last_synced_at?: string | null
           location_id?: string
@@ -256,6 +268,9 @@ export type Database = {
           salesperson_confirmed?: boolean
           salesperson_confirmed_at?: string | null
           start_time?: string | null
+          sync_source?:
+            | Database["public"]["Enums"]["appointment_sync_source"]
+            | null
           title?: string | null
           updated_at?: string
         }
@@ -2500,6 +2515,71 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ghl_users_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_calendar_connections: {
+        Row: {
+          access_token_encrypted: string | null
+          calendar_email: string | null
+          calendar_id: string
+          calendar_name: string | null
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          is_company_calendar: boolean
+          last_sync_at: string | null
+          refresh_token_encrypted: string | null
+          sync_direction: Database["public"]["Enums"]["calendar_sync_direction"]
+          sync_error: string | null
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          calendar_email?: string | null
+          calendar_id: string
+          calendar_name?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_company_calendar?: boolean
+          last_sync_at?: string | null
+          refresh_token_encrypted?: string | null
+          sync_direction?: Database["public"]["Enums"]["calendar_sync_direction"]
+          sync_error?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          calendar_email?: string | null
+          calendar_id?: string
+          calendar_name?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          is_company_calendar?: boolean
+          last_sync_at?: string | null
+          refresh_token_encrypted?: string | null
+          sync_direction?: Database["public"]["Enums"]["calendar_sync_direction"]
+          sync_error?: string | null
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_connections_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -5159,6 +5239,14 @@ export type Database = {
         Args: { p_integration_id: string }
         Returns: string
       }
+      get_google_oauth_tokens: {
+        Args: { p_connection_id: string }
+        Returns: {
+          access_token: string
+          refresh_token: string
+          token_expires_at: string
+        }[]
+      }
       get_resend_api_key_encrypted: {
         Args: { p_company_id: string }
         Returns: string
@@ -5192,6 +5280,15 @@ export type Database = {
       }
       store_ghl_api_key_encrypted: {
         Args: { p_api_key: string; p_integration_id: string }
+        Returns: boolean
+      }
+      store_google_oauth_tokens: {
+        Args: {
+          p_access_token: string
+          p_connection_id: string
+          p_expires_at: string
+          p_refresh_token: string
+        }
         Returns: boolean
       }
       store_resend_api_key_encrypted: {
@@ -5229,7 +5326,9 @@ export type Database = {
         | "contract_manager"
         | "corp_admin"
         | "corp_viewer"
+      appointment_sync_source: "google" | "local" | "ghl"
       billing_cycle: "monthly" | "yearly"
+      calendar_sync_direction: "import" | "export" | "bidirectional"
       estimate_line_item_type:
         | "labor"
         | "material"
@@ -5390,7 +5489,9 @@ export const Constants = {
         "corp_admin",
         "corp_viewer",
       ],
+      appointment_sync_source: ["google", "local", "ghl"],
       billing_cycle: ["monthly", "yearly"],
+      calendar_sync_direction: ["import", "export", "bidirectional"],
       estimate_line_item_type: [
         "labor",
         "material",

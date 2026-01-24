@@ -140,3 +140,9 @@ verify_jwt = false
 
 [functions.store-resend-key]
 verify_jwt = false
+
+[functions.google-auth-callback]
+verify_jwt = false
+
+[functions.sync-google-calendar]
+verify_jwt = false
