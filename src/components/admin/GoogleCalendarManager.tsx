@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { CalendarFieldMappings } from "./CalendarFieldMappings";
 
 interface GoogleCalendarConnection {
   id: string;
@@ -205,10 +206,16 @@ export function GoogleCalendarManager() {
       if (result?.error) {
         toast.error(`Sync failed: ${result.error}`);
       } else {
-        toast.success(`Synced: ${result?.imported || 0} imported, ${result?.exported || 0} exported`);
+        const parts = [];
+        if (result?.imported) parts.push(`${result.imported} imported`);
+        if (result?.exported) parts.push(`${result.exported} exported`);
+        if (result?.leadsCreated) parts.push(`${result.leadsCreated} leads created`);
+        toast.success(`Synced: ${parts.length > 0 ? parts.join(', ') : 'No changes'}`);
       }
 
       queryClient.invalidateQueries({ queryKey: ['google-calendar-connections'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['ghl-contacts'] });
     } catch (error) {
       toast.error(`Sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
@@ -386,6 +393,9 @@ export function GoogleCalendarManager() {
           ))}
         </div>
       )}
+
+      {/* Field Mappings for creating opportunities from calendar events */}
+      {connections && connections.length > 0 && <CalendarFieldMappings />}
 
       <Card className="bg-muted/50">
         <CardContent className="pt-4">

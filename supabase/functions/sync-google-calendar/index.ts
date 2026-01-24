@@ -14,6 +14,8 @@ interface GoogleEvent {
   location?: string;
   status: string;
   updated: string;
+  organizer?: { email?: string; displayName?: string };
+  attendees?: { email?: string; displayName?: string; responseStatus?: string }[];
 }
 
 interface GoogleEventsResponse {
@@ -37,6 +39,21 @@ interface Appointment {
   end_time: string | null;
   google_event_id: string | null;
   updated_at: string;
+}
+
+interface FieldMapping {
+  google_field: string;
+  contact_field: string | null;
+  opportunity_field: string | null;
+}
+
+interface CalendarMappingSettings {
+  enabled: boolean;
+  create_contact: boolean;
+  create_opportunity: boolean;
+  default_pipeline_id: string | null;
+  default_stage_id: string | null;
+  mappings: FieldMapping[];
 }
 
 Deno.serve(async (req) => {
@@ -109,13 +126,17 @@ async function syncConnection(supabase: any, connection: CalendarConnection, dir
   }
 
   const syncDir = direction || connection.sync_direction || 'bidirectional';
-  let imported = 0, exported = 0;
+  let imported = 0, exported = 0, leadsCreated = 0;
 
-  if (syncDir === 'import' || syncDir === 'bidirectional') imported = await importFromGoogle(supabase, connection, access_token);
+  if (syncDir === 'import' || syncDir === 'bidirectional') {
+    const importResult = await importFromGoogle(supabase, connection, access_token);
+    imported = importResult.imported;
+    leadsCreated = importResult.leadsCreated;
+  }
   if (syncDir === 'export' || syncDir === 'bidirectional') exported = await exportToGoogle(supabase, connection, access_token);
 
   await supabase.from('google_calendar_connections').update({ last_sync_at: new Date().toISOString(), sync_error: null }).eq('id', connection.id);
-  return { imported, exported };
+  return { imported, exported, leadsCreated };
 }
 
 // deno-lint-ignore no-explicit-any
@@ -142,6 +163,153 @@ async function refreshAccessToken(supabase: any, connection: CalendarConnection,
 }
 
 // deno-lint-ignore no-explicit-any
+async function getMappingSettings(supabase: any, companyId: string): Promise<CalendarMappingSettings | null> {
+  const { data } = await supabase
+    .from('company_settings')
+    .select('setting_value')
+    .eq('company_id', companyId)
+    .eq('setting_key', 'calendar_opportunity_mappings')
+    .single();
+
+  if (!data?.setting_value) return null;
+  
+  try {
+    return JSON.parse(data.setting_value);
+  } catch {
+    return null;
+  }
+}
+
+function extractFieldValue(event: GoogleEvent, fieldName: string): string | null {
+  switch (fieldName) {
+    case 'summary':
+      return event.summary || null;
+    case 'description':
+      return event.description || null;
+    case 'location':
+      return event.location || null;
+    case 'organizer_email':
+      return event.organizer?.email || null;
+    case 'attendee_name':
+      return event.attendees?.[0]?.displayName || null;
+    case 'attendee_email':
+      return event.attendees?.[0]?.email || null;
+    default:
+      return null;
+  }
+}
+
+function generateLocalId(prefix: string): string {
+  return `local_${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+// deno-lint-ignore no-explicit-any
+async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection: CalendarConnection, settings: CalendarMappingSettings, appointmentId: string): Promise<boolean> {
+  console.log(`Creating lead from event: ${event.summary}`);
+  
+  // Build contact data from mappings
+  const contactData: Record<string, string | null> = {
+    first_name: null,
+    last_name: null,
+    contact_name: null,
+    email: null,
+    phone: null,
+  };
+
+  // Build opportunity data from mappings
+  const opportunityData: Record<string, string | null> = {
+    name: null,
+    scope_of_work: null,
+    address: null,
+    notes: null,
+  };
+
+  // Apply mappings
+  for (const mapping of settings.mappings) {
+    const value = extractFieldValue(event, mapping.google_field);
+    if (!value) continue;
+
+    if (mapping.contact_field && settings.create_contact) {
+      contactData[mapping.contact_field] = value;
+    }
+    if (mapping.opportunity_field && settings.create_opportunity) {
+      opportunityData[mapping.opportunity_field] = value;
+    }
+  }
+
+  // Set defaults if not mapped
+  if (!contactData.contact_name && (contactData.first_name || contactData.last_name)) {
+    contactData.contact_name = `${contactData.first_name || ''} ${contactData.last_name || ''}`.trim();
+  }
+  if (!contactData.contact_name && event.summary) {
+    contactData.contact_name = event.summary;
+  }
+  if (!opportunityData.name && contactData.contact_name) {
+    opportunityData.name = contactData.contact_name;
+  }
+  if (!opportunityData.name && event.summary) {
+    opportunityData.name = event.summary;
+  }
+
+  let contactId: string | null = null;
+
+  // Create contact if enabled
+  if (settings.create_contact && contactData.contact_name) {
+    contactId = generateLocalId('contact');
+    const { error: contactError } = await supabase.from('contacts').insert({
+      ghl_id: contactId,
+      location_id: 'google-calendar',
+      first_name: contactData.first_name,
+      last_name: contactData.last_name,
+      contact_name: contactData.contact_name,
+      email: contactData.email,
+      phone: contactData.phone,
+      source: 'Google Calendar',
+      ghl_date_added: new Date().toISOString(),
+      provider: 'google',
+      company_id: connection.company_id,
+    });
+
+    if (contactError) {
+      console.error('Error creating contact:', contactError);
+      return false;
+    }
+    console.log(`Created contact: ${contactId}`);
+
+    // Link appointment to contact
+    await supabase.from('appointments').update({ contact_id: contactId }).eq('id', appointmentId);
+  }
+
+  // Create opportunity if enabled
+  if (settings.create_opportunity && opportunityData.name) {
+    const opportunityId = generateLocalId('opp');
+    const { error: oppError } = await supabase.from('opportunities').insert({
+      ghl_id: opportunityId,
+      location_id: 'google-calendar',
+      contact_id: contactId,
+      name: opportunityData.name,
+      status: 'open',
+      pipeline_id: settings.default_pipeline_id,
+      pipeline_stage_id: settings.default_stage_id,
+      address: opportunityData.address || event.location,
+      scope_of_work: opportunityData.scope_of_work || event.description,
+      notes: opportunityData.notes,
+      ghl_date_added: new Date().toISOString(),
+      provider: 'google',
+      company_id: connection.company_id,
+    });
+
+    if (oppError) {
+      console.error('Error creating opportunity:', oppError);
+      return false;
+    }
+    console.log(`Created opportunity: ${opportunityId}`);
+  }
+
+  return true;
+}
+
+// deno-lint-ignore no-explicit-any
 async function importFromGoogle(supabase: any, connection: CalendarConnection, accessToken: string) {
   const timeMin = new Date(); timeMin.setDate(timeMin.getDate() - 30);
   const timeMax = new Date(); timeMax.setDate(timeMax.getDate() + 60);
@@ -153,22 +321,56 @@ async function importFromGoogle(supabase: any, connection: CalendarConnection, a
 
   const eventsData: GoogleEventsResponse = await response.json();
   let imported = 0;
+  let leadsCreated = 0;
+
+  // Get mapping settings
+  const mappingSettings = await getMappingSettings(supabase, connection.company_id);
+  console.log(`Mapping settings enabled: ${mappingSettings?.enabled}`);
 
   for (const event of eventsData.items || []) {
-    if (event.status === 'cancelled') { await supabase.from('appointments').delete().eq('google_event_id', event.id).eq('company_id', connection.company_id); continue; }
+    if (event.status === 'cancelled') { 
+      await supabase.from('appointments').delete().eq('google_event_id', event.id).eq('company_id', connection.company_id); 
+      continue; 
+    }
     const startTime = event.start?.dateTime || event.start?.date;
     if (!startTime) continue;
 
-    const { data: existing } = await supabase.from('appointments').select('id, updated_at').eq('google_event_id', event.id).eq('company_id', connection.company_id).single();
+    const { data: existing } = await supabase.from('appointments').select('id, updated_at, contact_id').eq('google_event_id', event.id).eq('company_id', connection.company_id).single();
     if (existing && new Date(existing.updated_at) > new Date(event.updated)) continue;
 
-    const appointmentData = { company_id: connection.company_id, google_event_id: event.id, google_calendar_id: connection.calendar_id, sync_source: 'google', title: event.summary || 'Untitled Event', notes: event.description || null, address: event.location || null, start_time: startTime, end_time: event.end?.dateTime || event.end?.date, location_id: 'google-calendar', updated_at: new Date().toISOString() };
+    const appointmentData = { 
+      company_id: connection.company_id, 
+      google_event_id: event.id, 
+      google_calendar_id: connection.calendar_id, 
+      sync_source: 'google', 
+      title: event.summary || 'Untitled Event', 
+      notes: event.description || null, 
+      address: event.location || null, 
+      start_time: startTime, 
+      end_time: event.end?.dateTime || event.end?.date, 
+      location_id: 'google-calendar', 
+      updated_at: new Date().toISOString() 
+    };
 
-    if (existing) await supabase.from('appointments').update(appointmentData).eq('id', existing.id);
-    else await supabase.from('appointments').insert(appointmentData);
+    let appointmentId: string;
+
+    if (existing) {
+      await supabase.from('appointments').update(appointmentData).eq('id', existing.id);
+      appointmentId = existing.id;
+    } else {
+      const { data: newAppt } = await supabase.from('appointments').insert(appointmentData).select('id').single();
+      appointmentId = newAppt?.id;
+      
+      // Create lead for NEW events only (not updates)
+      if (mappingSettings?.enabled && appointmentId) {
+        const created = await createLeadFromEvent(supabase, event, connection, mappingSettings, appointmentId);
+        if (created) leadsCreated++;
+      }
+    }
     imported++;
   }
-  return imported;
+  
+  return { imported, leadsCreated };
 }
 
 // deno-lint-ignore no-explicit-any
