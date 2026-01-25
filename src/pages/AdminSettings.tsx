@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar, Link2 } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -26,6 +26,7 @@ import { AIAnalysisSettings } from "@/components/admin/AIAnalysisSettings";
 import { GHLFieldMappings } from "@/components/admin/GHLFieldMappings";
 import { GoogleCalendarManager } from "@/components/admin/GoogleCalendarManager";
 import { useGHLMode } from "@/hooks/useGHLMode";
+import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { format } from "date-fns";
 import {
@@ -669,7 +670,7 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-11">
+          <TabsList className="grid w-full grid-cols-12">
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
@@ -693,6 +694,10 @@ export default function AdminSettings() {
             <TabsTrigger value="salespeople" className="flex items-center gap-2">
               <UserCheck className="h-4 w-4" />
               <span className="hidden sm:inline">Sales</span>
+            </TabsTrigger>
+            <TabsTrigger value="shortlinks" className="flex items-center gap-2">
+              <Link2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Links</span>
             </TabsTrigger>
             <TabsTrigger value="payables" className="flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
@@ -1614,6 +1619,11 @@ export default function AdminSettings() {
           {/* Salespeople Tab */}
           <TabsContent value="salespeople" className="mt-6">
             <SalespeopleManagement />
+          </TabsContent>
+
+          {/* Short Links Tab */}
+          <TabsContent value="shortlinks" className="mt-6">
+            <ShortLinksManager />
           </TabsContent>
 
           {/* Data Cleanup Tab */}
