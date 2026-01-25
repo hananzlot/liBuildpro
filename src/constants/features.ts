@@ -10,6 +10,7 @@ export const AVAILABLE_FEATURES = [
   { key: 'client_portal', label: 'Client Portal', category: 'Client' },
   { key: 'analytics', label: 'Advanced Analytics', category: 'Analytics' },
   { key: 'multi_location', label: 'Multi-Location', category: 'Advanced' },
+  { key: 'short_links', label: 'Short Links', category: 'Advanced' },
 ] as const;
 
 export type FeatureKey = typeof AVAILABLE_FEATURES[number]['key'];

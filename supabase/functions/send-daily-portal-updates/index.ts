@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { createPortalShortLink } from "../_shared/short-links.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -241,9 +242,14 @@ serve(async (req: Request) => {
       const companyName = projectSettings.company_name || "Capro Builders";
       const appBaseUrl = projectSettings.app_base_url || "https://crm.ca-probuilders.com";
 
-      // Send the email - use query parameter format for portal URL
-      const portalUrl = `${appBaseUrl}/portal?token=${portal.token}`;
+      // Send the email - use short link if feature is enabled
+      const longPortalUrl = `${appBaseUrl}/portal?token=${portal.token}`;
       const customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || portal.client_name || "Valued Customer";
+      
+      // Create short link if feature is enabled for this company
+      const portalUrl = project.company_id 
+        ? await createPortalShortLink(supabase, longPortalUrl, project.company_id, customerName, project.project_number)
+        : longPortalUrl;
 
       const htmlContent = `
         <!DOCTYPE html>

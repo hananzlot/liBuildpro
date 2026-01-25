@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { createPortalShortLink, isShortLinksEnabled } from "../_shared/short-links.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -306,13 +307,28 @@ serve(async (req) => {
 
       console.log(`Sending batch emails to ${recipients.length} recipients`);
 
+      // Check if short links are enabled for this company
+      const shortLinksEnabled = companyId ? await isShortLinksEnabled(supabase, companyId) : false;
+
       const results = [];
       for (let i = 0; i < recipients.length; i++) {
         const recipient = recipients[i];
+        
+        // Convert portal link to short link if enabled
+        let portalLink = recipient.portalLink;
+        if (shortLinksEnabled && companyId) {
+          portalLink = await createPortalShortLink(
+            supabase,
+            recipient.portalLink,
+            companyId,
+            recipient.name
+          );
+        }
+        
         const htmlContent = generateHtmlContent(
           recipient.name,
           message,
-          recipient.portalLink,
+          portalLink,
           subject,
           isReminder || false,
           { current: i + 1, total: totalSigners || recipients.length },
@@ -359,7 +375,16 @@ serve(async (req) => {
 
       console.log(`Sending ${isReminder ? 'reminder ' : ''}email to ${to} from ${fromName} <${fromEmail}>`);
 
-      const htmlContent = generateHtmlContent(customerName, message, portalLink, subject, isReminder || false, undefined, salespersonName);
+      // Convert portal link to short link if enabled
+      let finalPortalLink = portalLink;
+      if (companyId) {
+        const shortLinksEnabled = await isShortLinksEnabled(supabase, companyId);
+        if (shortLinksEnabled) {
+          finalPortalLink = await createPortalShortLink(supabase, portalLink, companyId, customerName);
+        }
+      }
+
+      const htmlContent = generateHtmlContent(customerName, message, finalPortalLink, subject, isReminder || false, undefined, salespersonName);
       const result = await sendEmailWithRetry(to, subject, htmlContent);
 
       if (!result.success) {

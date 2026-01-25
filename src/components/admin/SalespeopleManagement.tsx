@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useShortLinks } from '@/hooks/useShortLinks';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +68,7 @@ export function SalespeopleManagement() {
   const queryClient = useQueryClient();
   const { companyId } = useCompanyContext();
   const { user } = useAuth();
+  const { createSalespersonCalendarShortLink, isShortLinksEnabled } = useShortLinks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
@@ -265,7 +267,11 @@ export function SalespeopleManagement() {
       if (existingToken) {
         // Copy existing link using company base URL
         const baseUrl = companyBaseUrl || window.location.origin;
-        const url = `${baseUrl}/salesperson-calendar/${existingToken.token}`;
+        const longUrl = `${baseUrl}/salesperson-calendar/${existingToken.token}`;
+        // Use short link if feature is enabled
+        const url = isShortLinksEnabled 
+          ? await createSalespersonCalendarShortLink(longUrl, salesperson.name)
+          : longUrl;
         await navigator.clipboard.writeText(url);
         setCopiedId(salesperson.id);
         setTimeout(() => setCopiedId(null), 2000);
@@ -287,7 +293,11 @@ export function SalespeopleManagement() {
       if (error) throw error;
 
       const baseUrl = companyBaseUrl || window.location.origin;
-      const url = `${baseUrl}/salesperson-calendar/${data.token}`;
+      const longUrl = `${baseUrl}/salesperson-calendar/${data.token}`;
+      // Use short link if feature is enabled
+      const url = isShortLinksEnabled 
+        ? await createSalespersonCalendarShortLink(longUrl, salesperson.name)
+        : longUrl;
       await navigator.clipboard.writeText(url);
       setCopiedId(salesperson.id);
       setTimeout(() => setCopiedId(null), 2000);
