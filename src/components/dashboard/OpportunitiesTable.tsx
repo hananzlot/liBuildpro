@@ -841,6 +841,16 @@ export function OpportunitiesTable({
                   const notePreview = latestNote?.body 
                     ? latestNote.body.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().slice(0, 50) + (latestNote.body.length > 50 ? '...' : '')
                     : null;
+                  
+                  // Determine display name: prefer contact_name if opportunity name looks invalid
+                  const isInvalidOppName = !opp.name || 
+                    opp.name.includes('@') || 
+                    opp.name.startsWith('(') || 
+                    opp.name.toLowerCase() === 'decline' ||
+                    opp.name.toLowerCase() === '(decline)';
+                  const displayName = isInvalidOppName && contact?.contact_name 
+                    ? contact.contact_name 
+                    : (opp.name || contact?.contact_name || "Unnamed");
 
                   return (
                     <TableRow
@@ -859,7 +869,7 @@ export function OpportunitiesTable({
                               <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                             </span>
                           )}
-                          <span>{opp.name || "Unnamed"}</span>
+                          <span>{displayName}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
