@@ -303,6 +303,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_appointments_contact_uuid"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
         ]
       }
       audit_logs: {
@@ -1108,6 +1115,13 @@ export type Database = {
             columns: ["entered_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_contact_notes_contact_uuid"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
             referencedColumns: ["id"]
           },
         ]
@@ -2230,6 +2244,13 @@ export type Database = {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_estimates_contact_uuid"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ghl_calendars: {
@@ -2433,6 +2454,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_ghl_tasks_contact_uuid"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ghl_tasks_company_id_fkey"
             columns: ["company_id"]
@@ -2942,6 +2970,13 @@ export type Database = {
           won_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_opportunities_contact_uuid"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "opportunities_company_id_fkey"
             columns: ["company_id"]
@@ -4614,6 +4649,20 @@ export type Database = {
           utility?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_projects_contact_uuid"
+            columns: ["contact_uuid"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_projects_opportunity_uuid"
+            columns: ["opportunity_uuid"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_company_id_fkey"
             columns: ["company_id"]
