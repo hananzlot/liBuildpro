@@ -429,29 +429,6 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
     }
   }
 
-  // Parse description patterns if enabled (overrides event field mappings)
-  if (settings.parse_description && event.description && settings.description_patterns?.length) {
-    const parsed = parseDescriptionFields(
-      event.description,
-      settings.description_patterns,
-      settings.combine_address_fields ?? true
-    );
-    
-    // Apply parsed contact data
-    for (const [field, value] of Object.entries(parsed.contactData)) {
-      if (value && settings.create_contact) {
-        contactData[field] = value;
-      }
-    }
-    
-    // Apply parsed opportunity data
-    for (const [field, value] of Object.entries(parsed.opportunityData)) {
-      if (value && settings.create_opportunity) {
-        opportunityData[field] = value;
-      }
-    }
-  }
-
   // Helper to check if a string is an invalid name (email-like, response status, etc.)
   const isInvalidName = (name: string | null): boolean => {
     if (!name) return true;
@@ -472,32 +449,87 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
     );
   };
 
-  // Set defaults if not mapped
-  if (!contactData.contact_name && (contactData.first_name || contactData.last_name)) {
-    contactData.contact_name = `${contactData.first_name || ''} ${contactData.last_name || ''}`.trim();
+  // Track if name was explicitly parsed from description (highest priority)
+  let nameWasParsedFromDescription = false;
+
+  // Parse description patterns if enabled (overrides event field mappings)
+  if (settings.parse_description && event.description && settings.description_patterns?.length) {
+    const parsed = parseDescriptionFields(
+      event.description,
+      settings.description_patterns,
+      settings.combine_address_fields ?? true
+    );
+    
+    // Apply parsed contact data
+    for (const [field, value] of Object.entries(parsed.contactData)) {
+      if (value && settings.create_contact) {
+        contactData[field] = value;
+        if (field === 'contact_name' && !isInvalidName(value)) {
+          console.log(`Parsed contact_name from description: "${value}"`);
+        }
+      }
+    }
+    
+    // Apply parsed opportunity data
+    for (const [field, value] of Object.entries(parsed.opportunityData)) {
+      if (value && settings.create_opportunity) {
+        opportunityData[field] = value;
+        // Track if opportunity name was explicitly parsed and is valid
+        if (field === 'name' && !isInvalidName(value)) {
+          nameWasParsedFromDescription = true;
+          console.log(`Parsed opportunity name from description NAME: field: "${value}"`);
+        }
+      }
+    }
   }
-  // Only use event.summary as fallback if it's a valid name
-  if (!contactData.contact_name && event.summary && !isInvalidName(event.summary)) {
-    contactData.contact_name = event.summary;
+
+  // ONLY apply fallback logic if name wasn't explicitly parsed from description
+  if (!nameWasParsedFromDescription) {
+    console.log(`Name not parsed from description, applying fallback logic...`);
+    
+    // Set defaults if not mapped
+    if (!contactData.contact_name && (contactData.first_name || contactData.last_name)) {
+      contactData.contact_name = `${contactData.first_name || ''} ${contactData.last_name || ''}`.trim();
+    }
+    // Only use event.summary as fallback if it's a valid name
+    if (!contactData.contact_name && event.summary && !isInvalidName(event.summary)) {
+      contactData.contact_name = event.summary;
+      console.log(`Fallback: Using event.summary for contact_name: "${event.summary}"`);
+    }
+    // If still no contact name, try attendee display name
+    if (!contactData.contact_name && event.attendees?.[0]?.displayName && !isInvalidName(event.attendees[0].displayName)) {
+      contactData.contact_name = event.attendees[0].displayName;
+      console.log(`Fallback: Using attendee displayName for contact_name: "${event.attendees[0].displayName}"`);
+    }
+    
+    if (!opportunityData.name && contactData.contact_name && !isInvalidName(contactData.contact_name)) {
+      opportunityData.name = contactData.contact_name;
+      console.log(`Fallback: Using contact_name for opportunity name: "${contactData.contact_name}"`);
+    }
+    // Use summary only if valid
+    if (!opportunityData.name && event.summary && !isInvalidName(event.summary)) {
+      opportunityData.name = event.summary;
+      console.log(`Fallback: Using event.summary for opportunity name: "${event.summary}"`);
+    }
+    // Last resort: generate a placeholder name with date
+    if (!opportunityData.name || isInvalidName(opportunityData.name)) {
+      const eventDate = event.start?.dateTime || event.start?.date || new Date().toISOString();
+      opportunityData.name = `Calendar Lead - ${new Date(eventDate).toLocaleDateString()}`;
+      console.log(`Generated fallback opportunity name: ${opportunityData.name}`);
+    }
+  } else {
+    // Name was parsed - but still set contact_name from parsed data if needed
+    if (!contactData.contact_name && (contactData.first_name || contactData.last_name)) {
+      contactData.contact_name = `${contactData.first_name || ''} ${contactData.last_name || ''}`.trim();
+    }
+    // If contact_name wasn't parsed but opportunity name was, use opportunity name for contact
+    if (!contactData.contact_name && opportunityData.name && !isInvalidName(opportunityData.name)) {
+      contactData.contact_name = opportunityData.name;
+      console.log(`Using parsed opportunity name for contact_name: "${opportunityData.name}"`);
+    }
   }
-  // If still no contact name, try attendee display name
-  if (!contactData.contact_name && event.attendees?.[0]?.displayName && !isInvalidName(event.attendees[0].displayName)) {
-    contactData.contact_name = event.attendees[0].displayName;
-  }
-  
-  if (!opportunityData.name && contactData.contact_name && !isInvalidName(contactData.contact_name)) {
-    opportunityData.name = contactData.contact_name;
-  }
-  // Use summary only if valid, otherwise try to create from attendee info
-  if (!opportunityData.name && event.summary && !isInvalidName(event.summary)) {
-    opportunityData.name = event.summary;
-  }
-  // Last resort: generate a placeholder name with date
-  if (!opportunityData.name || isInvalidName(opportunityData.name)) {
-    const eventDate = event.start?.dateTime || event.start?.date || new Date().toISOString();
-    opportunityData.name = `Calendar Lead - ${new Date(eventDate).toLocaleDateString()}`;
-    console.log(`Generated fallback opportunity name: ${opportunityData.name}`);
-  }
+
+  console.log(`Final opportunity name: "${opportunityData.name}" (from description: ${nameWasParsedFromDescription})`);
 
   let contactId: string | null = null;
 
