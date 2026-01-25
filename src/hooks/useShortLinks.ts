@@ -112,15 +112,16 @@ export function useShortLinks() {
       return calendarUrl;
     }
 
-    // Generate a meaningful alias from salesperson name
+    // Generate a meaningful alias from salesperson name with random suffix to avoid collisions
     let alias: string | undefined;
     if (salespersonName) {
       const cleanName = salespersonName
         .toLowerCase()
         .replace(/[^a-z0-9\s-]/g, '')
         .replace(/\s+/g, '-')
-        .substring(0, 25);
-      alias = `cal-${cleanName}`;
+        .substring(0, 20);
+      // Add a short random suffix to avoid collisions when regenerating
+      alias = `cal-${cleanName}-${Date.now().toString(36).slice(-4)}`;
     }
 
     return createShortLink({
