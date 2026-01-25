@@ -271,21 +271,32 @@ Deno.serve(async (req) => {
 
     const userId = claims.claims.sub as string;
 
-    // Get user's company from profile
+    // Get user's company from profile OR from request body (for super admins)
     const { data: profile, error: profileError } = await supabaseUser
       .from("profiles")
       .select("company_id")
       .eq("id", userId)
       .single();
 
-    if (profileError || !profile?.company_id) {
-      return new Response(JSON.stringify({ error: "User profile or company not found" }), {
+    if (profileError) {
+      console.error("Profile lookup error:", profileError);
+      return new Response(JSON.stringify({ error: "User profile not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    companyId = profile.company_id;
+    // Use company_id from request body if provided (for super admins), otherwise from profile
+    const requestCompanyId = body.company_id;
+    companyId = requestCompanyId || profile?.company_id;
+
+    if (!companyId) {
+      return new Response(JSON.stringify({ error: "Company context required. Super admins must select a company." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     createdByType = "internal_user";
     createdById = userId;
 

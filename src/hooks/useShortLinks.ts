@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 
 interface CreateShortLinkParams {
   longUrl: string;
@@ -22,6 +23,7 @@ interface ShortLinkResult {
  */
 export function useShortLinks() {
   const { canUseFeature } = useAuth();
+  const { companyId } = useCompanyContext();
   
   const isShortLinksEnabled = canUseFeature('short_links');
 
@@ -48,6 +50,7 @@ export function useShortLinks() {
           custom_alias: customAlias,
           expires_at: expiresAt,
           max_clicks: maxClicks,
+          company_id: companyId, // Pass company context for super admins
         },
       });
 
@@ -61,7 +64,7 @@ export function useShortLinks() {
       console.warn('Error creating short link, using long URL:', err);
       return longUrl;
     }
-  }, [isShortLinksEnabled]);
+  }, [isShortLinksEnabled, companyId]);
 
   /**
    * Generates a meaningful short link for customer portal.
