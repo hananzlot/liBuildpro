@@ -2875,6 +2875,7 @@ export type Database = {
           pipeline_id: string | null
           pipeline_name: string | null
           pipeline_stage_id: string | null
+          proposal_link: string | null
           provider: string | null
           scope_of_work: string | null
           stage_name: string | null
@@ -2903,6 +2904,7 @@ export type Database = {
           pipeline_id?: string | null
           pipeline_name?: string | null
           pipeline_stage_id?: string | null
+          proposal_link?: string | null
           provider?: string | null
           scope_of_work?: string | null
           stage_name?: string | null
@@ -2931,6 +2933,7 @@ export type Database = {
           pipeline_id?: string | null
           pipeline_name?: string | null
           pipeline_stage_id?: string | null
+          proposal_link?: string | null
           provider?: string | null
           scope_of_work?: string | null
           stage_name?: string | null
