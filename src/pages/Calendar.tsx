@@ -1,12 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar as CalendarIcon, Clock, User, Search, Loader2, Phone, List, CalendarDays } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, User, Search, Loader2, Phone, List, CalendarDays, Plus, MapPin } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -119,6 +121,7 @@ interface CalendarViewProps {
   onMonthChange: (date: Date) => void;
   onAppointmentClick: (appt: DBAppointment) => void;
   onReschedule: (appt: DBAppointment, newDate: Date, newTime: string) => Promise<void>;
+  onCreateAppointment: (date: Date) => void;
   capitalizeWords: (str: string) => string;
   getStatusColor: (status: string | null) => string;
   normalizeStatus: (status: string | null) => string;
@@ -133,6 +136,7 @@ function CalendarView({
   onMonthChange,
   onAppointmentClick,
   onReschedule,
+  onCreateAppointment,
   capitalizeWords,
   getStatusColor,
   normalizeStatus,
@@ -384,14 +388,35 @@ function CalendarView({
                 <h4 className="font-medium">{format(selectedDate, "EEEE, MMM d")}</h4>
                 <p className="text-xs text-muted-foreground">{selectedDateAppointments.length} appointment{selectedDateAppointments.length !== 1 ? 's' : ''}</p>
               </div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedDate(null)}>
-                ✕
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => onCreateAppointment(selectedDate)}
+                  className="h-8"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  New
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedDate(null)}>
+                  ✕
+                </Button>
+              </div>
             </div>
             <ScrollArea className="flex-1">
               <div className="p-2 space-y-2">
                 {selectedDateAppointments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No appointments</p>
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground mb-3">No appointments</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onCreateAppointment(selectedDate)}
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Add Appointment
+                    </Button>
+                  </div>
                 ) : (
                   selectedDateAppointments.map((appt) => {
                     const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
@@ -527,6 +552,18 @@ const Calendar = () => {
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isRescheduling, setIsRescheduling] = useState(false);
+
+  // New appointment dialog state
+  const [newApptDialogOpen, setNewApptDialogOpen] = useState(false);
+  const [newApptDate, setNewApptDate] = useState<Date | null>(null);
+  const [newApptTime, setNewApptTime] = useState("09:00");
+  const [newApptTitle, setNewApptTitle] = useState("");
+  const [newApptContactName, setNewApptContactName] = useState("");
+  const [newApptPhone, setNewApptPhone] = useState("");
+  const [newApptAddress, setNewApptAddress] = useState("");
+  const [newApptNotes, setNewApptNotes] = useState("");
+  const [newApptAssignedTo, setNewApptAssignedTo] = useState<string>("");
+  const [isCreatingAppt, setIsCreatingAppt] = useState(false);
 
   const {
     data: metrics,
@@ -788,6 +825,77 @@ const Calendar = () => {
     }
   };
 
+  // Handle opening new appointment dialog
+  const handleOpenNewAppointment = (date: Date) => {
+    setNewApptDate(date);
+    setNewApptTime("09:00");
+    setNewApptTitle("");
+    setNewApptContactName("");
+    setNewApptPhone("");
+    setNewApptAddress("");
+    setNewApptNotes("");
+    setNewApptAssignedTo("");
+    setNewApptDialogOpen(true);
+  };
+
+  // Handle creating new appointment
+  const handleCreateAppointment = async () => {
+    if (!newApptDate || !newApptContactName.trim()) {
+      toast.error("Please enter a contact name");
+      return;
+    }
+
+    setIsCreatingAppt(true);
+    try {
+      // Parse time and create start/end dates
+      const [hours, minutes] = newApptTime.split(":").map(Number);
+      const startTime = new Date(newApptDate);
+      startTime.setHours(hours, minutes, 0, 0);
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour duration
+
+      const title = newApptTitle.trim() || `Appointment - ${newApptContactName.trim()}`;
+
+      // Get the primary location ID from company integrations
+      const { data: integrations } = await supabase
+        .from("company_integrations")
+        .select("location_id")
+        .eq("company_id", companyId)
+        .eq("is_primary", true)
+        .limit(1);
+
+      const locationId = integrations?.[0]?.location_id || "default";
+
+      // Create contact and appointment via edge function
+      const { data, error: createError } = await supabase.functions.invoke("create-ghl-entry", {
+        body: {
+          firstName: newApptContactName.trim().split(" ")[0] || newApptContactName.trim(),
+          lastName: newApptContactName.trim().split(" ").slice(1).join(" ") || "",
+          phone: newApptPhone.trim() || null,
+          address: newApptAddress.trim() || null,
+          notes: newApptNotes.trim() || null,
+          appointmentDateTime: startTime.toISOString(),
+          assignedTo: newApptAssignedTo || null,
+          enteredBy: user?.id || null,
+          skipGHLAppointmentSync: true,
+          locationId,
+          companyId,
+        },
+      });
+
+      if (createError) throw createError;
+
+      queryClient.invalidateQueries({ queryKey: ["ghl-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      toast.success(`Appointment created for ${format(startTime, "MMM d 'at' h:mm a")}`);
+      setNewApptDialogOpen(false);
+    } catch (error) {
+      console.error("Error creating appointment:", error);
+      toast.error("Failed to create appointment");
+    } finally {
+      setIsCreatingAppt(false);
+    }
+  };
+
   const todayCount = todayAndUpcomingAppointments.filter((a: DBAppointment) => isToday(new Date(a.start_time!))).length;
   const upcomingCount = todayAndUpcomingAppointments.filter((a: DBAppointment) => !isToday(new Date(a.start_time!))).length;
 
@@ -909,6 +1017,7 @@ const Calendar = () => {
             onMonthChange={setCurrentMonth}
             onAppointmentClick={handleAppointmentClick}
             onReschedule={handleReschedule}
+            onCreateAppointment={handleOpenNewAppointment}
             capitalizeWords={capitalizeWords}
             getStatusColor={getStatusColor}
             normalizeStatus={normalizeStatus}
@@ -999,6 +1108,129 @@ const Calendar = () => {
         appointments={appointments}
         onRefresh={() => refetch()}
       />
+
+      {/* New Appointment Dialog */}
+      <Dialog open={newApptDialogOpen} onOpenChange={setNewApptDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" />
+              New Appointment
+            </DialogTitle>
+            <DialogDescription>
+              {newApptDate && (
+                <>Create an appointment for <span className="font-medium">{format(newApptDate, "EEEE, MMMM d, yyyy")}</span></>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Contact Name */}
+            <div className="space-y-2">
+              <Label htmlFor="contact-name">Contact Name *</Label>
+              <Input
+                id="contact-name"
+                placeholder="John Doe"
+                value={newApptContactName}
+                onChange={(e) => setNewApptContactName(e.target.value)}
+              />
+            </div>
+
+            {/* Phone */}
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="(555) 123-4567"
+                value={newApptPhone}
+                onChange={(e) => setNewApptPhone(e.target.value)}
+              />
+            </div>
+
+            {/* Time */}
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Select value={newApptTime} onValueChange={setNewApptTime}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 bg-popover">
+                  {TIME_SLOTS.map((slot) => (
+                    <SelectItem key={slot} value={slot}>
+                      {format(new Date(`2000-01-01T${slot}:00`), "h:mm a")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Assigned To */}
+            <div className="space-y-2">
+              <Label>Assign To</Label>
+              <Select value={newApptAssignedTo} onValueChange={setNewApptAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select sales rep" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  <SelectItem value="">Unassigned</SelectItem>
+                  {users.map((u: DBUser) => (
+                    <SelectItem key={u.ghl_id} value={u.ghl_id}>
+                      {u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Address */}
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="address"
+                  placeholder="123 Main St, City, State"
+                  value={newApptAddress}
+                  onChange={(e) => setNewApptAddress(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Additional notes..."
+                value={newApptNotes}
+                onChange={(e) => setNewApptNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setNewApptDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateAppointment} disabled={isCreatingAppt || !newApptContactName.trim()}>
+              {isCreatingAppt ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Appointment
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </AppLayout>
   );
