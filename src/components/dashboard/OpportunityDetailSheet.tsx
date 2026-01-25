@@ -58,6 +58,7 @@ interface Opportunity {
   won_at?: string | null;
   scope_of_work?: string | null;
   address?: string | null;
+  proposal_link?: string | null;
 }
 interface Appointment {
   ghl_id: string;
@@ -2841,6 +2842,27 @@ export function OpportunityDetailSheet({
               )}
             </CollapsibleContent>
           </Collapsible>
+
+          {/* Proposal Link */}
+          {opportunity.proposal_link && (
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                  Signed Proposal Available
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-green-300 hover:bg-green-100 dark:border-green-700 dark:hover:bg-green-900"
+                onClick={() => window.open(opportunity.proposal_link!, '_blank')}
+              >
+                <ExternalLink className="h-3 w-3 mr-1.5" />
+                View Proposal
+              </Button>
+            </div>
+          )}
 
           {/* Timeline */}
           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">

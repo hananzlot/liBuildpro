@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { SignatureCanvas } from '../SignatureCanvas';
+import { updateOpportunityValueFromEstimates } from '@/lib/estimateValueUtils';
 import { 
   FileText, 
   CheckCircle2, 
@@ -198,6 +199,46 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
 
       if (updateError) throw updateError;
 
+      // UPDATE OPPORTUNITY VALUE AND LINK
+      if (selectedEstimate && companyId) {
+        const opportunityUuid = selectedEstimate.opportunity_uuid;
+        const opportunityGhlId = selectedEstimate.opportunity_id;
+
+        if (opportunityUuid || opportunityGhlId) {
+          // Generate the proposal link URL
+          const baseUrl = window.location.origin;
+          const proposalLink = `${baseUrl}/portal/${token}`;
+
+          // Update opportunity with aggregated value and proposal link
+          try {
+            // First update the opportunity value using the utility
+            await updateOpportunityValueFromEstimates(
+              opportunityUuid,
+              opportunityGhlId,
+              companyId
+            );
+
+            // Also update the proposal link in the local opportunity record
+            if (opportunityUuid) {
+              await supabase
+                .from('opportunities')
+                .update({ proposal_link: proposalLink })
+                .eq('id', opportunityUuid);
+            } else if (opportunityGhlId) {
+              await supabase
+                .from('opportunities')
+                .update({ proposal_link: proposalLink })
+                .eq('ghl_id', opportunityGhlId)
+                .eq('company_id', companyId);
+            }
+
+            console.log('Updated opportunity with proposal link and aggregated value');
+          } catch (err) {
+            console.error('Failed to update opportunity:', err);
+          }
+        }
+      }
+
       // AUTO-CREATE AGREEMENT AND UPDATE PROJECT
       if (projectId && selectedEstimate) {
         const signedDate = new Date().toISOString().split('T')[0];
@@ -289,6 +330,25 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         .eq('id', selectedEstimateId);
 
       if (error) throw error;
+
+      // Update opportunity value after decline (to exclude this estimate from the total)
+      if (selectedEstimate && companyId) {
+        const opportunityUuid = selectedEstimate.opportunity_uuid;
+        const opportunityGhlId = selectedEstimate.opportunity_id;
+
+        if (opportunityUuid || opportunityGhlId) {
+          try {
+            await updateOpportunityValueFromEstimates(
+              opportunityUuid,
+              opportunityGhlId,
+              companyId
+            );
+            console.log('Updated opportunity value after estimate decline');
+          } catch (err) {
+            console.error('Failed to update opportunity value after decline:', err);
+          }
+        }
+      }
 
       supabase.functions.invoke('send-proposal-notification', {
         body: {
