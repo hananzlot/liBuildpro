@@ -146,3 +146,16 @@ verify_jwt = false
 
 [functions.sync-google-calendar]
 verify_jwt = false
+
+# URL Shortener functions
+[functions.create-short-link]
+verify_jwt = false
+
+[functions.list-short-links]
+verify_jwt = false
+
+[functions.resolve-short-link]
+verify_jwt = false
+
+[functions.short-link-analytics]
+verify_jwt = false
