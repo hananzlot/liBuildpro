@@ -452,18 +452,51 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
     }
   }
 
+  // Helper to check if a string is an invalid name (email-like, response status, etc.)
+  const isInvalidName = (name: string | null): boolean => {
+    if (!name) return true;
+    const trimmed = name.trim().toLowerCase();
+    // Filter out email-like strings, response statuses, and empty values
+    return (
+      trimmed.includes('@') ||
+      trimmed.startsWith('(') ||
+      trimmed === 'decline' ||
+      trimmed === '(decline)' ||
+      trimmed === 'accepted' ||
+      trimmed === '(accepted)' ||
+      trimmed === 'tentative' ||
+      trimmed === '(tentative)' ||
+      trimmed === 'needsaction' ||
+      trimmed === '(needsaction)' ||
+      trimmed.length === 0
+    );
+  };
+
   // Set defaults if not mapped
   if (!contactData.contact_name && (contactData.first_name || contactData.last_name)) {
     contactData.contact_name = `${contactData.first_name || ''} ${contactData.last_name || ''}`.trim();
   }
-  if (!contactData.contact_name && event.summary) {
+  // Only use event.summary as fallback if it's a valid name
+  if (!contactData.contact_name && event.summary && !isInvalidName(event.summary)) {
     contactData.contact_name = event.summary;
   }
-  if (!opportunityData.name && contactData.contact_name) {
+  // If still no contact name, try attendee display name
+  if (!contactData.contact_name && event.attendees?.[0]?.displayName && !isInvalidName(event.attendees[0].displayName)) {
+    contactData.contact_name = event.attendees[0].displayName;
+  }
+  
+  if (!opportunityData.name && contactData.contact_name && !isInvalidName(contactData.contact_name)) {
     opportunityData.name = contactData.contact_name;
   }
-  if (!opportunityData.name && event.summary) {
+  // Use summary only if valid, otherwise try to create from attendee info
+  if (!opportunityData.name && event.summary && !isInvalidName(event.summary)) {
     opportunityData.name = event.summary;
+  }
+  // Last resort: generate a placeholder name with date
+  if (!opportunityData.name || isInvalidName(opportunityData.name)) {
+    const eventDate = event.start?.dateTime || event.start?.date || new Date().toISOString();
+    opportunityData.name = `Calendar Lead - ${new Date(eventDate).toLocaleDateString()}`;
+    console.log(`Generated fallback opportunity name: ${opportunityData.name}`);
   }
 
   let contactId: string | null = null;
