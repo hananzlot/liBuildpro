@@ -410,22 +410,50 @@ export function SalespeopleManagement() {
           .eq('company_id', companyId)
           .eq('project_manager', dup.name);
 
-        // Update appointments: reassign from duplicate's ghl_user_id to primary's ghl_user_id
-        if (dup.ghl_user_id && primary.ghl_user_id) {
+        // Update appointments: reassign salesperson_id from duplicate to primary
+        await supabase
+          .from('appointments')
+          .update({ 
+            salesperson_id: primary.id,
+            assigned_user_id: primary.ghl_user_id // Also update GHL ID for sync compatibility
+          })
+          .eq('company_id', companyId)
+          .eq('salesperson_id', dup.id);
+
+        // Also update any appointments that only have the GHL user ID (legacy records)
+        if (dup.ghl_user_id) {
           await supabase
             .from('appointments')
-            .update({ assigned_user_id: primary.ghl_user_id })
+            .update({ 
+              salesperson_id: primary.id,
+              assigned_user_id: primary.ghl_user_id 
+            })
             .eq('company_id', companyId)
-            .eq('assigned_user_id', dup.ghl_user_id);
+            .eq('assigned_user_id', dup.ghl_user_id)
+            .is('salesperson_id', null);
         }
 
-        // Update opportunities: reassign from duplicate's ghl_user_id to primary's ghl_user_id
-        if (dup.ghl_user_id && primary.ghl_user_id) {
+        // Update opportunities: reassign salesperson_id from duplicate to primary
+        await supabase
+          .from('opportunities')
+          .update({ 
+            salesperson_id: primary.id,
+            assigned_to: primary.ghl_user_id // Also update GHL ID for sync compatibility
+          })
+          .eq('company_id', companyId)
+          .eq('salesperson_id', dup.id);
+
+        // Also update any opportunities that only have the GHL user ID (legacy records)
+        if (dup.ghl_user_id) {
           await supabase
             .from('opportunities')
-            .update({ assigned_to: primary.ghl_user_id })
+            .update({ 
+              salesperson_id: primary.id,
+              assigned_to: primary.ghl_user_id 
+            })
             .eq('company_id', companyId)
-            .eq('assigned_to', dup.ghl_user_id);
+            .eq('assigned_to', dup.ghl_user_id)
+            .is('salesperson_id', null);
         }
 
         // Update estimates: replace salesperson_name
