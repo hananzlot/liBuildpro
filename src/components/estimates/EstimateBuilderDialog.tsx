@@ -33,6 +33,7 @@ interface EstimateBuilderDialogProps {
   onSuccess?: () => void;
   linkedOpportunity?: LinkedOpportunity | null;
   createOpportunityOnSave?: boolean;
+  initialWorkScope?: string;
 }
 
 interface LineItem {
@@ -107,7 +108,7 @@ const units = ["hours", "sqft", "linear ft", "each", "set", "unit", "day", "week
 
 const generateId = () => crypto.randomUUID();
 
-export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, linkedOpportunity, createOpportunityOnSave = false }: EstimateBuilderDialogProps) {
+export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, linkedOpportunity, createOpportunityOnSave = false, initialWorkScope }: EstimateBuilderDialogProps) {
   const { user, isSuperAdmin } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -417,9 +418,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Auto-populate from linked opportunity when provided
   useEffect(() => {
     if (open && linkedOpportunity && !estimateId) {
-      // Set opportunity tracking
-      setLinkedOpportunityUuid(linkedOpportunity.id);
-      setLinkedOpportunityGhlId(linkedOpportunity.ghl_id);
+      // Set opportunity tracking (only if there's a real opportunity ID)
+      if (linkedOpportunity.id) {
+        setLinkedOpportunityUuid(linkedOpportunity.id);
+        setLinkedOpportunityGhlId(linkedOpportunity.ghl_id);
+      }
+      
+      // Determine the work scope: prefer initialWorkScope, then linkedOpportunity.scope_of_work
+      const workScope = initialWorkScope || linkedOpportunity.scope_of_work || "";
       
       // Auto-fill form data from opportunity
       setFormData(prev => ({
@@ -428,11 +434,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         customer_email: linkedOpportunity.contact_email || prev.customer_email,
         customer_phone: linkedOpportunity.contact_phone || prev.customer_phone,
         job_address: linkedOpportunity.address || prev.job_address,
-        work_scope_description: linkedOpportunity.scope_of_work || prev.work_scope_description,
+        work_scope_description: workScope || prev.work_scope_description,
         estimate_title: linkedOpportunity.name || prev.estimate_title,
       }));
     }
-  }, [open, linkedOpportunity, estimateId]);
+  }, [open, linkedOpportunity, estimateId, initialWorkScope]);
 
   // Apply default terms when they're loaded for new estimates
   useEffect(() => {
