@@ -28,7 +28,8 @@ import {
   FileSignature,
   Send,
   Building2,
-  Calendar
+  Calendar,
+  CalendarDays
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -117,6 +118,13 @@ const navSections: NavSection[] = [
         title: "Appointments", 
         url: "/appointments", 
         icon: Calendar,
+        roles: ['super_admin', 'admin', 'dispatch'],
+        requiredFeature: 'ghl_integration'
+      },
+      { 
+        title: "Calendar", 
+        url: "/calendar", 
+        icon: CalendarDays,
         roles: ['super_admin', 'admin', 'dispatch'],
         requiredFeature: 'ghl_integration'
       },

@@ -22,6 +22,7 @@ import AdminSettings from "./pages/AdminSettings";
 import SalesPortal from "./pages/SalesPortal";
 import Opportunities from "./pages/Opportunities";
 import Appointments from "./pages/Appointments";
+import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 // Super Admin Portal Pages
 import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
@@ -226,6 +227,14 @@ const App = () => (
               element={
                 <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
                   <Appointments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
+                  <Calendar />
                 </ProtectedRoute>
               }
             />
