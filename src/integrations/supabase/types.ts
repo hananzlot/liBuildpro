@@ -4801,6 +4801,109 @@ export type Database = {
           },
         ]
       }
+      short_link_clicks: {
+        Row: {
+          clicked_at: string | null
+          country: string | null
+          device_type: string | null
+          id: string
+          ip_hash: string | null
+          referer: string | null
+          short_link_id: string
+          user_agent: string | null
+        }
+        Insert: {
+          clicked_at?: string | null
+          country?: string | null
+          device_type?: string | null
+          id?: string
+          ip_hash?: string | null
+          referer?: string | null
+          short_link_id: string
+          user_agent?: string | null
+        }
+        Update: {
+          clicked_at?: string | null
+          country?: string | null
+          device_type?: string | null
+          id?: string
+          ip_hash?: string | null
+          referer?: string | null
+          short_link_id?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "short_link_clicks_short_link_id_fkey"
+            columns: ["short_link_id"]
+            isOneToOne: false
+            referencedRelation: "short_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      short_links: {
+        Row: {
+          click_count: number | null
+          company_id: string
+          created_at: string | null
+          created_by_id: string
+          created_by_type: string
+          custom_alias: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          last_clicked_at: string | null
+          long_url: string
+          max_clicks: number | null
+          short_code: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          click_count?: number | null
+          company_id: string
+          created_at?: string | null
+          created_by_id: string
+          created_by_type: string
+          custom_alias?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_clicked_at?: string | null
+          long_url: string
+          max_clicks?: number | null
+          short_code: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          click_count?: number | null
+          company_id?: string
+          created_at?: string | null
+          created_by_id?: string
+          created_by_type?: string
+          custom_alias?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_clicked_at?: string | null
+          long_url?: string
+          max_clicks?: number | null
+          short_code?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "short_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signature_documents: {
         Row: {
           cancellation_reason: string | null
