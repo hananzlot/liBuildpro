@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isToday, isSameDay, parseISO } from "date-fns";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -453,6 +453,39 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose }: A
 
       <ScrollArea className="flex-1 py-4">
         <div className="space-y-6">
+          {/* Customer Info - Always show prominently */}
+          <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-lg text-foreground truncate">
+                  {contact?.contact_name || appointment.title || "Customer"}
+                </p>
+                {contact?.phone ? (
+                  <a 
+                    href={`tel:${contact.phone}`} 
+                    className="text-primary font-medium hover:underline flex items-center gap-1.5 mt-1"
+                  >
+                    <Phone className="h-4 w-4" />
+                    {contact.phone}
+                  </a>
+                ) : (
+                  <p className="text-sm text-muted-foreground mt-1">No phone number</p>
+                )}
+                {contact?.email && (
+                  <a 
+                    href={`mailto:${contact.email}`} 
+                    className="text-sm text-muted-foreground hover:text-primary hover:underline block mt-0.5 truncate"
+                  >
+                    {contact.email}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Time & Date */}
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -486,28 +519,6 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose }: A
                 >
                   Open in Maps →
                 </a>
-              </div>
-            </div>
-          )}
-
-          {/* Contact Info */}
-          {contact && (
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <User className="h-5 w-5 text-primary" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">Contact</p>
-                {contact.phone && (
-                  <a href={`tel:${contact.phone}`} className="text-sm text-primary hover:underline block">
-                    📞 {contact.phone}
-                  </a>
-                )}
-                {contact.email && (
-                  <a href={`mailto:${contact.email}`} className="text-sm text-primary hover:underline block">
-                    ✉️ {contact.email}
-                  </a>
-                )}
               </div>
             </div>
           )}
