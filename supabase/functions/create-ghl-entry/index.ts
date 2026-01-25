@@ -112,13 +112,15 @@ serve(async (req) => {
     let opportunityId: string | null = null;
     let appointmentId: string | null = null;
 
+    let contactUuid: string | null = null;
+
     if (isLocalOnlyMode) {
       // LOCAL-ONLY MODE: Create entries directly in Supabase without GHL sync
       console.log('Running in local-only mode (no GHL credentials configured)...');
       
-      // Create local contact
+      // Create local contact and get the generated UUID
       contactId = generateLocalId('contact');
-      const { error: contactError } = await supabase.from('contacts').insert({
+      const { data: contactData, error: contactError } = await supabase.from('contacts').insert({
         ghl_id: contactId,
         location_id: GHL_LOCATION_ID,
         first_name: firstName,
@@ -133,20 +135,22 @@ serve(async (req) => {
         entered_by: enteredBy || null,
         provider: 'local',
         company_id: companyId || null,
-      });
+      }).select('id').single();
 
       if (contactError) {
         console.error('Error creating local contact:', contactError);
         throw new Error(`Failed to create local contact: ${contactError.message}`);
       }
-      console.log('Local contact created:', contactId);
+      contactUuid = contactData?.id || null;
+      console.log('Local contact created:', contactId, 'UUID:', contactUuid);
 
-      // Create local opportunity
+      // Create local opportunity with contact_uuid
       opportunityId = generateLocalId('opp');
       const { error: oppError } = await supabase.from('opportunities').insert({
         ghl_id: opportunityId,
         location_id: GHL_LOCATION_ID,
         contact_id: contactId,
+        contact_uuid: contactUuid,
         name: `${firstName} ${lastName}`,
         status: 'open',
         pipeline_id: pipelineId,
@@ -179,6 +183,7 @@ serve(async (req) => {
           ghl_id: appointmentId,
           location_id: GHL_LOCATION_ID,
           contact_id: contactId,
+          contact_uuid: contactUuid,
           calendar_id: calendarId || null,
           title: appointmentTitle,
           start_time: startDate.toISOString(),
