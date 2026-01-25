@@ -31,6 +31,7 @@ interface DBOpportunity {
   ghl_id: string;
   location_id: string;
   contact_id: string | null;
+  contact_uuid: string | null;
   pipeline_id: string | null;
   pipeline_stage_id: string | null;
   pipeline_name: string | null;
