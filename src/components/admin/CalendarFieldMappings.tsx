@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Save, ArrowRight, Calendar, User, Briefcase, FileText, Plus, Trash2 } from "lucide-react";
+import { Loader2, Save, ArrowRight, Calendar, User, Briefcase, FileText, Plus, Trash2, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 // Google Calendar event fields that can be mapped
 const GOOGLE_EVENT_FIELDS = [
@@ -102,6 +103,24 @@ export function CalendarFieldMappings() {
   const queryClient = useQueryClient();
   const [settings, setSettings] = useState<CalendarMappingSettings>(DEFAULT_SETTINGS);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isBackfilling, setIsBackfilling] = useState(false);
+
+  // Fetch count of orphaned appointments (Google Calendar appointments without contacts)
+  const { data: orphanedCount } = useQuery({
+    queryKey: ["orphaned-google-appointments", companyId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("appointments")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("sync_source", "google")
+        .is("contact_id", null);
+
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!companyId,
+  });
 
   // Fetch existing settings
   const { data: savedSettings, isLoading } = useQuery({
@@ -199,6 +218,36 @@ export function CalendarFieldMappings() {
     },
   });
 
+  // Backfill mutation
+  const handleBackfill = async () => {
+    if (!companyId || !settings.enabled) {
+      toast.error("Please enable and save the mapping settings first");
+      return;
+    }
+
+    setIsBackfilling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-google-calendar", {
+        body: { backfill: true, companyId },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        toast.error(data.error);
+      } else {
+        toast.success(`Created ${data.leadsCreated || 0} leads from ${data.totalProcessed || 0} appointments`);
+        queryClient.invalidateQueries({ queryKey: ["orphaned-google-appointments"] });
+        queryClient.invalidateQueries({ queryKey: ["contacts"] });
+        queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      }
+    } catch (err) {
+      toast.error(`Backfill failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsBackfilling(false);
+    }
+  };
+
   const updateSetting = <K extends keyof CalendarMappingSettings>(
     key: K,
     value: CalendarMappingSettings[K]
@@ -280,6 +329,37 @@ export function CalendarFieldMappings() {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Backfill Section - Show if there are orphaned appointments */}
+        {(orphanedCount ?? 0) > 0 && (
+          <div className="flex items-center justify-between p-4 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium">Missing Leads Detected</p>
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                  {orphanedCount} appointments
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Create contacts and opportunities for previously synced calendar events
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBackfill}
+              disabled={isBackfilling || !settings.enabled}
+              className="border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+            >
+              {isBackfilling ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Backfill Missing Leads
+            </Button>
+          </div>
+        )}
+
         {/* Enable/Disable Toggle */}
         <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
           <div>

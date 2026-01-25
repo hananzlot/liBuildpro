@@ -77,7 +77,14 @@ Deno.serve(async (req) => {
     // deno-lint-ignore no-explicit-any
     const supabase: any = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { connectionId, direction } = await req.json().catch(() => ({}));
+    const { connectionId, direction, backfill, companyId } = await req.json().catch(() => ({}));
+
+    // Handle backfill mode - create leads for existing orphaned appointments
+    if (backfill && companyId) {
+      console.log(`Starting backfill for company: ${companyId}`);
+      const result = await backfillOrphanedAppointments(supabase, companyId);
+      return new Response(JSON.stringify({ success: true, ...result }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     let connectionsQuery = supabase
       .from('google_calendar_connections')
@@ -117,6 +124,86 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: String(error) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });
+
+// Backfill orphaned appointments (Google Calendar appointments without linked contacts)
+// deno-lint-ignore no-explicit-any
+async function backfillOrphanedAppointments(supabase: any, companyId: string) {
+  // Get mapping settings
+  const mappingSettings = await getMappingSettings(supabase, companyId);
+  
+  if (!mappingSettings?.enabled) {
+    return { error: 'Calendar mapping is not enabled. Please enable it first.', leadsCreated: 0 };
+  }
+
+  // Find orphaned appointments (Google Calendar source, no contact linked)
+  const { data: orphanedAppointments, error } = await supabase
+    .from('appointments')
+    .select('*')
+    .eq('company_id', companyId)
+    .eq('sync_source', 'google')
+    .is('contact_id', null);
+
+  if (error) {
+    console.error('Error fetching orphaned appointments:', error);
+    return { error: error.message, leadsCreated: 0 };
+  }
+
+  console.log(`Found ${orphanedAppointments?.length || 0} orphaned appointments to backfill`);
+
+  let leadsCreated = 0;
+  const errors: string[] = [];
+
+  for (const apt of orphanedAppointments || []) {
+    try {
+      // Create a mock Google event from the stored appointment data
+      const mockEvent = {
+        id: apt.google_event_id,
+        summary: apt.title,
+        description: apt.notes,
+        location: apt.address,
+        start: { dateTime: apt.start_time },
+        end: { dateTime: apt.end_time },
+        status: 'confirmed',
+        updated: apt.updated_at,
+      };
+
+      // Get connection info for this appointment
+      const { data: connection } = await supabase
+        .from('google_calendar_connections')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('calendar_id', apt.google_calendar_id)
+        .single();
+
+      if (!connection) {
+        // Use a minimal connection object
+        const minimalConnection: CalendarConnection = {
+          id: '',
+          company_id: companyId,
+          calendar_id: apt.google_calendar_id || '',
+          sync_direction: 'import',
+          last_sync_at: null,
+        };
+        
+        const created = await createLeadFromEvent(supabase, mockEvent, minimalConnection, mappingSettings, apt.id);
+        if (created) leadsCreated++;
+      } else {
+        const created = await createLeadFromEvent(supabase, mockEvent, connection, mappingSettings, apt.id);
+        if (created) leadsCreated++;
+      }
+    } catch (err) {
+      console.error(`Error backfilling appointment ${apt.id}:`, err);
+      errors.push(`${apt.title}: ${String(err)}`);
+    }
+  }
+
+  console.log(`Backfill complete: ${leadsCreated} leads created`);
+  return { 
+    leadsCreated, 
+    totalProcessed: orphanedAppointments?.length || 0,
+    errors: errors.length > 0 ? errors : undefined 
+  };
+}
 
 // deno-lint-ignore no-explicit-any
 async function syncConnection(supabase: any, connection: CalendarConnection, direction?: string) {
