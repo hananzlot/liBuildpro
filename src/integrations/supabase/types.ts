@@ -4831,6 +4831,127 @@ export type Database = {
           },
         ]
       }
+      scope_submissions: {
+        Row: {
+          appointment_id: string | null
+          company_id: string
+          contact_id: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          estimate_id: string | null
+          id: string
+          job_address: string | null
+          measurements: string | null
+          office_notes: string | null
+          opportunity_id: string | null
+          photos_urls: string[] | null
+          priority: string | null
+          project_type: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          salesperson_id: string
+          scope_description: string
+          special_requirements: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_id?: string | null
+          company_id: string
+          contact_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          estimate_id?: string | null
+          id?: string
+          job_address?: string | null
+          measurements?: string | null
+          office_notes?: string | null
+          opportunity_id?: string | null
+          photos_urls?: string[] | null
+          priority?: string | null
+          project_type?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          salesperson_id: string
+          scope_description: string
+          special_requirements?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string | null
+          company_id?: string
+          contact_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          estimate_id?: string | null
+          id?: string
+          job_address?: string | null
+          measurements?: string | null
+          office_notes?: string | null
+          opportunity_id?: string | null
+          photos_urls?: string[] | null
+          priority?: string | null
+          project_type?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          salesperson_id?: string
+          scope_description?: string
+          special_requirements?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scope_submissions_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scope_submissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scope_submissions_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scope_submissions_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scope_submissions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scope_submissions_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "salespeople"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       short_link_clicks: {
         Row: {
           clicked_at: string | null
