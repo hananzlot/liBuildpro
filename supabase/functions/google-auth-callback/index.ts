@@ -154,12 +154,38 @@ Deno.serve(async (req) => {
     // Calculate token expiration
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
+    // For personal calendars, look up the salesperson_id from the user's profile
+    let salespersonId: string | null = null;
+    if (!isCompanyCalendar && userId) {
+      // Get the user's ghl_user_id from their profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('ghl_user_id')
+        .eq('id', userId)
+        .single();
+
+      if (profile?.ghl_user_id) {
+        // Look up the salesperson by ghl_user_id
+        const { data: salesperson } = await supabase
+          .from('salespeople')
+          .select('id')
+          .eq('ghl_user_id', profile.ghl_user_id)
+          .eq('company_id', companyId)
+          .eq('is_active', true)
+          .single();
+
+        salespersonId = salesperson?.id || null;
+        console.log('Found salesperson_id for personal calendar:', salespersonId);
+      }
+    }
+
     // Create calendar connection record
     const { data: connection, error: insertError } = await supabase
       .from('google_calendar_connections')
       .upsert({
         company_id: companyId,
         user_id: isCompanyCalendar ? null : userId,
+        salesperson_id: salespersonId,
         calendar_id: primaryCalendar.id,
         calendar_name: primaryCalendar.summary,
         calendar_email: primaryCalendar.id,

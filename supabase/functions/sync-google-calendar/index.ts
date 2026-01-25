@@ -28,6 +28,7 @@ interface CalendarConnection {
   calendar_id: string;
   sync_direction: string;
   last_sync_at: string | null;
+  salesperson_id: string | null;
 }
 
 interface Appointment {
@@ -183,6 +184,7 @@ async function backfillOrphanedAppointments(supabase: any, companyId: string) {
           calendar_id: apt.google_calendar_id || '',
           sync_direction: 'import',
           last_sync_at: null,
+          salesperson_id: null,
         };
         
         const created = await createLeadFromEvent(supabase, mockEvent, minimalConnection, mappingSettings, apt.id);
@@ -499,7 +501,7 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
   // Create opportunity if enabled
   if (settings.create_opportunity && opportunityData.name) {
     const opportunityId = generateLocalId('opp');
-    const { error: oppError } = await supabase.from('opportunities').insert({
+    const oppInsertData: Record<string, unknown> = {
       ghl_id: opportunityId,
       location_id: 'google-calendar',
       contact_id: contactId,
@@ -512,7 +514,14 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
       ghl_date_added: new Date().toISOString(),
       provider: 'google',
       company_id: connection.company_id,
-    });
+    };
+    
+    // Link to salesperson if connection has one
+    if (connection.salesperson_id) {
+      oppInsertData.salesperson_id = connection.salesperson_id;
+    }
+    
+    const { error: oppError } = await supabase.from('opportunities').insert(oppInsertData);
 
     if (oppError) {
       console.error('Error creating opportunity:', oppError);
@@ -553,7 +562,7 @@ async function importFromGoogle(supabase: any, connection: CalendarConnection, a
     const { data: existing } = await supabase.from('appointments').select('id, updated_at, contact_id').eq('google_event_id', event.id).eq('company_id', connection.company_id).single();
     if (existing && new Date(existing.updated_at) > new Date(event.updated)) continue;
 
-    const appointmentData = { 
+    const appointmentData: Record<string, unknown> = { 
       company_id: connection.company_id, 
       google_event_id: event.id, 
       google_calendar_id: connection.calendar_id, 
@@ -566,6 +575,11 @@ async function importFromGoogle(supabase: any, connection: CalendarConnection, a
       location_id: 'google-calendar', 
       updated_at: new Date().toISOString() 
     };
+    
+    // Link to salesperson if connection has one
+    if (connection.salesperson_id) {
+      appointmentData.salesperson_id = connection.salesperson_id;
+    }
 
     let appointmentId: string;
 
