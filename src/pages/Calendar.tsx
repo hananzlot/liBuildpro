@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar as CalendarIcon, Clock, User, Search, Loader2, Phone, List, CalendarDays, Plus, MapPin } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
+import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1107,6 +1108,20 @@ const Calendar = () => {
         opportunities={opportunities}
         appointments={appointments}
         onRefresh={() => refetch()}
+        onOpenOpportunity={(opp) => {
+          setSelectedOpportunity(opp as DBOpportunity);
+          setOpportunitySheetOpen(true);
+        }}
+      />
+
+      {/* Opportunity Detail Sheet */}
+      <OpportunityDetailSheet
+        opportunity={selectedOpportunity}
+        appointments={appointments}
+        contacts={contacts}
+        users={users}
+        open={opportunitySheetOpen}
+        onOpenChange={setOpportunitySheetOpen}
       />
 
       {/* New Appointment Dialog */}
