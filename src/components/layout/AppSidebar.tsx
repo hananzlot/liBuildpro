@@ -138,6 +138,13 @@ const navSections: NavSection[] = [
         roles: ['super_admin', 'admin', 'dispatch'],
         requiredFeature: 'ghl_integration'
       },
+      { 
+        title: "Salespeople", 
+        url: "/production?view=salespeople", 
+        icon: Users,
+        roles: ['super_admin', 'admin', 'dispatch'],
+        requiredFeature: 'dashboard'
+      },
     ],
   },
   {
