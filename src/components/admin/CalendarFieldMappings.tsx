@@ -105,16 +105,17 @@ export function CalendarFieldMappings() {
   const [hasChanges, setHasChanges] = useState(false);
   const [isBackfilling, setIsBackfilling] = useState(false);
 
-  // Fetch count of orphaned appointments (Google Calendar appointments without contacts)
+  // Fetch count of orphaned appointments (Google Calendar appointments without linked contacts/opportunities)
   const { data: orphanedCount } = useQuery({
     queryKey: ["orphaned-google-appointments", companyId],
     queryFn: async () => {
+      // Check for Google appointments that don't have a linked contact_uuid (actual FK to contacts table)
       const { count, error } = await supabase
         .from("appointments")
         .select("id", { count: "exact", head: true })
         .eq("company_id", companyId)
         .eq("sync_source", "google")
-        .is("contact_id", null);
+        .is("contact_uuid", null);
 
       if (error) throw error;
       return count || 0;
