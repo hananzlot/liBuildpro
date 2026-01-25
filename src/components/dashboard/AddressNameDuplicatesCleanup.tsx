@@ -45,9 +45,16 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  contact_uuid: string | null;
   address: string | null;
   scope_of_work: string | null;
   ghl_date_added?: string | null;
+}
+
+interface FieldTransfer {
+  field: string;
+  value: string;
+  source: string;
 }
 
 interface NameDuplicateGroup {
@@ -137,6 +144,10 @@ export function AddressNameDuplicatesCleanup({
     monetaryValue: string;
   }>({ scopeOfWork: 'keep', monetaryValue: 'highest' });
 
+  // Fields that will be transferred from duplicates
+  const [fieldsToTransfer, setFieldsToTransfer] = useState<FieldTransfer[]>([]);
+  const [notesToTransferCount, setNotesToTransferCount] = useState(0);
+
   // Find duplicate opportunities by name (and optionally address)
   const duplicateGroups = useMemo(() => {
     const groupMap = new Map<string, Opportunity[]>();
@@ -222,11 +233,99 @@ export function AddressNameDuplicatesCleanup({
     return `$${value.toLocaleString()}`;
   };
 
-  const handleMergeClick = (group: NameDuplicateGroup) => {
+  const handleMergeClick = async (group: NameDuplicateGroup) => {
     if (!selectedToKeep[group.key]) {
       toast.error("Please select which opportunity to keep");
       return;
     }
+    
+    const keepId = selectedToKeep[group.key];
+    const keepOpp = group.opportunities.find(o => o.id === keepId);
+    const deleteOpps = group.opportunities.filter(o => o.id !== keepId);
+    
+    if (!keepOpp) return;
+    
+    // Calculate fields that will be transferred
+    const transfers: FieldTransfer[] = [];
+    
+    // Check address
+    if (!keepOpp.address) {
+      const addressFromDup = deleteOpps.find(o => o.address);
+      if (addressFromDup?.address) {
+        transfers.push({ field: 'Address', value: addressFromDup.address, source: addressFromDup.name || 'Duplicate' });
+      }
+    }
+    
+    // Check scope_of_work (only if keep option is 'keep' and keep is missing)
+    if (!keepOpp.scope_of_work) {
+      const scopeFromDup = deleteOpps.find(o => o.scope_of_work);
+      if (scopeFromDup?.scope_of_work) {
+        transfers.push({ field: 'Scope of Work', value: scopeFromDup.scope_of_work.substring(0, 50) + (scopeFromDup.scope_of_work.length > 50 ? '...' : ''), source: scopeFromDup.name || 'Duplicate' });
+      }
+    }
+    
+    // Check phone and email from contacts
+    if (keepOpp.contact_uuid) {
+      const { data: keepContact } = await supabase
+        .from('contacts')
+        .select('phone, email')
+        .eq('id', keepOpp.contact_uuid)
+        .maybeSingle();
+      
+      if (keepContact) {
+        // Check phone
+        if (!keepContact.phone) {
+          for (const dup of deleteOpps) {
+            if (dup.contact_uuid && dup.contact_uuid !== keepOpp.contact_uuid) {
+              const { data: dupContact } = await supabase
+                .from('contacts')
+                .select('phone')
+                .eq('id', dup.contact_uuid)
+                .maybeSingle();
+              if (dupContact?.phone) {
+                transfers.push({ field: 'Phone', value: dupContact.phone, source: dup.name || 'Duplicate' });
+                break;
+              }
+            }
+          }
+        }
+        
+        // Check email
+        if (!keepContact.email) {
+          for (const dup of deleteOpps) {
+            if (dup.contact_uuid && dup.contact_uuid !== keepOpp.contact_uuid) {
+              const { data: dupContact } = await supabase
+                .from('contacts')
+                .select('email')
+                .eq('id', dup.contact_uuid)
+                .maybeSingle();
+              if (dupContact?.email) {
+                transfers.push({ field: 'Email', value: dupContact.email, source: dup.name || 'Duplicate' });
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Check notes to transfer
+    const dupContactUuids = deleteOpps
+      .map(o => o.contact_uuid)
+      .filter((uuid): uuid is string => Boolean(uuid) && uuid !== keepOpp.contact_uuid);
+    
+    if (dupContactUuids.length > 0) {
+      const { count } = await supabase
+        .from('contact_notes')
+        .select('*', { count: 'exact', head: true })
+        .in('contact_uuid', dupContactUuids);
+      
+      setNotesToTransferCount(count || 0);
+    } else {
+      setNotesToTransferCount(0);
+    }
+    
+    setFieldsToTransfer(transfers);
     setPendingMerge(group);
     setShowConfirmDialog(true);
     setPasswordInput("");
@@ -282,7 +381,7 @@ export function AddressNameDuplicatesCleanup({
         mergedScopeOfWork = allScopes.join('\n\n---\n\n');
       }
 
-      // Update the kept opportunity with merged data
+      // Build update data for the opportunity
       const updateData: Record<string, unknown> = {};
       if (mergedValue !== (keepOpp.monetary_value || 0)) {
         updateData.monetary_value = mergedValue;
@@ -291,17 +390,124 @@ export function AddressNameDuplicatesCleanup({
         updateData.scope_of_work = mergedScopeOfWork;
       }
 
+      // Transfer address from duplicate if keep opportunity is missing it
+      if (!keepOpp.address) {
+        const addressFromDup = deleteOpps.find(o => o.address);
+        if (addressFromDup?.address) {
+          updateData.address = addressFromDup.address;
+        }
+      }
+
+      // Transfer scope_of_work from duplicate if keep option is 'keep' and keep is missing
+      if (mergeOptions.scopeOfWork === 'keep' && !keepOpp.scope_of_work) {
+        const scopeFromDup = deleteOpps.find(o => o.scope_of_work);
+        if (scopeFromDup?.scope_of_work) {
+          updateData.scope_of_work = scopeFromDup.scope_of_work;
+        }
+      }
+
+      // Update opportunity in GHL and Supabase
       if (Object.keys(updateData).length > 0) {
-        await supabase.functions.invoke('update-ghl-opportunity', {
-          body: {
-            ghl_id: keepOpp.ghl_id,
-            ...updateData,
-          }
-        });
+        // Only call GHL API if the opportunity has a ghl_id
+        if (keepOpp.ghl_id) {
+          await supabase.functions.invoke('update-ghl-opportunity', {
+            body: {
+              ghl_id: keepOpp.ghl_id,
+              ...updateData,
+            }
+          });
+        }
         await supabase
           .from('opportunities')
           .update(updateData)
           .eq('id', keepOpp.id);
+      }
+
+      // Transfer phone and email from duplicate contacts
+      if (keepOpp.contact_uuid) {
+        const { data: keepContact } = await supabase
+          .from('contacts')
+          .select('id, ghl_id, phone, email')
+          .eq('id', keepOpp.contact_uuid)
+          .maybeSingle();
+
+        if (keepContact) {
+          const contactUpdates: Record<string, string> = {};
+
+          // Check phone
+          if (!keepContact.phone) {
+            for (const dup of deleteOpps) {
+              if (dup.contact_uuid && dup.contact_uuid !== keepOpp.contact_uuid) {
+                const { data: dupContact } = await supabase
+                  .from('contacts')
+                  .select('phone')
+                  .eq('id', dup.contact_uuid)
+                  .maybeSingle();
+                if (dupContact?.phone) {
+                  contactUpdates.phone = dupContact.phone;
+                  break;
+                }
+              }
+            }
+          }
+
+          // Check email
+          if (!keepContact.email) {
+            for (const dup of deleteOpps) {
+              if (dup.contact_uuid && dup.contact_uuid !== keepOpp.contact_uuid) {
+                const { data: dupContact } = await supabase
+                  .from('contacts')
+                  .select('email')
+                  .eq('id', dup.contact_uuid)
+                  .maybeSingle();
+                if (dupContact?.email) {
+                  contactUpdates.email = dupContact.email;
+                  break;
+                }
+              }
+            }
+          }
+
+          // Update the kept contact with transferred fields
+          if (Object.keys(contactUpdates).length > 0) {
+            await supabase
+              .from('contacts')
+              .update(contactUpdates)
+              .eq('id', keepContact.id);
+            
+            // Also update in GHL if the contact has a ghl_id
+            if (keepContact.ghl_id) {
+              try {
+                if (contactUpdates.phone) {
+                  await supabase.functions.invoke('update-contact-phone', {
+                    body: { contactId: keepContact.ghl_id, phone: contactUpdates.phone }
+                  });
+                }
+                // Note: There's no update-contact-email edge function, so email is only updated locally
+              } catch (err) {
+                console.warn('Failed to update contact in GHL:', err);
+              }
+            }
+          }
+        }
+      }
+
+      // Transfer notes from duplicate contacts to the kept contact
+      const dupContactUuids = deleteOpps
+        .map(o => o.contact_uuid)
+        .filter((uuid): uuid is string => Boolean(uuid) && uuid !== keepOpp.contact_uuid);
+
+      if (dupContactUuids.length > 0 && keepOpp.contact_uuid) {
+        const { error: notesError, count: notesTransferred } = await supabase
+          .from('contact_notes')
+          .update({ contact_uuid: keepOpp.contact_uuid })
+          .in('contact_uuid', dupContactUuids);
+
+        if (notesError) {
+          console.warn('Failed to transfer notes:', notesError);
+        } else if (notesTransferred && notesTransferred > 0) {
+          console.log(`Transferred ${notesTransferred} notes to kept contact`);
+        }
       }
 
       // Delete the duplicate opportunities
@@ -310,16 +516,31 @@ export function AddressNameDuplicatesCleanup({
 
       for (const opp of deleteOpps) {
         try {
-          const { error } = await supabase.functions.invoke('delete-ghl-opportunity', {
-            body: { opportunityId: opp.ghl_id }
-          });
-          
-          if (error) {
-            console.error('Delete error:', error);
-            deleteFail++;
+          // Only call GHL API if the opportunity has a ghl_id
+          if (opp.ghl_id) {
+            const { error } = await supabase.functions.invoke('delete-ghl-opportunity', {
+              body: { opportunityId: opp.ghl_id }
+            });
+            
+            if (error) {
+              console.error('Delete error:', error);
+              deleteFail++;
+              continue;
+            }
           } else {
-            deleteSuccess++;
+            // For local-only opportunities, just delete from Supabase
+            const { error } = await supabase
+              .from('opportunities')
+              .delete()
+              .eq('id', opp.id);
+            
+            if (error) {
+              console.error('Local delete error:', error);
+              deleteFail++;
+              continue;
+            }
           }
+          deleteSuccess++;
         } catch (err) {
           console.error('Delete exception:', err);
           deleteFail++;
@@ -327,7 +548,9 @@ export function AddressNameDuplicatesCleanup({
       }
 
       if (deleteSuccess > 0) {
-        toast.success(`Merged and deleted ${deleteSuccess} duplicate(s). Kept: "${keepOpp.name || 'Unnamed'}"`);
+        const transferCount = fieldsToTransfer.length + (notesToTransferCount > 0 ? 1 : 0);
+        const transferMsg = transferCount > 0 ? ` Transferred ${transferCount} field(s).` : '';
+        toast.success(`Merged and deleted ${deleteSuccess} duplicate(s).${transferMsg} Kept: "${keepOpp.name || 'Unnamed'}"`);
         setSelectedToKeep(prev => {
           const next = { ...prev };
           delete next[pendingMerge.key];
@@ -352,6 +575,8 @@ export function AddressNameDuplicatesCleanup({
         return next;
       });
       setPendingMerge(null);
+      setFieldsToTransfer([]);
+      setNotesToTransferCount(0);
     }
   };
 
@@ -561,6 +786,28 @@ export function AddressNameDuplicatesCleanup({
                     ))}
                   </ul>
                 </div>
+
+                {/* Fields to Transfer Preview */}
+                {(fieldsToTransfer.length > 0 || notesToTransferCount > 0) && (
+                  <div className="p-3 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+                    <div className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Fields that will be transferred:
+                    </div>
+                    <ul className="mt-1 text-xs text-blue-600 dark:text-blue-400 list-disc list-inside">
+                      {fieldsToTransfer.map((transfer, idx) => (
+                        <li key={idx}>
+                          <span className="font-medium">{transfer.field}:</span> {transfer.value}
+                          <span className="text-blue-500 dark:text-blue-500"> (from {transfer.source})</span>
+                        </li>
+                      ))}
+                      {notesToTransferCount > 0 && (
+                        <li>
+                          <span className="font-medium">Notes:</span> {notesToTransferCount} note(s) will be re-linked
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="space-y-3 border-t pt-3">
                   <div className="text-sm font-medium">Merge Options:</div>

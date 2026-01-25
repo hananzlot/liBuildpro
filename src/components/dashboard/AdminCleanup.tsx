@@ -36,6 +36,7 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  contact_uuid: string | null;
   address: string | null;
   scope_of_work: string | null;
   ghl_date_added?: string | null;
