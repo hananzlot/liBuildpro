@@ -27,6 +27,31 @@ interface PortalAgreementProps {
 export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreementProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [generatingAgreementId, setGeneratingAgreementId] = useState<string | null>(null);
+  const [generatingContractPdf, setGeneratingContractPdf] = useState(false);
+
+  const viewContractPdf = async () => {
+    if (!acceptedEstimate?.id) return;
+    
+    setGeneratingContractPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
+        body: {
+          estimateId: acceptedEstimate.id,
+          projectId: acceptedEstimate.project_id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error('Failed to generate contract PDF');
+
+      setPdfUrl(data.url);
+    } catch (err) {
+      console.error('Failed to generate contract PDF:', err);
+      toast.error('Could not generate contract PDF');
+    } finally {
+      setGeneratingContractPdf(false);
+    }
+  };
 
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
@@ -186,37 +211,49 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
           </div>
           
           <CardContent className="p-6 sm:p-8 space-y-6">
-            {/* Contract Details Grid */}
-            <div className="grid sm:grid-cols-3 gap-6">
-              <div className="bg-slate-50 rounded-xl p-5">
-                <div className="flex items-center gap-2 text-slate-500 mb-2">
-                  <FileCheck className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wider font-medium">Contract Title</span>
-                </div>
-                <p className="font-semibold text-slate-900">{acceptedEstimate.estimate_title}</p>
+          {/* Contract Details Grid */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            <button
+              onClick={viewContractPdf}
+              disabled={generatingContractPdf}
+              className="bg-slate-50 rounded-xl p-5 text-left hover:bg-slate-100 transition-colors cursor-pointer group"
+            >
+              <div className="flex items-center gap-2 text-slate-500 mb-2">
+                <FileCheck className="h-4 w-4" />
+                <span className="text-xs uppercase tracking-wider font-medium">Contract Title</span>
+                {generatingContractPdf ? (
+                  <Loader2 className="h-3 w-3 animate-spin ml-auto" />
+                ) : (
+                  <Eye className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
               </div>
-              
-              <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/10">
-                <div className="flex items-center gap-2 text-primary/70 mb-2">
-                  <span className="text-xs uppercase tracking-wider font-medium">Contract Value</span>
-                </div>
-                <p className="text-2xl font-bold text-primary">
-                  {formatCurrency(acceptedEstimate.total)}
-                </p>
+              <p className="font-semibold text-slate-900 group-hover:text-primary transition-colors">
+                {acceptedEstimate.estimate_title}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">Click to view contract</p>
+            </button>
+            
+            <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/10">
+              <div className="flex items-center gap-2 text-primary/70 mb-2">
+                <span className="text-xs uppercase tracking-wider font-medium">Contract Value</span>
               </div>
-              
-              <div className="bg-slate-50 rounded-xl p-5">
-                <div className="flex items-center gap-2 text-slate-500 mb-2">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-xs uppercase tracking-wider font-medium">Signed Date</span>
-                </div>
-                <p className="font-semibold text-slate-900">
-                  {acceptedEstimate.signed_at 
-                    ? format(new Date(acceptedEstimate.signed_at), 'MMMM d, yyyy')
-                    : 'N/A'}
-                </p>
-              </div>
+              <p className="text-2xl font-bold text-primary">
+                {formatCurrency(acceptedEstimate.total)}
+              </p>
             </div>
+            
+            <div className="bg-slate-50 rounded-xl p-5">
+              <div className="flex items-center gap-2 text-slate-500 mb-2">
+                <Calendar className="h-4 w-4" />
+                <span className="text-xs uppercase tracking-wider font-medium">Signed Date</span>
+              </div>
+              <p className="font-semibold text-slate-900">
+                {acceptedEstimate.signed_at 
+                  ? format(new Date(acceptedEstimate.signed_at), 'MMMM d, yyyy')
+                  : 'N/A'}
+              </p>
+            </div>
+          </div>
 
             {/* Signature Verification Badge */}
             <div className="flex items-center gap-4 bg-green-50 border border-green-100 rounded-xl p-4">
