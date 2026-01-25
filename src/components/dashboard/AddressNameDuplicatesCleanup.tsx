@@ -142,7 +142,8 @@ export function AddressNameDuplicatesCleanup({
   const [mergeOptions, setMergeOptions] = useState<{
     scopeOfWork: string;
     monetaryValue: string;
-  }>({ scopeOfWork: 'keep', monetaryValue: 'highest' });
+    transferScopeIfMissing: boolean;
+  }>({ scopeOfWork: 'keep', monetaryValue: 'highest', transferScopeIfMissing: true });
 
   // Fields that will be transferred from duplicates
   const [fieldsToTransfer, setFieldsToTransfer] = useState<FieldTransfer[]>([]);
@@ -330,7 +331,7 @@ export function AddressNameDuplicatesCleanup({
     setShowConfirmDialog(true);
     setPasswordInput("");
     setPasswordError(false);
-    setMergeOptions({ scopeOfWork: 'keep', monetaryValue: 'highest' });
+    setMergeOptions({ scopeOfWork: 'keep', monetaryValue: 'highest', transferScopeIfMissing: true });
   };
 
   const handleConfirmMerge = async () => {
@@ -398,8 +399,8 @@ export function AddressNameDuplicatesCleanup({
         }
       }
 
-      // Transfer scope_of_work from duplicate if keep option is 'keep' and keep is missing
-      if (mergeOptions.scopeOfWork === 'keep' && !keepOpp.scope_of_work) {
+      // Transfer scope_of_work from duplicate if keep option is 'keep', toggle is enabled, and keep is missing
+      if (mergeOptions.scopeOfWork === 'keep' && mergeOptions.transferScopeIfMissing && !keepOpp.scope_of_work) {
         const scopeFromDup = deleteOpps.find(o => o.scope_of_work);
         if (scopeFromDup?.scope_of_work) {
           updateData.scope_of_work = scopeFromDup.scope_of_work;
@@ -850,6 +851,21 @@ export function AddressNameDuplicatesCleanup({
                         <Label htmlFor="scope-combine" className="text-xs cursor-pointer">Combine all</Label>
                       </div>
                     </RadioGroup>
+                    
+                    {mergeOptions.scopeOfWork === 'keep' && (
+                      <div className="flex items-center gap-2 mt-2 ml-4">
+                        <Checkbox
+                          id="transfer-scope"
+                          checked={mergeOptions.transferScopeIfMissing}
+                          onCheckedChange={(checked) => 
+                            setMergeOptions(prev => ({ ...prev, transferScopeIfMissing: checked === true }))
+                          }
+                        />
+                        <Label htmlFor="transfer-scope" className="text-xs cursor-pointer text-muted-foreground">
+                          Transfer scope from duplicate if kept opportunity is missing it
+                        </Label>
+                      </div>
+                    )}
                   </div>
                 </div>
 
