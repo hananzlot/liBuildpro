@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import { useSidebarFinancials } from "@/hooks/useSidebarFinancials";
+import { useTodayAppointmentsCount } from "@/hooks/useTodayAppointmentsCount";
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
 import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -83,7 +84,7 @@ interface NavItem {
   roles?: AppRole[];
   excludeRoles?: AppRole[];
   subItems?: NavSubItem[];
-  dynamicSuffix?: 'ar' | 'ap';
+  dynamicSuffix?: 'ar' | 'ap' | 'todayAppts';
   requiredFeature?: string;
 }
 
@@ -126,7 +127,8 @@ const navSections: NavSection[] = [
         url: "/calendar", 
         icon: CalendarDays,
         roles: ['super_admin', 'admin', 'dispatch'],
-        requiredFeature: 'ghl_integration'
+        requiredFeature: 'ghl_integration',
+        dynamicSuffix: 'todayAppts'
       },
       { 
         title: "Follow-up", 
@@ -275,6 +277,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   } = useAuth();
   const { versionString, version } = useAppVersion();
   const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
+  const { data: todayAppointmentsCount = 0 } = useTodayAppointmentsCount();
   const collapsed = state === "collapsed";
 
   const closeSidebar = () => {
@@ -527,6 +530,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       if (item.dynamicSuffix === 'ap' && apDueByFocusDay > 0) {
         return formatCompactCurrency(apDueByFocusDay);
       }
+      if (item.dynamicSuffix === 'todayAppts') {
+        return todayAppointmentsCount.toString();
+      }
       return null;
     };
     
@@ -535,10 +541,12 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     
     const renderTitleWithAmount = () => {
       if (!dynamicAmount) return <span>{item.title}</span>;
-      // AR in dark green, AP in orange
+      // AR in dark green, AP in orange, Today's appointments in blue
       const colorClass = item.dynamicSuffix === 'ar' 
         ? "text-green-700 dark:text-green-500" 
-        : "text-orange-500";
+        : item.dynamicSuffix === 'ap'
+        ? "text-orange-500"
+        : "text-primary";
       return (
         <span>
           {item.title} <span className={colorClass}>({dynamicAmount})</span>
