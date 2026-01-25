@@ -2573,6 +2573,7 @@ export type Database = {
           is_company_calendar: boolean
           last_sync_at: string | null
           refresh_token_encrypted: string | null
+          salesperson_id: string | null
           sync_direction: Database["public"]["Enums"]["calendar_sync_direction"]
           sync_error: string | null
           token_expires_at: string | null
@@ -2591,6 +2592,7 @@ export type Database = {
           is_company_calendar?: boolean
           last_sync_at?: string | null
           refresh_token_encrypted?: string | null
+          salesperson_id?: string | null
           sync_direction?: Database["public"]["Enums"]["calendar_sync_direction"]
           sync_error?: string | null
           token_expires_at?: string | null
@@ -2609,6 +2611,7 @@ export type Database = {
           is_company_calendar?: boolean
           last_sync_at?: string | null
           refresh_token_encrypted?: string | null
+          salesperson_id?: string | null
           sync_direction?: Database["public"]["Enums"]["calendar_sync_direction"]
           sync_error?: string | null
           token_expires_at?: string | null
@@ -2621,6 +2624,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_calendar_connections_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "salespeople"
             referencedColumns: ["id"]
           },
         ]
