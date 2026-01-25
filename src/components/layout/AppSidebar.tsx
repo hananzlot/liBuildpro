@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAppVersion } from "@/hooks/useAppVersion";
 import { useSidebarFinancials } from "@/hooks/useSidebarFinancials";
 import { useTodayAppointmentsCount } from "@/hooks/useTodayAppointmentsCount";
+import { usePendingScopeSubmissionsCount } from "@/hooks/usePendingScopeSubmissionsCount";
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
 import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -85,7 +86,7 @@ interface NavItem {
   roles?: AppRole[];
   excludeRoles?: AppRole[];
   subItems?: NavSubItem[];
-  dynamicSuffix?: 'ar' | 'ap' | 'todayAppts';
+  dynamicSuffix?: 'ar' | 'ap' | 'todayAppts' | 'pendingScopes';
   requiredFeature?: string;
 }
 
@@ -201,7 +202,8 @@ const navSections: NavSection[] = [
         url: "/production?view=scope-submissions", 
         icon: ClipboardList,
         roles: ['super_admin', 'admin', 'production'],
-        requiredFeature: 'production'
+        requiredFeature: 'production',
+        dynamicSuffix: 'pendingScopes'
       },
     ],
   },
@@ -300,6 +302,7 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { versionString, version } = useAppVersion();
   const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
   const { data: todayAppointmentsCount = 0 } = useTodayAppointmentsCount();
+  const { data: pendingScopesCount = 0 } = usePendingScopeSubmissionsCount();
   const collapsed = state === "collapsed";
 
   const closeSidebar = () => {
@@ -555,6 +558,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
       if (item.dynamicSuffix === 'todayAppts') {
         return todayAppointmentsCount.toString();
       }
+      if (item.dynamicSuffix === 'pendingScopes' && pendingScopesCount > 0) {
+        return pendingScopesCount.toString();
+      }
       return null;
     };
     
@@ -563,11 +569,13 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
     
     const renderTitleWithAmount = () => {
       if (!dynamicAmount) return <span>{item.title}</span>;
-      // AR in dark green, AP in orange, Today's appointments in blue
+      // AR in dark green, AP in orange, Today's appointments in blue, Pending scopes in amber
       const colorClass = item.dynamicSuffix === 'ar' 
         ? "text-green-700 dark:text-green-500" 
         : item.dynamicSuffix === 'ap'
         ? "text-orange-500"
+        : item.dynamicSuffix === 'pendingScopes'
+        ? "text-amber-500"
         : "text-primary";
       return (
         <span>
