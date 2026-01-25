@@ -65,6 +65,7 @@ import { NewProjectDialog } from "@/components/production/NewProjectDialog";
 import { AnalyticsSection } from "@/components/production/AnalyticsSection";
 import { MissingProjectsSection } from "@/components/production/MissingProjectsSection";
 import { SubcontractorsManagement } from "@/components/production/SubcontractorsManagement";
+import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement";
 import { SubcontractorWarningsCard } from "@/components/production/SubcontractorWarningsCard";
 import { ProjectImportDialog } from "@/components/production/ProjectImportDialog";
 import { AdminKPIFilters } from "@/components/production/AdminKPIFilters";
@@ -2425,6 +2426,10 @@ export default function Production() {
                 }
               }}
             />
+          )}
+
+          {activeView === 'salespeople' && (
+            <SalespeopleManagement />
           )}
         </div>
 

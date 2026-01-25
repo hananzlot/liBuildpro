@@ -181,6 +181,13 @@ const navSections: NavSection[] = [
         roles: ['super_admin', 'admin', 'production'],
         requiredFeature: 'production'
       },
+      { 
+        title: "Salespeople", 
+        url: "/production?view=salespeople", 
+        icon: Users,
+        roles: ['super_admin', 'admin'],
+        requiredFeature: 'production'
+      },
     ],
   },
   {
