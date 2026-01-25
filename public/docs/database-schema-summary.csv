@@ -1,0 +1,84 @@
+table_name,pk,fks_count,uniques_count,indexes_count,rls_enabled,row_count,purpose
+app_settings,id,1,1,2,true,23,Platform-wide configuration settings
+app_version,id,0,0,1,true,17,Application version tracking
+appointment_edits,id,2,0,5,true,107,Appointment change tracking/audit
+appointment_reminders,id,1,0,3,true,7,Scheduled appointment reminders
+appointments,id,6,1,7,true,80,Calendar appointments (GHL/Google/Local)
+audit_logs,id,2,0,6,true,1161,System-wide audit trail
+banks,id,2,1,3,true,2,Bank accounts for payments
+bill_payments,id,2,0,2,true,68,Payments made against vendor bills
+billing_history,id,2,0,1,true,0,Subscription billing history
+call_logs,id,1,1,6,true,147,Phone call tracking
+client_comments,id,6,0,4,true,0,Client comments on estimates/projects
+client_portal_tokens,id,4,1,6,true,15,Portal access tokens for clients
+commission_payments,id,2,0,4,true,0,Commission payment records
+companies,id,1,1,5,true,2,Multi-tenant company records (root entity)
+company_integrations,id,1,0,4,true,2,External service integrations (GHL)
+company_settings,id,2,1,3,true,52,Tenant-specific configuration
+company_subscriptions,id,2,1,2,true,2,Active subscription records
+contact_notes,id,5,1,5,true,2073,Notes attached to contacts
+contacts,id,2,1,10,true,5170,Customer/lead contact records
+conversations,id,1,1,6,true,200,Message conversations
+corporations,id,0,1,4,true,1,Parent corporation for multi-company
+document_portal_tokens,id,3,0,2,true,2,Document signing portal access
+document_signature_fields,id,3,0,4,true,5,Signature field positions on documents
+document_signatures,id,3,0,2,true,2,Captured signatures on documents
+document_signers,id,3,0,4,true,2,People who need to sign documents
+encryption_keys,id,0,1,2,true,1,Encryption key storage
+estimate_attachments,id,4,0,2,true,0,Files attached to estimates
+estimate_groups,id,2,0,2,true,71,Line item groups within estimates
+estimate_line_items,id,3,0,2,true,232,Individual line items in estimates
+estimate_payment_schedule,id,2,0,2,true,65,Payment milestones for estimates
+estimate_portal_tokens,id,3,1,5,true,0,Estimate-specific portal access
+estimate_signatures,id,3,0,3,true,0,Signatures on estimates
+estimate_signers,id,3,0,4,true,0,People who need to sign estimates
+estimates,id,7,0,2,true,17,Estimate/proposal/contract documents
+ghl_calendars,id,1,1,3,true,28,GoHighLevel calendar sync
+ghl_field_mappings,id,2,1,2,true,1,Custom field mappings for GHL
+ghl_pipelines,id,1,1,3,true,5,GoHighLevel pipeline configuration
+ghl_tasks,id,5,1,7,true,510,Tasks synced from GoHighLevel
+ghl_users,id,1,1,4,true,23,GoHighLevel user mappings
+google_calendar_connections,id,3,1,4,true,1,Google Calendar OAuth connections
+imported_records,id,1,1,3,true,4694,Import tracking for data migration
+magazine_sales,id,2,0,3,true,6,Magazine advertising sales
+magazine_sales_edits,id,3,0,3,true,4,Magazine sales change tracking
+note_edits,id,2,0,5,true,0,Note change tracking
+notifications,id,2,0,2,true,286,User notifications
+opportunities,id,5,1,7,true,1131,Sales pipeline opportunities
+opportunity_edits,id,2,0,5,true,1930,Opportunity change tracking
+opportunity_sales,id,1,0,2,true,0,Additional opportunity sales data
+portal_chat_messages,id,4,0,4,true,0,Portal chat messages
+portal_chat_messages_archived,id,2,0,1,true,0,Archived portal chat messages
+portal_view_logs,id,2,0,2,true,423,Portal access logging
+profiles,id,2,0,6,true,10,Extended user profile data
+project_agreements,id,2,0,3,true,27,Project agreement documents
+project_bills,id,3,0,4,true,49,Vendor bills for projects
+project_checklists,id,2,0,2,true,0,Project task checklists
+project_commissions,id,2,0,2,true,0,Commission tracking for projects
+project_costs,id,2,0,2,true,5,Project cost tracking
+project_documents,id,2,0,3,true,37,Documents attached to projects
+project_feedback,id,2,0,2,true,0,Customer feedback on projects
+project_finance,id,1,0,1,true,0,Project financial summary
+project_invoices,id,2,0,3,true,77,Invoices issued for projects
+project_messages,id,2,0,1,true,0,Internal project messages
+project_note_comments,id,3,0,1,true,0,Comments on project notes
+project_notes,id,2,0,1,true,1,Notes attached to projects
+project_notification_log,id,1,0,2,true,1,Project notification history
+project_payment_phases,id,2,0,3,true,144,Payment milestones for projects
+project_payments,id,2,0,3,true,73,Payments received for projects
+project_statuses,id,0,1,1,true,8,Project status lookup table
+project_types,id,0,1,1,true,21,Project type lookup table
+projects,id,5,0,6,true,29,Production/project management records
+salespeople,id,1,1,4,true,14,Sales team members
+salesperson_portal_tokens,id,2,1,3,true,5,Salesperson portal access tokens
+scope_submissions,id,4,0,5,true,1,Salesperson scope pricing requests
+short_link_clicks,id,1,0,3,true,16,Short link click analytics
+short_links,id,1,2,4,true,13,URL shortener links
+signature_documents,id,3,0,4,true,1,Documents requiring signatures
+subcontractors,id,1,0,2,true,20,Subcontractor vendor records
+subscription_features,id,1,1,2,true,10,Feature flags for subscription plans
+subscription_plans,id,0,1,2,true,3,Subscription tier definitions
+task_edits,id,2,0,5,true,492,Task change tracking
+tasks,id,2,0,4,true,6,Internal task management
+trades,id,0,1,3,true,15,Trade/skill lookup table
+user_roles,id,1,1,2,true,10,Role-based access control
