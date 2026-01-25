@@ -318,8 +318,43 @@ export default function SalespersonCalendarPortal() {
 
       {/* Week Calendar Grid */}
       {!appointmentsLoading && (
-        <div className="max-w-4xl mx-auto p-4">
-          <div className="grid grid-cols-1 gap-3">
+        <div className="max-w-6xl mx-auto p-4">
+          {/* Day Headers Row */}
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {weekDays.map((day) => {
+              const dayKey = format(day, "yyyy-MM-dd");
+              const dayAppts = appointmentsByDay.get(dayKey) || [];
+              const dayIsPast = day < new Date() && !isToday(day);
+
+              return (
+                <div
+                  key={`header-${dayKey}`}
+                  className={`text-center py-2 rounded-t-lg ${
+                    isToday(day)
+                      ? "bg-primary text-primary-foreground"
+                      : dayIsPast
+                      ? "bg-muted/50 text-muted-foreground"
+                      : "bg-card text-foreground"
+                  }`}
+                >
+                  <span className="text-xs uppercase font-medium block">
+                    {format(day, "EEE")}
+                  </span>
+                  <span className="text-lg font-semibold">
+                    {format(day, "d")}
+                  </span>
+                  {dayAppts.length > 0 && (
+                    <Badge variant={isToday(day) ? "secondary" : "outline"} className="text-[10px] mt-1 px-1.5 py-0">
+                      {dayAppts.length}
+                    </Badge>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Appointments Grid Row */}
+          <div className="grid grid-cols-7 gap-1">
             {weekDays.map((day) => {
               const dayKey = format(day, "yyyy-MM-dd");
               const dayAppts = appointmentsByDay.get(dayKey) || [];
@@ -328,81 +363,49 @@ export default function SalespersonCalendarPortal() {
               return (
                 <div
                   key={dayKey}
-                  className={`rounded-lg border ${
+                  className={`min-h-[200px] rounded-b-lg border p-1.5 ${
                     isToday(day)
                       ? "border-primary bg-primary/5"
                       : dayIsPast
-                      ? "border-border/50 bg-muted/30"
+                      ? "border-border/50 bg-muted/20"
                       : "border-border bg-card"
                   }`}
                 >
-                  {/* Day Header */}
-                  <div className={`px-3 py-2 border-b ${isToday(day) ? "border-primary/30" : "border-border"}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs uppercase font-medium ${
-                          isToday(day) ? "text-primary" : "text-muted-foreground"
-                        }`}>
-                          {format(day, "EEE")}
-                        </span>
-                        <span className={`text-lg font-semibold ${
-                          isToday(day)
-                            ? "bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center"
-                            : "text-foreground"
-                        }`}>
-                          {format(day, "d")}
-                        </span>
-                      </div>
-                      {dayAppts.length > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                          {dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""}
-                        </Badge>
-                      )}
+                  {dayAppts.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground text-center py-4">
+                      —
+                    </p>
+                  ) : (
+                    <div className="space-y-1">
+                      {dayAppts.map((appt) => {
+                        const { displayName } = getAppointmentDetails(appt);
+                        return (
+                          <button
+                            key={appt.id}
+                            onClick={() => setSelectedAppointment(appt)}
+                            className={`w-full text-left rounded p-1.5 border transition-all hover:shadow-md text-xs ${
+                              getStatusColor(appt.appointment_status)
+                            }`}
+                          >
+                            <div className="flex items-center gap-1">
+                              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${getStatusDotColor(appt.appointment_status)}`} />
+                              <span className="font-medium truncate text-[11px]">
+                                {formatTimeShort(appt.start_time)}
+                              </span>
+                            </div>
+                            <p className="font-medium truncate mt-0.5">
+                              {displayName.split(" ")[0]}
+                            </p>
+                            {appt.address && (
+                              <p className="opacity-75 truncate text-[10px] mt-0.5">
+                                📍 {appt.address.split(",")[0]}
+                              </p>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                  </div>
-
-                  {/* Appointments for this day */}
-                  <div className="p-2">
-                    {dayAppts.length === 0 ? (
-                      <p className="text-xs text-muted-foreground text-center py-3">
-                        No appointments
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {dayAppts.map((appt) => {
-                          const { displayName } = getAppointmentDetails(appt);
-                          return (
-                            <button
-                              key={appt.id}
-                              onClick={() => setSelectedAppointment(appt)}
-                              className={`w-full text-left rounded-md p-2 border transition-all hover:shadow-md ${
-                                getStatusColor(appt.appointment_status)
-                              }`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${getStatusDotColor(appt.appointment_status)}`} />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-medium text-sm truncate">
-                                      {displayName}
-                                    </span>
-                                    <span className="text-xs shrink-0 opacity-75">
-                                      {formatTimeShort(appt.start_time)}
-                                    </span>
-                                  </div>
-                                  {appt.address && (
-                                    <p className="text-xs opacity-75 truncate mt-0.5">
-                                      📍 {appt.address}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               );
             })}
