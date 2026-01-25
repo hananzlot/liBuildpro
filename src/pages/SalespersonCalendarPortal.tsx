@@ -3,11 +3,12 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isToday, isSameDay, parseISO } from "date-fns";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface Appointment {
   id: string;
@@ -29,6 +30,16 @@ interface Contact {
   email: string | null;
 }
 
+interface Opportunity {
+  id: string;
+  ghl_id: string | null;
+  name: string | null;
+  contact_id: string | null;
+  scope_of_work: string | null;
+  monetary_value: number | null;
+  stage_name: string | null;
+}
+
 function getStatusColor(status: string | null): string {
   switch (status?.toLowerCase()) {
     case "confirmed":
@@ -46,6 +57,23 @@ function getStatusColor(status: string | null): string {
   }
 }
 
+function getStatusDotColor(status: string | null): string {
+  switch (status?.toLowerCase()) {
+    case "confirmed":
+      return "bg-emerald-500";
+    case "showed":
+      return "bg-blue-500";
+    case "no_show":
+    case "noshow":
+      return "bg-red-500";
+    case "cancelled":
+    case "canceled":
+      return "bg-gray-400";
+    default:
+      return "bg-amber-500";
+  }
+}
+
 function formatTime(dateStr: string | null): string {
   if (!dateStr) return "";
   try {
@@ -55,10 +83,19 @@ function formatTime(dateStr: string | null): string {
   }
 }
 
+function formatTimeShort(dateStr: string | null): string {
+  if (!dateStr) return "";
+  try {
+    return format(parseISO(dateStr), "h:mma").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
 export default function SalespersonCalendarPortal() {
   const { token } = useParams<{ token: string }>();
   const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   // Validate token and get salesperson info
   const { data: tokenData, isLoading: tokenLoading, error: tokenError } = useQuery({
@@ -137,6 +174,23 @@ export default function SalespersonCalendarPortal() {
     enabled: !!salesperson?.company_id,
   });
 
+  // Fetch opportunities for scope of work
+  const { data: opportunities = [] } = useQuery({
+    queryKey: ["salesperson-portal-opportunities", salesperson?.company_id],
+    queryFn: async () => {
+      if (!salesperson?.company_id) return [];
+
+      const { data, error } = await supabase
+        .from("opportunities")
+        .select("id, ghl_id, name, contact_id, scope_of_work, monetary_value, stage_name")
+        .eq("company_id", salesperson.company_id);
+
+      if (error) throw error;
+      return data as Opportunity[];
+    },
+    enabled: !!salesperson?.company_id,
+  });
+
   const contactMap = useMemo(() => {
     const map = new Map<string, Contact>();
     contacts.forEach((c) => {
@@ -144,6 +198,14 @@ export default function SalespersonCalendarPortal() {
     });
     return map;
   }, [contacts]);
+
+  const opportunityMap = useMemo(() => {
+    const map = new Map<string, Opportunity>();
+    opportunities.forEach((o) => {
+      if (o.contact_id) map.set(o.contact_id, o);
+    });
+    return map;
+  }, [opportunities]);
 
   // Calculate week dates
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 });
@@ -157,22 +219,24 @@ export default function SalespersonCalendarPortal() {
       if (!appt.start_time) return;
       const dayKey = format(parseISO(appt.start_time), "yyyy-MM-dd");
       const existing = map.get(dayKey) || [];
-      map.set(dayKey, [...existing, appt]);
+      map.set(dayKey, [...existing, appt].sort((a, b) => {
+        if (!a.start_time || !b.start_time) return 0;
+        return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+      }));
     });
     return map;
   }, [appointments]);
 
   const handleGoToToday = () => {
-    const today = new Date();
-    setCurrentWeek(today);
-    setSelectedDay(today);
+    setCurrentWeek(new Date());
   };
 
-  const selectedDayAppointments = useMemo(() => {
-    if (!selectedDay) return [];
-    const dayKey = format(selectedDay, "yyyy-MM-dd");
-    return appointmentsByDay.get(dayKey) || [];
-  }, [selectedDay, appointmentsByDay]);
+  const getAppointmentDetails = (appt: Appointment) => {
+    const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null;
+    const opportunity = appt.contact_id ? opportunityMap.get(appt.contact_id) : null;
+    const displayName = contact?.contact_name || appt.title || "Appointment";
+    return { contact, opportunity, displayName };
+  };
 
   if (tokenLoading) {
     return (
@@ -245,148 +309,258 @@ export default function SalespersonCalendarPortal() {
         </div>
       </div>
 
-      {/* Week Grid - Mobile Optimized */}
-      <div className="max-w-4xl mx-auto">
-        <div className="grid grid-cols-7 border-b border-border">
-          {weekDays.map((day) => {
-            const dayKey = format(day, "yyyy-MM-dd");
-            const dayAppts = appointmentsByDay.get(dayKey) || [];
-            const isSelected = selectedDay && isSameDay(day, selectedDay);
+      {/* Loading State */}
+      {appointmentsLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
 
-            return (
-              <button
-                key={dayKey}
-                onClick={() => setSelectedDay(isSelected ? null : day)}
-                className={`flex flex-col items-center py-3 px-1 border-r last:border-r-0 transition-colors ${
-                  isSelected
-                    ? "bg-primary/10"
-                    : isToday(day)
-                    ? "bg-muted/50"
-                    : "hover:bg-muted/30"
-                }`}
-              >
-                <span className="text-[10px] uppercase text-muted-foreground">
-                  {format(day, "EEE")}
-                </span>
-                <span
-                  className={`text-lg font-medium mt-0.5 w-8 h-8 flex items-center justify-center rounded-full ${
+      {/* Week Calendar Grid */}
+      {!appointmentsLoading && (
+        <div className="max-w-4xl mx-auto p-4">
+          <div className="grid grid-cols-1 gap-3">
+            {weekDays.map((day) => {
+              const dayKey = format(day, "yyyy-MM-dd");
+              const dayAppts = appointmentsByDay.get(dayKey) || [];
+              const dayIsPast = day < new Date() && !isToday(day);
+
+              return (
+                <div
+                  key={dayKey}
+                  className={`rounded-lg border ${
                     isToday(day)
-                      ? "bg-primary text-primary-foreground"
-                      : isSelected
-                      ? "bg-primary/20 text-primary"
-                      : "text-foreground"
+                      ? "border-primary bg-primary/5"
+                      : dayIsPast
+                      ? "border-border/50 bg-muted/30"
+                      : "border-border bg-card"
                   }`}
                 >
-                  {format(day, "d")}
-                </span>
-                {dayAppts.length > 0 && (
-                  <div className="flex gap-0.5 mt-1">
-                    {dayAppts.slice(0, 3).map((_, i) => (
-                      <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    ))}
-                    {dayAppts.length > 3 && (
-                      <span className="text-[8px] text-muted-foreground">+{dayAppts.length - 3}</span>
-                    )}
+                  {/* Day Header */}
+                  <div className={`px-3 py-2 border-b ${isToday(day) ? "border-primary/30" : "border-border"}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs uppercase font-medium ${
+                          isToday(day) ? "text-primary" : "text-muted-foreground"
+                        }`}>
+                          {format(day, "EEE")}
+                        </span>
+                        <span className={`text-lg font-semibold ${
+                          isToday(day)
+                            ? "bg-primary text-primary-foreground w-8 h-8 rounded-full flex items-center justify-center"
+                            : "text-foreground"
+                        }`}>
+                          {format(day, "d")}
+                        </span>
+                      </div>
+                      {dayAppts.length > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {dayAppts.length} appointment{dayAppts.length !== 1 ? "s" : ""}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
 
-        {/* Loading State */}
-        {appointmentsLoading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        )}
-
-        {/* Selected Day Appointments */}
-        {selectedDay && !appointmentsLoading && (
-          <div className="p-4">
-            <h2 className="text-sm font-semibold text-foreground mb-3">
-              {format(selectedDay, "EEEE, MMMM d")}
-              <span className="text-muted-foreground font-normal ml-2">
-                ({selectedDayAppointments.length} appointment{selectedDayAppointments.length !== 1 ? "s" : ""})
-              </span>
-            </h2>
-
-            {selectedDayAppointments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Calendar className="h-10 w-10 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">No appointments scheduled</p>
-              </div>
-            ) : (
-              <ScrollArea className="max-h-[60vh]">
-                <div className="space-y-3">
-                  {selectedDayAppointments
-                    .sort((a, b) => {
-                      if (!a.start_time || !b.start_time) return 0;
-                      return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
-                    })
-                    .map((appt) => {
-                      const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null;
-                      const displayName = contact?.contact_name || appt.title || "Appointment";
-
-                      return (
-                        <Card key={appt.id} className="overflow-hidden">
-                          <CardContent className="p-3">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                  <span className="font-medium text-sm text-foreground truncate">
-                                    {displayName}
-                                  </span>
-                                </div>
-                                {appt.start_time && (
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Clock className="h-3 w-3 shrink-0" />
-                                    <span>
-                                      {formatTime(appt.start_time)}
-                                      {appt.end_time && ` - ${formatTime(appt.end_time)}`}
+                  {/* Appointments for this day */}
+                  <div className="p-2">
+                    {dayAppts.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-3">
+                        No appointments
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {dayAppts.map((appt) => {
+                          const { displayName } = getAppointmentDetails(appt);
+                          return (
+                            <button
+                              key={appt.id}
+                              onClick={() => setSelectedAppointment(appt)}
+                              className={`w-full text-left rounded-md p-2 border transition-all hover:shadow-md ${
+                                getStatusColor(appt.appointment_status)
+                              }`}
+                            >
+                              <div className="flex items-start gap-2">
+                                <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${getStatusDotColor(appt.appointment_status)}`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-medium text-sm truncate">
+                                      {displayName}
+                                    </span>
+                                    <span className="text-xs shrink-0 opacity-75">
+                                      {formatTimeShort(appt.start_time)}
                                     </span>
                                   </div>
-                                )}
+                                  {appt.address && (
+                                    <p className="text-xs opacity-75 truncate mt-0.5">
+                                      📍 {appt.address}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                              <Badge variant="outline" className={`text-[10px] shrink-0 ${getStatusColor(appt.appointment_status)}`}>
-                                {appt.appointment_status || "New"}
-                              </Badge>
-                            </div>
-
-                            {appt.address && (
-                              <div className="flex items-start gap-2 text-xs text-muted-foreground mt-2 pt-2 border-t border-border">
-                                <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
-                                <span className="line-clamp-2">{appt.address}</span>
-                              </div>
-                            )}
-
-                            {contact?.phone && (
-                              <a
-                                href={`tel:${contact.phone}`}
-                                className="inline-flex items-center gap-1 text-xs text-primary mt-2 hover:underline"
-                              >
-                                📞 {contact.phone}
-                              </a>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </ScrollArea>
-            )}
+              );
+            })}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* No Day Selected State */}
-        {!selectedDay && !appointmentsLoading && (
-          <div className="text-center py-12 text-muted-foreground">
-            <Calendar className="h-12 w-12 mx-auto mb-3 opacity-40" />
-            <p className="text-sm">Tap a day to view appointments</p>
+      {/* Appointment Detail Sheet */}
+      <Sheet open={!!selectedAppointment} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
+          {selectedAppointment && (
+            <AppointmentDetailView
+              appointment={selectedAppointment}
+              contact={selectedAppointment.contact_id ? contactMap.get(selectedAppointment.contact_id) : null}
+              opportunity={selectedAppointment.contact_id ? opportunityMap.get(selectedAppointment.contact_id) : null}
+              onClose={() => setSelectedAppointment(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+interface AppointmentDetailViewProps {
+  appointment: Appointment;
+  contact: Contact | null | undefined;
+  opportunity: Opportunity | null | undefined;
+  onClose: () => void;
+}
+
+function AppointmentDetailView({ appointment, contact, opportunity, onClose }: AppointmentDetailViewProps) {
+  const displayName = contact?.contact_name || appointment.title || "Appointment";
+
+  return (
+    <div className="h-full flex flex-col">
+      <SheetHeader className="pb-4 border-b">
+        <div className="flex items-center justify-between">
+          <SheetTitle className="text-lg">{displayName}</SheetTitle>
+          <Badge variant="outline" className={getStatusColor(appointment.appointment_status)}>
+            {appointment.appointment_status || "New"}
+          </Badge>
+        </div>
+      </SheetHeader>
+
+      <ScrollArea className="flex-1 py-4">
+        <div className="space-y-6">
+          {/* Time & Date */}
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground">
+                {appointment.start_time ? format(parseISO(appointment.start_time), "EEEE, MMMM d, yyyy") : "No date"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {formatTime(appointment.start_time)}
+                {appointment.end_time && ` - ${formatTime(appointment.end_time)}`}
+              </p>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Address */}
+          {appointment.address && (
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <MapPin className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Location</p>
+                <p className="text-sm text-muted-foreground">{appointment.address}</p>
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(appointment.address)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline mt-1 inline-block"
+                >
+                  Open in Maps →
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Contact Info */}
+          {contact && (
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <User className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Contact</p>
+                {contact.phone && (
+                  <a href={`tel:${contact.phone}`} className="text-sm text-primary hover:underline block">
+                    📞 {contact.phone}
+                  </a>
+                )}
+                {contact.email && (
+                  <a href={`mailto:${contact.email}`} className="text-sm text-primary hover:underline block">
+                    ✉️ {contact.email}
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Scope of Work from Opportunity */}
+          {opportunity?.scope_of_work && (
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-foreground">Scope of Work</p>
+                <div className="mt-2 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {opportunity.scope_of_work}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Appointment Notes */}
+          {appointment.notes && (
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-amber-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-foreground">Appointment Notes</p>
+                <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {appointment.notes}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Opportunity Stage & Value */}
+          {opportunity && (opportunity.stage_name || opportunity.monetary_value) && (
+            <div className="p-4 bg-muted/30 rounded-lg border">
+              <p className="text-xs text-muted-foreground uppercase font-medium mb-2">Opportunity</p>
+              <div className="flex items-center gap-3">
+                {opportunity.stage_name && (
+                  <Badge variant="secondary">{opportunity.stage_name}</Badge>
+                )}
+                {opportunity.monetary_value != null && opportunity.monetary_value > 0 && (
+                  <span className="font-semibold text-emerald-600">
+                    ${opportunity.monetary_value.toLocaleString()}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
