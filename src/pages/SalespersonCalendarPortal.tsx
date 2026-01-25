@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isToday, isSameDay, parseISO } from "date-fns";
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addDays, subDays, isToday, isSameDay, parseISO } from "date-fns";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,7 +95,8 @@ function formatTimeShort(dateStr: string | null): string {
 
 export default function SalespersonCalendarPortal() {
   const { token } = useParams<{ token: string }>();
-  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<"day" | "week">("week");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   // Validate token and get salesperson info
@@ -208,8 +210,8 @@ export default function SalespersonCalendarPortal() {
   }, [opportunities]);
 
   // Calculate week dates
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 0 });
-  const weekEnd = endOfWeek(currentWeek, { weekStartsOn: 0 });
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 0 });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   // Group appointments by day
@@ -228,8 +230,20 @@ export default function SalespersonCalendarPortal() {
   }, [appointments]);
 
   const handleGoToToday = () => {
-    setCurrentWeek(new Date());
+    setCurrentDate(new Date());
   };
+
+  const handleNavigate = (direction: "prev" | "next") => {
+    if (viewMode === "week") {
+      setCurrentDate(direction === "prev" ? subWeeks(currentDate, 1) : addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(direction === "prev" ? subDays(currentDate, 1) : addDays(currentDate, 1));
+    }
+  };
+
+  // Get current day's appointments for day view
+  const currentDayKey = format(currentDate, "yyyy-MM-dd");
+  const currentDayAppointments = appointmentsByDay.get(currentDayKey) || [];
 
   const getAppointmentDetails = (appt: Appointment) => {
     const contact = appt.contact_id ? contactMap.get(appt.contact_id) : null;
@@ -294,16 +308,35 @@ export default function SalespersonCalendarPortal() {
         </div>
       </header>
 
-      {/* Week Navigation */}
+      {/* Navigation Bar */}
       <div className="bg-card border-b border-border px-4 py-2">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))}>
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
+          <Button variant="ghost" size="icon" onClick={() => handleNavigate("prev")}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium text-foreground">
-            {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
-          </span>
-          <Button variant="ghost" size="icon" onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-sm font-medium text-foreground">
+              {viewMode === "week" 
+                ? `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`
+                : format(currentDate, "EEEE, MMMM d, yyyy")
+              }
+            </span>
+            <ToggleGroup 
+              type="single" 
+              value={viewMode} 
+              onValueChange={(value) => value && setViewMode(value as "day" | "week")}
+              size="sm"
+              className="bg-muted rounded-md p-0.5"
+            >
+              <ToggleGroupItem value="day" className="text-xs px-3 py-1 data-[state=on]:bg-background">
+                Day
+              </ToggleGroupItem>
+              <ToggleGroupItem value="week" className="text-xs px-3 py-1 data-[state=on]:bg-background">
+                Week
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <Button variant="ghost" size="icon" onClick={() => handleNavigate("next")}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -316,8 +349,69 @@ export default function SalespersonCalendarPortal() {
         </div>
       )}
 
+      {/* Day View */}
+      {!appointmentsLoading && viewMode === "day" && (
+        <div className="max-w-2xl mx-auto p-4">
+          <Card className={`${isToday(currentDate) ? "border-primary" : ""}`}>
+            <CardContent className="pt-4">
+              {currentDayAppointments.length === 0 ? (
+                <div className="text-center py-12">
+                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground">No appointments scheduled</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {currentDayAppointments.map((appt) => {
+                    const { displayName, contact } = getAppointmentDetails(appt);
+                    return (
+                      <button
+                        key={appt.id}
+                        onClick={() => setSelectedAppointment(appt)}
+                        className={`w-full text-left rounded-lg p-4 border transition-all hover:shadow-lg ${
+                          getStatusColor(appt.appointment_status)
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className={`w-2 h-2 rounded-full shrink-0 ${getStatusDotColor(appt.appointment_status)}`} />
+                              <span className="font-semibold text-sm">
+                                {formatTime(appt.start_time)}
+                                {appt.end_time && ` - ${formatTime(appt.end_time)}`}
+                              </span>
+                            </div>
+                            <p className="font-semibold text-base truncate">
+                              {displayName}
+                            </p>
+                            {contact?.phone && (
+                              <p className="text-sm opacity-75 mt-1 flex items-center gap-1.5">
+                                <Phone className="h-3.5 w-3.5" />
+                                {contact.phone}
+                              </p>
+                            )}
+                            {appt.address && (
+                              <p className="text-sm opacity-75 mt-1 flex items-center gap-1.5">
+                                <MapPin className="h-3.5 w-3.5" />
+                                {appt.address}
+                              </p>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="shrink-0 text-xs">
+                            {appt.appointment_status || "New"}
+                          </Badge>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Week Calendar Grid */}
-      {!appointmentsLoading && (
+      {!appointmentsLoading && viewMode === "week" && (
         <div className="max-w-6xl mx-auto p-4">
           {/* Day Headers Row */}
           <div className="grid grid-cols-7 gap-1 mb-1">
@@ -329,13 +423,17 @@ export default function SalespersonCalendarPortal() {
               return (
                 <div
                   key={`header-${dayKey}`}
-                  className={`text-center py-2 rounded-t-lg ${
+                  className={`text-center py-2 rounded-t-lg cursor-pointer transition-colors ${
                     isToday(day)
                       ? "bg-primary text-primary-foreground"
                       : dayIsPast
-                      ? "bg-muted/50 text-muted-foreground"
-                      : "bg-card text-foreground"
+                      ? "bg-muted/50 text-muted-foreground hover:bg-muted"
+                      : "bg-card text-foreground hover:bg-muted/50"
                   }`}
+                  onClick={() => {
+                    setCurrentDate(day);
+                    setViewMode("day");
+                  }}
                 >
                   <span className="text-xs uppercase font-medium block">
                     {format(day, "EEE")}
