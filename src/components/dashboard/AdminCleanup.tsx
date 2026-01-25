@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { DuplicateOpportunitiesCleanup } from "./DuplicateOpportunitiesCleanup";
+import { AddressNameDuplicatesCleanup } from "./AddressNameDuplicatesCleanup";
 import { findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 
 interface Opportunity {
@@ -35,6 +36,8 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   monetary_value: number | null;
   contact_id: string | null;
+  address: string | null;
+  scope_of_work: string | null;
   ghl_date_added?: string | null;
 }
 
@@ -407,10 +410,17 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
 
   return (
     <div className="space-y-6">
-      {/* Duplicate Opportunities */}
+      {/* Duplicate Opportunities by Contact + Pipeline */}
       <DuplicateOpportunitiesCleanup
         opportunities={opportunities}
         contacts={contacts}
+        onDataUpdated={onDataUpdated}
+        onOpenOpportunity={onOpenOpportunity}
+      />
+
+      {/* Duplicate Opportunities by Address + Name */}
+      <AddressNameDuplicatesCleanup
+        opportunities={opportunities}
         onDataUpdated={onDataUpdated}
         onOpenOpportunity={onOpenOpportunity}
       />
