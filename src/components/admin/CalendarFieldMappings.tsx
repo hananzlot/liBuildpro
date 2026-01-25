@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -14,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Save, ArrowRight, Calendar, User, Briefcase } from "lucide-react";
+import { Loader2, Save, ArrowRight, Calendar, User, Briefcase, FileText, Plus, Trash2 } from "lucide-react";
 
 // Google Calendar event fields that can be mapped
 const GOOGLE_EVENT_FIELDS = [
@@ -51,6 +52,13 @@ interface FieldMapping {
   opportunity_field: string | null;
 }
 
+interface DescriptionPattern {
+  id: string;
+  pattern: string;
+  contact_field: string | null;
+  opportunity_field: string | null;
+}
+
 interface CalendarMappingSettings {
   enabled: boolean;
   create_contact: boolean;
@@ -58,7 +66,19 @@ interface CalendarMappingSettings {
   default_pipeline_id: string | null;
   default_stage_id: string | null;
   mappings: FieldMapping[];
+  parse_description: boolean;
+  description_patterns: DescriptionPattern[];
+  combine_address_fields: boolean;
 }
+
+const DEFAULT_DESCRIPTION_PATTERNS: DescriptionPattern[] = [
+  { id: "1", pattern: "NAME:", contact_field: "contact_name", opportunity_field: "name" },
+  { id: "2", pattern: "EMAIL:", contact_field: "email", opportunity_field: null },
+  { id: "3", pattern: "MOBILE:", contact_field: "phone", opportunity_field: null },
+  { id: "4", pattern: "ADDRESS:", contact_field: null, opportunity_field: "address" },
+  { id: "5", pattern: "Project:", contact_field: null, opportunity_field: "scope_of_work" },
+  { id: "6", pattern: "Project Goal:", contact_field: null, opportunity_field: "notes" },
+];
 
 const DEFAULT_SETTINGS: CalendarMappingSettings = {
   enabled: false,
@@ -72,6 +92,9 @@ const DEFAULT_SETTINGS: CalendarMappingSettings = {
     { google_field: "location", contact_field: null, opportunity_field: "address" },
     { google_field: "attendee_email", contact_field: "email", opportunity_field: null },
   ],
+  parse_description: false,
+  description_patterns: DEFAULT_DESCRIPTION_PATTERNS,
+  combine_address_fields: true,
 };
 
 export function CalendarFieldMappings() {
@@ -188,6 +211,36 @@ export function CalendarFieldMappings() {
     const newMappings = [...settings.mappings];
     newMappings[index] = { ...newMappings[index], [field]: value === "none" ? null : value };
     setSettings((prev) => ({ ...prev, mappings: newMappings }));
+    setHasChanges(true);
+  };
+
+  const updateDescriptionPattern = (id: string, field: keyof DescriptionPattern, value: string | null) => {
+    const newPatterns = settings.description_patterns.map((p) =>
+      p.id === id ? { ...p, [field]: value === "none" ? null : value } : p
+    );
+    setSettings((prev) => ({ ...prev, description_patterns: newPatterns }));
+    setHasChanges(true);
+  };
+
+  const addDescriptionPattern = () => {
+    const newPattern: DescriptionPattern = {
+      id: Date.now().toString(),
+      pattern: "",
+      contact_field: null,
+      opportunity_field: null,
+    };
+    setSettings((prev) => ({
+      ...prev,
+      description_patterns: [...prev.description_patterns, newPattern],
+    }));
+    setHasChanges(true);
+  };
+
+  const removeDescriptionPattern = (id: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      description_patterns: prev.description_patterns.filter((p) => p.id !== id),
+    }));
     setHasChanges(true);
   };
 
@@ -367,6 +420,144 @@ export function CalendarFieldMappings() {
               <p className="text-xs text-muted-foreground">
                 Map Google Calendar event fields to Contact and Opportunity fields
               </p>
+            </div>
+
+            {/* Description Parsing Section */}
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <div>
+                    <Label htmlFor="parse_description" className="text-base font-medium">
+                      Parse Description Fields
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Extract structured data (e.g., "NAME: John") from event descriptions
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="parse_description"
+                  checked={settings.parse_description}
+                  onCheckedChange={(checked) => updateSetting("parse_description", checked)}
+                />
+              </div>
+
+              {settings.parse_description && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Description Patterns</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addDescriptionPattern}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Pattern
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-[1fr,auto,1fr,1fr,auto] gap-2 items-center px-2 text-xs font-medium text-muted-foreground">
+                      <span>Pattern (e.g., "NAME:")</span>
+                      <span></span>
+                      <span>Contact Field</span>
+                      <span>Opportunity Field</span>
+                      <span></span>
+                    </div>
+                    {settings.description_patterns.map((pattern) => (
+                      <div
+                        key={pattern.id}
+                        className="grid grid-cols-[1fr,auto,1fr,1fr,auto] gap-2 items-center p-2 rounded-lg bg-muted/30"
+                      >
+                        <Input
+                          value={pattern.pattern}
+                          onChange={(e) =>
+                            updateDescriptionPattern(pattern.id, "pattern", e.target.value)
+                          }
+                          placeholder="FIELD_NAME:"
+                          className="h-8 text-xs"
+                        />
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        <Select
+                          value={pattern.contact_field || "none"}
+                          onValueChange={(value) =>
+                            updateDescriptionPattern(pattern.id, "contact_field", value)
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CONTACT_FIELDS.map((f) => (
+                              <SelectItem key={f.value} value={f.value}>
+                                {f.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          value={pattern.opportunity_field || "none"}
+                          onValueChange={(value) =>
+                            updateDescriptionPattern(pattern.id, "opportunity_field", value)
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {OPPORTUNITY_FIELDS.map((f) => (
+                              <SelectItem key={f.value} value={f.value}>
+                                {f.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeDescriptionPattern(pattern.id)}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 rounded-lg border">
+                    <div>
+                      <Label htmlFor="combine_address">Combine Address Fields</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Combine ADDRESS, CITY, STATE into a single address
+                      </p>
+                    </div>
+                    <Switch
+                      id="combine_address"
+                      checked={settings.combine_address_fields}
+                      onCheckedChange={(checked) =>
+                        updateSetting("combine_address_fields", checked)
+                      }
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-muted/30 border">
+                    <p className="text-xs font-medium mb-2">Example Description Format:</p>
+                    <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">
+{`NAME: John Doe
+EMAIL: john@example.com
+MOBILE: +1 555-1234
+ADDRESS: 123 Main St
+CITY: Los Angeles
+STATE: California
+Project: Pavers
+Project Goal: Replace Backyard`}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}

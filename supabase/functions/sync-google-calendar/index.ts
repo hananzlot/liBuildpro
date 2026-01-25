@@ -47,6 +47,13 @@ interface FieldMapping {
   opportunity_field: string | null;
 }
 
+interface DescriptionPattern {
+  id: string;
+  pattern: string;
+  contact_field: string | null;
+  opportunity_field: string | null;
+}
+
 interface CalendarMappingSettings {
   enabled: boolean;
   create_contact: boolean;
@@ -54,6 +61,9 @@ interface CalendarMappingSettings {
   default_pipeline_id: string | null;
   default_stage_id: string | null;
   mappings: FieldMapping[];
+  parse_description: boolean;
+  description_patterns: DescriptionPattern[];
+  combine_address_fields: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -203,6 +213,70 @@ function generateLocalId(prefix: string): string {
   return `local_${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
+// Parse structured fields from event description (e.g., "NAME: John Doe")
+function parseDescriptionFields(
+  description: string,
+  patterns: DescriptionPattern[],
+  combineAddress: boolean
+): { contactData: Record<string, string>, opportunityData: Record<string, string> } {
+  const contactData: Record<string, string> = {};
+  const opportunityData: Record<string, string> = {};
+  const addressParts: Record<string, string> = {};
+
+  for (const pattern of patterns) {
+    if (!pattern.pattern) continue;
+    
+    // Escape special regex chars in the pattern key
+    const escapedPattern = pattern.pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Match "PATTERN: value" or "PATTERN value" until newline or end
+    const regex = new RegExp(`${escapedPattern}\\s*(.+?)(?:\\n|$)`, 'i');
+    const match = description.match(regex);
+    
+    if (match && match[1]) {
+      const value = match[1].trim();
+      
+      // Check if this is an address-related pattern for combining
+      const patternLower = pattern.pattern.toLowerCase().replace(/[:\s]/g, '');
+      if (combineAddress && ['address', 'city', 'state', 'zip'].includes(patternLower)) {
+        addressParts[patternLower] = value;
+      } else {
+        if (pattern.contact_field) {
+          contactData[pattern.contact_field] = value;
+        }
+        if (pattern.opportunity_field) {
+          opportunityData[pattern.opportunity_field] = value;
+        }
+      }
+    }
+  }
+
+  // Combine address fields if enabled
+  if (combineAddress && Object.keys(addressParts).length > 0) {
+    const combinedAddress = [
+      addressParts.address,
+      addressParts.city,
+      addressParts.state,
+      addressParts.zip
+    ].filter(Boolean).join(', ');
+    
+    if (combinedAddress) {
+      // Find which field the address should go to from patterns
+      const addressPattern = patterns.find(p => 
+        p.pattern.toLowerCase().replace(/[:\s]/g, '') === 'address'
+      );
+      if (addressPattern?.opportunity_field) {
+        opportunityData[addressPattern.opportunity_field] = combinedAddress;
+      }
+      if (addressPattern?.contact_field) {
+        contactData[addressPattern.contact_field] = combinedAddress;
+      }
+    }
+  }
+
+  console.log('Parsed description fields:', { contactData, opportunityData });
+  return { contactData, opportunityData };
+}
+
 // deno-lint-ignore no-explicit-any
 async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection: CalendarConnection, settings: CalendarMappingSettings, appointmentId: string): Promise<boolean> {
   console.log(`Creating lead from event: ${event.summary}`);
@@ -224,7 +298,7 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
     notes: null,
   };
 
-  // Apply mappings
+  // Apply event field mappings first
   for (const mapping of settings.mappings) {
     const value = extractFieldValue(event, mapping.google_field);
     if (!value) continue;
@@ -234,6 +308,29 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
     }
     if (mapping.opportunity_field && settings.create_opportunity) {
       opportunityData[mapping.opportunity_field] = value;
+    }
+  }
+
+  // Parse description patterns if enabled (overrides event field mappings)
+  if (settings.parse_description && event.description && settings.description_patterns?.length) {
+    const parsed = parseDescriptionFields(
+      event.description,
+      settings.description_patterns,
+      settings.combine_address_fields ?? true
+    );
+    
+    // Apply parsed contact data
+    for (const [field, value] of Object.entries(parsed.contactData)) {
+      if (value && settings.create_contact) {
+        contactData[field] = value;
+      }
+    }
+    
+    // Apply parsed opportunity data
+    for (const [field, value] of Object.entries(parsed.opportunityData)) {
+      if (value && settings.create_opportunity) {
+        opportunityData[field] = value;
+      }
     }
   }
 
