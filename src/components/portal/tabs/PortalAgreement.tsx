@@ -29,6 +29,8 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
   const [generatingAgreementId, setGeneratingAgreementId] = useState<string | null>(null);
   const [generatingContractPdf, setGeneratingContractPdf] = useState(false);
 
+  const [downloadingContractPdf, setDownloadingContractPdf] = useState(false);
+
   const viewContractPdf = async () => {
     if (!acceptedEstimate?.id) return;
     
@@ -50,6 +52,30 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
       toast.error('Could not generate contract PDF');
     } finally {
       setGeneratingContractPdf(false);
+    }
+  };
+
+  const downloadContractPdf = async () => {
+    if (!acceptedEstimate?.id) return;
+    
+    setDownloadingContractPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-contract-pdf', {
+        body: {
+          estimateId: acceptedEstimate.id,
+          projectId: acceptedEstimate.project_id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data?.url) throw new Error('Failed to generate contract PDF');
+
+      window.open(data.url, '_blank');
+    } catch (err) {
+      console.error('Failed to download contract PDF:', err);
+      toast.error('Could not download contract PDF');
+    } finally {
+      setDownloadingContractPdf(false);
     }
   };
 
@@ -213,25 +239,44 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
           <CardContent className="p-6 sm:p-8 space-y-6">
           {/* Contract Details Grid */}
           <div className="grid sm:grid-cols-3 gap-6">
-            <button
-              onClick={viewContractPdf}
-              disabled={generatingContractPdf}
-              className="bg-slate-50 rounded-xl p-5 text-left hover:bg-slate-100 transition-colors cursor-pointer group"
-            >
+            <div className="bg-slate-50 rounded-xl p-5">
               <div className="flex items-center gap-2 text-slate-500 mb-2">
                 <FileCheck className="h-4 w-4" />
                 <span className="text-xs uppercase tracking-wider font-medium">Contract Title</span>
-                {generatingContractPdf ? (
-                  <Loader2 className="h-3 w-3 animate-spin ml-auto" />
-                ) : (
-                  <Eye className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
               </div>
-              <p className="font-semibold text-slate-900 group-hover:text-primary transition-colors">
+              <p className="font-semibold text-slate-900 mb-3">
                 {acceptedEstimate.estimate_title}
               </p>
-              <p className="text-xs text-slate-400 mt-1">Click to view contract</p>
-            </button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={viewContractPdf}
+                  disabled={generatingContractPdf}
+                  className="flex-1"
+                >
+                  {generatingContractPdf ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Eye className="h-4 w-4 mr-2" />
+                  )}
+                  View
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={downloadContractPdf}
+                  disabled={downloadingContractPdf}
+                  aria-label="Download PDF"
+                >
+                  {downloadingContractPdf ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
             
             <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-xl p-5 border border-primary/10">
               <div className="flex items-center gap-2 text-primary/70 mb-2">
