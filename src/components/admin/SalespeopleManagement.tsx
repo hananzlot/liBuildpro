@@ -373,6 +373,22 @@ export function SalespeopleManagement() {
       
       if (!primary || duplicates.length === 0) throw new Error('Invalid merge selection');
 
+      // Track the ghl_user_id to use (primary's or transferred from a duplicate)
+      let effectiveGhlUserId = primary.ghl_user_id;
+
+      // If primary doesn't have a GHL user ID, try to get one from duplicates
+      if (!effectiveGhlUserId) {
+        const dupWithGhl = duplicates.find(d => d.ghl_user_id);
+        if (dupWithGhl?.ghl_user_id) {
+          effectiveGhlUserId = dupWithGhl.ghl_user_id;
+          // Update primary salesperson with the GHL user ID from duplicate
+          await supabase
+            .from('salespeople')
+            .update({ ghl_user_id: effectiveGhlUserId })
+            .eq('id', primaryId);
+        }
+      }
+
       // Update projects: replace duplicate names with primary name
       for (const dup of duplicates) {
         // Update primary_salesperson
@@ -415,7 +431,7 @@ export function SalespeopleManagement() {
           .from('appointments')
           .update({ 
             salesperson_id: primary.id,
-            assigned_user_id: primary.ghl_user_id // Also update GHL ID for sync compatibility
+            assigned_user_id: effectiveGhlUserId // Use the effective GHL ID
           })
           .eq('company_id', companyId)
           .eq('salesperson_id', dup.id);
@@ -426,7 +442,7 @@ export function SalespeopleManagement() {
             .from('appointments')
             .update({ 
               salesperson_id: primary.id,
-              assigned_user_id: primary.ghl_user_id 
+              assigned_user_id: effectiveGhlUserId 
             })
             .eq('company_id', companyId)
             .eq('assigned_user_id', dup.ghl_user_id)
@@ -438,7 +454,7 @@ export function SalespeopleManagement() {
           .from('opportunities')
           .update({ 
             salesperson_id: primary.id,
-            assigned_to: primary.ghl_user_id // Also update GHL ID for sync compatibility
+            assigned_to: effectiveGhlUserId // Use the effective GHL ID
           })
           .eq('company_id', companyId)
           .eq('salesperson_id', dup.id);
@@ -449,7 +465,7 @@ export function SalespeopleManagement() {
             .from('opportunities')
             .update({ 
               salesperson_id: primary.id,
-              assigned_to: primary.ghl_user_id 
+              assigned_to: effectiveGhlUserId 
             })
             .eq('company_id', companyId)
             .eq('assigned_to', dup.ghl_user_id)
