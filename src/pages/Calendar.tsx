@@ -871,6 +871,32 @@ const Calendar = () => {
           </div>
         </div>
 
+        {/* Sales Rep Color Legend */}
+        {availableReps.length > 0 && (
+          <div className="mb-4 flex items-center gap-4 flex-wrap">
+            <span className="text-xs font-medium text-muted-foreground">Sales Reps:</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              {availableReps.map((rep) => (
+                <button
+                  key={rep.id}
+                  onClick={() => setRepFilter(repFilter === rep.id ? "all" : rep.id)}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ${
+                    repFilter === rep.id 
+                      ? "bg-primary/10 ring-1 ring-primary" 
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  <div 
+                    className="w-3 h-3 rounded-full shrink-0" 
+                    style={{ backgroundColor: getRepColor(rep.id) }}
+                  />
+                  <span className="text-foreground">{rep.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Content */}
         {isLoading ? (
           <Skeleton className="flex-1 rounded-lg" />
