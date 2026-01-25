@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -73,6 +72,8 @@ import {
   Calculator,
   RefreshCw,
 } from "lucide-react";
+import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
+import type { LinkedOpportunity } from "@/components/estimates/EstimateSourceDialog";
 
 interface ScopeSubmission {
   id: string;
@@ -130,7 +131,6 @@ export function ScopeSubmissionsManagement() {
   const { companyId } = useCompanyContext();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   // State
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -142,6 +142,12 @@ export function ScopeSubmissionsManagement() {
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
   const [declineNotes, setDeclineNotes] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Estimate builder dialog state
+  const [estimateDialogOpen, setEstimateDialogOpen] = useState(false);
+  const [estimateLinkedOpportunity, setEstimateLinkedOpportunity] = useState<LinkedOpportunity | null>(null);
+  const [estimateInitialScope, setEstimateInitialScope] = useState<string>("");
+  const [convertingScopeSubmissionId, setConvertingScopeSubmissionId] = useState<string | null>(null);
 
   // Fetch submissions
   const { data: submissions, isLoading, refetch } = useQuery({
@@ -301,26 +307,94 @@ export function ScopeSubmissionsManagement() {
     }
   };
 
-  const handleConvertToEstimate = (submission: ScopeSubmission) => {
-    // Navigate to estimate builder with pre-filled data using React Router
-    const params = new URLSearchParams({
-      view: "list",
-      action: "new",
-      from_scope: submission.id,
-      customer_name: submission.customer_name,
-      customer_email: submission.customer_email || "",
-      customer_phone: submission.customer_phone || "",
-      job_address: submission.job_address || "",
-      scope: submission.scope_description,
-      project_type: submission.project_type || "",
-    });
+  const handleConvertToEstimate = async (submission: ScopeSubmission) => {
+    // Build merged scope text from submission fields
+    const scopeParts: string[] = [];
     
-    if (submission.opportunity_id) {
-      params.set("opportunity_id", submission.opportunity_id);
+    if (submission.project_type) {
+      scopeParts.push(`Project Type: ${submission.project_type}`);
+    }
+    if (submission.scope_description) {
+      scopeParts.push(`\nScope of Work:\n${submission.scope_description}`);
+    }
+    if (submission.measurements) {
+      scopeParts.push(`\nMeasurements:\n${submission.measurements}`);
+    }
+    if (submission.special_requirements) {
+      scopeParts.push(`\nSpecial Requirements:\n${submission.special_requirements}`);
     }
     
-    // Use navigate to preserve app context (company ID)
-    navigate(`/estimates?${params.toString()}`);
+    const mergedScope = scopeParts.join("\n");
+    
+    // If there's an opportunity_id, fetch the opportunity details
+    let linkedOpp: LinkedOpportunity | null = null;
+    
+    if (submission.opportunity_id) {
+      const { data: oppData } = await supabase
+        .from("opportunities")
+        .select("id, ghl_id, name, contact_id, address, scope_of_work, monetary_value")
+        .eq("id", submission.opportunity_id)
+        .maybeSingle();
+      
+      if (oppData) {
+        // Get contact details if available
+        let contactName = submission.customer_name;
+        let contactEmail = submission.customer_email;
+        let contactPhone = submission.customer_phone;
+        
+        if (oppData.contact_id) {
+          const { data: contactData } = await supabase
+            .from("contacts")
+            .select("contact_name, email, phone")
+            .eq("ghl_id", oppData.contact_id)
+            .maybeSingle();
+          
+          if (contactData) {
+            contactName = contactData.contact_name || contactName;
+            contactEmail = contactData.email || contactEmail;
+            contactPhone = contactData.phone || contactPhone;
+          }
+        }
+        
+        linkedOpp = {
+          id: oppData.id,
+          ghl_id: oppData.ghl_id,
+          name: oppData.name,
+          contact_id: oppData.contact_id,
+          address: submission.job_address || oppData.address,
+          scope_of_work: mergedScope, // Use merged scope
+          monetary_value: oppData.monetary_value,
+          contact_name: contactName,
+          contact_email: contactEmail,
+          contact_phone: contactPhone,
+        };
+      }
+    }
+    
+    // If no opportunity was found, create a pseudo-linked opportunity object with submission data
+    if (!linkedOpp) {
+      linkedOpp = {
+        id: "", // Empty ID means no real opportunity linked
+        ghl_id: "",
+        name: submission.customer_name,
+        contact_id: null,
+        address: submission.job_address,
+        scope_of_work: mergedScope,
+        monetary_value: null,
+        contact_name: submission.customer_name,
+        contact_email: submission.customer_email,
+        contact_phone: submission.customer_phone,
+      };
+    }
+    
+    // Store the scope submission ID for updating status after estimate creation
+    setConvertingScopeSubmissionId(submission.id);
+    setEstimateLinkedOpportunity(linkedOpp);
+    setEstimateInitialScope(mergedScope);
+    setEstimateDialogOpen(true);
+    
+    // Close detail dialog if open
+    setDetailDialogOpen(false);
   };
 
   // Stats
@@ -766,6 +840,35 @@ export function ScopeSubmissionsManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Estimate Builder Dialog */}
+      <EstimateBuilderDialog
+        open={estimateDialogOpen}
+        onOpenChange={(open) => {
+          setEstimateDialogOpen(open);
+          if (!open) {
+            setEstimateLinkedOpportunity(null);
+            setEstimateInitialScope("");
+            setConvertingScopeSubmissionId(null);
+          }
+        }}
+        linkedOpportunity={estimateLinkedOpportunity}
+        initialWorkScope={estimateInitialScope}
+        createOpportunityOnSave={!estimateLinkedOpportunity?.id}
+        onSuccess={async () => {
+          // Update scope submission status to "priced"
+          if (convertingScopeSubmissionId) {
+            await updateStatusMutation.mutateAsync({
+              id: convertingScopeSubmissionId,
+              status: "priced",
+            });
+          }
+          setEstimateDialogOpen(false);
+          setEstimateLinkedOpportunity(null);
+          setEstimateInitialScope("");
+          setConvertingScopeSubmissionId(null);
+        }}
+      />
     </div>
   );
 }
