@@ -53,10 +53,35 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { appointmentId, locationId } = await req.json();
+    const { appointmentId, appointmentUuid, locationId } = await req.json();
 
-    if (!appointmentId) {
-      throw new Error('Missing appointmentId (GHL appointment ID)');
+    // Support deletion by UUID when ghl_id is null (e.g., Google Calendar appointments)
+    if (!appointmentId && !appointmentUuid) {
+      throw new Error('Missing appointmentId or appointmentUuid');
+    }
+
+    // If we only have UUID (no ghl_id), delete directly from Supabase
+    if (!appointmentId && appointmentUuid) {
+      console.log(`Deleting appointment by UUID (no GHL ID): ${appointmentUuid}`);
+      
+      const { error: deleteError } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', appointmentUuid);
+
+      if (deleteError) {
+        console.error('Supabase delete error:', deleteError);
+        throw new Error(`Failed to delete from Supabase: ${deleteError.message}`);
+      }
+      
+      console.log('Appointment deleted from Supabase by UUID');
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        message: 'Appointment deleted'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // If locationId not provided, look it up from the database

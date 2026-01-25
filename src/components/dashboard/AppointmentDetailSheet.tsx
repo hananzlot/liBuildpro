@@ -700,13 +700,17 @@ export function AppointmentDetailSheet({
     setIsDeletingAppointment(true);
     try {
       const { data, error } = await supabase.functions.invoke("delete-ghl-appointment", {
-        body: { appointmentId: appointment.ghl_id },
+        body: { 
+          appointmentId: appointment.ghl_id,
+          appointmentUuid: appointment.id, // Fallback for appointments without ghl_id
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Appointment deleted");
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["today-appointments-count"] });
     } catch (error) {
       console.error("Error deleting appointment:", error);
       toast.error("Failed to delete appointment");
