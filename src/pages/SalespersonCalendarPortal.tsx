@@ -96,7 +96,7 @@ function formatTimeShort(dateStr: string | null): string {
 export default function SalespersonCalendarPortal() {
   const { token } = useParams<{ token: string }>();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"day" | "week">("week");
+  const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   // Validate token and get salesperson info
