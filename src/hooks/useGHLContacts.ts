@@ -43,6 +43,8 @@ interface DBOpportunity {
   ghl_date_updated: string | null;
   updated_at: string | null;
   won_at: string | null;
+  address: string | null;
+  scope_of_work: string | null;
 }
 
 interface DBAppointment {
