@@ -4,13 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addDays, subDays, isToday, isSameDay, parseISO } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-
+import { ScopePricingDialog } from "@/components/portal/ScopePricingDialog";
 interface Appointment {
   id: string;
   ghl_id: string | null;
@@ -551,12 +551,14 @@ export default function SalespersonCalendarPortal() {
       {/* Appointment Detail Sheet */}
       <Sheet open={!!selectedAppointment} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
         <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
-          {selectedAppointment && (
+          {selectedAppointment && salesperson && (
             <AppointmentDetailView
               appointment={selectedAppointment}
               contact={selectedAppointment.contact_id ? contactMap.get(selectedAppointment.contact_id) : null}
               opportunity={selectedAppointment.contact_id ? opportunityMap.get(selectedAppointment.contact_id) : null}
               onClose={() => setSelectedAppointment(null)}
+              companyId={salesperson.company_id}
+              salespersonId={salesperson.id}
             />
           )}
         </SheetContent>
@@ -570,9 +572,12 @@ interface AppointmentDetailViewProps {
   contact: Contact | null | undefined;
   opportunity: Opportunity | null | undefined;
   onClose: () => void;
+  companyId: string;
+  salespersonId: string;
 }
 
-function AppointmentDetailView({ appointment, contact, opportunity, onClose }: AppointmentDetailViewProps) {
+function AppointmentDetailView({ appointment, contact, opportunity, onClose, companyId, salespersonId }: AppointmentDetailViewProps) {
+  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
   const displayName = contact?.contact_name || appointment.title || "Appointment";
 
   return (
@@ -620,6 +625,16 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose }: A
               </div>
             </div>
           </div>
+
+          {/* Scope Pricing Action Button */}
+          <Button 
+            onClick={() => setScopeDialogOpen(true)}
+            className="w-full"
+            size="lg"
+          >
+            <DollarSign className="h-5 w-5 mr-2" />
+            Request Pricing
+          </Button>
 
           {/* Time & Date */}
           <div className="flex items-start gap-3">
@@ -710,6 +725,22 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose }: A
           )}
         </div>
       </ScrollArea>
+
+      {/* Scope Pricing Dialog */}
+      <ScopePricingDialog
+        open={scopeDialogOpen}
+        onOpenChange={setScopeDialogOpen}
+        companyId={companyId}
+        salespersonId={salespersonId}
+        appointmentId={appointment.id}
+        opportunityId={opportunity?.id}
+        contactId={appointment.contact_id || undefined}
+        customerName={contact?.contact_name || appointment.title || ""}
+        customerPhone={contact?.phone || ""}
+        customerEmail={contact?.email || ""}
+        jobAddress={appointment.address || ""}
+        existingScope={opportunity?.scope_of_work || ""}
+      />
     </div>
   );
 }
