@@ -74,6 +74,32 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
     staleTime: 1000 * 60 * 5,
   });
 
+  // Fetch company base URL for portal links
+  const { data: appBaseUrl } = useQuery({
+    queryKey: ['company-base-url', companyId],
+    queryFn: async () => {
+      // Try company_settings first if we have companyId
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from('company_settings')
+          .select('setting_value')
+          .eq('company_id', companyId)
+          .eq('setting_key', 'app_base_url')
+          .maybeSingle();
+        if (companyData?.setting_value) return companyData.setting_value;
+      }
+      // Fall back to app_settings
+      const { data } = await supabase
+        .from('app_settings')
+        .select('setting_value')
+        .eq('setting_key', 'app_base_url')
+        .maybeSingle();
+      // Final fallback to current origin
+      return data?.setting_value || window.location.origin;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
   // Check if portal token exists for this project (including inactive ones)
   const { data: portalToken, isLoading } = useQuery({
     queryKey: ['project-portal-token', projectId],
@@ -91,14 +117,17 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
     },
   });
 
+  // Use the company base URL for the portal link
+  const baseUrl = appBaseUrl || window.location.origin;
   const longPortalLink = portalToken 
-    ? `${window.location.origin}/portal?token=${portalToken.token}`
+    ? `${baseUrl}/portal?token=${portalToken.token}`
     : null;
 
   // Generate short link if feature is enabled
   useEffect(() => {
     async function generateShortLink() {
-      if (!longPortalLink || !portalToken) {
+      // Wait for base URL to be resolved before generating short link
+      if (!longPortalLink || !portalToken || !appBaseUrl) {
         setDisplayLink(null);
         return;
       }
@@ -111,7 +140,7 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
       }
     }
     generateShortLink();
-  }, [longPortalLink, isShortLinksEnabled, createPortalShortLink, customerName, portalToken]);
+  }, [longPortalLink, isShortLinksEnabled, createPortalShortLink, customerName, portalToken, appBaseUrl]);
 
   // Use displayLink for UI, fallback to long link
   const portalLink = displayLink || longPortalLink;
