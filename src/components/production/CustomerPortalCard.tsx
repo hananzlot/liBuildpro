@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
+import { useShortLinks } from '@/hooks/useShortLinks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,8 +43,10 @@ interface CustomerPortalCardProps {
 export function CustomerPortalCard({ projectId, customerName, customerEmail }: CustomerPortalCardProps) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
+  const { isShortLinksEnabled, createPortalShortLink } = useShortLinks();
   const [copied, setCopied] = useState(false);
   const [showRefreshWarning, setShowRefreshWarning] = useState(false);
+  const [displayLink, setDisplayLink] = useState<string | null>(null);
 
   // Fetch company name for display (try company_settings first)
   const { data: companyName } = useQuery({
@@ -88,9 +91,30 @@ export function CustomerPortalCard({ projectId, customerName, customerEmail }: C
     },
   });
 
-  const portalLink = portalToken 
+  const longPortalLink = portalToken 
     ? `${window.location.origin}/portal?token=${portalToken.token}`
     : null;
+
+  // Generate short link if feature is enabled
+  useEffect(() => {
+    async function generateShortLink() {
+      if (!longPortalLink || !portalToken) {
+        setDisplayLink(null);
+        return;
+      }
+
+      if (isShortLinksEnabled) {
+        const shortLink = await createPortalShortLink(longPortalLink, customerName);
+        setDisplayLink(shortLink);
+      } else {
+        setDisplayLink(longPortalLink);
+      }
+    }
+    generateShortLink();
+  }, [longPortalLink, isShortLinksEnabled, createPortalShortLink, customerName, portalToken]);
+
+  // Use displayLink for UI, fallback to long link
+  const portalLink = displayLink || longPortalLink;
 
   const createPortalMutation = useMutation({
     mutationFn: async () => {

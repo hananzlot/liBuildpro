@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getResendApiKey } from "../_shared/get-resend-key.ts";
+import { createPortalShortLink } from "../_shared/short-links.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -166,10 +167,17 @@ The {{company_name}} Team`;
       }
     }
 
-    // Build portal URL - use query parameter format
-    const portalUrl = `${appBaseUrl}/portal?token=${portalToken}`;
-
     const customerName = `${project.customer_first_name || ''} ${project.customer_last_name || ''}`.trim() || "Valued Customer";
+
+    // Build portal URL - use short link if feature is enabled
+    const longPortalUrl = `${appBaseUrl}/portal?token=${portalToken}`;
+    const portalUrl = await createPortalShortLink(
+      supabase,
+      longPortalUrl,
+      project.company_id,
+      customerName,
+      project.project_number
+    );
 
     // Replace template variables
     const templateVars: Record<string, string> = {
