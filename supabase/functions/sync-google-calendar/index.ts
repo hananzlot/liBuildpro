@@ -135,13 +135,13 @@ async function backfillOrphanedAppointments(supabase: any, companyId: string) {
     return { error: 'Calendar mapping is not enabled. Please enable it first.', leadsCreated: 0 };
   }
 
-  // Find orphaned appointments (Google Calendar source, no contact linked)
+  // Find orphaned appointments (Google Calendar source, no contact_uuid linked)
   const { data: orphanedAppointments, error } = await supabase
     .from('appointments')
     .select('*')
     .eq('company_id', companyId)
     .eq('sync_source', 'google')
-    .is('contact_id', null);
+    .is('contact_uuid', null);
 
   if (error) {
     console.error('Error fetching orphaned appointments:', error);
@@ -440,7 +440,7 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
   // Create contact if enabled
   if (settings.create_contact && contactData.contact_name) {
     contactId = generateLocalId('contact');
-    const { error: contactError } = await supabase.from('contacts').insert({
+    const { data: insertedContact, error: contactError } = await supabase.from('contacts').insert({
       ghl_id: contactId,
       location_id: 'google-calendar',
       first_name: contactData.first_name,
@@ -452,16 +452,19 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
       ghl_date_added: new Date().toISOString(),
       provider: 'google',
       company_id: connection.company_id,
-    });
+    }).select('id').single();
 
     if (contactError) {
       console.error('Error creating contact:', contactError);
       return false;
     }
-    console.log(`Created contact: ${contactId}`);
+    console.log(`Created contact: ${contactId} with UUID: ${insertedContact?.id}`);
 
-    // Link appointment to contact
-    await supabase.from('appointments').update({ contact_id: contactId }).eq('id', appointmentId);
+    // Link appointment to contact (both contact_id and contact_uuid)
+    await supabase.from('appointments').update({ 
+      contact_id: contactId,
+      contact_uuid: insertedContact?.id 
+    }).eq('id', appointmentId);
   }
 
   // Create opportunity if enabled
