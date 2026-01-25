@@ -115,6 +115,22 @@ export function SalespeopleManagement() {
     enabled: !!companyId,
   });
 
+  // Fetch company base URL for portal links
+  const { data: companyBaseUrl } = useQuery({
+    queryKey: ['company-base-url', companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('company_id', companyId)
+        .eq('setting_key', 'app_base_url')
+        .maybeSingle();
+      if (error) throw error;
+      return data?.setting_value || window.location.origin;
+    },
+    enabled: !!companyId,
+  });
+
   // Fetch existing salesperson names from projects for sync
   const { data: projectSalespeople = [] } = useQuery({
     queryKey: ['project-salespeople-names', companyId],
@@ -243,8 +259,9 @@ export function SalespeopleManagement() {
       const existingToken = portalTokens.find(t => t.salesperson_id === salesperson.id);
       
       if (existingToken) {
-        // Copy existing link
-        const url = `${window.location.origin}/salesperson-calendar/${existingToken.token}`;
+        // Copy existing link using company base URL
+        const baseUrl = companyBaseUrl || window.location.origin;
+        const url = `${baseUrl}/salesperson-calendar/${existingToken.token}`;
         await navigator.clipboard.writeText(url);
         setCopiedId(salesperson.id);
         setTimeout(() => setCopiedId(null), 2000);
@@ -265,7 +282,8 @@ export function SalespeopleManagement() {
 
       if (error) throw error;
 
-      const url = `${window.location.origin}/salesperson-calendar/${data.token}`;
+      const baseUrl = companyBaseUrl || window.location.origin;
+      const url = `${baseUrl}/salesperson-calendar/${data.token}`;
       await navigator.clipboard.writeText(url);
       setCopiedId(salesperson.id);
       setTimeout(() => setCopiedId(null), 2000);
