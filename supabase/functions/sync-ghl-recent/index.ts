@@ -667,6 +667,24 @@ serve(async (req) => {
       const addressFieldId = fieldMappings.address;
       console.log(`Field mappings loaded - address field: ${addressFieldId || 'not configured'}`);
 
+      // Build a lookup map of GHL user IDs to salesperson UUIDs for this company
+      const salespersonLookup = new Map<string, string>();
+      const { data: salespeople } = await supabase
+        .from('salespeople')
+        .select('id, ghl_user_id')
+        .eq('company_id', integration.company_id)
+        .eq('is_active', true)
+        .not('ghl_user_id', 'is', null);
+      
+      if (salespeople) {
+        for (const sp of salespeople) {
+          if (sp.ghl_user_id) {
+            salespersonLookup.set(sp.ghl_user_id, sp.id);
+          }
+        }
+        console.log(`Loaded ${salespersonLookup.size} salespeople for salesperson_id mapping`);
+      }
+
       // Fetch recent opportunities
       const opportunities = await fetchRecentOpportunities(apiKey, integration.location_id, sinceDate);
 
@@ -939,6 +957,7 @@ serve(async (req) => {
           monetary_value: o.monetaryValue || null,
           status: o.status || null,
           assigned_to: o.assignedTo || null,
+          salesperson_id: o.assignedTo ? salespersonLookup.get(o.assignedTo) || null : null,
           ghl_date_added: o.createdAt || null,
           ghl_date_updated: o.updatedAt || null,
           custom_fields: o.customFields || null,
@@ -990,6 +1009,7 @@ serve(async (req) => {
         title: a.title || null,
         appointment_status: a.appointmentStatus || a.status || null,
         assigned_user_id: a.assignedUserId || null,
+        salesperson_id: a.assignedUserId ? salespersonLookup.get(a.assignedUserId) || null : null,
         start_time: a.startTime || null,
         end_time: a.endTime || null,
         notes: a.notes || null,
