@@ -316,6 +316,9 @@ function parseDescriptionFields(
     opportunity_field: null
   };
 
+  // Standard address field keywords to auto-detect for combining
+  const addressKeywords = ['address', 'city', 'state', 'zip', 'zipcode', 'postal'];
+
   for (const pattern of patterns) {
     if (!pattern.pattern) continue;
     
@@ -330,7 +333,7 @@ function parseDescriptionFields(
       
       // Check if this is an address-related pattern for combining
       const patternLower = pattern.pattern.toLowerCase().replace(/[:\s]/g, '');
-      const isAddressField = ['address', 'city', 'state', 'zip'].includes(patternLower);
+      const isAddressField = addressKeywords.includes(patternLower);
       
       if (combineAddress && isAddressField) {
         addressParts[patternLower] = value;
@@ -351,13 +354,28 @@ function parseDescriptionFields(
     }
   }
 
+  // If combine_address is enabled, also auto-extract common address fields NOT in patterns
+  if (combineAddress) {
+    for (const keyword of addressKeywords) {
+      if (!addressParts[keyword]) {
+        // Try to extract this field from the description even if not explicitly in patterns
+        const regex = new RegExp(`${keyword}:\\s*(.+?)(?:\\n|$)`, 'i');
+        const match = description.match(regex);
+        if (match && match[1]) {
+          addressParts[keyword] = match[1].trim();
+          console.log(`Auto-detected ${keyword}: "${addressParts[keyword]}"`);
+        }
+      }
+    }
+  }
+
   // Combine address fields if enabled and we have any address parts
   if (combineAddress && Object.keys(addressParts).length > 0) {
     const combinedAddress = [
       addressParts.address,
       addressParts.city,
       addressParts.state,
-      addressParts.zip
+      addressParts.zip || addressParts.zipcode || addressParts.postal
     ].filter(Boolean).join(', ');
     
     if (combinedAddress) {
