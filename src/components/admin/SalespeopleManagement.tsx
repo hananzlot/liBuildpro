@@ -36,7 +36,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Salesperson {
   id: string;
@@ -67,10 +68,13 @@ export function SalespeopleManagement() {
   const { companyId } = useCompanyContext();
   const { user } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
   const [formData, setFormData] = useState({ name: '', phone: '', email: '', ghl_user_id: '' });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
+  const [primaryMergeId, setPrimaryMergeId] = useState<string | null>(null);
 
   const { data: salespeople = [], isLoading } = useQuery({
     queryKey: ['salespeople', companyId],
@@ -337,6 +341,113 @@ export function SalespeopleManagement() {
     name => !salespeople.some(s => s.name.toLowerCase() === name.toLowerCase())
   );
 
+  const toggleMergeSelection = (id: string) => {
+    setSelectedForMerge(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        if (primaryMergeId === id) setPrimaryMergeId(null);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const mergeMutation = useMutation({
+    mutationFn: async ({ primaryId, duplicateIds }: { primaryId: string; duplicateIds: string[] }) => {
+      const primary = salespeople.find(s => s.id === primaryId);
+      const duplicates = salespeople.filter(s => duplicateIds.includes(s.id));
+      
+      if (!primary || duplicates.length === 0) throw new Error('Invalid merge selection');
+
+      // Update projects: replace duplicate names with primary name
+      for (const dup of duplicates) {
+        // Update primary_salesperson
+        await supabase
+          .from('projects')
+          .update({ primary_salesperson: primary.name })
+          .eq('company_id', companyId)
+          .eq('primary_salesperson', dup.name);
+
+        // Update secondary_salesperson
+        await supabase
+          .from('projects')
+          .update({ secondary_salesperson: primary.name })
+          .eq('company_id', companyId)
+          .eq('secondary_salesperson', dup.name);
+
+        // Update tertiary_salesperson
+        await supabase
+          .from('projects')
+          .update({ tertiary_salesperson: primary.name })
+          .eq('company_id', companyId)
+          .eq('tertiary_salesperson', dup.name);
+
+        // Update quaternary_salesperson
+        await supabase
+          .from('projects')
+          .update({ quaternary_salesperson: primary.name })
+          .eq('company_id', companyId)
+          .eq('quaternary_salesperson', dup.name);
+
+        // Update project_manager
+        await supabase
+          .from('projects')
+          .update({ project_manager: primary.name })
+          .eq('company_id', companyId)
+          .eq('project_manager', dup.name);
+
+        // Transfer portal tokens to primary
+        await supabase
+          .from('salesperson_portal_tokens')
+          .delete()
+          .eq('salesperson_id', dup.id);
+
+        // Delete duplicate salesperson record
+        const { error } = await supabase
+          .from('salespeople')
+          .delete()
+          .eq('id', dup.id);
+        
+        if (error) throw error;
+      }
+
+      return duplicates.length;
+    },
+    onSuccess: (count) => {
+      toast.success(`Merged ${count} duplicate record(s)`);
+      queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['salesperson-portal-tokens', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['project-salespeople-names', companyId] });
+      setMergeDialogOpen(false);
+      setSelectedForMerge(new Set());
+      setPrimaryMergeId(null);
+    },
+    onError: (error: Error) => {
+      toast.error(`Merge failed: ${error.message}`);
+    },
+  });
+
+  const handleMerge = () => {
+    if (!primaryMergeId) {
+      toast.error('Please select a primary record to keep');
+      return;
+    }
+    const duplicateIds = Array.from(selectedForMerge).filter(id => id !== primaryMergeId);
+    if (duplicateIds.length === 0) {
+      toast.error('Select at least one duplicate record to merge');
+      return;
+    }
+    mergeMutation.mutate({ primaryId: primaryMergeId, duplicateIds });
+  };
+
+  const openMergeDialog = () => {
+    setSelectedForMerge(new Set());
+    setPrimaryMergeId(null);
+    setMergeDialogOpen(true);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -354,6 +465,12 @@ export function SalespeopleManagement() {
             <Plus className="h-4 w-4 mr-2" />
             Add Salesperson
           </Button>
+          {salespeople.length >= 2 && (
+            <Button variant="outline" onClick={openMergeDialog}>
+              <Merge className="h-4 w-4 mr-2" />
+              Merge Duplicates
+            </Button>
+          )}
           {missingSalespeople.length > 0 && (
             <Button 
               variant="outline" 
@@ -573,6 +690,87 @@ export function SalespeopleManagement() {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Merge Duplicates Dialog */}
+        <Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Merge className="h-5 w-5" />
+                Merge Duplicate Salespeople
+              </DialogTitle>
+              <DialogDescription>
+                Select records to merge. Choose one as the primary record to keep, and the others will be merged into it.
+                All project references will be updated to use the primary name.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-3 py-4">
+              {salespeople.map((person) => {
+                const isSelected = selectedForMerge.has(person.id);
+                const isPrimary = primaryMergeId === person.id;
+                
+                return (
+                  <div
+                    key={person.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                      isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleMergeSelection(person.id)}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{person.name}</p>
+                      {person.ghl_user_id && (
+                        <p className="text-xs text-muted-foreground">Linked to calendar</p>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <Button
+                        variant={isPrimary ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setPrimaryMergeId(person.id)}
+                        className="shrink-0"
+                      >
+                        {isPrimary ? 'Primary' : 'Set Primary'}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {selectedForMerge.size >= 2 && primaryMergeId && (
+              <div className="rounded-lg bg-muted p-3 text-sm">
+                <p className="font-medium text-foreground">Merge Summary</p>
+                <p className="text-muted-foreground mt-1">
+                  Keep: <span className="text-foreground">{salespeople.find(s => s.id === primaryMergeId)?.name}</span>
+                </p>
+                <p className="text-muted-foreground">
+                  Delete: {Array.from(selectedForMerge)
+                    .filter(id => id !== primaryMergeId)
+                    .map(id => salespeople.find(s => s.id === id)?.name)
+                    .join(', ')}
+                </p>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMergeDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleMerge}
+                disabled={selectedForMerge.size < 2 || !primaryMergeId || mergeMutation.isPending}
+              >
+                {mergeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Merge Records
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </CardContent>
