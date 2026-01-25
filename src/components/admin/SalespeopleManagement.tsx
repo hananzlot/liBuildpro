@@ -85,6 +85,7 @@ export function SalespeopleManagement() {
         .from('salespeople')
         .select('*')
         .eq('company_id', companyId)
+        .eq('is_active', true)
         .order('name');
       if (error) throw error;
       return data as Salesperson[];
@@ -99,7 +100,8 @@ export function SalespeopleManagement() {
       const { data, error } = await supabase
         .from('ghl_users')
         .select('ghl_id, name, first_name, last_name')
-        .eq('company_id', companyId);
+        .eq('company_id', companyId)
+        .order('name');
       if (error) throw error;
       return data as GHLUser[];
     },
