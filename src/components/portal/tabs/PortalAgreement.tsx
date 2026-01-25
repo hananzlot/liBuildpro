@@ -359,7 +359,10 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
             </div>
           </div>
           
-          {agreements.map((agreement) => (
+          {agreements.map((agreement) => {
+            const canViewPdf = agreement.attachment_url || isContractAgreement(agreement);
+            
+            return (
             <Card key={agreement.id} className="border-0 shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
               <CardContent className="p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -379,9 +382,14 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                         )}
                       </div>
                       {agreement.description_of_work && (
-                        <p className="text-sm text-slate-500 line-clamp-2">
+                        <button
+                          onClick={() => canViewPdf && openAgreementPdf(agreement)}
+                          disabled={!canViewPdf || generatingAgreementId === agreement.id}
+                          className={`text-sm text-left line-clamp-2 ${canViewPdf ? 'text-primary hover:underline cursor-pointer' : 'text-slate-500'}`}
+                        >
                           {agreement.description_of_work}
-                        </p>
+                          {canViewPdf && <span className="text-xs ml-1">(click to view)</span>}
+                        </button>
                       )}
                       <div className="flex flex-wrap items-center gap-4 text-sm">
                         {agreement.agreement_signed_date && (
@@ -399,7 +407,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                     </div>
                   </div>
                   
-                  {agreement.attachment_url && (
+                  {canViewPdf && (
                     <div className="flex gap-2 shrink-0">
                       <Button
                         variant="outline"
@@ -433,7 +441,7 @@ export function PortalAgreement({ agreements, acceptedEstimate }: PortalAgreemen
                 </div>
               </CardContent>
             </Card>
-          ))}
+          );})}
         </div>
       )}
 
