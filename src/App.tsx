@@ -25,6 +25,7 @@ import Appointments from "./pages/Appointments";
 import Calendar from "./pages/Calendar";
 import NotFound from "./pages/NotFound";
 import SalespersonCalendarPortal from "./pages/SalespersonCalendarPortal";
+import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 // Super Admin Portal Pages
 import SuperAdminDashboard from "./pages/super-admin/SuperAdminDashboard";
 import SuperAdminTenants from "./pages/super-admin/SuperAdminTenants";
@@ -303,6 +304,8 @@ const App = () => (
             <Route path="/document-portal" element={<DocumentPortal />} />
             {/* Public salesperson calendar portal - no auth required */}
             <Route path="/salesperson-calendar/:token" element={<SalespersonCalendarPortal />} />
+            {/* Short link redirect - public */}
+            <Route path="/r/:code" element={<ShortLinkRedirect />} />
             
             {/* Super Admin Portal Routes */}
             <Route path="/super-admin" element={<SuperAdminDashboard />} />
