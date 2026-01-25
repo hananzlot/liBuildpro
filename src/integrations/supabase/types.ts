@@ -4698,6 +4698,7 @@ export type Database = {
           company_id: string | null
           created_at: string
           email: string | null
+          ghl_user_id: string | null
           id: string
           is_active: boolean | null
           name: string
@@ -4708,6 +4709,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           email?: string | null
+          ghl_user_id?: string | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -4718,6 +4720,7 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           email?: string | null
+          ghl_user_id?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
@@ -4730,6 +4733,70 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      salesperson_portal_tokens: {
+        Row: {
+          access_count: number | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean | null
+          last_accessed_at: string | null
+          salesperson_id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          access_count?: number | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_accessed_at?: string | null
+          salesperson_id: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          access_count?: number | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_accessed_at?: string | null
+          salesperson_id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salesperson_portal_tokens_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salesperson_portal_tokens_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "salesperson_portal_tokens_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "salespeople"
             referencedColumns: ["id"]
           },
         ]

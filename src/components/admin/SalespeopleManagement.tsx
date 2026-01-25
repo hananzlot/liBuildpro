@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +23,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink } from 'lucide-react';
 
 interface Salesperson {
   id: string;
@@ -31,16 +44,33 @@ interface Salesperson {
   phone: string | null;
   email: string | null;
   is_active: boolean;
+  ghl_user_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface GHLUser {
+  ghl_id: string;
+  name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+interface PortalToken {
+  id: string;
+  token: string;
+  salesperson_id: string;
 }
 
 export function SalespeopleManagement() {
   const queryClient = useQueryClient();
   const { companyId } = useCompanyContext();
+  const { user } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', ghl_user_id: '' });
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
 
   const { data: salespeople = [], isLoading } = useQuery({
     queryKey: ['salespeople', companyId],
@@ -52,6 +82,35 @@ export function SalespeopleManagement() {
         .order('name');
       if (error) throw error;
       return data as Salesperson[];
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch GHL users for linking
+  const { data: ghlUsers = [] } = useQuery({
+    queryKey: ['ghl-users-for-salespeople', companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ghl_users')
+        .select('ghl_id, name, first_name, last_name')
+        .eq('company_id', companyId);
+      if (error) throw error;
+      return data as GHLUser[];
+    },
+    enabled: !!companyId,
+  });
+
+  // Fetch existing portal tokens
+  const { data: portalTokens = [] } = useQuery({
+    queryKey: ['salesperson-portal-tokens', companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('salesperson_portal_tokens')
+        .select('id, token, salesperson_id')
+        .eq('company_id', companyId)
+        .eq('is_active', true);
+      if (error) throw error;
+      return data as PortalToken[];
     },
     enabled: !!companyId,
   });
@@ -81,13 +140,14 @@ export function SalespeopleManagement() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; phone: string; email: string }) => {
+    mutationFn: async (data: { name: string; phone: string; email: string; ghl_user_id: string }) => {
       const { error } = await supabase
         .from('salespeople')
         .insert({
           name: data.name,
           phone: data.phone || null,
           email: data.email || null,
+          ghl_user_id: data.ghl_user_id || null,
           company_id: companyId,
         });
       if (error) throw error;
@@ -104,13 +164,14 @@ export function SalespeopleManagement() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name: string; phone: string; email: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name: string; phone: string; email: string; ghl_user_id: string }) => {
       const { error } = await supabase
         .from('salespeople')
         .update({
           name: data.name,
           phone: data.phone || null,
           email: data.email || null,
+          ghl_user_id: data.ghl_user_id || null,
         })
         .eq('id', id);
       if (error) throw error;
@@ -169,8 +230,57 @@ export function SalespeopleManagement() {
     },
   });
 
+  const generatePortalLink = async (salesperson: Salesperson) => {
+    if (!salesperson.ghl_user_id) {
+      toast.error('Please link this salesperson to a calendar user first');
+      return;
+    }
+
+    setGeneratingFor(salesperson.id);
+
+    try {
+      // Check for existing token
+      const existingToken = portalTokens.find(t => t.salesperson_id === salesperson.id);
+      
+      if (existingToken) {
+        // Copy existing link
+        const url = `${window.location.origin}/salesperson-calendar/${existingToken.token}`;
+        await navigator.clipboard.writeText(url);
+        setCopiedId(salesperson.id);
+        setTimeout(() => setCopiedId(null), 2000);
+        toast.success('Portal link copied to clipboard');
+        return;
+      }
+
+      // Create new token
+      const { data, error } = await supabase
+        .from('salesperson_portal_tokens')
+        .insert({
+          salesperson_id: salesperson.id,
+          company_id: companyId,
+          created_by: user?.id,
+        })
+        .select('token')
+        .single();
+
+      if (error) throw error;
+
+      const url = `${window.location.origin}/salesperson-calendar/${data.token}`;
+      await navigator.clipboard.writeText(url);
+      setCopiedId(salesperson.id);
+      setTimeout(() => setCopiedId(null), 2000);
+      
+      queryClient.invalidateQueries({ queryKey: ['salesperson-portal-tokens', companyId] });
+      toast.success('Portal link generated and copied to clipboard');
+    } catch (error) {
+      toast.error(`Failed to generate link: ${(error as Error).message}`);
+    } finally {
+      setGeneratingFor(null);
+    }
+  };
+
   const resetForm = () => {
-    setFormData({ name: '', phone: '', email: '' });
+    setFormData({ name: '', phone: '', email: '', ghl_user_id: '' });
     setEditingSalesperson(null);
   };
 
@@ -180,6 +290,7 @@ export function SalespeopleManagement() {
       name: salesperson.name,
       phone: salesperson.phone || '',
       email: salesperson.email || '',
+      ghl_user_id: salesperson.ghl_user_id || '',
     });
     setDialogOpen(true);
   };
@@ -198,6 +309,12 @@ export function SalespeopleManagement() {
     }
   };
 
+  const getGHLUserName = (ghlId: string | null) => {
+    if (!ghlId) return null;
+    const user = ghlUsers.find(u => u.ghl_id === ghlId);
+    return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || ghlId;
+  };
+
   const missingSalespeople = projectSalespeople.filter(
     name => !salespeople.some(s => s.name.toLowerCase() === name.toLowerCase())
   );
@@ -210,11 +327,11 @@ export function SalespeopleManagement() {
           Salespeople Directory
         </CardTitle>
         <CardDescription>
-          Manage salesperson contact information displayed in customer portals
+          Manage salesperson contact information and generate calendar portal links
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Add Salesperson
@@ -242,67 +359,122 @@ export function SalespeopleManagement() {
             No salespeople added yet. Add one or sync from existing projects.
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {salespeople.map((person) => (
-                <TableRow key={person.id}>
-                  <TableCell className="font-medium">{person.name}</TableCell>
-                  <TableCell>
-                    {person.phone ? (
-                      <span className="flex items-center gap-1 text-sm">
-                        <Phone className="h-3 w-3" />
-                        {person.phone}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {person.email ? (
-                      <span className="flex items-center gap-1 text-sm">
-                        <Mail className="h-3 w-3" />
-                        {person.email}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEdit(person)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => {
-                          if (confirm('Delete this salesperson?')) {
-                            deleteMutation.mutate(person.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Phone</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead className="hidden lg:table-cell">Linked User</TableHead>
+                  <TableHead className="w-[140px]">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {salespeople.map((person) => {
+                  const hasToken = portalTokens.some(t => t.salesperson_id === person.id);
+                  const isCopied = copiedId === person.id;
+                  const isGenerating = generatingFor === person.id;
+
+                  return (
+                    <TableRow key={person.id}>
+                      <TableCell className="font-medium">
+                        <div>
+                          {person.name}
+                          {person.ghl_user_id && (
+                            <span className="block text-xs text-muted-foreground lg:hidden">
+                              Linked to calendar
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {person.phone ? (
+                          <span className="flex items-center gap-1 text-sm">
+                            <Phone className="h-3 w-3" />
+                            {person.phone}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {person.email ? (
+                          <span className="flex items-center gap-1 text-sm">
+                            <Mail className="h-3 w-3" />
+                            {person.email}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {person.ghl_user_id ? (
+                          <span className="text-sm text-primary">
+                            {getGHLUserName(person.ghl_user_id)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">Not linked</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => generatePortalLink(person)}
+                                disabled={isGenerating || !person.ghl_user_id}
+                              >
+                                {isGenerating ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : isCopied ? (
+                                  <Check className="h-4 w-4 text-emerald-500" />
+                                ) : hasToken ? (
+                                  <Copy className="h-4 w-4 text-primary" />
+                                ) : (
+                                  <Link2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {!person.ghl_user_id 
+                                ? 'Link to calendar user first' 
+                                : hasToken 
+                                  ? 'Copy portal link' 
+                                  : 'Generate portal link'}
+                            </TooltipContent>
+                          </Tooltip>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEdit(person)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => {
+                              if (confirm('Delete this salesperson?')) {
+                                deleteMutation.mutate(person.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         )}
 
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
@@ -347,6 +519,28 @@ export function SalespeopleManagement() {
                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="john@company.com"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ghl_user_id">Link to Calendar User</Label>
+                  <Select
+                    value={formData.ghl_user_id || "none"}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, ghl_user_id: value === "none" ? "" : value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a calendar user..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {ghlUsers.map((u) => (
+                        <SelectItem key={u.ghl_id} value={u.ghl_id}>
+                          {u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.ghl_id}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Link to a calendar user to enable portal link generation
+                  </p>
                 </div>
               </div>
               <DialogFooter>
