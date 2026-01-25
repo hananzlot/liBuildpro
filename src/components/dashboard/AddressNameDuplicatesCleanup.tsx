@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { CheckCircle2, Merge, ExternalLink, ChevronDown, ChevronRight, MapPin } from "lucide-react";
+import { CheckCircle2, Merge, ExternalLink, ChevronDown, ChevronRight, MapPin, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -49,10 +50,10 @@ interface Opportunity {
   ghl_date_added?: string | null;
 }
 
-interface AddressNameDuplicateGroup {
+interface NameDuplicateGroup {
   key: string;
   normalizedName: string;
-  normalizedAddress: string;
+  normalizedAddress: string | null; // null when grouping by name only
   opportunities: Opportunity[];
 }
 
@@ -123,9 +124,12 @@ export function AddressNameDuplicatesCleanup({
   const [selectedToKeep, setSelectedToKeep] = useState<Record<string, string>>({});
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingMerge, setPendingMerge] = useState<AddressNameDuplicateGroup | null>(null);
+  const [pendingMerge, setPendingMerge] = useState<NameDuplicateGroup | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  
+  // Filter options
+  const [requireAddressMatch, setRequireAddressMatch] = useState(false);
   
   // Merge options state
   const [mergeOptions, setMergeOptions] = useState<{
@@ -133,27 +137,42 @@ export function AddressNameDuplicatesCleanup({
     monetaryValue: string;
   }>({ scopeOfWork: 'keep', monetaryValue: 'highest' });
 
-  // Find duplicate opportunities by address AND name
+  // Find duplicate opportunities by name (and optionally address)
   const duplicateGroups = useMemo(() => {
     const groupMap = new Map<string, Opportunity[]>();
     
     opportunities.forEach(opp => {
       const normalizedName = normalizeString(opp.name);
-      const normalizedAddress = normalizeAddress(opp.address);
       
-      // Skip if either name or address is empty
-      if (!normalizedName || !normalizedAddress) return;
+      // Skip if name is empty
+      if (!normalizedName) return;
       
-      const key = `${normalizedName}|${normalizedAddress}`;
+      let key: string;
+      if (requireAddressMatch) {
+        const normalizedAddress = normalizeAddress(opp.address);
+        // Skip if address is required but empty
+        if (!normalizedAddress) return;
+        key = `${normalizedName}|${normalizedAddress}`;
+      } else {
+        key = normalizedName;
+      }
+      
       const existing = groupMap.get(key) || [];
       existing.push(opp);
       groupMap.set(key, existing);
     });
 
-    const groups: AddressNameDuplicateGroup[] = [];
+    const groups: NameDuplicateGroup[] = [];
     groupMap.forEach((opps, key) => {
       if (opps.length > 1) {
-        const [normalizedName, normalizedAddress] = key.split('|');
+        let normalizedName: string;
+        let normalizedAddress: string | null = null;
+        
+        if (requireAddressMatch && key.includes('|')) {
+          [normalizedName, normalizedAddress] = key.split('|');
+        } else {
+          normalizedName = key;
+        }
         
         // Sort by stage priority, then value, then date
         const sortedOpps = [...opps].sort((a, b) => {
@@ -174,9 +193,9 @@ export function AddressNameDuplicatesCleanup({
     });
 
     return groups.sort((a, b) => a.normalizedName.localeCompare(b.normalizedName));
-  }, [opportunities]);
+  }, [opportunities, requireAddressMatch]);
 
-  const toggleGroup = (group: AddressNameDuplicateGroup) => {
+  const toggleGroup = (group: NameDuplicateGroup) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);
       if (next.has(group.key)) {
@@ -203,7 +222,7 @@ export function AddressNameDuplicatesCleanup({
     return `$${value.toLocaleString()}`;
   };
 
-  const handleMergeClick = (group: AddressNameDuplicateGroup) => {
+  const handleMergeClick = (group: NameDuplicateGroup) => {
     if (!selectedToKeep[group.key]) {
       toast.error("Please select which opportunity to keep");
       return;
@@ -350,13 +369,28 @@ export function AddressNameDuplicatesCleanup({
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <MapPin className="h-5 w-5 text-blue-500" />
-            <div>
-              <CardTitle className="text-lg">Address + Name Duplicates</CardTitle>
-              <CardDescription>
-                Opportunities with matching name AND address (potential same-location duplicates)
-              </CardDescription>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Users className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle className="text-lg">Name Duplicates</CardTitle>
+                <CardDescription>
+                  {requireAddressMatch 
+                    ? "Opportunities with matching name AND address" 
+                    : "Opportunities with matching name (same person, different records)"
+                  }
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="require-address" className="text-sm text-muted-foreground cursor-pointer">
+                Require address match
+              </Label>
+              <Switch
+                id="require-address"
+                checked={requireAddressMatch}
+                onCheckedChange={setRequireAddressMatch}
+              />
             </div>
           </div>
         </CardHeader>
@@ -364,12 +398,12 @@ export function AddressNameDuplicatesCleanup({
           {duplicateGroups.length === 0 ? (
             <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
               <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <span>No address + name duplicates found</span>
+              <span>No {requireAddressMatch ? "address + name" : "name"} duplicates found</span>
             </div>
           ) : (
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-4">
-                <Badge variant="outline" className="text-blue-600 border-blue-300">
+                <Badge variant="outline" className="text-primary border-primary/30">
                   {duplicateGroups.length} duplicate group{duplicateGroups.length !== 1 ? 's' : ''} found
                 </Badge>
                 <span className="text-sm text-muted-foreground">
@@ -394,10 +428,12 @@ export function AddressNameDuplicatesCleanup({
                           )}
                           <div>
                             <div className="font-medium capitalize">{group.normalizedName}</div>
-                            <div className="text-sm text-muted-foreground flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              <span className="capitalize">{group.normalizedAddress}</span>
-                            </div>
+                            {group.normalizedAddress && (
+                              <div className="text-sm text-muted-foreground flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                <span className="capitalize">{group.normalizedAddress}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <Badge variant="secondary">
