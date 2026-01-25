@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -129,6 +130,7 @@ export function ScopeSubmissionsManagement() {
   const { companyId } = useCompanyContext();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // State
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -300,7 +302,7 @@ export function ScopeSubmissionsManagement() {
   };
 
   const handleConvertToEstimate = (submission: ScopeSubmission) => {
-    // Navigate to estimate builder with pre-filled data
+    // Navigate to estimate builder with pre-filled data using React Router
     const params = new URLSearchParams({
       view: "list",
       action: "new",
@@ -317,7 +319,8 @@ export function ScopeSubmissionsManagement() {
       params.set("opportunity_id", submission.opportunity_id);
     }
     
-    window.location.href = `/estimates?${params.toString()}`;
+    // Use navigate to preserve app context (company ID)
+    navigate(`/estimates?${params.toString()}`);
   };
 
   // Stats
