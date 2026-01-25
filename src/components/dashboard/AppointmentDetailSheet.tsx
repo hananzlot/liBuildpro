@@ -918,6 +918,52 @@ export function AppointmentDetailSheet({
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Primary Opportunity Section */}
+          {primaryOpportunity && (
+            <div 
+              className={`border rounded-lg overflow-hidden ${onOpenOpportunity ? "cursor-pointer hover:border-primary/50 transition-colors" : ""}`}
+              onClick={() => onOpenOpportunity?.(primaryOpportunity)}
+            >
+              <div className="bg-emerald-500/10 px-3 py-2 flex items-center justify-between border-b border-emerald-500/20">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Opportunity</span>
+                </div>
+                {onOpenOpportunity && (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+              <div className="p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{primaryOpportunity.name || "Untitled Opportunity"}</p>
+                    <p className="text-xs text-muted-foreground">{primaryOpportunity.pipeline_name}</p>
+                  </div>
+                  <span className="text-lg font-bold text-emerald-500 shrink-0">
+                    {formatCurrency(primaryOpportunity.monetary_value)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs">
+                    {primaryOpportunity.stage_name || "No Stage"}
+                  </Badge>
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${
+                      primaryOpportunity.status === "won" 
+                        ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/30"
+                        : primaryOpportunity.status === "lost" || primaryOpportunity.status === "abandoned"
+                        ? "bg-red-500/20 text-red-500 border-red-500/30"
+                        : "bg-blue-500/20 text-blue-500 border-blue-500/30"
+                    }`}
+                  >
+                    {(primaryOpportunity.status || "open").toUpperCase()}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Scope of Work */}
           {scopeOfWork && (
             <div className="border rounded-lg overflow-hidden">
