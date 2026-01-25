@@ -410,16 +410,41 @@ export function SalespeopleManagement() {
           .eq('company_id', companyId)
           .eq('project_manager', dup.name);
 
+        // Update appointments: reassign from duplicate's ghl_user_id to primary's ghl_user_id
+        if (dup.ghl_user_id && primary.ghl_user_id) {
+          await supabase
+            .from('appointments')
+            .update({ assigned_user_id: primary.ghl_user_id })
+            .eq('company_id', companyId)
+            .eq('assigned_user_id', dup.ghl_user_id);
+        }
+
+        // Update opportunities: reassign from duplicate's ghl_user_id to primary's ghl_user_id
+        if (dup.ghl_user_id && primary.ghl_user_id) {
+          await supabase
+            .from('opportunities')
+            .update({ assigned_to: primary.ghl_user_id })
+            .eq('company_id', companyId)
+            .eq('assigned_to', dup.ghl_user_id);
+        }
+
+        // Update estimates: replace salesperson_name
+        await supabase
+          .from('estimates')
+          .update({ salesperson_name: primary.name })
+          .eq('company_id', companyId)
+          .eq('salesperson_name', dup.name);
+
         // Transfer portal tokens to primary
         await supabase
           .from('salesperson_portal_tokens')
           .delete()
           .eq('salesperson_id', dup.id);
 
-        // Delete duplicate salesperson record
+        // Mark duplicate salesperson as inactive instead of deleting
         const { error } = await supabase
           .from('salespeople')
-          .delete()
+          .update({ is_active: false })
           .eq('id', dup.id);
         
         if (error) throw error;
