@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,6 +98,11 @@ export default function SalespersonCalendarPortal() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+
+  // Swipe gesture handling refs
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+  const minSwipeDistance = 50;
 
   // Validate token and get salesperson info
   const { data: tokenData, isLoading: tokenLoading, error: tokenError } = useQuery({
@@ -233,13 +238,40 @@ export default function SalespersonCalendarPortal() {
     setCurrentDate(new Date());
   };
 
-  const handleNavigate = (direction: "prev" | "next") => {
+  const handleNavigate = useCallback((direction: "prev" | "next") => {
     if (viewMode === "week") {
-      setCurrentDate(direction === "prev" ? subWeeks(currentDate, 1) : addWeeks(currentDate, 1));
+      setCurrentDate(prev => direction === "prev" ? subWeeks(prev, 1) : addWeeks(prev, 1));
     } else {
-      setCurrentDate(direction === "prev" ? subDays(currentDate, 1) : addDays(currentDate, 1));
+      setCurrentDate(prev => direction === "prev" ? subDays(prev, 1) : addDays(prev, 1));
     }
-  };
+  }, [viewMode]);
+
+  // Swipe gesture handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = null;
+    touchStartX.current = e.targetTouches[0].clientX;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    
+    const distance = touchStartX.current - touchEndX.current;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      handleNavigate("next");
+    } else if (isRightSwipe) {
+      handleNavigate("prev");
+    }
+    
+    touchStartX.current = null;
+    touchEndX.current = null;
+  }, [handleNavigate]);
 
   // Get current day's appointments for day view
   const currentDayKey = format(currentDate, "yyyy-MM-dd");
@@ -351,7 +383,12 @@ export default function SalespersonCalendarPortal() {
 
       {/* Day View */}
       {!appointmentsLoading && viewMode === "day" && (
-        <div className="max-w-2xl mx-auto p-4">
+        <div 
+          className="max-w-2xl mx-auto p-4 touch-pan-y"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <Card className={`${isToday(currentDate) ? "border-primary" : ""}`}>
             <CardContent className="pt-4">
               {currentDayAppointments.length === 0 ? (
