@@ -30,7 +30,8 @@ import {
   Send,
   Building2,
   Calendar,
-  CalendarDays
+  CalendarDays,
+  ClipboardList
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -186,6 +187,13 @@ const navSections: NavSection[] = [
         url: "/production?view=salespeople", 
         icon: Users,
         roles: ['super_admin', 'admin'],
+        requiredFeature: 'production'
+      },
+      { 
+        title: "Scope Submissions", 
+        url: "/production?view=scope-submissions", 
+        icon: ClipboardList,
+        roles: ['super_admin', 'admin', 'production'],
         requiredFeature: 'production'
       },
     ],
