@@ -201,6 +201,7 @@ export type Database = {
           provider: string | null
           salesperson_confirmed: boolean
           salesperson_confirmed_at: string | null
+          salesperson_id: string | null
           start_time: string | null
           sync_source:
             | Database["public"]["Enums"]["appointment_sync_source"]
@@ -234,6 +235,7 @@ export type Database = {
           provider?: string | null
           salesperson_confirmed?: boolean
           salesperson_confirmed_at?: string | null
+          salesperson_id?: string | null
           start_time?: string | null
           sync_source?:
             | Database["public"]["Enums"]["appointment_sync_source"]
@@ -267,6 +269,7 @@ export type Database = {
           provider?: string | null
           salesperson_confirmed?: boolean
           salesperson_confirmed_at?: string | null
+          salesperson_id?: string | null
           start_time?: string | null
           sync_source?:
             | Database["public"]["Enums"]["appointment_sync_source"]
@@ -301,6 +304,13 @@ export type Database = {
             columns: ["entered_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "salespeople"
             referencedColumns: ["id"]
           },
           {
@@ -2905,6 +2915,7 @@ export type Database = {
           pipeline_stage_id: string | null
           proposal_link: string | null
           provider: string | null
+          salesperson_id: string | null
           scope_of_work: string | null
           stage_name: string | null
           status: string | null
@@ -2934,6 +2945,7 @@ export type Database = {
           pipeline_stage_id?: string | null
           proposal_link?: string | null
           provider?: string | null
+          salesperson_id?: string | null
           scope_of_work?: string | null
           stage_name?: string | null
           status?: string | null
@@ -2963,6 +2975,7 @@ export type Database = {
           pipeline_stage_id?: string | null
           proposal_link?: string | null
           provider?: string | null
+          salesperson_id?: string | null
           scope_of_work?: string | null
           stage_name?: string | null
           status?: string | null
@@ -2996,6 +3009,13 @@ export type Database = {
             columns: ["entered_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "salespeople"
             referencedColumns: ["id"]
           },
         ]
