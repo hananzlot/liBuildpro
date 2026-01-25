@@ -309,6 +309,12 @@ function parseDescriptionFields(
   const contactData: Record<string, string> = {};
   const opportunityData: Record<string, string> = {};
   const addressParts: Record<string, string> = {};
+  
+  // Track address-related patterns for later combining
+  const addressPatternFields: { contact_field: string | null; opportunity_field: string | null } = {
+    contact_field: null,
+    opportunity_field: null
+  };
 
   for (const pattern of patterns) {
     if (!pattern.pattern) continue;
@@ -324,9 +330,17 @@ function parseDescriptionFields(
       
       // Check if this is an address-related pattern for combining
       const patternLower = pattern.pattern.toLowerCase().replace(/[:\s]/g, '');
-      if (combineAddress && ['address', 'city', 'state', 'zip'].includes(patternLower)) {
+      const isAddressField = ['address', 'city', 'state', 'zip'].includes(patternLower);
+      
+      if (combineAddress && isAddressField) {
         addressParts[patternLower] = value;
+        // Store the target fields from the address pattern
+        if (patternLower === 'address') {
+          addressPatternFields.contact_field = pattern.contact_field;
+          addressPatternFields.opportunity_field = pattern.opportunity_field;
+        }
       } else {
+        // Not an address field OR combine is disabled - assign directly
         if (pattern.contact_field) {
           contactData[pattern.contact_field] = value;
         }
@@ -337,7 +351,7 @@ function parseDescriptionFields(
     }
   }
 
-  // Combine address fields if enabled
+  // Combine address fields if enabled and we have any address parts
   if (combineAddress && Object.keys(addressParts).length > 0) {
     const combinedAddress = [
       addressParts.address,
@@ -347,20 +361,17 @@ function parseDescriptionFields(
     ].filter(Boolean).join(', ');
     
     if (combinedAddress) {
-      // Find which field the address should go to from patterns
-      const addressPattern = patterns.find(p => 
-        p.pattern.toLowerCase().replace(/[:\s]/g, '') === 'address'
-      );
-      if (addressPattern?.opportunity_field) {
-        opportunityData[addressPattern.opportunity_field] = combinedAddress;
+      console.log(`Combined address: "${combinedAddress}" -> opportunity_field: ${addressPatternFields.opportunity_field}`);
+      if (addressPatternFields.opportunity_field) {
+        opportunityData[addressPatternFields.opportunity_field] = combinedAddress;
       }
-      if (addressPattern?.contact_field) {
-        contactData[addressPattern.contact_field] = combinedAddress;
+      if (addressPatternFields.contact_field) {
+        contactData[addressPatternFields.contact_field] = combinedAddress;
       }
     }
   }
 
-  console.log('Parsed description fields:', { contactData, opportunityData });
+  console.log('Parsed description fields:', { contactData, opportunityData, addressParts });
   return { contactData, opportunityData };
 }
 
