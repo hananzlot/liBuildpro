@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar as CalendarIcon, Clock, User, Search, Loader2, Phone, List, CalendarDays, Plus, MapPin } from "lucide-react";
-import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
+import { Calendar as CalendarIcon, Clock, User, Search, Loader2, Phone, List, CalendarDays, Plus, MapPin, Grid3X3 } from "lucide-react";
+import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths, addWeeks, subWeeks } from "date-fns";
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -127,6 +127,7 @@ interface CalendarViewProps {
   getStatusColor: (status: string | null) => string;
   normalizeStatus: (status: string | null) => string;
   isRescheduling: boolean;
+  onGoToToday: () => void;
 }
 
 function CalendarView({
@@ -142,6 +143,7 @@ function CalendarView({
   getStatusColor,
   normalizeStatus,
   isRescheduling,
+  onGoToToday,
 }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [draggedAppt, setDraggedAppt] = useState<DBAppointment | null>(null);
@@ -268,13 +270,23 @@ function CalendarView({
     <div className="flex-1 flex flex-col overflow-hidden bg-card rounded-lg border">
       {/* Month Navigation */}
       <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onMonthChange(subMonths(currentMonth, 1))}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onMonthChange(subMonths(currentMonth, 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onGoToToday}
+            className="text-xs"
+          >
+            Today
+          </Button>
+        </div>
         <div className="text-center">
           <span className="font-semibold text-lg">{format(currentMonth, "MMMM yyyy")}</span>
           {isRescheduling && (
@@ -538,6 +550,444 @@ function CalendarView({
   );
 }
 
+// Week View Component
+interface WeekViewProps {
+  appointments: DBAppointment[];
+  contacts: DBContact[];
+  userMap: Map<string, string>;
+  currentWeek: Date;
+  onWeekChange: (date: Date) => void;
+  onAppointmentClick: (appt: DBAppointment) => void;
+  onReschedule: (appt: DBAppointment, newDate: Date, newTime: string) => Promise<void>;
+  onCreateAppointment: (date: Date) => void;
+  capitalizeWords: (str: string) => string;
+  getStatusColor: (status: string | null) => string;
+  normalizeStatus: (status: string | null) => string;
+  isRescheduling: boolean;
+  onGoToToday: () => void;
+}
+
+function WeekView({
+  appointments,
+  contacts,
+  userMap,
+  currentWeek,
+  onWeekChange,
+  onAppointmentClick,
+  onReschedule,
+  onCreateAppointment,
+  capitalizeWords,
+  getStatusColor,
+  normalizeStatus,
+  isRescheduling,
+  onGoToToday,
+}: WeekViewProps) {
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [draggedAppt, setDraggedAppt] = useState<DBAppointment | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  
+  // Reschedule dialog state
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [pendingReschedule, setPendingReschedule] = useState<{ appt: DBAppointment; targetDate: Date } | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string>("09:00");
+  
+  const weekStart = startOfWeek(currentWeek);
+  const weekEnd = endOfWeek(currentWeek);
+  
+  const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+  
+  const appointmentsByDate = useMemo(() => {
+    const map = new Map<string, DBAppointment[]>();
+    appointments.forEach((appt) => {
+      if (!appt.start_time) return;
+      const dateKey = format(new Date(appt.start_time), "yyyy-MM-dd");
+      if (!map.has(dateKey)) {
+        map.set(dateKey, []);
+      }
+      map.get(dateKey)!.push(appt);
+    });
+    // Sort appointments by time within each day
+    map.forEach((appts) => {
+      appts.sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
+    });
+    return map;
+  }, [appointments]);
+
+  const getContactName = (appt: DBAppointment) => {
+    const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
+    return contact?.contact_name || 
+      `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || 
+      "Unknown";
+  };
+
+  const selectedDateAppointments = selectedDate 
+    ? appointmentsByDate.get(format(selectedDate, "yyyy-MM-dd")) || []
+    : [];
+
+  const handleDayClick = (day: Date) => {
+    if (selectedDate && isSameDay(day, selectedDate)) {
+      setSelectedDate(null);
+    } else {
+      setSelectedDate(day);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, appt: DBAppointment) => {
+    e.stopPropagation();
+    setDraggedAppt(appt);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", appt.ghl_id);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAppt(null);
+    setDragOverDate(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, dateKey: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDate(dateKey);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverDate(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetDay: Date) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverDate(null);
+    
+    if (!draggedAppt || !draggedAppt.start_time) return;
+    
+    const originalDate = new Date(draggedAppt.start_time);
+    
+    // If dropping on the same day, do nothing
+    if (isSameDay(originalDate, targetDay)) {
+      setDraggedAppt(null);
+      return;
+    }
+    
+    // Set default time from original appointment
+    const originalTime = format(originalDate, "HH:mm");
+    // Find closest time slot
+    const closestSlot = TIME_SLOTS.reduce((prev, curr) => {
+      return Math.abs(parseInt(curr.replace(":", "")) - parseInt(originalTime.replace(":", ""))) <
+        Math.abs(parseInt(prev.replace(":", "")) - parseInt(originalTime.replace(":", "")))
+        ? curr
+        : prev;
+    });
+    setSelectedTime(closestSlot);
+    
+    // Open dialog instead of directly rescheduling
+    setPendingReschedule({ appt: draggedAppt, targetDate: targetDay });
+    setRescheduleDialogOpen(true);
+    setDraggedAppt(null);
+  };
+
+  const handleConfirmReschedule = async () => {
+    if (!pendingReschedule) return;
+    await onReschedule(pendingReschedule.appt, pendingReschedule.targetDate, selectedTime);
+    setRescheduleDialogOpen(false);
+    setPendingReschedule(null);
+  };
+
+  const handleCancelReschedule = () => {
+    setRescheduleDialogOpen(false);
+    setPendingReschedule(null);
+  };
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden bg-card rounded-lg border">
+      {/* Week Navigation */}
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onWeekChange(subWeeks(currentWeek, 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onGoToToday}
+            className="text-xs"
+          >
+            Today
+          </Button>
+        </div>
+        <div className="text-center">
+          <span className="font-semibold text-lg">
+            {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
+          </span>
+          {isRescheduling && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>Rescheduling...</span>
+            </div>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onWeekChange(addWeeks(currentWeek, 1))}
+        >
+          <ChevronRightIcon className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Drag hint */}
+      {draggedAppt && (
+        <div className="px-4 py-1 bg-primary/10 text-xs text-primary text-center">
+          Drag to a new date to reschedule
+        </div>
+      )}
+      
+      <div className="flex-1 flex overflow-hidden">
+        {/* Week Grid */}
+        <div className={`flex-1 overflow-auto ${selectedDate ? 'w-1/2' : 'w-full'}`}>
+          {/* Day Headers */}
+          <div className="grid grid-cols-7 border-b sticky top-0 bg-background z-10">
+            {days.map((day) => {
+              const isDayToday = isToday(day);
+              return (
+                <div 
+                  key={format(day, "yyyy-MM-dd")} 
+                  className={`p-2 text-center border-r last:border-r-0 ${isDayToday ? "bg-primary/5" : ""}`}
+                >
+                  <div className="text-xs font-medium text-muted-foreground">
+                    {format(day, "EEE")}
+                  </div>
+                  <div className={`text-lg font-semibold ${isDayToday ? "text-primary" : ""}`}>
+                    {format(day, "d")}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Week Days */}
+          <div className="grid grid-cols-7 flex-1">
+            {days.map((day) => {
+              const dateKey = format(day, "yyyy-MM-dd");
+              const dayAppointments = appointmentsByDate.get(dateKey) || [];
+              const isDayToday = isToday(day);
+              const isSelected = selectedDate && isSameDay(day, selectedDate);
+              const isDragOver = dragOverDate === dateKey;
+              
+              return (
+                <div
+                  key={dateKey}
+                  className={`min-h-[300px] border-r border-b p-1.5 cursor-pointer transition-all duration-150 ${
+                    isDayToday ? "bg-primary/5" : ""
+                  } ${isSelected ? "bg-primary/10 ring-2 ring-primary ring-inset" : ""} ${
+                    isDragOver ? "bg-primary/20 ring-2 ring-primary ring-dashed scale-[1.02]" : ""
+                  } hover:bg-muted/40`}
+                  onClick={() => handleDayClick(day)}
+                  onDragOver={(e) => handleDragOver(e, dateKey)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, day)}
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    {dayAppointments.length > 0 && (
+                      <Badge variant="secondary" className="h-5 px-1.5 text-xs">
+                        {dayAppointments.length}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="space-y-1 overflow-hidden">
+                    {dayAppointments.map((appt) => (
+                      <div
+                        key={appt.ghl_id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, appt)}
+                        onDragEnd={handleDragEnd}
+                        className={`text-xs px-2 py-1.5 rounded cursor-grab active:cursor-grabbing transition-opacity ${getStatusColor(appt.appointment_status)} ${
+                          userMap.get(appt.assigned_user_id || "") ? `border-l-2` : ""
+                        } ${draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""}`}
+                        style={{
+                          borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : undefined,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!draggedAppt) onAppointmentClick(appt);
+                        }}
+                        title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"}) - Drag to reschedule`}
+                      >
+                        <div className="font-medium">{format(new Date(appt.start_time!), "h:mm a")}</div>
+                        <div className="truncate">{capitalizeWords(getContactName(appt))}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Selected Day Panel */}
+        {selectedDate && (
+          <div className="w-1/2 border-l flex flex-col bg-background">
+            <div className="p-3 border-b bg-muted/30 flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">{format(selectedDate, "EEEE, MMM d")}</h4>
+                <p className="text-xs text-muted-foreground">{selectedDateAppointments.length} appointment{selectedDateAppointments.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => onCreateAppointment(selectedDate)}
+                  className="h-8"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  New
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedDate(null)}>
+                  ✕
+                </Button>
+              </div>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-2 space-y-2">
+                {selectedDateAppointments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground mb-3">No appointments</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onCreateAppointment(selectedDate)}
+                    >
+                      <Plus className="h-4 w-4 mr-1.5" />
+                      Add Appointment
+                    </Button>
+                  </div>
+                ) : (
+                  selectedDateAppointments.map((appt) => {
+                    const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
+                    const repName = userMap.get(appt.assigned_user_id || "") || "Unassigned";
+                    return (
+                      <div
+                        key={appt.ghl_id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, appt)}
+                        onDragEnd={handleDragEnd}
+                        className={`p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-grab active:cursor-grabbing transition-all ${
+                          draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""
+                        }`}
+                        onClick={() => !draggedAppt && onAppointmentClick(appt)}
+                        style={{
+                          borderLeftWidth: "3px",
+                          borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : "var(--border)",
+                        }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">
+                              {capitalizeWords(getContactName(appt))}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(appt.start_time!), "h:mm a")}
+                            </p>
+                          </div>
+                          <Badge className={`${getStatusColor(appt.appointment_status)} text-[10px] shrink-0`}>
+                            {normalizeStatus(appt.appointment_status)}
+                          </Badge>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                          <User className="h-3 w-3" />
+                          <span>{repName}</span>
+                        </div>
+                        {contact?.phone && (
+                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3" />
+                            <span>{contact.phone}</span>
+                          </div>
+                        )}
+                        <div className="mt-2 text-[10px] text-muted-foreground/60">
+                          Drag to another day to reschedule
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
+      </div>
+
+      {/* Reschedule Time Picker Dialog */}
+      <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Reschedule Appointment
+            </DialogTitle>
+            <DialogDescription>
+              {pendingReschedule && (
+                <>
+                  Moving <span className="font-medium">{capitalizeWords(getContactName(pendingReschedule.appt))}</span> to{" "}
+                  <span className="font-medium">{format(pendingReschedule.targetDate, "EEEE, MMMM d, yyyy")}</span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Original time display */}
+            {pendingReschedule?.appt.start_time && (
+              <div className="text-sm text-muted-foreground">
+                Original time: <span className="font-medium text-foreground">{format(new Date(pendingReschedule.appt.start_time), "h:mm a")}</span>
+              </div>
+            )}
+
+            {/* Time selector */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select new time</label>
+              <Select value={selectedTime} onValueChange={setSelectedTime}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select time" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {TIME_SLOTS.map((slot) => (
+                    <SelectItem key={slot} value={slot}>
+                      {format(new Date(`2000-01-01T${slot}:00`), "h:mm a")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleCancelReschedule}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmReschedule} disabled={isRescheduling}>
+              {isRescheduling ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Rescheduling...
+                </>
+              ) : (
+                "Confirm Reschedule"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // Main Calendar Page Component
 const Calendar = () => {
   const { user } = useAuth();
@@ -550,9 +1000,17 @@ const Calendar = () => {
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<DBOpportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+  const [viewMode, setViewMode] = useState<"week" | "month" | "list">("week");
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentWeek, setCurrentWeek] = useState(new Date());
   const [isRescheduling, setIsRescheduling] = useState(false);
+
+  // Navigate to today
+  const handleGoToToday = () => {
+    const today = new Date();
+    setCurrentMonth(today);
+    setCurrentWeek(today);
+  };
 
   // New appointment dialog state
   const [newApptDialogOpen, setNewApptDialogOpen] = useState(false);
@@ -937,13 +1395,22 @@ const Calendar = () => {
           <div className="flex items-center gap-2">
             <div className="flex items-center border rounded-md">
               <Button
-                variant={viewMode === "calendar" ? "secondary" : "ghost"}
+                variant={viewMode === "week" ? "secondary" : "ghost"}
                 size="sm"
                 className="h-9 px-2"
-                onClick={() => setViewMode("calendar")}
-                title="Calendar view"
+                onClick={() => setViewMode("week")}
+                title="Week view"
               >
                 <CalendarDays className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "month" ? "secondary" : "ghost"}
+                size="sm"
+                className="h-9 px-2"
+                onClick={() => setViewMode("month")}
+                title="Month view"
+              >
+                <Grid3X3 className="h-4 w-4" />
               </Button>
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
@@ -1009,7 +1476,23 @@ const Calendar = () => {
         {/* Content */}
         {isLoading ? (
           <Skeleton className="flex-1 rounded-lg" />
-        ) : viewMode === "calendar" ? (
+        ) : viewMode === "week" ? (
+          <WeekView
+            appointments={filteredCalendarAppointments}
+            contacts={contacts}
+            userMap={userMap}
+            currentWeek={currentWeek}
+            onWeekChange={setCurrentWeek}
+            onAppointmentClick={handleAppointmentClick}
+            onReschedule={handleReschedule}
+            onCreateAppointment={handleOpenNewAppointment}
+            capitalizeWords={capitalizeWords}
+            getStatusColor={getStatusColor}
+            normalizeStatus={normalizeStatus}
+            isRescheduling={isRescheduling}
+            onGoToToday={handleGoToToday}
+          />
+        ) : viewMode === "month" ? (
           <CalendarView
             appointments={filteredCalendarAppointments}
             contacts={contacts}
@@ -1023,6 +1506,7 @@ const Calendar = () => {
             getStatusColor={getStatusColor}
             normalizeStatus={normalizeStatus}
             isRescheduling={isRescheduling}
+            onGoToToday={handleGoToToday}
           />
         ) : (
           /* List View */
