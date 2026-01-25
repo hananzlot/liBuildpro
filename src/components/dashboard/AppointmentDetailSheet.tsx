@@ -87,6 +87,7 @@ interface Opportunity {
   pipeline_name: string | null;
   stage_name: string | null;
   contact_id: string | null;
+  address?: string | null;
 }
 
 interface CustomField {
@@ -228,6 +229,14 @@ export function AppointmentDetailSheet({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   // Local status state to reflect changes immediately in UI
   const [localStatus, setLocalStatus] = useState<string | null>(null);
+
+  // Contact editing state
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [editContactName, setEditContactName] = useState("");
+  const [editContactPhone, setEditContactPhone] = useState("");
+  const [editContactEmail, setEditContactEmail] = useState("");
+  const [editContactAddress, setEditContactAddress] = useState("");
+  const [isSavingContact, setIsSavingContact] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -662,13 +671,15 @@ export function AppointmentDetailSheet({
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
       : "Unassigned");
 
-  // Get address: first try contact custom_fields, then current appointment, then any other appointment for this contact
+  // Get address: first try contact custom_fields, then current appointment, then any other appointment for this contact, then opportunity address
   const contactAddress = contact ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) : null;
   const currentAppointmentAddress = appointment?.address;
   const otherAppointmentAddress = appointment?.contact_id 
     ? appointments.find(a => a.contact_id === appointment.contact_id && a.address)?.address 
     : null;
-  const address = contactAddress || currentAppointmentAddress || otherAppointmentAddress || null;
+  // Fallback to opportunity address if contact address is null
+  const opportunityAddress = primaryOpportunity?.address || null;
+  const address = contactAddress || currentAppointmentAddress || otherAppointmentAddress || opportunityAddress || null;
   // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
   const scopeFromCustomField = contact
     ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
@@ -727,105 +738,275 @@ export function AppointmentDetailSheet({
       .join(" ");
   };
 
+  // Initialize contact edit fields when entering edit mode
+  const startEditingContact = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditContactName(contactName);
+    setEditContactPhone(contact?.phone || "");
+    setEditContactEmail(contact?.email || "");
+    setEditContactAddress(address || "");
+    setIsEditingContact(true);
+  };
+
+  // Cancel editing contact
+  const cancelEditingContact = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingContact(false);
+  };
+
+  // Save contact changes
+  const handleSaveContact = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!contact?.ghl_id && !contact?.id) {
+      toast.error("Cannot update contact: missing ID");
+      return;
+    }
+
+    setIsSavingContact(true);
+    try {
+      // Update contact name if changed
+      const originalName = contactName;
+      if (editContactName.trim() !== originalName) {
+        const { error: nameError } = await supabase.functions.invoke("update-contact-name", {
+          body: { 
+            contactId: contact.ghl_id, 
+            name: editContactName.trim()
+          },
+        });
+        if (nameError) throw nameError;
+      }
+
+      // Update phone if changed
+      if (editContactPhone.trim() !== (contact?.phone || "")) {
+        const { error: phoneError } = await supabase.functions.invoke("update-contact-phone", {
+          body: { 
+            contactId: contact.ghl_id, 
+            phone: editContactPhone.trim() 
+          },
+        });
+        if (phoneError) throw phoneError;
+      }
+
+      // Update address via opportunity if we have a primary opportunity
+      if (editContactAddress.trim() !== (address || "") && primaryOpportunity) {
+        const { error: addressError } = await supabase.functions.invoke("update-opportunity-address", {
+          body: { 
+            opportunityGhlId: primaryOpportunity.ghl_id, 
+            address: editContactAddress.trim(),
+            editedBy: user?.id || null,
+          },
+        });
+        if (addressError) throw addressError;
+      }
+
+      toast.success("Contact updated successfully");
+      setIsEditingContact(false);
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error updating contact:", error);
+      toast.error("Failed to update contact");
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl overflow-y-auto p-0">
         {/* Header - Contact Details First */}
         <div className="sticky top-0 bg-background border-b p-4 z-10">
           <SheetHeader className="space-y-2">
-            {/* Contact Details - Clickable to open opportunity */}
-            <div 
-              className={`border rounded-lg overflow-hidden ${primaryOpportunity && onOpenOpportunity ? "cursor-pointer hover:bg-muted/20 transition-colors" : ""}`}
-              onClick={() => primaryOpportunity && handleOpenOpportunity(primaryOpportunity)}
-            >
+            {/* Contact Details - Editable */}
+            <div className="border rounded-lg overflow-hidden">
               <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
                 <div className="flex items-center gap-2">
                   <User className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
                 </div>
-                {primaryOpportunity && onOpenOpportunity && (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <span>View Opportunity</span>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </div>
-                )}
+                <div className="flex items-center gap-1">
+                  {!isEditingContact ? (
+                    <>
+                      {primaryOpportunity && onOpenOpportunity && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenOpportunity(primaryOpportunity);
+                          }}
+                        >
+                          View Opp
+                          <ChevronRight className="h-3 w-3 ml-0.5" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={startEditingContact}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={cancelEditingContact}
+                        disabled={isSavingContact}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={handleSaveContact}
+                        disabled={isSavingContact}
+                      >
+                        {isSavingContact ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        Save
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="p-3 grid gap-1.5 text-sm">
-                <div className="font-medium text-foreground">
-                  {capitalizeContactName(contactName)}
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-3.5 w-3.5 shrink-0" />
-                  {contact?.phone ? (
-                    <>
-                      <a
-                        href={`tel:${contact.phone}`}
-                        className="text-primary hover:underline truncate"
-                      >
-                        {contact.phone}
-                      </a>
-                      <button
-                        className="text-muted-foreground hover:text-primary p-0.5"
-                        onClick={() => {
-                          navigator.clipboard.writeText(contact.phone!);
-                          toast.success("Phone copied");
-                        }}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                    </>
-                  ) : (
-                    <span className="italic text-muted-foreground/60">No phone</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="h-3.5 w-3.5 shrink-0" />
-                  {contact?.email ? (
-                    <>
-                      <a
-                        href={`mailto:${contact.email}`}
-                        target="_top"
-                        rel="noreferrer"
-                        className="text-primary hover:underline truncate"
-                      >
-                        {contact.email}
-                      </a>
-                      <button
-                        className="text-muted-foreground hover:text-primary p-0.5"
-                        onClick={() => {
-                          navigator.clipboard.writeText(contact.email!);
-                          toast.success("Email copied");
-                        }}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                      <a
-                        href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-muted-foreground hover:text-primary text-xs"
-                      >
-                        (Gmail)
-                      </a>
-                    </>
-                  ) : (
-                    <span className="italic text-muted-foreground/60">No email</span>
-                  )}
-                </div>
-                <div className="flex items-start gap-2 text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                  <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Target className="h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    {contact?.source ? (
-                      <span className="capitalize">{contact.source}</span>
-                    ) : (
-                      <span className="italic text-muted-foreground/60">No source</span>
-                    )}
-                  </span>
-                </div>
+              <div className="p-3 grid gap-2 text-sm">
+                {isEditingContact ? (
+                  <>
+                    {/* Edit Name */}
+                    <div className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <Input
+                        value={editContactName}
+                        onChange={(e) => setEditContactName(e.target.value)}
+                        placeholder="Contact name"
+                        className="h-7 text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    {/* Edit Phone */}
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <Input
+                        value={editContactPhone}
+                        onChange={(e) => setEditContactPhone(e.target.value)}
+                        placeholder="Phone number"
+                        className="h-7 text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    {/* Edit Email (display only - not editable via existing edge function) */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span className="text-sm">{contact?.email || <span className="italic text-muted-foreground/60">No email</span>}</span>
+                    </div>
+                    {/* Edit Address */}
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground mt-0.5" />
+                      <Input
+                        value={editContactAddress}
+                        onChange={(e) => setEditContactAddress(e.target.value)}
+                        placeholder="Address"
+                        className="h-7 text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Display Name */}
+                    <div className="font-medium text-foreground">
+                      {capitalizeContactName(contactName)}
+                    </div>
+                    {/* Display Phone */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                      {contact?.phone ? (
+                        <>
+                          <a
+                            href={`tel:${contact.phone}`}
+                            className="text-primary hover:underline truncate"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {contact.phone}
+                          </a>
+                          <button
+                            className="text-muted-foreground hover:text-primary p-0.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(contact.phone!);
+                              toast.success("Phone copied");
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <span className="italic text-muted-foreground/60">No phone</span>
+                      )}
+                    </div>
+                    {/* Display Email */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      {contact?.email ? (
+                        <>
+                          <a
+                            href={`mailto:${contact.email}`}
+                            target="_top"
+                            rel="noreferrer"
+                            className="text-primary hover:underline truncate"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {contact.email}
+                          </a>
+                          <button
+                            className="text-muted-foreground hover:text-primary p-0.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(contact.email!);
+                              toast.success("Email copied");
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                          <a
+                            href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-primary text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            (Gmail)
+                          </a>
+                        </>
+                      ) : (
+                        <span className="italic text-muted-foreground/60">No email</span>
+                      )}
+                    </div>
+                    {/* Display Address */}
+                    <div className="flex items-start gap-2 text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
+                    </div>
+                    {/* Display Source */}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Target className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        {contact?.source ? (
+                          <span className="capitalize">{contact.source}</span>
+                        ) : (
+                          <span className="italic text-muted-foreground/60">No source</span>
+                        )}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
