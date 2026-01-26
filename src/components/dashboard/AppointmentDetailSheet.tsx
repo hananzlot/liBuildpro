@@ -1982,11 +1982,9 @@ export function AppointmentDetailSheet({
         appointment={appointment}
         open={appointmentEditDialogOpen}
         onOpenChange={setAppointmentEditDialogOpen}
-        users={users}
-        calendars={calendars}
+        salespeople={activeSalespeople}
         contactId={appointment?.contact_id}
         locationId={appointment?.location_id}
-        showCalendarSelect
         showRescheduleCheckbox
         onSuccess={() => {
           fetchContactNotes();

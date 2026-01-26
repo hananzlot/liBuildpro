@@ -49,34 +49,21 @@ interface Appointment {
   location_id?: string;
 }
 
-interface GHLUser {
-  ghl_id: string;
+interface Salesperson {
+  id: string;
   name: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  location_id?: string;
-}
-
-interface GHLCalendar {
-  ghl_id: string;
-  name: string | null;
-  is_active: boolean | null;
-  location_id?: string;
-  team_members?: { userId: string }[] | null;
+  ghl_user_id: string | null;
 }
 
 interface AppointmentEditDialogProps {
   appointment: Appointment | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  users: GHLUser[];
-  calendars?: GHLCalendar[];
+  salespeople?: Salesperson[];
   contactId?: string | null;
   locationId?: string | null;
   onSuccess?: () => void;
   onDelete?: () => void;
-  showCalendarSelect?: boolean;
   showRescheduleCheckbox?: boolean;
 }
 
@@ -84,13 +71,11 @@ export function AppointmentEditDialog({
   appointment,
   open,
   onOpenChange,
-  users,
-  calendars = [],
+  salespeople = [],
   contactId,
   locationId,
   onSuccess,
   onDelete,
-  showCalendarSelect = false,
   showRescheduleCheckbox = false,
 }: AppointmentEditDialogProps) {
   const { user } = useAuth();
@@ -103,7 +88,6 @@ export function AppointmentEditDialog({
   const [time, setTime] = useState("09:00");
   const [status, setStatus] = useState("");
   const [assignee, setAssignee] = useState("");
-  const [calendar, setCalendar] = useState("");
   const [notes, setNotes] = useState("");
   const [updateTime, setUpdateTime] = useState(false);
 
@@ -115,13 +99,10 @@ export function AppointmentEditDialog({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Filter users by location if provided
-  const filteredUsers = locationId
-    ? users.filter((u) => u.location_id === locationId)
-    : users;
-
-  // Filter calendars to active ones
-  const activeCalendars = calendars.filter((c) => c.is_active);
+  // Sort salespeople alphabetically
+  const sortedSalespeople = [...salespeople].sort((a, b) => 
+    (a.name || "Unknown").localeCompare(b.name || "Unknown")
+  );
 
   // Initialize form when appointment changes
   useEffect(() => {
@@ -130,7 +111,10 @@ export function AppointmentEditDialog({
       setAddress(appointment.address || "");
       setNotes(appointment.notes || "");
       setStatus(appointment.appointment_status === "noshow" ? "no_show" : (appointment.appointment_status || ""));
-      setAssignee(appointment.assigned_user_id || "__unassigned__");
+      
+      // Find salesperson by ghl_user_id to get their internal ID for the dropdown
+      const matchedSalesperson = salespeople.find(sp => sp.ghl_user_id === appointment.assigned_user_id);
+      setAssignee(matchedSalesperson?.ghl_user_id || appointment.assigned_user_id || "__unassigned__");
       setUpdateTime(false);
 
       if (appointment.start_time) {
@@ -149,29 +133,8 @@ export function AppointmentEditDialog({
         setOriginalDate("");
         setOriginalTime("");
       }
-
-      // Set calendar if available
-      if (appointment.calendar_id) {
-        setCalendar(appointment.calendar_id);
-      } else if (activeCalendars.length === 1) {
-        setCalendar(activeCalendars[0].ghl_id);
-      }
     }
-  }, [appointment, open, activeCalendars.length]);
-
-  // Auto-select calendar when assignee changes
-  useEffect(() => {
-    if (!assignee || assignee === "__unassigned__") return;
-    
-    // Find a calendar that has this user as a team member
-    const userCalendar = activeCalendars.find(cal => 
-      cal.team_members?.some(member => member.userId === assignee)
-    );
-    
-    if (userCalendar) {
-      setCalendar(userCalendar.ghl_id);
-    }
-  }, [assignee, activeCalendars]);
+  }, [appointment, open, salespeople]);
 
   // Reset form on close
   const handleOpenChange = (newOpen: boolean) => {
@@ -182,7 +145,6 @@ export function AppointmentEditDialog({
       setTime("09:00");
       setStatus("");
       setAssignee("");
-      setCalendar("");
       setNotes("");
       setUpdateTime(false);
       setOriginalDate("");
@@ -208,7 +170,6 @@ export function AppointmentEditDialog({
         address: address.trim() || null,
         notes: notes.trim() || null,
         status: status || null,
-        calendarId: calendar || null,
       };
 
       // Determine if we should update time
@@ -399,57 +360,18 @@ export function AppointmentEditDialog({
             <Label htmlFor="editApptAssignee">Assign To</Label>
             <Select value={assignee} onValueChange={setAssignee}>
               <SelectTrigger>
-                <SelectValue placeholder="Select team member..." />
+                <SelectValue placeholder="Select salesperson..." />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                {[...filteredUsers]
-                  .sort((a, b) => {
-                    const nameA = (
-                      a.name ||
-                      `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
-                      a.email ||
-                      "Unknown"
-                    ).toLowerCase();
-                    const nameB = (
-                      b.name ||
-                      `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
-                      b.email ||
-                      "Unknown"
-                    ).toLowerCase();
-                    return nameA.localeCompare(nameB);
-                  })
-                  .map((u) => (
-                    <SelectItem key={u.ghl_id} value={u.ghl_id}>
-                      {u.name ||
-                        `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
-                        u.email ||
-                        "Unknown"}
-                    </SelectItem>
-                  ))}
+                {sortedSalespeople.map((sp) => (
+                  <SelectItem key={sp.id} value={sp.ghl_user_id || sp.id}>
+                    {sp.name || "Unknown"}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-
-          {showCalendarSelect && activeCalendars.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="editApptCalendar">Calendar</Label>
-              <Select value={calendar} onValueChange={setCalendar}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select calendar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {[...activeCalendars]
-                    .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
-                    .map((cal) => (
-                      <SelectItem key={cal.ghl_id} value={cal.ghl_id}>
-                        {cal.name || "Unnamed Calendar"}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="editApptNotes">Notes (optional)</Label>
