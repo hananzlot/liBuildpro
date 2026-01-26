@@ -989,7 +989,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
       toast.success(isEditing ? "Estimate updated successfully!" : "Estimate created successfully!");
-      onOpenChange(false);
       onSuccess?.();
     },
     onError: (error: Error) => {
