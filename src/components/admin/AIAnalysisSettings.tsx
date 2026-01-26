@@ -27,6 +27,95 @@ const DEFAULT_CRITICAL_RULES = `1. RECENCY IS PARAMOUNT - The most recent notes 
 
 const DEFAULT_AI_VARIABILITY = 0.2;
 
+const DEFAULT_ESTIMATE_INSTRUCTIONS = `ROLE
+You are a senior construction estimator for high-end residential and light commercial projects in California. You produce professional, client-ready estimates that are extremely detailed, clearly structured, and easy to approve.
+
+CORE RULES (NON-NEGOTIABLE)
+
+A) Line Item Structure (Always Required)
+Every scope item MUST include separate lines for:
+- Labor
+- Materials
+- (Optional but preferred) Equipment/Disposal
+- (Optional) Subcontractor
+
+You must never group a task into one lump sum line without a Labor/Materials breakdown.
+Use clear scope descriptions and include quantities, units, and unit pricing wherever possible.
+If any detail is missing, create reasonable assumptions and label them as ASSUMPTIONS.
+
+B) Payment Terms + Deposits (Always Required)
+Deposit rules are dictated by the company settings.
+You MUST include a Deposit line in the estimate.
+You MUST display the deposit as: Deposit Due at Signing: $X (calculated per company settings)
+If the deposit setting value is not provided, you MUST insert a placeholder: Deposit Due at Signing: [AUTO-CALCULATED PER COMPANY SETTINGS]
+
+Payment phases must be front-heavy.
+Payments should be structured so the contractor is paid early for mobilization, demo, rough work, materials ordering, and progress.
+The final payment must NEVER exceed 10% of the total contract value.
+If the user doesn't specify phases, you must generate them based on project type and ensure the final payment ≤ 10%.
+
+OUTPUT FORMAT (MANDATORY)
+
+1) Estimate Header
+Include: Project Name, Client Name (if provided), Address (if provided), Estimate Date, Estimate # (generate one if missing), Prepared By, Validity period (ex: 14 days)
+
+2) Scope Breakdown (Detailed Line Items)
+Organize into clean sections (example: Demo, Framing, Electrical, Plumbing, HVAC, Drywall, Paint, Flooring, Cabinets, Tile, Fixtures, Finish Carpentry, Cleanup).
+
+For each line item, use this format:
+Line Item Name:
+Description (Included + Excluded):
+Qty / Unit:
+Unit Cost:
+Line Total:
+
+Cost Breakdown (REQUIRED):
+- Labor: $____ (include hours x rate when possible)
+- Materials: $____
+- Equipment/Disposal: $____
+- Subcontractor: $____
+- Subtotal: $____
+- Notes / Assumptions:
+
+3) Section Subtotals
+At the end of each section: Section Subtotal
+
+4) Summary Totals
+Provide: Total Labor, Total Materials, Total Subcontractors, Total Equipment/Disposal, Total Direct Cost, Overhead & Profit, Contingency (optional), Grand Total
+
+5) Deposits + Payment Schedule (MANDATORY)
+You MUST include this section in every estimate:
+Deposit Due at Signing: $X (calculated per company settings) OR placeholder if not provided.
+
+Payment Phases (Front-Heavy):
+- Phase 1: Deposit / Mobilization / Scheduling – $____ (___%)
+- Phase 2: Demo + Rough Prep – $____ (___%)
+- Phase 3: Rough Trades (Plumbing/Electrical/HVAC) – $____ (___%)
+- Phase 4: Drywall + Prime + Waterproofing – $____ (___%)
+- Phase 5: Finishes (Tile/Flooring/Cabinets/Paint) – $____ (___%)
+- Phase 6: Trim + Fixtures + Punchlist – $____ (___%)
+- Final Payment (Completion/Closeout): $____ (≤ 10% REQUIRED)
+
+Rules: Final payment must never exceed 10% of the total contract. If your phase totals don't equal 100%, you must correct them.
+
+6) Exclusions + Clarifications (Mandatory)
+Always include exclusions such as: Permits and city fees (unless included), Engineering/Architect fees (unless included), Hazardous materials / asbestos remediation (unless included), Unforeseen structural issues behind walls, Utility upgrades unless specified, After-hours work unless specified
+
+7) Change Order Policy
+Any work outside scope requires a written change order and may affect timeline/cost.
+
+Estimator Intelligence (Auto-Include When Relevant)
+Always add line items when applicable: Mobilization, Site protection (floor/wall protection, plastic, dust barriers), Debris hauling / dumpster, Daily cleanup + final cleanup, Project management + supervision, Patching and paint touch-ups after rough trades
+
+FINAL QUALITY CHECK (DO THIS EVERY TIME)
+Before outputting, verify:
+✅ Every line item includes Labor + Materials
+✅ Deposit section exists and references company settings
+✅ Payment schedule is front-heavy
+✅ Final payment ≤ 10%
+✅ No missing totals or incorrect phase math
+If anything fails, fix it before presenting the estimate.`;
+
 export function AIAnalysisSettings() {
   const { companyId } = useAuth();
   const queryClient = useQueryClient();
@@ -35,6 +124,7 @@ export function AIAnalysisSettings() {
   const [negativeSignals, setNegativeSignals] = useState(DEFAULT_NEGATIVE_SIGNALS);
   const [criticalRules, setCriticalRules] = useState(DEFAULT_CRITICAL_RULES);
   const [aiVariability, setAiVariability] = useState(DEFAULT_AI_VARIABILITY);
+  const [estimateInstructions, setEstimateInstructions] = useState(DEFAULT_ESTIMATE_INSTRUCTIONS);
   const [hasChanges, setHasChanges] = useState(false);
 
   // Fetch existing settings
@@ -49,7 +139,8 @@ export function AIAnalysisSettings() {
           "ai_never_answers_positive_signals",
           "ai_never_answers_negative_signals",
           "ai_never_answers_critical_rules",
-          "ai_estimate_variability"
+          "ai_estimate_variability",
+          "ai_estimate_instructions"
         ]);
       
       if (error) throw error;
@@ -65,11 +156,13 @@ export function AIAnalysisSettings() {
       const negative = settings.find(s => s.setting_key === "ai_never_answers_negative_signals");
       const rules = settings.find(s => s.setting_key === "ai_never_answers_critical_rules");
       const variability = settings.find(s => s.setting_key === "ai_estimate_variability");
+      const instructions = settings.find(s => s.setting_key === "ai_estimate_instructions");
       
       if (positive?.setting_value) setPositiveSignals(positive.setting_value);
       if (negative?.setting_value) setNegativeSignals(negative.setting_value);
       if (rules?.setting_value) setCriticalRules(rules.setting_value);
       if (variability?.setting_value) setAiVariability(parseFloat(variability.setting_value) || DEFAULT_AI_VARIABILITY);
+      if (instructions?.setting_value) setEstimateInstructions(instructions.setting_value);
     }
   }, [settings]);
 
@@ -111,6 +204,14 @@ export function AIAnalysisSettings() {
           description: "AI temperature/variability for estimate generation (0.0-1.0, lower = more consistent)",
           updated_at: new Date().toISOString(),
         },
+        {
+          company_id: companyId,
+          setting_key: "ai_estimate_instructions",
+          setting_value: estimateInstructions,
+          setting_type: "text",
+          description: "Custom instructions for AI estimate generation",
+          updated_at: new Date().toISOString(),
+        },
       ];
 
       for (const setting of settingsToUpsert) {
@@ -136,6 +237,7 @@ export function AIAnalysisSettings() {
     setNegativeSignals(DEFAULT_NEGATIVE_SIGNALS);
     setCriticalRules(DEFAULT_CRITICAL_RULES);
     setAiVariability(DEFAULT_AI_VARIABILITY);
+    setEstimateInstructions(DEFAULT_ESTIMATE_INSTRUCTIONS);
     setHasChanges(true);
   };
 
@@ -211,6 +313,20 @@ export function AIAnalysisSettings() {
               <p className="text-xs text-muted-foreground">
                 If recent notes contain any of these signals, the AI will NOT mark the opportunity as "Never Answers".
               </p>
+            </div>
+
+            <div className="border-t pt-6 space-y-2">
+              <Label className="text-base font-semibold">Estimate Generation Instructions</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Custom instructions that guide how AI generates detailed estimates. These rules control line item structure, payment terms, and formatting.
+              </p>
+              <Textarea
+                value={estimateInstructions}
+                onChange={(e) => handleChange(setEstimateInstructions)(e.target.value)}
+                rows={20}
+                className="font-mono text-sm"
+                placeholder="Enter custom instructions for AI estimate generation..."
+              />
             </div>
 
             <div className="space-y-2">
