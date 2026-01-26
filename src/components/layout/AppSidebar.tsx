@@ -32,7 +32,8 @@ import {
   Building2,
   Calendar,
   CalendarDays,
-  ClipboardList
+  ClipboardList,
+  Contact
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -145,6 +146,13 @@ const navSections: NavSection[] = [
         icon: Users,
         roles: ['super_admin', 'admin', 'dispatch'],
         requiredFeature: 'dashboard'
+      },
+      { 
+        title: "Contacts", 
+        url: "/contacts", 
+        icon: Contact,
+        roles: ['super_admin', 'admin'],
+        requiredFeature: 'ghl_integration'
       },
     ],
   },

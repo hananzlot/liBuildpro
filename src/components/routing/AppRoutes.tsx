@@ -15,6 +15,7 @@ import SalesPortal from "@/pages/SalesPortal";
 import Opportunities from "@/pages/Opportunities";
 import Appointments from "@/pages/Appointments";
 import Calendar from "@/pages/Calendar";
+import Contacts from "@/pages/Contacts";
 import NotFound from "@/pages/NotFound";
 import SalespersonCalendarPortal from "@/pages/SalespersonCalendarPortal";
 import ShortLinkRedirect from "@/pages/ShortLinkRedirect";
@@ -116,6 +117,24 @@ export function AppRoutes() {
           element={
             <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
               <FollowUp />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Contacts - admin only */}
+        <Route
+          path="/contacts"
+          element={
+            <ProtectedRoute allowedRoles={['admin']} requiredFeature="ghl_integration">
+              <Contacts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contacts/:contactId"
+          element={
+            <ProtectedRoute allowedRoles={['admin']} requiredFeature="ghl_integration">
+              <Contacts />
             </ProtectedRoute>
           }
         />
