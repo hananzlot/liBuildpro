@@ -448,6 +448,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         job_address: linkedOpportunity.address || prev.job_address,
         work_scope_description: workScope || prev.work_scope_description,
         estimate_title: linkedOpportunity.name || prev.estimate_title,
+        salesperson_name: linkedOpportunity.salesperson_name || prev.salesperson_name,
       }));
     }
   }, [open, linkedOpportunity, estimateId, initialWorkScope]);

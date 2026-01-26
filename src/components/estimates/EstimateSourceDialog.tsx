@@ -29,6 +29,7 @@ export interface LinkedOpportunity {
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
+  salesperson_name?: string | null;
 }
 
 interface EstimateSourceDialogProps {

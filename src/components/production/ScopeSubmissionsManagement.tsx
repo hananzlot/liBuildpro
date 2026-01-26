@@ -402,6 +402,7 @@ export function ScopeSubmissionsManagement() {
           contact_name: contactName,
           contact_email: contactEmail,
           contact_phone: contactPhone,
+          salesperson_name: submission.salespeople?.name || null,
         };
       }
     }
@@ -419,6 +420,7 @@ export function ScopeSubmissionsManagement() {
         contact_name: submission.customer_name,
         contact_email: submission.customer_email,
         contact_phone: submission.customer_phone,
+        salesperson_name: submission.salespeople?.name || null,
       };
     }
     

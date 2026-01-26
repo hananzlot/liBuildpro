@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Edit, ArrowRight, Search, Plus, Archive, ArchiveRestore } from "lucide-react";
+import { Loader2, Edit, ArrowRight, Search, Plus, Archive, ArchiveRestore, GitMerge } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,6 +38,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [selectedSource, setSelectedSource] = useState<string>("");
+  const [mergeTargetSource, setMergeTargetSource] = useState<string>("");
   const [newSourceName, setNewSourceName] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,14 +90,14 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
     );
   }, [activeSources, archivedSourcesWithCounts, searchQuery, activeTab]);
 
-  const handleBulkRename = async () => {
-    if (!selectedSource || !newSourceName.trim()) {
-      toast.error("Please select a source and enter a new name");
+  const handleMergeSources = async () => {
+    if (!selectedSource || !mergeTargetSource) {
+      toast.error("Please select both source and target");
       return;
     }
 
-    if (selectedSource === newSourceName.trim()) {
-      toast.error("New name must be different from the old name");
+    if (selectedSource === mergeTargetSource) {
+      toast.error("Source and target must be different");
       return;
     }
 
@@ -105,7 +106,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
       const { data, error } = await supabase.functions.invoke("bulk-update-source", {
         body: {
           oldSource: selectedSource,
-          newSource: newSourceName.trim(),
+          newSource: mergeTargetSource,
           editedBy: user?.id || null,
         },
       });
@@ -113,22 +114,23 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      toast.success(`Renamed "${selectedSource}" to "${newSourceName.trim()}" for ${data.updated} contacts`);
+      toast.success(`Merged "${selectedSource}" into "${mergeTargetSource}" for ${data.updated} contacts`);
       
       // Reset form
       setSelectedSource("");
-      setNewSourceName("");
+      setMergeTargetSource("");
       
       // Refresh data
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
     } catch (error) {
-      console.error("Error bulk updating source:", error);
-      toast.error("Failed to rename source");
+      console.error("Error merging sources:", error);
+      toast.error("Failed to merge sources");
     } finally {
       setIsUpdating(false);
     }
   };
+
 
   const handleAddNewSource = () => {
     if (!newSourceInput.trim()) {
@@ -223,44 +225,58 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
             )}
           </div>
 
-          {/* Rename Section */}
+          {/* Merge/Rename Section */}
           <div className="border rounded-lg p-4 bg-muted/30">
-            <h4 className="text-sm font-medium mb-3">Bulk Rename Source</h4>
+            <h4 className="text-sm font-medium mb-3">Merge Sources</h4>
+            <p className="text-xs text-muted-foreground mb-3">
+              Select a source to merge and the target source it should be merged into. All records will be updated.
+            </p>
             <div className="flex items-center gap-2">
               <div className="flex-1">
-                <Label className="text-xs text-muted-foreground">From</Label>
+                <Label className="text-xs text-muted-foreground">Merge from</Label>
                 <Select value={selectedSource} onValueChange={setSelectedSource}>
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select source to rename" />
+                    <SelectValue placeholder="Source to remove" />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeSources.map(({ source, count }) => (
-                      <SelectItem key={source} value={source}>
-                        {source} ({count})
-                      </SelectItem>
-                    ))}
+                    {activeSources
+                      .filter(({ source }) => source !== mergeTargetSource)
+                      .map(({ source, count }) => (
+                        <SelectItem key={source} value={source}>
+                          {source} ({count})
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
               <ArrowRight className="h-4 w-4 text-muted-foreground mt-5" />
               <div className="flex-1">
-                <Label className="text-xs text-muted-foreground">To</Label>
-                <Input
-                  value={newSourceName}
-                  onChange={(e) => setNewSourceName(e.target.value)}
-                  placeholder="New source name"
-                  className="h-9"
-                />
+                <Label className="text-xs text-muted-foreground">Merge into</Label>
+                <Select value={mergeTargetSource} onValueChange={setMergeTargetSource}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Target source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeSources
+                      .filter(({ source }) => source !== selectedSource)
+                      .map(({ source, count }) => (
+                        <SelectItem key={source} value={source}>
+                          {source} ({count})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button
-                onClick={handleBulkRename}
-                disabled={isUpdating || !selectedSource || !newSourceName.trim()}
+                onClick={handleMergeSources}
+                disabled={isUpdating || !selectedSource || !mergeTargetSource}
                 className="mt-5"
+                title="Merge sources"
               >
                 {isUpdating ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Edit className="h-4 w-4" />
+                  <GitMerge className="h-4 w-4" />
                 )}
               </Button>
             </div>

@@ -12,13 +12,13 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, UserCheck, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar, Link2 } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar, Link2 } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
 import { UserManagement } from "@/components/dashboard/UserManagement";
 import { EmailTemplatesManager } from "@/components/admin/EmailTemplatesManager";
-import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement";
+
 import { ChatManagement } from "@/components/admin/ChatManagement";
 import { LogoUpload } from "@/components/admin/LogoUpload";
 import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager";
@@ -690,10 +690,6 @@ export default function AdminSettings() {
             <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
               <span className="hidden sm:inline">Chat</span>
-            </TabsTrigger>
-            <TabsTrigger value="salespeople" className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Sales</span>
             </TabsTrigger>
             <TabsTrigger value="shortlinks" className="flex items-center gap-2">
               <Link2 className="h-4 w-4" />
@@ -1616,10 +1612,6 @@ export default function AdminSettings() {
             <ChatManagement />
           </TabsContent>
 
-          {/* Salespeople Tab */}
-          <TabsContent value="salespeople" className="mt-6">
-            <SalespeopleManagement />
-          </TabsContent>
 
           {/* Short Links Tab */}
           <TabsContent value="shortlinks" className="mt-6">
