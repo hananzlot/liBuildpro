@@ -125,33 +125,36 @@ export function CalendarAppointmentActions({
 
     setIsUpdatingStatus(true);
     try {
-      // Update appointment (saves to Supabase, syncs to GHL if connected)
-      if (appointment?.ghl_id) {
-        const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
-          body: { ghl_id: appointment.ghl_id, appointment_status: newStatus },
-        });
-        if (ghlError) {
-          console.warn("Sync failed, updating locally:", ghlError);
-        }
-      }
-
-      // Update in Supabase
-      let query = supabase
-        .from("appointments")
-        .update({
+      // Update via edge function (handles both GHL and local appointments)
+      const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
+        body: { 
+          ghl_id: appointment.ghl_id,
+          appointmentUuid: appointment.id, // Internal UUID for local/Google appointments
           appointment_status: newStatus,
-          edited_by: user?.id || null,
-          edited_at: new Date().toISOString(),
-        });
+          location_id: appointment.location_id,
+        },
+      });
+      
+      if (ghlError) {
+        console.warn("Edge function failed, updating directly:", ghlError);
+        // Fallback: Update directly in Supabase
+        let query = supabase
+          .from("appointments")
+          .update({
+            appointment_status: newStatus,
+            edited_by: user?.id || null,
+            edited_at: new Date().toISOString(),
+          });
 
-      if (appointment?.id) {
-        query = query.eq("id", appointment.id);
-      } else if (appointment?.ghl_id) {
-        query = query.eq("ghl_id", appointment.ghl_id);
+        if (appointment?.id) {
+          query = query.eq("id", appointment.id);
+        } else if (appointment?.ghl_id) {
+          query = query.eq("ghl_id", appointment.ghl_id);
+        }
+
+        const { error: dbError } = await query;
+        if (dbError) throw dbError;
       }
-
-      const { error: dbError } = await query;
-      if (dbError) throw dbError;
 
       setLocalStatus(newStatus);
       await queryClient.invalidateQueries({ queryKey: ["appointments"], refetchType: "all" });
