@@ -69,6 +69,7 @@ interface DBOpportunity {
   assigned_to: string | null;
   ghl_date_added: string | null;
   ghl_date_updated: string | null;
+  scope_of_work: string | null;
 }
 
 interface DBUser {
@@ -1012,6 +1013,7 @@ const Calendar = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [isRescheduling, setIsRescheduling] = useState(false);
+  const [missingScopeFilter, setMissingScopeFilter] = useState(false);
 
   // Navigate to today
   const handleGoToToday = () => {
@@ -1125,6 +1127,22 @@ const Calendar = () => {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [allAppointmentsForCalendar, userMap, currentWeek]);
 
+  // Helper to check if an appointment has missing scope (checks linked opportunity)
+  const appointmentHasMissingScope = (appt: DBAppointment): boolean => {
+    // Find the opportunity linked to this appointment's contact
+    const opportunity = opportunities.find(
+      (o: DBOpportunity) => o.contact_id === appt.contact_id || 
+        (appt.contact_uuid && o.contact_id === appt.contact_id)
+    );
+    if (!opportunity) return true; // No opportunity = missing scope
+    return !opportunity.scope_of_work || opportunity.scope_of_work.trim() === "";
+  };
+
+  // Count appointments with missing scope (for badge)
+  const missingScopeCount = useMemo(() => {
+    return allAppointmentsForCalendar.filter(appointmentHasMissingScope).length;
+  }, [allAppointmentsForCalendar, opportunities]);
+
   // Filtered appointments for calendar view
   const filteredCalendarAppointments = useMemo(() => {
     let result = allAppointmentsForCalendar;
@@ -1144,8 +1162,13 @@ const Calendar = () => {
       });
     }
 
+    // Filter by missing scope
+    if (missingScopeFilter) {
+      result = result.filter(appointmentHasMissingScope);
+    }
+
     return result;
-  }, [allAppointmentsForCalendar, repFilter, searchFilter, contacts]);
+  }, [allAppointmentsForCalendar, repFilter, searchFilter, contacts, missingScopeFilter, opportunities]);
 
   // Filtered appointments for list view (today + upcoming only)
   const todayAndUpcomingAppointments = useMemo(() => {
@@ -1178,8 +1201,13 @@ const Calendar = () => {
       });
     }
 
+    // Filter by missing scope
+    if (missingScopeFilter) {
+      result = result.filter(appointmentHasMissingScope);
+    }
+
     return result;
-  }, [todayAndUpcomingAppointments, repFilter, searchFilter, contacts]);
+  }, [todayAndUpcomingAppointments, repFilter, searchFilter, contacts, missingScopeFilter, opportunities]);
 
   // Group by time period for list view
   const groupedAppointments = useMemo(() => {
@@ -1526,6 +1554,23 @@ const Calendar = () => {
                 <div className="w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] font-bold flex items-center justify-center">!</div>
                 <span className="text-amber-600 dark:text-amber-400">Rep Not Confirmed</span>
               </div>
+              <div className="h-4 w-px bg-border" />
+              <button
+                onClick={() => setMissingScopeFilter(!missingScopeFilter)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                  missingScopeFilter 
+                    ? "bg-destructive/20 ring-1 ring-destructive" 
+                    : "bg-destructive/10 hover:bg-destructive/20"
+                }`}
+              >
+                <div className="w-4 h-4 rounded bg-destructive text-destructive-foreground text-[8px] font-bold flex items-center justify-center">?</div>
+                <span className="text-destructive">Missing Scope</span>
+                {missingScopeCount > 0 && (
+                  <Badge variant="destructive" className="h-4 px-1 text-[10px] ml-1">
+                    {missingScopeCount}
+                  </Badge>
+                )}
+              </button>
             </div>
           </div>
 
