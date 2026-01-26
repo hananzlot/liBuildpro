@@ -94,23 +94,15 @@ const generateTimeSlots = () => {
 
 const TIME_SLOTS = generateTimeSlots();
 
-// Generate consistent colors for sales reps based on their ID
-function getRepColor(repId: string): string {
-  const colors = [
-    "#3b82f6", // blue
-    "#10b981", // emerald
-    "#f59e0b", // amber
-    "#ef4444", // red
-    "#8b5cf6", // violet
-    "#ec4899", // pink
-    "#06b6d4", // cyan
-    "#84cc16", // lime
-  ];
-  let hash = 0;
-  for (let i = 0; i < repId.length; i++) {
-    hash = repId.charCodeAt(i) + ((hash << 5) - hash);
+// Get initials from a name (e.g., "John Smith" -> "JS")
+function getRepInitials(name: string): string {
+  if (!name) return "?";
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) {
+    return words[0].substring(0, 2).toUpperCase();
   }
-  return colors[Math.abs(hash) % colors.length];
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
 // Calendar View Component
@@ -364,21 +356,25 @@ function CalendarView({
                         draggable
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
-                        className={`text-[11px] px-1.5 py-0.5 rounded cursor-grab active:cursor-grabbing truncate transition-opacity ${getStatusColor(appt.appointment_status)} ${
-                          userMap.get(appt.assigned_user_id || "") ? `border-l-2` : ""
-                        } ${draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""}`}
-                        style={{
-                          borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : undefined,
-                        }}
+                        className={`text-[11px] px-1.5 py-0.5 rounded cursor-grab active:cursor-grabbing truncate transition-opacity ${getStatusColor(appt.appointment_status)} ${draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!draggedAppt) onAppointmentClick(appt);
                         }}
                         title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"}) - Drag to reschedule`}
                       >
-                        <span className="font-medium">{format(new Date(appt.start_time!), "h:mm")}</span>
-                        {" "}
-                        {capitalizeWords(getContactName(appt)).split(" ")[0]}
+                        <div className="flex items-center gap-1">
+                          {appt.assigned_user_id && userMap.get(appt.assigned_user_id) && (
+                            <span className="shrink-0 w-4 h-4 rounded bg-secondary text-secondary-foreground text-[8px] font-bold flex items-center justify-center">
+                              {getRepInitials(userMap.get(appt.assigned_user_id) || "")}
+                            </span>
+                          )}
+                          <span className="truncate">
+                            <span className="font-medium">{format(new Date(appt.start_time!), "h:mm")}</span>
+                            {" "}
+                            {capitalizeWords(getContactName(appt)).split(" ")[0]}
+                          </span>
+                        </div>
                       </div>
                     ))}
                     {dayAppointments.length > 3 && (
@@ -444,19 +440,22 @@ function CalendarView({
                           draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""
                         }`}
                         onClick={() => !draggedAppt && onAppointmentClick(appt)}
-                        style={{
-                          borderLeftWidth: "3px",
-                          borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : "var(--border)",
-                        }}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">
-                              {capitalizeWords(getContactName(appt))}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(appt.start_time!), "h:mm a")}
-                            </p>
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {appt.assigned_user_id && repName !== "Unassigned" && (
+                              <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
+                                {getRepInitials(repName)}
+                              </span>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">
+                                {capitalizeWords(getContactName(appt))}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(appt.start_time!), "h:mm a")}
+                              </p>
+                            </div>
                           </div>
                           <Badge className={`${getStatusColor(appt.appointment_status)} text-[10px] shrink-0`}>
                             {normalizeStatus(appt.appointment_status)}
@@ -808,20 +807,24 @@ function WeekView({
                         draggable
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
-                        className={`text-xs px-2 py-1.5 rounded cursor-grab active:cursor-grabbing transition-opacity ${getStatusColor(appt.appointment_status)} ${
-                          userMap.get(appt.assigned_user_id || "") ? `border-l-2` : ""
-                        } ${draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""}`}
-                        style={{
-                          borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : undefined,
-                        }}
+                        className={`text-xs px-2 py-1.5 rounded cursor-grab active:cursor-grabbing transition-opacity ${getStatusColor(appt.appointment_status)} ${draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!draggedAppt) onAppointmentClick(appt);
                         }}
                         title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"}) - Drag to reschedule`}
                       >
-                        <div className="font-medium">{format(new Date(appt.start_time!), "h:mm a")}</div>
-                        <div className="truncate">{capitalizeWords(getContactName(appt))}</div>
+                        <div className="flex items-center gap-1.5">
+                          {appt.assigned_user_id && userMap.get(appt.assigned_user_id) && (
+                            <span className="shrink-0 w-5 h-5 rounded bg-secondary text-secondary-foreground text-[9px] font-bold flex items-center justify-center">
+                              {getRepInitials(userMap.get(appt.assigned_user_id) || "")}
+                            </span>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium">{format(new Date(appt.start_time!), "h:mm a")}</div>
+                            <div className="truncate">{capitalizeWords(getContactName(appt))}</div>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -882,19 +885,22 @@ function WeekView({
                           draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""
                         }`}
                         onClick={() => !draggedAppt && onAppointmentClick(appt)}
-                        style={{
-                          borderLeftWidth: "3px",
-                          borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : "var(--border)",
-                        }}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">
-                              {capitalizeWords(getContactName(appt))}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(appt.start_time!), "h:mm a")}
-                            </p>
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {appt.assigned_user_id && repName !== "Unassigned" && (
+                              <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
+                                {getRepInitials(repName)}
+                              </span>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">
+                                {capitalizeWords(getContactName(appt))}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(appt.start_time!), "h:mm a")}
+                              </p>
+                            </div>
                           </div>
                           <Badge className={`${getStatusColor(appt.appointment_status)} text-[10px] shrink-0`}>
                             {normalizeStatus(appt.appointment_status)}
@@ -1088,6 +1094,25 @@ const Calendar = () => {
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [allAppointmentsForCalendar, userMap]);
+
+  // Get reps that have appointments in the current week (for week view legend filtering)
+  const weekReps = useMemo(() => {
+    const weekStart = startOfWeek(currentWeek);
+    const weekEnd = endOfWeek(currentWeek);
+    const reps = new Map<string, string>();
+    allAppointmentsForCalendar.forEach((a: DBAppointment) => {
+      if (!a.start_time || !a.assigned_user_id) return;
+      const apptDate = new Date(a.start_time);
+      if (apptDate >= weekStart && apptDate <= weekEnd) {
+        if (!reps.has(a.assigned_user_id)) {
+          reps.set(a.assigned_user_id, userMap.get(a.assigned_user_id) || a.assigned_user_id);
+        }
+      }
+    });
+    return Array.from(reps.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [allAppointmentsForCalendar, userMap, currentWeek]);
 
   // Filtered appointments for calendar view
   const filteredCalendarAppointments = useMemo(() => {
@@ -1488,14 +1513,14 @@ const Calendar = () => {
             </div>
           </div>
 
-          {/* Sales Rep Color Legend */}
-          {availableReps.length > 0 && (
+          {/* Sales Rep Legend */}
+          {(viewMode === "week" ? weekReps : availableReps).length > 0 && (
             <>
               <div className="h-4 w-px bg-border" />
               <div className="flex items-center gap-3">
                 <span className="text-xs font-medium text-muted-foreground">Sales Reps:</span>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {availableReps.map((rep) => (
+                  {(viewMode === "week" ? weekReps : availableReps).map((rep) => (
                     <button
                       key={rep.id}
                       onClick={() => setRepFilter(repFilter === rep.id ? "all" : rep.id)}
@@ -1505,10 +1530,9 @@ const Calendar = () => {
                           : "hover:bg-muted"
                       }`}
                     >
-                      <div 
-                        className="w-2.5 h-2.5 rounded-full shrink-0" 
-                        style={{ backgroundColor: getRepColor(rep.id) }}
-                      />
+                      <span className="shrink-0 w-5 h-5 rounded bg-secondary text-secondary-foreground text-[9px] font-bold flex items-center justify-center">
+                        {getRepInitials(rep.name)}
+                      </span>
                       <span className="text-foreground">{rep.name}</span>
                     </button>
                   ))}
@@ -1584,19 +1608,22 @@ const Calendar = () => {
                               key={appt.ghl_id}
                               onClick={() => handleAppointmentClick(appt)}
                               className="p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-pointer transition-colors"
-                              style={{
-                                borderLeftWidth: "3px",
-                                borderLeftColor: appt.assigned_user_id ? getRepColor(appt.assigned_user_id) : "var(--border)",
-                              }}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-sm truncate">
-                                    {capitalizeWords(contactName)}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {format(new Date(appt.start_time!), "h:mm a")} • {format(new Date(appt.start_time!), "EEEE, MMM d")}
-                                  </p>
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {appt.assigned_user_id && repName !== "Unassigned" && (
+                                    <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
+                                      {getRepInitials(repName)}
+                                    </span>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">
+                                      {capitalizeWords(contactName)}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {format(new Date(appt.start_time!), "h:mm a")} • {format(new Date(appt.start_time!), "EEEE, MMM d")}
+                                    </p>
+                                  </div>
                                 </div>
                                 <Badge className={`${getStatusColor(appt.appointment_status)} text-xs shrink-0`}>
                                   {normalizeStatus(appt.appointment_status)}
