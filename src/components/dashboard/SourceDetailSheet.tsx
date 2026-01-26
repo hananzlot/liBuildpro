@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Sheet,
   SheetContent,
@@ -146,7 +146,7 @@ export function SourceDetailSheet({
   showNoAppointments = false,
   userId,
 }: SourceDetailSheetProps) {
-  const { user } = useAuth();
+  const { user, companyId: authCompanyId } = useAuth();
   const queryClient = useQueryClient();
   
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -170,11 +170,46 @@ export function SourceDetailSheet({
   const [updatingStageForOpp, setUpdatingStageForOpp] = useState<string | null>(null);
   const [configuredStages, setConfiguredStages] = useState<string[]>([]);
 
+  const settingsCompanyId =
+    authCompanyId || opportunities[0]?.company_id || filteredContacts[0]?.company_id || null;
+
+  const normalizePipelineStages = useCallback((rawSettingValue: string): string[] => {
+    // company_settings.setting_value might be a JSON array string (preferred)
+    // but we also support a legacy comma-separated string.
+    let stages: string[] = [];
+
+    try {
+      const parsed = JSON.parse(rawSettingValue);
+      if (Array.isArray(parsed)) {
+        stages = parsed.map((s) => String(s));
+      } else if (typeof parsed === "string") {
+        stages = parsed.split(",");
+      }
+    } catch {
+      stages = rawSettingValue.split(",");
+    }
+
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const stage of stages) {
+      const cleaned = String(stage).trim().replace(/\s+/g, " ");
+      if (!cleaned) continue;
+      const key = cleaned.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(cleaned);
+    }
+    return result;
+  }, []);
+
   // Fetch configured pipeline stages from company_settings ONLY
   useEffect(() => {
     const fetchConfiguredStages = async () => {
-      // Get company_id from opportunities or contacts
-      const companyId = opportunities[0]?.company_id || filteredContacts[0]?.company_id;
+      // Always reset when opening to avoid showing stages from a previous company context
+      setConfiguredStages([]);
+
+      // Use the effective company context from AuthContext (super-admin switcher aware)
+      const companyId = settingsCompanyId;
       if (!companyId) return;
       
       const { data } = await supabase
@@ -186,8 +221,7 @@ export function SourceDetailSheet({
       
       if (data?.setting_value) {
         try {
-          const stages = JSON.parse(data.setting_value) as string[];
-          setConfiguredStages(stages);
+          setConfiguredStages(normalizePipelineStages(data.setting_value));
         } catch (e) {
           console.error("Failed to parse pipeline_stages:", e);
         }
@@ -197,7 +231,7 @@ export function SourceDetailSheet({
     if (open) {
       fetchConfiguredStages();
     }
-  }, [open, opportunities, filteredContacts]);
+  }, [open, settingsCompanyId, normalizePipelineStages]);
 
   // Reset filters when sheet opens - default to "all" status
   useEffect(() => {
@@ -474,17 +508,9 @@ export function SourceDetailSheet({
 
   // Use configured stages from company_settings (Main pipeline only)
   const allAvailableStages = useMemo(() => {
-    // If we have configured stages from company_settings, use those
-    if (configuredStages.length > 0) {
-      return configuredStages;
-    }
-    // Fallback: derive from opportunities (shouldn't happen if settings are configured)
-    const stageSet = new Set<string>();
-    opportunities.forEach(o => {
-      if (o.stage_name) stageSet.add(o.stage_name);
-    });
-    return Array.from(stageSet).sort();
-  }, [configuredStages, opportunities]);
+    // Stages should ONLY come from company_settings
+    return configuredStages;
+  }, [configuredStages]);
 
   // Handle inline stage change
   const handleStageChange = async (opp: Opportunity, newStageName: string, e: React.MouseEvent) => {
@@ -741,17 +767,26 @@ export function SourceDetailSheet({
                                 {opp.stage_name || "No Stage"}
                               </Badge>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-                              {allAvailableStages.map((stage) => (
-                                <DropdownMenuItem
-                                  key={stage}
-                                  onClick={(e) => handleStageChange(opp, stage, e)}
-                                  className={opp.stage_name === stage ? "bg-accent" : ""}
-                                >
-                                  {stage}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
+                             <DropdownMenuContent
+                               align="start"
+                               className="max-h-64 overflow-y-auto bg-popover text-popover-foreground z-50 border border-border shadow-md"
+                             >
+                               {allAvailableStages.length === 0 ? (
+                                 <DropdownMenuItem disabled>
+                                   No pipeline stages configured
+                                 </DropdownMenuItem>
+                               ) : (
+                                 allAvailableStages.map((stage) => (
+                                   <DropdownMenuItem
+                                     key={stage}
+                                     onClick={(e) => handleStageChange(opp, stage, e)}
+                                     className={opp.stage_name === stage ? "bg-accent" : ""}
+                                   >
+                                     {stage}
+                                   </DropdownMenuItem>
+                                 ))
+                               )}
+                             </DropdownMenuContent>
                           </DropdownMenu>
                           {(() => {
                             const assignedUser = users.find(u => u.ghl_id === opp.assigned_to);
