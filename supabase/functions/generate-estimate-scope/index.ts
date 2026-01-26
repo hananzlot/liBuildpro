@@ -49,35 +49,65 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Fetch AI variability setting from company_settings
+    // Fetch AI settings from company_settings
     let aiTemperature = 0.2; // Default
+    let customInstructions = ''; // Custom estimate instructions
     if (companyId) {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       
-      const { data: setting } = await supabase
+      // Fetch both variability and custom instructions
+      const { data: settings } = await supabase
         .from('company_settings')
-        .select('setting_value')
+        .select('setting_key, setting_value')
         .eq('company_id', companyId)
-        .eq('setting_key', 'ai_estimate_variability')
-        .maybeSingle();
+        .in('setting_key', ['ai_estimate_variability', 'ai_estimate_instructions']);
       
-      if (setting?.setting_value) {
-        const parsed = parseFloat(setting.setting_value);
-        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
-          aiTemperature = parsed;
+      if (settings) {
+        const variabilitySetting = settings.find((s: any) => s.setting_key === 'ai_estimate_variability');
+        const instructionsSetting = settings.find((s: any) => s.setting_key === 'ai_estimate_instructions');
+        
+        if (variabilitySetting?.setting_value) {
+          const parsed = parseFloat(variabilitySetting.setting_value);
+          if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+            aiTemperature = parsed;
+          }
+        }
+        
+        if (instructionsSetting?.setting_value) {
+          customInstructions = instructionsSetting.setting_value;
         }
       }
       console.log('Using AI temperature:', aiTemperature);
+      console.log('Has custom instructions:', !!customInstructions);
     }
 
     // Extract ZIP code and get regional pricing info
     const zipCode = extractZipCode(jobAddress || '');
     const regionInfo = zipCode ? getRegionFromZip(zipCode) : { region: "California", costMultiplier: 1.0, description: "Standard rates" };
 
-    const systemPrompt = `You are an expert construction estimator for a home improvement contractor in California. 
+    // Build system prompt - use custom instructions if available, otherwise use default
+    let systemPrompt: string;
+    
+    if (customInstructions) {
+      // Use custom instructions with location context injected
+      systemPrompt = `${customInstructions}
+
+IMPORTANT LOCATION-BASED PRICING CONTEXT:
+- Job Location: ${jobAddress || 'California'}
+- ZIP Code: ${zipCode || 'Not specified'}
+- Region: ${regionInfo.region}
+- Cost Adjustment: ${((regionInfo.costMultiplier - 1) * 100).toFixed(0)}% ${regionInfo.costMultiplier > 1 ? 'above' : 'below'} base California rates
+- Note: ${regionInfo.description}
+
+Apply the ${regionInfo.costMultiplier}x multiplier to all labor and material costs for accurate regional pricing.
+
+Always return valid JSON matching the exact schema requested.`;
+    } else {
+      // Default system prompt
+      systemPrompt = `You are an expert construction estimator for a home improvement contractor in California. 
 You create detailed, accurate estimates for residential construction projects including kitchens, bathrooms, roofing, windows, siding, HVAC, and general remodeling.
 
 IMPORTANT: You are calculating COSTS (what the contractor pays), not selling prices. Markup will be applied separately by the system.
@@ -120,6 +150,7 @@ Material cost considerations for ${regionInfo.region}:
 - Use pricing appropriate for local suppliers
 
 Always return valid JSON matching the exact schema requested.`;
+    }
 
     const userPrompt = `Generate a detailed estimate scope for the following project:
 
