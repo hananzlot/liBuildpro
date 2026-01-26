@@ -61,6 +61,7 @@ interface Opportunity {
   proposal_link?: string | null;
 }
 interface Appointment {
+  id?: string;
   ghl_id: string;
   title: string | null;
   appointment_status: string | null;
@@ -1861,7 +1862,8 @@ export function OpportunityDetailSheet({
         error
       } = await supabase.functions.invoke("delete-ghl-appointment", {
         body: {
-          appointmentId: editingAppointment.ghl_id
+          appointmentId: editingAppointment.ghl_id,
+          appointmentUuid: editingAppointment.id
         }
       });
       if (error) throw error;

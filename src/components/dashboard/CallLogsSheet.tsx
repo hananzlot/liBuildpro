@@ -58,8 +58,10 @@ interface Contact {
 }
 
 interface Opportunity {
+  id: string;
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   name: string | null;
   status: string | null;
   stage_name: string | null;
@@ -69,6 +71,7 @@ interface Opportunity {
 }
 
 interface User {
+  id: string;
   ghl_id: string;
   name: string | null;
   first_name: string | null;
@@ -76,8 +79,10 @@ interface User {
 }
 
 interface Appointment {
+  id?: string;
   ghl_id: string;
   contact_id: string | null;
+  contact_uuid?: string | null;
   title: string | null;
   start_time: string | null;
   end_time: string | null;
@@ -126,19 +131,19 @@ export function CallLogsSheet({
   // Get opportunities for selected contact
   const contactOpportunities = useMemo(() => {
     if (!selectedContact) return [];
-    return opportunities.filter(o => o.contact_id === selectedContact.ghl_id);
+    return opportunities.filter(o => o.contact_id === selectedContact.ghl_id || o.contact_id === selectedContact.id);
   }, [selectedContact, opportunities]);
 
   // Get appointments for selected contact
   const contactAppointments = useMemo(() => {
     if (!selectedContact) return [];
-    return appointments.filter(a => a.contact_id === selectedContact.ghl_id);
+    return appointments.filter(a => a.contact_id === selectedContact.ghl_id || a.contact_id === selectedContact.id);
   }, [selectedContact, appointments]);
 
   // Create lookup maps
   const contactMap = useMemo(() => {
     const map = new Map<string, Contact>();
-    contacts.forEach((c) => map.set(c.ghl_id, c));
+    contacts.forEach((c) => map.set(c.id, c));
     return map;
   }, [contacts]);
 
@@ -541,12 +546,12 @@ export function CallLogsSheet({
     <ContactDetailSheet
       contact={selectedContact ? { 
         ...selectedContact, 
-        id: selectedContact.ghl_id,
+        id: selectedContact.id,
         custom_fields: selectedContact.custom_fields 
       } : null}
-      opportunities={contactOpportunities.map(o => ({ ...o, id: o.ghl_id }))}
-      appointments={contactAppointments.map(a => ({ ...a, id: a.ghl_id }))}
-      users={users.map(u => ({ ...u, id: u.ghl_id }))}
+      opportunities={contactOpportunities.map(o => ({ ...o, id: o.id || o.ghl_id }))}
+      appointments={contactAppointments.map(a => ({ ...a, id: a.id || a.ghl_id }))}
+      users={users.map(u => ({ ...u, id: u.id || u.ghl_id }))}
       open={contactSheetOpen}
       onOpenChange={setContactSheetOpen}
     />
