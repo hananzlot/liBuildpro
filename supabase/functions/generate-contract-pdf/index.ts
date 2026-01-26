@@ -322,10 +322,12 @@ serve(async (req) => {
           const unitPriceHeaderWidth = helveticaBold.widthOfTextAtSize(unitPriceHeader, 9);
           page.drawText(unitPriceHeader, { x: rightEdge - totalColWidth - unitPriceColWidth + (unitPriceColWidth - unitPriceHeaderWidth), y: yPos, size: 9, font: helveticaBold, color: gray });
         }
-        // Right-align "Total" header
-        const totalHeader = 'Total';
-        const totalHeaderWidth = helveticaBold.widthOfTextAtSize(totalHeader, 9);
-        page.drawText(totalHeader, { x: rightEdge - totalColWidth + (totalColWidth - totalHeaderWidth), y: yPos, size: 9, font: helveticaBold, color: gray });
+        if (showDetails) {
+          // Right-align "Total" header
+          const totalHeader = 'Total';
+          const totalHeaderWidth = helveticaBold.widthOfTextAtSize(totalHeader, 9);
+          page.drawText(totalHeader, { x: rightEdge - totalColWidth + (totalColWidth - totalHeaderWidth), y: yPos, size: 9, font: helveticaBold, color: gray });
+        }
         yPos -= 5;
         page.drawLine({
           start: { x: margin, y: yPos },
