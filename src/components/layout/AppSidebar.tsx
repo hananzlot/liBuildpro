@@ -194,7 +194,7 @@ const navSections: NavSection[] = [
         title: "Salespeople", 
         url: "/production?view=salespeople", 
         icon: Users,
-        roles: ['super_admin', 'admin'],
+        roles: ['super_admin', 'admin', 'dispatch'],
         requiredFeature: 'production'
       },
       { 
