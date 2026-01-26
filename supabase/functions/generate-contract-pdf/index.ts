@@ -114,11 +114,31 @@ serve(async (req) => {
       }
     };
 
-    // Helper to sanitize a single line of text for PDF (remove characters that can't be encoded)
+    // Helper to sanitize text for PDF (WinAnsi encoding can't handle certain Unicode characters)
+    // This removes emoji, variation selectors, and other characters outside the WinAnsi range
+    const sanitizeForPdf = (text: string): string => {
+      if (!text) return '';
+      // WinAnsi (Windows-1252) can encode ASCII + some extended Latin characters
+      // Remove characters that can't be encoded: emoji, variation selectors (0xfe0f), etc.
+      // Keep printable ASCII (0x20-0x7E) and common extended Latin (0xA0-0xFF)
+      return text
+        .replace(/[\u{FE00}-\u{FE0F}]/gu, '') // Variation selectors
+        .replace(/[\u{1F000}-\u{1FFFF}]/gu, '') // Emoji ranges
+        .replace(/[\u{2600}-\u{26FF}]/gu, '') // Miscellaneous symbols
+        .replace(/[\u{2700}-\u{27BF}]/gu, '') // Dingbats
+        .replace(/[\u{E000}-\u{F8FF}]/gu, '') // Private use area
+        .replace(/[\u{200B}-\u{200D}]/gu, '') // Zero-width characters
+        .replace(/[\u{2028}-\u{2029}]/gu, '') // Line/paragraph separators
+        .replace(/[^\x20-\x7E\xA0-\xFF\n\r\t]/g, '') // Keep only WinAnsi-compatible chars + newlines
+        .replace(/\t/g, ' ') // Replace tabs with spaces
+        .replace(/\r/g, '') // Remove carriage returns
+        .replace(/  +/g, ' '); // Collapse multiple spaces
+    };
+
+    // Helper to sanitize a single line of text for PDF (removes newlines too)
     const sanitizeLine = (text: string): string => {
       if (!text) return '';
-      // Replace tabs and other control characters with spaces, but NOT newlines
-      return text.replace(/[\t]/g, ' ').replace(/\r/g, '').replace(/\s+/g, ' ').trim();
+      return sanitizeForPdf(text).replace(/\n/g, ' ').trim();
     };
 
     // Helper to draw text with word wrap (handles a single paragraph)
@@ -153,8 +173,10 @@ serve(async (req) => {
     // Helper to draw multi-line text preserving paragraph breaks
     const drawWrappedText = (text: string, x: number, maxWidth: number, fontSize: number, font: any, color = black) => {
       if (!text) return;
+      // First sanitize the entire text block
+      const sanitized = sanitizeForPdf(text);
       // Split by newlines to preserve paragraph structure
-      const paragraphs = text.split(/\n/);
+      const paragraphs = sanitized.split(/\n/);
       
       for (const paragraph of paragraphs) {
         if (paragraph.trim()) {
