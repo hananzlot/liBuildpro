@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy, ChevronDown } from "lucide-react";
+import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy, ChevronDown, Pencil, Check, X, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { findUserByIdOrGhlId } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
@@ -36,6 +40,7 @@ interface Contact {
   assigned_to?: string | null;
   attributions?: any;
   custom_fields?: unknown;
+  company_id?: string | null;
 }
 
 interface Opportunity {
@@ -119,6 +124,108 @@ const SectionHeader = ({ icon, title, count, isOpen }: SectionHeaderProps) => (
   </div>
 );
 
+// Editable field component
+interface EditableFieldProps {
+  icon: React.ReactNode;
+  value: string | null | undefined;
+  placeholder: string;
+  onSave: (value: string) => Promise<void>;
+  isAdmin: boolean;
+  type?: 'text' | 'email' | 'tel';
+  linkPrefix?: string;
+  copyable?: boolean;
+}
+
+const EditableField = ({ icon, value, placeholder, onSave, isAdmin, type = 'text', linkPrefix, copyable }: EditableFieldProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setEditValue(value || '');
+  }, [value]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(editValue.trim());
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Save error:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditValue(value || '');
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-2 w-full">
+        {icon}
+        <Input
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          className="h-7 text-sm flex-1"
+          type={type}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave();
+            if (e.key === 'Escape') handleCancel();
+          }}
+        />
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSave} disabled={isSaving}>
+          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-emerald-500" />}
+        </Button>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleCancel} disabled={isSaving}>
+          <X className="h-3 w-3 text-red-500" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 group">
+      {icon}
+      {value ? (
+        <>
+          {linkPrefix ? (
+            <a href={`${linkPrefix}${value}`} className="text-primary hover:underline truncate">
+              {value}
+            </a>
+          ) : (
+            <span className="font-medium text-foreground">{value}</span>
+          )}
+          {copyable && (
+            <button
+              className="text-muted-foreground hover:text-primary p-0.5"
+              onClick={() => {
+                navigator.clipboard.writeText(value);
+                toast({ title: "Copied" });
+              }}
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          )}
+        </>
+      ) : (
+        <span className="italic text-muted-foreground/60">{placeholder}</span>
+      )}
+      {isAdmin && (
+        <button
+          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary p-0.5 transition-opacity"
+          onClick={() => setIsEditing(true)}
+        >
+          <Pencil className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+};
+
 export function ContactDetailSheet({
   contact,
   opportunities,
@@ -129,8 +236,17 @@ export function ContactDetailSheet({
   onOpenChange,
   onRefresh,
 }: ContactDetailSheetProps) {
+  const navigate = useNavigate();
+  const { isAdmin, user, companyId } = useAuth();
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ contact: true });
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [localContact, setLocalContact] = useState<Contact | null>(null);
+
+  // Sync local state with prop
+  useEffect(() => {
+    setLocalContact(contact);
+  }, [contact]);
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -159,7 +275,153 @@ export function ContactDetailSheet({
     }
   };
 
-  if (!contact) return null;
+  const handleUpdateName = async (firstName: string, lastName: string) => {
+    if (!localContact) return;
+    try {
+      const { error } = await supabase.functions.invoke('update-contact-name', {
+        body: {
+          contactId: localContact.ghl_id,
+          contactUuid: localContact.id,
+          firstName,
+          lastName,
+          editedBy: user?.id,
+          companyId
+        }
+      });
+      if (error) throw error;
+      
+      setLocalContact(prev => prev ? { 
+        ...prev, 
+        first_name: firstName, 
+        last_name: lastName,
+        contact_name: `${firstName} ${lastName}`.trim()
+      } : null);
+      toast({ title: "Name updated" });
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error updating name:', error);
+      toast({ title: "Error", description: "Failed to update name", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleUpdatePhone = async (phone: string) => {
+    if (!localContact) return;
+    try {
+      const { error } = await supabase.functions.invoke('update-contact-phone', {
+        body: {
+          contactId: localContact.ghl_id,
+          phone,
+          editedBy: user?.id,
+          companyId
+        }
+      });
+      if (error) throw error;
+      
+      setLocalContact(prev => prev ? { ...prev, phone } : null);
+      toast({ title: "Phone updated" });
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error updating phone:', error);
+      toast({ title: "Error", description: "Failed to update phone", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleUpdateEmail = async (email: string) => {
+    if (!localContact) return;
+    try {
+      const { error } = await supabase.functions.invoke('update-contact-email', {
+        body: {
+          contactId: localContact.ghl_id,
+          contactUuid: localContact.id,
+          email,
+          editedBy: user?.id,
+          companyId
+        }
+      });
+      if (error) throw error;
+      
+      setLocalContact(prev => prev ? { ...prev, email } : null);
+      toast({ title: "Email updated" });
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error updating email:', error);
+      toast({ title: "Error", description: "Failed to update email", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleUpdateAddress = async (address: string) => {
+    if (!localContact) return;
+    try {
+      const { error } = await supabase.functions.invoke('update-contact-address', {
+        body: {
+          contactId: localContact.ghl_id,
+          address,
+          editedBy: user?.id,
+          companyId
+        }
+      });
+      if (error) throw error;
+      toast({ title: "Address updated" });
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error updating address:', error);
+      toast({ title: "Error", description: "Failed to update address", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleUpdateSource = async (source: string) => {
+    if (!localContact) return;
+    try {
+      const { error } = await supabase.functions.invoke('update-contact-source', {
+        body: {
+          contactId: localContact.ghl_id,
+          source,
+          editedBy: user?.id,
+          companyId
+        }
+      });
+      if (error) throw error;
+      
+      setLocalContact(prev => prev ? { ...prev, source } : null);
+      toast({ title: "Source updated" });
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error updating source:', error);
+      toast({ title: "Error", description: "Failed to update source", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const handleDeleteContact = async () => {
+    if (!localContact) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke('delete-ghl-contact', {
+        body: {
+          contactUuid: localContact.id,
+          contactId: localContact.ghl_id,
+          deleteFromGHL: true
+        }
+      });
+      if (error) throw error;
+      
+      toast({ title: "Contact deleted", description: "The contact has been removed" });
+      onOpenChange(false);
+      navigate('/contacts', { replace: true });
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error deleting contact:', error);
+      toast({ title: "Error", description: "Failed to delete contact", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (!localContact) return null;
 
   const formatDateTime = (dateString: string | null | undefined) => {
     if (!dateString) return "-";
@@ -196,38 +458,54 @@ export function ContactDetailSheet({
     }
   };
 
-  const contactName = contact.contact_name || 
-    `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 
+  const contactName = localContact.contact_name || 
+    `${localContact.first_name || ''} ${localContact.last_name || ''}`.trim() || 
     "Unknown Contact";
 
-  const assignedUser = findUserByIdOrGhlId(users, undefined, contact.assigned_to);
+  const assignedUser = findUserByIdOrGhlId(users, undefined, localContact.assigned_to);
   const assignedUserName = assignedUser?.name || 
     `${assignedUser?.first_name || ''} ${assignedUser?.last_name || ''}`.trim() || 
     null;
 
-  const relatedOpportunities = opportunities.filter(opp => opp.contact_id === contact.ghl_id || opp.contact_id === contact.id);
-  const relatedAppointments = appointments.filter(apt => apt.contact_id === contact.ghl_id || apt.contact_id === contact.id);
+  const relatedOpportunities = opportunities.filter(opp => opp.contact_id === localContact.ghl_id || opp.contact_id === localContact.id);
+  const relatedAppointments = appointments.filter(apt => apt.contact_id === localContact.ghl_id || apt.contact_id === localContact.id);
 
-  const address = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-  const scopeFromCustomField = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+  const address = extractCustomField(localContact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
+  const scopeFromCustomField = extractCustomField(localContact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
   const scopeFromAttributions = (() => {
-    if (!contact?.attributions) return null;
-    const attrs = contact.attributions as Array<{ utmContent?: string }> | null;
+    if (!localContact?.attributions) return null;
+    const attrs = localContact.attributions as Array<{ utmContent?: string }> | null;
     if (Array.isArray(attrs) && attrs.length > 0) {
       return attrs[0]?.utmContent || null;
     }
     return null;
   })();
   const scopeOfWork = scopeFromCustomField || scopeFromAttributions;
-  const contactNotes = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES);
+  const contactNotes = extractCustomField(localContact.custom_fields, CUSTOM_FIELD_IDS.NOTES);
 
   const totalValue = relatedOpportunities.reduce((sum, opp) => sum + (opp.monetary_value || 0), 0);
 
+  const handleInteractOutside = (event: Event) => {
+    if (document.visibilityState === 'hidden' || !document.hasFocus()) {
+      event.preventDefault();
+    }
+  };
+
+  const handleFocusOutside = (event: Event) => {
+    if (document.visibilityState === 'hidden' || !document.hasFocus()) {
+      event.preventDefault();
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-xl overflow-y-auto p-0">
+      <SheetContent 
+        className="sm:max-w-xl overflow-y-auto p-0"
+        onInteractOutside={handleInteractOutside}
+        onFocusOutside={handleFocusOutside}
+      >
         {/* Header */}
-        <div className="sticky top-0 bg-background border-b p-4">
+        <div className="sticky top-0 bg-background border-b p-4 z-10">
           <SheetHeader className="space-y-1">
             <div className="flex items-start justify-between gap-3">
               <SheetTitle className="text-lg font-semibold leading-tight">
@@ -238,6 +516,34 @@ export function ContactDetailSheet({
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh}>
                     <RefreshCw className="h-4 w-4" />
                   </Button>
+                )}
+                {isAdmin && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Contact</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete "{contactName}"? This will unlink all related opportunities, appointments, and projects. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteContact}
+                          disabled={isDeleting}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             </div>
@@ -254,7 +560,7 @@ export function ContactDetailSheet({
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Added</div>
-              <div className="font-medium truncate">{formatDate(contact.ghl_date_added)}</div>
+              <div className="font-medium truncate">{formatDate(localContact.ghl_date_added)}</div>
             </div>
             <div className="bg-muted/40 rounded-md p-2.5">
               <div className="text-muted-foreground text-xs mb-0.5">Assigned To</div>
@@ -273,88 +579,62 @@ export function ContactDetailSheet({
                 />
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="p-3 grid gap-1.5 text-sm text-muted-foreground">
-                  {/* 1st: Contact Name */}
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 shrink-0" />
-                    <span className="font-medium text-foreground">{contactName}</span>
-                  </div>
+                <div className="p-3 grid gap-2 text-sm text-muted-foreground">
+                  {/* 1st: Contact Name (First + Last) */}
+                  <EditableField
+                    icon={<User className="h-3.5 w-3.5 shrink-0" />}
+                    value={contactName}
+                    placeholder="No name"
+                    isAdmin={isAdmin}
+                    onSave={async (value) => {
+                      const parts = value.split(' ');
+                      const firstName = parts[0] || '';
+                      const lastName = parts.slice(1).join(' ') || '';
+                      await handleUpdateName(firstName, lastName);
+                    }}
+                  />
+                  
                   {/* 2nd: Address */}
-                  <div className="flex items-start gap-2">
-                    <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
-                  </div>
+                  <EditableField
+                    icon={<MapPin className="h-3.5 w-3.5 shrink-0" />}
+                    value={address}
+                    placeholder="No address"
+                    isAdmin={isAdmin}
+                    onSave={handleUpdateAddress}
+                  />
+                  
                   {/* 3rd: Phone */}
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-3.5 w-3.5 shrink-0" />
-                    {contact.phone ? (
-                      <>
-                        <a
-                          href={`tel:${contact.phone}`}
-                          className="text-primary hover:underline truncate"
-                        >
-                          {contact.phone}
-                        </a>
-                        <button
-                          className="text-muted-foreground hover:text-primary p-0.5"
-                          onClick={() => {
-                            navigator.clipboard.writeText(contact.phone!);
-                            toast({ title: "Phone copied" });
-                          }}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      </>
-                    ) : (
-                      <span className="italic text-muted-foreground/60">No phone</span>
-                    )}
-                  </div>
+                  <EditableField
+                    icon={<Phone className="h-3.5 w-3.5 shrink-0" />}
+                    value={localContact.phone}
+                    placeholder="No phone"
+                    isAdmin={isAdmin}
+                    type="tel"
+                    linkPrefix="tel:"
+                    copyable
+                    onSave={handleUpdatePhone}
+                  />
+                  
                   {/* 4th: Email */}
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-3.5 w-3.5 shrink-0" />
-                    {contact.email ? (
-                      <>
-                        <a
-                          href={`mailto:${contact.email}`}
-                          target="_top"
-                          rel="noreferrer"
-                          className="text-primary hover:underline truncate"
-                        >
-                          {contact.email}
-                        </a>
-                        <button
-                          className="text-muted-foreground hover:text-primary p-0.5"
-                          onClick={() => {
-                            navigator.clipboard.writeText(contact.email!);
-                            toast({ title: "Email copied" });
-                          }}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                        <a
-                          href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-muted-foreground hover:text-primary text-xs"
-                        >
-                          (Gmail)
-                        </a>
-                      </>
-                    ) : (
-                      <span className="italic text-muted-foreground/60">No email</span>
-                    )}
-                  </div>
+                  <EditableField
+                    icon={<Mail className="h-3.5 w-3.5 shrink-0" />}
+                    value={localContact.email}
+                    placeholder="No email"
+                    isAdmin={isAdmin}
+                    type="email"
+                    linkPrefix="mailto:"
+                    copyable
+                    onSave={handleUpdateEmail}
+                  />
+                  
                   {/* 5th: Source */}
-                  <div className="flex items-center gap-2">
-                    <Tag className="h-3.5 w-3.5 shrink-0" />
-                    {contact.source ? (
-                      <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
-                        {contact.source}
-                      </Badge>
-                    ) : (
-                      <span className="italic text-muted-foreground/60">No source</span>
-                    )}
-                  </div>
+                  <EditableField
+                    icon={<Tag className="h-3.5 w-3.5 shrink-0" />}
+                    value={localContact.source}
+                    placeholder="No source"
+                    isAdmin={isAdmin}
+                    onSave={handleUpdateSource}
+                  />
                 </div>
 
                 {/* Opportunities - Nested inside Contact Details */}
@@ -368,7 +648,11 @@ export function ContactDetailSheet({
                     </div>
                     <div className="divide-y">
                       {relatedOpportunities.slice(0, 5).map((opp) => (
-                        <div key={opp.id} className="p-3 flex items-center justify-between gap-2">
+                        <div 
+                          key={opp.id} 
+                          className="p-3 flex items-center justify-between gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                          onClick={() => navigate(`/opportunities/${opp.id}`)}
+                        >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <span className="font-medium text-sm truncate">{opp.name || "Unnamed"}</span>
@@ -393,20 +677,20 @@ export function ContactDetailSheet({
           </Collapsible>
 
           {/* Tags */}
-          {contact.tags && contact.tags.length > 0 && (
+          {localContact.tags && localContact.tags.length > 0 && (
             <Collapsible open={openSections.tags} onOpenChange={() => toggleSection('tags')}>
               <div className="border rounded-lg overflow-hidden">
                 <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 border-b hover:bg-muted/50 transition-colors">
                   <SectionHeader 
                     icon={<Tag className="h-3.5 w-3.5 text-muted-foreground" />} 
                     title="Tags" 
-                    count={contact.tags.length}
+                    count={localContact.tags.length}
                     isOpen={openSections.tags || false}
                   />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <div className="p-3 flex flex-wrap gap-1.5">
-                    {contact.tags.map((tag, idx) => (
+                    {localContact.tags.map((tag, idx) => (
                       <Badge key={idx} variant="secondary" className="text-xs">
                         {tag}
                       </Badge>
@@ -508,7 +792,7 @@ export function ContactDetailSheet({
 
           {/* Conversations / SMS */}
           {(() => {
-            const relatedConversations = conversations.filter(c => c.contact_id === contact.ghl_id || c.contact_id === contact.id);
+            const relatedConversations = conversations.filter(c => c.contact_id === localContact.ghl_id || c.contact_id === localContact.id);
             return (
               <Collapsible open={openSections.conversations} onOpenChange={() => toggleSection('conversations')}>
                 <div className="border rounded-lg overflow-hidden">
