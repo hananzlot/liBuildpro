@@ -35,7 +35,13 @@ import SubscriptionPlans from "./pages/super-admin/SubscriptionPlans";
 import PlatformEmailSettingsPage from "./pages/super-admin/PlatformEmailSettings";
 import { Loader2 } from "lucide-react";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false, // Prevent sheets from closing when switching tabs
+    },
+  },
+});
 
 
 function ProtectedRoute({ 
