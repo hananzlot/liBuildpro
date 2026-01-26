@@ -550,7 +550,7 @@ export default function SalespersonCalendarPortal() {
 
       {/* Appointment Detail Sheet */}
       <Sheet open={!!selectedAppointment} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-xl px-4 sm:px-6">
           {selectedAppointment && salesperson && (
             <AppointmentDetailView
               appointment={selectedAppointment}
@@ -581,8 +581,8 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
   const displayName = contact?.contact_name || appointment.title || "Appointment";
 
   return (
-    <div className="h-full flex flex-col">
-      <SheetHeader className="pb-3 border-b">
+    <div className="h-full flex flex-col overflow-hidden">
+      <SheetHeader className="pb-3 border-b shrink-0">
         <div className="flex items-center justify-between gap-2">
           <SheetTitle className="text-base sm:text-lg truncate flex-1">{displayName}</SheetTitle>
           <Badge variant="outline" className={`${getStatusColor(appointment.appointment_status)} text-xs shrink-0`}>
@@ -592,7 +592,7 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
       </SheetHeader>
 
       <ScrollArea className="flex-1 py-3">
-        <div className="space-y-4 px-1">
+        <div className="space-y-4 pr-2">
           {/* Customer Info - Compact mobile layout */}
           <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
             <div className="flex items-center gap-2.5">
@@ -608,8 +608,8 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
                     href={`tel:${contact.phone}`} 
                     className="text-primary font-medium hover:underline flex items-center gap-1 text-sm"
                   >
-                    <Phone className="h-3.5 w-3.5" />
-                    {contact.phone}
+                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{contact.phone}</span>
                   </a>
                 ) : (
                   <p className="text-xs text-muted-foreground">No phone number</p>
@@ -629,11 +629,11 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
           {/* Scope Pricing Action Button */}
           <Button 
             onClick={() => setScopeDialogOpen(true)}
-            className="w-full"
+            className="w-full max-w-full"
             size="default"
           >
-            <DollarSign className="h-4 w-4 mr-1.5" />
-            Request Pricing
+            <DollarSign className="h-4 w-4 mr-1.5 shrink-0" />
+            <span>Request Pricing</span>
           </Button>
 
           {/* Time & Date - Compact */}
