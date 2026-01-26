@@ -6,11 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Edit, ArrowRight, Search, Plus } from "lucide-react";
+import { Loader2, Edit, ArrowRight, Search, Plus, Archive, ArchiveRestore } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { useArchivedSources } from "@/hooks/useArchivedSources";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Contact {
   ghl_id: string;
@@ -39,12 +41,23 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
   const [newSourceName, setNewSourceName] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   
   // New source state
   const [showAddNew, setShowAddNew] = useState(false);
   const [newSourceInput, setNewSourceInput] = useState("");
 
-  // Calculate source counts
+  // Archived sources hook
+  const { 
+    archivedSources, 
+    archiveSource, 
+    unarchiveSource, 
+    isArchiving, 
+    isUnarchiving,
+    isSourceArchived 
+  } = useArchivedSources();
+
+  // Calculate source counts (excluding archived sources)
   const sourceCounts = useMemo(() => {
     const counts = new Map<string, number>();
     contacts.forEach((contact) => {
@@ -54,16 +67,27 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
       }
     });
     return Array.from(counts.entries())
-      .map(([source, count]) => ({ source, count }))
+      .map(([source, count]) => ({ source, count, archived: isSourceArchived(source) }))
       .sort((a, b) => b.count - a.count);
-  }, [contacts]);
+  }, [contacts, archivedSources]);
+
+  const activeSources = useMemo(() => 
+    sourceCounts.filter(s => !s.archived), 
+    [sourceCounts]
+  );
+
+  const archivedSourcesWithCounts = useMemo(() => 
+    sourceCounts.filter(s => s.archived), 
+    [sourceCounts]
+  );
 
   const filteredSources = useMemo(() => {
-    if (!searchQuery.trim()) return sourceCounts;
-    return sourceCounts.filter((item) =>
+    const sources = activeTab === "active" ? activeSources : archivedSourcesWithCounts;
+    if (!searchQuery.trim()) return sources;
+    return sources.filter((item) =>
       item.source.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [sourceCounts, searchQuery]);
+  }, [activeSources, archivedSourcesWithCounts, searchQuery, activeTab]);
 
   const handleBulkRename = async () => {
     if (!selectedSource || !newSourceName.trim()) {
@@ -136,13 +160,21 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
     setShowAddNew(false);
   };
 
+  const handleArchiveSource = (sourceName: string) => {
+    archiveSource(sourceName);
+  };
+
+  const handleUnarchiveSource = (sourceName: string) => {
+    unarchiveSource(sourceName);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Manage Sources</DialogTitle>
           <DialogDescription>
-            Add new sources or rename existing ones across all opportunities.
+            Add new sources, rename existing ones, or archive sources you no longer need.
           </DialogDescription>
         </DialogHeader>
 
@@ -202,7 +234,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                     <SelectValue placeholder="Select source to rename" />
                   </SelectTrigger>
                   <SelectContent>
-                    {sourceCounts.map(({ source, count }) => (
+                    {activeSources.map(({ source, count }) => (
                       <SelectItem key={source} value={source}>
                         {source} ({count})
                       </SelectItem>
@@ -234,57 +266,131 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
             </div>
           </div>
 
-          {/* Source List */}
+          {/* Source List with Tabs */}
           <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex items-center gap-2 mb-2">
-              <h4 className="text-sm font-medium">All Sources</h4>
-              <Badge variant="secondary" className="text-xs">
-                {sourceCounts.length}
-              </Badge>
-            </div>
-            <div className="relative mb-2">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search sources..."
-                className="h-8 pl-8 text-sm"
-              />
-            </div>
-            <div className="flex-1 overflow-y-auto border rounded-lg">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background">
-                  <TableRow>
-                    <TableHead>Source</TableHead>
-                    <TableHead className="text-right w-24">Contacts</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSources.map(({ source, count }) => (
-                    <TableRow 
-                      key={source} 
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => {
-                        setSelectedSource(source);
-                        setNewSourceName(source);
-                      }}
-                    >
-                      <TableCell className="font-medium">{source}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="secondary">{count}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredSources.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
-                        No sources found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "archived")} className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between mb-2">
+                <TabsList className="h-8">
+                  <TabsTrigger value="active" className="text-xs px-3">
+                    Active
+                    <Badge variant="secondary" className="ml-1.5 text-xs h-5">
+                      {activeSources.length}
+                    </Badge>
+                  </TabsTrigger>
+                  <TabsTrigger value="archived" className="text-xs px-3">
+                    Archived
+                    <Badge variant="secondary" className="ml-1.5 text-xs h-5">
+                      {archivedSourcesWithCounts.length}
+                    </Badge>
+                  </TabsTrigger>
+                </TabsList>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search..."
+                    className="h-8 pl-8 text-sm w-40"
+                  />
+                </div>
+              </div>
+
+              <TabsContent value="active" className="flex-1 overflow-hidden m-0">
+                <div className="h-full overflow-y-auto border rounded-lg">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background">
+                      <TableRow>
+                        <TableHead>Source</TableHead>
+                        <TableHead className="text-right w-24">Contacts</TableHead>
+                        <TableHead className="w-12"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSources.map(({ source, count }) => (
+                        <TableRow 
+                          key={source} 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => {
+                            setSelectedSource(source);
+                            setNewSourceName(source);
+                          }}
+                        >
+                          <TableCell className="font-medium">{source}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="secondary">{count}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleArchiveSource(source);
+                              }}
+                              disabled={isArchiving}
+                              title="Archive source"
+                            >
+                              <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {filteredSources.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                            No sources found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="archived" className="flex-1 overflow-hidden m-0">
+                <div className="h-full overflow-y-auto border rounded-lg">
+                  <Table>
+                    <TableHeader className="sticky top-0 bg-background">
+                      <TableRow>
+                        <TableHead>Source</TableHead>
+                        <TableHead className="text-right w-24">Contacts</TableHead>
+                        <TableHead className="w-12"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSources.map(({ source, count }) => (
+                        <TableRow key={source} className="hover:bg-muted/50">
+                          <TableCell className="font-medium text-muted-foreground">{source}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="outline">{count}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => handleUnarchiveSource(source)}
+                              disabled={isUnarchiving}
+                              title="Restore source"
+                            >
+                              <ArchiveRestore className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {filteredSources.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                            {searchQuery ? "No archived sources found" : "No archived sources"}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
 

@@ -322,6 +322,48 @@ export type Database = {
           },
         ]
       }
+      archived_sources: {
+        Row: {
+          archived_at: string
+          archived_by: string | null
+          company_id: string
+          created_at: string
+          id: string
+          source_name: string
+        }
+        Insert: {
+          archived_at?: string
+          archived_by?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          source_name: string
+        }
+        Update: {
+          archived_at?: string
+          archived_by?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          source_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "archived_sources_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "archived_sources_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
