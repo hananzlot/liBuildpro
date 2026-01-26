@@ -89,7 +89,7 @@ function ProtectedRoute({
   }
 
   // Check role-based access
-  if (requiredRole === 'production' && !isProduction && !isAdmin) {
+  if (requiredRole === 'production' && !isProduction && !isAdmin && !isDispatch) {
     return <Navigate to="/" replace />;
   }
 
