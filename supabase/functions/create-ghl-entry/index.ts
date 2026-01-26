@@ -110,6 +110,7 @@ serve(async (req) => {
 
     let contactId: string;
     let opportunityId: string | null = null;
+    let opportunityUuid: string | null = null;
     let appointmentId: string | null = null;
 
     let contactUuid: string | null = null;
@@ -146,7 +147,7 @@ serve(async (req) => {
 
       // Create local opportunity with contact_uuid
       opportunityId = generateLocalId('opp');
-      const { error: oppError } = await supabase.from('opportunities').insert({
+      const { data: oppData, error: oppError } = await supabase.from('opportunities').insert({
         ghl_id: opportunityId,
         location_id: GHL_LOCATION_ID,
         contact_id: contactId,
@@ -164,12 +165,13 @@ serve(async (req) => {
         entered_by: enteredBy || null,
         provider: 'local',
         company_id: companyId || null,
-      });
+      }).select('id').single();
 
       if (oppError) {
         console.error('Error creating local opportunity:', oppError);
       } else {
-        console.log('Local opportunity created:', opportunityId);
+        opportunityUuid = oppData?.id || null;
+        console.log('Local opportunity created:', opportunityId, 'UUID:', opportunityUuid);
       }
 
       // Create local appointment if date/time provided
@@ -303,8 +305,8 @@ serve(async (req) => {
         opportunityId = oppData.opportunity?.id;
         console.log('Opportunity created:', opportunityId);
 
-        // Cache opportunity in Supabase with pipeline/stage info
-        await supabase.from('opportunities').upsert({
+        // Cache opportunity in Supabase with pipeline/stage info and get the UUID
+        const { data: upsertedOpp } = await supabase.from('opportunities').upsert({
           ghl_id: opportunityId,
           location_id: GHL_LOCATION_ID,
           contact_id: contactId,
@@ -318,7 +320,10 @@ serve(async (req) => {
           ghl_date_added: new Date().toISOString(),
           entered_by: enteredBy || null,
           company_id: companyId || null,
-        }, { onConflict: 'ghl_id' });
+        }, { onConflict: 'ghl_id' }).select('id').single();
+        
+        opportunityUuid = upsertedOpp?.id || null;
+        console.log('Opportunity UUID:', opportunityUuid);
       }
 
       // Step 3: Create Appointment if date/time provided
@@ -447,6 +452,7 @@ serve(async (req) => {
         success: true,
         contactId,
         opportunityId,
+        opportunityUuid,
         appointmentId,
         localOnlyMode: isLocalOnlyMode,
       }),
