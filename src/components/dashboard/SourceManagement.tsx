@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Edit, ArrowRight, Search, Plus, Archive, ArchiveRestore, GitMerge } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2, ArrowRight, Search, Plus, Archive, ArchiveRestore, GitMerge } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -172,7 +173,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Manage Sources</DialogTitle>
           <DialogDescription>
@@ -180,7 +181,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+        <div className="space-y-4 flex-1 min-h-0 flex flex-col">
           {/* Add New Source Section */}
           <div className="border rounded-lg p-4 bg-muted/30">
             <div className="flex items-center justify-between mb-3">
@@ -283,8 +284,8 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
           </div>
 
           {/* Source List with Tabs */}
-          <div className="flex-1 overflow-hidden flex flex-col">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "archived")} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "archived")} className="flex-1 min-h-0 flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <TabsList className="h-8">
                   <TabsTrigger value="active" className="text-xs px-3">
@@ -311,8 +312,8 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                 </div>
               </div>
 
-              <TabsContent value="active" className="flex-1 overflow-hidden m-0">
-                <div className="h-full overflow-y-auto border rounded-lg">
+              <TabsContent value="active" className="flex-1 min-h-0 m-0">
+                <ScrollArea className="h-full border rounded-lg">
                   <Table>
                     <TableHeader className="sticky top-0 bg-background">
                       <TableRow>
@@ -361,11 +362,11 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                       )}
                     </TableBody>
                   </Table>
-                </div>
+                </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="archived" className="flex-1 overflow-hidden m-0">
-                <div className="h-full overflow-y-auto border rounded-lg">
+              <TabsContent value="archived" className="flex-1 min-h-0 m-0">
+                <ScrollArea className="h-full border rounded-lg">
                   <Table>
                     <TableHeader className="sticky top-0 bg-background">
                       <TableRow>
@@ -404,7 +405,7 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                       )}
                     </TableBody>
                   </Table>
-                </div>
+                </ScrollArea>
               </TabsContent>
             </Tabs>
           </div>
