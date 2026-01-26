@@ -54,10 +54,20 @@ interface SheetContentProps
 }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, hideCloseButton, ...props }, ref) => (
+  ({ side = "right", className, children, hideCloseButton, onFocusOutside, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
-      <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(sheetVariants({ side }), className)}
+        // Keep sheets open when the browser tab loses focus (Radix considers this
+        // a "focus outside" interaction and will dismiss by default).
+        onFocusOutside={(e) => {
+          onFocusOutside?.(e);
+          if (!e.defaultPrevented) e.preventDefault();
+        }}
+        {...props}
+      >
         {children}
         {!hideCloseButton && (
           <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
