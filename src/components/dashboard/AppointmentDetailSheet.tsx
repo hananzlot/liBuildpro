@@ -254,6 +254,7 @@ export function AppointmentDetailSheet({
   const [optimisticContact, setOptimisticContact] = useState<{
     name?: string;
     phone?: string;
+    email?: string;
     address?: string;
   } | null>(null);
 
@@ -903,6 +904,21 @@ export function AppointmentDetailSheet({
         if (phoneError) throw phoneError;
       }
 
+      // Update email if changed
+      if (editContactEmail.trim() !== (contact?.email || "")) {
+        const { error: emailError } = await supabase.functions.invoke("update-contact-email", {
+          body: { 
+            contactId: contact.ghl_id,
+            contactUuid: contact.id,
+            email: editContactEmail.trim(),
+            editedBy: user?.id || null,
+            opportunityGhlId: primaryOpportunity?.ghl_id || null,
+            companyId: companyId,
+          },
+        });
+        if (emailError) throw emailError;
+      }
+
       // Update address via opportunity if we have a primary opportunity
       if (editContactAddress.trim() !== (displayAddress || "") && primaryOpportunity) {
         const { error: addressError } = await supabase.functions.invoke("update-opportunity-address", {
@@ -919,6 +935,7 @@ export function AppointmentDetailSheet({
       setOptimisticContact({
         name: editContactName.trim(),
         phone: editContactPhone.trim(),
+        email: editContactEmail.trim(),
         address: editContactAddress.trim(),
       });
 
@@ -1059,10 +1076,17 @@ export function AppointmentDetailSheet({
                         onClick={(e) => e.stopPropagation()}
                       />
                     </div>
-                    {/* Edit Email (display only - not editable via existing edge function) */}
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="h-3.5 w-3.5 shrink-0" />
-                      <span className="text-sm">{contact?.email || <span className="italic text-muted-foreground/60">No email</span>}</span>
+                    {/* Edit Email */}
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <Input
+                        type="email"
+                        value={editContactEmail}
+                        onChange={(e) => setEditContactEmail(e.target.value)}
+                        placeholder="Email address"
+                        className="h-7 text-sm"
+                        onClick={(e) => e.stopPropagation()}
+                      />
                     </div>
                   </>
                 ) : (
@@ -1106,40 +1130,43 @@ export function AppointmentDetailSheet({
                     {/* Display Email */}
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Mail className="h-3.5 w-3.5 shrink-0" />
-                      {contact?.email ? (
-                        <>
-                          <a
-                            href={`mailto:${contact.email}`}
-                            target="_top"
-                            rel="noreferrer"
-                            className="text-primary hover:underline truncate"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {contact.email}
-                          </a>
-                          <button
-                            className="text-muted-foreground hover:text-primary p-0.5"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigator.clipboard.writeText(contact.email!);
-                              toast.success("Email copied");
-                            }}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </button>
-                          <a
-                            href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-primary text-xs"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            (Gmail)
-                          </a>
-                        </>
-                      ) : (
-                        <span className="italic text-muted-foreground/60">No email</span>
-                      )}
+                      {(() => {
+                        const displayEmail = optimisticContact?.email ?? contact?.email;
+                        return displayEmail ? (
+                          <>
+                            <a
+                              href={`mailto:${displayEmail}`}
+                              target="_top"
+                              rel="noreferrer"
+                              className="text-primary hover:underline truncate"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {displayEmail}
+                            </a>
+                            <button
+                              className="text-muted-foreground hover:text-primary p-0.5"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.clipboard.writeText(displayEmail);
+                                toast.success("Email copied");
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                            <a
+                              href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(displayEmail)}&body=${encodeURIComponent(`Dear ${(contact?.first_name || '').charAt(0).toUpperCase() + (contact?.first_name || '').slice(1).toLowerCase()} ${(contact?.last_name || '').charAt(0).toUpperCase() + (contact?.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-muted-foreground hover:text-primary text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              (Gmail)
+                            </a>
+                          </>
+                        ) : (
+                          <span className="italic text-muted-foreground/60">No email</span>
+                        );
+                      })()}
                     </div>
                     {/* Display Source */}
                     <div className="flex items-center gap-2 text-muted-foreground">
