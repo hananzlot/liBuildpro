@@ -1036,6 +1036,18 @@ const Calendar = () => {
   const opportunities = metrics?.allOpportunities || [];
   const users = metrics?.users || [];
 
+  // Keep selectedAppointment in sync with the latest data from appointments array
+  useEffect(() => {
+    if (selectedAppointment && appointments.length > 0) {
+      const updatedAppointment = appointments.find(
+        (a: DBAppointment) => a.ghl_id === selectedAppointment.ghl_id || a.id === selectedAppointment.id
+      );
+      if (updatedAppointment && JSON.stringify(updatedAppointment) !== JSON.stringify(selectedAppointment)) {
+        setSelectedAppointment(updatedAppointment);
+      }
+    }
+  }, [appointments, selectedAppointment]);
+
   // Helper to capitalize words properly
   const capitalizeWords = (str: string): string => {
     return str
