@@ -50,7 +50,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { stripHtml, getAddressFromContact, CUSTOM_FIELD_IDS as SHARED_CUSTOM_FIELD_IDS, extractCustomField as sharedExtractCustomField, findContactByIdOrGhlId } from "@/lib/utils";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 
@@ -269,6 +269,23 @@ export function AppointmentDetailSheet({
   const [optimisticScope, setOptimisticScope] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
+
+  // Fetch active salespeople for assignment dropdown
+  const { data: activeSalespeople = [] } = useQuery({
+    queryKey: ["active-salespeople-for-assignment", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name, ghl_user_id")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
 
   const contact = appointment ? findContactByIdOrGhlId(contacts, appointment.contact_uuid, appointment.contact_id) : null;
   const relatedOpportunities = appointment ? opportunities.filter((o) => o.contact_id === appointment.contact_id) : [];
@@ -815,9 +832,13 @@ export function AppointmentDetailSheet({
 
   // Use local state for assigned user to reflect changes immediately
   const effectiveAssignedUserId = localAssignedUserId ?? appointment.assigned_user_id;
+  
+  // First try to find name from active salespeople, then fall back to users list
+  const assignedSalesperson = activeSalespeople.find((sp) => sp.ghl_user_id === effectiveAssignedUserId);
   const assignedUser = users.find((u) => u.ghl_id === effectiveAssignedUserId);
 
   const userName =
+    assignedSalesperson?.name ||
     assignedUser?.name ||
     (assignedUser?.first_name && assignedUser?.last_name
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
@@ -1485,15 +1506,11 @@ export function AppointmentDetailSheet({
                         <SelectItem value="__unassigned__" className="text-xs">
                           Unassigned
                         </SelectItem>
-                        {[...users]
-                          .sort((a, b) => {
-                            const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
-                            const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
-                            return nameA.localeCompare(nameB);
-                          })
-                          .map((u) => (
-                            <SelectItem key={u.ghl_id} value={u.ghl_id} className="text-xs">
-                              {u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Unknown"}
+                        {activeSalespeople
+                          .filter((sp) => sp.ghl_user_id) // Only show salespeople with GHL user ID
+                          .map((sp) => (
+                            <SelectItem key={sp.id} value={sp.ghl_user_id!} className="text-xs">
+                              {sp.name || "Unknown"}
                             </SelectItem>
                           ))}
                       </SelectContent>
@@ -1891,28 +1908,11 @@ export function AppointmentDetailSheet({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {[...users]
-                    .sort((a, b) => {
-                      const nameA = (
-                        a.name ||
-                        `${a.first_name || ""} ${a.last_name || ""}`.trim() ||
-                        a.email ||
-                        "Unknown"
-                      ).toLowerCase();
-                      const nameB = (
-                        b.name ||
-                        `${b.first_name || ""} ${b.last_name || ""}`.trim() ||
-                        b.email ||
-                        "Unknown"
-                      ).toLowerCase();
-                      return nameA.localeCompare(nameB);
-                    })
-                    .map((user) => (
-                      <SelectItem key={user.ghl_id} value={user.ghl_id}>
-                        {user.name ||
-                          `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-                          user.email ||
-                          "Unknown"}
+                  {activeSalespeople
+                    .filter((sp) => sp.ghl_user_id)
+                    .map((sp) => (
+                      <SelectItem key={sp.id} value={sp.ghl_user_id!}>
+                        {sp.name || "Unknown"}
                       </SelectItem>
                     ))}
                 </SelectContent>
