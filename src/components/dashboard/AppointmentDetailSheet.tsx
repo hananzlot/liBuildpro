@@ -494,7 +494,8 @@ export function AppointmentDetailSheet({
     if (appointment) {
       setSalespersonConfirmed(appointment.salesperson_confirmed || false);
       setLocalStatus(appointment.appointment_status || null);
-      setLocalAssignedUserId(appointment.assigned_user_id || null);
+      // Use salesperson_id (internal UUID) if available, otherwise fallback to assigned_user_id
+      setLocalAssignedUserId((appointment as any).salesperson_id || appointment.assigned_user_id || null);
     }
   }, [appointment]);
 
@@ -842,22 +843,27 @@ export function AppointmentDetailSheet({
 
   // Use local state for salesperson_id to reflect changes immediately
   // Priority: salesperson_id (UUID) first, then fallback to GHL user ID matching for legacy data
-  const rawSalespersonId = localAssignedUserId ?? (appointment as any).salesperson_id;
+  const rawSalespersonId = localAssignedUserId ?? (appointment as any).salesperson_id ?? appointment.assigned_user_id;
   
-  // Find the assigned salesperson by their UUID first
+  // Find the assigned salesperson - try multiple matching strategies
   const assignedSalesperson = rawSalespersonId 
-    ? activeSalespeople.find((sp) => sp.id === rawSalespersonId)
+    ? activeSalespeople.find((sp) => 
+        sp.id === rawSalespersonId || // Match by internal UUID
+        sp.ghl_user_id === rawSalespersonId // Match by GHL user ID
+      )
     : null;
-  // Fallback to GHL user matching for legacy data (only if no salesperson_id match)
+  
+  // Fallback to GHL user matching for legacy data using assigned_user_id field directly
   const assignedUserByGhl = !assignedSalesperson && appointment.assigned_user_id
     ? activeSalespeople.find((sp) => sp.ghl_user_id === appointment.assigned_user_id)
     : null;
+  
   // Ultimate fallback to GHL users list
   const assignedUser = !assignedSalesperson && !assignedUserByGhl
     ? users.find((u) => u.ghl_id === appointment.assigned_user_id)
     : null;
 
-  // The effective ID for the dropdown - use the matched salesperson's ID
+  // The effective ID for the dropdown - use the matched salesperson's internal ID
   const effectiveSalespersonId = assignedSalesperson?.id || assignedUserByGhl?.id || null;
 
   const userName =
