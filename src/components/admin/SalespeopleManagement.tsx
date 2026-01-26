@@ -255,10 +255,8 @@ export function SalespeopleManagement() {
   });
 
   const generatePortalLink = async (salesperson: Salesperson) => {
-    if (!salesperson.ghl_user_id) {
-      toast.error('Please link this salesperson to a calendar user first');
-      return;
-    }
+    // Portal links now work with salesperson_id (UUID) as primary identifier
+    // GHL user linking is no longer required - it's just a fallback for legacy appointments
 
     setGeneratingFor(salesperson.id);
 
