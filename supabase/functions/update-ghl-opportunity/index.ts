@@ -95,7 +95,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { ghl_id, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at, ghl_date_added, company_id } = await req.json();
+    const { ghl_id, name, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at, ghl_date_added, company_id } = await req.json();
 
     if (!ghl_id) {
       throw new Error('Missing ghl_id');
@@ -104,7 +104,7 @@ serve(async (req) => {
     // Fetch current opportunity values BEFORE update
     const { data: currentOpp } = await supabase
       .from('opportunities')
-      .select('status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at, ghl_date_added, company_id, contact_id')
+      .select('name, status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at, ghl_date_added, company_id, contact_id')
       .eq('ghl_id', ghl_id)
       .single();
 
@@ -136,10 +136,14 @@ serve(async (req) => {
     const isLocalOpportunity = ghl_id.startsWith('local_');
     const skipGHLSync = !ghlApiKey || isLocalOpportunity;
 
-    console.log(`Updating opportunity ${ghl_id} (location: ${effectiveLocationId}, local-only: ${skipGHLSync}): status=${status}, pipeline_id=${pipeline_id}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
+    console.log(`Updating opportunity ${ghl_id} (location: ${effectiveLocationId}, local-only: ${skipGHLSync}): name=${name}, status=${status}, pipeline_id=${pipeline_id}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
 
     // Build the update payload for GHL
     const ghlPayload: Record<string, string | number> = {};
+    
+    if (name) {
+      ghlPayload.name = name;
+    }
     
     if (status) {
       ghlPayload.status = status;
@@ -185,6 +189,9 @@ serve(async (req) => {
 
     // Now update Supabase
     const supabaseUpdate: Record<string, string | number | null> = {};
+    if (name) {
+      supabaseUpdate.name = name;
+    }
     if (status) {
       supabaseUpdate.status = status;
     }
@@ -256,6 +263,19 @@ serve(async (req) => {
         location_id: string;
         company_id: string | null;
       }> = [];
+
+      // Check name
+      if (name && currentOpp.name !== name) {
+        editsToInsert.push({
+          opportunity_ghl_id: ghl_id,
+          field_name: 'name',
+          old_value: currentOpp.name || null,
+          new_value: name,
+          edited_by: edited_by || null,
+          location_id: effectiveLocationId,
+          company_id: effectiveCompanyId || null,
+        });
+      }
 
       // Check status
       if (status && currentOpp.status !== status) {
