@@ -1059,7 +1059,7 @@ export function OpportunityDetailSheet({
         return;
       }
       const isLocal = (response.data as any)?.local;
-      toast.success(isLocal ? "Appointment saved locally (not synced to GHL)" : "Appointment created and synced to GHL");
+      toast.success("Appointment created");
 
       // Invalidate queries to refresh appointment data
       queryClient.invalidateQueries({

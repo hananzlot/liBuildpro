@@ -1298,11 +1298,11 @@ const Calendar = () => {
         newEndTime = new Date(newStartTime.getTime() + duration);
       }
       
-      // GHL requires title change for reschedule workaround
+      // Title suffix workaround for reschedule sync
       const titleSuffix = appt.title?.endsWith(" -1") ? "" : " -1";
       const newTitle = (appt.title || "Appointment") + titleSuffix;
       
-      // Update in GHL first
+      // Update appointment (saves to Supabase, syncs to GHL if connected)
       const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
         body: {
           ghl_id: appt.ghl_id,

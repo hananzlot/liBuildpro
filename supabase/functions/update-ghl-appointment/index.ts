@@ -147,9 +147,9 @@ serve(async (req) => {
       supabaseUpdate.calendar_id = calendarId;
     }
 
-    // If skipGHLSync is true OR this is a local appointment, only update the local DB
+    // Supabase-first: If skipGHLSync is true OR this is a local appointment, only update the local DB
     if (skipGHLSync || isLocalAppointment) {
-      console.log(`Updating local-only appointment ${ghl_id}`);
+      console.log(`Updating appointment in Supabase: ${ghl_id}`);
       
       const { error: dbError } = await supabase
         .from('appointments')
@@ -161,12 +161,12 @@ serve(async (req) => {
         return jsonResponse({ error: `Failed to update local appointment: ${dbError.message}` }, 500);
       }
 
-      console.log('Local appointment updated successfully');
+      console.log('Appointment updated in Supabase');
       return jsonResponse({ success: true, local: true });
     }
 
     const GHL_API_KEY = await getGHLApiKey(supabase, effectiveLocationId);
-    console.log(`Updating GHL appointment ${ghl_id} (location: ${effectiveLocationId})`);
+    console.log(`Updating appointment ${ghl_id} with GHL sync (location: ${effectiveLocationId})`);
 
     // Build GHL update payload - but skip startTime/endTime to avoid slot validation issues
     // GHL validates slot availability which fails for already-booked times
@@ -240,9 +240,9 @@ serve(async (req) => {
     }
 
     const ghlData = await ghlResponse.json();
-    console.log('GHL appointment updated successfully');
+    console.log('GHL sync successful');
 
-    // Update local cache in Supabase (reuse supabaseUpdate built earlier)
+    // Update Supabase (primary storage)
     supabaseUpdate.ghl_date_updated = new Date().toISOString();
 
     const { error: dbError } = await supabase
@@ -251,16 +251,16 @@ serve(async (req) => {
       .eq('ghl_id', ghl_id);
 
     if (dbError) {
-      console.error('Error updating Supabase cache:', dbError);
+      console.error('Error updating appointment in Supabase:', dbError);
     } else {
-      console.log('Supabase cache updated');
+      console.log('Appointment updated in Supabase');
     }
 
     return jsonResponse({ success: true, data: ghlData });
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error updating GHL appointment:', errorMessage);
+    console.error('Error updating appointment:', errorMessage);
     return jsonResponse({ error: errorMessage }, 500);
   }
 });

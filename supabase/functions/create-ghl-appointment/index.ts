@@ -112,9 +112,9 @@ serve(async (req) => {
     const startDate = new Date(startTime);
     const endDate = endTime ? new Date(endTime) : new Date(startDate.getTime() + 60 * 60 * 1000);
 
-    // If skipGHLSync, save directly to Supabase with a local ID
+    // Supabase-first: If skipGHLSync, save directly to Supabase without GHL sync
     if (skipGHLSync) {
-      console.log(`Creating LOCAL appointment for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
+      console.log(`Creating appointment in Supabase for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
       
       // Generate a local-only ID prefixed with "local_"
       const localId = `local_${crypto.randomUUID()}`;
@@ -141,19 +141,19 @@ serve(async (req) => {
         return jsonResponse({ error: "Failed to save appointment locally" }, 500);
       }
 
-      console.log("Local appointment created:", localId);
+      console.log("Appointment created in Supabase:", localId);
       return jsonResponse({
         success: true,
         appointmentId: localId,
         local: true,
-        message: "Appointment saved locally (not synced to GHL)",
+        message: "Appointment created",
       });
     }
 
-    // --- Full GHL sync path ---
+    // --- Supabase + GHL sync path ---
     const GHL_API_KEY = await getGHLApiKey(supabase, effectiveLocationId);
 
-    console.log(`Creating appointment for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
+    console.log(`Creating appointment with GHL sync for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
 
     const apptPayload: Record<string, unknown> = {
       contactId,
@@ -210,7 +210,7 @@ serve(async (req) => {
     const appointmentId = apptData.id || apptData.appointment?.id;
     console.log("Appointment created in GHL:", appointmentId);
 
-    // Cache appointment in Supabase
+    // Save appointment to Supabase (primary storage)
     if (appointmentId) {
       const { error: dbError } = await supabase.from("appointments").upsert(
         {
@@ -233,9 +233,9 @@ serve(async (req) => {
       );
 
       if (dbError) {
-        console.error("Error caching appointment:", dbError);
+        console.error("Error saving appointment to Supabase:", dbError);
       } else {
-        console.log("Appointment cached in Supabase");
+        console.log("Appointment saved to Supabase");
       }
     }
 
@@ -247,7 +247,7 @@ serve(async (req) => {
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error creating GHL appointment:", errorMessage);
+    console.error("Error creating appointment:", errorMessage);
     return jsonResponse({ error: errorMessage }, 500);
   }
 });
