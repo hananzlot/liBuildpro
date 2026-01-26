@@ -53,8 +53,16 @@ interface SheetContentProps
   hideCloseButton?: boolean;
 }
 
+const shouldPreventDismissOnWindowBlur = () => {
+  // When the user switches browser tabs/windows, Radix can treat it as an
+  // outside interaction and dismiss the sheet. We only want to block dismiss
+  // in that scenario (not on normal outside clicks).
+  if (typeof document === "undefined") return false;
+  return document.visibilityState === "hidden" || !document.hasFocus();
+};
+
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, hideCloseButton, onFocusOutside, ...props }, ref) => (
+  ({ side = "right", className, children, hideCloseButton, onFocusOutside, onInteractOutside, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
@@ -65,6 +73,12 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
         onFocusOutside={(e) => {
           onFocusOutside?.(e);
           if (!e.defaultPrevented) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          onInteractOutside?.(e);
+          if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur()) {
+            e.preventDefault();
+          }
         }}
         {...props}
       >
