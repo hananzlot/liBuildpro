@@ -151,6 +151,8 @@ export default function SalespersonCalendarPortal() {
     queryFn: async () => {
       if (!salesperson?.id || !salesperson?.company_id) return [];
 
+      console.log('[Portal] Fetching appointments for salesperson:', salesperson.id, 'ghl_user_id:', salesperson.ghl_user_id);
+
       // Priority: salesperson_id (UUID) first, then fallback to ghl_user_id
       // This ensures salespeople without GHL integration still see their appointments
       let query = supabase
@@ -166,6 +168,8 @@ export default function SalespersonCalendarPortal() {
       }
       
       const { data, error } = await query.order("start_time", { ascending: true });
+
+      console.log('[Portal] Appointments query result:', data?.length || 0, 'appointments, error:', error);
 
       if (error) throw error;
       return data as Appointment[];
