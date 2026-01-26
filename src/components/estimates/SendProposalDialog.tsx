@@ -312,6 +312,9 @@ export function SendProposalDialog({
               location_id: 'default',
               created_by: user.user?.id,
               company_id: userCompanyId,
+              // Link project to opportunity from the estimate
+              opportunity_id: estimateData?.opportunity_id || null,
+              opportunity_uuid: estimateData?.opportunity_uuid || null,
             })
             .select()
             .single();
