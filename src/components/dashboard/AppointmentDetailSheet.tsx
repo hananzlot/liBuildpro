@@ -842,33 +842,35 @@ export function AppointmentDetailSheet({
   };
 
   // Use local state for salesperson_id to reflect changes immediately
-  // Priority: salesperson_id (UUID) first, then fallback to GHL user ID matching for legacy data
-  const rawSalespersonId = localAssignedUserId ?? (appointment as any).salesperson_id ?? appointment.assigned_user_id;
+  // PRIORITY: Internal UUID (salesperson_id) FIRST, GHL ID (assigned_user_id) as FALLBACK only
   
-  // Find the assigned salesperson - try multiple matching strategies
-  const assignedSalesperson = rawSalespersonId 
-    ? activeSalespeople.find((sp) => 
-        sp.id === rawSalespersonId || // Match by internal UUID
-        sp.ghl_user_id === rawSalespersonId // Match by GHL user ID
-      )
+  // Step 1: Get the internal salesperson_id first (preferred), fallback to assigned_user_id (legacy GHL ID)
+  const internalSalespersonId = localAssignedUserId ?? (appointment as any).salesperson_id;
+  const legacyGhlUserId = appointment.assigned_user_id;
+  
+  // Step 2: Try to find by internal UUID first
+  const assignedByInternalId = internalSalespersonId 
+    ? activeSalespeople.find((sp) => sp.id === internalSalespersonId)
     : null;
   
-  // Fallback to GHL user matching for legacy data using assigned_user_id field directly
-  const assignedUserByGhl = !assignedSalesperson && appointment.assigned_user_id
-    ? activeSalespeople.find((sp) => sp.ghl_user_id === appointment.assigned_user_id)
+  // Step 3: Only if no internal match, try GHL user ID as fallback
+  const assignedByGhlId = !assignedByInternalId && (internalSalespersonId || legacyGhlUserId)
+    ? activeSalespeople.find((sp) => sp.ghl_user_id === (internalSalespersonId || legacyGhlUserId))
     : null;
   
-  // Ultimate fallback to GHL users list
-  const assignedUser = !assignedSalesperson && !assignedUserByGhl
-    ? users.find((u) => u.ghl_id === appointment.assigned_user_id)
+  // Step 4: Ultimate fallback to GHL users list for display name only
+  const assignedUser = !assignedByInternalId && !assignedByGhlId && legacyGhlUserId
+    ? users.find((u) => u.ghl_id === legacyGhlUserId)
     : null;
 
-  // The effective ID for the dropdown - use the matched salesperson's internal ID
-  const effectiveSalespersonId = assignedSalesperson?.id || assignedUserByGhl?.id || null;
+  // The matched salesperson (internal ID preferred)
+  const assignedSalesperson = assignedByInternalId || assignedByGhlId;
+  
+  // The effective ID for the dropdown - ALWAYS use internal UUID
+  const effectiveSalespersonId = assignedSalesperson?.id || null;
 
   const userName =
     assignedSalesperson?.name ||
-    assignedUserByGhl?.name ||
     assignedUser?.name ||
     (assignedUser?.first_name && assignedUser?.last_name
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
