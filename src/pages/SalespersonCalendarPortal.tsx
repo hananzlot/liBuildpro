@@ -582,42 +582,42 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
 
   return (
     <div className="h-full flex flex-col">
-      <SheetHeader className="pb-4 border-b">
-        <div className="flex items-center justify-between">
-          <SheetTitle className="text-lg">{displayName}</SheetTitle>
-          <Badge variant="outline" className={getStatusColor(appointment.appointment_status)}>
+      <SheetHeader className="pb-3 border-b">
+        <div className="flex items-center justify-between gap-2">
+          <SheetTitle className="text-base sm:text-lg truncate flex-1">{displayName}</SheetTitle>
+          <Badge variant="outline" className={`${getStatusColor(appointment.appointment_status)} text-xs shrink-0`}>
             {appointment.appointment_status || "New"}
           </Badge>
         </div>
       </SheetHeader>
 
-      <ScrollArea className="flex-1 py-4">
-        <div className="space-y-6">
-          {/* Customer Info - Always show prominently */}
-          <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                <User className="h-6 w-6 text-primary" />
+      <ScrollArea className="flex-1 py-3">
+        <div className="space-y-4 px-1">
+          {/* Customer Info - Compact mobile layout */}
+          <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                <User className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-lg text-foreground truncate">
+                <p className="font-semibold text-base sm:text-lg text-foreground truncate">
                   {contact?.contact_name || appointment.title || "Customer"}
                 </p>
                 {contact?.phone ? (
                   <a 
                     href={`tel:${contact.phone}`} 
-                    className="text-primary font-medium hover:underline flex items-center gap-1.5 mt-1"
+                    className="text-primary font-medium hover:underline flex items-center gap-1 text-sm"
                   >
-                    <Phone className="h-4 w-4" />
+                    <Phone className="h-3.5 w-3.5" />
                     {contact.phone}
                   </a>
                 ) : (
-                  <p className="text-sm text-muted-foreground mt-1">No phone number</p>
+                  <p className="text-xs text-muted-foreground">No phone number</p>
                 )}
                 {contact?.email && (
                   <a 
                     href={`mailto:${contact.email}`} 
-                    className="text-sm text-muted-foreground hover:text-primary hover:underline block mt-0.5 truncate"
+                    className="text-xs text-muted-foreground hover:text-primary hover:underline block truncate"
                   >
                     {contact.email}
                   </a>
@@ -630,42 +630,42 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
           <Button 
             onClick={() => setScopeDialogOpen(true)}
             className="w-full"
-            size="lg"
+            size="default"
           >
-            <DollarSign className="h-5 w-5 mr-2" />
+            <DollarSign className="h-4 w-4 mr-1.5" />
             Request Pricing
           </Button>
 
-          {/* Time & Date */}
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <Clock className="h-5 w-5 text-primary" />
+          {/* Time & Date - Compact */}
+          <div className="flex items-start gap-2.5">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
             </div>
-            <div>
-              <p className="font-medium text-foreground">
-                {appointment.start_time ? format(parseISO(appointment.start_time), "EEEE, MMMM d, yyyy") : "No date"}
+            <div className="min-w-0">
+              <p className="font-medium text-sm sm:text-base text-foreground">
+                {appointment.start_time ? format(parseISO(appointment.start_time), "EEE, MMM d, yyyy") : "No date"}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 {formatTime(appointment.start_time)}
                 {appointment.end_time && ` - ${formatTime(appointment.end_time)}`}
               </p>
             </div>
           </div>
 
-          {/* Address */}
+          {/* Address - Compact */}
           {appointment.address && (
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <MapPin className="h-5 w-5 text-primary" />
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div>
-                <p className="font-medium text-foreground">Location</p>
-                <p className="text-sm text-muted-foreground">{appointment.address}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm sm:text-base text-foreground">Location</p>
+                <p className="text-xs sm:text-sm text-muted-foreground break-words">{appointment.address}</p>
                 <a
                   href={`https://maps.google.com/?q=${encodeURIComponent(appointment.address)}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline mt-1 inline-block"
+                  className="text-xs text-primary hover:underline mt-0.5 inline-block"
                 >
                   Open in Maps →
                 </a>
@@ -673,16 +673,16 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
             </div>
           )}
 
-          {/* Scope of Work from Opportunity */}
+          {/* Scope of Work from Opportunity - Compact */}
           {opportunity?.scope_of_work && (
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-primary" />
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground">Scope of Work</p>
-                <div className="mt-2 p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base text-foreground">Scope of Work</p>
+                <div className="mt-1.5 p-2 sm:p-3 bg-muted/50 rounded-lg">
+                  <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap break-words">
                     {opportunity.scope_of_work}
                   </p>
                 </div>
@@ -690,16 +690,16 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
             </div>
           )}
 
-          {/* Appointment Notes */}
+          {/* Appointment Notes - Compact */}
           {appointment.notes && (
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
-                <FileText className="h-5 w-5 text-amber-600" />
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-foreground">Appointment Notes</p>
-                <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base text-foreground">Notes</p>
+                <div className="mt-1.5 p-2 sm:p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap break-words">
                     {appointment.notes}
                   </p>
                 </div>
@@ -707,16 +707,16 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
             </div>
           )}
 
-          {/* Opportunity Stage & Value */}
+          {/* Opportunity Stage & Value - Compact */}
           {opportunity && (opportunity.stage_name || opportunity.monetary_value) && (
-            <div className="p-4 bg-muted/30 rounded-lg border">
-              <p className="text-xs text-muted-foreground uppercase font-medium mb-2">Opportunity</p>
-              <div className="flex items-center gap-3">
+            <div className="p-3 bg-muted/30 rounded-lg border">
+              <p className="text-xs text-muted-foreground uppercase font-medium mb-1.5">Opportunity</p>
+              <div className="flex items-center gap-2 flex-wrap">
                 {opportunity.stage_name && (
-                  <Badge variant="secondary">{opportunity.stage_name}</Badge>
+                  <Badge variant="secondary" className="text-xs">{opportunity.stage_name}</Badge>
                 )}
                 {opportunity.monetary_value != null && opportunity.monetary_value > 0 && (
-                  <span className="font-semibold text-emerald-600">
+                  <span className="font-semibold text-sm text-emerald-600">
                     ${opportunity.monetary_value.toLocaleString()}
                   </span>
                 )}
