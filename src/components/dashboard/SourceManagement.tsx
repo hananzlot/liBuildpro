@@ -284,8 +284,8 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
           </div>
 
           {/* Source List with Tabs */}
-          <div className="flex-1 min-h-0 flex flex-col">
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "archived")} className="flex-1 min-h-0 flex flex-col">
+          <div className="flex flex-col">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "active" | "archived")} className="flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <TabsList className="h-8">
                   <TabsTrigger value="active" className="text-xs px-3">
@@ -312,8 +312,8 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                 </div>
               </div>
 
-              <TabsContent value="active" className="flex-1 min-h-0 m-0">
-                <ScrollArea className="h-full border rounded-lg">
+              <TabsContent value="active" className="m-0">
+                <ScrollArea className="h-[400px] border rounded-lg">
                   <Table>
                     <TableHeader className="sticky top-0 bg-background">
                       <TableRow>
@@ -365,8 +365,8 @@ export function SourceManagement({ contacts, open, onOpenChange }: SourceManagem
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="archived" className="flex-1 min-h-0 m-0">
-                <ScrollArea className="h-full border rounded-lg">
+              <TabsContent value="archived" className="m-0">
+                <ScrollArea className="h-[400px] border rounded-lg">
                   <Table>
                     <TableHeader className="sticky top-0 bg-background">
                       <TableRow>
