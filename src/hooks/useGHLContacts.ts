@@ -308,12 +308,17 @@ async function fetchTasksFromDB(companyId?: string | null): Promise<DBTask[]> {
   return data || [];
 }
 
+// Fetch only recent notes (last 90 days) for dashboard performance
 async function fetchContactNotesFromDB(companyId?: string | null): Promise<DBContactNote[]> {
-  // Include all locations - GHL Location 2 has equal priority
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  
   let query = supabase
     .from("contact_notes")
     .select("*")
-    .order("ghl_date_added", { ascending: false });
+    .gte("ghl_date_added", ninetyDaysAgo.toISOString())
+    .order("ghl_date_added", { ascending: false })
+    .limit(1000);
   if (companyId) {
     query = query.eq("company_id", companyId);
   }
@@ -322,12 +327,17 @@ async function fetchContactNotesFromDB(companyId?: string | null): Promise<DBCon
   return data || [];
 }
 
+// Fetch only recent call logs (last 90 days) for dashboard performance
 async function fetchCallLogsFromDB(companyId?: string | null): Promise<DBCallLog[]> {
-  // Include all locations - GHL Location 2 has equal priority
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  
   let query = supabase
     .from("call_logs")
     .select("*")
-    .order("call_date", { ascending: false });
+    .gte("call_date", ninetyDaysAgo.toISOString())
+    .order("call_date", { ascending: false })
+    .limit(1000);
   if (companyId) {
     query = query.eq("company_id", companyId);
   }
@@ -346,11 +356,17 @@ async function fetchProfilesFromDB(companyId?: string | null): Promise<DBProfile
   return data || [];
 }
 
+// Fetch only recent edits (last 90 days) for performance
 async function fetchOpportunityEditsFromDB(companyId?: string | null): Promise<DBOpportunityEdit[]> {
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  
   let query = supabase
     .from("opportunity_edits")
     .select("*")
-    .order("edited_at", { ascending: false });
+    .gte("edited_at", ninetyDaysAgo.toISOString())
+    .order("edited_at", { ascending: false })
+    .limit(1000);
   if (companyId) {
     query = query.eq("company_id", companyId);
   }
@@ -363,7 +379,8 @@ async function fetchOpportunitySalesFromDB(companyId?: string | null): Promise<D
   let query = supabase
     .from("opportunity_sales")
     .select("*")
-    .order("sold_date", { ascending: false });
+    .order("sold_date", { ascending: false })
+    .limit(500);
   if (companyId) {
     query = query.eq("company_id", companyId);
   }
@@ -372,11 +389,17 @@ async function fetchOpportunitySalesFromDB(companyId?: string | null): Promise<D
   return data || [];
 }
 
+// Fetch only recent edits (last 90 days) for performance
 async function fetchTaskEditsFromDB(companyId?: string | null): Promise<DBTaskEdit[]> {
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  
   let query = supabase
     .from("task_edits")
     .select("*")
-    .order("edited_at", { ascending: false });
+    .gte("edited_at", ninetyDaysAgo.toISOString())
+    .order("edited_at", { ascending: false })
+    .limit(1000);
   if (companyId) {
     query = query.eq("company_id", companyId);
   }
@@ -385,11 +408,17 @@ async function fetchTaskEditsFromDB(companyId?: string | null): Promise<DBTaskEd
   return data || [];
 }
 
+// Fetch only recent edits (last 90 days) for performance
 async function fetchNoteEditsFromDB(companyId?: string | null): Promise<DBNoteEdit[]> {
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  
   let query = supabase
     .from("note_edits")
     .select("*")
-    .order("edited_at", { ascending: false });
+    .gte("edited_at", ninetyDaysAgo.toISOString())
+    .order("edited_at", { ascending: false })
+    .limit(1000);
   if (companyId) {
     query = query.eq("company_id", companyId);
   }
@@ -398,11 +427,17 @@ async function fetchNoteEditsFromDB(companyId?: string | null): Promise<DBNoteEd
   return data || [];
 }
 
+// Fetch only recent edits (last 90 days) for performance
 async function fetchAppointmentEditsFromDB(companyId?: string | null): Promise<DBAppointmentEdit[]> {
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  
   let query = supabase
     .from("appointment_edits")
     .select("*")
-    .order("edited_at", { ascending: false });
+    .gte("edited_at", ninetyDaysAgo.toISOString())
+    .order("edited_at", { ascending: false })
+    .limit(1000);
   if (companyId) {
     query = query.eq("company_id", companyId);
   }
@@ -988,8 +1023,10 @@ export function useContacts() {
   return useQuery({
     queryKey: ["contacts", companyId],
     queryFn: () => fetchContactsFromDB(companyId),
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes - contacts don't change often
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
     refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
     enabled: !!companyId,
   });
 }
@@ -1000,8 +1037,10 @@ export function useOpportunities() {
   return useQuery({
     queryKey: ["opportunities", companyId],
     queryFn: () => fetchOpportunitiesFromDB(companyId),
-    staleTime: 60 * 1000,
+    staleTime: 2 * 60 * 1000, // 2 minutes - opportunities update more frequently
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
     refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
     enabled: !!companyId,
   });
 }
@@ -1012,8 +1051,10 @@ export function useAppointments() {
   return useQuery({
     queryKey: ["appointments", companyId],
     queryFn: () => fetchAppointmentsFromDB(companyId),
-    staleTime: 60 * 1000,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
     refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
     enabled: !!companyId,
   });
 }
