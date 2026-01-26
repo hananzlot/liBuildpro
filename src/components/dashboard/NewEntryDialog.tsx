@@ -283,32 +283,50 @@ export function NewEntryDialog({ users, onSuccess, userId }: NewEntryDialogProps
   useEffect(() => {
     if (!companyId) return;
     const fetchSources = async () => {
-      const { data } = await supabase
-        .from("contacts")
-        .select("source")
-        .eq("company_id", companyId)
-        .not("source", "is", null);
+      // Fetch sources and archived sources in parallel
+      const [sourcesResult, archivedResult] = await Promise.all([
+        supabase
+          .from("contacts")
+          .select("source")
+          .eq("company_id", companyId)
+          .not("source", "is", null),
+        supabase
+          .from("archived_sources")
+          .select("source_name")
+          .eq("company_id", companyId)
+      ]);
 
       // Normalize to title case and get unique sources
       const normalizeSource = (s: string): string => {
         return s.trim().toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
       };
       
+      // Build set of archived source names (lowercase for comparison)
+      const archivedSet = new Set(
+        (archivedResult.data || []).map(a => a.source_name.toLowerCase())
+      );
+      
       const normalizedSources = new Set<string>();
       
-      // Add sources from database
-      if (data) {
-        data.forEach((c) => {
+      // Add sources from database (excluding archived)
+      if (sourcesResult.data) {
+        sourcesResult.data.forEach((c) => {
           if (c.source) {
-            normalizedSources.add(normalizeSource(c.source));
+            const normalized = normalizeSource(c.source);
+            if (!archivedSet.has(normalized.toLowerCase())) {
+              normalizedSources.add(normalized);
+            }
           }
         });
       }
       
-      // Add custom sources from localStorage
+      // Add custom sources from localStorage (excluding archived)
       const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
       customSources.forEach((s: string) => {
-        normalizedSources.add(normalizeSource(s));
+        const normalized = normalizeSource(s);
+        if (!archivedSet.has(normalized.toLowerCase())) {
+          normalizedSources.add(normalized);
+        }
       });
       
       const uniqueSources = [...normalizedSources];

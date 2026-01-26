@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { stripHtml, findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -1211,25 +1211,47 @@ export function OpportunityDetailSheet({
     if (!sourceName) return "Direct";
     return sourceName.toLowerCase().split(/[\s-_]+/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
+  const { data: archivedSourcesData = [] } = useQuery({
+    queryKey: ["archived-sources", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data } = await supabase
+        .from("archived_sources")
+        .select("source_name")
+        .eq("company_id", companyId);
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
   const availableSources = useMemo(() => {
+    const archivedSet = new Set(
+      archivedSourcesData.map(a => a.source_name.toLowerCase())
+    );
     const sourceSet = new Set<string>();
-    // Add sources from contacts
+    // Add sources from contacts (excluding archived)
     contacts.forEach(c => {
       if (c.source) {
-        sourceSet.add(normalizeSourceName(c.source));
+        const normalized = normalizeSourceName(c.source);
+        if (!archivedSet.has(normalized.toLowerCase())) {
+          sourceSet.add(normalized);
+        }
       }
     });
-    // Add custom sources from localStorage
+    // Add custom sources from localStorage (excluding archived)
     try {
       const customSources = JSON.parse(localStorage.getItem("customSources") || "[]");
       customSources.forEach((s: string) => {
-        sourceSet.add(normalizeSourceName(s));
+        const normalized = normalizeSourceName(s);
+        if (!archivedSet.has(normalized.toLowerCase())) {
+          sourceSet.add(normalized);
+        }
       });
     } catch (e) {
       console.error("Error parsing custom sources:", e);
     }
     return Array.from(sourceSet).sort();
-  }, [contacts]);
+  }, [contacts, archivedSourcesData]);
   const handleEditClick = () => {
     // Use savedValues if available (for re-editing without closing), otherwise use opportunity prop
     setEditedStatus(savedValues.status ?? opportunity?.status?.toLowerCase() ?? "open");
