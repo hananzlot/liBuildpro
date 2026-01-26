@@ -533,34 +533,96 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
   console.log(`Final opportunity name: "${opportunityData.name}" (from description: ${nameWasParsedFromDescription})`);
 
   let contactId: string | null = null;
+  let contactUuid: string | null = null;
 
-  // Create contact if enabled
+  // Create or find existing contact if enabled
   if (settings.create_contact && contactData.contact_name) {
-    contactId = generateLocalId('contact');
-    const { data: insertedContact, error: contactError } = await supabase.from('contacts').insert({
-      ghl_id: contactId,
-      location_id: 'google-calendar',
-      first_name: contactData.first_name,
-      last_name: contactData.last_name,
-      contact_name: contactData.contact_name,
-      email: contactData.email,
-      phone: contactData.phone,
-      source: 'Google Calendar',
-      ghl_date_added: new Date().toISOString(),
-      provider: 'google',
-      company_id: connection.company_id,
-    }).select('id').single();
-
-    if (contactError) {
-      console.error('Error creating contact:', contactError);
-      return false;
+    // First, check for existing contact with same name AND email (deduplication)
+    let existingContact = null;
+    
+    if (contactData.email) {
+      // Try to find by email first (most reliable)
+      const { data: emailMatch } = await supabase
+        .from('contacts')
+        .select('id, ghl_id, contact_name, first_name, last_name')
+        .eq('company_id', connection.company_id)
+        .ilike('email', contactData.email)
+        .limit(1)
+        .single();
+      
+      if (emailMatch) {
+        existingContact = emailMatch;
+        console.log(`Found existing contact by email: ${contactData.email} -> ${existingContact.ghl_id}`);
+      }
     }
-    console.log(`Created contact: ${contactId} with UUID: ${insertedContact?.id}`);
+    
+    // If no email match, try to find by exact name match (first + last name)
+    if (!existingContact && contactData.first_name && contactData.last_name) {
+      const { data: nameMatch } = await supabase
+        .from('contacts')
+        .select('id, ghl_id, contact_name, first_name, last_name, email')
+        .eq('company_id', connection.company_id)
+        .ilike('first_name', contactData.first_name)
+        .ilike('last_name', contactData.last_name)
+        .limit(1)
+        .single();
+      
+      if (nameMatch) {
+        existingContact = nameMatch;
+        console.log(`Found existing contact by name: ${contactData.first_name} ${contactData.last_name} -> ${existingContact.ghl_id}`);
+      }
+    }
+    
+    // If no match by first+last name, try contact_name
+    if (!existingContact && contactData.contact_name) {
+      const { data: fullNameMatch } = await supabase
+        .from('contacts')
+        .select('id, ghl_id, contact_name, first_name, last_name, email')
+        .eq('company_id', connection.company_id)
+        .ilike('contact_name', contactData.contact_name)
+        .limit(1)
+        .single();
+      
+      if (fullNameMatch) {
+        existingContact = fullNameMatch;
+        console.log(`Found existing contact by contact_name: ${contactData.contact_name} -> ${existingContact.ghl_id}`);
+      }
+    }
+
+    if (existingContact) {
+      // Use existing contact instead of creating a new one
+      contactId = existingContact.ghl_id;
+      contactUuid = existingContact.id;
+      console.log(`Reusing existing contact: ${contactId} (UUID: ${contactUuid})`);
+    } else {
+      // Create new contact
+      contactId = generateLocalId('contact');
+      const { data: insertedContact, error: contactError } = await supabase.from('contacts').insert({
+        ghl_id: contactId,
+        location_id: 'google-calendar',
+        first_name: contactData.first_name,
+        last_name: contactData.last_name,
+        contact_name: contactData.contact_name,
+        email: contactData.email,
+        phone: contactData.phone,
+        source: 'Google Calendar',
+        ghl_date_added: new Date().toISOString(),
+        provider: 'google',
+        company_id: connection.company_id,
+      }).select('id').single();
+
+      if (contactError) {
+        console.error('Error creating contact:', contactError);
+        return false;
+      }
+      contactUuid = insertedContact?.id;
+      console.log(`Created NEW contact: ${contactId} with UUID: ${contactUuid}`);
+    }
 
     // Link appointment to contact (both contact_id and contact_uuid)
     await supabase.from('appointments').update({ 
       contact_id: contactId,
-      contact_uuid: insertedContact?.id 
+      contact_uuid: contactUuid 
     }).eq('id', appointmentId);
   }
 
@@ -571,6 +633,7 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
       ghl_id: opportunityId,
       location_id: 'google-calendar',
       contact_id: contactId,
+      contact_uuid: contactUuid,  // Link to contact UUID for proper relational integrity
       name: opportunityData.name,
       status: 'open',
       pipeline_id: settings.default_pipeline_id,
@@ -593,7 +656,7 @@ async function createLeadFromEvent(supabase: any, event: GoogleEvent, connection
       console.error('Error creating opportunity:', oppError);
       return false;
     }
-    console.log(`Created opportunity: ${opportunityId}`);
+    console.log(`Created opportunity: ${opportunityId} linked to contact ${contactId} (${contactUuid})`);
   }
 
   return true;
