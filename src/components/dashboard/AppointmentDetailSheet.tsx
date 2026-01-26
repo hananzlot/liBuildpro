@@ -354,16 +354,22 @@ export function AppointmentDetailSheet({
     }
   };
 
-  // Fetch tasks from ghl_tasks only
+  // Fetch tasks from ghl_tasks - prioritize contact_uuid, fallback to contact_id
   const fetchTasks = async () => {
-    if (!appointment?.contact_id) return;
+    // Require at least one contact identifier
+    if (!appointment?.contact_uuid && !appointment?.contact_id) return;
     setLoadingTasks(true);
     try {
-      const { data, error } = await supabase
-        .from("ghl_tasks")
-        .select("*")
-        .eq("contact_id", appointment.contact_id)
-        .order("due_date", { ascending: true });
+      // Build query - prioritize UUID, fallback to GHL ID
+      let query = supabase.from("ghl_tasks").select("*");
+      
+      if (appointment.contact_uuid) {
+        query = query.eq("contact_uuid", appointment.contact_uuid);
+      } else if (appointment.contact_id) {
+        query = query.eq("contact_id", appointment.contact_id);
+      }
+      
+      const { data, error } = await query.order("due_date", { ascending: true });
 
       if (error) throw error;
 

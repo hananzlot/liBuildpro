@@ -147,21 +147,30 @@ export default function SalespersonCalendarPortal() {
 
   // Fetch appointments for this salesperson
   const { data: appointments = [], isLoading: appointmentsLoading } = useQuery({
-    queryKey: ["salesperson-portal-appointments", salesperson?.ghl_user_id, salesperson?.company_id],
+    queryKey: ["salesperson-portal-appointments", salesperson?.id, salesperson?.company_id],
     queryFn: async () => {
-      if (!salesperson?.ghl_user_id || !salesperson?.company_id) return [];
+      if (!salesperson?.id || !salesperson?.company_id) return [];
 
-      const { data, error } = await supabase
+      // Priority: salesperson_id (UUID) first, then fallback to ghl_user_id
+      // This ensures salespeople without GHL integration still see their appointments
+      let query = supabase
         .from("appointments")
         .select("*")
-        .eq("company_id", salesperson.company_id)
-        .eq("assigned_user_id", salesperson.ghl_user_id)
-        .order("start_time", { ascending: true });
+        .eq("company_id", salesperson.company_id);
+      
+      // Use OR filter to match by salesperson_id OR assigned_user_id (if they have a GHL ID)
+      if (salesperson.ghl_user_id) {
+        query = query.or(`salesperson_id.eq.${salesperson.id},assigned_user_id.eq.${salesperson.ghl_user_id}`);
+      } else {
+        query = query.eq("salesperson_id", salesperson.id);
+      }
+      
+      const { data, error } = await query.order("start_time", { ascending: true });
 
       if (error) throw error;
       return data as Appointment[];
     },
-    enabled: !!salesperson?.ghl_user_id && !!salesperson?.company_id,
+    enabled: !!salesperson?.id && !!salesperson?.company_id,
   });
 
   // Fetch contacts for appointment names
