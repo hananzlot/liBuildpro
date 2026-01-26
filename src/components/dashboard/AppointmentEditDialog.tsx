@@ -351,9 +351,9 @@ export function AppointmentEditDialog({
                   checked={updateTime}
                   onCheckedChange={(checked) => setUpdateTime(checked === true)}
                 />
-                <label htmlFor="updateTime" className="text-sm text-muted-foreground cursor-pointer">
-                  Reschedule appointment (requires available GHL slot)
-                </label>
+<label htmlFor="updateTime" className="text-sm text-muted-foreground cursor-pointer">
+  Reschedule appointment
+</label>
               </div>
             )}
             <div className="flex gap-2">
