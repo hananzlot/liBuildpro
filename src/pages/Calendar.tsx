@@ -15,7 +15,7 @@ import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetail
 import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { findContactByIdOrGhlId } from "@/lib/utils";
 import { ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -36,12 +36,19 @@ interface DBAppointment {
   end_time: string | null;
   notes: string | null;
   assigned_user_id: string | null;
+  salesperson_id?: string | null; // UUID reference to salespeople table
   address?: string | null;
   location_id?: string;
   ghl_date_added?: string | null;
   ghl_date_updated?: string | null;
   salesperson_confirmed?: boolean;
   salesperson_confirmed_at?: string | null;
+}
+
+interface DBSalesperson {
+  id: string;
+  name: string;
+  ghl_user_id: string | null;
 }
 
 interface DBContact {
@@ -178,6 +185,17 @@ function CalendarView({
     return contact?.contact_name || 
       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || 
       "Unknown";
+  };
+
+  // Get rep name - checks salesperson_id first, then assigned_user_id
+  const getRepNameForAppt = (appt: DBAppointment): string | null => {
+    if (appt.salesperson_id && userMap.has(appt.salesperson_id)) {
+      return userMap.get(appt.salesperson_id) || null;
+    }
+    if (appt.assigned_user_id && userMap.has(appt.assigned_user_id)) {
+      return userMap.get(appt.assigned_user_id) || null;
+    }
+    return null;
   };
 
   const selectedDateAppointments = selectedDate 
@@ -364,16 +382,16 @@ function CalendarView({
                           e.stopPropagation();
                           if (!draggedAppt) onAppointmentClick(appt);
                         }}
-                        title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"}) - Drag to reschedule`}
+                        title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${getRepNameForAppt(appt) || "Unassigned"}) - Drag to reschedule`}
                       >
                         <div className="flex items-center gap-1">
                           <CalendarAppointmentActions
                             appointment={appt}
                             compact
                           />
-                          {appt.assigned_user_id && userMap.get(appt.assigned_user_id) && (
+                          {getRepNameForAppt(appt) && (
                             <span className="shrink-0 w-4 h-4 rounded bg-secondary text-secondary-foreground text-[8px] font-bold flex items-center justify-center">
-                              {getRepInitials(userMap.get(appt.assigned_user_id) || "")}
+                              {getRepInitials(getRepNameForAppt(appt) || "")}
                             </span>
                           )}
                           <span className="truncate">
@@ -436,7 +454,7 @@ function CalendarView({
                 ) : (
                   selectedDateAppointments.map((appt) => {
                     const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
-                    const repName = userMap.get(appt.assigned_user_id || "") || "Unassigned";
+                    const repName = getRepNameForAppt(appt) || "Unassigned";
                     return (
                       <div
                         key={appt.id || appt.ghl_id}
@@ -451,7 +469,7 @@ function CalendarView({
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                             <CalendarAppointmentActions appointment={appt} />
-                            {appt.assigned_user_id && repName !== "Unassigned" && (
+                            {repName !== "Unassigned" && (
                               <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
                                 {getRepInitials(repName)}
                               </span>
@@ -622,6 +640,17 @@ function WeekView({
     return contact?.contact_name || 
       `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || 
       "Unknown";
+  };
+
+  // Get rep name - checks salesperson_id first, then assigned_user_id
+  const getRepNameForAppt = (appt: DBAppointment): string | null => {
+    if (appt.salesperson_id && userMap.has(appt.salesperson_id)) {
+      return userMap.get(appt.salesperson_id) || null;
+    }
+    if (appt.assigned_user_id && userMap.has(appt.assigned_user_id)) {
+      return userMap.get(appt.assigned_user_id) || null;
+    }
+    return null;
   };
 
   const selectedDateAppointments = selectedDate 
@@ -817,13 +846,13 @@ function WeekView({
                           e.stopPropagation();
                           if (!draggedAppt) onAppointmentClick(appt);
                         }}
-                        title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"}) - Drag to reschedule`}
+                        title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${getRepNameForAppt(appt) || "Unassigned"}) - Drag to reschedule`}
                       >
                         <div className="flex items-center gap-1.5">
                           <CalendarAppointmentActions appointment={appt} />
-                          {appt.assigned_user_id && userMap.get(appt.assigned_user_id) && (
+                          {getRepNameForAppt(appt) && (
                             <span className="shrink-0 w-5 h-5 rounded bg-secondary text-secondary-foreground text-[9px] font-bold flex items-center justify-center">
-                              {getRepInitials(userMap.get(appt.assigned_user_id) || "")}
+                              {getRepInitials(getRepNameForAppt(appt) || "")}
                             </span>
                           )}
                           <div className="flex-1 min-w-0">
@@ -880,7 +909,7 @@ function WeekView({
                 ) : (
                   selectedDateAppointments.map((appt) => {
                     const contact = findContactByIdOrGhlId(contacts, appt.contact_uuid, appt.contact_id);
-                    const repName = userMap.get(appt.assigned_user_id || "") || "Unassigned";
+                    const repName = getRepNameForAppt(appt) || "Unassigned";
                     return (
                       <div
                         key={appt.id || appt.ghl_id}
@@ -895,7 +924,7 @@ function WeekView({
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
                             <CalendarAppointmentActions appointment={appt} />
-                            {appt.assigned_user_id && repName !== "Unassigned" && (
+                            {repName !== "Unassigned" && (
                               <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
                                 {getRepInitials(repName)}
                               </span>
@@ -1048,6 +1077,23 @@ const Calendar = () => {
   const opportunities = metrics?.allOpportunities || [];
   const users = metrics?.users || [];
 
+  // Fetch active salespeople for badge display and filtering
+  const { data: activeSalespeople = [] } = useQuery({
+    queryKey: ["active-salespeople-calendar", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name, ghl_user_id")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return (data || []) as DBSalesperson[];
+    },
+    enabled: !!companyId,
+  });
+
   // Find the selected appointment from the URL param (for route-driven modal)
   const selectedAppointment = useMemo(() => {
     if (!appointmentId || !appointments.length) return null;
@@ -1084,15 +1130,48 @@ const Calendar = () => {
       .join(' ');
   };
 
-  // Build user map
-  const userMap = useMemo(() => {
+  // Build combined rep map: salesperson_id -> name (priority) and ghl_user_id -> name (fallback)
+  const repMap = useMemo(() => {
     const map = new Map<string, string>();
-    users.forEach((u: DBUser) => {
-      const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
-      map.set(u.ghl_id, displayName);
+    
+    // First, add salespeople by their UUID (primary key)
+    activeSalespeople.forEach((sp: DBSalesperson) => {
+      map.set(sp.id, sp.name);
+      // Also map by ghl_user_id for legacy lookups
+      if (sp.ghl_user_id) {
+        map.set(sp.ghl_user_id, sp.name);
+      }
     });
+    
+    // Add GHL users as fallback (won't overwrite existing salespeople entries)
+    users.forEach((u: DBUser) => {
+      if (!map.has(u.ghl_id)) {
+        const displayName = u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id;
+        map.set(u.ghl_id, displayName);
+      }
+    });
+    
     return map;
-  }, [users]);
+  }, [activeSalespeople, users]);
+
+  // Helper to get rep name for an appointment - checks salesperson_id first, then assigned_user_id
+  const getRepName = (appt: DBAppointment): string | null => {
+    if (appt.salesperson_id && repMap.has(appt.salesperson_id)) {
+      return repMap.get(appt.salesperson_id) || null;
+    }
+    if (appt.assigned_user_id && repMap.has(appt.assigned_user_id)) {
+      return repMap.get(appt.assigned_user_id) || null;
+    }
+    return null;
+  };
+
+  // Helper to get the effective rep ID for filtering (salesperson_id first, then assigned_user_id)
+  const getEffectiveRepId = (appt: DBAppointment): string | null => {
+    return appt.salesperson_id || appt.assigned_user_id || null;
+  };
+
+  // Legacy userMap for backward compatibility with child components
+  const userMap = repMap;
 
   const nextWeekEnd = addDays(new Date(), 7);
 
@@ -1103,18 +1182,19 @@ const Calendar = () => {
       .sort((a: DBAppointment, b: DBAppointment) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
   }, [appointments]);
 
-  // Get available reps from all appointments
+  // Get available reps from all appointments - uses salesperson_id first, then assigned_user_id
   const availableReps = useMemo(() => {
     const reps = new Map<string, string>();
     allAppointmentsForCalendar.forEach((a: DBAppointment) => {
-      if (a.assigned_user_id && !reps.has(a.assigned_user_id)) {
-        reps.set(a.assigned_user_id, userMap.get(a.assigned_user_id) || a.assigned_user_id);
+      const repId = getEffectiveRepId(a);
+      if (repId && !reps.has(repId)) {
+        reps.set(repId, repMap.get(repId) || repId);
       }
     });
     return Array.from(reps.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [allAppointmentsForCalendar, userMap]);
+  }, [allAppointmentsForCalendar, repMap]);
 
   // Get reps that have appointments in the current week (for week view legend filtering)
   const weekReps = useMemo(() => {
@@ -1122,18 +1202,19 @@ const Calendar = () => {
     const weekEnd = endOfWeek(currentWeek);
     const reps = new Map<string, string>();
     allAppointmentsForCalendar.forEach((a: DBAppointment) => {
-      if (!a.start_time || !a.assigned_user_id) return;
+      const repId = getEffectiveRepId(a);
+      if (!a.start_time || !repId) return;
       const apptDate = new Date(a.start_time);
       if (apptDate >= weekStart && apptDate <= weekEnd) {
-        if (!reps.has(a.assigned_user_id)) {
-          reps.set(a.assigned_user_id, userMap.get(a.assigned_user_id) || a.assigned_user_id);
+        if (!reps.has(repId)) {
+          reps.set(repId, repMap.get(repId) || repId);
         }
       }
     });
     return Array.from(reps.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [allAppointmentsForCalendar, userMap, currentWeek]);
+  }, [allAppointmentsForCalendar, repMap, currentWeek]);
 
   // Helper to check if an appointment has missing scope (checks linked opportunity)
   const appointmentHasMissingScope = (appt: DBAppointment): boolean => {
@@ -1155,9 +1236,9 @@ const Calendar = () => {
   const filteredCalendarAppointments = useMemo(() => {
     let result = allAppointmentsForCalendar;
 
-    // Filter by rep
+    // Filter by rep - check both salesperson_id and assigned_user_id
     if (repFilter !== "all") {
-      result = result.filter((a: DBAppointment) => a.assigned_user_id === repFilter);
+      result = result.filter((a: DBAppointment) => getEffectiveRepId(a) === repFilter);
     }
 
     // Filter by search
@@ -1194,9 +1275,9 @@ const Calendar = () => {
   const filteredListAppointments = useMemo(() => {
     let result = todayAndUpcomingAppointments;
 
-    // Filter by rep
+    // Filter by rep - check both salesperson_id and assigned_user_id
     if (repFilter !== "all") {
-      result = result.filter((a: DBAppointment) => a.assigned_user_id === repFilter);
+      result = result.filter((a: DBAppointment) => getEffectiveRepId(a) === repFilter);
     }
 
     // Filter by search
@@ -1672,7 +1753,7 @@ const Calendar = () => {
                           const contactName = contact?.contact_name || 
                             `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || 
                             "Unknown";
-                          const repName = userMap.get(appt.assigned_user_id || "") || "Unassigned";
+                          const repName = getRepName(appt) || "Unassigned";
                           
                           return (
                             <div
@@ -1683,7 +1764,7 @@ const Calendar = () => {
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   <CalendarAppointmentActions appointment={appt} />
-                                  {appt.assigned_user_id && repName !== "Unassigned" && (
+                                  {repName !== "Unassigned" && (
                                     <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
                                       {getRepInitials(repName)}
                                     </span>
