@@ -489,7 +489,8 @@ export function AppointmentDetailSheet({
       });
 
       setSalespersonConfirmed(newValue);
-      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      // Force immediate refetch of all appointment-related queries
+      await queryClient.invalidateQueries({ queryKey: ["appointments"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["appointment_edits"] });
       toast.success(newValue ? "Salesperson confirmed" : "Confirmation removed");
     } catch (error) {
