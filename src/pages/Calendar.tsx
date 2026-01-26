@@ -194,7 +194,7 @@ function CalendarView({
     e.stopPropagation();
     setDraggedAppt(appt);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", appt.ghl_id);
+    e.dataTransfer.setData("text/plain", appt.id);
   };
 
   const handleDragEnd = () => {
@@ -356,7 +356,7 @@ function CalendarView({
                         draggable
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
-                        className={`text-[11px] px-1.5 py-0.5 rounded cursor-grab active:cursor-grabbing truncate transition-opacity ${getStatusColor(appt.appointment_status)} ${draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""}`}
+                        className={`text-[11px] px-1.5 py-0.5 rounded cursor-grab active:cursor-grabbing truncate transition-opacity ${getStatusColor(appt.appointment_status)} ${draggedAppt?.id === appt.id ? "opacity-50" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!draggedAppt) onAppointmentClick(appt);
@@ -442,7 +442,7 @@ function CalendarView({
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
                         className={`p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-grab active:cursor-grabbing transition-all ${
-                          draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""
+                          draggedAppt?.id === appt.id ? "opacity-50" : ""
                         }`}
                         onClick={() => !draggedAppt && onAppointmentClick(appt)}
                       >
@@ -646,7 +646,7 @@ function WeekView({
     e.stopPropagation();
     setDraggedAppt(appt);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", appt.ghl_id);
+    e.dataTransfer.setData("text/plain", appt.id);
   };
 
   const handleDragEnd = () => {
@@ -817,7 +817,7 @@ function WeekView({
                         draggable
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
-                        className={`text-xs px-2 py-1.5 rounded cursor-grab active:cursor-grabbing transition-opacity ${getStatusColor(appt.appointment_status)} ${draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""}`}
+                        className={`text-xs px-2 py-1.5 rounded cursor-grab active:cursor-grabbing transition-opacity ${getStatusColor(appt.appointment_status)} ${draggedAppt?.id === appt.id ? "opacity-50" : ""}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (!draggedAppt) onAppointmentClick(appt);
@@ -897,7 +897,7 @@ function WeekView({
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
                         className={`p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-grab active:cursor-grabbing transition-all ${
-                          draggedAppt?.ghl_id === appt.ghl_id ? "opacity-50" : ""
+                          draggedAppt?.id === appt.id ? "opacity-50" : ""
                         }`}
                         onClick={() => !draggedAppt && onAppointmentClick(appt)}
                       >
@@ -1075,7 +1075,7 @@ const Calendar = () => {
   useEffect(() => {
     if (selectedAppointment && appointments.length > 0) {
       const updatedAppointment = appointments.find(
-        (a: DBAppointment) => a.ghl_id === selectedAppointment.ghl_id || a.id === selectedAppointment.id
+        (a: DBAppointment) => a.id === selectedAppointment.id
       );
       if (updatedAppointment && JSON.stringify(updatedAppointment) !== JSON.stringify(selectedAppointment)) {
         setSelectedAppointment(updatedAppointment);
