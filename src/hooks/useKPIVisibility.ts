@@ -38,6 +38,8 @@ export function useKPIVisibility() {
       };
     },
     enabled: !!companyId,
+    staleTime: 30 * 60 * 1000, // 30 minutes - settings rarely change
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 
   const toggleMutation = useMutation({

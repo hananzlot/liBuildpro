@@ -43,7 +43,8 @@ export function useGHLMode(): GHLModeState {
       return appData?.setting_value !== "false";
     },
     enabled: !!companyId,
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 30 * 60 * 1000, // 30 minutes - config rarely changes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 
   return {
