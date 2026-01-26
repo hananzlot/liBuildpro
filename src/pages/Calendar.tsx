@@ -1459,31 +1459,64 @@ const Calendar = () => {
           </div>
         </div>
 
-        {/* Sales Rep Color Legend */}
-        {availableReps.length > 0 && (
-          <div className="mb-4 flex items-center gap-4 flex-wrap">
-            <span className="text-xs font-medium text-muted-foreground">Sales Reps:</span>
-            <div className="flex items-center gap-3 flex-wrap">
-              {availableReps.map((rep) => (
-                <button
-                  key={rep.id}
-                  onClick={() => setRepFilter(repFilter === rep.id ? "all" : rep.id)}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ${
-                    repFilter === rep.id 
-                      ? "bg-primary/10 ring-1 ring-primary" 
-                      : "hover:bg-muted"
-                  }`}
-                >
-                  <div 
-                    className="w-3 h-3 rounded-full shrink-0" 
-                    style={{ backgroundColor: getRepColor(rep.id) }}
-                  />
-                  <span className="text-foreground">{rep.name}</span>
-                </button>
-              ))}
+        {/* Legends Row */}
+        <div className="mb-4 flex items-center gap-6 flex-wrap">
+          {/* Status Legend */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-muted-foreground">Status:</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-emerald-500/20">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span className="text-emerald-600 dark:text-emerald-400">Confirmed</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-blue-500/20">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <span className="text-blue-600 dark:text-blue-400">Showed</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-amber-500/20">
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span className="text-amber-600 dark:text-amber-400">No Show</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-red-500/20">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="text-red-600 dark:text-red-400">Cancelled</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs bg-muted">
+                <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground/50" />
+                <span className="text-muted-foreground">New/Other</span>
+              </div>
             </div>
           </div>
-        )}
+
+          {/* Sales Rep Color Legend */}
+          {availableReps.length > 0 && (
+            <>
+              <div className="h-4 w-px bg-border" />
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-medium text-muted-foreground">Sales Reps:</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {availableReps.map((rep) => (
+                    <button
+                      key={rep.id}
+                      onClick={() => setRepFilter(repFilter === rep.id ? "all" : rep.id)}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors ${
+                        repFilter === rep.id 
+                          ? "bg-primary/10 ring-1 ring-primary" 
+                          : "hover:bg-muted"
+                      }`}
+                    >
+                      <div 
+                        className="w-2.5 h-2.5 rounded-full shrink-0" 
+                        style={{ backgroundColor: getRepColor(rep.id) }}
+                      />
+                      <span className="text-foreground">{rep.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Content */}
         {isLoading ? (
