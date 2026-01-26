@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Megaphone, User, Calendar, Search, ChevronRight, Clock, Plus, CheckSquare, MapPin, Phone, FileText, Loader2 } from "lucide-react";
+import { Megaphone, User, Calendar, Search, ChevronRight, Clock, Plus, CheckSquare, MapPin, Phone, FileText, Loader2, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
@@ -109,6 +109,15 @@ interface GHLUser {
   email: string | null;
 }
 
+interface ContactNote {
+  id: string;
+  ghl_id?: string | null;
+  contact_id: string;
+  body: string | null;
+  ghl_date_added: string | null;
+  user_id?: string | null;
+}
+
 // Import is already at top - use findContactByIdOrGhlId from utils
 
 type ViewMode = "opportunities" | "won";
@@ -128,6 +137,7 @@ interface SourceDetailSheetProps {
   showAppointments?: boolean;
   showNoAppointments?: boolean;
   userId?: string | null;
+  notes?: ContactNote[];
 }
 
 export function SourceDetailSheet({
@@ -145,6 +155,7 @@ export function SourceDetailSheet({
   showAppointments = false,
   showNoAppointments = false,
   userId,
+  notes = [],
 }: SourceDetailSheetProps) {
   const { user, companyId: authCompanyId } = useAuth();
   const queryClient = useQueryClient();
@@ -737,14 +748,66 @@ export function SourceDetailSheet({
                       }
                     };
                     
+                    // Get the most recent note for this contact
+                    const contactNotes = notes
+                      .filter(n => n.contact_id === opp.contact_id && n.body)
+                      .sort((a, b) => {
+                        const dateA = a.ghl_date_added ? new Date(a.ghl_date_added).getTime() : 0;
+                        const dateB = b.ghl_date_added ? new Date(b.ghl_date_added).getTime() : 0;
+                        return dateB - dateA;
+                      });
+                    const latestNote = contactNotes[0];
+                    
                     return (
                       <div
                         key={opp.ghl_id}
                         className="p-3 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer transition-colors"
                         onClick={() => handleOpportunityClick(opp)}
                       >
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <span className="font-medium text-sm truncate">{opp.name || "Unnamed"}</span>
+                        {/* Row 1: Stage Badge + Value + Opportunity Name + Status */}
+                        <div className="flex items-center gap-2 mb-1.5">
+                          {/* Left side: Stage dropdown + Value */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Badge 
+                                  variant="secondary" 
+                                  className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors"
+                                >
+                                  {updatingStageForOpp === opp.ghl_id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                  ) : null}
+                                  {opp.stage_name || "No Stage"}
+                                </Badge>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="start"
+                                className="max-h-64 overflow-y-auto bg-popover text-popover-foreground z-50 border border-border shadow-md"
+                              >
+                                {allAvailableStages.length === 0 ? (
+                                  <DropdownMenuItem disabled>
+                                    No pipeline stages configured
+                                  </DropdownMenuItem>
+                                ) : (
+                                  allAvailableStages.map((stage) => (
+                                    <DropdownMenuItem
+                                      key={stage}
+                                      onClick={(e) => handleStageChange(opp, stage, e)}
+                                      className={opp.stage_name === stage ? "bg-accent" : ""}
+                                    >
+                                      {stage}
+                                    </DropdownMenuItem>
+                                  ))
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <span className="font-mono text-xs font-semibold text-emerald-500">
+                              {formatCurrency(opp.monetary_value)}
+                            </span>
+                          </div>
+                          {/* Middle: Opportunity Name (truncated) */}
+                          <span className="font-medium text-sm truncate flex-1 min-w-0">{opp.name || "Unnamed"}</span>
+                          {/* Right side: Status + Chevron */}
                           <div className="flex items-center gap-1.5 shrink-0">
                             <Badge variant="outline" className={`text-xs ${getStatusColor(opp.status)}`}>
                               {opp.status || "Unknown"}
@@ -752,42 +815,9 @@ export function SourceDetailSheet({
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
-                        {/* Pipeline Stage (clickable) and Sales Rep */}
+
+                        {/* Row 2: Sales Rep + Upcoming Appointment */}
                         <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                          {/* Clickable Stage Badge */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                              <Badge 
-                                variant="secondary" 
-                                className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors"
-                              >
-                                {updatingStageForOpp === opp.ghl_id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                                ) : null}
-                                {opp.stage_name || "No Stage"}
-                              </Badge>
-                            </DropdownMenuTrigger>
-                             <DropdownMenuContent
-                               align="start"
-                               className="max-h-64 overflow-y-auto bg-popover text-popover-foreground z-50 border border-border shadow-md"
-                             >
-                               {allAvailableStages.length === 0 ? (
-                                 <DropdownMenuItem disabled>
-                                   No pipeline stages configured
-                                 </DropdownMenuItem>
-                               ) : (
-                                 allAvailableStages.map((stage) => (
-                                   <DropdownMenuItem
-                                     key={stage}
-                                     onClick={(e) => handleStageChange(opp, stage, e)}
-                                     className={opp.stage_name === stage ? "bg-accent" : ""}
-                                   >
-                                     {stage}
-                                   </DropdownMenuItem>
-                                 ))
-                               )}
-                             </DropdownMenuContent>
-                          </DropdownMenu>
                           {(() => {
                             const assignedUser = users.find(u => u.ghl_id === opp.assigned_to);
                             const repName = assignedUser?.name || 
@@ -802,7 +832,7 @@ export function SourceDetailSheet({
                             ) : null;
                           })()}
                           {upcomingAppt && (
-                            <Badge variant="outline" className="text-xs font-normal bg-amber-500/10 text-amber-400 border-amber-500/30">
+                            <Badge variant="outline" className="text-xs font-normal bg-amber-500/10 text-amber-500 border-amber-500/30">
                               <Clock className="h-3 w-3 mr-1" />
                               {format(new Date(upcomingAppt.start_time!), "MMM d, h:mm a")}
                             </Badge>
@@ -839,9 +869,25 @@ export function SourceDetailSheet({
                             </div>
                           )}
                         </div>
+
+                        {/* Latest Note */}
+                        {latestNote && (
+                          <div className="mb-2 p-2 rounded-md bg-muted/50 border border-border/50">
+                            <div className="flex items-start gap-1.5">
+                              <MessageSquare className="h-3 w-3 shrink-0 mt-0.5 text-muted-foreground" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-foreground line-clamp-2">{latestNote.body}</p>
+                                {latestNote.ghl_date_added && (
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                                    {format(new Date(latestNote.ghl_date_added), "MMM d, yyyy 'at' h:mm a")}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</span>
+                        <div className="flex items-center justify-end text-xs text-muted-foreground">
                           {opp.ghl_date_added && (
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />
