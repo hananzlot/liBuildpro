@@ -4,9 +4,15 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const shouldPreventDismissOnWindowBlur = () => {
+const shouldPreventDismissOnWindowBlur = (event?: Event) => {
   // Prevent Radix from dismissing dialogs when the user switches browser tabs/windows.
   if (typeof document === "undefined") return false;
+  
+  // Check if the event target is outside the document (e.g., browser chrome, other tabs)
+  const target = event?.target as Node | null;
+  if (target && !document.body.contains(target)) return true;
+  
+  // Also check visibility state and focus
   return document.visibilityState === "hidden" || !document.hasFocus();
 };
 
@@ -48,11 +54,14 @@ const DialogContent = React.forwardRef<
       // Keep dialogs open when the browser tab loses focus.
       onFocusOutside={(e) => {
         onFocusOutside?.(e);
+        // Always prevent focus-outside dismissal - this handles tab switches
         if (!e.defaultPrevented) e.preventDefault();
       }}
       onInteractOutside={(e) => {
         onInteractOutside?.(e);
-        if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur()) {
+        // Prevent dismissal when switching tabs/windows, but allow normal outside clicks
+        const originalEvent = 'detail' in e && e.detail?.originalEvent;
+        if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur(originalEvent as Event | undefined)) {
           e.preventDefault();
         }
       }}
