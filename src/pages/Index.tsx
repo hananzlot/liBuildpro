@@ -428,6 +428,7 @@ const Index = () => {
                 appointmentsBySource={metrics?.appointmentsBySource || []} 
                 oppsWithoutAppointmentsBySource={metrics?.oppsWithoutAppointmentsBySource || []} 
                 userId={user?.id} 
+                notes={metrics?.contactNotes || []}
               />
               <SourceChart 
                 title="Won By Source" 
@@ -442,6 +443,7 @@ const Index = () => {
                 appointments={metrics?.allAppointments || []} 
                 users={metrics?.users || []} 
                 userId={user?.id} 
+                notes={metrics?.contactNotes || []}
               />
               <SalesRepLeaderboard 
                 data={metrics?.salesRepPerformance || []} 

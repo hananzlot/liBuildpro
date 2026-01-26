@@ -63,6 +63,15 @@ interface GHLUser {
 type ChartMode = "opportunities" | "won";
 type OpportunitiesViewTab = "opportunities" | "appointments" | "noAppointments";
 
+interface ContactNote {
+  id: string;
+  ghl_id?: string | null;
+  contact_id: string;
+  body: string | null;
+  ghl_date_added: string | null;
+  user_id?: string | null;
+}
+
 interface SourceChartProps {
   title: string;
   subtitle?: string;
@@ -79,6 +88,7 @@ interface SourceChartProps {
   appointmentsBySource?: SourceData[];
   oppsWithoutAppointmentsBySource?: SourceData[];
   userId?: string | null;
+  notes?: ContactNote[];
 }
 
 export function SourceChart({ 
@@ -97,6 +107,7 @@ export function SourceChart({
   appointmentsBySource,
   oppsWithoutAppointmentsBySource,
   userId,
+  notes = [],
 }: SourceChartProps) {
   const [selectedSource, setSelectedSource] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -254,6 +265,7 @@ export function SourceChart({
         showAppointments={clickedFromAppointments}
         showNoAppointments={clickedFromNoAppointments}
         userId={userId}
+        notes={notes}
       />
 
       {/* View All Sources Sheet */}
