@@ -315,7 +315,7 @@ export function OpportunitiesBySourceView({
           </div>
 
           {/* Table */}
-          <ScrollArea className="h-[280px]">
+          <ScrollArea className="h-[400px] scrollbar-styled">
             <Table>
               <TableHeader>
                 <TableRow>
