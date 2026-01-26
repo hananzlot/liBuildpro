@@ -315,20 +315,6 @@ export function AIAnalysisSettings() {
               </p>
             </div>
 
-            <div className="border-t pt-6 space-y-2">
-              <Label className="text-base font-semibold">Estimate Generation Instructions</Label>
-              <p className="text-sm text-muted-foreground mb-2">
-                Custom instructions that guide how AI generates detailed estimates. These rules control line item structure, payment terms, and formatting.
-              </p>
-              <Textarea
-                value={estimateInstructions}
-                onChange={(e) => handleChange(setEstimateInstructions)(e.target.value)}
-                rows={20}
-                className="font-mono text-sm"
-                placeholder="Enter custom instructions for AI estimate generation..."
-              />
-            </div>
-
             <div className="space-y-2">
               <Label>Negative Signals (Customer Unreachable)</Label>
               <Textarea
@@ -341,6 +327,20 @@ export function AIAnalysisSettings() {
               <p className="text-xs text-muted-foreground">
                 These signals indicate unreachability, but ONLY count if they are the MOST RECENT activity.
               </p>
+            </div>
+
+            <div className="border-t pt-6 space-y-2">
+              <Label className="text-base font-semibold">Estimate Generation Instructions</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Custom instructions that guide how AI generates detailed estimates. These rules control line item structure, payment terms, and formatting.
+              </p>
+              <Textarea
+                value={estimateInstructions}
+                onChange={(e) => handleChange(setEstimateInstructions)(e.target.value)}
+                rows={20}
+                className="font-mono text-sm"
+                placeholder="Enter custom instructions for AI estimate generation..."
+              />
             </div>
 
             <div className="flex items-center gap-2">
