@@ -460,32 +460,44 @@ export function AppointmentDetailSheet({
 
   // Toggle salesperson confirmed
   const handleToggleSalespersonConfirmed = async () => {
-    if (!appointment?.ghl_id) return;
+    // Support both ghl_id and id (for Google/local appointments)
+    const appointmentId = appointment?.id || appointment?.ghl_id;
+    if (!appointmentId) return;
+    
     setIsUpdatingSalespersonConfirmed(true);
     const oldValue = salespersonConfirmed;
     try {
       const newValue = !salespersonConfirmed;
-      const { error } = await supabase
+      
+      // Use id (UUID) if available, otherwise fall back to ghl_id
+      let query = supabase
         .from("appointments")
         .update({
           salesperson_confirmed: newValue,
           salesperson_confirmed_at: newValue ? new Date().toISOString() : null,
           edited_by: user?.id || null,
           edited_at: new Date().toISOString(),
-        })
-        .eq("ghl_id", appointment.ghl_id);
+        });
+      
+      if (appointment?.id) {
+        query = query.eq("id", appointment.id);
+      } else if (appointment?.ghl_id) {
+        query = query.eq("ghl_id", appointment.ghl_id);
+      }
+      
+      const { error } = await query;
 
       if (error) throw error;
 
-      // Record edit in appointment_edits table
+      // Record edit in appointment_edits table (ghl_id may be null for local/Google appointments)
       await supabase.from("appointment_edits").insert({
-        appointment_ghl_id: appointment.ghl_id,
-        contact_ghl_id: appointment.contact_id,
+        appointment_ghl_id: appointment?.ghl_id || appointment?.id || "unknown",
+        contact_ghl_id: appointment?.contact_id,
         field_name: "salesperson_confirmed",
         old_value: String(oldValue),
         new_value: String(newValue),
         edited_by: user?.id || null,
-        location_id: appointment.location_id,
+        location_id: appointment?.location_id,
         company_id: companyId,
       });
 
