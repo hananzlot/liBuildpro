@@ -1062,6 +1062,15 @@ const Calendar = () => {
   const opportunities = metrics?.allOpportunities || [];
   const users = metrics?.users || [];
 
+  // Auto-refresh every 2 minutes when on this screen
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      refetch();
+    }, 2 * 60 * 1000); // 2 minutes
+
+    return () => clearInterval(intervalId);
+  }, [refetch]);
+
   // Keep selectedAppointment in sync with the latest data from appointments array
   useEffect(() => {
     if (selectedAppointment && appointments.length > 0) {
