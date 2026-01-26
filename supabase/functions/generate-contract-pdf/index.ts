@@ -189,7 +189,7 @@ serve(async (req) => {
     };
 
     // HEADER
-    page.drawText(companyName, {
+    page.drawText(sanitizeLine(companyName), {
       x: margin,
       y: yPos,
       size: 24,
@@ -199,11 +199,11 @@ serve(async (req) => {
     yPos -= 20;
 
     if (companyAddress) {
-      page.drawText(companyAddress, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      page.drawText(sanitizeLine(companyAddress), { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
       yPos -= 14;
     }
     if (companyPhone) {
-      page.drawText(companyPhone, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      page.drawText(sanitizeLine(companyPhone), { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
       yPos -= 14;
     }
     yPos -= 10;
@@ -233,18 +233,18 @@ serve(async (req) => {
     // Customer Info
     page.drawText('CUSTOMER INFORMATION', { x: margin, y: yPos, size: 10, font: helveticaBold, color: gray });
     yPos -= 16;
-    page.drawText(estimate.customer_name || '', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+    page.drawText(sanitizeLine(estimate.customer_name || ''), { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
     yPos -= 14;
     if (estimate.customer_email) {
-      page.drawText(estimate.customer_email, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      page.drawText(sanitizeLine(estimate.customer_email), { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
       yPos -= 12;
     }
     if (estimate.customer_phone) {
-      page.drawText(estimate.customer_phone, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      page.drawText(sanitizeLine(estimate.customer_phone), { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
       yPos -= 12;
     }
     if (estimate.billing_address) {
-      page.drawText(estimate.billing_address, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      page.drawText(sanitizeLine(estimate.billing_address), { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
       yPos -= 12;
     }
     yPos -= 10;
@@ -252,16 +252,16 @@ serve(async (req) => {
     // Project Details
     page.drawText('PROJECT DETAILS', { x: margin, y: yPos, size: 10, font: helveticaBold, color: gray });
     yPos -= 16;
-    page.drawText(estimate.estimate_title || '', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+    page.drawText(sanitizeLine(estimate.estimate_title || ''), { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
     yPos -= 14;
     if (estimate.job_address) {
-      page.drawText(`Address: ${estimate.job_address}`, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      page.drawText(sanitizeLine(`Address: ${estimate.job_address}`), { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
       yPos -= 12;
     }
     page.drawText(`Date: ${formatDate(estimate.estimate_date)}`, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
     yPos -= 12;
     if (estimate.salesperson_name) {
-      page.drawText(`Sales Rep: ${estimate.salesperson_name}`, { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
+      page.drawText(sanitizeLine(`Sales Rep: ${estimate.salesperson_name}`), { x: margin, y: yPos, size: 10, font: helvetica, color: gray });
       yPos -= 12;
     }
     if (estimate.signed_at) {
@@ -303,7 +303,7 @@ serve(async (req) => {
           height: 20,
           color: lightGray,
         });
-        page.drawText(group.group_name, { x: margin + 5, y: yPos, size: 11, font: helveticaBold, color: black });
+        page.drawText(sanitizeLine(group.group_name), { x: margin + 5, y: yPos, size: 11, font: helveticaBold, color: black });
         yPos -= 25;
 
         const groupItems = lineItems.filter((item: any) => item.group_id === group.id);
@@ -339,13 +339,13 @@ serve(async (req) => {
           checkNewPage(20);
           
           // Truncate description if too long - allow longer desc if not showing details
-          let desc = item.description || '';
+          let desc = sanitizeLine(item.description || '');
           const maxDescLength = showDetails ? 45 : 70;
           if (desc.length > maxDescLength) desc = desc.substring(0, maxDescLength - 3) + '...';
           
           page.drawText(desc, { x: margin + 5, y: yPos, size: 9, font: helvetica, color: black });
           if (showDetails) {
-            page.drawText(`${item.quantity} ${item.unit || ''}`, { x: rightEdge - totalColWidth - unitPriceColWidth - qtyColWidth, y: yPos, size: 9, font: helvetica, color: black });
+            page.drawText(sanitizeLine(`${item.quantity} ${item.unit || ''}`), { x: rightEdge - totalColWidth - unitPriceColWidth - qtyColWidth, y: yPos, size: 9, font: helvetica, color: black });
             // Right-align unit price
             const unitPriceText = formatCurrency(item.unit_price);
             const unitPriceWidth = helvetica.widthOfTextAtSize(unitPriceText, 9);
@@ -432,7 +432,7 @@ serve(async (req) => {
       const paymentRightEdge = width - margin;
       for (const phase of paymentSchedule) {
         checkNewPage(20);
-        page.drawText(phase.phase_name, { x: margin + 5, y: yPos, size: 10, font: helvetica, color: black });
+        page.drawText(sanitizeLine(phase.phase_name), { x: margin + 5, y: yPos, size: 10, font: helvetica, color: black });
         page.drawText(`${phase.percent}%`, { x: margin + 300, y: yPos, size: 10, font: helvetica, color: black });
         // Right-align payment amount
         const paymentAmtText = formatCurrency((estimate.total * phase.percent) / 100);
@@ -501,7 +501,7 @@ serve(async (req) => {
         yPos -= 20;
 
         if (sig.signature_type === 'typed') {
-          page.drawText(sig.signature_data, { x: margin + 10, y: yPos, size: 24, font: helveticaBold, color: black });
+          page.drawText(sanitizeLine(sig.signature_data), { x: margin + 10, y: yPos, size: 24, font: helveticaBold, color: black });
           yPos -= 25;
         } else if (sig.signature_type === 'drawn' && sig.signature_data) {
           // Embed the actual drawn signature image
@@ -538,10 +538,10 @@ serve(async (req) => {
           yPos -= 20;
         }
 
-        page.drawText(`Signed by: ${sig.signer_name}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+        page.drawText(sanitizeLine(`Signed by: ${sig.signer_name}`), { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
         yPos -= 12;
         if (sig.signer_email) {
-          page.drawText(`Email: ${sig.signer_email}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
+          page.drawText(sanitizeLine(`Email: ${sig.signer_email}`), { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
           yPos -= 12;
         }
         page.drawText(`Date: ${formatDate(sig.signed_at)}`, { x: margin + 10, y: yPos, size: 9, font: helvetica, color: gray });
