@@ -783,9 +783,11 @@ export function SourceDetailSheet({
                         className="p-3 rounded-lg border bg-card hover:bg-muted/30 cursor-pointer transition-colors"
                         onClick={() => handleOpportunityClick(opp)}
                       >
-                        {/* Row 1: Stage Badge + Value + Opportunity Name + Status */}
+                        {/* Row 1: Name + Stage Badge + Value + Status */}
                         <div className="flex items-center gap-2 mb-1.5">
-                          {/* Left side: Stage dropdown + Value */}
+                          {/* Left: Opportunity Name (truncated) */}
+                          <span className="font-medium text-sm truncate flex-1 min-w-0">{opp.name || "Unnamed"}</span>
+                          {/* Middle: Stage dropdown + Value */}
                           <div className="flex items-center gap-1.5 shrink-0">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -820,12 +822,10 @@ export function SourceDetailSheet({
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
-                            <span className="font-mono text-xs font-semibold text-emerald-500">
+                            <span className="font-mono text-xs font-semibold text-emerald-600">
                               {formatCurrency(opp.monetary_value)}
                             </span>
                           </div>
-                          {/* Middle: Opportunity Name (truncated) */}
-                          <span className="font-medium text-sm truncate flex-1 min-w-0">{opp.name || "Unnamed"}</span>
                           {/* Right side: Status + Chevron */}
                           <div className="flex items-center gap-1.5 shrink-0">
                             <Badge variant="outline" className={`text-xs ${getStatusColor(opp.status)}`}>
