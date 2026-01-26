@@ -116,7 +116,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Handle clone mode (creating new estimate from declined one)
   const isCloneMode = estimateId?.startsWith("clone:");
   const sourceEstimateId = isCloneMode ? estimateId.replace("clone:", "") : estimateId;
-  const isEditing = !!estimateId && !isCloneMode;
+  
+  // Track the current estimate ID (updated after first save for new estimates)
+  const [currentEstimateId, setCurrentEstimateId] = useState<string | null>(sourceEstimateId || null);
+  
+  // Reset currentEstimateId when dialog opens with a different estimateId
+  useEffect(() => {
+    if (open) {
+      setCurrentEstimateId(sourceEstimateId || null);
+    }
+  }, [open, sourceEstimateId]);
+  
+  // isEditing is true if we have a current estimate ID (either from prop or after first save)
+  const isEditing = !!currentEstimateId && !isCloneMode;
 
   // Form state
   const [formData, setFormData] = useState<EstimateFormData>({
@@ -790,22 +802,22 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       // Only set status for new estimates (not when editing)
       const insertData = isEditing ? estimateData : { ...estimateData, status: "draft" as const };
 
-      let savedEstimateId = sourceEstimateId;
+      let savedEstimateId = currentEstimateId;
 
-      if (isEditing && sourceEstimateId) {
+      if (isEditing && currentEstimateId) {
         // Update existing estimate - scope by company_id for security
         const { error: updateError } = await supabase
           .from("estimates")
           .update(estimateData)
-          .eq("id", sourceEstimateId)
+          .eq("id", currentEstimateId)
           .eq("company_id", companyId);
         if (updateError) throw updateError;
 
         // Delete existing line items, groups, and schedule - scope by company_id
         // Must delete line items first since they reference groups
-        await supabase.from("estimate_line_items").delete().eq("estimate_id", sourceEstimateId).eq("company_id", companyId);
-        await supabase.from("estimate_groups").delete().eq("estimate_id", sourceEstimateId).eq("company_id", companyId);
-        await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", sourceEstimateId).eq("company_id", companyId);
+        await supabase.from("estimate_line_items").delete().eq("estimate_id", currentEstimateId).eq("company_id", companyId);
+        await supabase.from("estimate_groups").delete().eq("estimate_id", currentEstimateId).eq("company_id", companyId);
+        await supabase.from("estimate_payment_schedule").delete().eq("estimate_id", currentEstimateId).eq("company_id", companyId);
       } else {
         // Create new estimate (including clone mode - creates a brand new estimate with new number)
         const { data: newEstimate, error: insertError } = await supabase
@@ -985,7 +997,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       return savedEstimateId;
     },
-    onSuccess: () => {
+    onSuccess: (savedEstimateId: string | null) => {
+      // Update the current estimate ID so subsequent saves update instead of creating new
+      if (savedEstimateId && !currentEstimateId) {
+        setCurrentEstimateId(savedEstimateId);
+      }
       queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
       queryClient.invalidateQueries({ queryKey: ["opportunities"] });
       toast.success(isEditing ? "Estimate updated successfully!" : "Estimate created successfully!");
