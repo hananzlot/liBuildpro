@@ -777,10 +777,19 @@ export function AppointmentDetailSheet({
       // Update contact name if changed
       const originalName = contactName;
       if (editContactName.trim() !== originalName) {
+        // Split name into first and last name for the edge function
+        const nameParts = editContactName.trim().split(/\s+/);
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+        
         const { error: nameError } = await supabase.functions.invoke("update-contact-name", {
           body: { 
             contactId: contact.ghl_id, 
-            name: editContactName.trim()
+            firstName,
+            lastName,
+            editedBy: user?.id || null,
+            opportunityGhlId: primaryOpportunity?.ghl_id || null,
+            companyId: companyId,
           },
         });
         if (nameError) throw nameError;
