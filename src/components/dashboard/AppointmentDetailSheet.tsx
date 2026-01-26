@@ -1003,7 +1003,7 @@ export function AppointmentDetailSheet({
                 ) : (
                   <>
                     {/* Display Name */}
-                    <div className="font-medium text-foreground">
+                    <div className="text-base font-semibold text-foreground">
                       {capitalizeContactName(contactName)}
                     </div>
                     {/* Display Address */}
@@ -1117,7 +1117,7 @@ export function AppointmentDetailSheet({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{primaryOpportunity.name || "Untitled"}</p>
+                    <p className="text-base font-semibold text-foreground truncate">{primaryOpportunity.name || "Untitled"}</p>
                     <p className="text-xs text-muted-foreground">{primaryOpportunity.pipeline_name}</p>
                   </div>
                   <span className="text-sm font-bold text-primary shrink-0">

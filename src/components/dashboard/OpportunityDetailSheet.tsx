@@ -2003,7 +2003,7 @@ export function OpportunityDetailSheet({
                     setEditedOppName(savedOppName || opportunity.name || "");
                     setIsEditingOppName(true);
                   }}
-                  className="text-lg font-semibold text-foreground hover:underline text-left"
+                  className="text-base font-semibold text-foreground hover:underline text-left"
                 >
                   {savedOppName || opportunity.name || "Untitled Opportunity"}
                 </button>
