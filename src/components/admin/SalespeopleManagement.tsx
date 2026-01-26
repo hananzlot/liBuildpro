@@ -596,7 +596,7 @@ export function SalespeopleManagement() {
                                 size="icon"
                                 className="h-8 w-8"
                                 onClick={() => generatePortalLink(person)}
-                                disabled={isGenerating || !person.ghl_user_id}
+                                disabled={isGenerating}
                               >
                                 {isGenerating ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -610,11 +610,7 @@ export function SalespeopleManagement() {
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              {!person.ghl_user_id 
-                                ? 'Link to calendar user first' 
-                                : hasToken 
-                                  ? 'Copy portal link' 
-                                  : 'Generate portal link'}
+                              {hasToken ? 'Copy portal link' : 'Generate portal link'}
                             </TooltipContent>
                           </Tooltip>
                           <Button
