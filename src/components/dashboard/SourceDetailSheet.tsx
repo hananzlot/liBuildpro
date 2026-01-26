@@ -362,7 +362,14 @@ export function SourceDetailSheet({
     }
 
     if (stageFilter !== "all") {
-      opps = opps.filter(o => o.stage_name === stageFilter);
+      // Use includes() for "no contact" and "no answer" to match the count logic
+      if (stageFilter === "no contact") {
+        opps = opps.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted"));
+      } else if (stageFilter === "no answer") {
+        opps = opps.filter(o => o.stage_name?.toLowerCase().includes("no answer") || o.stage_name?.toLowerCase().includes("never answer"));
+      } else {
+        opps = opps.filter(o => o.stage_name === stageFilter);
+      }
     }
     
     if (searchFilter.trim()) {
