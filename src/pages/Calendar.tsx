@@ -352,7 +352,7 @@ function CalendarView({
                   <div className="space-y-0.5 overflow-hidden">
                     {dayAppointments.slice(0, 3).map((appt) => (
                       <div
-                        key={appt.ghl_id}
+                        key={appt.id || appt.ghl_id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
@@ -437,7 +437,7 @@ function CalendarView({
                     const repName = userMap.get(appt.assigned_user_id || "") || "Unassigned";
                     return (
                       <div
-                        key={appt.ghl_id}
+                        key={appt.id || appt.ghl_id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
@@ -813,7 +813,7 @@ function WeekView({
                   <div className="space-y-1 overflow-hidden">
                     {dayAppointments.map((appt) => (
                       <div
-                        key={appt.ghl_id}
+                        key={appt.id || appt.ghl_id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
@@ -892,7 +892,7 @@ function WeekView({
                     const repName = userMap.get(appt.assigned_user_id || "") || "Unassigned";
                     return (
                       <div
-                        key={appt.ghl_id}
+                        key={appt.id || appt.ghl_id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, appt)}
                         onDragEnd={handleDragEnd}
@@ -1639,7 +1639,7 @@ const Calendar = () => {
                           
                           return (
                             <div
-                              key={appt.ghl_id}
+                              key={appt.id || appt.ghl_id}
                               onClick={() => handleAppointmentClick(appt)}
                               className="p-3 rounded-lg border bg-card hover:bg-muted/40 cursor-pointer transition-colors"
                             >
