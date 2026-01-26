@@ -215,7 +215,6 @@ serve(async (req) => {
             </div>
             
             <div class="content">
-              <p>Dear ${customerName},</p>
               ${signerNote}
               ${salesRepNote}
               
