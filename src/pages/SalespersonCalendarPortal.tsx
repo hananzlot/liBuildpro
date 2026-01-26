@@ -104,7 +104,7 @@ export default function SalespersonCalendarPortal() {
   const touchEndX = useRef<number | null>(null);
   const minSwipeDistance = 50;
 
-  // Validate token and get salesperson info
+  // Validate token and get salesperson info - cache for faster subsequent loads
   const { data: tokenData, isLoading: tokenLoading, error: tokenError } = useQuery({
     queryKey: ["salesperson-portal-token", token],
     queryFn: async () => {
@@ -140,12 +140,14 @@ export default function SalespersonCalendarPortal() {
       return data;
     },
     enabled: !!token,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 
   const salesperson = tokenData?.salespeople;
   const company = tokenData?.companies;
 
-  // Fetch appointments for this salesperson
+  // Fetch appointments for this salesperson - with caching for fast reloads
   const { data: appointments = [], isLoading: appointmentsLoading } = useQuery({
     queryKey: ["salesperson-portal-appointments", salesperson?.id, salesperson?.company_id],
     queryFn: async () => {
@@ -175,9 +177,11 @@ export default function SalespersonCalendarPortal() {
       return data as Appointment[];
     },
     enabled: !!salesperson?.id && !!salesperson?.company_id,
+    staleTime: 2 * 60 * 1000, // 2 minutes - appointments change more frequently
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
-  // Fetch contacts for appointment names
+  // Fetch contacts for appointment names - cache longer since names rarely change
   const { data: contacts = [] } = useQuery({
     queryKey: ["salesperson-portal-contacts", salesperson?.company_id],
     queryFn: async () => {
@@ -192,6 +196,8 @@ export default function SalespersonCalendarPortal() {
       return data as Contact[];
     },
     enabled: !!salesperson?.company_id,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 
   // Fetch opportunities for scope of work
@@ -209,6 +215,8 @@ export default function SalespersonCalendarPortal() {
       return data as Opportunity[];
     },
     enabled: !!salesperson?.company_id,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
   const contactMap = useMemo(() => {

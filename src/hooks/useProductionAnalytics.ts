@@ -137,9 +137,16 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return data;
     },
     enabled: !!companyId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
-  // Fetch all financial data
+  // Fetch all financial data - with optimized caching
+  const financialCacheOptions = {
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+  };
+
   const { data: agreements = [] } = useQuery({
     queryKey: ["analytics-agreements", companyId],
     queryFn: async () => {
@@ -151,6 +158,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return data;
     },
     enabled: !!companyId,
+    ...financialCacheOptions,
   });
 
   const { data: invoices = [] } = useQuery({
@@ -167,6 +175,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return data;
     },
     enabled: !!companyId,
+    ...financialCacheOptions,
   });
 
   const { data: payments = [] } = useQuery({
@@ -180,6 +189,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return data;
     },
     enabled: !!companyId,
+    ...financialCacheOptions,
   });
 
   const { data: bills = [] } = useQuery({
@@ -193,6 +203,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return data;
     },
     enabled: !!companyId,
+    ...financialCacheOptions,
   });
 
   const { data: billPayments = [] } = useQuery({
@@ -206,6 +217,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return data;
     },
     enabled: !!companyId,
+    ...financialCacheOptions,
   });
 
   const { data: commissionPayments = [] } = useQuery({
@@ -219,6 +231,7 @@ export function useProductionAnalytics(filters: AnalyticsFilters) {
       return data;
     },
     enabled: !!companyId,
+    ...financialCacheOptions,
   });
 
   // Get unique salespeople

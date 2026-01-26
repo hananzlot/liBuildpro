@@ -105,7 +105,7 @@ export default function Estimates() {
     setSearchParams({ view });
   };
 
-  // Fetch estimates
+  // Fetch estimates - with optimized caching for faster navigation
   const { data: estimates, isLoading } = useQuery({
     queryKey: ["estimates", companyId],
     queryFn: async () => {
@@ -120,6 +120,8 @@ export default function Estimates() {
       return data as Estimate[];
     },
     enabled: !!companyId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
   });
 
   // Delete mutation

@@ -24,7 +24,7 @@ export default function ClientPortal() {
   const token = searchParams.get('token');
   const estimateToken = searchParams.get('estimate_token');
 
-  // Handle multi-signer estimate token
+  // Handle multi-signer estimate token - cache for 10 min to speed up portal loads
   const { data: estimateTokenData, isLoading: isLoadingEstimateToken, error: estimateTokenError } = useQuery({
     queryKey: ['estimate-portal-token', estimateToken],
     queryFn: async () => {
@@ -39,6 +39,8 @@ export default function ClientPortal() {
       return data;
     },
     enabled: !!estimateToken,
+    staleTime: 10 * 60 * 1000, // 10 minutes - portal data is relatively static
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 
   // Handle legacy client portal token using secure RPC function
@@ -53,6 +55,8 @@ export default function ClientPortal() {
       return data;
     },
     enabled: !!token && !estimateToken,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 
   const isLoading = isLoadingEstimateToken || isLoadingToken;
