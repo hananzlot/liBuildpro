@@ -123,6 +123,7 @@ export function WonOpportunitiesSheet({
   onOpportunityClick,
 }: WonOpportunitiesSheetProps) {
   const [sourceFilter, setSourceFilter] = useState("");
+  const [repFilter, setRepFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [sortColumn, setSortColumn] = useState<"contact" | "address" | "source" | "rep" | "value" | "date">("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -135,6 +136,24 @@ export function WonOpportunitiesSheet({
 
   const contactMap = new Map<string, DBContact>();
   contacts.forEach((c) => contactMap.set(c.ghl_id, c));
+
+  // Get unique salespeople with counts for filter chips
+  const repCounts = useMemo(() => {
+    const counts = new Map<string, { name: string; count: number; value: number }>();
+    opportunities.forEach((opp) => {
+      const repId = opp.assigned_to || "unassigned";
+      const repName = opp.assigned_to ? userMap.get(opp.assigned_to) || "Unknown" : "Unassigned";
+      if (!counts.has(repId)) {
+        counts.set(repId, { name: repName, count: 0, value: 0 });
+      }
+      const entry = counts.get(repId)!;
+      entry.count++;
+      entry.value += opp.monetary_value || 0;
+    });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1].value - a[1].value)
+      .slice(0, 5); // Top 5 reps
+  }, [opportunities, userMap]);
 
   const filteredOpportunities = useMemo(() => {
     let result = [...opportunities];
@@ -154,6 +173,11 @@ export function WonOpportunitiesSheet({
       });
     }
 
+    // Apply rep filter
+    if (repFilter !== "all") {
+      result = result.filter((opp) => (opp.assigned_to || "unassigned") === repFilter);
+    }
+
     if (!sourceFilter.trim()) return result;
 
     const searchTerm = sourceFilter.toLowerCase().trim();
@@ -163,7 +187,7 @@ export function WonOpportunitiesSheet({
       const words = source.split(/\s+/);
       return words.some((word) => word.startsWith(searchTerm)) || source.startsWith(searchTerm);
     });
-  }, [opportunities, sourceFilter, contactMap, dateRange]);
+  }, [opportunities, sourceFilter, repFilter, contactMap, dateRange]);
 
   const totalValue = filteredOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
@@ -318,9 +342,25 @@ export function WonOpportunitiesSheet({
             <Trophy className="h-5 w-5 text-primary" />
             Won Opportunities
           </SheetTitle>
-          <SheetDescription>
-            {filteredOpportunities.length} deals • {formatCurrency(totalValue)} total value
-          </SheetDescription>
+          <div className="flex flex-wrap items-center gap-1 text-sm mt-1">
+            <button
+              onClick={() => setRepFilter("all")}
+              className={`px-2 py-0.5 rounded-md transition-colors ${repFilter === "all" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              All: <span className="font-medium">{opportunities.length}</span>
+            </button>
+            {repCounts.map(([repId, { name, count, value }]) => (
+              <button
+                key={repId}
+                onClick={() => setRepFilter(repId)}
+                className={`px-2 py-0.5 rounded-md transition-colors ${repFilter === repId ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:bg-muted"}`}
+                title={formatCurrency(value)}
+              >
+                {name.split(" ")[0]}: <span className="font-medium">{count}</span>
+              </button>
+            ))}
+            <span className="text-muted-foreground ml-2">• {formatCurrency(totalValue)} value</span>
+          </div>
         </SheetHeader>
 
         {/* Controls Row */}

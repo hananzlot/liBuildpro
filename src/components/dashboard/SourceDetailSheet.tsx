@@ -460,36 +460,54 @@ export function SourceDetailSheet({
                 </div>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Opportunities: </span>
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-sm">
+                <button
+                  onClick={() => { setStatusFilter("all"); setStageFilter("all"); }}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "all" && stageFilter === "all" ? "bg-primary/20 text-primary" : "hover:bg-muted"}`}
+                >
+                  <span className="text-muted-foreground">All: </span>
                   <span className="font-medium">{sourceOpportunities.length}</span>
-                </div>
-                <div>
+                </button>
+                <button
+                  onClick={() => { setStatusFilter("open"); setStageFilter("all"); }}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "open" ? "bg-blue-500/20 text-blue-400" : "hover:bg-muted"}`}
+                >
                   <span className="text-muted-foreground">Open: </span>
                   <span className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "open").length}</span>
-                </div>
-                <div>
+                </button>
+                <button
+                  onClick={() => { setStatusFilter("all"); setStageFilter("no contact"); }}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${stageFilter === "no contact" ? "bg-amber-500/20 text-amber-400" : "hover:bg-muted"}`}
+                >
                   <span className="text-muted-foreground">No Contact: </span>
                   <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted")).length}</span>
-                </div>
-                <div>
+                </button>
+                <button
+                  onClick={() => { setStatusFilter("all"); setStageFilter("no answer"); }}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${stageFilter === "no answer" ? "bg-amber-500/20 text-amber-400" : "hover:bg-muted"}`}
+                >
                   <span className="text-muted-foreground">No Answer: </span>
                   <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no answer") || o.stage_name?.toLowerCase().includes("never answer")).length}</span>
-                </div>
-                <div>
+                </button>
+                <div className="px-2 py-0.5">
                   <span className="text-muted-foreground">Appointments: </span>
                   <span className="font-medium">{uniqueAppointmentsCount}</span>
                 </div>
-                <div>
+                <button
+                  onClick={() => { setStatusFilter("lost"); setStageFilter("all"); }}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "lost" ? "bg-red-500/20 text-red-400" : "hover:bg-muted"}`}
+                >
                   <span className="text-muted-foreground">Lost: </span>
                   <span className="font-medium text-red-400">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "lost").length}</span>
-                </div>
-                <div>
+                </button>
+                <button
+                  onClick={() => { setStatusFilter("won"); setStageFilter("all"); }}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "won" ? "bg-emerald-500/20 text-emerald-400" : "hover:bg-muted"}`}
+                >
                   <span className="text-muted-foreground">Won: </span>
                   <span className="font-medium text-emerald-400">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</span>
-                </div>
-                <div>
+                </button>
+                <div className="px-2 py-0.5">
                   <span className="text-muted-foreground">Won Value: </span>
                   <span className="font-medium text-emerald-400">{formatCurrency(wonValue)}</span>
                 </div>

@@ -108,6 +108,7 @@ export function OpportunitiesSheet({
   onOpportunityClick,
 }: OpportunitiesSheetProps) {
   const [searchFilter, setSearchFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const userMap = new Map<string, string>();
   users.forEach((u) => {
@@ -118,23 +119,41 @@ export function OpportunitiesSheet({
   const contactMap = new Map<string, DBContact>();
   contacts.forEach((c) => contactMap.set(c.ghl_id, c));
 
-  const filteredOpportunities = useMemo(() => {
-    if (!searchFilter.trim()) return opportunities;
+  // Calculate status counts
+  const statusCounts = useMemo(() => ({
+    all: opportunities.length,
+    open: opportunities.filter(o => o.status?.toLowerCase() === "open").length,
+    won: opportunities.filter(o => o.status?.toLowerCase() === "won").length,
+    lost: opportunities.filter(o => o.status?.toLowerCase() === "lost").length,
+  }), [opportunities]);
 
-    const searchTerm = searchFilter.toLowerCase().trim();
-    return opportunities.filter((opp) => {
-      const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
-      const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
-      const source = contact?.source || "";
-      const oppName = opp.name || "";
-      
-      return (
-        contactName.toLowerCase().includes(searchTerm) ||
-        source.toLowerCase().includes(searchTerm) ||
-        oppName.toLowerCase().includes(searchTerm)
-      );
-    });
-  }, [opportunities, searchFilter, contactMap]);
+  const filteredOpportunities = useMemo(() => {
+    let filtered = opportunities;
+    
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(o => o.status?.toLowerCase() === statusFilter);
+    }
+    
+    // Apply search filter
+    if (searchFilter.trim()) {
+      const searchTerm = searchFilter.toLowerCase().trim();
+      filtered = filtered.filter((opp) => {
+        const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
+        const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim();
+        const source = contact?.source || "";
+        const oppName = opp.name || "";
+        
+        return (
+          contactName.toLowerCase().includes(searchTerm) ||
+          source.toLowerCase().includes(searchTerm) ||
+          oppName.toLowerCase().includes(searchTerm)
+        );
+      });
+    }
+    
+    return filtered;
+  }, [opportunities, searchFilter, statusFilter, contactMap]);
 
   const totalValue = filteredOpportunities.reduce((sum, o) => sum + (o.monetary_value || 0), 0);
 
@@ -146,9 +165,33 @@ export function OpportunitiesSheet({
             <DollarSign className="h-5 w-5 text-primary" />
             Opportunities
           </SheetTitle>
-          <SheetDescription>
-            {filteredOpportunities.length} opportunities • {formatCurrency(totalValue)} total value
-          </SheetDescription>
+          <div className="flex flex-wrap items-center gap-1 text-sm mt-1">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "all" ? "bg-primary/20 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              All: <span className="font-medium">{statusCounts.all}</span>
+            </button>
+            <button
+              onClick={() => setStatusFilter("open")}
+              className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "open" ? "bg-blue-500/20 text-blue-400" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              Open: <span className="font-medium">{statusCounts.open}</span>
+            </button>
+            <button
+              onClick={() => setStatusFilter("won")}
+              className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "won" ? "bg-emerald-500/20 text-emerald-400" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              Won: <span className="font-medium">{statusCounts.won}</span>
+            </button>
+            <button
+              onClick={() => setStatusFilter("lost")}
+              className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "lost" ? "bg-red-500/20 text-red-400" : "text-muted-foreground hover:bg-muted"}`}
+            >
+              Lost: <span className="font-medium">{statusCounts.lost}</span>
+            </button>
+            <span className="text-muted-foreground ml-2">• {formatCurrency(totalValue)} value</span>
+          </div>
         </SheetHeader>
 
         <div className="mt-4 relative">
