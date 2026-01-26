@@ -13,6 +13,12 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -26,12 +32,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Megaphone, User, Calendar, Search, ChevronRight, Clock, Plus, CheckSquare } from "lucide-react";
+import { Megaphone, User, Calendar, Search, ChevronRight, Clock, Plus, CheckSquare, MapPin, Phone, FileText, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { findContactByIdOrGhlId } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -74,6 +82,8 @@ interface Opportunity {
   pipeline_name: string | null;
   pipeline_id: string | null;
   pipeline_stage_id: string | null;
+  address: string | null;
+  scope_of_work: string | null;
 }
 
 interface Appointment {
@@ -134,6 +144,9 @@ export function SourceDetailSheet({
   showNoAppointments = false,
   userId,
 }: SourceDetailSheetProps) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("date");
@@ -150,6 +163,9 @@ export function SourceDetailSheet({
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskDueTime, setTaskDueTime] = useState("");
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  
+  // Stage change state
+  const [updatingStageForOpp, setUpdatingStageForOpp] = useState<string | null>(null);
 
   // Reset filters when sheet opens - default to "all" status
   useEffect(() => {
@@ -424,6 +440,53 @@ export function SourceDetailSheet({
     setOppSheetOpen(true);
   };
 
+  // Build available stages from all opportunities
+  const allAvailableStages = useMemo(() => {
+    const stageSet = new Set<string>();
+    opportunities.forEach(o => {
+      if (o.stage_name) stageSet.add(o.stage_name);
+    });
+    return Array.from(stageSet).sort();
+  }, [opportunities]);
+
+  // Handle inline stage change
+  const handleStageChange = async (opp: Opportunity, newStageName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!opp.ghl_id || newStageName === opp.stage_name) return;
+    
+    setUpdatingStageForOpp(opp.ghl_id);
+    try {
+      // Build stage map from opportunities
+      const stageMapForPipeline = new Map<string, string>();
+      opportunities.forEach(o => {
+        if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === opp.pipeline_id) {
+          stageMapForPipeline.set(o.stage_name, o.pipeline_stage_id);
+        }
+      });
+      const newStageId = stageMapForPipeline.get(newStageName) || "";
+      
+      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+        body: {
+          ghl_id: opp.ghl_id,
+          stage_name: newStageName,
+          pipeline_stage_id: newStageId,
+          edited_by: user?.id || null
+        }
+      });
+      
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      toast.success("Stage updated");
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+    } catch (error) {
+      console.error("Error updating stage:", error);
+      toast.error("Failed to update stage");
+    } finally {
+      setUpdatingStageForOpp(null);
+    }
+  };
+
   if (!source) return null;
 
   return (
@@ -626,13 +689,33 @@ export function SourceDetailSheet({
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </div>
                         </div>
-                        {/* Pipeline Stage and Sales Rep */}
+                        {/* Pipeline Stage (clickable) and Sales Rep */}
                         <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                          {opp.stage_name && (
-                            <Badge variant="secondary" className="text-xs font-normal">
-                              {opp.stage_name}
-                            </Badge>
-                          )}
+                          {/* Clickable Stage Badge */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Badge 
+                                variant="secondary" 
+                                className="text-xs font-normal cursor-pointer hover:bg-secondary/80 transition-colors"
+                              >
+                                {updatingStageForOpp === opp.ghl_id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : null}
+                                {opp.stage_name || "No Stage"}
+                              </Badge>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+                              {allAvailableStages.map((stage) => (
+                                <DropdownMenuItem
+                                  key={stage}
+                                  onClick={(e) => handleStageChange(opp, stage, e)}
+                                  className={opp.stage_name === stage ? "bg-accent" : ""}
+                                >
+                                  {stage}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           {(() => {
                             const assignedUser = users.find(u => u.ghl_id === opp.assigned_to);
                             const repName = assignedUser?.name || 
@@ -653,6 +736,38 @@ export function SourceDetailSheet({
                             </Badge>
                           )}
                         </div>
+                        
+                        {/* Contact Details: Address, Phone, Scope */}
+                        <div className="space-y-1 text-xs text-muted-foreground mb-2">
+                          {/* Phone */}
+                          {contact?.phone && (
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="h-3 w-3 shrink-0" />
+                              <a 
+                                href={`tel:${contact.phone}`} 
+                                className="text-primary hover:underline truncate"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {contact.phone}
+                              </a>
+                            </div>
+                          )}
+                          {/* Address */}
+                          {opp.address && (
+                            <div className="flex items-start gap-1.5">
+                              <MapPin className="h-3 w-3 shrink-0 mt-0.5" />
+                              <span className="truncate">{opp.address}</span>
+                            </div>
+                          )}
+                          {/* Scope of Work */}
+                          {opp.scope_of_work && (
+                            <div className="flex items-start gap-1.5">
+                              <FileText className="h-3 w-3 shrink-0 mt-0.5" />
+                              <span className="line-clamp-2">{opp.scope_of_work}</span>
+                            </div>
+                          )}
+                        </div>
+                        
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</span>
                           {opp.ghl_date_added && (
