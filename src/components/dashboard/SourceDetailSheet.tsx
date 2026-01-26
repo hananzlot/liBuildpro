@@ -181,8 +181,6 @@ export function SourceDetailSheet({
   const [updatingStageForOpp, setUpdatingStageForOpp] = useState<string | null>(null);
   const [configuredStages, setConfiguredStages] = useState<string[]>([]);
 
-  const settingsCompanyId =
-    authCompanyId || opportunities[0]?.company_id || filteredContacts[0]?.company_id || null;
 
   const normalizePipelineStages = useCallback((rawSettingValue: string): string[] => {
     // company_settings.setting_value might be a JSON array string (preferred)
@@ -219,30 +217,51 @@ export function SourceDetailSheet({
       // Always reset when opening to avoid showing stages from a previous company context
       setConfiguredStages([]);
 
-      // Use the effective company context from AuthContext (super-admin switcher aware)
-      const companyId = settingsCompanyId;
-      if (!companyId) return;
+      // Derive company ID from multiple sources for robustness
+      const companyId = authCompanyId || 
+        opportunities[0]?.company_id || 
+        filteredOpportunities[0]?.company_id ||
+        filteredContacts[0]?.company_id || 
+        null;
       
-      const { data } = await supabase
+      console.log("[SourceDetailSheet] Fetching pipeline stages for company:", companyId);
+      
+      if (!companyId) {
+        console.warn("[SourceDetailSheet] No company ID available to fetch pipeline stages");
+        return;
+      }
+      
+      const { data, error } = await supabase
         .from("company_settings")
         .select("setting_value")
         .eq("company_id", companyId)
         .eq("setting_key", "pipeline_stages")
         .maybeSingle();
       
+      if (error) {
+        console.error("[SourceDetailSheet] Error fetching pipeline stages:", error);
+        return;
+      }
+      
+      console.log("[SourceDetailSheet] Pipeline stages response:", data);
+      
       if (data?.setting_value) {
         try {
-          setConfiguredStages(normalizePipelineStages(data.setting_value));
+          const stages = normalizePipelineStages(data.setting_value);
+          console.log("[SourceDetailSheet] Parsed pipeline stages:", stages);
+          setConfiguredStages(stages);
         } catch (e) {
           console.error("Failed to parse pipeline_stages:", e);
         }
+      } else {
+        console.warn("[SourceDetailSheet] No pipeline_stages setting found for company:", companyId);
       }
     };
     
     if (open) {
       fetchConfiguredStages();
     }
-  }, [open, settingsCompanyId, normalizePipelineStages]);
+  }, [open, authCompanyId, opportunities, filteredOpportunities, filteredContacts, normalizePipelineStages]);
 
   // Reset filters when sheet opens - default to "all" status
   useEffect(() => {
