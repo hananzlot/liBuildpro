@@ -53,23 +53,39 @@ interface SheetContentProps
   hideCloseButton?: boolean;
 }
 
+const shouldPreventDismissOnWindowBlur = () => {
+  // When the user switches browser tabs/windows, Radix can treat it as an
+  // outside interaction and dismiss the sheet. We only want to block dismiss
+  // in that scenario (not on normal outside clicks).
+  if (typeof document === "undefined") return false;
+  return document.visibilityState === "hidden" || !document.hasFocus();
+};
+
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, hideCloseButton, ...props }, ref) => (
+  ({ side = "right", className, children, hideCloseButton, onFocusOutside, onInteractOutside, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
         ref={ref}
         className={cn(sheetVariants({ side }), className)}
-        // Prevent closing on any outside interaction - require explicit X click
-        onFocusOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
+        // Keep sheets open when the browser tab loses focus (Radix considers this
+        // a "focus outside" interaction and will dismiss by default).
+        onFocusOutside={(e) => {
+          onFocusOutside?.(e);
+          if (!e.defaultPrevented) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          onInteractOutside?.(e);
+          if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur()) {
+            e.preventDefault();
+          }
+        }}
         {...props}
       >
         {children}
         {!hideCloseButton && (
-          <SheetPrimitive.Close className="absolute right-4 top-4 rounded-md bg-muted p-2 text-foreground ring-offset-background transition-all hover:bg-destructive hover:text-destructive-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-            <X className="h-5 w-5" />
+          <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+            <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>
         )}
