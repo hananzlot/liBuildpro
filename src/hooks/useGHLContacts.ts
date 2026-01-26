@@ -265,8 +265,45 @@ async function fetchOpportunitiesFromDB(companyId?: string | null): Promise<DBOp
 }
 
 async function fetchAppointmentsFromDB(companyId?: string | null): Promise<DBAppointment[]> {
-  // Include all locations - GHL Location 2 has equal priority
-  return fetchAllFromTable("appointments", "start_time", undefined, companyId) as Promise<DBAppointment[]>;
+  // Optimize: Only fetch appointments from last 6 months to 3 months ahead
+  // This significantly reduces initial load time for the calendar
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  
+  const threeMonthsAhead = new Date();
+  threeMonthsAhead.setMonth(threeMonthsAhead.getMonth() + 3);
+
+  const allItems: DBAppointment[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    let query = supabase
+      .from("appointments")
+      .select("*")
+      .gte("start_time", sixMonthsAgo.toISOString())
+      .lte("start_time", threeMonthsAhead.toISOString())
+      .order("start_time", { ascending: false });
+    
+    if (companyId) {
+      query = query.eq("company_id", companyId);
+    }
+    
+    const { data, error } = await query.range(from, from + pageSize - 1);
+
+    if (error) throw new Error(error.message);
+
+    if (data && data.length > 0) {
+      allItems.push(...data);
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allItems;
 }
 
 async function fetchUsersFromDB(companyId?: string | null): Promise<DBUser[]> {
