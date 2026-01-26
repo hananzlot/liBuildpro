@@ -71,6 +71,7 @@ import {
   MessageSquare,
   Calculator,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { EstimateBuilderDialog } from "@/components/estimates/EstimateBuilderDialog";
 import type { LinkedOpportunity } from "@/components/estimates/EstimateSourceDialog";
@@ -140,8 +141,10 @@ export function ScopeSubmissionsManagement() {
   const [selectedSubmission, setSelectedSubmission] = useState<ScopeSubmission | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [declineNotes, setDeclineNotes] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Estimate builder dialog state
   const [estimateDialogOpen, setEstimateDialogOpen] = useState(false);
@@ -197,6 +200,25 @@ export function ScopeSubmissionsManagement() {
     },
     onError: (error) => {
       toast.error(`Failed to update: ${error.message}`);
+    },
+  });
+
+  // Delete submission mutation
+  const deleteSubmissionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("scope_submissions")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scope_submissions"] });
+      toast.success("Submission deleted");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete: ${error.message}`);
     },
   });
 
@@ -304,6 +326,19 @@ export function ScopeSubmissionsManagement() {
       setDeclineNotes("");
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedSubmission) return;
+    setIsDeleting(true);
+    try {
+      await deleteSubmissionMutation.mutateAsync(selectedSubmission.id);
+      setDeleteDialogOpen(false);
+      setDetailDialogOpen(false);
+      setSelectedSubmission(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -611,6 +646,17 @@ export function ScopeSubmissionsManagement() {
                             <Calculator className="h-4 w-4" />
                           </Button>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            setSelectedSubmission(submission);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -762,6 +808,14 @@ export function ScopeSubmissionsManagement() {
           )}
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
             {selectedSubmission?.status !== "declined" && selectedSubmission?.status !== "proposal_sent" && (
               <>
                 <Button
@@ -836,6 +890,37 @@ export function ScopeSubmissionsManagement() {
                 <XCircle className="h-4 w-4 mr-1" />
               )}
               Decline
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              Delete Scope Submission
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this scope submission from{" "}
+              <strong>{selectedSubmission?.customer_name}</strong>? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-1" />
+              )}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
