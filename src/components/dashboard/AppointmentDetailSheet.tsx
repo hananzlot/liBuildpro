@@ -257,6 +257,12 @@ export function AppointmentDetailSheet({
     address?: string;
   } | null>(null);
 
+  // Work scope editing state
+  const [isEditingScope, setIsEditingScope] = useState(false);
+  const [editScopeValue, setEditScopeValue] = useState("");
+  const [isSavingScope, setIsSavingScope] = useState(false);
+  const [optimisticScope, setOptimisticScope] = useState<string | null>(null);
+
   const queryClient = useQueryClient();
 
   const contact = appointment ? findContactByIdOrGhlId(contacts, appointment.contact_uuid, appointment.contact_id) : null;
@@ -276,6 +282,11 @@ export function AppointmentDetailSheet({
     appointment?.address,
     primaryOpportunity?.address,
   ]);
+
+  // Reset optimistic scope when opportunity changes
+  useEffect(() => {
+    setOptimisticScope(null);
+  }, [primaryOpportunity?.ghl_id]);
 
   // Fetch conversations
   const fetchConversations = async () => {
@@ -924,6 +935,46 @@ export function AppointmentDetailSheet({
     }
   };
 
+  // Start editing work scope
+  const startEditingScope = () => {
+    setEditScopeValue(optimisticScope ?? primaryOpportunity?.scope_of_work ?? "");
+    setIsEditingScope(true);
+  };
+
+  // Cancel editing work scope
+  const cancelEditingScope = () => {
+    setIsEditingScope(false);
+    setEditScopeValue("");
+  };
+
+  // Save work scope
+  const handleSaveScope = async () => {
+    if (!primaryOpportunity?.ghl_id) return;
+    setIsSavingScope(true);
+    try {
+      const { error } = await supabase.functions.invoke("update-opportunity-scope", {
+        body: {
+          opportunityGhlId: primaryOpportunity.ghl_id,
+          scopeOfWork: editScopeValue.trim(),
+          editedBy: user?.id || null,
+          companyId: companyId,
+        },
+      });
+      if (error) throw error;
+
+      setOptimisticScope(editScopeValue.trim());
+      setIsEditingScope(false);
+      toast.success("Work scope updated");
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error updating work scope:", error);
+      toast.error("Failed to update work scope");
+    } finally {
+      setIsSavingScope(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl overflow-y-auto p-0">
@@ -1155,18 +1206,75 @@ export function AppointmentDetailSheet({
                     {(primaryOpportunity.status || "open").toUpperCase()}
                   </Badge>
                 </div>
-                {/* Work Scope */}
-                {primaryOpportunity.scope_of_work && (
-                  <div className="mt-3 pt-3 border-t">
-                    <div className="flex items-start gap-2">
-                      <Briefcase className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Work Scope</p>
-                        <p className="text-sm text-foreground whitespace-pre-wrap">{primaryOpportunity.scope_of_work}</p>
+                {/* Work Scope - Always show, with inline editing */}
+                <div className="mt-3 pt-3 border-t" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-start gap-2">
+                    <Briefcase className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-medium text-muted-foreground">Work Scope</p>
+                        {!isEditingScope ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditingScope();
+                            }}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 text-xs px-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                cancelEditingScope();
+                              }}
+                              disabled={isSavingScope}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              className="h-5 text-xs px-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSaveScope();
+                              }}
+                              disabled={isSavingScope}
+                            >
+                              {isSavingScope ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                              Save
+                            </Button>
+                          </div>
+                        )}
                       </div>
+                      {isEditingScope ? (
+                        <Textarea
+                          value={editScopeValue}
+                          onChange={(e) => setEditScopeValue(e.target.value)}
+                          placeholder="Enter work scope..."
+                          className="text-sm min-h-[60px]"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <p className={`text-sm whitespace-pre-wrap ${
+                          (optimisticScope ?? primaryOpportunity.scope_of_work) 
+                            ? "text-foreground" 
+                            : "text-muted-foreground/60 italic"
+                        }`}>
+                          {(optimisticScope ?? primaryOpportunity.scope_of_work) || "Missing - click to add"}
+                        </p>
+                      )}
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}
