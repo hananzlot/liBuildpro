@@ -92,6 +92,7 @@ interface Opportunity {
   stage_name: string | null;
   contact_id: string | null;
   address?: string | null;
+  scope_of_work?: string | null;
 }
 
 interface CustomField {
@@ -1142,6 +1143,18 @@ export function AppointmentDetailSheet({
                     {(primaryOpportunity.status || "open").toUpperCase()}
                   </Badge>
                 </div>
+                {/* Work Scope */}
+                {primaryOpportunity.scope_of_work && (
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="flex items-start gap-2">
+                      <Briefcase className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Work Scope</p>
+                        <p className="text-sm text-foreground whitespace-pre-wrap">{primaryOpportunity.scope_of_work}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
