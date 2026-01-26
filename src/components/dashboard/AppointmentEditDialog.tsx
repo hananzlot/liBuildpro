@@ -35,6 +35,7 @@ const getPSTOffset = (utcDate: Date): number => {
 const APPOINTMENT_STATUSES = ["new", "confirmed", "cancelled", "no_show", "showed"] as const;
 
 interface Appointment {
+  id?: string;
   ghl_id: string;
   title: string | null;
   appointment_status: string | null;
@@ -293,7 +294,7 @@ export function AppointmentEditDialog({
     setIsDeleting(true);
     try {
       const { data, error } = await supabase.functions.invoke("delete-ghl-appointment", {
-        body: { appointmentId: appointment.ghl_id },
+        body: { appointmentId: appointment.ghl_id, appointmentUuid: appointment.id },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);

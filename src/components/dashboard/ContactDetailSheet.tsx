@@ -205,8 +205,8 @@ export function ContactDetailSheet({
     `${assignedUser?.first_name || ''} ${assignedUser?.last_name || ''}`.trim() || 
     null;
 
-  const relatedOpportunities = opportunities.filter(opp => opp.contact_id === contact.ghl_id);
-  const relatedAppointments = appointments.filter(apt => apt.contact_id === contact.ghl_id);
+  const relatedOpportunities = opportunities.filter(opp => opp.contact_id === contact.ghl_id || opp.contact_id === contact.id);
+  const relatedAppointments = appointments.filter(apt => apt.contact_id === contact.ghl_id || apt.contact_id === contact.id);
 
   const address = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
   const scopeFromCustomField = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
@@ -508,7 +508,7 @@ export function ContactDetailSheet({
 
           {/* Conversations / SMS */}
           {(() => {
-            const relatedConversations = conversations.filter(c => c.contact_id === contact.ghl_id);
+            const relatedConversations = conversations.filter(c => c.contact_id === contact.ghl_id || c.contact_id === contact.id);
             return (
               <Collapsible open={openSections.conversations} onOpenChange={() => toggleSection('conversations')}>
                 <div className="border rounded-lg overflow-hidden">

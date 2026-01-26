@@ -42,27 +42,45 @@ serve(async (req) => {
   }
 
   try {
-    const { contactId, firstName, lastName, editedBy, opportunityGhlId, companyId } = await req.json();
+    const { contactId, contactUuid, firstName, lastName, editedBy, opportunityGhlId, companyId } = await req.json();
 
-    if (!contactId) {
+    if (!contactId && !contactUuid) {
       return new Response(
-        JSON.stringify({ error: "contactId is required" }),
+        JSON.stringify({ error: "contactId or contactUuid is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Updating name for contact ${contactId} to: ${firstName} ${lastName}`);
+    console.log(`Updating name for contact ${contactId || contactUuid} to: ${firstName} ${lastName}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch contact to get location_id and current name
-    const { data: contact, error: contactError } = await supabase
-      .from("contacts")
-      .select("location_id, first_name, last_name, contact_name")
-      .eq("ghl_id", contactId)
-      .single();
+    // Fetch contact - try by ghl_id first, then by UUID
+    let contact = null;
+    let contactError = null;
+    
+    if (contactId) {
+      const result = await supabase
+        .from("contacts")
+        .select("id, ghl_id, location_id, first_name, last_name, contact_name")
+        .eq("ghl_id", contactId)
+        .maybeSingle();
+      contact = result.data;
+      contactError = result.error;
+    }
+    
+    // Fallback to UUID if ghl_id lookup failed
+    if (!contact && contactUuid) {
+      const result = await supabase
+        .from("contacts")
+        .select("id, ghl_id, location_id, first_name, last_name, contact_name")
+        .eq("id", contactUuid)
+        .maybeSingle();
+      contact = result.data;
+      contactError = result.error;
+    }
 
     if (contactError || !contact) {
       console.error("Contact lookup error:", contactError);
@@ -105,7 +123,7 @@ serve(async (req) => {
       console.log("Skipping GHL sync - credentials not configured or local-only contact");
     }
 
-    // Update Supabase
+    // Update Supabase using UUID (more reliable than ghl_id)
     await supabase
       .from("contacts")
       .update({ 
@@ -114,7 +132,7 @@ serve(async (req) => {
         contact_name: newName || null,
         updated_at: new Date().toISOString() 
       })
-      .eq("ghl_id", contactId);
+      .eq("id", contact.id);
 
     // Track the edit if value changed
     if (oldName !== newName && opportunityGhlId) {

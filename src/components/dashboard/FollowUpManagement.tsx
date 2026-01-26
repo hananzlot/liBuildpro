@@ -882,7 +882,7 @@ export function FollowUpManagement({
       toast.error("Invalid stage selected");
       return;
     }
-    setUpdatingPipelineStageId(opportunity.ghl_id);
+    setUpdatingPipelineStageId(opportunity.id);
     try {
       const {
         data,
@@ -2816,9 +2816,9 @@ export function FollowUpManagement({
                             </TableCell>
                             <TableCell>{getUserName(row.appointment.assigned_user_id)}</TableCell>
                             <TableCell>
-                              {row.opportunity ? <Select value="" onValueChange={value => handleUpdatePipelineStage(row.opportunity!, value)} disabled={updatingPipelineStageId === row.opportunity.ghl_id}>
+                              {row.opportunity ? <Select value="" onValueChange={value => handleUpdatePipelineStage(row.opportunity!, value)} disabled={updatingPipelineStageId === row.opportunity.id}>
                                   <SelectTrigger className="w-[160px]" onClick={e => e.stopPropagation()}>
-                                    {updatingPipelineStageId === row.opportunity.ghl_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue placeholder={row.opportunity.stage_name || "Set stage"} />}
+                                    {updatingPipelineStageId === row.opportunity.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue placeholder={row.opportunity.stage_name || "Set stage"} />}
                                   </SelectTrigger>
                                   <SelectContent>
                                     {availableStages.map(stage => <SelectItem key={stage} value={stage}>
@@ -2828,9 +2828,9 @@ export function FollowUpManagement({
                                 </Select> : <span className="text-muted-foreground text-sm">-</span>}
                             </TableCell>
                             <TableCell>
-                              <Select value={row.appointment.appointment_status?.toLowerCase() || ""} onValueChange={value => handleUpdateAppointmentStatus(row.appointment.ghl_id, value)} disabled={updatingAppointmentId === row.appointment.ghl_id}>
+                              <Select value={row.appointment.appointment_status?.toLowerCase() || ""} onValueChange={value => handleUpdateAppointmentStatus(row.appointment.id, value)} disabled={updatingAppointmentId === row.appointment.id}>
                                 <SelectTrigger className="w-[130px]" onClick={e => e.stopPropagation()}>
-                                  {updatingAppointmentId === row.appointment.ghl_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue />}
+                                  {updatingAppointmentId === row.appointment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <SelectValue />}
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="confirmed">Confirmed</SelectItem>
