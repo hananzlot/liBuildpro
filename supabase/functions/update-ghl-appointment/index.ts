@@ -78,11 +78,14 @@ serve(async (req) => {
 
     const { 
       ghl_id, 
+      appointmentUuid, // Internal UUID - primary identifier for local/Google appointments
       appointment_status,
       status, // alias for appointment_status (from frontend)
       title,
-      startTime,  // ISO string in UTC
-      endTime,    // ISO string in UTC (optional)
+      startTime,  // ISO string in UTC (camelCase from some callers)
+      start_time, // ISO string in UTC (snake_case from Calendar.tsx)
+      endTime,    // ISO string in UTC (optional, camelCase)
+      end_time,   // ISO string in UTC (optional, snake_case)
       assignedUserId,
       address,
       notes,
@@ -91,26 +94,41 @@ serve(async (req) => {
       skipGHLSync = false, // If true, only update local DB (no GHL API call)
     } = await req.json();
     
-    // Support both 'status' and 'appointment_status' field names
+    // Support both naming conventions
     const effectiveStatus = appointment_status || status;
+    const effectiveStartTime = startTime || start_time;
+    const effectiveEndTime = endTime || end_time;
 
-    if (!ghl_id) {
-      return jsonResponse({ error: 'ghl_id is required' }, 400);
+    // Require at least one identifier
+    if (!ghl_id && !appointmentUuid) {
+      return jsonResponse({ error: 'Either ghl_id or appointmentUuid is required' }, 400);
     }
 
-    // Check if this is a local-only appointment (ghl_id starts with "local_")
-    const isLocalAppointment = ghl_id.startsWith('local_');
+    // Check if this is a local-only appointment (no ghl_id OR ghl_id starts with "local_")
+    const isLocalAppointment = !ghl_id || ghl_id.startsWith('local_');
 
     // If location_id not provided, look it up from the database
     let effectiveLocationId = location_id;
-    if (!effectiveLocationId) {
-      const { data: apptData } = await supabase
+    let resolvedGhlId = ghl_id;
+    
+    if (!effectiveLocationId || !resolvedGhlId) {
+      // Look up by either ghl_id or appointmentUuid
+      let query = supabase
         .from('appointments')
-        .select('location_id')
-        .eq('ghl_id', ghl_id)
-        .single();
+        .select('location_id, ghl_id');
       
-      effectiveLocationId = apptData?.location_id;
+      if (appointmentUuid) {
+        query = query.eq('id', appointmentUuid);
+      } else if (ghl_id) {
+        query = query.eq('ghl_id', ghl_id);
+      }
+      
+      const { data: apptData } = await query.single();
+      
+      if (apptData) {
+        effectiveLocationId = effectiveLocationId || apptData.location_id;
+        resolvedGhlId = resolvedGhlId || apptData.ghl_id;
+      }
     }
 
     // Build Supabase update payload
@@ -124,15 +142,15 @@ serve(async (req) => {
     if (title !== undefined) {
       supabaseUpdate.title = title;
     }
-    if (startTime !== undefined) {
-      supabaseUpdate.start_time = startTime;
-      if (endTime === undefined) {
-        const startDate = new Date(startTime);
+    if (effectiveStartTime !== undefined) {
+      supabaseUpdate.start_time = effectiveStartTime;
+      if (effectiveEndTime === undefined) {
+        const startDate = new Date(effectiveStartTime);
         supabaseUpdate.end_time = new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
       }
     }
-    if (endTime !== undefined) {
-      supabaseUpdate.end_time = endTime;
+    if (effectiveEndTime !== undefined) {
+      supabaseUpdate.end_time = effectiveEndTime;
     }
     if (assignedUserId !== undefined) {
       supabaseUpdate.assigned_user_id = assignedUserId;
@@ -149,12 +167,21 @@ serve(async (req) => {
 
     // Supabase-first: If skipGHLSync is true OR this is a local appointment, only update the local DB
     if (skipGHLSync || isLocalAppointment) {
-      console.log(`Updating appointment in Supabase: ${ghl_id}`);
+      const appointmentIdentifier = appointmentUuid || resolvedGhlId;
+      console.log(`Updating local/Google appointment in Supabase: ${appointmentIdentifier}`);
       
-      const { error: dbError } = await supabase
-        .from('appointments')
-        .update(supabaseUpdate)
-        .eq('ghl_id', ghl_id);
+      // Build query based on available identifier
+      let updateQuery = supabase.from('appointments').update(supabaseUpdate);
+      
+      if (appointmentUuid) {
+        updateQuery = updateQuery.eq('id', appointmentUuid);
+      } else if (resolvedGhlId) {
+        updateQuery = updateQuery.eq('ghl_id', resolvedGhlId);
+      } else {
+        return jsonResponse({ error: 'No valid identifier found for appointment' }, 400);
+      }
+      
+      const { error: dbError } = await updateQuery;
 
       if (dbError) {
         console.error('Error updating local appointment:', dbError);
