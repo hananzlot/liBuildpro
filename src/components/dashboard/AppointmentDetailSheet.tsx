@@ -913,7 +913,7 @@ export function AppointmentDetailSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-xl overflow-y-auto p-0">
-        {/* Header - Contact Details First */}
+        {/* Header - Contact Details Sticky */}
         <div className="sticky top-0 bg-background border-b p-4 z-10">
           <SheetHeader className="space-y-2">
             {/* Contact Details - Editable */}
@@ -921,7 +921,7 @@ export function AppointmentDetailSheet({
               <div className="bg-muted px-3 py-2 flex items-center justify-between border-b">
                 <div className="flex items-center gap-2">
                   <User className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Contact Details</span>
                 </div>
                 <div className="flex items-center gap-1">
                   {!isEditingContact ? (
@@ -1093,13 +1093,65 @@ export function AppointmentDetailSheet({
               </div>
             </div>
 
-            {/* Appointment Info Section */}
+          </SheetHeader>
+        </div>
+
+        {/* Scrollable Content - Opportunity, Appointment, Estimates */}
+        <div className="p-4 space-y-4">
+          {/* Opportunity Section */}
+          {primaryOpportunity && (
             <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted px-3 py-2 flex items-center justify-between border-b">
+              <div 
+                className={`bg-muted px-3 py-2 flex items-center justify-between border-b ${onOpenOpportunity ? "cursor-pointer hover:bg-muted/80 transition-colors" : ""}`}
+                onClick={() => onOpenOpportunity?.(primaryOpportunity)}
+              >
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Appointment</span>
+                  <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Opportunity</span>
                 </div>
+                {onOpenOpportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              </div>
+              <div 
+                className={`p-3 ${onOpenOpportunity ? "cursor-pointer hover:bg-muted/30 transition-colors" : ""}`}
+                onClick={() => onOpenOpportunity?.(primaryOpportunity)}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{primaryOpportunity.name || "Untitled"}</p>
+                    <p className="text-xs text-muted-foreground">{primaryOpportunity.pipeline_name}</p>
+                  </div>
+                  <span className="text-sm font-bold text-primary shrink-0">
+                    {formatCurrency(primaryOpportunity.monetary_value)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap mt-2">
+                  <Badge variant="outline" className="text-xs">
+                    {primaryOpportunity.stage_name || "No Stage"}
+                  </Badge>
+                  <Badge 
+                    variant="outline" 
+                    className={`text-xs ${
+                      primaryOpportunity.status === "won" 
+                        ? "bg-primary/20 text-primary border-primary/30"
+                        : primaryOpportunity.status === "lost" || primaryOpportunity.status === "abandoned"
+                        ? "bg-destructive/20 text-destructive border-destructive/30"
+                        : "bg-secondary text-secondary-foreground border-border"
+                    }`}
+                  >
+                    {(primaryOpportunity.status || "open").toUpperCase()}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Appointment Info Section */}
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-muted px-3 py-2 flex items-center justify-between border-b">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Appointment</span>
+              </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={openAppointmentEditDialog}>
                     <Pencil className="h-3.5 w-3.5" />
@@ -1183,59 +1235,12 @@ export function AppointmentDetailSheet({
               </div>
             </div>
 
-            {/* Opportunity Section */}
-            {primaryOpportunity && (
-              <div className="border rounded-lg overflow-hidden">
-                <div 
-                  className={`bg-muted px-3 py-2 flex items-center justify-between border-b ${onOpenOpportunity ? "cursor-pointer hover:bg-muted/80 transition-colors" : ""}`}
-                  onClick={() => onOpenOpportunity?.(primaryOpportunity)}
-                >
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Opportunity</span>
-                  </div>
-                  {onOpenOpportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                </div>
-                <div 
-                  className={`p-3 ${onOpenOpportunity ? "cursor-pointer hover:bg-muted/30 transition-colors" : ""}`}
-                  onClick={() => onOpenOpportunity?.(primaryOpportunity)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{primaryOpportunity.name || "Untitled"}</p>
-                      <p className="text-xs text-muted-foreground">{primaryOpportunity.pipeline_name}</p>
-                    </div>
-                    <span className="text-sm font-bold text-primary shrink-0">
-                      {formatCurrency(primaryOpportunity.monetary_value)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap mt-2">
-                    <Badge variant="outline" className="text-xs">
-                      {primaryOpportunity.stage_name || "No Stage"}
-                    </Badge>
-                    <Badge 
-                      variant="outline" 
-                      className={`text-xs ${
-                        primaryOpportunity.status === "won" 
-                          ? "bg-primary/20 text-primary border-primary/30"
-                          : primaryOpportunity.status === "lost" || primaryOpportunity.status === "abandoned"
-                          ? "bg-destructive/20 text-destructive border-destructive/30"
-                          : "bg-secondary text-secondary-foreground border-border"
-                      }`}
-                    >
-                      {(primaryOpportunity.status || "open").toUpperCase()}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Estimates & Proposals Section */}
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-muted px-3 py-2 flex items-center justify-between border-b">
                 <div className="flex items-center gap-2">
                   <FileCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estimates & Proposals</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estimates & Proposals</span>
                   <Badge variant="secondary" className="text-xs">
                     {estimates.length}
                   </Badge>
@@ -1280,7 +1285,6 @@ export function AppointmentDetailSheet({
                 )}
               </div>
             </div>
-          </SheetHeader>
         </div>
 
         <div className="p-4 space-y-4">
