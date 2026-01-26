@@ -1384,9 +1384,11 @@ const Calendar = () => {
       const newTitle = (appt.title || "Appointment") + titleSuffix;
       
       // Update appointment (saves to Supabase, syncs to GHL if connected)
+      // Pass both ghl_id and appointmentUuid for flexibility
       const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
         body: {
           ghl_id: appt.ghl_id,
+          appointmentUuid: appt.id, // Internal UUID for local/Google appointments
           start_time: newStartTime.toISOString(),
           end_time: newEndTime?.toISOString(),
           title: newTitle,
@@ -1395,7 +1397,7 @@ const Calendar = () => {
 
       if (ghlError) throw ghlError;
 
-      // Update in Supabase with edit tracking
+      // Update in Supabase with edit tracking (using internal ID as primary)
       const { error } = await supabase
         .from("appointments")
         .update({ 
@@ -1405,15 +1407,16 @@ const Calendar = () => {
           edited_by: user?.id || null,
           edited_at: new Date().toISOString(),
         })
-        .eq("ghl_id", appt.ghl_id);
+        .eq("id", appt.id); // Use internal UUID instead of ghl_id
 
       if (error) throw error;
 
-      // Record edits in appointment_edits table
+      // Record edits in appointment_edits table (use ghl_id or internal id)
+      const appointmentIdentifier = appt.ghl_id || appt.id;
       const editsToInsert = [];
       if (appt.start_time !== newStartTime.toISOString()) {
         editsToInsert.push({
-          appointment_ghl_id: appt.ghl_id,
+          appointment_ghl_id: appointmentIdentifier,
           contact_ghl_id: appt.contact_id,
           field_name: "start_time",
           old_value: appt.start_time,
@@ -1425,7 +1428,7 @@ const Calendar = () => {
       }
       if (appt.end_time !== newEndTime?.toISOString()) {
         editsToInsert.push({
-          appointment_ghl_id: appt.ghl_id,
+          appointment_ghl_id: appointmentIdentifier,
           contact_ghl_id: appt.contact_id,
           field_name: "end_time",
           old_value: appt.end_time || null,
