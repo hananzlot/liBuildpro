@@ -531,7 +531,7 @@ export function AppointmentDetailSheet({
     if (!appointment?.ghl_id) return;
     setIsUpdatingStatus(true);
     try {
-      // Update in GHL
+      // Update appointment (saves to Supabase, syncs to GHL if connected)
       const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
         body: { ghl_id: appointment.ghl_id, appointment_status: newStatus }
       });

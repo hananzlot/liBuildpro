@@ -462,12 +462,12 @@ export function AppointmentEditDialog({
             />
           </div>
 
-          {/* Local only indicator */}
+          {/* Sync status indicator */}
           <div className="pt-2 border-t border-border/50">
             <p className="text-xs text-muted-foreground">
               {appointment.ghl_id?.startsWith("local_") 
-                ? "✓ Local-only appointment (not synced to GHL)"
-                : "Synced to GHL"}
+                ? "✓ Saved locally"
+                : "✓ Synced"}
             </p>
           </div>
         </div>

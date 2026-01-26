@@ -643,7 +643,7 @@ export function UpcomingAppointmentsSheet({
     setUpdatingStatusId(appt.ghl_id);
     const oldStatus = localStatusState[appt.ghl_id] ?? appt.appointment_status;
     try {
-      // Update in GHL first
+      // Update appointment (saves to Supabase, syncs to GHL if connected)
       const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
         body: {
           ghl_id: appt.ghl_id,

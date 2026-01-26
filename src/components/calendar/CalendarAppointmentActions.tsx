@@ -125,13 +125,13 @@ export function CalendarAppointmentActions({
 
     setIsUpdatingStatus(true);
     try {
-      // If it's a GHL appointment, update GHL first
+      // Update appointment (saves to Supabase, syncs to GHL if connected)
       if (appointment?.ghl_id) {
         const { error: ghlError } = await supabase.functions.invoke("update-ghl-appointment", {
           body: { ghl_id: appointment.ghl_id, appointment_status: newStatus },
         });
         if (ghlError) {
-          console.warn("GHL update failed, updating local only:", ghlError);
+          console.warn("Sync failed, updating locally:", ghlError);
         }
       }
 
