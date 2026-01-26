@@ -1198,29 +1198,48 @@ export function AppointmentDetailSheet({
                 </div>
                 {/* Status badges + Sales Rep + Value on same line */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Select
-                    value={(localStatus || appointment.appointment_status) === 'noshow' ? 'no_show' : (localStatus || appointment.appointment_status || '')}
-                    onValueChange={handleUpdateStatusDirect}
-                    disabled={isUpdatingStatus}
-                  >
-                    <SelectTrigger className={`h-6 w-[100px] text-xs ${getStatusColor(localStatus || appointment.appointment_status)}`}>
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {APPOINTMENT_STATUSES.filter(s => s !== 'noshow').map((status) => (
-                        <SelectItem key={status} value={status} className="text-xs">
-                          {status === 'confirmed' ? 'Confirmed' : status === 'no_show' ? 'No Show' : status === 'new' ? 'New' : status.charAt(0).toUpperCase() + status.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Badge
-                    variant="outline"
-                    className={`text-xs h-6 px-2 inline-flex items-center gap-1 ${salespersonConfirmed ? "bg-primary/20 text-primary border-primary/30" : "bg-muted text-muted-foreground"}`}
-                  >
-                    <PhoneCall className="h-3 w-3" />
-                    {salespersonConfirmed ? "Rep Confirmed" : "Not Confirmed"}
-                  </Badge>
+                  {/* Customer Status - dropdown */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">Customer:</span>
+                    <Select
+                      value={(localStatus || appointment.appointment_status) === 'noshow' ? 'no_show' : (localStatus || appointment.appointment_status || '')}
+                      onValueChange={handleUpdateStatusDirect}
+                      disabled={isUpdatingStatus}
+                    >
+                      <SelectTrigger className={`h-6 w-[100px] text-xs ${getStatusColor(localStatus || appointment.appointment_status)}`}>
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {APPOINTMENT_STATUSES.filter(s => s !== 'noshow').map((status) => (
+                          <SelectItem key={status} value={status} className="text-xs">
+                            {status === 'confirmed' ? 'Confirmed' : status === 'no_show' ? 'No Show' : status === 'new' ? 'New' : status.charAt(0).toUpperCase() + status.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Sales Rep Confirmation - clickable toggle */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">Rep:</span>
+                    <button
+                      onClick={handleToggleSalespersonConfirmed}
+                      disabled={isUpdatingSalespersonConfirmed}
+                      className={`h-6 px-2 rounded-md border text-xs inline-flex items-center gap-1 transition-colors ${
+                        salespersonConfirmed 
+                          ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/30" 
+                          : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                      } ${isUpdatingSalespersonConfirmed ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    >
+                      {isUpdatingSalespersonConfirmed ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <PhoneCall className="h-3 w-3" />
+                      )}
+                      {salespersonConfirmed ? "Confirmed" : "Not Confirmed"}
+                    </button>
+                  </div>
+                  
                   <span className="text-xs text-muted-foreground">|</span>
                   <span className="text-xs font-medium">{userName}</span>
                   {primaryOpportunity && (
