@@ -281,6 +281,12 @@ export function OpportunityDetailSheet({
   const [isSavingName, setIsSavingName] = useState(false);
   const [savedContactName, setSavedContactName] = useState<string | null>(null);
 
+  // Opportunity name editing
+  const [isEditingOppName, setIsEditingOppName] = useState(false);
+  const [editedOppName, setEditedOppName] = useState("");
+  const [isSavingOppName, setIsSavingOppName] = useState(false);
+  const [savedOppName, setSavedOppName] = useState<string | null>(null);
+
   // Track if sheet was previously closed, to reset savedValues only on fresh open
   const [wasOpen, setWasOpen] = useState(false);
 
@@ -327,6 +333,7 @@ export function OpportunityDetailSheet({
     if (open && !wasOpen) {
       setSavedValues({});
       setSavedContactName(null);
+      setSavedOppName(null);
       setAssociatedProjectId(null);
       setSavedWonAt(null);
       setIsEditingWonAt(false);
@@ -1712,6 +1719,33 @@ export function OpportunityDetailSheet({
       setIsSavingName(false);
     }
   };
+
+  // Save opportunity name
+  const handleSaveOppName = async () => {
+    if (!opportunity?.ghl_id || !editedOppName.trim()) return;
+    setIsSavingOppName(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+        body: {
+          ghl_id: opportunity.ghl_id,
+          name: editedOppName.trim(),
+          edited_by: user?.id || null
+        }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("Opportunity name updated");
+      setIsEditingOppName(false);
+      setSavedOppName(editedOppName.trim());
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity_edits"] });
+    } catch (error) {
+      console.error("Error saving opportunity name:", error);
+      toast.error("Failed to save opportunity name");
+    } finally {
+      setIsSavingOppName(false);
+    }
+  };
   
   // Admin-only: Save won_at date (date only, no time)
   const handleSaveWonAt = async () => {
@@ -1945,6 +1979,36 @@ export function OpportunityDetailSheet({
         <div className="sticky top-0 bg-background border-b p-4">
           <SheetHeader>
             <SheetTitle className="text-sm font-medium text-muted-foreground">Opportunity Details</SheetTitle>
+            {/* Opportunity Name - Editable */}
+            <div className="mt-1">
+              {isEditingOppName ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={editedOppName}
+                    onChange={e => setEditedOppName(e.target.value)}
+                    placeholder="Opportunity name"
+                    className="h-8 text-base font-semibold"
+                    autoFocus
+                  />
+                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={handleSaveOppName} disabled={isSavingOppName || !editedOppName.trim()}>
+                    {isSavingOppName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setIsEditingOppName(false)}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setEditedOppName(savedOppName || opportunity.name || "");
+                    setIsEditingOppName(true);
+                  }}
+                  className="text-lg font-semibold text-foreground hover:underline text-left"
+                >
+                  {savedOppName || opportunity.name || "Untitled Opportunity"}
+                </button>
+              )}
+            </div>
           </SheetHeader>
           <div className="mt-2 flex items-center gap-2">
             {!isEditing ? <Button variant="outline" size="sm" className="h-7" onClick={handleEditClick}>
