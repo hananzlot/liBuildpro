@@ -592,7 +592,7 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
       </SheetHeader>
 
       <ScrollArea className="flex-1 py-3">
-        <div className="space-y-4 pr-2">
+        <div className="space-y-4 pr-2 max-w-full overflow-hidden">
           {/* Customer Info - Compact mobile layout */}
           <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
             <div className="flex items-center gap-2.5">
@@ -627,14 +627,16 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
           </div>
 
           {/* Scope Pricing Action Button */}
-          <Button 
-            onClick={() => setScopeDialogOpen(true)}
-            className="w-full max-w-full"
-            size="default"
-          >
-            <DollarSign className="h-4 w-4 mr-1.5 shrink-0" />
-            <span>Request Pricing</span>
-          </Button>
+          <div className="w-full max-w-full">
+            <Button 
+              onClick={() => setScopeDialogOpen(true)}
+              className="w-full"
+              size="default"
+            >
+              <DollarSign className="h-4 w-4 mr-1.5 shrink-0" />
+              <span className="truncate">Request Pricing</span>
+            </Button>
+          </div>
 
           {/* Time & Date - Compact */}
           <div className="flex items-start gap-2.5">
