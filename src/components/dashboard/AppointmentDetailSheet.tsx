@@ -241,6 +241,10 @@ export function AppointmentDetailSheet({
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   // Local status state to reflect changes immediately in UI
   const [localStatus, setLocalStatus] = useState<string | null>(null);
+  
+  // Salesperson assignment state
+  const [isUpdatingAssignee, setIsUpdatingAssignee] = useState(false);
+  const [localAssignedUserId, setLocalAssignedUserId] = useState<string | null>(null);
 
   // Contact editing state
   const [isEditingContact, setIsEditingContact] = useState(false);
@@ -462,11 +466,12 @@ export function AppointmentDetailSheet({
     }
   };
 
-  // Sync salesperson confirmed state and local status with appointment prop
+  // Sync salesperson confirmed state, local status, and assigned user with appointment prop
   useEffect(() => {
     if (appointment) {
       setSalespersonConfirmed(appointment.salesperson_confirmed || false);
       setLocalStatus(appointment.appointment_status || null);
+      setLocalAssignedUserId(appointment.assigned_user_id || null);
     }
   }, [appointment]);
 
@@ -562,6 +567,64 @@ export function AppointmentDetailSheet({
       toast.error("Failed to update status");
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  // Update assigned user directly from details card
+  const handleUpdateAssigneeDirect = async (newAssignedUserId: string) => {
+    const appointmentId = appointment?.id || appointment?.ghl_id;
+    if (!appointmentId) return;
+    
+    const effectiveUserId = newAssignedUserId === "__unassigned__" ? null : newAssignedUserId;
+    
+    setIsUpdatingAssignee(true);
+    try {
+      // Update via edge function (syncs to GHL if connected)
+      if (appointment?.ghl_id) {
+        const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
+          body: { ghl_id: appointment.ghl_id, assignedUserId: effectiveUserId }
+        });
+        if (ghlError) {
+          console.warn("GHL sync failed, updating locally:", ghlError);
+        }
+      }
+
+      // Update in Supabase with edit tracking
+      let query = supabase
+        .from('appointments')
+        .update({ 
+          assigned_user_id: effectiveUserId, 
+          edited_by: user?.id || null,
+          edited_at: new Date().toISOString(),
+        });
+      
+      if (appointment?.id) {
+        query = query.eq('id', appointment.id);
+      } else if (appointment?.ghl_id) {
+        query = query.eq('ghl_id', appointment.ghl_id);
+      }
+      
+      const { error: dbError } = await query;
+      if (dbError) throw dbError;
+
+      // Update local state immediately so UI reflects change
+      setLocalAssignedUserId(effectiveUserId);
+      
+      queryClient.invalidateQueries({ queryKey: ["appointments"] });
+      
+      const assignedUserName = effectiveUserId 
+        ? users.find(u => u.ghl_id === effectiveUserId)?.name || 
+          users.find(u => u.ghl_id === effectiveUserId)?.first_name || 
+          "Assigned"
+        : "Unassigned";
+      toast.success(`Assigned to ${assignedUserName}`);
+      
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error updating assigned user:', error);
+      toast.error("Failed to update assignee");
+    } finally {
+      setIsUpdatingAssignee(false);
     }
   };
 
@@ -750,7 +813,9 @@ export function AppointmentDetailSheet({
     }).format(value);
   };
 
-  const assignedUser = users.find((u) => u.ghl_id === appointment.assigned_user_id);
+  // Use local state for assigned user to reflect changes immediately
+  const effectiveAssignedUserId = localAssignedUserId ?? appointment.assigned_user_id;
+  const assignedUser = users.find((u) => u.ghl_id === effectiveAssignedUserId);
 
   const userName =
     assignedUser?.name ||
@@ -1401,8 +1466,39 @@ export function AppointmentDetailSheet({
                     </button>
                   </div>
                   
-                  <span className="text-xs text-muted-foreground">|</span>
-                  <span className="text-xs font-medium">{userName}</span>
+                  {/* Assigned Sales Rep - inline dropdown */}
+                  <div className="flex items-center gap-1">
+                    <User className="h-3 w-3 text-muted-foreground" />
+                    <Select
+                      value={effectiveAssignedUserId || "__unassigned__"}
+                      onValueChange={handleUpdateAssigneeDirect}
+                      disabled={isUpdatingAssignee}
+                    >
+                      <SelectTrigger className="h-6 w-[120px] text-xs border-dashed">
+                        {isUpdatingAssignee ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <SelectValue placeholder="Assign..." />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover">
+                        <SelectItem value="__unassigned__" className="text-xs">
+                          Unassigned
+                        </SelectItem>
+                        {[...users]
+                          .sort((a, b) => {
+                            const nameA = (a.name || `${a.first_name || ""} ${a.last_name || ""}`.trim() || a.email || "Unknown").toLowerCase();
+                            const nameB = (b.name || `${b.first_name || ""} ${b.last_name || ""}`.trim() || b.email || "Unknown").toLowerCase();
+                            return nameA.localeCompare(nameB);
+                          })
+                          .map((u) => (
+                            <SelectItem key={u.ghl_id} value={u.ghl_id} className="text-xs">
+                              {u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Unknown"}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {primaryOpportunity && (
                     <>
                       <span className="text-xs text-muted-foreground">|</span>
