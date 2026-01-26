@@ -40,6 +40,7 @@ interface Appointment {
   end_time: string | null;
   google_event_id: string | null;
   updated_at: string;
+  edited_at: string | null;
 }
 
 interface FieldMapping {
@@ -669,23 +670,59 @@ async function importFromGoogle(supabase: any, connection: CalendarConnection, a
 
 // deno-lint-ignore no-explicit-any
 async function exportToGoogle(supabase: any, connection: CalendarConnection, accessToken: string) {
+  // Export appointments that are:
+  // 1. Not originally from Google (sync_source != 'google')
+  // 2. Either new (no google_event_id) OR recently edited (edited_at or updated_at > last_sync_at)
   let query = supabase.from('appointments').select('*').eq('company_id', connection.company_id).neq('sync_source', 'google');
-  if (connection.last_sync_at) query = query.or(`google_event_id.is.null,updated_at.gt.${connection.last_sync_at}`);
-  else query = query.is('google_event_id', null);
+  
+  if (connection.last_sync_at) {
+    // Include appointments that:
+    // - Have no google_event_id (new), OR
+    // - Have updated_at > last_sync_at (recently modified), OR
+    // - Have edited_at > last_sync_at (user explicitly edited - catches drag-and-drop)
+    query = query.or(`google_event_id.is.null,updated_at.gt.${connection.last_sync_at},edited_at.gt.${connection.last_sync_at}`);
+  } else {
+    query = query.is('google_event_id', null);
+  }
 
   const { data: appointments } = await query;
   let exported = 0;
+  console.log(`Found ${appointments?.length || 0} appointments to export to Google`);
 
   for (const apt of (appointments as Appointment[]) || []) {
-    const eventData = { summary: apt.title || 'Appointment', description: apt.notes || '', location: apt.address || '', start: { dateTime: apt.start_time, timeZone: 'America/Los_Angeles' }, end: { dateTime: apt.end_time || apt.start_time, timeZone: 'America/Los_Angeles' } };
+    const eventData = { 
+      summary: apt.title || 'Appointment', 
+      description: apt.notes || '', 
+      location: apt.address || '', 
+      start: { dateTime: apt.start_time, timeZone: 'America/Los_Angeles' }, 
+      end: { dateTime: apt.end_time || apt.start_time, timeZone: 'America/Los_Angeles' } 
+    };
 
-    const url = apt.google_event_id ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(connection.calendar_id)}/events/${apt.google_event_id}` : `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(connection.calendar_id)}/events`;
-    const response = await fetch(url, { method: apt.google_event_id ? 'PUT' : 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(eventData) });
+    const url = apt.google_event_id 
+      ? `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(connection.calendar_id)}/events/${apt.google_event_id}` 
+      : `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(connection.calendar_id)}/events`;
+    
+    console.log(`Exporting appointment ${apt.id} to Google: ${apt.google_event_id ? 'UPDATE' : 'CREATE'}`);
+    
+    const response = await fetch(url, { 
+      method: apt.google_event_id ? 'PUT' : 'POST', 
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(eventData) 
+    });
 
     if (response.ok) {
       const createdEvent = await response.json();
-      await supabase.from('appointments').update({ google_event_id: createdEvent.id, google_calendar_id: connection.calendar_id, sync_source: 'local' }).eq('id', apt.id);
+      // Clear edited_at after successful export to prevent re-exporting
+      await supabase.from('appointments').update({ 
+        google_event_id: createdEvent.id, 
+        google_calendar_id: connection.calendar_id, 
+        sync_source: 'local',
+        last_synced_at: new Date().toISOString()
+      }).eq('id', apt.id);
       exported++;
+      console.log(`Exported appointment ${apt.id} to Google event ${createdEvent.id}`);
+    } else {
+      console.error(`Failed to export appointment ${apt.id}:`, await response.text());
     }
   }
   return exported;
