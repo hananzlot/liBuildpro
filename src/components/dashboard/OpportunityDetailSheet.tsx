@@ -376,6 +376,23 @@ export function OpportunityDetailSheet({
     fetchProjectAndEstimates();
   }, [open, opportunity?.ghl_id, opportunity?.id, companyId]);
 
+  // Fetch active salespeople for the assignment dropdown
+  const { data: activeSalespeople = [] } = useQuery({
+    queryKey: ["active-salespeople-for-assignment", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name, ghl_user_id")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+  });
+
   // Filter users to primary location only and deduplicate by ghl_id
   const filteredUsers = useMemo(() => {
     const seen = new Set<string>();
@@ -3132,19 +3149,26 @@ export function OpportunityDetailSheet({
       </Dialog>
 
       {/* Appointment Edit Dialog - using shared component */}
-      <AppointmentEditDialog appointment={editingAppointment} open={appointmentEditDialogOpen} onOpenChange={open => {
-      setAppointmentEditDialogOpen(open);
-      if (!open) {
-        setEditingAppointment(null);
-      }
-    }} users={users} calendars={activeCalendars.map(c => ({
-      ...c,
-      is_active: true
-    }))} contactId={opportunity?.contact_id} locationId={opportunity?.location_id || "pVeFrqvtYWNIPRIi0Fmr"} showCalendarSelect showRescheduleCheckbox onSuccess={() => {
-      setEditingAppointment(null);
-    }} onDelete={() => {
-      setEditingAppointment(null);
-    }} />
+      <AppointmentEditDialog 
+        appointment={editingAppointment} 
+        open={appointmentEditDialogOpen} 
+        onOpenChange={open => {
+          setAppointmentEditDialogOpen(open);
+          if (!open) {
+            setEditingAppointment(null);
+          }
+        }} 
+        salespeople={activeSalespeople}
+        contactId={opportunity?.contact_id} 
+        locationId={opportunity?.location_id || "pVeFrqvtYWNIPRIi0Fmr"} 
+        showRescheduleCheckbox 
+        onSuccess={() => {
+          setEditingAppointment(null);
+        }} 
+        onDelete={() => {
+          setEditingAppointment(null);
+        }} 
+      />
 
       {/* Sales Dialog */}
       {opportunity && <OpportunitySalesDialog open={salesDialogOpen} onOpenChange={setSalesDialogOpen} opportunityId={opportunity.ghl_id} contactId={opportunity.contact_id} locationId="pVeFrqvtYWNIPRIi0Fmr" users={users} userId={user?.id} userGhlId={profile?.ghl_user_id} onSalesUpdated={() => queryClient.invalidateQueries({
