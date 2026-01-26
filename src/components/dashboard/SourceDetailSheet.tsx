@@ -218,7 +218,7 @@ export function SourceDetailSheet({
         dueDateValue = utcDate.toISOString();
       }
 
-      // Create task in GHL (edge function will also insert into ghl_tasks)
+      // Create task (saves to Supabase, syncs to GHL if connected)
       const ghlResponse = await supabase.functions.invoke('create-ghl-task', {
         body: {
           title: taskTitle.trim(),
@@ -232,11 +232,11 @@ export function SourceDetailSheet({
       });
 
       if (ghlResponse.error) {
-        console.error('GHL sync error:', ghlResponse.error);
+        console.error('Task creation error:', ghlResponse.error);
         toast.error("Failed to create task");
       } else {
-        console.log('Task synced to GHL:', ghlResponse.data);
-        toast.success("Task created and synced to GHL");
+        console.log('Task created:', ghlResponse.data);
+        toast.success("Task created");
       }
 
       setTaskDialogOpen(false);

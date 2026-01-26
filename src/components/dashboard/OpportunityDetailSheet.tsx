@@ -514,11 +514,11 @@ export function OpportunityDetailSheet({
           setIsLoadingNotes(false);
         }
       };
-      // Fetch tasks from ghl_tasks table only
+      // Fetch tasks from tasks table (stored locally, optionally synced with GHL)
       const fetchTasks = async () => {
         setIsLoadingTasks(true);
         try {
-          // First sync task status from GHL
+          // Optionally sync task status from GHL if connected
           if (opportunity.contact_id) {
             try {
               await supabase.functions.invoke("sync-ghl-tasks", {
@@ -527,11 +527,11 @@ export function OpportunityDetailSheet({
                 }
               });
             } catch (syncErr) {
-              console.error("Failed to sync tasks from GHL:", syncErr);
+              console.error("Failed to sync tasks:", syncErr);
             }
           }
 
-          // Fetch from ghl_tasks only
+          // Fetch from tasks table (ghl_tasks)
           const {
             data,
             error
@@ -717,7 +717,7 @@ export function OpportunityDetailSheet({
         dueDateValue = utcDate.toISOString();
       }
 
-      // Create in GHL first
+      // Create task (saves to Supabase, syncs to GHL if connected)
       const ghlResponse = await supabase.functions.invoke("create-ghl-task", {
         body: {
           title: taskTitle.trim(),
@@ -730,11 +730,11 @@ export function OpportunityDetailSheet({
         }
       });
       if (ghlResponse.error) {
-        console.error("GHL sync error:", ghlResponse.error);
-        toast.error("Failed to create task in GHL");
+        console.error("Task creation error:", ghlResponse.error);
+        toast.error("Failed to create task");
         return;
       }
-      toast.success("Task created and synced to GHL");
+      toast.success("Task created");
 
       // Refresh tasks list
       await refreshTasksList();
