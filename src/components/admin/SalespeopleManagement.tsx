@@ -25,13 +25,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -51,12 +44,6 @@ interface Salesperson {
   updated_at: string;
 }
 
-interface GHLUser {
-  ghl_id: string;
-  name: string | null;
-  first_name: string | null;
-  last_name: string | null;
-}
 
 interface PortalToken {
   id: string;
@@ -72,7 +59,7 @@ export function SalespeopleManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [editingSalesperson, setEditingSalesperson] = useState<Salesperson | null>(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', ghl_user_id: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
@@ -93,20 +80,6 @@ export function SalespeopleManagement() {
     enabled: !!companyId,
   });
 
-  // Fetch GHL users for linking
-  const { data: ghlUsers = [] } = useQuery({
-    queryKey: ['ghl-users-for-salespeople', companyId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ghl_users')
-        .select('ghl_id, name, first_name, last_name')
-        .eq('company_id', companyId)
-        .order('name');
-      if (error) throw error;
-      return data as GHLUser[];
-    },
-    enabled: !!companyId,
-  });
 
   // Fetch existing portal tokens
   const { data: portalTokens = [] } = useQuery({
@@ -164,14 +137,13 @@ export function SalespeopleManagement() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; phone: string; email: string; ghl_user_id: string }) => {
+    mutationFn: async (data: { name: string; phone: string; email: string }) => {
       const { error } = await supabase
         .from('salespeople')
         .insert({
           name: data.name,
           phone: data.phone || null,
           email: data.email || null,
-          ghl_user_id: data.ghl_user_id || null,
           company_id: companyId,
         });
       if (error) throw error;
@@ -188,14 +160,13 @@ export function SalespeopleManagement() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; name: string; phone: string; email: string; ghl_user_id: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; name: string; phone: string; email: string }) => {
       const { error } = await supabase
         .from('salespeople')
         .update({
           name: data.name,
           phone: data.phone || null,
           email: data.email || null,
-          ghl_user_id: data.ghl_user_id || null,
         })
         .eq('id', id);
       if (error) throw error;
@@ -312,7 +283,7 @@ export function SalespeopleManagement() {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', phone: '', email: '', ghl_user_id: '' });
+    setFormData({ name: '', phone: '', email: '' });
     setEditingSalesperson(null);
   };
 
@@ -322,7 +293,6 @@ export function SalespeopleManagement() {
       name: salesperson.name,
       phone: salesperson.phone || '',
       email: salesperson.email || '',
-      ghl_user_id: salesperson.ghl_user_id || '',
     });
     setDialogOpen(true);
   };
@@ -341,11 +311,6 @@ export function SalespeopleManagement() {
     }
   };
 
-  const getGHLUserName = (ghlId: string | null) => {
-    if (!ghlId) return null;
-    const user = ghlUsers.find(u => u.ghl_id === ghlId);
-    return user?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || ghlId;
-  };
 
   const missingSalespeople = projectSalespeople.filter(
     name => !salespeople.some(s => s.name.toLowerCase() === name.toLowerCase())
@@ -580,7 +545,7 @@ export function SalespeopleManagement() {
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden sm:table-cell">Phone</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
-                  <TableHead className="hidden lg:table-cell">Linked User</TableHead>
+                  
                   <TableHead className="w-[140px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -620,15 +585,6 @@ export function SalespeopleManagement() {
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {person.ghl_user_id ? (
-                          <span className="text-sm text-primary">
-                            {getGHLUserName(person.ghl_user_id)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">Not linked</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -733,28 +689,6 @@ export function SalespeopleManagement() {
                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="john@company.com"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ghl_user_id">Link to Calendar User</Label>
-                  <Select
-                    value={formData.ghl_user_id || "none"}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, ghl_user_id: value === "none" ? "" : value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a calendar user..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {ghlUsers.map((u) => (
-                        <SelectItem key={u.ghl_id} value={u.ghl_id}>
-                          {u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.ghl_id}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Link to a calendar user to enable portal link generation
-                  </p>
                 </div>
               </div>
               <DialogFooter>
