@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { useGHLMetrics } from "@/hooks/useGHLContacts";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { CalendarAppointmentActions } from "@/components/calendar/CalendarAppointmentActions";
 
 interface DBAppointment {
   id: string;
@@ -364,11 +365,10 @@ function CalendarView({
                         title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"}) - Drag to reschedule`}
                       >
                         <div className="flex items-center gap-1">
-                          {!appt.salesperson_confirmed && (
-                            <span className="shrink-0 w-4 h-4 rounded-full bg-amber-500 text-white text-[8px] font-bold flex items-center justify-center" title="Rep not confirmed">
-                              !
-                            </span>
-                          )}
+                          <CalendarAppointmentActions
+                            appointment={appt}
+                            compact
+                          />
                           {appt.assigned_user_id && userMap.get(appt.assigned_user_id) && (
                             <span className="shrink-0 w-4 h-4 rounded bg-secondary text-secondary-foreground text-[8px] font-bold flex items-center justify-center">
                               {getRepInitials(userMap.get(appt.assigned_user_id) || "")}
@@ -448,11 +448,7 @@ function CalendarView({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            {!appt.salesperson_confirmed && (
-                              <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center" title="Rep not confirmed">
-                                !
-                              </span>
-                            )}
+                            <CalendarAppointmentActions appointment={appt} />
                             {appt.assigned_user_id && repName !== "Unassigned" && (
                               <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
                                 {getRepInitials(repName)}
@@ -467,9 +463,6 @@ function CalendarView({
                               </p>
                             </div>
                           </div>
-                          <Badge className={`${getStatusColor(appt.appointment_status)} text-[10px] shrink-0`}>
-                            {normalizeStatus(appt.appointment_status)}
-                          </Badge>
                         </div>
                         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                           <User className="h-3 w-3" />
@@ -825,11 +818,7 @@ function WeekView({
                         title={`${format(new Date(appt.start_time!), "h:mm a")} - ${capitalizeWords(getContactName(appt))} (${userMap.get(appt.assigned_user_id || "") || "Unassigned"}) - Drag to reschedule`}
                       >
                         <div className="flex items-center gap-1.5">
-                          {!appt.salesperson_confirmed && (
-                            <span className="shrink-0 w-5 h-5 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center" title="Rep not confirmed">
-                              !
-                            </span>
-                          )}
+                          <CalendarAppointmentActions appointment={appt} />
                           {appt.assigned_user_id && userMap.get(appt.assigned_user_id) && (
                             <span className="shrink-0 w-5 h-5 rounded bg-secondary text-secondary-foreground text-[9px] font-bold flex items-center justify-center">
                               {getRepInitials(userMap.get(appt.assigned_user_id) || "")}
@@ -903,11 +892,7 @@ function WeekView({
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                            {!appt.salesperson_confirmed && (
-                              <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center" title="Rep not confirmed">
-                                !
-                              </span>
-                            )}
+                            <CalendarAppointmentActions appointment={appt} />
                             {appt.assigned_user_id && repName !== "Unassigned" && (
                               <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
                                 {getRepInitials(repName)}
@@ -922,9 +907,6 @@ function WeekView({
                               </p>
                             </div>
                           </div>
-                          <Badge className={`${getStatusColor(appt.appointment_status)} text-[10px] shrink-0`}>
-                            {normalizeStatus(appt.appointment_status)}
-                          </Badge>
                         </div>
                         <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                           <User className="h-3 w-3" />
@@ -1645,11 +1627,7 @@ const Calendar = () => {
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  {!appt.salesperson_confirmed && (
-                                    <span className="shrink-0 w-6 h-6 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center" title="Rep not confirmed">
-                                      !
-                                    </span>
-                                  )}
+                                  <CalendarAppointmentActions appointment={appt} />
                                   {appt.assigned_user_id && repName !== "Unassigned" && (
                                     <span className="shrink-0 w-6 h-6 rounded bg-secondary text-secondary-foreground text-[10px] font-bold flex items-center justify-center">
                                       {getRepInitials(repName)}
@@ -1664,9 +1642,6 @@ const Calendar = () => {
                                     </p>
                                   </div>
                                 </div>
-                                <Badge className={`${getStatusColor(appt.appointment_status)} text-xs shrink-0`}>
-                                  {normalizeStatus(appt.appointment_status)}
-                                </Badge>
                               </div>
                               <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                                 <div className="flex items-center gap-1">
