@@ -243,11 +243,32 @@ export function AppointmentDetailSheet({
   const [editContactAddress, setEditContactAddress] = useState("");
   const [isSavingContact, setIsSavingContact] = useState(false);
 
+  // Optimistic UI: immediately reflect saved contact fields while parent refetch runs
+  const [optimisticContact, setOptimisticContact] = useState<{
+    name?: string;
+    phone?: string;
+    address?: string;
+  } | null>(null);
+
   const queryClient = useQueryClient();
 
   const contact = appointment ? findContactByIdOrGhlId(contacts, appointment.contact_uuid, appointment.contact_id) : null;
   const relatedOpportunities = appointment ? opportunities.filter((o) => o.contact_id === appointment.contact_id) : [];
   const primaryOpportunity = relatedOpportunities[0];
+
+  // Clear optimistic overrides once fresh props land (or when switching appointments)
+  // NOTE: must be declared before any conditional returns to preserve hooks order.
+  useEffect(() => {
+    setOptimisticContact(null);
+  }, [
+    appointment?.contact_id,
+    contact?.contact_name,
+    contact?.first_name,
+    contact?.last_name,
+    contact?.phone,
+    appointment?.address,
+    primaryOpportunity?.address,
+  ]);
 
   // Fetch conversations
   const fetchConversations = async () => {
@@ -493,11 +514,13 @@ export function AppointmentDetailSheet({
   };
 
   // Open task dialog
-  const contactName =
+  const contactNameFromData =
     contact?.contact_name ||
     (contact?.first_name && contact?.last_name
       ? `${contact.first_name} ${contact.last_name}`
       : contact?.first_name || contact?.last_name || "Unknown");
+
+  const contactName = optimisticContact?.name ?? contactNameFromData;
 
   const openTaskDialog = () => {
     setTaskTitle(`Follow up: ${contactName || "Contact"}`);
@@ -685,6 +708,8 @@ export function AppointmentDetailSheet({
   // Fallback to opportunity address if contact address is null
   const opportunityAddress = primaryOpportunity?.address || null;
   const address = contactAddress || currentAppointmentAddress || otherAppointmentAddress || opportunityAddress || null;
+  const displayAddress = optimisticContact?.address ?? address;
+  const displayPhone = optimisticContact?.phone ?? (contact?.phone || "");
   // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
   const scopeFromCustomField = contact
     ? extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK)
@@ -752,9 +777,9 @@ export function AppointmentDetailSheet({
   const startEditingContact = (e: React.MouseEvent) => {
     e.stopPropagation();
     setEditContactName(contactName);
-    setEditContactPhone(contact?.phone || "");
+    setEditContactPhone(displayPhone);
     setEditContactEmail(contact?.email || "");
-    setEditContactAddress(address || "");
+    setEditContactAddress(displayAddress || "");
     setIsEditingContact(true);
   };
 
@@ -807,7 +832,7 @@ export function AppointmentDetailSheet({
       }
 
       // Update address via opportunity if we have a primary opportunity
-      if (editContactAddress.trim() !== (address || "") && primaryOpportunity) {
+      if (editContactAddress.trim() !== (displayAddress || "") && primaryOpportunity) {
         const { error: addressError } = await supabase.functions.invoke("update-opportunity-address", {
           body: { 
             opportunityGhlId: primaryOpportunity.ghl_id, 
@@ -817,6 +842,13 @@ export function AppointmentDetailSheet({
         });
         if (addressError) throw addressError;
       }
+
+      // Immediately reflect new values in the sheet while Calendar refetch catches up
+      setOptimisticContact({
+        name: editContactName.trim(),
+        phone: editContactPhone.trim(),
+        address: editContactAddress.trim(),
+      });
 
       toast.success("Contact updated successfully");
       setIsEditingContact(false);
@@ -930,19 +962,19 @@ export function AppointmentDetailSheet({
                     {/* Display Address */}
                     <div className="flex items-start gap-2 text-muted-foreground">
                       <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                      <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
+                      <span>{displayAddress || <span className="italic text-muted-foreground/60">No address</span>}</span>
                     </div>
                     {/* Display Phone */}
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Phone className="h-3.5 w-3.5 shrink-0" />
-                      {contact?.phone ? (
+                      {displayPhone ? (
                         <>
                           <a
-                            href={`tel:${contact.phone}`}
+                            href={`tel:${displayPhone}`}
                             className="text-primary hover:underline truncate"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {contact.phone}
+                            {displayPhone}
                           </a>
                           <button
                             className="text-muted-foreground hover:text-primary p-0.5"
