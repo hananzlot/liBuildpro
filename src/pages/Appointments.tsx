@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Database, HardDrive } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
@@ -14,11 +14,9 @@ import { toast } from "sonner";
 
 const Appointments = () => {
   const navigate = useNavigate();
+  const { appointmentId } = useParams<{ appointmentId?: string }>();
   const { user } = useAuth();
   const { isGHLEnabled } = useGHLMode();
-  
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
-  const [appointmentDetailSheetOpen, setAppointmentDetailSheetOpen] = useState(false);
 
   const {
     data: metrics,
@@ -28,6 +26,23 @@ const Appointments = () => {
   } = useGHLMetrics(undefined);
 
   const syncMutation = useSyncContacts();
+
+  // Derive selected appointment from URL param
+  const selectedAppointment = useMemo(() => {
+    if (!appointmentId || !metrics?.allAppointments?.length) return null;
+    return metrics.allAppointments.find(
+      (a: any) => a.id === appointmentId || a.ghl_id === appointmentId
+    ) || null;
+  }, [appointmentId, metrics?.allAppointments]);
+
+  // Modal open state derived from URL
+  const appointmentDetailSheetOpen = !!appointmentId;
+
+  const handleDetailSheetClose = (open: boolean) => {
+    if (!open) {
+      navigate("/appointments", { replace: true });
+    }
+  };
 
   const handleSync = async () => {
     toast.info("Syncing recent data from GHL...");
@@ -113,10 +128,10 @@ const Appointments = () => {
         </section>
       </div>
 
-      {/* Appointment Detail Sheet */}
+      {/* Appointment Detail Sheet - open state derived from URL */}
       <AppointmentDetailSheet
         open={appointmentDetailSheetOpen}
-        onOpenChange={setAppointmentDetailSheetOpen}
+        onOpenChange={handleDetailSheetClose}
         appointment={selectedAppointment}
         contacts={metrics?.allContacts || []}
         users={metrics?.users || []}

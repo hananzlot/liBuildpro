@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,12 +65,13 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function Estimates() {
+  const navigate = useNavigate();
+  const { estimateId: urlEstimateId } = useParams<{ estimateId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = (searchParams.get("view") as ViewType) || "list";
   const { isAdmin } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
-  const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editingEstimateId, setEditingEstimateId] = useState<string | null>(null);
   const [sendDialogEstimate, setSendDialogEstimate] = useState<Estimate | null>(null);
@@ -750,11 +751,15 @@ export default function Estimates() {
         </Tabs>
       </div>
 
-      {/* Estimate Detail Sheet */}
+      {/* Estimate Detail Sheet - open state derived from URL */}
       <EstimateDetailSheet
-        estimateId={selectedEstimateId}
-        open={!!selectedEstimateId}
-        onOpenChange={(open) => !open && setSelectedEstimateId(null)}
+        estimateId={urlEstimateId || null}
+        open={!!urlEstimateId}
+        onOpenChange={(open) => {
+          if (!open) {
+            navigate(`/estimates${currentView !== 'list' ? `?view=${currentView}` : ''}`, { replace: true });
+          }
+        }}
       />
 
       {/* Estimate Source Dialog */}

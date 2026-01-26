@@ -28,7 +28,7 @@ import { ProtectedRoute, DefaultPageRedirect } from "./RouteGuards";
 
 /**
  * Main application routes.
- * Calendar detail views use URL params to control modal state,
+ * Detail views use URL params to control modal state,
  * making them stable across tab switches and page refreshes.
  */
 export function AppRoutes() {
@@ -57,6 +57,7 @@ export function AppRoutes() {
           }
         />
         
+        {/* Opportunities - list and detail routes */}
         <Route
           path="/opportunities"
           element={
@@ -65,7 +66,16 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/opportunities/:opportunityId"
+          element={
+            <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
+              <Opportunities />
+            </ProtectedRoute>
+          }
+        />
         
+        {/* Appointments - list and detail routes */}
         <Route
           path="/appointments"
           element={
@@ -74,7 +84,16 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/appointments/:appointmentId"
+          element={
+            <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
+              <Appointments />
+            </ProtectedRoute>
+          }
+        />
         
+        {/* Calendar - list and detail routes */}
         <Route
           path="/calendar"
           element={
@@ -83,8 +102,6 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
-        
-        {/* Calendar appointment detail - full page fallback when no background location */}
         <Route
           path="/calendar/appointment/:appointmentId"
           element={
@@ -112,8 +129,17 @@ export function AppRoutes() {
           }
         />
         
+        {/* Production - list and detail routes */}
         <Route
           path="/production"
+          element={
+            <ProtectedRoute requiredRole="production" requiredFeature="production">
+              <Production />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/production/:projectId"
           element={
             <ProtectedRoute requiredRole="production" requiredFeature="production">
               <Production />
@@ -130,8 +156,17 @@ export function AppRoutes() {
           }
         />
         
+        {/* Estimates - list and detail routes */}
         <Route
           path="/estimates"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
+              <Estimates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/estimates/:estimateId"
           element={
             <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
               <Estimates />
@@ -149,9 +184,17 @@ export function AppRoutes() {
           }
         />
         
-        {/* Documents - admin and contract_manager */}
+        {/* Documents - list and detail routes */}
         <Route
           path="/documents"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="documents">
+              <Documents />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/documents/:documentId"
           element={
             <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="documents">
               <Documents />

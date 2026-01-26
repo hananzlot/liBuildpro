@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -108,6 +109,8 @@ const SIGNER_COLORS = [
 ];
 
 export default function Documents() {
+  const navigate = useNavigate();
+  const { documentId: urlDocumentId } = useParams<{ documentId?: string }>();
   const { isAdmin, user } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -126,8 +129,7 @@ export default function Documents() {
   const [resendDocument, setResendDocument] = useState<SignatureDocument | null>(null);
   const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
 
-  // Signed preview dialog
-  const [signedViewOpen, setSignedViewOpen] = useState(false);
+  // Signed preview dialog - signedViewOpen is now derived from URL (signedViewOpenFromUrl)
   const [signedViewDoc, setSignedViewDoc] = useState<SignatureDocument | null>(null);
   const [signedViewFields, setSignedViewFields] = useState<DbSignatureField[]>([]);
   const [signedViewSignatures, setSignedViewSignatures] = useState<DbDocumentSignature[]>([]);
@@ -158,6 +160,52 @@ export default function Documents() {
     },
     enabled: !!companyId,
   });
+
+  // Derive signed view document from URL param
+  const urlSignedViewDoc = useMemo(() => {
+    if (!urlDocumentId || !documents?.length) return null;
+    return documents.find(d => d.id === urlDocumentId) || null;
+  }, [urlDocumentId, documents]);
+
+  // Modal open state derived from URL
+  const signedViewOpenFromUrl = !!urlDocumentId;
+
+  // Auto-load signed view data when URL changes
+  useMemo(() => {
+    if (urlSignedViewDoc && signedViewOpenFromUrl && !signedViewDoc) {
+      // Trigger loading of signed view data
+      setSignedViewDoc(urlSignedViewDoc);
+      setSignedViewLoading(true);
+      
+      Promise.all([
+        supabase
+          .from("document_signature_fields")
+          .select("*")
+          .eq("document_id", urlSignedViewDoc.id),
+        supabase
+          .from("document_signatures")
+          .select("*")
+          .eq("document_id", urlSignedViewDoc.id),
+      ]).then(([fieldsRes, sigRes]) => {
+        if (fieldsRes.error) throw fieldsRes.error;
+        if (sigRes.error) throw sigRes.error;
+
+        setSignedViewFields((fieldsRes.data || []) as DbSignatureField[]);
+        setSignedViewSignatures(
+          ((sigRes.data || []) as any[]).map((s) => ({
+            ...s,
+            field_values: (s.field_values as Record<string, string>) || {},
+          })) as DbDocumentSignature[]
+        );
+      }).catch((err: any) => {
+        const msg = typeof err?.message === "string" ? err.message : "Unknown error";
+        toast.error(`Failed to load signed view: ${msg}`);
+        navigate('/documents', { replace: true });
+      }).finally(() => {
+        setSignedViewLoading(false);
+      });
+    }
+  }, [urlSignedViewDoc, signedViewOpenFromUrl, signedViewDoc, navigate]);
 
   // Upload document and move to signers step
   const uploadMutation = useMutation({
@@ -502,40 +550,9 @@ export default function Documents() {
   };
 
   const handleViewSigned = useCallback(async (doc: SignatureDocument) => {
-    setSignedViewOpen(true);
-    setSignedViewDoc(doc);
-    setSignedViewLoading(true);
-
-    try {
-      const [fieldsRes, sigRes] = await Promise.all([
-        supabase
-          .from("document_signature_fields")
-          .select("*")
-          .eq("document_id", doc.id),
-        supabase
-          .from("document_signatures")
-          .select("*")
-          .eq("document_id", doc.id),
-      ]);
-
-      if (fieldsRes.error) throw fieldsRes.error;
-      if (sigRes.error) throw sigRes.error;
-
-      setSignedViewFields((fieldsRes.data || []) as DbSignatureField[]);
-      setSignedViewSignatures(
-        ((sigRes.data || []) as any[]).map((s) => ({
-          ...s,
-          field_values: (s.field_values as Record<string, string>) || {},
-        })) as DbDocumentSignature[]
-      );
-    } catch (err: any) {
-      const msg = typeof err?.message === "string" ? err.message : "Unknown error";
-      toast.error(`Failed to load signed view: ${msg}`);
-      setSignedViewOpen(false);
-    } finally {
-      setSignedViewLoading(false);
-    }
-  }, []);
+    // Navigate to URL instead of setting local state
+    navigate(`/documents/${doc.id}`);
+  }, [navigate]);
 
   const handleDownloadSignedPdf = useCallback(async (doc: SignatureDocument) => {
     setDownloadingDocId(doc.id);
@@ -980,16 +997,16 @@ export default function Documents() {
         </Card>
       </div>
 
-      {/* Signed Document Preview Dialog */}
+      {/* Signed Document Preview Dialog - open state derived from URL */}
       <Dialog
-        open={signedViewOpen}
+        open={signedViewOpenFromUrl}
         onOpenChange={(open) => {
-          setSignedViewOpen(open);
           if (!open) {
             setSignedViewDoc(null);
             setSignedViewFields([]);
             setSignedViewSignatures([]);
             setSignedViewLoading(false);
+            navigate('/documents', { replace: true });
           }
         }}
       >

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Database, HardDrive } from "lucide-react";
 import { useGHLMetrics, useSyncContacts } from "@/hooks/useGHLContacts";
 import { useGHLMode } from "@/hooks/useGHLMode";
@@ -14,12 +14,9 @@ import { toast } from "sonner";
 
 const Opportunities = () => {
   const navigate = useNavigate();
+  const { opportunityId } = useParams<{ opportunityId?: string }>();
   const { user } = useAuth();
   const { isGHLEnabled } = useGHLMode();
-  
-  const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
-  const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
-  const [initialTaskGhlId, setInitialTaskGhlId] = useState<string | null>(null);
 
   const {
     data: metrics,
@@ -30,10 +27,21 @@ const Opportunities = () => {
 
   const syncMutation = useSyncContacts();
 
-  const handleOpenOpportunity = (opportunity: any, taskGhlId?: string | null) => {
-    setSelectedOpportunity(opportunity);
-    setInitialTaskGhlId(taskGhlId || null);
-    setOppDetailSheetOpen(true);
+  // Derive selected opportunity from URL param
+  const selectedOpportunity = useMemo(() => {
+    if (!opportunityId || !metrics?.allOpportunities?.length) return null;
+    return metrics.allOpportunities.find(
+      (o: any) => o.id === opportunityId || o.ghl_id === opportunityId
+    ) || null;
+  }, [opportunityId, metrics?.allOpportunities]);
+
+  // Modal open state derived from URL
+  const oppDetailSheetOpen = !!opportunityId;
+
+  const handleDetailSheetClose = (open: boolean) => {
+    if (!open) {
+      navigate("/opportunities", { replace: true });
+    }
   };
 
   const handleSync = async () => {
@@ -123,17 +131,17 @@ const Opportunities = () => {
         </section>
       </div>
 
-      {/* Opportunity Detail Sheet */}
+      {/* Opportunity Detail Sheet - open state derived from URL */}
       <OpportunityDetailSheet
         open={oppDetailSheetOpen}
-        onOpenChange={setOppDetailSheetOpen}
+        onOpenChange={handleDetailSheetClose}
         opportunity={selectedOpportunity}
         contacts={metrics?.allContacts || []}
         appointments={metrics?.allAppointments || []}
         users={metrics?.users || []}
         conversations={metrics?.conversations || []}
         allOpportunities={metrics?.allOpportunities || []}
-        initialTaskGhlId={initialTaskGhlId}
+        initialTaskGhlId={null}
       />
     </AppLayout>
   );

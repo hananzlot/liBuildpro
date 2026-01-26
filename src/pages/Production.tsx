@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DateRange } from "react-day-picker";
 import { parseISO, isWithinInterval, startOfDay, endOfDay, format } from "date-fns";
@@ -208,6 +208,7 @@ function ProjectSoldCard({
 export default function Production() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { projectId: urlProjectId } = useParams<{ projectId?: string }>();
   const { isAdmin, isSimulating, companyId } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = searchParams.get('view') || 'projects';
@@ -230,8 +231,7 @@ export default function Production() {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["New Job", "In-Progress", "On-Hold", "Completed", "Cancelled"]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  // selectedProject and detailSheetOpen are now derived from URL
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [deleteTestProjectOpen, setDeleteTestProjectOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
@@ -556,7 +556,16 @@ export default function Production() {
     };
   });
 
-  // Handle opening a project from URL parameters (e.g., from chat notification)
+  // Derive selected project from URL param
+  const selectedProject = useMemo(() => {
+    if (!urlProjectId || !projects.length) return null;
+    return projects.find(p => p.id === urlProjectId) || null;
+  }, [urlProjectId, projects]);
+
+  // Modal open state derived from URL
+  const detailSheetOpen = !!urlProjectId;
+
+  // Handle legacy openProject URL parameter (redirect to new URL pattern)
   useEffect(() => {
     const openProjectId = searchParams.get('openProject');
     const initialTab = searchParams.get('tab');
@@ -565,16 +574,14 @@ export default function Production() {
       const project = projects.find(p => p.id === openProjectId);
       if (project) {
         setProjectInitialTab(initialTab || undefined);
-        setSelectedProject(project);
-        setDetailSheetOpen(true);
-        // Clear the URL params after opening
+        // Navigate to new URL pattern instead of setting local state
         const newParams = new URLSearchParams(searchParams);
         newParams.delete('openProject');
         newParams.delete('tab');
-        setSearchParams(newParams, { replace: true });
+        navigate(`/production/${openProjectId}${newParams.toString() ? `?${newParams.toString()}` : ''}`, { replace: true });
       }
     }
-  }, [projects, searchParams, setSearchParams]);
+  }, [projects, searchParams, navigate]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -789,18 +796,15 @@ export default function Production() {
 
   // Handle navigating to a project from financial search results
   const handleNavigateToProjectFromSearch = useCallback((projectId: string, tab: string, subTab?: string) => {
-    const project = projects.find(p => p.id === projectId);
-    if (project) {
-      setSelectedProject(project);
-      setProjectInitialTab(tab);
-      if (subTab === 'bills') {
-        setProjectInitialFinanceSubTab('bills');
-      } else {
-        setProjectInitialFinanceSubTab(undefined);
-      }
-      setDetailSheetOpen(true);
+    setProjectInitialTab(tab);
+    if (subTab === 'bills') {
+      setProjectInitialFinanceSubTab('bills');
+    } else {
+      setProjectInitialFinanceSubTab(undefined);
     }
-  }, [projects]);
+    // Navigate to project URL
+    navigate(`/production/${projectId}`);
+  }, [navigate]);
 
   const sortedAndFilteredProjects = useMemo(() => {
     const filtered = projects.filter((project) => {
@@ -1322,8 +1326,8 @@ export default function Production() {
     setProjectInitialFinanceSubTab(financeSubTab);
     setReturnToAfterProjectClose(returnTo || null);
     setHighlightedInvoiceId(highlightInvoiceId || null);
-    setSelectedProject(project);
-    setDetailSheetOpen(true);
+    // Navigate to project URL instead of setting local state
+    navigate(`/production/${project.id}`);
   };
 
   // Helper to get the best available date for a project (for filtering)
@@ -2418,9 +2422,9 @@ export default function Production() {
                   // Find the project and open it with bill dialog
                   const project = projects.find(p => p.id === returnToProjectId);
                   if (project) {
-                    setSelectedProject(project);
                     setPendingBillDialogOpen(true);
-                    setDetailSheetOpen(true);
+                    // Navigate to project URL
+                    navigate(`/production/${returnToProjectId}`);
                   }
                   // Clear the return params
                   setSearchParams({ view: 'projects' });
@@ -2443,7 +2447,6 @@ export default function Production() {
           project={selectedProject}
           open={detailSheetOpen}
           onOpenChange={(open) => {
-            setDetailSheetOpen(open);
             if (!open) {
               // Handle return-to behavior
               if (returnToAfterProjectClose === 'payables') {
@@ -2455,6 +2458,8 @@ export default function Production() {
               setProjectInitialFinanceSubTab(undefined);
               setReturnToAfterProjectClose(null);
               setHighlightedInvoiceId(null);
+              // Navigate back to production list
+              navigate('/production', { replace: true });
             }
           }}
           onUpdate={refetch}
