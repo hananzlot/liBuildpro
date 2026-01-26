@@ -170,57 +170,27 @@ export function SourceDetailSheet({
   const [updatingStageForOpp, setUpdatingStageForOpp] = useState<string | null>(null);
   const [configuredStages, setConfiguredStages] = useState<string[]>([]);
 
-  // Fetch configured pipeline stages from company_settings or ghl_pipelines "Main" pipeline
+  // Fetch configured pipeline stages from company_settings ONLY
   useEffect(() => {
     const fetchConfiguredStages = async () => {
       // Get company_id from opportunities or contacts
       const companyId = opportunities[0]?.company_id || filteredContacts[0]?.company_id;
       if (!companyId) return;
       
-      // First try company_settings
-      const { data: settingsData } = await supabase
+      const { data } = await supabase
         .from("company_settings")
         .select("setting_value")
         .eq("company_id", companyId)
         .eq("setting_key", "pipeline_stages")
         .maybeSingle();
       
-      if (settingsData?.setting_value) {
+      if (data?.setting_value) {
         try {
-          const stages = JSON.parse(settingsData.setting_value) as string[];
+          const stages = JSON.parse(data.setting_value) as string[];
           setConfiguredStages(stages);
-          return;
         } catch (e) {
           console.error("Failed to parse pipeline_stages:", e);
         }
-      }
-      
-      // Fallback: get stages from "Main" pipeline in ghl_pipelines
-      const { data: pipelineData } = await supabase
-        .from("ghl_pipelines")
-        .select("stages")
-        .eq("company_id", companyId)
-        .eq("name", "Main")
-        .maybeSingle();
-      
-      if (pipelineData?.stages && Array.isArray(pipelineData.stages)) {
-        const sortedStages = [...pipelineData.stages]
-          .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
-          .map((s: any) => s.name as string)
-          .filter(Boolean);
-        setConfiguredStages(sortedStages);
-        return;
-      }
-      
-      // Final fallback: derive unique stages from opportunities with "Main" pipeline only
-      const mainPipelineStages = new Set<string>();
-      opportunities.forEach(o => {
-        if (o.pipeline_name === "Main" && o.stage_name) {
-          mainPipelineStages.add(o.stage_name);
-        }
-      });
-      if (mainPipelineStages.size > 0) {
-        setConfiguredStages(Array.from(mainPipelineStages).sort());
       }
     };
     
