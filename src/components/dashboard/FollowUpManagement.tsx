@@ -2265,7 +2265,7 @@ export function FollowUpManagement({
                           </>}
                       </CardTitle>
                       <CardDescription className="text-xs hidden sm:block">
-                        GHL tasks - click to view opportunity
+                        Tasks - click to view opportunity
                       </CardDescription>
                     </div>
                   </div>
@@ -2309,7 +2309,7 @@ export function FollowUpManagement({
 
                 {isLoadingTasks && ghlTasks.length === 0 ? <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Loading tasks from GHL...</span>
+                    <span>Loading tasks...</span>
                   </div> : filteredGhlTasks.length === 0 ? <div className="text-center py-8 flex flex-col items-center gap-2">
                     <PartyPopper className="h-8 w-8 text-emerald-500" />
                     <span className="text-emerald-600 font-medium">Nothing to update!</span>

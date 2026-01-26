@@ -605,7 +605,7 @@ export function AppointmentDetailSheet({
         dueDateValue = utcDate.toISOString();
       }
 
-      // Create in GHL first
+      // Create task (saves to Supabase, syncs to GHL if connected)
       const ghlResponse = await supabase.functions.invoke("create-ghl-task", {
         body: {
           title: taskTitle.trim(),
@@ -619,12 +619,12 @@ export function AppointmentDetailSheet({
       });
 
       if (ghlResponse.error) {
-        console.error("GHL sync error:", ghlResponse.error);
-        toast.error("Failed to create task in GHL");
+        console.error("Task creation error:", ghlResponse.error);
+        toast.error("Failed to create task");
         return;
       }
 
-      toast.success("Task created and synced to GHL");
+      toast.success("Task created");
 
       // Refresh tasks list
       await fetchTasks();
