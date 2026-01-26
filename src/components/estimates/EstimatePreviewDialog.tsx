@@ -411,13 +411,13 @@ export function EstimatePreviewDialog({
                       <span>Subtotal</span>
                       <span className="font-medium">{formatCurrency(estimate.subtotal)}</span>
                     </div>
-                    {estimate.discount_amount && estimate.discount_amount > 0 && (
+                    {(estimate.discount_amount || 0) > 0 && (
                       <div className="flex justify-between py-2 text-green-600">
                         <span>Discount</span>
                         <span>-{formatCurrency(estimate.discount_amount)}</span>
                       </div>
                     )}
-                    {estimate.tax_amount && estimate.tax_amount > 0 && (
+                    {(estimate.tax_amount || 0) > 0 && (
                       <div className="flex justify-between py-2">
                         <span>Tax ({estimate.tax_rate}%)</span>
                         <span>{formatCurrency(estimate.tax_amount)}</span>
