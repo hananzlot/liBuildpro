@@ -773,6 +773,20 @@ export function AppointmentDetailSheet({
       .join(" ");
   };
 
+  // Helper to format phone numbers: (XXX) XXX-XXXX
+  const formatPhoneNumber = (phone: string | null | undefined): string => {
+    if (!phone) return "";
+    // Remove all non-digit characters
+    const digits = phone.replace(/\D/g, "");
+    // Handle US numbers with country code
+    const normalized = digits.startsWith("1") && digits.length === 11 ? digits.slice(1) : digits;
+    if (normalized.length === 10) {
+      return `(${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`;
+    }
+    // Return original if not a standard 10-digit number
+    return phone;
+  };
+
   // Initialize contact edit fields when entering edit mode
   const startEditingContact = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -871,7 +885,7 @@ export function AppointmentDetailSheet({
           <SheetHeader className="space-y-2">
             {/* Contact Details - Editable */}
             <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="bg-muted px-3 py-2 flex items-center justify-between border-b">
                 <div className="flex items-center gap-2">
                   <User className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
@@ -974,7 +988,7 @@ export function AppointmentDetailSheet({
                             className="text-primary hover:underline truncate"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            {displayPhone}
+                            {formatPhoneNumber(displayPhone)}
                           </a>
                           <button
                             className="text-muted-foreground hover:text-primary p-0.5"
@@ -1048,8 +1062,8 @@ export function AppointmentDetailSheet({
                         onClick={() => onOpenOpportunity?.(primaryOpportunity)}
                       >
                         <div className="flex items-center gap-2 mb-1">
-                          <DollarSign className="h-3.5 w-3.5 text-emerald-500" />
-                          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Opportunity</span>
+                          <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Opportunity</span>
                           {onOpenOpportunity && <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto" />}
                         </div>
                         <div className="flex items-start justify-between gap-2">
@@ -1087,7 +1101,7 @@ export function AppointmentDetailSheet({
 
             {/* Appointment Info Section */}
             <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
+              <div className="bg-muted px-3 py-2 flex items-center justify-between border-b">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Appointment</span>
