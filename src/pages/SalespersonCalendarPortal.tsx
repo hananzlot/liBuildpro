@@ -408,6 +408,9 @@ export default function SalespersonCalendarPortal() {
                 <div className="text-center py-12">
                   <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                   <p className="text-muted-foreground">No appointments scheduled</p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Total: {appointments.length} | Today: {currentDayKey}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-3">
