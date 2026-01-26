@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy } from "lucide-react";
+import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { findUserByIdOrGhlId } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const CUSTOM_FIELD_IDS = {
   ADDRESS: 'b7oTVsUQrLgZt84bHpCn',
@@ -99,6 +100,25 @@ const extractCustomField = (customFields: unknown, fieldId: string): string | nu
   return field?.value || null;
 };
 
+interface SectionHeaderProps {
+  icon: React.ReactNode;
+  title: string;
+  count?: number;
+  isOpen: boolean;
+}
+
+const SectionHeader = ({ icon, title, count, isOpen }: SectionHeaderProps) => (
+  <div className="flex items-center justify-between w-full">
+    <div className="flex items-center gap-2">
+      {icon}
+      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        {title}{count !== undefined ? ` (${count})` : ''}
+      </span>
+    </div>
+    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+  </div>
+);
+
 export function ContactDetailSheet({
   contact,
   opportunities,
@@ -110,17 +130,20 @@ export function ContactDetailSheet({
   onRefresh,
 }: ContactDetailSheetProps) {
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const handleUpdateAppointmentStatus = async (appointmentGhlId: string, newStatus: string, locationId?: string) => {
     setUpdatingAppointmentId(appointmentGhlId);
     try {
-      // Update in GHL
       const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
         body: { ghl_id: appointmentGhlId, appointment_status: newStatus, location_id: locationId }
       });
       if (ghlError) throw ghlError;
 
-      // Update in Supabase
       const { error: dbError } = await supabase
         .from('appointments')
         .update({ appointment_status: newStatus, ghl_date_updated: new Date().toISOString() })
@@ -186,7 +209,6 @@ export function ContactDetailSheet({
   const relatedAppointments = appointments.filter(apt => apt.contact_id === contact.ghl_id);
 
   const address = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
-  // Get scope from custom_fields, or fall back to attributions.utmContent for Location 2 contacts
   const scopeFromCustomField = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
   const scopeFromAttributions = (() => {
     if (!contact?.attributions) return null;
@@ -199,7 +221,6 @@ export function ContactDetailSheet({
   const scopeOfWork = scopeFromCustomField || scopeFromAttributions;
   const contactNotes = extractCustomField(contact.custom_fields, CUSTOM_FIELD_IDS.NOTES);
 
-  // Calculate total opportunity value
   const totalValue = relatedOpportunities.reduce((sum, opp) => sum + (opp.monetary_value || 0), 0);
 
   return (
@@ -218,11 +239,6 @@ export function ContactDetailSheet({
                     <RefreshCw className="h-4 w-4" />
                   </Button>
                 )}
-                {contact.source && (
-                  <Badge variant="outline" className="shrink-0 text-xs bg-primary/10 text-primary border-primary/30">
-                    {contact.source}
-                  </Badge>
-                )}
               </div>
             </div>
             {totalValue > 0 && (
@@ -233,7 +249,7 @@ export function ContactDetailSheet({
           </SheetHeader>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-3">
           {/* Key Info Grid */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-muted/40 rounded-md p-2.5">
@@ -246,246 +262,304 @@ export function ContactDetailSheet({
             </div>
           </div>
 
-          {/* Contact Details */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-              <User className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact Details</span>
-            </div>
-            <div className="p-3 grid gap-1.5 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Phone className="h-3.5 w-3.5 shrink-0" />
-                {contact.phone ? (
-                  <>
-                    <a
-                      href={`tel:${contact.phone}`}
-                      className="text-primary hover:underline truncate"
-                    >
-                      {contact.phone}
-                    </a>
-                    <button
-                      className="text-muted-foreground hover:text-primary p-0.5"
-                      onClick={() => {
-                        navigator.clipboard.writeText(contact.phone!);
-                        toast({ title: "Phone copied" });
-                      }}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </button>
-                  </>
-                ) : (
-                  <span className="italic text-muted-foreground/60">No phone</span>
+          {/* Contact Details - Collapsible with Opportunities inside */}
+          <Collapsible open={openSections.contact} onOpenChange={() => toggleSection('contact')}>
+            <div className="border rounded-lg overflow-hidden">
+              <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 border-b hover:bg-muted/50 transition-colors">
+                <SectionHeader 
+                  icon={<User className="h-3.5 w-3.5 text-muted-foreground" />} 
+                  title="Contact Details" 
+                  isOpen={openSections.contact || false}
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-3 grid gap-1.5 text-sm text-muted-foreground">
+                  {/* 1st: Contact Name */}
+                  <div className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 shrink-0" />
+                    <span className="font-medium text-foreground">{contactName}</span>
+                  </div>
+                  {/* 2nd: Address */}
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
+                  </div>
+                  {/* 3rd: Phone */}
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 shrink-0" />
+                    {contact.phone ? (
+                      <>
+                        <a
+                          href={`tel:${contact.phone}`}
+                          className="text-primary hover:underline truncate"
+                        >
+                          {contact.phone}
+                        </a>
+                        <button
+                          className="text-muted-foreground hover:text-primary p-0.5"
+                          onClick={() => {
+                            navigator.clipboard.writeText(contact.phone!);
+                            toast({ title: "Phone copied" });
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="italic text-muted-foreground/60">No phone</span>
+                    )}
+                  </div>
+                  {/* 4th: Email */}
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 shrink-0" />
+                    {contact.email ? (
+                      <>
+                        <a
+                          href={`mailto:${contact.email}`}
+                          target="_top"
+                          rel="noreferrer"
+                          className="text-primary hover:underline truncate"
+                        >
+                          {contact.email}
+                        </a>
+                        <button
+                          className="text-muted-foreground hover:text-primary p-0.5"
+                          onClick={() => {
+                            navigator.clipboard.writeText(contact.email!);
+                            toast({ title: "Email copied" });
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                        <a
+                          href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-primary text-xs"
+                        >
+                          (Gmail)
+                        </a>
+                      </>
+                    ) : (
+                      <span className="italic text-muted-foreground/60">No email</span>
+                    )}
+                  </div>
+                  {/* 5th: Source */}
+                  <div className="flex items-center gap-2">
+                    <Tag className="h-3.5 w-3.5 shrink-0" />
+                    {contact.source ? (
+                      <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/30">
+                        {contact.source}
+                      </Badge>
+                    ) : (
+                      <span className="italic text-muted-foreground/60">No source</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Opportunities - Nested inside Contact Details */}
+                {relatedOpportunities.length > 0 && (
+                  <div className="border-t">
+                    <div className="bg-muted/20 px-3 py-2 flex items-center gap-2">
+                      <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Opportunities ({relatedOpportunities.length})
+                      </span>
+                    </div>
+                    <div className="divide-y">
+                      {relatedOpportunities.slice(0, 5).map((opp) => (
+                        <div key={opp.id} className="p-3 flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm truncate">{opp.name || "Unnamed"}</span>
+                              <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(opp.status)}`}>
+                                {opp.status || "Unknown"}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {opp.pipeline_name || 'Pipeline'} → {opp.stage_name || 'Stage'}
+                            </div>
+                          </div>
+                          <span className="text-sm font-semibold text-emerald-400 shrink-0">
+                            {formatCurrency(opp.monetary_value)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="h-3.5 w-3.5 shrink-0" />
-                {contact.email ? (
-                  <>
-                    <a
-                      href={`mailto:${contact.email}`}
-                      target="_top"
-                      rel="noreferrer"
-                      className="text-primary hover:underline truncate"
-                    >
-                      {contact.email}
-                    </a>
-                    <button
-                      className="text-muted-foreground hover:text-primary p-0.5"
-                      onClick={() => {
-                        navigator.clipboard.writeText(contact.email!);
-                        toast({ title: "Email copied" });
-                      }}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </button>
-                    <a
-                      href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${address ? `\n${address}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-primary text-xs"
-                    >
-                      (Gmail)
-                    </a>
-                  </>
-                ) : (
-                  <span className="italic text-muted-foreground/60">No email</span>
-                )}
-              </div>
-              <div className="flex items-start gap-2">
-                <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>{address || <span className="italic text-muted-foreground/60">No address</span>}</span>
-              </div>
+              </CollapsibleContent>
             </div>
-          </div>
+          </Collapsible>
 
           {/* Tags */}
           {contact.tags && contact.tags.length > 0 && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tags</span>
+            <Collapsible open={openSections.tags} onOpenChange={() => toggleSection('tags')}>
+              <div className="border rounded-lg overflow-hidden">
+                <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 border-b hover:bg-muted/50 transition-colors">
+                  <SectionHeader 
+                    icon={<Tag className="h-3.5 w-3.5 text-muted-foreground" />} 
+                    title="Tags" 
+                    count={contact.tags.length}
+                    isOpen={openSections.tags || false}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="p-3 flex flex-wrap gap-1.5">
+                    {contact.tags.map((tag, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </CollapsibleContent>
               </div>
-              <div className="p-3 flex flex-wrap gap-1.5">
-                {contact.tags.map((tag, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </div>
+            </Collapsible>
           )}
 
           {/* Scope of Work */}
           {scopeOfWork && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scope of Work</span>
+            <Collapsible open={openSections.scope} onOpenChange={() => toggleSection('scope')}>
+              <div className="border rounded-lg overflow-hidden">
+                <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 border-b hover:bg-muted/50 transition-colors">
+                  <SectionHeader 
+                    icon={<Briefcase className="h-3.5 w-3.5 text-muted-foreground" />} 
+                    title="Scope of Work" 
+                    isOpen={openSections.scope || false}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="p-3">
+                    <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
+                  </div>
+                </CollapsibleContent>
               </div>
-              <div className="p-3">
-                <p className="text-sm whitespace-pre-wrap">{scopeOfWork}</p>
-              </div>
-            </div>
+            </Collapsible>
           )}
 
           {/* Notes */}
           {contactNotes && (
-            <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Notes</span>
+            <Collapsible open={openSections.notes} onOpenChange={() => toggleSection('notes')}>
+              <div className="border rounded-lg overflow-hidden">
+                <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 border-b hover:bg-muted/50 transition-colors">
+                  <SectionHeader 
+                    icon={<FileText className="h-3.5 w-3.5 text-muted-foreground" />} 
+                    title="Notes" 
+                    isOpen={openSections.notes || false}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="p-3">
+                    <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
+                  </div>
+                </CollapsibleContent>
               </div>
-              <div className="p-3">
-                <p className="text-sm whitespace-pre-wrap">{contactNotes}</p>
-              </div>
-            </div>
+            </Collapsible>
           )}
 
-          {/* Opportunities */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Opportunities ({relatedOpportunities.length})
-              </span>
-            </div>
-            {relatedOpportunities.length > 0 ? (
-              <div className="divide-y">
-                {relatedOpportunities.slice(0, 5).map((opp) => (
-                  <div key={opp.id} className="p-3 flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm truncate">{opp.name || "Unnamed"}</span>
-                        <Badge variant="outline" className={`text-xs shrink-0 ${getStatusColor(opp.status)}`}>
-                          {opp.status || "Unknown"}
-                        </Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground truncate">
-                        {opp.pipeline_name || 'Pipeline'} → {opp.stage_name || 'Stage'}
-                      </div>
-                    </div>
-                    <span className="text-sm font-semibold text-emerald-400 shrink-0">
-                      {formatCurrency(opp.monetary_value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-3 text-sm text-muted-foreground/60 italic">No opportunities</div>
-            )}
-          </div>
-
           {/* Appointments */}
-          <div className="border rounded-lg overflow-hidden">
-            <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Appointments ({relatedAppointments.length})
-              </span>
-            </div>
-            {relatedAppointments.length > 0 ? (
-              <div className="divide-y">
-                {relatedAppointments.slice(0, 5).map((apt) => (
-                  <div key={apt.id} className="p-3 space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium text-sm truncate">{apt.title || "Untitled"}</span>
-                      <Select
-                        value={apt.appointment_status || ''}
-                        onValueChange={(value) => handleUpdateAppointmentStatus(apt.ghl_id, value, apt.location_id || undefined)}
-                        disabled={updatingAppointmentId === apt.ghl_id}
-                      >
-                        <SelectTrigger className={`h-6 w-[100px] text-xs ${getStatusColor(apt.appointment_status)}`}>
-                          <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {APPOINTMENT_STATUSES.map((status) => (
-                            <SelectItem key={status.value} value={status.value} className="text-xs">
-                              {status.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      {formatDateTime(apt.start_time)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-3 text-sm text-muted-foreground/60 italic">No appointments</div>
-            )}
-          </div>
-
-          {/* Conversations / SMS */}
-          {(() => {
-            const relatedConversations = conversations.filter(c => c.contact_id === contact.ghl_id);
-            return (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="bg-muted/30 px-3 py-2 flex items-center gap-2 border-b">
-                  <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Conversations ({relatedConversations.length})
-                  </span>
-                </div>
-                {relatedConversations.length > 0 ? (
+          <Collapsible open={openSections.appointments} onOpenChange={() => toggleSection('appointments')}>
+            <div className="border rounded-lg overflow-hidden">
+              <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 border-b hover:bg-muted/50 transition-colors">
+                <SectionHeader 
+                  icon={<Clock className="h-3.5 w-3.5 text-muted-foreground" />} 
+                  title="Appointments" 
+                  count={relatedAppointments.length}
+                  isOpen={openSections.appointments || false}
+                />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                {relatedAppointments.length > 0 ? (
                   <div className="divide-y">
-                    {relatedConversations.slice(0, 5).map((conv) => (
-                      <div key={conv.id} className="p-3 space-y-1">
+                    {relatedAppointments.slice(0, 5).map((apt) => (
+                      <div key={apt.id} className="p-3 space-y-1">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {conv.last_message_type || conv.type || 'Message'}
-                            </Badge>
-                            <Badge 
-                              variant="secondary" 
-                              className={`text-xs ${conv.last_message_direction === 'inbound' ? 'bg-blue-500/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400'}`}
-                            >
-                              {conv.last_message_direction === 'inbound' ? '← In' : '→ Out'}
-                            </Badge>
-                          </div>
-                          {(conv.unread_count ?? 0) > 0 && (
-                            <Badge className="bg-red-500 text-white text-xs">
-                              {conv.unread_count} unread
-                            </Badge>
-                          )}
+                          <span className="font-medium text-sm truncate">{apt.title || "Untitled"}</span>
+                          <Select
+                            value={apt.appointment_status || ''}
+                            onValueChange={(value) => handleUpdateAppointmentStatus(apt.ghl_id, value, apt.location_id || undefined)}
+                            disabled={updatingAppointmentId === apt.ghl_id}
+                          >
+                            <SelectTrigger className={`h-6 w-[100px] text-xs ${getStatusColor(apt.appointment_status)}`}>
+                              <SelectValue placeholder="Status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {APPOINTMENT_STATUSES.map((status) => (
+                                <SelectItem key={status.value} value={status.value} className="text-xs">
+                                  {status.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                        {conv.last_message_body && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {conv.last_message_body}
-                          </p>
-                        )}
-                        <div className="text-xs text-muted-foreground/70">
-                          {formatDateTime(conv.last_message_date)}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          {formatDateTime(apt.start_time)}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="p-3 text-sm text-muted-foreground/60 italic">No conversations</div>
+                  <div className="p-3 text-sm text-muted-foreground/60 italic">No appointments</div>
                 )}
-              </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+
+          {/* Conversations / SMS */}
+          {(() => {
+            const relatedConversations = conversations.filter(c => c.contact_id === contact.ghl_id);
+            return (
+              <Collapsible open={openSections.conversations} onOpenChange={() => toggleSection('conversations')}>
+                <div className="border rounded-lg overflow-hidden">
+                  <CollapsibleTrigger className="w-full bg-muted/30 px-3 py-2 border-b hover:bg-muted/50 transition-colors">
+                    <SectionHeader 
+                      icon={<MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />} 
+                      title="Conversations" 
+                      count={relatedConversations.length}
+                      isOpen={openSections.conversations || false}
+                    />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {relatedConversations.length > 0 ? (
+                      <div className="divide-y">
+                        {relatedConversations.slice(0, 5).map((conv) => (
+                          <div key={conv.id} className="p-3 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {conv.last_message_type || conv.type || 'Message'}
+                                </Badge>
+                                <Badge 
+                                  variant="secondary" 
+                                  className={`text-xs ${conv.last_message_direction === 'inbound' ? 'bg-blue-500/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400'}`}
+                                >
+                                  {conv.last_message_direction === 'inbound' ? '← In' : '→ Out'}
+                                </Badge>
+                              </div>
+                              {(conv.unread_count ?? 0) > 0 && (
+                                <Badge className="bg-red-500 text-white text-xs">
+                                  {conv.unread_count} unread
+                                </Badge>
+                              )}
+                            </div>
+                            {conv.last_message_body && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {conv.last_message_body}
+                              </p>
+                            )}
+                            <div className="text-xs text-muted-foreground/70">
+                              {formatDateTime(conv.last_message_date)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-3 text-sm text-muted-foreground/60 italic">No conversations</div>
+                    )}
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
             );
           })()}
         </div>
