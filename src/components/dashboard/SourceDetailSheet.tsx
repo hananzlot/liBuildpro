@@ -66,6 +66,7 @@ interface Contact {
   attributions?: unknown;
   tags?: string[] | null;
   location_id?: string;
+  company_id?: string | null;
 }
 
 interface Opportunity {
@@ -84,6 +85,7 @@ interface Opportunity {
   pipeline_stage_id: string | null;
   address: string | null;
   scope_of_work: string | null;
+  company_id?: string | null;
 }
 
 interface Appointment {
@@ -166,6 +168,36 @@ export function SourceDetailSheet({
   
   // Stage change state
   const [updatingStageForOpp, setUpdatingStageForOpp] = useState<string | null>(null);
+  const [configuredStages, setConfiguredStages] = useState<string[]>([]);
+
+  // Fetch configured pipeline stages from company_settings
+  useEffect(() => {
+    const fetchConfiguredStages = async () => {
+      // Get company_id from opportunities or contacts
+      const companyId = opportunities[0]?.company_id || filteredContacts[0]?.company_id;
+      if (!companyId) return;
+      
+      const { data } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "pipeline_stages")
+        .single();
+      
+      if (data?.setting_value) {
+        try {
+          const stages = JSON.parse(data.setting_value) as string[];
+          setConfiguredStages(stages);
+        } catch (e) {
+          console.error("Failed to parse pipeline_stages:", e);
+        }
+      }
+    };
+    
+    if (open) {
+      fetchConfiguredStages();
+    }
+  }, [open, opportunities, filteredContacts]);
 
   // Reset filters when sheet opens - default to "all" status
   useEffect(() => {
@@ -440,14 +472,19 @@ export function SourceDetailSheet({
     setOppSheetOpen(true);
   };
 
-  // Build available stages from all opportunities
+  // Use configured stages from company_settings (Main pipeline only)
   const allAvailableStages = useMemo(() => {
+    // If we have configured stages from company_settings, use those
+    if (configuredStages.length > 0) {
+      return configuredStages;
+    }
+    // Fallback: derive from opportunities (shouldn't happen if settings are configured)
     const stageSet = new Set<string>();
     opportunities.forEach(o => {
       if (o.stage_name) stageSet.add(o.stage_name);
     });
     return Array.from(stageSet).sort();
-  }, [opportunities]);
+  }, [configuredStages, opportunities]);
 
   // Handle inline stage change
   const handleStageChange = async (opp: Opportunity, newStageName: string, e: React.MouseEvent) => {
