@@ -37,6 +37,8 @@ interface Opportunity {
   pipeline_name: string | null;
   pipeline_id: string | null;
   pipeline_stage_id: string | null;
+  address: string | null;
+  scope_of_work: string | null;
 }
 
 interface Appointment {
