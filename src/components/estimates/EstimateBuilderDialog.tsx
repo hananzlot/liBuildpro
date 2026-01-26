@@ -978,15 +978,22 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             if (createError) {
               console.error("Failed to create opportunity:", createError);
             } else if (createResult?.opportunityId) {
-              // Update estimate with the new opportunity ID
+              // Update estimate with both opportunity_id (GHL ID) and opportunity_uuid
+              const updateData: Record<string, string> = {
+                opportunity_id: createResult.opportunityId,
+              };
+              
+              // Also set opportunity_uuid if returned
+              if (createResult.opportunityUuid) {
+                updateData.opportunity_uuid = createResult.opportunityUuid;
+              }
+              
               await supabase
                 .from("estimates")
-                .update({
-                  opportunity_id: createResult.opportunityId,
-                })
+                .update(updateData)
                 .eq("id", savedEstimateId);
               
-              console.log("Created new opportunity and linked to estimate:", createResult.opportunityId);
+              console.log("Created new opportunity and linked to estimate:", createResult.opportunityId, "UUID:", createResult.opportunityUuid);
             }
           } catch (err) {
             console.error("Failed to create opportunity:", err);
