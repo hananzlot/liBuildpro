@@ -587,30 +587,38 @@ export function AppointmentDetailSheet({
     }
   };
 
-  // Update assigned user directly from details card
-  const handleUpdateAssigneeDirect = async (newAssignedUserId: string) => {
+  // Update assigned salesperson directly from details card
+  // Now uses salesperson_id (UUID) instead of assigned_user_id (GHL ID)
+  const handleUpdateAssigneeDirect = async (newSalespersonId: string) => {
     const appointmentId = appointment?.id || appointment?.ghl_id;
     if (!appointmentId) return;
     
-    const effectiveUserId = newAssignedUserId === "__unassigned__" ? null : newAssignedUserId;
+    const effectiveSalespersonId = newSalespersonId === "__unassigned__" ? null : newSalespersonId;
+    
+    // Find the salesperson to get their ghl_user_id for GHL sync
+    const selectedSalesperson = effectiveSalespersonId 
+      ? activeSalespeople.find(sp => sp.id === effectiveSalespersonId)
+      : null;
     
     setIsUpdatingAssignee(true);
     try {
-      // Update via edge function (syncs to GHL if connected)
-      if (appointment?.ghl_id) {
+      // Update via edge function (syncs to GHL if connected) - use ghl_user_id if available
+      if (appointment?.ghl_id && selectedSalesperson?.ghl_user_id) {
         const { error: ghlError } = await supabase.functions.invoke('update-ghl-appointment', {
-          body: { ghl_id: appointment.ghl_id, assignedUserId: effectiveUserId }
+          body: { ghl_id: appointment.ghl_id, assignedUserId: selectedSalesperson.ghl_user_id }
         });
         if (ghlError) {
           console.warn("GHL sync failed, updating locally:", ghlError);
         }
       }
 
-      // Update in Supabase with edit tracking
+      // Update in Supabase with edit tracking - now using salesperson_id
       let query = supabase
         .from('appointments')
         .update({ 
-          assigned_user_id: effectiveUserId, 
+          salesperson_id: effectiveSalespersonId,
+          // Also update assigned_user_id for backward compatibility if salesperson has ghl_user_id
+          assigned_user_id: selectedSalesperson?.ghl_user_id || null, 
           edited_by: user?.id || null,
           edited_at: new Date().toISOString(),
         });
@@ -625,20 +633,16 @@ export function AppointmentDetailSheet({
       if (dbError) throw dbError;
 
       // Update local state immediately so UI reflects change
-      setLocalAssignedUserId(effectiveUserId);
+      setLocalAssignedUserId(effectiveSalespersonId);
       
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       
-      const assignedUserName = effectiveUserId 
-        ? users.find(u => u.ghl_id === effectiveUserId)?.name || 
-          users.find(u => u.ghl_id === effectiveUserId)?.first_name || 
-          "Assigned"
-        : "Unassigned";
+      const assignedUserName = selectedSalesperson?.name || "Unassigned";
       toast.success(`Assigned to ${assignedUserName}`);
       
       onRefresh?.();
     } catch (error) {
-      console.error('Error updating assigned user:', error);
+      console.error('Error updating assigned salesperson:', error);
       toast.error("Failed to update assignee");
     } finally {
       setIsUpdatingAssignee(false);
@@ -830,15 +834,21 @@ export function AppointmentDetailSheet({
     }).format(value);
   };
 
-  // Use local state for assigned user to reflect changes immediately
-  const effectiveAssignedUserId = localAssignedUserId ?? appointment.assigned_user_id;
+  // Use local state for salesperson_id to reflect changes immediately
+  // We now use salesperson_id (UUID) instead of assigned_user_id (GHL user ID)
+  const effectiveSalespersonId = localAssignedUserId ?? (appointment as any).salesperson_id;
   
-  // First try to find name from active salespeople, then fall back to users list
-  const assignedSalesperson = activeSalespeople.find((sp) => sp.ghl_user_id === effectiveAssignedUserId);
-  const assignedUser = users.find((u) => u.ghl_id === effectiveAssignedUserId);
+  // Find the assigned salesperson by their UUID
+  const assignedSalesperson = activeSalespeople.find((sp) => sp.id === effectiveSalespersonId);
+  // Fallback to GHL user matching for legacy data
+  const assignedUserByGhl = !assignedSalesperson 
+    ? activeSalespeople.find((sp) => sp.ghl_user_id === appointment.assigned_user_id)
+    : null;
+  const assignedUser = users.find((u) => u.ghl_id === appointment.assigned_user_id);
 
   const userName =
     assignedSalesperson?.name ||
+    assignedUserByGhl?.name ||
     assignedUser?.name ||
     (assignedUser?.first_name && assignedUser?.last_name
       ? `${assignedUser.first_name} ${assignedUser.last_name}`
@@ -1491,7 +1501,7 @@ export function AppointmentDetailSheet({
                   <div className="flex items-center gap-1">
                     <User className="h-3 w-3 text-muted-foreground" />
                     <Select
-                      value={effectiveAssignedUserId || "__unassigned__"}
+                      value={effectiveSalespersonId || "__unassigned__"}
                       onValueChange={handleUpdateAssigneeDirect}
                       disabled={isUpdatingAssignee}
                     >
@@ -1506,13 +1516,11 @@ export function AppointmentDetailSheet({
                         <SelectItem value="__unassigned__" className="text-xs">
                           Unassigned
                         </SelectItem>
-                        {activeSalespeople
-                          .filter((sp) => sp.ghl_user_id) // Only show salespeople with GHL user ID
-                          .map((sp) => (
-                            <SelectItem key={sp.id} value={sp.ghl_user_id!} className="text-xs">
-                              {sp.name || "Unknown"}
-                            </SelectItem>
-                          ))}
+                        {activeSalespeople.map((sp) => (
+                          <SelectItem key={sp.id} value={sp.id} className="text-xs">
+                            {sp.name || "Unknown"}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1908,13 +1916,11 @@ export function AppointmentDetailSheet({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {activeSalespeople
-                    .filter((sp) => sp.ghl_user_id)
-                    .map((sp) => (
-                      <SelectItem key={sp.id} value={sp.ghl_user_id!}>
-                        {sp.name || "Unknown"}
-                      </SelectItem>
-                    ))}
+                  {activeSalespeople.map((sp) => (
+                    <SelectItem key={sp.id} value={sp.ghl_user_id || sp.id}>
+                      {sp.name || "Unknown"}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
