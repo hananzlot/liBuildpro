@@ -33,6 +33,8 @@ import {
   Trash2,
   PhoneCall,
   Copy,
+  FileCheck,
+  Eye,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -201,6 +203,10 @@ export function AppointmentDetailSheet({
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
   
+  // Estimates state
+  const [estimates, setEstimates] = useState<{ id: string; estimate_number: number | null; status: string | null; total: number | null; created_at: string }[]>([]);
+  const [loadingEstimates, setLoadingEstimates] = useState(false);
+  
   // Collapsible section states - all collapsed by default
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -343,6 +349,26 @@ export function AppointmentDetailSheet({
       console.error("Error fetching tasks:", error);
     } finally {
       setLoadingTasks(false);
+    }
+  };
+
+  // Fetch estimates for the contact
+  const fetchEstimates = async () => {
+    if (!contact?.id) return;
+    setLoadingEstimates(true);
+    try {
+      const { data, error } = await supabase
+        .from("estimates")
+        .select("id, estimate_number, status, total, created_at")
+        .eq("contact_uuid", contact.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setEstimates(data || []);
+    } catch (error) {
+      console.error("Error fetching estimates:", error);
+    } finally {
+      setLoadingEstimates(false);
     }
   };
 
@@ -630,6 +656,13 @@ export function AppointmentDetailSheet({
       fetchCalendars();
     }
   }, [open, appointment?.contact_id, appointment?.location_id]);
+
+  // Fetch estimates when contact changes
+  useEffect(() => {
+    if (open && contact?.id) {
+      fetchEstimates();
+    }
+  }, [open, contact?.id]);
 
   if (!appointment) return null;
 
@@ -1055,45 +1088,6 @@ export function AppointmentDetailSheet({
                       </span>
                     </div>
 
-                    {/* Opportunity Section - Nested inside Contact Details */}
-                    {primaryOpportunity && (
-                      <div 
-                        className={`mt-2 border-t pt-2 ${onOpenOpportunity ? "cursor-pointer hover:bg-muted/30 -mx-3 px-3 py-2 transition-colors" : ""}`}
-                        onClick={() => onOpenOpportunity?.(primaryOpportunity)}
-                      >
-                        <div className="flex items-center gap-2 mb-1">
-                          <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Opportunity</span>
-                          {onOpenOpportunity && <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto" />}
-                        </div>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{primaryOpportunity.name || "Untitled"}</p>
-                            <p className="text-xs text-muted-foreground">{primaryOpportunity.pipeline_name}</p>
-                          </div>
-                          <span className="text-sm font-bold text-emerald-500 shrink-0">
-                            {formatCurrency(primaryOpportunity.monetary_value)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {primaryOpportunity.stage_name || "No Stage"}
-                          </Badge>
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs ${
-                              primaryOpportunity.status === "won" 
-                                ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/30"
-                                : primaryOpportunity.status === "lost" || primaryOpportunity.status === "abandoned"
-                                ? "bg-red-500/20 text-red-500 border-red-500/30"
-                                : "bg-blue-500/20 text-blue-500 border-blue-500/30"
-                            }`}
-                          >
-                            {(primaryOpportunity.status || "open").toUpperCase()}
-                          </Badge>
-                        </div>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -1170,7 +1164,7 @@ export function AppointmentDetailSheet({
                   </Select>
                   <Badge
                     variant="outline"
-                    className={`text-xs h-6 px-2 inline-flex items-center gap-1 ${salespersonConfirmed ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-muted text-muted-foreground"}`}
+                    className={`text-xs h-6 px-2 inline-flex items-center gap-1 ${salespersonConfirmed ? "bg-primary/20 text-primary border-primary/30" : "bg-muted text-muted-foreground"}`}
                   >
                     <PhoneCall className="h-3 w-3" />
                     {salespersonConfirmed ? "Rep Confirmed" : "Not Confirmed"}
@@ -1180,12 +1174,110 @@ export function AppointmentDetailSheet({
                   {primaryOpportunity && (
                     <>
                       <span className="text-xs text-muted-foreground">|</span>
-                      <span className="text-sm font-bold text-emerald-400">
+                      <span className="text-sm font-bold text-primary">
                         {formatCurrency(primaryOpportunity.monetary_value)}
                       </span>
                     </>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Opportunity Section */}
+            {primaryOpportunity && (
+              <div className="border rounded-lg overflow-hidden">
+                <div 
+                  className={`bg-muted px-3 py-2 flex items-center justify-between border-b ${onOpenOpportunity ? "cursor-pointer hover:bg-muted/80 transition-colors" : ""}`}
+                  onClick={() => onOpenOpportunity?.(primaryOpportunity)}
+                >
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Opportunity</span>
+                  </div>
+                  {onOpenOpportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                </div>
+                <div 
+                  className={`p-3 ${onOpenOpportunity ? "cursor-pointer hover:bg-muted/30 transition-colors" : ""}`}
+                  onClick={() => onOpenOpportunity?.(primaryOpportunity)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{primaryOpportunity.name || "Untitled"}</p>
+                      <p className="text-xs text-muted-foreground">{primaryOpportunity.pipeline_name}</p>
+                    </div>
+                    <span className="text-sm font-bold text-primary shrink-0">
+                      {formatCurrency(primaryOpportunity.monetary_value)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap mt-2">
+                    <Badge variant="outline" className="text-xs">
+                      {primaryOpportunity.stage_name || "No Stage"}
+                    </Badge>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${
+                        primaryOpportunity.status === "won" 
+                          ? "bg-primary/20 text-primary border-primary/30"
+                          : primaryOpportunity.status === "lost" || primaryOpportunity.status === "abandoned"
+                          ? "bg-destructive/20 text-destructive border-destructive/30"
+                          : "bg-secondary text-secondary-foreground border-border"
+                      }`}
+                    >
+                      {(primaryOpportunity.status || "open").toUpperCase()}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Estimates & Proposals Section */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted px-3 py-2 flex items-center justify-between border-b">
+                <div className="flex items-center gap-2">
+                  <FileCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estimates & Proposals</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {estimates.length}
+                  </Badge>
+                </div>
+                {loadingEstimates && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+              </div>
+              <div className="p-3">
+                {estimates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No estimates found</p>
+                ) : (
+                  <div className="space-y-2">
+                    {estimates.map((est) => (
+                      <div key={est.id} className="flex items-center justify-between gap-2 p-2 rounded-md border bg-muted/30 hover:bg-muted/50 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">
+                            Estimate #{est.estimate_number || "—"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(est.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-primary">
+                            {formatCurrency(est.total)}
+                          </span>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs capitalize ${
+                              est.status === "accepted" 
+                                ? "bg-primary/20 text-primary border-primary/30"
+                                : est.status === "declined" || est.status === "expired"
+                                ? "bg-destructive/20 text-destructive border-destructive/30"
+                                : "bg-secondary text-secondary-foreground border-border"
+                            }`}
+                          >
+                            {est.status || "draft"}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </SheetHeader>
@@ -1420,7 +1512,7 @@ export function AppointmentDetailSheet({
                           {msg.direction === "outbound" ? (
                             <ArrowUpRight className="h-3 w-3 text-primary" />
                           ) : (
-                            <ArrowDownLeft className="h-3 w-3 text-emerald-500" />
+                            <ArrowDownLeft className="h-3 w-3 text-secondary-foreground" />
                           )}
                           <Badge variant="outline" className="text-xs">
                             {msg.type || "Message"}
@@ -1457,7 +1549,7 @@ export function AppointmentDetailSheet({
                       <div className="text-xs text-muted-foreground">{opp.stage_name || "Unknown Stage"}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-emerald-400 shrink-0">
+                      <span className="text-sm font-semibold text-primary shrink-0">
                         {formatCurrency(opp.monetary_value)}
                       </span>
                       {onOpenOpportunity && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
