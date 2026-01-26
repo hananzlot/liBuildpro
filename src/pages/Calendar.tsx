@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,8 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar as CalendarIcon, Clock, User, Search, Loader2, Phone, List, CalendarDays, Plus, MapPin, Grid3X3 } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths, addWeeks, subWeeks } from "date-fns";
-import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "@/components/dashboard/OpportunityDetailSheet";
+import { AppointmentDetailSheet } from "@/components/dashboard/AppointmentDetailSheet";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1002,11 +1003,12 @@ const Calendar = () => {
   const { user } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { appointmentId } = useParams<{ appointmentId?: string }>();
 
   const [searchFilter, setSearchFilter] = useState("");
   const [repFilter, setRepFilter] = useState<string>("all");
-  const [selectedAppointment, setSelectedAppointment] = useState<DBAppointment | null>(null);
-  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [selectedOpportunity, setSelectedOpportunity] = useState<DBOpportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"week" | "month" | "list">("week");
@@ -1046,6 +1048,24 @@ const Calendar = () => {
   const opportunities = metrics?.allOpportunities || [];
   const users = metrics?.users || [];
 
+  // Find the selected appointment from the URL param (for route-driven modal)
+  const selectedAppointment = useMemo(() => {
+    if (!appointmentId || !appointments.length) return null;
+    return appointments.find(
+      (a: DBAppointment) => a.id === appointmentId || a.ghl_id === appointmentId
+    ) || null;
+  }, [appointmentId, appointments]);
+
+  // Determine if the detail sheet should be open based on URL
+  const detailSheetOpen = !!appointmentId;
+
+  // Handle closing the detail sheet - navigate back to /calendar
+  const handleDetailSheetClose = (open: boolean) => {
+    if (!open) {
+      navigate("/calendar", { replace: true });
+    }
+  };
+
   // Auto-refresh every 2 minutes when on this screen
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -1054,18 +1074,6 @@ const Calendar = () => {
 
     return () => clearInterval(intervalId);
   }, [refetch]);
-
-  // Keep selectedAppointment in sync with the latest data from appointments array
-  useEffect(() => {
-    if (selectedAppointment && appointments.length > 0) {
-      const updatedAppointment = appointments.find(
-        (a: DBAppointment) => a.id === selectedAppointment.id
-      );
-      if (updatedAppointment && JSON.stringify(updatedAppointment) !== JSON.stringify(selectedAppointment)) {
-        setSelectedAppointment(updatedAppointment);
-      }
-    }
-  }, [appointments, selectedAppointment]);
 
   // Helper to capitalize words properly
   const capitalizeWords = (str: string): string => {
@@ -1261,8 +1269,10 @@ const Calendar = () => {
   };
 
   const handleAppointmentClick = (appointment: DBAppointment) => {
-    setSelectedAppointment(appointment);
-    setDetailSheetOpen(true);
+    // Navigate to the appointment detail route with background location
+    navigate(`/calendar/appointment/${appointment.id}`, {
+      state: { backgroundLocation: location }
+    });
   };
 
   // Handle drag-and-drop reschedule
@@ -1713,10 +1723,10 @@ const Calendar = () => {
         )}
       </div>
 
-      {/* Appointment Detail Sheet */}
+      {/* Appointment Detail Sheet - Route-driven modal */}
       <AppointmentDetailSheet
         open={detailSheetOpen}
-        onOpenChange={setDetailSheetOpen}
+        onOpenChange={handleDetailSheetClose}
         appointment={selectedAppointment}
         contacts={contacts}
         users={users}
@@ -1728,7 +1738,6 @@ const Calendar = () => {
           setOpportunitySheetOpen(true);
         }}
       />
-
       {/* Opportunity Detail Sheet */}
       <OpportunityDetailSheet
         opportunity={selectedOpportunity}
