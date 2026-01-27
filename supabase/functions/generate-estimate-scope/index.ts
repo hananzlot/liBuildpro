@@ -830,7 +830,105 @@ serve(async (req) => {
       plansFileUrl,
       jobId,
       stagedMode = true, // Default to new staged mode
+      recoverJobId, // If provided, recover a failed job by running final assembly on saved stage_results
     } = body;
+
+    // ===== RECOVER MODE: Complete a failed job using saved stage_results =====
+    if (recoverJobId) {
+      console.log(`Recover mode: Attempting to recover job ${recoverJobId}`);
+      
+      const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+      const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      // Fetch the job's stage_results
+      const { data: jobData, error: jobError } = await supabaseAdmin
+        .from('estimate_generation_jobs')
+        .select('id, estimate_id, stage_results, status')
+        .eq('id', recoverJobId)
+        .single();
+      
+      if (jobError || !jobData) {
+        console.error('Failed to fetch job:', jobError);
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Job not found: ${recoverJobId}`,
+        }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      const stageResults = jobData.stage_results as Record<string, any>;
+      if (!stageResults || !stageResults.estimate_plan) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Job does not have saved stage_results with estimate_plan. Cannot recover.',
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Extract estimate_plan and group results from stage_results
+      const estimatePlan = stageResults.estimate_plan;
+      const groupResults: any[] = [];
+      
+      // Find all group_N keys and reconstruct groupResults array
+      const groupKeys = Object.keys(stageResults)
+        .filter(k => k.startsWith('group_'))
+        .sort((a, b) => {
+          const aNum = parseInt(a.replace('group_', ''));
+          const bNum = parseInt(b.replace('group_', ''));
+          return aNum - bNum;
+        });
+      
+      for (const groupKey of groupKeys) {
+        const groupData = stageResults[groupKey];
+        // Get group name from estimate_plan.groups if available
+        const groupIndex = parseInt(groupKey.replace('group_', ''));
+        const planGroup = estimatePlan.groups?.[groupIndex];
+        
+        groupResults.push({
+          group_name: planGroup?.group_name || groupData.group_name || `Group ${groupIndex + 1}`,
+          description: planGroup?.description || groupData.description || '',
+          items: groupData.items || [],
+          missing_info: groupData.missing_info || [],
+        });
+      }
+      
+      if (groupResults.length === 0) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'No group items found in stage_results. Cannot complete final assembly.',
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      console.log(`Recover mode: Found ${groupResults.length} groups in stage_results`);
+      
+      // Run programmatic final assembly
+      const finalResult = processFinalAssemblyStage(estimatePlan, groupResults);
+      
+      // Update job as completed
+      await updateJobStatus(recoverJobId, 'completed', {
+        scope: finalResult,
+        recovered: true,
+      });
+      
+      console.log(`Recover mode: Successfully recovered job ${recoverJobId}`);
+      
+      return new Response(JSON.stringify({
+        success: true,
+        scope: finalResult,
+        recovered: true,
+        message: 'Job recovered successfully from saved stage data',
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     console.log('Generating estimate scope:', { 
       projectType, 

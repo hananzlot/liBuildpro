@@ -765,6 +765,51 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     setActiveTab("scope");
   }, [formData.default_markup_percent, groups.length]);
 
+  // Check for completed/recovered AI generation jobs and apply results
+  useEffect(() => {
+    if (!open || !currentEstimateId || groups.length > 0) return;
+    
+    const checkForCompletedJob = async () => {
+      try {
+        // Look for a completed job with result_json that hasn't been applied
+        const { data: completedJob, error } = await supabase
+          .from('estimate_generation_jobs')
+          .select('id, result_json, status')
+          .eq('estimate_id', currentEstimateId)
+          .eq('status', 'completed')
+          .not('result_json', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (error || !completedJob?.result_json) return;
+        
+        // Check if the estimate already has groups (don't re-apply)
+        const { data: existingGroups } = await supabase
+          .from('estimate_groups')
+          .select('id')
+          .eq('estimate_id', currentEstimateId)
+          .limit(1);
+        
+        if (existingGroups && existingGroups.length > 0) return;
+        
+        // Apply the recovered/completed job result
+        const result = completedJob.result_json as { scope?: any; recovered?: boolean };
+        if (result.scope) {
+          console.log('Found completed AI job, applying results...');
+          applyAIScope(result.scope);
+          toast.success(result.recovered 
+            ? "Recovered AI-generated estimate applied!" 
+            : "AI-generated estimate applied from previous session!");
+        }
+      } catch (err) {
+        console.error('Error checking for completed jobs:', err);
+      }
+    };
+    
+    checkForCompletedJob();
+  }, [open, currentEstimateId, groups.length, applyAIScope]);
+
   // AI Scope Generation with job-based background processing
   const generateScope = async () => {
     if (!formData.job_address?.trim()) {
