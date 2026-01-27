@@ -371,9 +371,34 @@ export function OpportunityDetailSheet({
       
       setLinkedEstimates(estimatesData || []);
 
-      // Fetch portal link for same contact (via projects linked to the same contact)
-      if (opportunity.contact_id || opportunity.contact_uuid) {
-        // Find projects for this contact that have active portal tokens
+      // Fetch portal link - check by opportunity first, then by contact
+      let foundPortalToken: string | null = null;
+
+      // First: Check for projects linked to this opportunity
+      const { data: oppProjects } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("company_id", companyId)
+        .or(`opportunity_id.eq.${opportunity.ghl_id},opportunity_uuid.eq.${opportunity.id || 'none'}`);
+
+      if (oppProjects && oppProjects.length > 0) {
+        const projectIds = oppProjects.map(p => p.id);
+        const { data: portalToken } = await supabase
+          .from("client_portal_tokens")
+          .select("token")
+          .in("project_id", projectIds)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (portalToken?.token) {
+          foundPortalToken = portalToken.token;
+        }
+      }
+
+      // Second: If no portal found, check by contact
+      if (!foundPortalToken && (opportunity.contact_id || opportunity.contact_uuid)) {
         let projectsQuery = supabase
           .from("projects")
           .select("id")
@@ -389,8 +414,6 @@ export function OpportunityDetailSheet({
         
         if (contactProjects && contactProjects.length > 0) {
           const projectIds = contactProjects.map(p => p.id);
-          
-          // Find active portal token for any of these projects
           const { data: portalToken } = await supabase
             .from("client_portal_tokens")
             .select("token")
@@ -401,18 +424,22 @@ export function OpportunityDetailSheet({
             .maybeSingle();
           
           if (portalToken?.token) {
-            // Get app base URL from company settings or use default
-            const { data: baseUrlSetting } = await supabase
-              .from("company_settings")
-              .select("setting_value")
-              .eq("company_id", companyId)
-              .eq("setting_key", "app_base_url")
-              .maybeSingle();
-            
-            const baseUrl = baseUrlSetting?.setting_value || window.location.origin;
-            setPortalLink(`${baseUrl}/portal/${portalToken.token}`);
+            foundPortalToken = portalToken.token;
           }
         }
+      }
+
+      // Set the portal link if found
+      if (foundPortalToken) {
+        const { data: baseUrlSetting } = await supabase
+          .from("company_settings")
+          .select("setting_value")
+          .eq("company_id", companyId)
+          .eq("setting_key", "app_base_url")
+          .maybeSingle();
+        
+        const baseUrl = baseUrlSetting?.setting_value || window.location.origin;
+        setPortalLink(`${baseUrl}/portal/${foundPortalToken}`);
       }
     };
     
