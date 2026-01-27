@@ -1,113 +1,136 @@
 
+# Plan: Fix AI Estimate Generation Reliability and Progress UI Visibility
 
-# Plan: Fix AI PDF Analysis - ChatGPT Is Not Reading the Plans
-
-## Problem Identified
-
-The PDF **is being uploaded successfully** to OpenAI, but ChatGPT is returning a **generic cookie-cutter estimate** instead of actually analyzing the construction plans.
-
-Evidence from logs:
-- PDF uploaded: `file-7mzLGgTXvku7zFWJmNrD2L` (32MB file)
-- Output: Generic "2636 sqft new home" estimate with only ~13 groups
-- No plan-specific details (no room names, no actual dimensions, no specifications from the PDF)
-
-## Root Cause
-
-The current prompt tells ChatGPT to "ANALYZE THE ATTACHED CONSTRUCTION PLANS PDF CAREFULLY" but:
-1. This instruction is buried at the bottom of the prompt
-2. The prompt leads with generic scope info, so ChatGPT just uses that
-3. There's no emphasis on extracting PDF-specific data
-
-## Solution: Restructure the Prompt
-
-Modify the prompt to **force ChatGPT to analyze the PDF FIRST** before generating any estimates.
-
-### Changes to `generate-estimate-scope/index.ts`
-
-**1. Reorder the prompt when PDF is attached:**
-
-Move the PDF analysis instruction to the TOP and make it mandatory:
-
-```typescript
-// When PDF is attached, front-load the analysis instruction
-if (parsedPlansContent?.type === 'file_id') {
-  userPrompt = `**CRITICAL: YOU MUST ANALYZE THE ATTACHED PDF FIRST**
-
-I have attached construction plans as a PDF file. Before generating any estimate, you MUST:
-1. Read EVERY page of the PDF
-2. Extract ALL room names, dimensions, and square footages
-3. Identify all specifications, materials, and finishes mentioned
-4. Note any structural details (foundation type, framing, roofing)
-5. List all MEP (plumbing, electrical, HVAC) specifications found
-
-DO NOT generate a generic estimate. The estimate MUST reflect what is actually shown in the attached PDF plans.
+## Overview
+This plan addresses two issues:
+1. The progress indicator is hidden behind the estimate dialog
+2. The AI generation failed due to a temporary service outage with no retry mechanism
 
 ---
 
-${originalPrompt}
+## Part 1: Fix Progress Overlay Z-Index (UI Fix)
+
+### Problem
+The `AIGenerationProgress` component uses `z-50`, but the Radix Dialog's portal also uses `z-50` and renders later in the DOM, causing the dialog to cover the progress overlay.
+
+### Solution
+Increase the z-index of the progress overlay to `z-[100]` so it appears above the dialog overlay (`z-50`).
+
+### File Changes
+**`src/components/estimates/AIGenerationProgress.tsx`**
+- Change line 83 from `z-50` to `z-[100]`
+
+```tsx
+// Before
+<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+
+// After  
+<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center">
+```
 
 ---
 
-**MANDATORY PDF ANALYSIS CHECKLIST:**
-- [ ] List every room from the floor plan with dimensions
-- [ ] Identify roofing material and area from elevation drawings
-- [ ] Note foundation type from structural drawings
-- [ ] Extract any spec schedules (door, window, finish schedules)
-- [ ] Include any specific material callouts from the plans
+## Part 2: Improve Error Handling and Add Retry Logic (Backend Fix)
 
-If you cannot read the PDF, say so explicitly. Do NOT make up generic values.`;
+### Problem
+The Gemini API via OpenRouter returned a 503 (temporarily unavailable) error. The system failed immediately without retrying.
+
+### Solution
+Add retry logic with exponential backoff for transient errors (503, 429, 502).
+
+### File Changes
+**`supabase/functions/generate-estimate-scope/index.ts`**
+
+1. **Add retry helper function:**
+```typescript
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // Retry on transient errors
+      if (response.status === 503 || response.status === 502 || response.status === 429) {
+        const waitTime = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s
+        console.log(`API returned ${response.status}, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+      const waitTime = Math.pow(2, attempt) * 2000;
+      console.log(`Network error, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise(r => setTimeout(r, waitTime));
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
 }
 ```
 
-**2. Add explicit extraction request in system prompt:**
+2. **Replace the `fetch()` call** to the AI API with `fetchWithRetry()`
+
+3. **Add clearer error messages** for specific failure cases:
+   - 503: "AI service temporarily unavailable. Please try again in a few moments."
+   - 429: "AI service rate limited. Please wait a moment and try again."
+   - Timeout: "AI took too long to respond. Try with a smaller file or simpler description."
+
+---
+
+## Part 3: Add Timeout Protection (Optional Enhancement)
+
+### Problem
+Large PDFs can cause the AI to process for a very long time, exceeding edge function limits.
+
+### Solution
+Add an AbortController with a 90-second timeout to fail gracefully instead of hanging.
+
+### File Changes
+**`supabase/functions/generate-estimate-scope/index.ts`**
 
 ```typescript
-const systemPromptWithPdf = `You are an expert construction estimator with strong plan-reading skills.
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
 
-IMPORTANT: When PDF plans are attached:
-- You MUST extract actual data from the plans
-- Never generate generic estimates when plans are provided
-- If you cannot read a detail, say "Unable to determine from plans"
-- Quote specific page numbers when referencing plan details
-
-Return COST values (what the contractor pays), not selling prices.`;
-```
-
-**3. Add validation of PDF analysis in response:**
-
-Add instructions to include a new field showing what was extracted:
-
-```typescript
-// Add to JSON schema
-"pdf_extracted_data": {
-  "rooms_identified": ["Room name - dimensions"],
-  "total_sqft_from_plans": number,
-  "specifications_found": ["spec 1", "spec 2"],
-  "unable_to_determine": ["items that couldn't be read"]
+try {
+  const response = await fetchWithRetry(apiUrl, {
+    ...options,
+    signal: controller.signal
+  });
+  clearTimeout(timeoutId);
+  // ... process response
+} catch (error) {
+  clearTimeout(timeoutId);
+  if (error.name === 'AbortError') {
+    throw new Error('AI processing timed out. Try with a smaller file or simpler work scope.');
+  }
+  throw error;
 }
 ```
 
-## File to Modify
+---
 
-| File | Changes |
-|------|---------|
-| `supabase/functions/generate-estimate-scope/index.ts` | Restructure prompt to prioritize PDF analysis, add explicit extraction requirements |
+## Summary of Changes
 
-## Expected Outcome
+| File | Change |
+|------|--------|
+| `src/components/estimates/AIGenerationProgress.tsx` | Increase z-index from `z-50` to `z-[100]` |
+| `supabase/functions/generate-estimate-scope/index.ts` | Add `fetchWithRetry()` function with exponential backoff |
+| `supabase/functions/generate-estimate-scope/index.ts` | Add 90-second timeout with AbortController |
+| `supabase/functions/generate-estimate-scope/index.ts` | Improve error messages for 503, 429, and timeout errors |
 
-After this change:
-- ChatGPT will be forced to analyze the PDF before generating estimates
-- The estimate will include actual room names and dimensions from the plans
-- Quantities will be based on extracted measurements, not guesses
-- A new field will show what was extracted from the PDF for verification
+---
 
-## Why This Will Work
+## Technical Notes
 
-OpenAI's file analysis does work - the issue is prompt engineering. By:
-1. Making PDF analysis the FIRST instruction (not buried at the end)
-2. Requiring explicit extraction of details before estimating
-3. Adding a checklist that ChatGPT must address
-4. Asking for "unable to determine" items to catch failures
-
-ChatGPT will be forced to engage with the PDF content rather than defaulting to generic estimates.
-
+- The 503 error was from OpenRouter (the gateway to Gemini), not from your code
+- Retry logic with exponential backoff (2s, 4s, 8s delays) gives transient issues time to resolve
+- The z-index fix is simple but effective since Dialog uses z-50 and we need to be above it
+- The timeout protects against edge function execution limits (typically 60-120 seconds)
