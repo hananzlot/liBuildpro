@@ -1217,6 +1217,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   };
 
   const saveMutation = useMutation({
+    mutationKey: ['save-estimate', currentEstimateId],
     mutationFn: async () => {
       if (!validateEstimate()) {
         throw new Error("Validation failed");
@@ -1507,6 +1508,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   // Save As New mutation - creates a new estimate with the current data
   const saveAsNewMutation = useMutation({
+    mutationKey: ['save-estimate-as-new', currentEstimateId],
     mutationFn: async () => {
       if (!validateEstimate()) {
         throw new Error("Validation failed");
