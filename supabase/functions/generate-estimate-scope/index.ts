@@ -341,53 +341,177 @@ serve(async (req) => {
 
     console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent, companyId, hasPlans: !!plansFileUrl, jobId: jobId || 'none' });
     
-    // Helper to update job status
+    // Helper to update job status in database
     const updateJobStatus = async (
+      targetJobId: string,
       status: 'processing' | 'completed' | 'failed',
       resultJson?: any,
       errorMessage?: string
     ) => {
-      if (!jobId) return;
-      
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      
-      const updateData: any = { status };
-      
-      if (status === 'processing') {
-        updateData.started_at = new Date().toISOString();
-      }
-      
-      if (status === 'completed' || status === 'failed') {
-        updateData.completed_at = new Date().toISOString();
-      }
-      
-      if (resultJson) {
-        updateData.result_json = resultJson;
-      }
-      
-      if (errorMessage) {
-        updateData.error_message = errorMessage;
-      }
-      
-      const { error } = await supabase
-        .from('estimate_generation_jobs')
-        .update(updateData)
-        .eq('id', jobId);
+      try {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
         
-      if (error) {
-        console.error('Failed to update job status:', error);
-      } else {
-        console.log(`Job ${jobId} updated to status: ${status}`);
+        const updateData: any = { status };
+        
+        if (status === 'processing') {
+          updateData.started_at = new Date().toISOString();
+        }
+        
+        if (status === 'completed' || status === 'failed') {
+          updateData.completed_at = new Date().toISOString();
+        }
+        
+        if (resultJson !== undefined) {
+          updateData.result_json = resultJson;
+        }
+        
+        if (errorMessage) {
+          updateData.error_message = errorMessage;
+        }
+        
+        const { error } = await supabase
+          .from('estimate_generation_jobs')
+          .update(updateData)
+          .eq('id', targetJobId);
+          
+        if (error) {
+          console.error(`Failed to update job ${targetJobId} status:`, error);
+        } else {
+          console.log(`Job ${targetJobId} updated to status: ${status}`);
+        }
+      } catch (updateError) {
+        console.error(`Exception updating job ${targetJobId}:`, updateError);
       }
     };
     
-    // If jobId provided, mark as processing
+    // If jobId provided, run AI in background and return immediately
     if (jobId) {
-      await updateJobStatus('processing');
+      console.log(`Background job mode: ${jobId} - returning immediately and processing in background`);
+      
+      // Mark as processing first
+      await updateJobStatus(jobId, 'processing');
+      
+      // Start background processing with EdgeRuntime.waitUntil
+      // This ensures the function keeps running even if client disconnects
+      // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+      EdgeRuntime.waitUntil((async () => {
+        try {
+          console.log(`Background job ${jobId}: Starting AI processing...`);
+          
+          // Call the main processing logic (defined below in processEstimateGeneration)
+          const result = await processEstimateGeneration({
+            projectType,
+            projectDescription,
+            workScopeDescription,
+            jobAddress,
+            existingGroups,
+            defaultMarkupPercent,
+            companyId,
+            plansFileUrl,
+          });
+          
+          console.log(`Background job ${jobId}: AI processing completed successfully`);
+          await updateJobStatus(jobId, 'completed', {
+            scope: result.scope,
+            warning: result.warning
+          });
+        } catch (bgError) {
+          const errorMessage = bgError instanceof Error ? bgError.message : 'Unknown error in background processing';
+          console.error(`Background job ${jobId}: Processing failed:`, errorMessage);
+          await updateJobStatus(jobId, 'failed', null, errorMessage);
+        }
+      })());
+      
+      // Return immediately - client will get updates via Realtime subscription
+      return new Response(JSON.stringify({ 
+        success: true, 
+        jobId,
+        message: 'AI generation started in background. You will be notified when complete.',
+        backgroundMode: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+    
+    // Synchronous mode (no jobId) - run processing directly
+    const result = await processEstimateGeneration({
+      projectType,
+      projectDescription,
+      workScopeDescription,
+      jobAddress,
+      existingGroups,
+      defaultMarkupPercent,
+      companyId,
+      plansFileUrl,
+    });
+    
+    return new Response(JSON.stringify({ 
+      success: true,
+      scope: result.scope,
+      warning: result.warning
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
+  } catch (error) {
+    console.error('Error in generate-estimate-scope:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // If jobId provided in body, save error to database
+    if (body?.jobId) {
+      try {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        
+        await supabase
+          .from('estimate_generation_jobs')
+          .update({ 
+            status: 'failed', 
+            error_message: errorMessage,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', body.jobId);
+      } catch (updateError) {
+        console.error('Failed to update job with error status:', updateError);
+      }
+    }
+    
+    return new Response(JSON.stringify({ 
+      success: false,
+      error: errorMessage 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
+
+// Main AI processing function - extracted for both sync and background modes
+async function processEstimateGeneration(params: {
+  projectType: string;
+  projectDescription?: string;
+  workScopeDescription: string;
+  jobAddress: string;
+  existingGroups?: any[];
+  defaultMarkupPercent: number;
+  companyId?: string;
+  plansFileUrl?: string;
+}): Promise<{ scope: any; warning?: string }> {
+  const {
+    projectType,
+    projectDescription,
+    workScopeDescription,
+    jobAddress,
+    existingGroups,
+    defaultMarkupPercent,
+    companyId,
+    plansFileUrl,
+  } = params;
 
     // Fetch AI settings from company_settings
     let aiTemperature = 0.3;
@@ -626,7 +750,7 @@ Default Markup: ${defaultMarkupPercent || 35}%
 DETAILED WORK SCOPE FROM CUSTOMER:
 ${workScopeDescription || projectDescription || 'General home improvement project'}
 
-${existingGroups?.length > 0 ? `\nExisting scope areas (already added): ${existingGroups.join(', ')}` : ''}
+${(existingGroups && existingGroups.length > 0) ? `\nExisting scope areas (already added): ${existingGroups.join(', ')}` : ''}
 
 **CRITICAL - COST FIELD RULES (READ CAREFULLY):**
 - "labor_cost" = RATE PER UNIT (e.g., $50/hour, NOT $500 for 10 hours)
@@ -913,54 +1037,9 @@ ${baseUserPrompt}`;
       }
     }
 
-    // If jobId provided, save result to database
-    if (jobId) {
-      await updateJobStatus('completed', {
-        scope: parsedScope,
-        warning: pdfTooLarge ? 'PDF too large - estimate generated from description only' : undefined
-      });
-    }
-
-    return new Response(JSON.stringify({ 
-      success: true,
+    // Return the parsed scope - the caller handles Response creation and job updates
+    return {
       scope: parsedScope,
-      warning: pdfTooLarge ? 'PDF too large - estimate generated from description only' : undefined,
-      jobId: jobId || undefined
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('Error in generate-estimate-scope:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
-    // If jobId provided, save error to database
-    if (body?.jobId) {
-      try {
-        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        
-        await supabase
-          .from('estimate_generation_jobs')
-          .update({ 
-            status: 'failed', 
-            error_message: errorMessage,
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', body.jobId);
-      } catch (updateError) {
-        console.error('Failed to update job with error status:', updateError);
-      }
-    }
-    
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: errorMessage 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});
+      warning: pdfTooLarge ? 'PDF too large - estimate generated from description only' : undefined
+    };
+}
