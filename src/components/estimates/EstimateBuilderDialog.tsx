@@ -2380,23 +2380,23 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         <Card key={group.id}>
                           <Collapsible open={group.isOpen} onOpenChange={() => toggleGroup(group.id)}>
                             <CardHeader className="py-3">
-                              <div className="flex items-center justify-between">
-                                <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary">
+                              <div className="flex items-center justify-between gap-2">
+                                <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary flex-1 min-w-0">
                                   {group.isOpen ? (
-                                    <ChevronDown className="h-4 w-4" />
+                                    <ChevronDown className="h-4 w-4 shrink-0" />
                                   ) : (
-                                    <ChevronRight className="h-4 w-4" />
+                                    <ChevronRight className="h-4 w-4 shrink-0" />
                                   )}
                                   <Input
                                     value={group.group_name}
                                     onChange={(e) => updateGroup(group.id, { group_name: e.target.value })}
-                                    className="font-semibold border-0 p-0 h-auto focus-visible:ring-0 w-48"
+                                    className="font-semibold border-0 p-0 h-auto focus-visible:ring-0 min-w-[120px] flex-1"
                                     onClick={(e) => e.stopPropagation()}
                                   />
-                                  <Badge variant="secondary" className="ml-2">
+                                  <Badge variant="secondary" className="ml-2 shrink-0">
                                     {group.items.length} items
                                   </Badge>
-                                  <Badge variant="outline" className="ml-1">
+                                  <Badge variant="outline" className="ml-1 shrink-0">
                                     {formatCurrency(group.items.reduce((sum, i) => sum + i.line_total, 0))}
                                   </Badge>
                                 </CollapsibleTrigger>
