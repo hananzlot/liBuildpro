@@ -725,14 +725,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     setPlansFileName(null);
   };
 
-  // Helper to process AI scope result and update state
+  // Helper to process AI scope result and update state - always replaces existing groups
   const applyAIScope = useCallback((scope: any) => {
-    // Add generated groups and items - always use the form's default markup, ignoring AI recommendations
+    // Replace all groups with AI-generated ones - always use the form's default markup
     const newGroups: Group[] = scope.groups.map((g: any, gIdx: number) => ({
       id: generateId(),
       group_name: g.group_name,
       description: g.description || "",
-      sort_order: groups.length + gIdx,
+      sort_order: gIdx,
       isOpen: true,
       items: g.items.map((item: any, iIdx: number) => {
         // AI now returns labor_cost/material_cost; some models may omit `cost`.
@@ -777,7 +777,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       }),
     }));
 
-    setGroups(prev => [...prev, ...newGroups]);
+    // Replace all groups (don't append) to avoid duplicates on regeneration
+    setGroups(newGroups);
 
     // Build payment schedule: always start with deposit, then add AI phases
     const depositPhase: PaymentPhase = {
@@ -835,9 +836,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setShowAiSummary(true);
     }
 
-    toast.success("AI generated scope added successfully!");
+    toast.success("AI estimate generated successfully!");
     setActiveTab("scope");
-  }, [formData.default_markup_percent, groups.length]);
+  }, [formData.default_markup_percent]);
 
   // Check for completed/recovered AI generation jobs and apply results
   useEffect(() => {
