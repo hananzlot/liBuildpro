@@ -543,7 +543,7 @@ export default function AdminSettings() {
   );
 
   const estimateSettings = settings?.filter((s) =>
-    ["default_terms_and_conditions", "default_markup_percent", "default_deposit_percent", "default_deposit_max_amount", "estimate_expiration_days"].includes(s.setting_key)
+    ["default_terms_and_conditions", "default_markup_percent", "default_deposit_percent", "default_deposit_max_amount", "estimate_expiration_days", "estimate_plans_max_size_mb"].includes(s.setting_key)
   );
 
   const opportunityStageSettings = settings?.filter((s) =>
