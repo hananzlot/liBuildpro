@@ -48,12 +48,6 @@ function bufferToBase64Chunked(buffer: ArrayBuffer): string {
   return btoa(result);
 }
 
-// Convert PDF buffer to base64 data URL for Gemini (which supports native PDF)
-function pdfToBase64DataUrl(pdfBuffer: ArrayBuffer): string {
-  const base64 = bufferToBase64Chunked(pdfBuffer);
-  return `data:application/pdf;base64,${base64}`;
-}
-
 // Retry fetch with exponential backoff for transient errors
 async function fetchWithRetry(
   url: string, 
@@ -90,14 +84,215 @@ async function fetchWithRetry(
   throw lastError || new Error('Max retries exceeded');
 }
 
+// Upload a file to OpenAI's Files API and return the file_id
+async function uploadFileToOpenAI(
+  fileBuffer: ArrayBuffer, 
+  filename: string,
+  apiKey: string
+): Promise<string> {
+  console.log(`Uploading file to OpenAI: ${filename} (${fileBuffer.byteLength} bytes)`);
+  
+  const formData = new FormData();
+  const blob = new Blob([fileBuffer], { type: 'application/pdf' });
+  formData.append('file', blob, filename);
+  formData.append('purpose', 'user_data');
+  
+  const response = await fetchWithRetry('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('OpenAI file upload failed:', response.status, errorText);
+    throw new Error(`Failed to upload file to OpenAI: ${response.status}`);
+  }
+  
+  const result = await response.json();
+  console.log('OpenAI file upload successful, file_id:', result.id);
+  return result.id;
+}
+
+// Call OpenAI Responses API with file input
+async function callOpenAIResponsesAPI(
+  systemPrompt: string,
+  userPrompt: string,
+  fileId: string | null,
+  apiKey: string,
+  temperature: number
+): Promise<{ content: string; model: string }> {
+  console.log('Calling OpenAI Responses API with gpt-5.2...');
+  
+  // Build the input array for Responses API
+  const userContent: any[] = [
+    { type: 'input_text', text: userPrompt }
+  ];
+  
+  // Add file input if we have one
+  if (fileId) {
+    userContent.push({ type: 'input_file', file_id: fileId });
+    console.log('Including file_id in request:', fileId);
+  }
+  
+  const requestBody = {
+    model: 'gpt-5.2',
+    input: [
+      {
+        role: 'system',
+        content: [{ type: 'input_text', text: systemPrompt }]
+      },
+      {
+        role: 'user',
+        content: userContent
+      }
+    ],
+    temperature,
+    text: {
+      format: {
+        type: 'json_object'
+      }
+    }
+  };
+  
+  // Timeout: 180 seconds for complex PDF analysis
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180000);
+  
+  try {
+    const response = await fetchWithRetry('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenAI Responses API error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        throw new Error('OpenAI rate limited. Please wait and try again.');
+      }
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('OpenAI API key is invalid or does not have access to gpt-5.2.');
+      }
+      if (response.status === 402) {
+        throw new Error('OpenAI account has insufficient credits.');
+      }
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Responses API returns output_text directly
+    const outputText = data.output_text || data.output?.[0]?.content?.[0]?.text;
+    
+    if (!outputText) {
+      console.error('No output_text in OpenAI response:', JSON.stringify(data).substring(0, 1000));
+      throw new Error('OpenAI returned empty response');
+    }
+    
+    return { content: outputText, model: 'gpt-5.2' };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if ((error as Error).name === 'AbortError') {
+      throw new Error('OpenAI request timed out. The PDF may be too large or complex.');
+    }
+    throw error;
+  }
+}
+
+// Call Lovable AI Gateway (Gemini) for fallback or when OpenAI not configured
+async function callLovableAIGateway(
+  messages: any[],
+  modelToUse: string,
+  temperature: number,
+  lovableApiKey: string
+): Promise<{ content: string; model: string }> {
+  console.log(`Calling Lovable AI Gateway with model: ${modelToUse}`);
+  
+  const isOpenAIModel = modelToUse.startsWith('openai/');
+  const timeoutMs = isOpenAIModel ? 150000 : 90000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const requestBody: Record<string, unknown> = {
+      model: modelToUse,
+      messages,
+      temperature,
+      response_format: { type: "json_object" },
+    };
+    
+    if (isOpenAIModel) {
+      requestBody.max_completion_tokens = 12000;
+    } else {
+      requestBody.max_tokens = 12000;
+    }
+    
+    const response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Lovable AI Gateway error:', response.status, errorText);
+      
+      if (response.status === 429) {
+        throw new Error('AI service rate limited. Please wait a moment and try again.');
+      }
+      if (response.status === 503 || response.status === 502) {
+        throw new Error('AI service temporarily unavailable. Please try again in a few moments.');
+      }
+      if (response.status === 402 || response.status === 401) {
+        throw new Error('AI credits exhausted. Please add credits to continue using AI features.');
+      }
+      throw new Error(`AI Gateway error: ${response.status}`);
+    }
+    
+    const responseText = await response.text();
+    if (!responseText || responseText.trim() === '') {
+      throw new Error('AI returned an empty response.');
+    }
+    
+    const data = JSON.parse(responseText);
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error('AI returned an empty response.');
+    }
+    
+    return { content, model: modelToUse };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if ((error as Error).name === 'AbortError') {
+      throw new Error('AI processing timed out. Try with a smaller file or simpler work scope.');
+    }
+    throw error;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Robust request parsing: avoid throwing `SyntaxError: Unexpected end of JSON input`
-    // when the caller accidentally sends an empty body.
+    // Robust request parsing
     const bodyText = await req.text();
     if (!bodyText || bodyText.trim() === '') {
       return new Response(JSON.stringify({
@@ -206,34 +401,22 @@ serve(async (req) => {
       console.log('AI provider preference:', aiProvider);
     }
 
-    // Determine which API to use based on provider setting
-    // Use OpenAI only if: provider is set to "openai" AND we have an API key
+    // Determine which API to use
     const useOpenAI = aiProvider === 'openai' && !!openaiApiKey;
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    // Fall back to Lovable API if no OpenAI key
-    if (!useOpenAI) {
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      if (!LOVABLE_API_KEY) {
-        throw new Error('No AI API key configured. Please add your OpenAI API key in company settings.');
-      }
+    if (!useOpenAI && !LOVABLE_API_KEY) {
+      throw new Error('No AI API key configured. Please add your OpenAI API key in company settings.');
     }
 
-    // Parse uploaded plans file if provided
-    // parsedPlansContent can be:
-    // - { type: 'pdf_base64', value: string } for PDFs (Gemini can read these natively)
-    // - { type: 'image_url', value: string } for base64 images
-    // - { type: 'text', value: string } for fallback text descriptions
-    // - null if no plans file
-    let parsedPlansContent: { type: 'pdf_base64' | 'image_url' | 'text'; value: string } | null = null;
-    let forceLovableAI = false; // Flag to force Lovable AI for PDF support
-    
-    // Max PDF size for Gemini API (20MB raw = ~27MB base64)
-    const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024; // 20MB limit
+    // Fetch and process plans file if provided
+    let pdfBuffer: ArrayBuffer | null = null;
+    let imageBase64: string | null = null;
     let pdfTooLarge = false;
+    const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024; // 20MB limit
     
     if (plansFileUrl) {
-      console.log('Fetching and parsing plans file...');
-      console.log('Original URL:', plansFileUrl);
+      console.log('Fetching plans file:', plansFileUrl);
       try {
         // Convert Google Drive view links to direct download links
         let downloadUrl = plansFileUrl;
@@ -241,18 +424,13 @@ serve(async (req) => {
         const googleDriveViewMatch = plansFileUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
         if (googleDriveViewMatch) {
           const fileId = googleDriveViewMatch[1];
-          // Use the confirm=t parameter to bypass the virus scan confirmation page
           downloadUrl = `https://drive.google.com/uc?export=download&confirm=t&id=${fileId}`;
           isGoogleDrive = true;
-          console.log('Converted Google Drive link to direct download URL with confirm bypass');
+          console.log('Converted Google Drive link to direct download URL');
         }
         
-        // Fetch the file content
         const plansResponse = await fetch(downloadUrl, {
-          headers: {
-            // Some servers require a User-Agent
-            'User-Agent': 'Mozilla/5.0 (compatible; EstimateBot/1.0)',
-          },
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EstimateBot/1.0)' },
         });
         
         console.log('Plans fetch response status:', plansResponse.status);
@@ -260,44 +438,33 @@ serve(async (req) => {
         console.log('Plans fetch content-type:', contentType);
         
         if (plansResponse.ok) {
-          // Check if Google Drive returned an HTML confirmation page instead of the file
           if (isGoogleDrive && contentType.includes('text/html')) {
-            console.warn('Google Drive returned HTML instead of file - file may be too large or require sign-in');
-            console.warn('Please ensure the file is shared publicly with "Anyone with the link"');
-            // Don't fail - continue without plans
+            console.warn('Google Drive returned HTML - file may require sign-in or be too large');
           } else if (contentType.includes('application/pdf') || (isGoogleDrive && contentType.includes('octet-stream'))) {
-            // PDFs: Convert to base64 and use Gemini (Lovable AI) which supports native PDF
-            console.log('PDF plans file detected - converting to base64 for Gemini...');
-            const pdfBuffer = await plansResponse.arrayBuffer();
-            console.log('PDF buffer size:', pdfBuffer.byteLength, 'bytes');
+            const buffer = await plansResponse.arrayBuffer();
+            console.log('PDF buffer size:', buffer.byteLength, 'bytes');
             
-            // Check file size before processing
-            if (pdfBuffer.byteLength > MAX_PDF_SIZE_BYTES) {
-              console.warn(`PDF too large for AI processing: ${(pdfBuffer.byteLength / (1024 * 1024)).toFixed(1)}MB (max ${MAX_PDF_SIZE_BYTES / (1024 * 1024)}MB)`);
+            if (buffer.byteLength > MAX_PDF_SIZE_BYTES) {
+              console.warn(`PDF too large: ${(buffer.byteLength / (1024 * 1024)).toFixed(1)}MB (max 20MB)`);
               pdfTooLarge = true;
-              // Continue without PDF - will generate estimate from description only
             } else {
-              const base64Pdf = pdfToBase64DataUrl(pdfBuffer);
-              parsedPlansContent = { type: 'pdf_base64', value: base64Pdf };
-              forceLovableAI = true; // Force Lovable AI since OpenAI doesn't support PDF in Chat Completions
-              console.log(`PDF converted to base64, size: ${base64Pdf.length} chars`);
+              pdfBuffer = buffer;
+              console.log('PDF fetched successfully');
             }
           } else if (contentType.includes('image/')) {
-            // For images, convert to base64 for vision model using chunked encoding
             const imageBuffer = await plansResponse.arrayBuffer();
-            const base64Image = bufferToBase64Chunked(imageBuffer);
+            imageBase64 = bufferToBase64Chunked(imageBuffer);
             const mimeType = contentType.split(';')[0];
-            parsedPlansContent = { type: 'image_url', value: `data:${mimeType};base64,${base64Image}` };
-            console.log('Image plans file detected - will send to vision model');
+            imageBase64 = `data:${mimeType};base64,${imageBase64}`;
+            console.log('Image plans file detected');
           } else {
-            console.warn('Unknown content type for plans file:', contentType);
+            console.warn('Unknown content type:', contentType);
           }
         } else {
           console.warn('Failed to fetch plans file:', plansResponse.status);
         }
       } catch (plansError) {
-        console.error('Error parsing plans file:', plansError);
-        // Continue without plans - don't fail the entire request
+        console.error('Error fetching plans file:', plansError);
       }
     }
 
@@ -305,15 +472,14 @@ serve(async (req) => {
     const zipCode = extractZipCode(jobAddress || '');
     const regionInfo = zipCode ? getRegionFromZip(zipCode) : { region: "California", costMultiplier: 1.0, description: "Standard rates" };
 
-    // Build system prompt - enhanced for PDF analysis
+    const hasPdf = !!pdfBuffer;
+    const hasImage = !!imageBase64;
+
+    // Build system prompt
     let systemPrompt: string;
     
-    const hasPdfAttachment = parsedPlansContent?.type === 'pdf_base64';
-    const hasImageAttachment = parsedPlansContent?.type === 'image_url';
-    
     if (customInstructions) {
-      // Use custom instructions but enhance for PDF if attached
-      if (hasPdfAttachment) {
+      if (hasPdf) {
         systemPrompt = `${customInstructions}
 
 CRITICAL PDF ANALYSIS REQUIREMENTS:
@@ -326,8 +492,7 @@ CRITICAL PDF ANALYSIS REQUIREMENTS:
         systemPrompt = customInstructions;
       }
     } else {
-      // Default system prompt
-      if (hasPdfAttachment) {
+      if (hasPdf) {
         systemPrompt = `You are an expert construction estimator with exceptional plan-reading skills.
 
 CRITICAL: Construction plans PDF is attached. You MUST:
@@ -358,7 +523,6 @@ Always return valid JSON matching the exact schema requested.`;
     }
 
     // Build the base user prompt
-    // NOTE: We keep output compact to reduce token usage and avoid truncated JSON responses.
     const baseUserPrompt = `Generate a HIGHLY DETAILED estimate scope for the following project.
 
 CRITICAL: Create maximum granularity - break every task into its smallest components. Aim for 50+ line items.
@@ -370,7 +534,6 @@ Default Markup: ${defaultMarkupPercent || 35}%
 
 DETAILED WORK SCOPE FROM CUSTOMER:
 ${workScopeDescription || projectDescription || 'General home improvement project'}
-${parsedPlansContent?.type === 'text' ? parsedPlansContent.value : ''}
 
 ${existingGroups?.length > 0 ? `\nExisting scope areas (already added): ${existingGroups.join(', ')}` : ''}
 
@@ -403,7 +566,7 @@ Return a JSON object with this EXACT structure (labor_cost and material_cost are
   "inclusions": ["included item 1", "included item 2"],
   "exclusions": ["excluded item 1", "excluded item 2"],
   "missing_info": ["question 1", "question 2"],
-  ${hasPdfAttachment || hasImageAttachment ? `"pdf_extracted_data": {
+  ${hasPdf || hasImage ? `"pdf_extracted_data": {
     "rooms_identified": ["Room Name - WxL dimensions"],
     "total_sqft_from_plans": number,
     "specifications_found": ["specific material/finish from plans"],
@@ -448,10 +611,10 @@ GRANULARITY RULES:
 - Every line MUST have both labor_cost and material_cost fields (use 0 if not applicable)
 - Include often-forgotten items: mobilization, protection, dust control, daily cleanup, dumpsters, permits, inspections, final cleaning, punch list`;
 
-    // Build final user prompt - prioritize PDF analysis if attached
+    // Build the final user prompt
     let userPrompt: string;
     
-    if (hasPdfAttachment) {
+    if (hasPdf) {
       userPrompt = `**CRITICAL: YOU MUST ANALYZE THE ATTACHED PDF CONSTRUCTION PLANS FIRST**
 
 I have attached construction plans as a PDF file. Before generating ANY estimate values, you MUST:
@@ -487,7 +650,7 @@ ${baseUserPrompt}
 
 If you CANNOT read something from the PDF, you MUST explicitly state it in "unable_to_determine" array. 
 DO NOT make up values - use the actual data from the attached plans.`;
-    } else if (hasImageAttachment) {
+    } else if (hasImage) {
       userPrompt = `**ANALYZE THE ATTACHED CONSTRUCTION PLANS IMAGE CAREFULLY**
 
 I have attached construction plans as an image. Extract all visible dimensions, room layouts, and specifications before generating the estimate.
@@ -497,223 +660,157 @@ ${baseUserPrompt}`;
       userPrompt = baseUserPrompt;
     }
 
-    // Build messages array based on content type
-    const messages: any[] = [
-      { role: 'system', content: systemPrompt },
-    ];
-
-    // Build user message content based on what we have
-    // For PDFs, we use Gemini via Lovable AI which supports native PDF input
-    if (parsedPlansContent?.type === 'pdf_base64') {
-      // PDF attachment for Gemini - use inline_data format
-      messages.push({
-        role: 'user',
-        content: [
-          { type: 'text', text: userPrompt },
-          { 
-            type: 'image_url', 
-            image_url: { url: parsedPlansContent.value }
-          }
-        ]
-      });
-      console.log('Using Gemini with PDF attachment');
-    } else if (parsedPlansContent?.type === 'image_url') {
-      // Vision model message with image - this works on both OpenAI and Gemini
-      messages.push({
-        role: 'user',
-        content: [
-          { type: 'text', text: userPrompt },
-          { 
-            type: 'image_url', 
-            image_url: { url: parsedPlansContent.value }
-          }
-        ]
-      });
-      console.log('Using vision model with image attachment');
-    } else {
-      // Text-only message
-      messages.push({ role: 'user', content: userPrompt });
-      console.log('Using text-only prompt');
-    }
-
-    let response!: Response;
+    // ===== CALL AI =====
+    let aiResponse: { content: string; model: string };
     let apiProvider: string;
-    
-    // All requests go through Lovable AI Gateway
-    // - Gemini models for PDFs (native PDF support)
-    // - OpenAI GPT-5.2 when user selects OpenAI provider (via gateway)
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error('No AI API key configured. Please contact support.');
-    }
-    
-    // Determine which model to use
-    // NOTE: OpenAI models reject PDFs when sent as `image_url` content ("Invalid MIME type").
-    // Until we support a proper "file" payload, PDFs must be handled by Gemini.
-    let modelToUse: string;
-    
-    if (hasPdfAttachment) {
-      // PDFs: Gemini only (OpenAI rejects PDF MIME type when passed as image_url)
-      modelToUse = 'google/gemini-2.5-pro';
-      apiProvider = 'Gemini (PDF)';
-    } else if (useOpenAI) {
-      // Text/images: GPT-5.2 via Lovable AI Gateway
-      modelToUse = 'openai/gpt-5.2';
+
+    if (useOpenAI && hasPdf) {
+      // USE OPENAI RESPONSES API WITH FILE UPLOAD FOR PDF
+      console.log('Using OpenAI Responses API with PDF file upload...');
+      apiProvider = 'OpenAI (GPT-5.2 + File)';
+      
+      try {
+        // Step 1: Upload PDF to OpenAI Files API
+        const fileId = await uploadFileToOpenAI(pdfBuffer!, 'construction-plans.pdf', openaiApiKey);
+        
+        // Step 2: Call Responses API with file_id
+        aiResponse = await callOpenAIResponsesAPI(
+          systemPrompt,
+          userPrompt,
+          fileId,
+          openaiApiKey,
+          aiTemperature
+        );
+      } catch (uploadError) {
+        console.error('OpenAI file upload/API failed, falling back to Gemini:', uploadError);
+        // Fall back to Gemini with PDF as base64
+        apiProvider = 'Gemini (PDF fallback)';
+        const pdfBase64 = `data:application/pdf;base64,${bufferToBase64Chunked(pdfBuffer!)}`;
+        
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              { type: 'image_url', image_url: { url: pdfBase64 } }
+            ]
+          }
+        ];
+        
+        aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
+      }
+    } else if (useOpenAI && hasImage) {
+      // OpenAI with image (Chat Completions via gateway - images work fine)
+      console.log('Using OpenAI via Lovable AI Gateway with image...');
       apiProvider = 'OpenAI (GPT-5.2)';
-    } else if (hasImageAttachment) {
-      // For Gemini with attachments, use Pro model for better vision capabilities
-      modelToUse = 'google/gemini-2.5-pro';
+      
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: userPrompt },
+            { type: 'image_url', image_url: { url: imageBase64 } }
+          ]
+        }
+      ];
+      
+      aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5.2', aiTemperature, LOVABLE_API_KEY!);
+    } else if (useOpenAI) {
+      // OpenAI text-only (via gateway)
+      console.log('Using OpenAI via Lovable AI Gateway (text-only)...');
+      apiProvider = 'OpenAI (GPT-5.2)';
+      
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ];
+      
+      aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5.2', aiTemperature, LOVABLE_API_KEY!);
+    } else if (hasPdf) {
+      // Gemini with PDF (native support)
+      console.log('Using Gemini with native PDF support...');
+      apiProvider = 'Gemini (PDF)';
+      const pdfBase64 = `data:application/pdf;base64,${bufferToBase64Chunked(pdfBuffer!)}`;
+      
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: userPrompt },
+            { type: 'image_url', image_url: { url: pdfBase64 } }
+          ]
+        }
+      ];
+      
+      aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
+    } else if (hasImage) {
+      // Gemini with image
+      console.log('Using Gemini with image...');
       apiProvider = 'Gemini (Pro)';
+      
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: userPrompt },
+            { type: 'image_url', image_url: { url: imageBase64 } }
+          ]
+        }
+      ];
+      
+      aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
     } else {
-      // Default: Gemini Flash for text-only (faster)
-      modelToUse = 'google/gemini-3-flash-preview';
+      // Text-only, use Gemini Flash (fastest)
+      console.log('Using Gemini Flash (text-only)...');
       apiProvider = 'Gemini (Flash)';
-    }
-    
-    console.log(`Using Lovable AI Gateway with model: ${modelToUse} (provider: ${apiProvider})`);
-
-    // Add timeout protection - OpenAI models need more time for complex reasoning
-    const isOpenAIModel = modelToUse.startsWith('openai/');
-    const timeoutMs = isOpenAIModel ? 150000 : 90000; // 150s for OpenAI, 90s for Gemini
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-    try {
-      // Build request body - OpenAI models use max_completion_tokens, Gemini uses max_tokens
-      const requestBody: Record<string, unknown> = {
-        model: modelToUse,
-        messages,
-        temperature: aiTemperature,
-        response_format: { type: "json_object" },
-      };
       
-      // Use correct token parameter based on model
-      if (isOpenAIModel) {
-        requestBody.max_completion_tokens = 12000;
-      } else {
-        requestBody.max_tokens = 12000;
-      }
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ];
       
-      response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if ((error as Error).name === 'AbortError') {
-        throw new Error('AI processing timed out. Try with a smaller file or simpler work scope description.');
-      }
-      throw error;
+      aiResponse = await callLovableAIGateway(messages, 'google/gemini-3-flash-preview', aiTemperature, LOVABLE_API_KEY!);
     }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`${apiProvider} API error:`, response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'AI service rate limited. Please wait a moment and try again.' 
-        }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (response.status === 503 || response.status === 502) {
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: 'AI service temporarily unavailable. Please try again in a few moments.' 
-        }), {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (response.status === 402 || response.status === 401) {
-        const errorMessage = useOpenAI 
-          ? "OpenAI API key is invalid or has insufficient credits. Please check your API key in company settings."
-          : "AI credits exhausted. Please add credits to continue using AI features.";
-        return new Response(JSON.stringify({ 
-          success: false, 
-          error: errorMessage
-        }), {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      throw new Error(`${apiProvider} API error: ${response.status}`);
-    }
+    console.log(`AI response received from ${apiProvider} (${aiResponse.content.length} chars)`);
 
-    // Safely parse response - handle empty or malformed responses
-    let data;
-    let responseText = '';
-    try {
-      responseText = await response.text();
-      console.log(`Raw API response length: ${responseText.length} chars`);
-      if (!responseText || responseText.trim() === '') {
-        console.error('API returned empty response body');
-        throw new Error('AI returned an empty response. The request may have timed out or the PDF may be too large. Try using a smaller file or remove the PDF.');
-      }
-      data = JSON.parse(responseText);
-    } catch (jsonParseError) {
-      console.error('Failed to parse API response as JSON:', jsonParseError);
-      console.error('Response text (first 1000 chars):', responseText.substring(0, 1000));
-      throw new Error('AI returned an invalid response. Please try again or use a smaller PDF file.');
-    }
-    
-    const generatedContent = data.choices?.[0]?.message?.content;
-
-    if (!generatedContent) {
-      console.error('No content in AI response. Full response:', JSON.stringify(data).substring(0, 1000));
-      throw new Error('AI returned an empty response. The PDF may be too large or complex. Try using a smaller file or remove the PDF attachment.');
-    }
-
-    // IMPORTANT: do not log the full AI output (can be extremely large and slow to flush)
-    console.log(`AI response received from ${apiProvider} (${generatedContent.length} chars)`);
-
+    // Parse the AI response
     let parsedScope;
     try {
-      // Try to extract JSON from the response (handle markdown code blocks)
-      let jsonStr = generatedContent;
+      let jsonStr = aiResponse.content;
       
-      // Check for markdown code blocks - use a more robust regex
-      const jsonMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+      // Check for markdown code blocks
+      const jsonMatch = aiResponse.content.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         jsonStr = jsonMatch[1].trim();
       } else {
-        // Try to find JSON object directly (starts with { and ends with })
-        const directJsonMatch = generatedContent.match(/\{[\s\S]*\}/);
+        const directJsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
         if (directJsonMatch) {
           jsonStr = directJsonMatch[0];
         }
       }
       
-      // Check if jsonStr is empty or whitespace-only
       if (!jsonStr || jsonStr.trim() === '' || jsonStr.trim() === '{}') {
-        console.error('Extracted JSON is empty or minimal');
         throw new Error('AI returned an incomplete response. Try simplifying the work scope or using a smaller PDF.');
       }
       
-      // Check if the JSON appears to be truncated
+      // Check for truncated JSON
       const openBraces = (jsonStr.match(/\{/g) || []).length;
       const closeBraces = (jsonStr.match(/\}/g) || []).length;
       if (openBraces > closeBraces) {
-        console.error('JSON appears truncated - unbalanced braces:', { openBraces, closeBraces });
-        console.error('Response length:', generatedContent.length);
-        throw new Error('AI response was truncated - the PDF may be too complex. Try using a smaller file or remove the PDF attachment.');
+        console.error('JSON appears truncated:', { openBraces, closeBraces });
+        throw new Error('AI response was truncated - the PDF may be too complex. Try using a smaller file.');
       }
       
       parsedScope = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      console.error('Raw response (first 500 chars):', generatedContent.substring(0, 500));
-      console.error('Raw response (last 500 chars):', generatedContent.substring(Math.max(0, generatedContent.length - 500)));
+      console.error('Raw response (first 500 chars):', aiResponse.content.substring(0, 500));
+      console.error('Raw response (last 500 chars):', aiResponse.content.substring(Math.max(0, aiResponse.content.length - 500)));
       
       if (parseError instanceof Error && (parseError.message.includes('truncated') || parseError.message.includes('incomplete'))) {
         throw parseError;
@@ -721,20 +818,16 @@ ${baseUserPrompt}`;
       throw new Error('Failed to parse AI response as JSON. Try simplifying the work scope or using a smaller PDF file.');
     }
 
-    // Add region info to the response
+    // Add metadata to response
     parsedScope.regionInfo = {
       region: regionInfo.region,
       zipCode: zipCode,
       costMultiplier: regionInfo.costMultiplier,
     };
-
-    // Add info about which API was used
     parsedScope.apiProvider = apiProvider;
     
-    // Add warning if PDF was too large to process
     if (pdfTooLarge) {
-      parsedScope.warning = 'The uploaded PDF was too large to analyze (max 20MB). The estimate was generated from the work description only. For better results, please upload a smaller PDF or compress the file.';
-      // If the model included PDF-extracted fields anyway, strip them to keep payload smaller.
+      parsedScope.warning = 'The uploaded PDF was too large to analyze (max 20MB). The estimate was generated from the work description only.';
       if (parsedScope.pdf_extracted_data) {
         delete parsedScope.pdf_extracted_data;
       }
