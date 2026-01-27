@@ -300,6 +300,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let body: any = null; // Declare at outer scope for error handling
+  
   try {
     // Robust request parsing
     const bodyText = await req.text();
@@ -313,7 +315,6 @@ serve(async (req) => {
       });
     }
 
-    let body: any;
     try {
       body = JSON.parse(bodyText);
     } catch {
@@ -335,9 +336,58 @@ serve(async (req) => {
       defaultMarkupPercent,
       companyId,
       plansFileUrl,
+      jobId, // Optional job ID for background processing
     } = body;
 
-    console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent, companyId, hasPlans: !!plansFileUrl });
+    console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent, companyId, hasPlans: !!plansFileUrl, jobId: jobId || 'none' });
+    
+    // Helper to update job status
+    const updateJobStatus = async (
+      status: 'processing' | 'completed' | 'failed',
+      resultJson?: any,
+      errorMessage?: string
+    ) => {
+      if (!jobId) return;
+      
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      const updateData: any = { status };
+      
+      if (status === 'processing') {
+        updateData.started_at = new Date().toISOString();
+      }
+      
+      if (status === 'completed' || status === 'failed') {
+        updateData.completed_at = new Date().toISOString();
+      }
+      
+      if (resultJson) {
+        updateData.result_json = resultJson;
+      }
+      
+      if (errorMessage) {
+        updateData.error_message = errorMessage;
+      }
+      
+      const { error } = await supabase
+        .from('estimate_generation_jobs')
+        .update(updateData)
+        .eq('id', jobId);
+        
+      if (error) {
+        console.error('Failed to update job status:', error);
+      } else {
+        console.log(`Job ${jobId} updated to status: ${status}`);
+      }
+    };
+    
+    // If jobId provided, mark as processing
+    if (jobId) {
+      await updateJobStatus('processing');
+    }
 
     // Fetch AI settings from company_settings
     let aiTemperature = 0.3;
@@ -863,10 +913,19 @@ ${baseUserPrompt}`;
       }
     }
 
+    // If jobId provided, save result to database
+    if (jobId) {
+      await updateJobStatus('completed', {
+        scope: parsedScope,
+        warning: pdfTooLarge ? 'PDF too large - estimate generated from description only' : undefined
+      });
+    }
+
     return new Response(JSON.stringify({ 
       success: true,
       scope: parsedScope,
-      warning: pdfTooLarge ? 'PDF too large - estimate generated from description only' : undefined
+      warning: pdfTooLarge ? 'PDF too large - estimate generated from description only' : undefined,
+      jobId: jobId || undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -874,6 +933,28 @@ ${baseUserPrompt}`;
   } catch (error) {
     console.error('Error in generate-estimate-scope:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // If jobId provided, save error to database
+    if (body?.jobId) {
+      try {
+        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        
+        await supabase
+          .from('estimate_generation_jobs')
+          .update({ 
+            status: 'failed', 
+            error_message: errorMessage,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', body.jobId);
+      } catch (updateError) {
+        console.error('Failed to update job with error status:', updateError);
+      }
+    }
+    
     return new Response(JSON.stringify({ 
       success: false,
       error: errorMessage 
