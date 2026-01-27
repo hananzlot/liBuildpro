@@ -44,14 +44,11 @@ serve(async (req) => {
 
     console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent, companyId, hasPlans: !!plansFileUrl });
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
     // Fetch AI settings from company_settings
     let aiTemperature = 0.3;
     let customInstructions = '';
+    let openaiApiKey = '';
+    let aiModel = '';
     
     if (companyId) {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
@@ -59,15 +56,18 @@ serve(async (req) => {
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       
+      // Fetch company settings including OpenAI API key
       const { data: settings } = await supabase
         .from('company_settings')
         .select('setting_key, setting_value')
         .eq('company_id', companyId)
-        .in('setting_key', ['ai_estimate_variability', 'ai_estimate_instructions']);
+        .in('setting_key', ['ai_estimate_variability', 'ai_estimate_instructions', 'openai_api_key', 'ai_estimate_model']);
       
       if (settings) {
         const variabilitySetting = settings.find((s: any) => s.setting_key === 'ai_estimate_variability');
         const instructionsSetting = settings.find((s: any) => s.setting_key === 'ai_estimate_instructions');
+        const openaiKeySetting = settings.find((s: any) => s.setting_key === 'openai_api_key');
+        const modelSetting = settings.find((s: any) => s.setting_key === 'ai_estimate_model');
         
         if (variabilitySetting?.setting_value) {
           const parsed = parseFloat(variabilitySetting.setting_value);
@@ -79,9 +79,44 @@ serve(async (req) => {
         if (instructionsSetting?.setting_value) {
           customInstructions = instructionsSetting.setting_value;
         }
+        
+        if (openaiKeySetting?.setting_value) {
+          openaiApiKey = openaiKeySetting.setting_value;
+        }
+        
+        if (modelSetting?.setting_value) {
+          aiModel = modelSetting.setting_value;
+        }
       }
+      
+      // If no company-specific OpenAI key, check app_settings for platform default
+      if (!openaiApiKey) {
+        const { data: appSettings } = await supabase
+          .from('app_settings')
+          .select('setting_value')
+          .eq('setting_key', 'openai_api_key')
+          .maybeSingle();
+        
+        if (appSettings?.setting_value) {
+          openaiApiKey = appSettings.setting_value;
+        }
+      }
+      
       console.log('Using AI temperature:', aiTemperature);
       console.log('Has custom instructions:', !!customInstructions);
+      console.log('Has OpenAI API key:', !!openaiApiKey);
+      console.log('AI model preference:', aiModel || 'default');
+    }
+
+    // Determine which API to use
+    const useOpenAI = !!openaiApiKey;
+    
+    // Fall back to Lovable API if no OpenAI key
+    if (!useOpenAI) {
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      if (!LOVABLE_API_KEY) {
+        throw new Error('No AI API key configured. Please add your OpenAI API key in company settings.');
+      }
     }
 
     // Parse uploaded plans file if provided
@@ -96,7 +131,6 @@ serve(async (req) => {
           
           if (contentType.includes('application/pdf')) {
             // For PDFs, we'll describe what we received and ask the AI to work with the description
-            // Note: Full PDF parsing would require additional libraries
             parsedPlansContent = `\n\n[CONSTRUCTION PLANS FILE UPLOADED - PDF document provided. Please generate an estimate based on the work scope description above, which should describe the contents of the plans.]`;
             console.log('PDF plans file detected - using description-based estimation');
           } else if (contentType.includes('image/')) {
@@ -205,7 +239,9 @@ GRANULARITY RULES:
       { role: 'system', content: systemPrompt },
     ];
 
-    if (parsedPlansContent && parsedPlansContent.startsWith('data:')) {
+    const hasImageAttachment = parsedPlansContent && parsedPlansContent.startsWith('data:');
+
+    if (hasImageAttachment) {
       // Vision model message with image
       messages.push({
         role: 'user',
@@ -222,47 +258,89 @@ GRANULARITY RULES:
       messages.push({ role: 'user', content: userPrompt });
     }
 
-    // Use vision-capable model when we have an image
-    const modelToUse = (parsedPlansContent && parsedPlansContent.startsWith('data:')) 
-      ? 'google/gemini-2.5-flash' // Vision-capable model
-      : 'google/gemini-3-flash-preview';
+    let response: Response;
+    let apiProvider: string;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages,
-        temperature: aiTemperature,
-        max_tokens: 16000,
-      }),
-    });
+    if (useOpenAI) {
+      // Use OpenAI API directly with company's API key
+      apiProvider = 'OpenAI';
+      
+      // Model selection: gpt-4o for images, gpt-4o-mini for text (or use configured model)
+      let modelToUse: string;
+      if (aiModel) {
+        // Use configured model, but force gpt-4o for images if they chose gpt-4o-mini
+        modelToUse = hasImageAttachment && aiModel === 'gpt-4o-mini' ? 'gpt-4o' : aiModel;
+      } else {
+        modelToUse = hasImageAttachment ? 'gpt-4o' : 'gpt-4o-mini';
+      }
+      
+      console.log(`Using OpenAI API with model: ${modelToUse}`);
+
+      response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages,
+          temperature: aiTemperature,
+          max_tokens: 16000,
+        }),
+      });
+    } else {
+      // Fall back to Lovable AI Gateway
+      apiProvider = 'Lovable';
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
+      
+      const modelToUse = hasImageAttachment 
+        ? 'google/gemini-2.5-flash' // Vision-capable model
+        : 'google/gemini-3-flash-preview';
+      
+      console.log(`Using Lovable AI Gateway with model: ${modelToUse}`);
+
+      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages,
+          temperature: aiTemperature,
+          max_tokens: 16000,
+        }),
+      });
+    }
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`${apiProvider} API error:`, response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
           success: false, 
-          error: "Rate limit exceeded. Please try again in a moment." 
+          error: `Rate limit exceeded on ${apiProvider}. Please try again in a moment.` 
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      if (response.status === 402) {
+      if (response.status === 402 || response.status === 401) {
+        const errorMessage = useOpenAI 
+          ? "OpenAI API key is invalid or has insufficient credits. Please check your API key in company settings."
+          : "AI credits exhausted. Please add credits to continue using AI features.";
         return new Response(JSON.stringify({ 
           success: false, 
-          error: "AI credits exhausted. Please add credits to continue using AI features." 
+          error: errorMessage
         }), {
-          status: 402,
+          status: response.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const errorText = await response.text();
-      console.error('Lovable AI API error:', response.status, errorText);
-      throw new Error(`AI API error: ${response.status}`);
+      throw new Error(`${apiProvider} API error: ${response.status}`);
     }
 
     const data = await response.json();
@@ -314,6 +392,9 @@ GRANULARITY RULES:
       zipCode: zipCode,
       costMultiplier: regionInfo.costMultiplier,
     };
+
+    // Add info about which API was used
+    parsedScope.apiProvider = apiProvider;
 
     return new Response(JSON.stringify({ 
       success: true,
