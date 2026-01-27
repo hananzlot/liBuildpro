@@ -227,9 +227,15 @@ async function callLovableAIGateway(
     const requestBody: Record<string, unknown> = {
       model: modelToUse,
       messages,
-      temperature,
       response_format: { type: "json_object" },
     };
+    
+    // gpt-5-mini and gpt-5-nano don't support custom temperature (only default 1)
+    // Only include temperature for models that support it
+    const modelsWithoutTemperatureSupport = ['openai/gpt-5-mini', 'openai/gpt-5-nano'];
+    if (!modelsWithoutTemperatureSupport.includes(modelToUse)) {
+      requestBody.temperature = temperature;
+    }
     
     // Increase output budget to reduce truncated JSON responses on large/complex PDFs.
     // Note: upstream providers may still enforce a hard cap per model.
