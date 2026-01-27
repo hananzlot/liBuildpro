@@ -477,14 +477,19 @@ ${baseUserPrompt}`;
     }
     
     // Determine which model to use
-    // Both Gemini and GPT-5.2 support PDFs via Lovable AI Gateway
+    // NOTE: OpenAI models reject PDFs when sent as `image_url` content ("Invalid MIME type").
+    // Until we support a proper "file" payload, PDFs must be handled by Gemini.
     let modelToUse: string;
     
-    if (useOpenAI) {
-      // User selected OpenAI - use GPT-5.2 via Lovable AI Gateway (supports PDFs)
+    if (hasPdfAttachment) {
+      // PDFs: Gemini only (OpenAI rejects PDF MIME type when passed as image_url)
+      modelToUse = 'google/gemini-2.5-pro';
+      apiProvider = 'Gemini (PDF)';
+    } else if (useOpenAI) {
+      // Text/images: GPT-5.2 via Lovable AI Gateway
       modelToUse = 'openai/gpt-5.2';
       apiProvider = 'OpenAI (GPT-5.2)';
-    } else if (hasPdfAttachment || hasImageAttachment) {
+    } else if (hasImageAttachment) {
       // For Gemini with attachments, use Pro model for better vision capabilities
       modelToUse = 'google/gemini-2.5-pro';
       apiProvider = 'Gemini (Pro)';
@@ -504,7 +509,6 @@ ${baseUserPrompt}`;
 
     try {
       // Build request body - OpenAI models use max_completion_tokens, Gemini uses max_tokens
-      const isOpenAIModel = modelToUse.startsWith('openai/');
       const requestBody: Record<string, unknown> = {
         model: modelToUse,
         messages,
