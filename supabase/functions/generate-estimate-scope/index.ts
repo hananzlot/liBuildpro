@@ -231,10 +231,13 @@ async function callLovableAIGateway(
       response_format: { type: "json_object" },
     };
     
+    // Increase output budget to reduce truncated JSON responses on large/complex PDFs.
+    // Note: upstream providers may still enforce a hard cap per model.
+    const VERY_LARGE_OUTPUT_TOKENS = 32000;
     if (isOpenAIModel) {
-      requestBody.max_completion_tokens = 12000;
+      requestBody.max_completion_tokens = VERY_LARGE_OUTPUT_TOKENS;
     } else {
-      requestBody.max_tokens = 12000;
+      requestBody.max_tokens = VERY_LARGE_OUTPUT_TOKENS;
     }
     
     const response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
