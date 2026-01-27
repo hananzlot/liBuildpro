@@ -2730,24 +2730,35 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       };
 
                       return (
-                        <Button
-                          onClick={handleRegenerateWithAnswers}
-                          disabled={isRegeneratingWithAnswers || isGeneratingScope}
-                          className="w-full"
-                          size="lg"
-                        >
-                          {isRegeneratingWithAnswers ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Regenerating Estimate...
-                            </>
-                          ) : (
-                            <>
-                              <Wand2 className="mr-2 h-4 w-4" />
-                              Regenerate Estimate with Answers ({answeredCount})
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={handleRegenerateWithAnswers}
+                            disabled={isRegeneratingWithAnswers || isGeneratingScope}
+                            variant="outline"
+                            className="flex-1"
+                            size="lg"
+                          >
+                            {isRegeneratingWithAnswers ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Regenerating...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                Regenerate with Answers ({answeredCount}) - Optional
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            onClick={() => setActiveTab("payments")}
+                            size="lg"
+                            className="flex-1"
+                          >
+                            Next: Payments
+                            <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        </div>
                       );
                     }
                     
