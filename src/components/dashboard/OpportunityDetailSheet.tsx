@@ -18,6 +18,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { stripHtml, findContactByIdOrGhlId, findUserByIdOrGhlId } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useCompanyPipelineSettings } from "@/hooks/useCompanyPipelineSettings";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { OpportunitySalesDialog } from "./OpportunitySalesDialog";
 import { AppointmentEditDialog } from "./AppointmentEditDialog";
@@ -419,6 +420,14 @@ export function OpportunityDetailSheet({
     }[];
   }[]>([]);
 
+  // Admin Settings pipeline config (single source of truth when configured)
+  const pipelineSettings = useCompanyPipelineSettings(companyId, open);
+  const hasAdminPipelineConfig = pipelineSettings.isConfigured;
+  const adminPipelineId = pipelineSettings.data?.pipelineId;
+  const adminPipelineName = pipelineSettings.data?.pipelineName;
+  const adminStageNames = pipelineSettings.data?.stageNames ?? [];
+  const adminStageIdByName = pipelineSettings.data?.stageIdByName ?? {};
+
   // Fetch active calendars on mount
   useEffect(() => {
     const fetchCalendars = async () => {
@@ -460,7 +469,8 @@ export function OpportunityDetailSheet({
 
   // Fetch pipelines when sheet opens
   useEffect(() => {
-    if (!open || !companyId) return;
+    // If Admin Settings provides pipeline_stages, we do not use GHL pipelines for options.
+    if (!open || !companyId || hasAdminPipelineConfig) return;
     const fetchPipelines = async () => {
       const {
         data
@@ -479,7 +489,7 @@ export function OpportunityDetailSheet({
       }
     };
     fetchPipelines();
-  }, [open]);
+  }, [open, companyId, hasAdminPipelineConfig]);
 
   // Fetch conversations and notes from GHL when sheet opens
   useEffect(() => {
@@ -1199,8 +1209,11 @@ export function OpportunityDetailSheet({
     }
   };
 
-  // Build pipeline list from ghl_pipelines table (or fall back to opportunities)
-  const availablePipelines = pipelineData.length > 0 ? pipelineData.map(p => ({
+  // Build pipeline list (Admin Settings ONLY when configured)
+  const availablePipelines = hasAdminPipelineConfig && adminPipelineId ? [{
+    id: adminPipelineId,
+    name: adminPipelineName || "Main"
+  }] : pipelineData.length > 0 ? pipelineData.map(p => ({
     id: p.ghl_id,
     name: p.name
   })).sort((a, b) => a.name.localeCompare(b.name)) : Array.from(allOpportunities.reduce((map, o) => {
@@ -1211,13 +1224,19 @@ export function OpportunityDetailSheet({
     name
   })).sort((a, b) => a.name.localeCompare(b.name));
 
-  // Build stages for the currently selected/edited pipeline from ghl_pipelines table
-  const activePipelineId = isEditing ? editedPipeline : savedValues.pipeline_id ?? opportunity?.pipeline_id;
+  // Build stages for the currently selected/edited pipeline
+  const activePipelineId = hasAdminPipelineConfig && adminPipelineId
+    ? adminPipelineId
+    : (isEditing ? editedPipeline : savedValues.pipeline_id ?? opportunity?.pipeline_id);
   const activePipeline = pipelineData.find(p => p.ghl_id === activePipelineId);
 
-  // Build stage map - prefer ghl_pipelines data, fall back to opportunities
+  // Build stage map (Admin Settings ONLY when configured)
   const stageMap = new Map<string, string>();
-  if (activePipeline && activePipeline.stages?.length > 0) {
+  if (hasAdminPipelineConfig) {
+    adminStageNames.forEach((name) => {
+      stageMap.set(name, adminStageIdByName[name] || "");
+    });
+  } else if (activePipeline && activePipeline.stages?.length > 0) {
     // Use stages from ghl_pipelines table (sorted by position)
     const sortedStages = [...activePipeline.stages].sort((a, b) => (a.position || 0) - (b.position || 0));
     sortedStages.forEach(s => stageMap.set(s.name, s.id));
@@ -1229,7 +1248,7 @@ export function OpportunityDetailSheet({
       }
     });
   }
-  const availableStages = Array.from(stageMap.keys());
+  const availableStages = hasAdminPipelineConfig ? adminStageNames : Array.from(stageMap.keys());
 
   // Build unique sources list from all contacts (properly capitalized) + custom sources from localStorage
   const normalizeSourceName = (sourceName: string): string => {
@@ -1280,8 +1299,18 @@ export function OpportunityDetailSheet({
   const handleEditClick = () => {
     // Use savedValues if available (for re-editing without closing), otherwise use opportunity prop
     setEditedStatus(savedValues.status ?? opportunity?.status?.toLowerCase() ?? "open");
-    setEditedPipeline(savedValues.pipeline_id ?? opportunity?.pipeline_id ?? "");
-    setEditedStage(savedValues.stage_name ?? opportunity?.stage_name ?? "");
+
+    const pipelineIdToUse = hasAdminPipelineConfig && adminPipelineId
+      ? adminPipelineId
+      : (savedValues.pipeline_id ?? opportunity?.pipeline_id ?? "");
+
+    const currentStage = savedValues.stage_name ?? opportunity?.stage_name ?? "";
+    const stageToUse = hasAdminPipelineConfig
+      ? (adminStageNames.includes(currentStage) ? currentStage : (adminStageNames[0] || ""))
+      : currentStage;
+
+    setEditedPipeline(pipelineIdToUse);
+    setEditedStage(stageToUse);
     setEditedMonetaryValue((savedValues.monetary_value ?? opportunity?.monetary_value)?.toString() ?? "0");
     setEditedAssignedTo(savedValues.assigned_to ?? opportunity?.assigned_to ?? "__unassigned__");
     const contact = findContactByIdOrGhlId(contacts, opportunity?.contact_uuid, opportunity?.contact_id);
@@ -1304,8 +1333,16 @@ export function OpportunityDetailSheet({
   };
   const handlePipelineChange = (newPipelineId: string) => {
     setEditedPipeline(newPipelineId);
-    // Reset stage when pipeline changes - will be set to first available stage
-    const stagesForNewPipeline = allOpportunities.filter(o => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id).map(o => o.stage_name!).filter((v, i, a) => a.indexOf(v) === i).sort();
+    // Reset stage when pipeline changes
+    if (hasAdminPipelineConfig) {
+      setEditedStage(adminStageNames[0] || "");
+      return;
+    }
+    const stagesForNewPipeline = allOpportunities
+      .filter(o => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id)
+      .map(o => o.stage_name!)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .sort();
     setEditedStage(stagesForNewPipeline[0] || "");
   };
 
@@ -1314,33 +1351,49 @@ export function OpportunityDetailSheet({
     if (!opportunity) return;
     setIsSavingInline(true);
     try {
-      const newPipelineName = pipelineData.find(p => p.ghl_id === newPipelineId)?.name || allOpportunities.find(o => o.pipeline_id === newPipelineId)?.pipeline_name || "";
-      // Get first stage for new pipeline from ghl_pipelines
-      const pipelineForStages = pipelineData.find(p => p.ghl_id === newPipelineId);
-      let stagesForNewPipeline: {
-        name: string;
-        id: string;
-      }[] = [];
-      if (pipelineForStages && pipelineForStages.stages?.length > 0) {
-        stagesForNewPipeline = [...pipelineForStages.stages].sort((a, b) => (a.position || 0) - (b.position || 0)).map(s => ({
-          name: s.name,
-          id: s.id
-        }));
+      const pipelineIdToUse = hasAdminPipelineConfig && adminPipelineId ? adminPipelineId : newPipelineId;
+      const newPipelineName = hasAdminPipelineConfig
+        ? (adminPipelineName || "Main")
+        : (pipelineData.find(p => p.ghl_id === newPipelineId)?.name || allOpportunities.find(o => o.pipeline_id === newPipelineId)?.pipeline_name || "");
+
+      let newStageName = opportunity.stage_name || "";
+      let newStageId = opportunity.pipeline_stage_id || "";
+
+      if (hasAdminPipelineConfig) {
+        newStageName = adminStageNames[0] || newStageName;
+        newStageId = adminStageIdByName[newStageName] || newStageId;
       } else {
-        stagesForNewPipeline = allOpportunities.filter(o => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id).map(o => ({
-          name: o.stage_name!,
-          id: o.pipeline_stage_id!
-        })).filter((v, i, a) => a.findIndex(x => x.name === v.name) === i).sort((a, b) => a.name.localeCompare(b.name));
+        // Get first stage for new pipeline from ghl_pipelines
+        const pipelineForStages = pipelineData.find(p => p.ghl_id === newPipelineId);
+        let stagesForNewPipeline: {
+          name: string;
+          id: string;
+        }[] = [];
+        if (pipelineForStages && pipelineForStages.stages?.length > 0) {
+          stagesForNewPipeline = [...pipelineForStages.stages].sort((a, b) => (a.position || 0) - (b.position || 0)).map(s => ({
+            name: s.name,
+            id: s.id
+          }));
+        } else {
+          stagesForNewPipeline = allOpportunities
+            .filter(o => o.pipeline_id === newPipelineId && o.stage_name && o.pipeline_stage_id)
+            .map(o => ({
+              name: o.stage_name!,
+              id: o.pipeline_stage_id!
+            }))
+            .filter((v, i, a) => a.findIndex(x => x.name === v.name) === i)
+            .sort((a, b) => a.name.localeCompare(b.name));
+        }
+        newStageName = stagesForNewPipeline[0]?.name || newStageName;
+        newStageId = stagesForNewPipeline[0]?.id || newStageId;
       }
-      const newStageName = stagesForNewPipeline[0]?.name || opportunity.stage_name || "";
-      const newStageId = stagesForNewPipeline[0]?.id || opportunity.pipeline_stage_id || "";
       const {
         data,
         error
       } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
-          pipeline_id: newPipelineId,
+          pipeline_id: pipelineIdToUse,
           pipeline_name: newPipelineName,
           stage_name: newStageName,
           pipeline_stage_id: newStageId,
@@ -1352,7 +1405,7 @@ export function OpportunityDetailSheet({
       setSavedValues(prev => ({
         ...prev,
         pipeline_name: newPipelineName,
-        pipeline_id: newPipelineId,
+        pipeline_id: pipelineIdToUse,
         stage_name: newStageName
       }));
       toast.success("Pipeline updated");
@@ -1376,15 +1429,9 @@ export function OpportunityDetailSheet({
     if (!opportunity) return;
     setIsSavingInline(true);
     try {
-      // Get the stage ID from the stageMap
-      const activePipelineIdForStage = savedValues.pipeline_id ?? opportunity.pipeline_id;
-      const stageMapForPipeline = new Map<string, string>();
-      allOpportunities.forEach(o => {
-        if (o.stage_name && o.pipeline_stage_id && o.pipeline_id === activePipelineIdForStage) {
-          stageMapForPipeline.set(o.stage_name, o.pipeline_stage_id);
-        }
-      });
-      const newStageId = stageMapForPipeline.get(newStageName) || "";
+      const newStageId = hasAdminPipelineConfig
+        ? (adminStageIdByName[newStageName] || "")
+        : (stageMap.get(newStageName) || "");
       const {
         data,
         error
@@ -1525,7 +1572,9 @@ export function OpportunityDetailSheet({
     try {
       // Get the pipeline_stage_id for the selected stage
       const pipeline_stage_id = stageMap.get(editedStage) || opportunity.pipeline_stage_id;
-      const pipeline_name = pipelineData.find(p => p.ghl_id === editedPipeline)?.name || allOpportunities.find(o => o.pipeline_id === editedPipeline)?.pipeline_name || opportunity.pipeline_name;
+      const pipeline_name = hasAdminPipelineConfig
+        ? (adminPipelineName || "Main")
+        : (pipelineData.find(p => p.ghl_id === editedPipeline)?.name || allOpportunities.find(o => o.pipeline_id === editedPipeline)?.pipeline_name || opportunity.pipeline_name);
       const monetaryValue = parseFloat(editedMonetaryValue) || 0;
 
       // Call edge function to update GHL first, then Supabase
@@ -2283,7 +2332,7 @@ export function OpportunityDetailSheet({
             {/* Pipeline */}
             <div className="bg-muted/40 rounded-md px-2.5 py-[3px] min-w-[100px] flex-1">
               <div className="text-muted-foreground text-xs mb-[1px]">Pipeline</div>
-              {isEditing ? <Select value={editedPipeline} onValueChange={handlePipelineChange}>
+              {isEditing ? <Select value={hasAdminPipelineConfig && adminPipelineId ? adminPipelineId : editedPipeline} onValueChange={handlePipelineChange}>
                   <SelectTrigger className="h-7 text-xs">
                     <SelectValue placeholder="Select pipeline" />
                   </SelectTrigger>
@@ -2292,7 +2341,7 @@ export function OpportunityDetailSheet({
                         {p.name}
                       </SelectItem>)}
                   </SelectContent>
-                </Select> : isInlineEditingPipeline ? <Select value={savedValues.pipeline_id ?? opportunity.pipeline_id ?? ""} onValueChange={handleInlinePipelineChange} disabled={isSavingInline} onOpenChange={open => {
+                </Select> : isInlineEditingPipeline ? <Select value={hasAdminPipelineConfig && adminPipelineId ? adminPipelineId : (savedValues.pipeline_id ?? opportunity.pipeline_id ?? "")} onValueChange={handleInlinePipelineChange} disabled={isSavingInline} onOpenChange={open => {
               if (!open && !isSavingInline) setIsInlineEditingPipeline(false);
             }} defaultOpen>
                   <SelectTrigger className="h-7 text-xs">
@@ -2304,7 +2353,7 @@ export function OpportunityDetailSheet({
                       </SelectItem>)}
                   </SelectContent>
                 </Select> : <button className="font-medium truncate hover:underline text-left w-full cursor-pointer" onClick={() => setIsInlineEditingPipeline(true)}>
-                  {savedValues.pipeline_name ?? opportunity.pipeline_name ?? "-"}
+                  {hasAdminPipelineConfig ? (adminPipelineName || "Main") : (savedValues.pipeline_name ?? opportunity.pipeline_name ?? "-")}
                 </button>}
             </div>
 
