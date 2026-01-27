@@ -1050,6 +1050,18 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setActiveTab("scope");
       return;
     }
+    
+    // Validate required fields for saving
+    if (!formData.customer_name?.trim()) {
+      toast.error("Please enter the customer name before generating");
+      setActiveTab("customer");
+      return;
+    }
+    if (!formData.estimate_title?.trim()) {
+      toast.error("Please enter the project title before generating");
+      setActiveTab("customer");
+      return;
+    }
 
     setIsGeneratingScope(true);
     isGeneratingScopeRef.current = true;
@@ -1066,43 +1078,131 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     let queueSubscription: ReturnType<typeof supabase.channel> | null = null;
     
     try {
-      // Ensure we have an estimate ID - for new estimates, create a minimal draft first
+      // First, save the estimate fully before starting AI generation
+      // This ensures no data is lost if the user navigates away during generation
       let targetEstimateId = currentEstimateId;
       
       if (!targetEstimateId) {
-        // Create a minimal draft estimate to associate the AI job with
-        const { data: draftEstimate, error: draftError } = await supabase
+        // Create/save estimate with all current form data
+        toast.info("Saving estimate before AI generation...");
+        
+        const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
+        
+        const estimateData = {
+          customer_name: formData.customer_name,
+          customer_email: formData.customer_email || null,
+          customer_phone: formData.customer_phone || null,
+          job_address: formData.job_address,
+          billing_address: formData.billing_address || null,
+          estimate_title: formData.estimate_title,
+          estimate_date: formData.estimate_date,
+          expiration_date: formData.expiration_date || null,
+          deposit_required: formData.deposit_required,
+          deposit_percent: formData.deposit_percent,
+          deposit_max_amount: formData.deposit_max_amount,
+          tax_rate: formData.tax_rate,
+          discount_type: formData.discount_type,
+          discount_value: formData.discount_value,
+          subtotal,
+          tax_amount: taxAmount,
+          discount_amount: discountAmount,
+          total,
+          notes: formData.notes || null,
+          terms_and_conditions: formData.terms_and_conditions || null,
+          work_scope_description: formData.work_scope_description || null,
+          created_by: user?.id || null,
+          project_id: linkedProjectId || null,
+          show_details_to_customer: formData.show_details_to_customer,
+          show_scope_to_customer: formData.show_scope_to_customer,
+          show_line_items_to_customer: formData.show_line_items_to_customer,
+          salesperson_name: formData.salesperson_name || null,
+          company_id: companyId,
+          opportunity_uuid: linkedOpportunityUuid || null,
+          opportunity_id: linkedOpportunityGhlId || null,
+          plans_file_url: plansFileUrl || null,
+          status: 'draft' as const,
+        };
+        
+        const { data: savedEstimate, error: saveError } = await supabase
           .from('estimates')
-          .insert({
-            company_id: companyId,
-            customer_name: formData.customer_name || 'Draft',
-            customer_email: formData.customer_email || '',
-            customer_phone: formData.customer_phone || '',
-            job_address: formData.job_address,
-            estimate_title: formData.estimate_title || 'AI Generated Estimate',
-            estimate_date: formData.estimate_date,
-            expiration_date: formData.expiration_date,
-            work_scope_description: formData.work_scope_description,
-            status: 'draft',
-            deposit_required: formData.deposit_required,
-            deposit_percent: formData.deposit_percent,
-            deposit_max_amount: formData.deposit_max_amount,
-            tax_rate: formData.tax_rate,
-            discount_type: formData.discount_type,
-            discount_value: formData.discount_value,
-            plans_file_url: plansFileUrl,
-          })
+          .insert(estimateData)
           .select('id')
           .single();
         
-        if (draftError || !draftEstimate) {
-          console.error('Failed to create draft estimate:', draftError);
-          throw new Error('Failed to create estimate for AI generation');
+        if (saveError || !savedEstimate) {
+          console.error('Failed to save estimate before AI generation:', saveError);
+          throw new Error('Failed to save estimate before AI generation');
         }
         
-        targetEstimateId = draftEstimate.id;
+        targetEstimateId = savedEstimate.id;
         setCurrentEstimateId(targetEstimateId);
-        console.log('Created draft estimate for AI job:', targetEstimateId);
+        
+        // Clear draft since estimate is now saved
+        clearDraft();
+        deleteDraftDB();
+        setDraftRestored(false);
+        
+        // Invalidate queries so the estimates list updates
+        queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
+        
+        console.log('Saved estimate before AI generation:', targetEstimateId);
+        toast.success("Estimate saved! Starting AI generation...");
+      } else {
+        // Update existing estimate with current form data before AI generation
+        toast.info("Updating estimate before AI generation...");
+        
+        const { subtotal, taxAmount, discountAmount, total } = calculateTotals();
+        
+        const estimateData = {
+          customer_name: formData.customer_name,
+          customer_email: formData.customer_email || null,
+          customer_phone: formData.customer_phone || null,
+          job_address: formData.job_address,
+          billing_address: formData.billing_address || null,
+          estimate_title: formData.estimate_title,
+          estimate_date: formData.estimate_date,
+          expiration_date: formData.expiration_date || null,
+          deposit_required: formData.deposit_required,
+          deposit_percent: formData.deposit_percent,
+          deposit_max_amount: formData.deposit_max_amount,
+          tax_rate: formData.tax_rate,
+          discount_type: formData.discount_type,
+          discount_value: formData.discount_value,
+          subtotal,
+          tax_amount: taxAmount,
+          discount_amount: discountAmount,
+          total,
+          notes: formData.notes || null,
+          terms_and_conditions: formData.terms_and_conditions || null,
+          work_scope_description: formData.work_scope_description || null,
+          project_id: linkedProjectId || null,
+          show_details_to_customer: formData.show_details_to_customer,
+          show_scope_to_customer: formData.show_scope_to_customer,
+          show_line_items_to_customer: formData.show_line_items_to_customer,
+          salesperson_name: formData.salesperson_name || null,
+          opportunity_uuid: linkedOpportunityUuid || null,
+          opportunity_id: linkedOpportunityGhlId || null,
+          plans_file_url: plansFileUrl || null,
+        };
+        
+        const { error: updateError } = await supabase
+          .from('estimates')
+          .update(estimateData)
+          .eq('id', targetEstimateId)
+          .eq('company_id', companyId);
+        
+        if (updateError) {
+          console.error('Failed to update estimate before AI generation:', updateError);
+          throw new Error('Failed to update estimate before AI generation');
+        }
+        
+        // Clear draft since estimate is now saved
+        clearDraft();
+        deleteDraftDB();
+        setDraftRestored(false);
+        
+        queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
+        console.log('Updated estimate before AI generation:', targetEstimateId);
       }
       
       // Create a job record
