@@ -1732,6 +1732,63 @@ export type Database = {
           },
         ]
       }
+      estimate_generation_jobs: {
+        Row: {
+          company_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          estimate_id: string
+          id: string
+          request_params: Json | null
+          result_json: Json | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          estimate_id: string
+          id?: string
+          request_params?: Json | null
+          result_json?: Json | null
+          started_at?: string | null
+          status?: string
+        }
+        Update: {
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          estimate_id?: string
+          id?: string
+          request_params?: Json | null
+          result_json?: Json | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_generation_jobs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_generation_jobs_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estimate_groups: {
         Row: {
           company_id: string | null

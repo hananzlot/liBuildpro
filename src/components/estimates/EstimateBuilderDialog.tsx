@@ -647,7 +647,121 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     setPlansFileName(null);
   };
 
-  // AI Scope Generation
+  // Helper to process AI scope result and update state
+  const applyAIScope = useCallback((scope: any) => {
+    // Add generated groups and items - always use the form's default markup, ignoring AI recommendations
+    const newGroups: Group[] = scope.groups.map((g: any, gIdx: number) => ({
+      id: generateId(),
+      group_name: g.group_name,
+      description: g.description || "",
+      sort_order: groups.length + gIdx,
+      isOpen: true,
+      items: g.items.map((item: any, iIdx: number) => {
+        // AI now returns labor_cost/material_cost; some models may omit `cost`.
+        const parseNum = (v: any) => {
+          if (v === null || v === undefined) return 0;
+          if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+          const cleaned = String(v).replace(/,/g, '').trim();
+          const n = Number(cleaned);
+          return Number.isFinite(n) ? n : 0;
+        };
+
+        const laborCost = parseNum(item.labor_cost);
+        const materialCost = parseNum(item.material_cost);
+        const costFromAi = parseNum(item.cost);
+        const derivedCost = costFromAi > 0 ? costFromAi : (laborCost + materialCost);
+        const itemCost = derivedCost;
+        // Always use the form's default markup, ignore AI markup suggestions
+        const itemMarkup = formData.default_markup_percent;
+        const itemUnitPrice = itemCost * (1 + itemMarkup / 100);
+        const itemQuantity = item.quantity || 1;
+        
+        // Ensure both fields exist (0 when not applicable)
+        const normalizedLaborCost = laborCost || (item.item_type === 'labor' ? itemCost : 0);
+        const normalizedMaterialCost = materialCost || (item.item_type === 'material' ? itemCost : 0);
+        
+        return {
+          id: generateId(),
+          item_type: item.item_type || "material",
+          description: item.description,
+          quantity: itemQuantity,
+          unit: item.unit || "each",
+          cost: itemCost,
+          labor_cost: normalizedLaborCost,
+          material_cost: normalizedMaterialCost,
+          markup_percent: itemMarkup,
+          unit_price: itemUnitPrice,
+          line_total: itemQuantity * itemUnitPrice,
+          is_taxable: item.is_taxable !== false,
+          sort_order: iIdx,
+          notes: item.notes || "",
+        };
+      }),
+    }));
+
+    setGroups(prev => [...prev, ...newGroups]);
+
+    // Build payment schedule: always start with deposit, then add AI phases
+    const depositPhase: PaymentPhase = {
+      id: generateId(),
+      phase_name: "Deposit",
+      percent: 0, // Will be calculated based on min(percent, max) logic
+      amount: 0,
+      due_type: "on_approval",
+      due_date: null,
+      description: "Due upon contract signing",
+      sort_order: 0,
+    };
+    
+    // Filter out any "Deposit" phases from AI and add remaining phases
+    const aiPhases: PaymentPhase[] = (scope.payment_schedule || [])
+      .filter((p: any) => p.phase_name?.toLowerCase() !== 'deposit')
+      .map((p: any, idx: number) => ({
+        id: generateId(),
+        phase_name: p.phase_name || (idx === 0 ? 'Site Prep' : `Phase ${idx + 1}`),
+        percent: p.percent || 0,
+        amount: 0,
+        due_type: p.due_type || "milestone",
+        due_date: null,
+        description: p.description || "",
+        sort_order: idx + 1,
+      }));
+    
+    setPaymentSchedule([depositPhase, ...aiPhases]);
+
+    // Update tax rate if suggested (but NOT deposit - keep company defaults)
+    if (scope.suggested_tax_rate) {
+      setFormData(prev => ({ ...prev, tax_rate: scope.suggested_tax_rate }));
+    }
+    // Note: We no longer override deposit_percent from AI - company settings take precedence
+    if (scope.notes) {
+      setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes}\n\n${scope.notes}` : scope.notes }));
+    }
+    
+    // Capture AI summary sections if provided
+    setAiSummary({
+      project_understanding: scope.project_understanding || [],
+      assumptions: scope.assumptions || [],
+      inclusions: scope.inclusions || [],
+      exclusions: scope.exclusions || [],
+      missing_info: scope.missing_info || [],
+    });
+    
+    // Show summary if any sections have content
+    const hasSummary = (scope.project_understanding?.length > 0) || 
+                       (scope.assumptions?.length > 0) || 
+                       (scope.inclusions?.length > 0) || 
+                       (scope.exclusions?.length > 0) || 
+                       (scope.missing_info?.length > 0);
+    if (hasSummary) {
+      setShowAiSummary(true);
+    }
+
+    toast.success("AI generated scope added successfully!");
+    setActiveTab("scope");
+  }, [formData.default_markup_percent, groups.length]);
+
+  // AI Scope Generation with job-based background processing
   const generateScope = async () => {
     if (!formData.job_address?.trim()) {
       toast.error("Please enter the job site address first (required for accurate pricing)");
@@ -660,8 +774,75 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
 
     setIsGeneratingScope(true);
+    
+    let jobId: string | null = null;
+    let subscription: ReturnType<typeof supabase.channel> | null = null;
+    
     try {
-      const timeoutMs = plansFileUrl ? 180_000 : 120_000;
+      // Create a job record first
+      const { data: jobData, error: jobError } = await supabase
+        .from('estimate_generation_jobs')
+        .insert({
+          estimate_id: estimateId || null,
+          company_id: companyId,
+          status: 'pending',
+          request_params: {
+            projectType: formData.estimate_title,
+            workScopeDescription: formData.work_scope_description,
+            jobAddress: formData.job_address,
+            hasPlans: !!plansFileUrl,
+          }
+        })
+        .select('id')
+        .single();
+      
+      if (jobError) {
+        console.error('Failed to create job:', jobError);
+        throw new Error('Failed to start AI generation');
+      }
+      
+      jobId = jobData.id;
+      console.log('Created AI generation job:', jobId);
+      
+      // Subscribe to realtime updates for this job
+      subscription = supabase
+        .channel(`job-${jobId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'estimate_generation_jobs',
+            filter: `id=eq.${jobId}`,
+          },
+          (payload) => {
+            const job = payload.new as { status: string; result_json: any; error_message: string | null };
+            console.log('Job update received:', job.status);
+            
+            if (job.status === 'completed' && job.result_json) {
+              // Success! Apply the scope and clean up
+              try {
+                if (job.result_json.warning) {
+                  toast.warning(job.result_json.warning);
+                }
+                applyAIScope(job.result_json.scope);
+              } catch (e) {
+                console.error('Failed to apply AI scope:', e);
+                toast.error('Failed to apply AI-generated scope');
+              }
+              setIsGeneratingScope(false);
+              subscription?.unsubscribe();
+            } else if (job.status === 'failed') {
+              // Error - show message and clean up
+              toast.error(job.error_message || 'AI generation failed');
+              setIsGeneratingScope(false);
+              subscription?.unsubscribe();
+            }
+          }
+        )
+        .subscribe();
+      
+      // Call the edge function with the job ID
       const invokeBody = {
         projectType: formData.estimate_title,
         projectDescription: formData.notes,
@@ -670,194 +851,69 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         existingGroups: groups.map(g => g.group_name),
         defaultMarkupPercent: formData.default_markup_percent,
         companyId: companyId,
-        plansFileUrl: plansFileUrl, // Pass the uploaded plans URL
+        plansFileUrl: plansFileUrl,
+        jobId: jobId, // Pass job ID for background processing
       };
 
-      // Create a visibility-aware timeout that pauses when tab is hidden
-      // This prevents false timeouts when user switches tabs
-      const createVisibilityAwareTimeout = (ms: number): Promise<never> => {
-        return new Promise((_, reject) => {
-          let elapsedTime = 0;
-          let lastTickTime = Date.now();
-          let intervalId: ReturnType<typeof setInterval>;
-          
-          const checkTimeout = () => {
-            const now = Date.now();
-            // Only count time if the document is visible
-            if (document.visibilityState === 'visible') {
-              elapsedTime += now - lastTickTime;
-            }
-            lastTickTime = now;
-            
-            if (elapsedTime >= ms) {
-              clearInterval(intervalId);
-              reject(new Error(`AI generation timed out after ${Math.round(ms / 1000)}s. Please try again.`));
-            }
-          };
-          
-          // Check every second
-          intervalId = setInterval(checkTimeout, 1000);
-        });
-      };
-
-      const { data, error } = await Promise.race([
-        supabase.functions.invoke("generate-estimate-scope", {
-          body: invokeBody,
-        }),
-        createVisibilityAwareTimeout(timeoutMs),
-      ]);
-
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
-
-      if (data.warning) {
-        toast.warning(data.warning);
-      }
-
-      const scope = data.scope;
-      
-      // Add generated groups and items - always use the form's default markup, ignoring AI recommendations
-      const newGroups: Group[] = scope.groups.map((g: any, gIdx: number) => ({
-        id: generateId(),
-        group_name: g.group_name,
-        description: g.description || "",
-        sort_order: groups.length + gIdx,
-        isOpen: true,
-        items: g.items.map((item: any, iIdx: number) => {
-          // AI now returns labor_cost/material_cost; some models may omit `cost`.
-          const parseNum = (v: any) => {
-            if (v === null || v === undefined) return 0;
-            if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-            const cleaned = String(v).replace(/,/g, '').trim();
-            const n = Number(cleaned);
-            return Number.isFinite(n) ? n : 0;
-          };
-
-          const laborCost = parseNum(item.labor_cost);
-          const materialCost = parseNum(item.material_cost);
-          const costFromAi = parseNum(item.cost);
-          const derivedCost = costFromAi > 0 ? costFromAi : (laborCost + materialCost);
-          const itemCost = derivedCost;
-          // Always use the form's default markup, ignore AI markup suggestions
-          const itemMarkup = formData.default_markup_percent;
-          const itemUnitPrice = itemCost * (1 + itemMarkup / 100);
-          const itemQuantity = item.quantity || 1;
-          
-          // Ensure both fields exist (0 when not applicable)
-          const normalizedLaborCost = laborCost || (item.item_type === 'labor' ? itemCost : 0);
-          const normalizedMaterialCost = materialCost || (item.item_type === 'material' ? itemCost : 0);
-          
-          return {
-            id: generateId(),
-            item_type: item.item_type || "material",
-            description: item.description,
-            quantity: itemQuantity,
-            unit: item.unit || "each",
-            cost: itemCost,
-            labor_cost: normalizedLaborCost,
-            material_cost: normalizedMaterialCost,
-            markup_percent: itemMarkup,
-            unit_price: itemUnitPrice,
-            line_total: itemQuantity * itemUnitPrice,
-            is_taxable: item.is_taxable !== false,
-            sort_order: iIdx,
-            notes: item.notes || "",
-          };
-        }),
-      }));
-
-      setGroups(prev => [...prev, ...newGroups]);
-
-      // Build payment schedule: always start with deposit, then add AI phases
-      const depositPhase: PaymentPhase = {
-        id: generateId(),
-        phase_name: "Deposit",
-        percent: 0, // Will be calculated based on min(percent, max) logic
-        amount: 0,
-        due_type: "on_approval",
-        due_date: null,
-        description: "Due upon contract signing",
-        sort_order: 0,
-      };
-      
-      // Filter out any "Deposit" phases from AI and add remaining phases
-      const aiPhases: PaymentPhase[] = (scope.payment_schedule || [])
-        .filter((p: any) => p.phase_name?.toLowerCase() !== 'deposit')
-        .map((p: any, idx: number) => ({
-          id: generateId(),
-          phase_name: p.phase_name || (idx === 0 ? 'Site Prep' : `Phase ${idx + 1}`),
-          percent: p.percent || 0,
-          amount: 0,
-          due_type: p.due_type || "milestone",
-          due_date: null,
-          description: p.description || "",
-          sort_order: idx + 1,
-        }));
-      
-      setPaymentSchedule([depositPhase, ...aiPhases]);
-
-      // Update tax rate if suggested (but NOT deposit - keep company defaults)
-      if (scope.suggested_tax_rate) {
-        setFormData(prev => ({ ...prev, tax_rate: scope.suggested_tax_rate }));
-      }
-      // Note: We no longer override deposit_percent from AI - company settings take precedence
-      if (scope.notes) {
-        setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes}\n\n${scope.notes}` : scope.notes }));
-      }
-      
-      // Capture AI summary sections if provided
-      setAiSummary({
-        project_understanding: scope.project_understanding || [],
-        assumptions: scope.assumptions || [],
-        inclusions: scope.inclusions || [],
-        exclusions: scope.exclusions || [],
-        missing_info: scope.missing_info || [],
+      // Make the request - even if it fails due to tab switch, the job continues in background
+      const { data, error } = await supabase.functions.invoke("generate-estimate-scope", {
+        body: invokeBody,
       });
+
+      // If we get an immediate response (fast generation), use it directly
+      if (!error && data?.success && data?.scope) {
+        console.log('Got immediate response, applying directly');
+        if (data.warning) {
+          toast.warning(data.warning);
+        }
+        applyAIScope(data.scope);
+        setIsGeneratingScope(false);
+        subscription?.unsubscribe();
+        return;
+      }
       
-      // Show summary if any sections have content
-      const hasSummary = (scope.project_understanding?.length > 0) || 
-                         (scope.assumptions?.length > 0) || 
-                         (scope.inclusions?.length > 0) || 
-                         (scope.exclusions?.length > 0) || 
-                         (scope.missing_info?.length > 0);
-      if (hasSummary) {
-        setShowAiSummary(true);
+      // If there was an error but we have a job, the background processing continues
+      if (error) {
+        console.log('Request failed but job may continue in background:', error);
+        // Don't throw - let realtime subscription handle the result
+        // But if the job was never started, we need to handle that
+        if (!jobId) {
+          throw error;
+        }
       }
 
-      toast.success("AI generated scope added successfully!");
-      setActiveTab("scope");
+      // For longer operations, the realtime subscription will handle completion
+      // Set a max timeout as a safety net (5 minutes for jobs with PDFs)
+      const maxTimeout = plansFileUrl ? 300_000 : 180_000;
+      setTimeout(() => {
+        if (isGeneratingScope) {
+          console.log('Safety timeout reached, checking job status...');
+          // Check job status one more time
+          supabase
+            .from('estimate_generation_jobs')
+            .select('status, result_json, error_message')
+            .eq('id', jobId!)
+            .single()
+            .then(({ data: finalJob }) => {
+              if (finalJob?.status === 'completed' && finalJob.result_json) {
+                const result = finalJob.result_json as { scope: any; warning?: string };
+                applyAIScope(result.scope);
+                toast.success("AI scope loaded from background job");
+              } else if (finalJob?.status === 'pending' || finalJob?.status === 'processing') {
+                toast.error('AI generation timed out. The job may still complete - check back later.');
+              }
+              setIsGeneratingScope(false);
+              subscription?.unsubscribe();
+            });
+        }
+      }, maxTimeout);
+
     } catch (error) {
       console.error("Error generating scope:", error);
       const msg = error instanceof Error ? error.message : "Failed to generate scope. Please try again.";
-      
-      // Check if error is likely due to browser aborting request during tab switch
-      const isConnectionAborted = msg.includes('Failed to fetch') || 
-                                   msg.includes('network') ||
-                                   msg.includes('connection') ||
-                                   msg.includes('aborted');
-      
-      if (isConnectionAborted && document.visibilityState === 'hidden') {
-        // Tab is hidden and connection was aborted - don't close progress yet
-        // Wait for tab to become visible and show retry option
-        const handleVisibilityChange = () => {
-          if (document.visibilityState === 'visible') {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            setIsGeneratingScope(false);
-            toast.error("AI generation was interrupted. Please try again.", {
-              duration: 10000,
-              action: {
-                label: "Retry",
-                onClick: generateScope,
-              },
-            });
-          }
-        };
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return; // Don't proceed to finally block
-      }
-      
       toast.error(msg);
       setIsGeneratingScope(false);
+      subscription?.unsubscribe();
     }
   };
 
