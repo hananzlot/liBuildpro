@@ -501,20 +501,29 @@ ${baseUserPrompt}`;
     const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     try {
+      // Build request body - OpenAI models use max_completion_tokens, Gemini uses max_tokens
+      const isOpenAIModel = modelToUse.startsWith('openai/');
+      const requestBody: Record<string, unknown> = {
+        model: modelToUse,
+        messages,
+        temperature: aiTemperature,
+        response_format: { type: "json_object" },
+      };
+      
+      // Use correct token parameter based on model
+      if (isOpenAIModel) {
+        requestBody.max_completion_tokens = 12000;
+      } else {
+        requestBody.max_tokens = 12000;
+      }
+      
       response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages,
-          temperature: aiTemperature,
-          // Keep responses reasonably sized to avoid gateway/client timeouts.
-          max_tokens: 12000,
-          response_format: { type: "json_object" },
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
