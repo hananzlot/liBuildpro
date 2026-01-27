@@ -883,11 +883,50 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     let subscription: ReturnType<typeof supabase.channel> | null = null;
     
     try {
-      // Create a job record first
+      // Ensure we have an estimate ID - for new estimates, create a minimal draft first
+      let targetEstimateId = currentEstimateId;
+      
+      if (!targetEstimateId) {
+        // Create a minimal draft estimate to associate the AI job with
+        const { data: draftEstimate, error: draftError } = await supabase
+          .from('estimates')
+          .insert({
+            company_id: companyId,
+            customer_name: formData.customer_name || 'Draft',
+            customer_email: formData.customer_email || '',
+            customer_phone: formData.customer_phone || '',
+            job_address: formData.job_address,
+            estimate_title: formData.estimate_title || 'AI Generated Estimate',
+            estimate_date: formData.estimate_date,
+            expiration_date: formData.expiration_date,
+            work_scope_description: formData.work_scope_description,
+            status: 'draft',
+            deposit_required: formData.deposit_required,
+            deposit_percent: formData.deposit_percent,
+            deposit_max_amount: formData.deposit_max_amount,
+            tax_rate: formData.tax_rate,
+            discount_type: formData.discount_type,
+            discount_value: formData.discount_value,
+            plans_file_url: plansFileUrl,
+          })
+          .select('id')
+          .single();
+        
+        if (draftError || !draftEstimate) {
+          console.error('Failed to create draft estimate:', draftError);
+          throw new Error('Failed to create estimate for AI generation');
+        }
+        
+        targetEstimateId = draftEstimate.id;
+        setCurrentEstimateId(targetEstimateId);
+        console.log('Created draft estimate for AI job:', targetEstimateId);
+      }
+      
+      // Create a job record
       const { data: jobData, error: jobError } = await supabase
         .from('estimate_generation_jobs')
         .insert({
-          estimate_id: estimateId || null,
+          estimate_id: targetEstimateId,
           company_id: companyId,
           status: 'pending',
           request_params: {
