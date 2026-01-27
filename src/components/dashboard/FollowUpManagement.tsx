@@ -107,7 +107,7 @@ interface FollowUpManagementProps {
   users: DBUser[];
   contactNotes: DBContactNote[];
   tasks: DBTask[];
-  onOpenOpportunity: (opportunity: DBOpportunity) => void;
+  onOpenOpportunity: (opportunity: DBOpportunity, taskGhlId?: string | null) => void;
   onDataRefresh?: () => void;
 }
 type SortField = "appointment_date" | "last_note_date" | "contact_name" | "opportunity_name";

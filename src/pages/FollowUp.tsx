@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useGHLMetrics, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
 import { FollowUpManagement } from "@/components/dashboard/FollowUpManagement";
@@ -10,29 +10,39 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const FollowUp = () => {
   const navigate = useNavigate();
+  const { opportunityId, taskGhlId } = useParams<{ opportunityId?: string; taskGhlId?: string }>();
   const { isAdmin, isSimulating } = useAuth();
-  
-  const [dateRange] = useState<DateRange | undefined>(() => {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    return { from: start, to: end };
-  });
-  
-  const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
-  const [oppDetailSheetOpen, setOppDetailSheetOpen] = useState(false);
-  const [initialTaskGhlId, setInitialTaskGhlId] = useState<string | null>(null);
 
   const {
     data: metrics,
     isLoading,
     refetch
-  } = useGHLMetrics(dateRange);
+  } = useGHLMetrics(undefined);
 
-  const handleOpenOpportunity = (opportunity: any, taskGhlId?: string | null) => {
-    setSelectedOpportunity(opportunity);
-    setInitialTaskGhlId(taskGhlId || null);
-    setOppDetailSheetOpen(true);
+  // Derive selected opportunity from URL param
+  const selectedOpportunity = useMemo(() => {
+    if (!opportunityId || !metrics?.allOpportunities?.length) return null;
+    return metrics.allOpportunities.find(
+      (o: any) => o.id === opportunityId || o.ghl_id === opportunityId
+    ) || null;
+  }, [opportunityId, metrics?.allOpportunities]);
+
+  // Modal open state derived from URL
+  const oppDetailSheetOpen = !!opportunityId;
+
+  const handleDetailSheetClose = (open: boolean) => {
+    if (!open) {
+      navigate("/follow-up", { replace: true });
+    }
+  };
+
+  const handleOpenOpportunity = (opportunity: any, taskGhlIdParam?: string | null) => {
+    const oppId = opportunity.ghl_id || opportunity.id;
+    if (taskGhlIdParam) {
+      navigate(`/follow-up/opportunity/${oppId}/task/${taskGhlIdParam}`);
+    } else {
+      navigate(`/follow-up/opportunity/${oppId}`);
+    }
   };
 
   const handleAdminAction = (action: string) => {
@@ -75,19 +85,16 @@ const FollowUp = () => {
         )}
       </div>
 
-      {/* Opportunity Detail Sheet */}
+      {/* Opportunity Detail Sheet - open state derived from URL */}
       <OpportunityDetailSheet 
         opportunity={selectedOpportunity} 
         appointments={metrics?.allAppointments || []} 
         contacts={metrics?.allContacts || []} 
         users={metrics?.users || []} 
         open={oppDetailSheetOpen} 
-        onOpenChange={open => {
-          setOppDetailSheetOpen(open);
-          if (!open) setInitialTaskGhlId(null);
-        }} 
+        onOpenChange={handleDetailSheetClose} 
         allOpportunities={metrics?.allOpportunities || []} 
-        initialTaskGhlId={initialTaskGhlId} 
+        initialTaskGhlId={taskGhlId || null} 
       />
     </AppLayout>
   );
