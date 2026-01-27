@@ -238,13 +238,6 @@ export function OpportunityDetailSheet({
   const [appointmentAssignee, setAppointmentAssignee] = useState("");
   const [appointmentNotes, setAppointmentNotes] = useState("");
   const [appointmentAddress, setAppointmentAddress] = useState("");
-  const [appointmentCalendar, setAppointmentCalendar] = useState("");
-  const [appointmentSkipGHL, setAppointmentSkipGHL] = useState(true);
-  const [activeCalendars, setActiveCalendars] = useState<{
-    ghl_id: string;
-    name: string | null;
-    team_members?: { userId: string }[] | null;
-  }[]>([]);
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
 
   // Estimated cost
@@ -428,44 +421,6 @@ export function OpportunityDetailSheet({
   const adminStageNames = pipelineSettings.data?.stageNames ?? [];
   const adminStageIdByName = pipelineSettings.data?.stageIdByName ?? {};
 
-  // Fetch active calendars on mount
-  useEffect(() => {
-    const fetchCalendars = async () => {
-      if (!companyId) return;
-      const {
-        data
-      } = await supabase.from("ghl_calendars").select("ghl_id, name, team_members").eq("is_active", true).eq("company_id", companyId);
-      if (data) {
-        // Parse team_members from JSON if needed
-        const calendarsWithTeam = data.map(cal => ({
-          ...cal,
-          team_members: Array.isArray(cal.team_members) 
-            ? (cal.team_members as unknown as { userId: string }[])
-            : null
-        }));
-        setActiveCalendars(calendarsWithTeam);
-        // Auto-select first calendar if only one
-        if (calendarsWithTeam.length === 1) {
-          setAppointmentCalendar(calendarsWithTeam[0].ghl_id);
-        }
-      }
-    };
-    fetchCalendars();
-  }, []);
-
-  // Auto-select calendar when appointmentAssignee changes
-  useEffect(() => {
-    if (!appointmentAssignee || appointmentAssignee === "__unassigned__") return;
-    
-    // Find a calendar that has this user as a team member
-    const userCalendar = activeCalendars.find(cal => 
-      cal.team_members?.some(member => member.userId === appointmentAssignee)
-    );
-    
-    if (userCalendar) {
-      setAppointmentCalendar(userCalendar.ghl_id);
-    }
-  }, [appointmentAssignee, activeCalendars]);
 
   // Fetch pipelines when sheet opens
   useEffect(() => {
@@ -1042,11 +997,7 @@ export function OpportunityDetailSheet({
       toast.error("Please enter appointment title and date");
       return;
     }
-    // Calendar is only required if NOT skipping GHL sync
-    if (!appointmentSkipGHL && !appointmentCalendar) {
-      toast.error("Please select a calendar (or enable 'Local only' to skip GHL)");
-      return;
-    }
+
     setIsCreatingAppointment(true);
     try {
       const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
@@ -1058,34 +1009,30 @@ export function OpportunityDetailSheet({
       const pstOffset = getPSTOffset(new Date(`${appointmentDate}T12:00:00Z`));
       const tempUtcDate = new Date(`${appointmentDate}T${timeStr}:00.000Z`);
       const utcDate = new Date(tempUtcDate.getTime() + pstOffset * 60 * 60 * 1000);
+
+      // Always create locally (Supabase-first approach) - no GHL calendar dependency
       const response = await supabase.functions.invoke("create-ghl-appointment", {
         body: {
           contactId: opportunity.contact_id,
           locationId,
           title: appointmentTitle.trim(),
           startTime: utcDate.toISOString(),
-          calendarId: appointmentCalendar || null,
+          calendarId: null,
           assignedUserId: assignedToValue,
           address: appointmentAddress.trim() || null,
           notes: appointmentNotes.trim() || null,
           enteredBy: user?.id || null,
-          skipGHLSync: appointmentSkipGHL
+          skipGHLSync: true // Always local-first
         }
       });
+
       if (response.error) {
         console.error("Appointment creation error:", response.error);
         const apiError = (response.data as any)?.error as string | undefined;
-        const msg = apiError || "Failed to create appointment";
-        if (msg.toLowerCase().includes("slot") || msg.toLowerCase().includes("available")) {
-          toast.error("That time slot isn't available in GHL. Pick a different time (try on the hour / half-hour) or another day, or use 'Local only'.");
-        } else if (msg.toLowerCase().includes("not part of calendar team")) {
-          toast.error("That sales rep isn't on this calendar's team in GHL. Choose a different rep or leave it unassigned.");
-        } else {
-          toast.error(msg);
-        }
+        toast.error(apiError || "Failed to create appointment");
         return;
       }
-      const isLocal = (response.data as any)?.local;
+
       toast.success("Appointment created");
 
       // Invalidate queries to refresh appointment data
@@ -1097,11 +1044,9 @@ export function OpportunityDetailSheet({
       setAppointmentTitle("");
       setAppointmentDate("");
       setAppointmentTime("09:00");
-      setAppointmentSkipGHL(false);
       setAppointmentAssignee("");
       setAppointmentNotes("");
       setAppointmentAddress("");
-      setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
     } catch (err) {
       console.error("Error creating appointment:", err);
       toast.error("Failed to create appointment");
@@ -1198,7 +1143,7 @@ export function OpportunityDetailSheet({
       setAppointmentTime("09:00");
       setAppointmentAssignee("");
       setAppointmentNotes("");
-      setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
+      
       setOriginalAppointmentDate("");
       setOriginalAppointmentTime("");
     } catch (err) {
@@ -3087,7 +3032,7 @@ export function OpportunityDetailSheet({
         </DialogContent>
       </Dialog>
 
-      {/* Create Appointment Dialog - now only for creating new appointments */}
+      {/* Create Appointment Dialog - local-first, no GHL calendar dependency */}
       <Dialog open={appointmentDialogOpen} onOpenChange={open => {
       setAppointmentDialogOpen(open);
       if (!open) {
@@ -3097,8 +3042,6 @@ export function OpportunityDetailSheet({
         setAppointmentAssignee("");
         setAppointmentNotes("");
         setAppointmentAddress("");
-        setAppointmentSkipGHL(false);
-        setAppointmentCalendar(activeCalendars.length === 1 ? activeCalendars[0].ghl_id : "");
       }
     }}>
         <DialogContent className="sm:max-w-3xl">
@@ -3132,13 +3075,15 @@ export function OpportunityDetailSheet({
               <Label htmlFor="oppApptAssignee">Assign To</Label>
               <Select value={appointmentAssignee} onValueChange={setAppointmentAssignee}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select team member..." />
+                  <SelectValue placeholder="Select salesperson..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                  {filteredUsers.map(user => <SelectItem key={user.ghl_id} value={user.ghl_id}>
-                        {user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown"}
-                      </SelectItem>)}
+                  {[...activeSalespeople].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(sp => (
+                    <SelectItem key={sp.id} value={sp.ghl_user_id || sp.id}>
+                      {sp.name || "Unknown"}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {/* Warning when assignee differs from opportunity owner */}
@@ -3146,10 +3091,10 @@ export function OpportunityDetailSheet({
                appointmentAssignee !== "__unassigned__" && 
                opportunity?.assigned_to && 
                appointmentAssignee !== opportunity.assigned_to && (() => {
-                 const selectedUser = filteredUsers.find(u => u.ghl_id === appointmentAssignee);
-                 const ownerUser = filteredUsers.find(u => u.ghl_id === opportunity.assigned_to);
-                 const selectedName = selectedUser?.name || `${selectedUser?.first_name || ""} ${selectedUser?.last_name || ""}`.trim() || "Selected user";
-                 const ownerName = ownerUser?.name || `${ownerUser?.first_name || ""} ${ownerUser?.last_name || ""}`.trim() || "Opportunity owner";
+                 const selectedSp = activeSalespeople.find(sp => sp.ghl_user_id === appointmentAssignee || sp.id === appointmentAssignee);
+                 const ownerSp = activeSalespeople.find(sp => sp.ghl_user_id === opportunity.assigned_to);
+                 const selectedName = selectedSp?.name || "Selected user";
+                 const ownerName = ownerSp?.name || "Opportunity owner";
                  return (
                    <Alert className="mt-2 bg-amber-500/10 border-amber-500/30 py-2 px-3">
                      <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -3161,29 +3106,15 @@ export function OpportunityDetailSheet({
                })()}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="oppApptCalendar">Calendar {!appointmentSkipGHL && "*"}</Label>
-              <Select value={appointmentCalendar} onValueChange={setAppointmentCalendar} disabled={appointmentSkipGHL}>
-                <SelectTrigger className={appointmentSkipGHL ? "opacity-50" : ""}>
-                  <SelectValue placeholder="Select calendar..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {[...activeCalendars].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(cal => <SelectItem key={cal.ghl_id} value={cal.ghl_id}>
-                      {cal.name || "Unnamed Calendar"}
-                    </SelectItem>)}
-                </SelectContent>
-              </Select>
-              {activeCalendars.length === 0 && !appointmentSkipGHL && <p className="text-xs text-yellow-600">No active calendars. Run a sync to load calendars.</p>}
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="oppApptNotes">Notes (optional)</Label>
               <Textarea id="oppApptNotes" value={appointmentNotes} onChange={e => setAppointmentNotes(e.target.value)} placeholder="Add notes for this appointment..." rows={3} />
             </div>
-            <div className="flex items-center space-x-2 pt-3 border-t border-border/50">
-              <Checkbox id="skipGHL" checked={appointmentSkipGHL} onCheckedChange={checked => setAppointmentSkipGHL(checked === true)} className="h-3 w-3" />
-              <label htmlFor="skipGHL" className="text-xs text-muted-foreground cursor-pointer">
-                <span>Local only</span>
-                <span className="ml-1">– Save without syncing to GHL (to avoid slot availability rejections) </span>
-              </label>
+
+            {/* Sync status indicator */}
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-xs text-muted-foreground">
+                ✓ Will be saved locally
+              </p>
             </div>
           </div>
           <DialogFooter>
