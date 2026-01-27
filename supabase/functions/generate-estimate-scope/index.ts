@@ -107,7 +107,9 @@ Group items logically by work area.
 Always return valid JSON matching the exact schema requested.`;
     }
 
-    const userPrompt = `Generate a detailed estimate scope for the following project:
+    const userPrompt = `Generate a HIGHLY DETAILED estimate scope for the following project.
+
+CRITICAL: Create maximum granularity - break every task into its smallest components. Aim for 50+ line items.
 
 Project Type: ${projectType || 'Home Improvement'}
 Job Location: ${jobAddress || 'California'}
@@ -119,21 +121,28 @@ ${workScopeDescription || projectDescription || 'General home improvement projec
 
 ${existingGroups?.length > 0 ? `\nExisting scope areas (already added): ${existingGroups.join(', ')}` : ''}
 
-Return a JSON object with this exact structure:
+Return a JSON object with this EXACT structure (labor_cost and material_cost are REQUIRED and separate):
 {
+  "project_understanding": ["bullet 1", "bullet 2"],
+  "assumptions": ["assumption 1", "assumption 2"],
+  "inclusions": ["included item 1", "included item 2"],
+  "exclusions": ["excluded item 1", "excluded item 2"],
+  "missing_info": ["question 1", "question 2"],
   "groups": [
     {
-      "group_name": "Area name (e.g., Kitchen, Bathroom, MEP)",
+      "group_name": "Phase - Trade (e.g., Demolition - Haul-off, Interior - Drywall)",
       "description": "Brief description of work in this area",
       "items": [
         {
           "item_type": "labor|material|equipment|permit|assembly",
-          "description": "Detailed item description",
+          "description": "SPECIFIC item description (e.g., 'Drywall - 1/2 inch sheets' not just 'Drywall')",
           "quantity": number,
-          "unit": "hours|sqft|linear ft|each|set|unit",
-          "cost": number (UNIT COST per single unit, NOT total),
+          "unit": "hours|sqft|linear ft|each|set|LS",
+          "labor_cost": number (labor cost per unit, 0 if material-only),
+          "material_cost": number (material cost per unit, 0 if labor-only),
           "markup_percent": number,
-          "is_taxable": boolean
+          "is_taxable": boolean,
+          "notes": "what this covers, allowance details if applicable"
         }
       ]
     }
@@ -150,7 +159,13 @@ Return a JSON object with this exact structure:
   "suggested_tax_rate": 9.5,
   "notes": "Any important notes",
   "first_payment_name": "Name for initial payment (not 'Deposit')"
-}`;
+}
+
+GRANULARITY RULES:
+- Break each trade into 5-15 separate line items minimum
+- Example: "Flooring" becomes: "Flooring - Remove existing", "Flooring - Subfloor prep", "Flooring - Underlayment material", "Flooring - Underlayment install labor", "Flooring - Hardwood material", "Flooring - Hardwood install labor", "Flooring - Transition strips", "Flooring - Baseboards remove/replace"
+- Every line MUST have both labor_cost and material_cost fields (use 0 if not applicable)
+- Include often-forgotten items: mobilization, protection, dust control, daily cleanup, dumpsters, permits, inspections, final cleaning, punch list`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -165,7 +180,7 @@ Return a JSON object with this exact structure:
           { role: 'user', content: userPrompt }
         ],
         temperature: aiTemperature,
-        max_tokens: 4000,
+        max_tokens: 8000,
       }),
     });
 
