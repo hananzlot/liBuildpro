@@ -404,13 +404,22 @@ serve(async (req) => {
       console.log('AI provider preference:', aiProvider);
     }
 
-    // Determine which API to use
-    const useOpenAI = aiProvider === 'openai' && !!openaiApiKey;
+    // Strictly honor the company's AI provider setting - no silent fallbacks
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
-    if (!useOpenAI && !LOVABLE_API_KEY) {
-      throw new Error('No AI API key configured. Please add your OpenAI API key in company settings.');
+    if (aiProvider === 'openai' && !LOVABLE_API_KEY) {
+      throw new Error('OpenAI is selected as your AI provider, but the platform AI gateway is not configured. Please contact support or switch to Gemini in AI Settings.');
     }
+    
+    if (aiProvider === 'gemini' && !LOVABLE_API_KEY) {
+      throw new Error('Gemini is selected as your AI provider, but the platform AI gateway is not configured. Please contact support.');
+    }
+    
+    if (!aiProvider) {
+      aiProvider = 'gemini'; // Default only if not set at all
+    }
+    
+    console.log(`Strictly using AI provider: ${aiProvider}`);
 
     // Fetch and process plans file if provided
     let pdfBuffer: ArrayBuffer | null = null;
@@ -663,105 +672,101 @@ ${baseUserPrompt}`;
       userPrompt = baseUserPrompt;
     }
 
-    // ===== CALL AI =====
+    // ===== CALL AI (Strictly honor provider setting - no silent fallbacks) =====
     let aiResponse: { content: string; model: string };
     let apiProvider: string;
 
-    if (useOpenAI && hasPdf) {
-      // USE OPENAI RESPONSES API WITH FILE UPLOAD FOR PDF
-      console.log('Using OpenAI Responses API with PDF file upload...');
-      apiProvider = 'OpenAI (GPT-5.2 + File)';
-      
-      // Step 1: Upload PDF to OpenAI Files API
-      const fileId = await uploadFileToOpenAI(pdfBuffer!, 'construction-plans.pdf', openaiApiKey);
-      
-      // Step 2: Call Responses API with file_id
-      aiResponse = await callOpenAIResponsesAPI(
-        systemPrompt,
-        userPrompt,
-        fileId,
-        openaiApiKey,
-        aiTemperature
-      );
-    } else if (useOpenAI && hasImage) {
-      // OpenAI with image (Chat Completions via gateway - images work fine)
-      console.log('Using OpenAI via Lovable AI Gateway with image...');
-      apiProvider = 'OpenAI (GPT-5.2)';
-      
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userPrompt },
-            { type: 'image_url', image_url: { url: imageBase64 } }
-          ]
-        }
-      ];
-      
-      aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5.2', aiTemperature, LOVABLE_API_KEY!);
-    } else if (useOpenAI) {
-      // OpenAI text-only (via gateway)
-      console.log('Using OpenAI via Lovable AI Gateway (text-only)...');
-      apiProvider = 'OpenAI (GPT-5.2)';
-      
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ];
-      
-      aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5.2', aiTemperature, LOVABLE_API_KEY!);
-    } else if (hasPdf) {
-      // Gemini with PDF (native support)
-      console.log('Using Gemini with native PDF support...');
-      apiProvider = 'Gemini (PDF)';
-      const pdfBase64 = `data:application/pdf;base64,${bufferToBase64Chunked(pdfBuffer!)}`;
-      
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userPrompt },
-            { type: 'image_url', image_url: { url: pdfBase64 } }
-          ]
-        }
-      ];
-      
-      aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
-    } else if (hasImage) {
-      // Gemini with image
-      console.log('Using Gemini with image...');
-      apiProvider = 'Gemini (Pro)';
-      
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: userPrompt },
-            { type: 'image_url', image_url: { url: imageBase64 } }
-          ]
-        }
-      ];
-      
-      aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
-    } else {
-      // Text-only: honor company's AI provider preference
-      const messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ];
-      
-      if (aiProvider === 'openai') {
-        // Use OpenAI's fastest model when provider is set to OpenAI
+    if (aiProvider === 'openai') {
+      // ========== OPENAI PROVIDER ==========
+      if (hasPdf) {
+        // OpenAI with PDF - use Responses API with file upload
+        console.log('Using OpenAI Responses API with PDF file upload...');
+        apiProvider = 'OpenAI (GPT-5.2 + File)';
+        
+        const fileId = await uploadFileToOpenAI(pdfBuffer!, 'construction-plans.pdf', openaiApiKey);
+        aiResponse = await callOpenAIResponsesAPI(
+          systemPrompt,
+          userPrompt,
+          fileId,
+          openaiApiKey,
+          aiTemperature
+        );
+      } else if (hasImage) {
+        // OpenAI with image via gateway
+        console.log('Using OpenAI via Lovable AI Gateway with image...');
+        apiProvider = 'OpenAI (GPT-5.2)';
+        
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              { type: 'image_url', image_url: { url: imageBase64 } }
+            ]
+          }
+        ];
+        
+        aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5.2', aiTemperature, LOVABLE_API_KEY!);
+      } else {
+        // OpenAI text-only - use fast model
         console.log('Using OpenAI GPT-5-mini (text-only, fast)...');
         apiProvider = 'OpenAI (GPT-5-mini)';
+        
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ];
+        
         aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5-mini', aiTemperature, LOVABLE_API_KEY!);
+      }
+    } else {
+      // ========== GEMINI PROVIDER (default) ==========
+      if (hasPdf) {
+        // Gemini with PDF (native support)
+        console.log('Using Gemini with native PDF support...');
+        apiProvider = 'Gemini (PDF)';
+        const pdfBase64 = `data:application/pdf;base64,${bufferToBase64Chunked(pdfBuffer!)}`;
+        
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              { type: 'image_url', image_url: { url: pdfBase64 } }
+            ]
+          }
+        ];
+        
+        aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
+      } else if (hasImage) {
+        // Gemini with image
+        console.log('Using Gemini with image...');
+        apiProvider = 'Gemini (Pro)';
+        
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userPrompt },
+              { type: 'image_url', image_url: { url: imageBase64 } }
+            ]
+          }
+        ];
+        
+        aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
       } else {
-        // Default to Gemini Flash (fastest)
+        // Gemini text-only - use Flash (fastest)
         console.log('Using Gemini Flash (text-only)...');
         apiProvider = 'Gemini (Flash)';
+        
+        const messages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ];
+        
         aiResponse = await callLovableAIGateway(messages, 'google/gemini-3-flash-preview', aiTemperature, LOVABLE_API_KEY!);
       }
     }
