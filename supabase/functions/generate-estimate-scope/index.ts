@@ -208,15 +208,47 @@ serve(async (req) => {
     const zipCode = extractZipCode(jobAddress || '');
     const regionInfo = zipCode ? getRegionFromZip(zipCode) : { region: "California", costMultiplier: 1.0, description: "Standard rates" };
 
-    // Build system prompt
+    // Build system prompt - enhanced for PDF analysis
     let systemPrompt: string;
     
+    const hasPdfAttachment = parsedPlansContent?.type === 'file_id';
+    const hasImageAttachment = parsedPlansContent?.type === 'image_url';
+    
     if (customInstructions) {
-      // Use custom instructions directly - trust the user's prompt
-      systemPrompt = customInstructions;
+      // Use custom instructions but enhance for PDF if attached
+      if (hasPdfAttachment) {
+        systemPrompt = `${customInstructions}
+
+CRITICAL PDF ANALYSIS REQUIREMENTS:
+- You MUST extract actual data from the attached construction plans PDF
+- Never generate generic estimates when plans are provided
+- If you cannot read a detail, explicitly state "Unable to determine from plans"
+- Quote specific page numbers when referencing plan details
+- All quantities and dimensions MUST come from the PDF, not assumptions`;
+      } else {
+        systemPrompt = customInstructions;
+      }
     } else {
-      // Default system prompt if no custom instructions
-      systemPrompt = `You are an expert construction estimator for a home improvement contractor in California. 
+      // Default system prompt
+      if (hasPdfAttachment) {
+        systemPrompt = `You are an expert construction estimator with exceptional plan-reading skills.
+
+CRITICAL: Construction plans PDF is attached. You MUST:
+1. READ and ANALYZE every page of the attached PDF thoroughly
+2. EXTRACT actual room names, dimensions, and square footages from floor plans
+3. IDENTIFY specific materials, finishes, and specifications from schedules
+4. NOTE structural details (foundation type, framing specs, roofing materials)
+5. FIND MEP specifications (plumbing fixtures, electrical, HVAC requirements)
+
+STRICT RULES:
+- All quantities MUST come from the PDF measurements, not generic assumptions
+- If you cannot read a specific detail, say "Unable to determine from plans"
+- Reference specific sheets/pages when possible (e.g., "per Sheet A-1")
+- NEVER generate a generic cookie-cutter estimate when PDF plans are provided
+
+Return COST values (what the contractor pays), not selling prices. Markup will be applied separately.`;
+      } else {
+        systemPrompt = `You are an expert construction estimator for a home improvement contractor in California. 
 Create detailed, accurate estimates for residential construction projects.
 
 Return COST values (what the contractor pays), not selling prices. Markup will be applied separately.
@@ -225,9 +257,11 @@ Include all necessary line items: demolition, materials, labor, permits, cleanup
 Group items logically by work area.
 
 Always return valid JSON matching the exact schema requested.`;
+      }
     }
 
-    const userPrompt = `Generate a HIGHLY DETAILED estimate scope for the following project.
+    // Build the base user prompt
+    const baseUserPrompt = `Generate a HIGHLY DETAILED estimate scope for the following project.
 
 CRITICAL: Create maximum granularity - break every task into its smallest components. Aim for 50+ line items.
 
@@ -264,6 +298,12 @@ Return a JSON object with this EXACT structure (labor_cost and material_cost are
   "inclusions": ["included item 1", "included item 2"],
   "exclusions": ["excluded item 1", "excluded item 2"],
   "missing_info": ["question 1", "question 2"],
+  ${hasPdfAttachment || hasImageAttachment ? `"pdf_extracted_data": {
+    "rooms_identified": ["Room Name - WxL dimensions"],
+    "total_sqft_from_plans": number,
+    "specifications_found": ["specific material/finish from plans"],
+    "unable_to_determine": ["items that could not be read from plans"]
+  },` : ''}
   "groups": [
     {
       "group_name": "Phase - Trade (e.g., Demolition - Haul-off, Interior - Drywall)",
@@ -301,9 +341,56 @@ GRANULARITY RULES:
 - Break each trade into 5-15 separate line items minimum
 - Example: "Flooring" becomes: "Flooring - Remove existing", "Flooring - Subfloor prep", "Flooring - Underlayment material", "Flooring - Underlayment install labor", "Flooring - Hardwood material", "Flooring - Hardwood install labor", "Flooring - Transition strips", "Flooring - Baseboards remove/replace"
 - Every line MUST have both labor_cost and material_cost fields (use 0 if not applicable)
-- Include often-forgotten items: mobilization, protection, dust control, daily cleanup, dumpsters, permits, inspections, final cleaning, punch list
-${parsedPlansContent?.type === 'file_id' ? '- ANALYZE THE ATTACHED CONSTRUCTION PLANS PDF CAREFULLY to extract dimensions, room layouts, specifications, and scope details' : ''}
-${parsedPlansContent?.type === 'image_url' ? '- ANALYZE THE ATTACHED CONSTRUCTION PLANS IMAGE CAREFULLY to extract dimensions, room layouts, and scope details' : ''}`;
+- Include often-forgotten items: mobilization, protection, dust control, daily cleanup, dumpsters, permits, inspections, final cleaning, punch list`;
+
+    // Build final user prompt - prioritize PDF analysis if attached
+    let userPrompt: string;
+    
+    if (hasPdfAttachment) {
+      userPrompt = `**CRITICAL: YOU MUST ANALYZE THE ATTACHED PDF CONSTRUCTION PLANS FIRST**
+
+I have attached construction plans as a PDF file. Before generating ANY estimate values, you MUST:
+
+1. **READ EVERY PAGE** of the attached PDF thoroughly
+2. **EXTRACT ALL ROOM NAMES** with their exact dimensions (e.g., "Master Bedroom - 14'-6" x 12'-0"")
+3. **CALCULATE TOTAL SQUARE FOOTAGE** from the floor plan dimensions
+4. **IDENTIFY ALL SPECIFICATIONS** including:
+   - Roofing material and area from elevation drawings
+   - Foundation type from structural drawings  
+   - Door and window schedules
+   - Finish schedules (flooring, paint, fixtures)
+   - Electrical panel size and circuit requirements
+   - Plumbing fixture counts and specifications
+   - HVAC tonnage and ductwork requirements
+
+**DO NOT GENERATE A GENERIC ESTIMATE.** Every quantity and specification MUST come from what you actually read in the PDF.
+
+---
+
+${baseUserPrompt}
+
+---
+
+**MANDATORY PDF EXTRACTION CHECKLIST** (you must address ALL of these):
+- [ ] List EVERY room from the floor plan with its WIDTH x LENGTH dimensions
+- [ ] Calculate and state the total conditioned square footage
+- [ ] Identify the roofing material type and calculate roof area
+- [ ] Note the foundation type (slab, crawl, basement)
+- [ ] Count all doors and windows from schedules or plans
+- [ ] List specific finishes mentioned in the plans
+- [ ] Note any structural specifications (beam sizes, framing details)
+
+If you CANNOT read something from the PDF, you MUST explicitly state it in "unable_to_determine" array. 
+DO NOT make up values - use the actual data from the attached plans.`;
+    } else if (hasImageAttachment) {
+      userPrompt = `**ANALYZE THE ATTACHED CONSTRUCTION PLANS IMAGE CAREFULLY**
+
+I have attached construction plans as an image. Extract all visible dimensions, room layouts, and specifications before generating the estimate.
+
+${baseUserPrompt}`;
+    } else {
+      userPrompt = baseUserPrompt;
+    }
 
     // Build messages array based on content type
     const messages: any[] = [
