@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
+import { AIGenerationProgress } from "./AIGenerationProgress";
 
 import type { LinkedOpportunity } from "./EstimateSourceDialog";
 
@@ -1410,14 +1411,21 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0"
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        hideCloseButton
-      >
-        <DialogHeader className="px-6 py-4 border-b">
+    <>
+      {/* AI Generation Progress Overlay */}
+      <AIGenerationProgress 
+        isGenerating={isGeneratingScope} 
+        hasPlansFile={!!plansFileUrl} 
+      />
+      
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent 
+          className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0"
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          hideCloseButton
+        >
+          <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl">
               {isEditing ? "Edit Estimate" : isCloneMode ? "New Estimate (from Declined)" : "New Estimate"}
@@ -2722,7 +2730,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
