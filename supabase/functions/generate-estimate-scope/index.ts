@@ -345,6 +345,7 @@ serve(async (req) => {
     let openaiApiKey = '';
     let aiModel = '';
     let aiProvider = 'gemini'; // Default to Gemini
+    let maxPdfSizeMb = 50; // Default 50MB
     
     if (companyId) {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
@@ -357,7 +358,7 @@ serve(async (req) => {
         .from('company_settings')
         .select('setting_key, setting_value')
         .eq('company_id', companyId)
-        .in('setting_key', ['ai_estimate_variability', 'ai_estimate_instructions', 'openai_api_key', 'ai_estimate_model', 'ai_estimate_provider']);
+        .in('setting_key', ['ai_estimate_variability', 'ai_estimate_instructions', 'openai_api_key', 'ai_estimate_model', 'ai_estimate_provider', 'estimate_plans_max_size_mb']);
       
       if (settings) {
         const variabilitySetting = settings.find((s: any) => s.setting_key === 'ai_estimate_variability');
@@ -365,6 +366,7 @@ serve(async (req) => {
         const openaiKeySetting = settings.find((s: any) => s.setting_key === 'openai_api_key');
         const modelSetting = settings.find((s: any) => s.setting_key === 'ai_estimate_model');
         const providerSetting = settings.find((s: any) => s.setting_key === 'ai_estimate_provider');
+        const pdfSizeSetting = settings.find((s: any) => s.setting_key === 'estimate_plans_max_size_mb');
         
         if (variabilitySetting?.setting_value) {
           const parsed = parseFloat(variabilitySetting.setting_value);
@@ -388,6 +390,11 @@ serve(async (req) => {
         if (providerSetting?.setting_value) {
           aiProvider = providerSetting.setting_value;
         }
+        
+        if (pdfSizeSetting?.setting_value) {
+          maxPdfSizeMb = parseInt(pdfSizeSetting.setting_value) || 50;
+          console.log('PDF size limit from company_settings:', maxPdfSizeMb, 'MB');
+        }
       }
       
       // If no company-specific OpenAI key, check app_settings for platform default
@@ -403,11 +410,26 @@ serve(async (req) => {
         }
       }
       
+      // If no company-specific PDF size limit, check app_settings for platform default
+      if (maxPdfSizeMb === 50) {
+        const { data: appPdfSetting } = await supabase
+          .from('app_settings')
+          .select('setting_value')
+          .eq('setting_key', 'estimate_plans_max_size_mb')
+          .maybeSingle();
+        
+        if (appPdfSetting?.setting_value) {
+          maxPdfSizeMb = parseInt(appPdfSetting.setting_value) || 50;
+          console.log('PDF size limit from app_settings:', maxPdfSizeMb, 'MB');
+        }
+      }
+      
       console.log('Using AI temperature:', aiTemperature);
       console.log('Has custom instructions:', !!customInstructions);
       console.log('Has OpenAI API key:', !!openaiApiKey);
       console.log('AI model preference:', aiModel || 'default');
       console.log('AI provider preference:', aiProvider);
+      console.log('Max PDF size:', maxPdfSizeMb, 'MB');
     }
 
     // Strictly honor the company's AI provider setting - no silent fallbacks
@@ -426,12 +448,13 @@ serve(async (req) => {
     }
     
     console.log(`Strictly using AI provider: ${aiProvider}`);
+    
+    const MAX_PDF_SIZE_BYTES = maxPdfSizeMb * 1024 * 1024;
 
     // Fetch and process plans file if provided
     let pdfBuffer: ArrayBuffer | null = null;
     let imageBase64: string | null = null;
     let pdfTooLarge = false;
-    const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024; // 20MB limit
     
     if (plansFileUrl) {
       console.log('Fetching plans file:', plansFileUrl);
@@ -463,7 +486,7 @@ serve(async (req) => {
             console.log('PDF buffer size:', buffer.byteLength, 'bytes');
             
             if (buffer.byteLength > MAX_PDF_SIZE_BYTES) {
-              console.warn(`PDF too large: ${(buffer.byteLength / (1024 * 1024)).toFixed(1)}MB (max 20MB)`);
+              console.warn(`PDF too large: ${(buffer.byteLength / (1024 * 1024)).toFixed(1)}MB (max ${maxPdfSizeMb}MB from company settings)`);
               pdfTooLarge = true;
             } else {
               pdfBuffer = buffer;
