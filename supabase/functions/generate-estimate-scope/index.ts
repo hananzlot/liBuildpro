@@ -280,6 +280,95 @@ async function updateJobStatus(
   }
 }
 
+// Queue management functions
+async function addToQueue(jobId: string, companyId: string, userId: string | null): Promise<number> {
+  const supabase = createSupabaseClient();
+  
+  // Get next position using the database function
+  const { data: positionData } = await supabase.rpc('get_next_queue_position', { p_company_id: companyId });
+  const position = positionData || 1;
+  
+  const { error } = await supabase
+    .from('estimate_generation_queue')
+    .insert({
+      job_id: jobId,
+      company_id: companyId,
+      user_id: userId,
+      position,
+      status: 'waiting',
+    });
+  
+  if (error) {
+    console.error('Failed to add job to queue:', error);
+    throw new Error('Failed to add job to queue');
+  }
+  
+  console.log(`Job ${jobId} added to queue at position ${position}`);
+  return position;
+}
+
+async function updateQueueStatus(jobId: string, status: 'waiting' | 'processing' | 'completed' | 'failed' | 'cancelled') {
+  const supabase = createSupabaseClient();
+  
+  const updateData: Record<string, any> = { status };
+  
+  if (status === 'processing') {
+    updateData.started_at = new Date().toISOString();
+  }
+  if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+    updateData.completed_at = new Date().toISOString();
+  }
+  
+  const { error } = await supabase
+    .from('estimate_generation_queue')
+    .update(updateData)
+    .eq('job_id', jobId);
+    
+  if (error) {
+    console.error(`Failed to update queue status for job ${jobId}:`, error);
+  }
+}
+
+async function waitForQueueTurn(jobId: string, companyId: string): Promise<void> {
+  const supabase = createSupabaseClient();
+  const maxWaitTime = 5 * 60 * 1000; // 5 minutes max wait
+  const pollInterval = 2000; // 2 seconds
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < maxWaitTime) {
+    // Check if any job ahead of us is still processing
+    const { data: processingJobs } = await supabase
+      .from('estimate_generation_queue')
+      .select('id, position')
+      .eq('company_id', companyId)
+      .eq('status', 'processing')
+      .neq('job_id', jobId);
+    
+    // Get our current position
+    const { data: ourEntry } = await supabase
+      .from('estimate_generation_queue')
+      .select('position')
+      .eq('job_id', jobId)
+      .maybeSingle();
+    
+    if (!ourEntry) {
+      console.log(`Job ${jobId} not found in queue, proceeding`);
+      return;
+    }
+    
+    // If no one is processing or we're in position 1, we can start
+    if (!processingJobs || processingJobs.length === 0 || ourEntry.position === 1) {
+      console.log(`Job ${jobId} is ready to start (position: ${ourEntry.position})`);
+      return;
+    }
+    
+    console.log(`Job ${jobId} waiting at position ${ourEntry.position}, ${processingJobs.length} jobs ahead`);
+    await new Promise(r => setTimeout(r, pollInterval));
+  }
+  
+  console.warn(`Job ${jobId} waited too long in queue, proceeding anyway`);
+}
+
 // Fetch company settings
 async function fetchCompanySettings(companyId: string) {
   const supabase = createSupabaseClient();
@@ -944,13 +1033,44 @@ serve(async (req) => {
     if (jobId) {
       console.log(`Background job mode: ${jobId} - returning immediately`);
       
-      // Mark as processing
+      // Add to queue and get position
+      let queuePosition = 1;
+      try {
+        // Extract user_id from auth header if available
+        const authHeader = req.headers.get('Authorization');
+        let userId: string | null = null;
+        if (authHeader) {
+          const token = authHeader.replace('Bearer ', '');
+          const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+          const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
+          const tempClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            global: { headers: { Authorization: `Bearer ${token}` } }
+          });
+          const { data: userData } = await tempClient.auth.getUser();
+          userId = userData?.user?.id || null;
+        }
+        
+        queuePosition = await addToQueue(jobId, companyId, userId);
+      } catch (queueError) {
+        console.warn('Failed to add to queue, continuing without queue management:', queueError);
+      }
+      
+      // Mark job as processing (will wait for turn in background)
       await updateJobStatus(jobId, 'processing');
       
       // Start background processing
       // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
       EdgeRuntime.waitUntil((async () => {
         try {
+          // If we're not first in queue, wait for our turn
+          if (queuePosition > 1) {
+            console.log(`Background job ${jobId}: Waiting in queue at position ${queuePosition}...`);
+            await waitForQueueTurn(jobId, companyId);
+          }
+          
+          // Mark queue entry as processing
+          await updateQueueStatus(jobId, 'processing');
+          
           console.log(`Background job ${jobId}: Starting staged AI processing...`);
           
           const result = await processEstimateGenerationStaged({
@@ -970,18 +1090,27 @@ serve(async (req) => {
             scope: result.scope,
             warning: result.warning
           });
+          
+          // Mark queue entry as completed (triggers advancement for others)
+          await updateQueueStatus(jobId, 'completed');
         } catch (bgError) {
           const errorMessage = bgError instanceof Error ? bgError.message : 'Unknown error';
           console.error(`Background job ${jobId}: Failed:`, errorMessage);
           await updateJobStatus(jobId, 'failed', null, errorMessage);
+          
+          // Mark queue entry as failed (triggers advancement for others)
+          await updateQueueStatus(jobId, 'failed');
         }
       })());
       
-      // Return immediately
+      // Return immediately with queue position info
       return new Response(JSON.stringify({ 
         success: true, 
         jobId,
-        message: 'AI generation started in background. You will be notified when complete.',
+        queuePosition,
+        message: queuePosition > 1 
+          ? `You are #${queuePosition} in the AI queue. Your request will process automatically.`
+          : 'AI generation started in background. You will be notified when complete.',
         backgroundMode: true,
         stagedMode: true
       }), {

@@ -1798,6 +1798,57 @@ export type Database = {
           },
         ]
       }
+      estimate_generation_queue: {
+        Row: {
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          job_id: string
+          position: number
+          started_at: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          position: number
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          position?: number
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_generation_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_generation_queue_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "estimate_generation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estimate_groups: {
         Row: {
           company_id: string | null
@@ -5733,6 +5784,10 @@ export type Database = {
           refresh_token: string
           token_expires_at: string
         }[]
+      }
+      get_next_queue_position: {
+        Args: { p_company_id: string }
+        Returns: number
       }
       get_resend_api_key_encrypted: {
         Args: { p_company_id: string }
