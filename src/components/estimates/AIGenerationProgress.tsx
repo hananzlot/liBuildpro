@@ -1,11 +1,13 @@
-import { Loader2, FileSearch, Brain, ListTree, CheckCircle2, Layers } from "lucide-react";
+import { Loader2, FileSearch, Brain, ListTree, CheckCircle2, Layers, X } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
 
 interface AIGenerationProgressProps {
   isGenerating: boolean;
   hasPlansFile: boolean;
   currentStage?: string | null;
   stageProgress?: { current: number; total: number } | null;
+  onClose?: () => void;
 }
 
 // Get user-friendly message for each stage
@@ -35,7 +37,8 @@ export function AIGenerationProgress({
   isGenerating, 
   hasPlansFile, 
   currentStage,
-  stageProgress 
+  stageProgress,
+  onClose
 }: AIGenerationProgressProps) {
   if (!isGenerating) return null;
   
@@ -52,7 +55,20 @@ export function AIGenerationProgress({
   
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center">
-      <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md w-full mx-4 space-y-4">
+      <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md w-full mx-4 space-y-4 relative">
+        {/* Close button */}
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-8 w-8"
+            onClick={onClose}
+            title="Close progress view"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+        
         <div className="flex items-center gap-3">
           <div className="relative">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -121,6 +137,13 @@ export function AIGenerationProgress({
           <Layers className="h-3 w-3" />
           <span>Multi-stage processing for better results</span>
         </div>
+        
+        {/* Close explanation */}
+        {onClose && (
+          <p className="text-xs text-muted-foreground text-center border-t pt-3 mt-2">
+            You can close this window — the estimate will continue generating in the background and populate automatically when complete.
+          </p>
+        )}
       </div>
     </div>
   );

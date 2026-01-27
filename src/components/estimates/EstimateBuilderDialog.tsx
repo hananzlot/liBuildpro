@@ -225,6 +225,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [showMissingInfoPanel, setShowMissingInfoPanel] = useState(false);
   const [isRegeneratingWithAnswers, setIsRegeneratingWithAnswers] = useState(false);
   
+  // Controls visibility of the AI progress overlay (user can dismiss it)
+  const [showAiProgress, setShowAiProgress] = useState(false);
+  
   // Flag to skip auto-recovery after user manually clears groups
   const [skipAutoRecovery, setSkipAutoRecovery] = useState(false);
   
@@ -905,6 +908,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
     setIsGeneratingScope(true);
     isGeneratingScopeRef.current = true;
+    setShowAiProgress(true); // Show the progress overlay
 
     // Reset per-run stage tracking
     lastAIStageRef.current = null;
@@ -1814,10 +1818,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     <>
       {/* AI Generation Progress Overlay */}
       <AIGenerationProgress 
-        isGenerating={isGeneratingScope} 
+        isGenerating={isGeneratingScope && showAiProgress} 
         hasPlansFile={!!plansFileUrl}
         currentStage={currentAIStage}
         stageProgress={stageProgress}
+        onClose={() => setShowAiProgress(false)}
       />
       
       <Dialog open={open} onOpenChange={onOpenChange}>
