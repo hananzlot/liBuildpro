@@ -35,7 +35,15 @@ import {
   Copy,
   FileCheck,
   Eye,
+  Check,
 } from "lucide-react";
+import { REP_CONFIRMATION_OPTIONS, type RepConfirmationStatus } from "@/components/calendar/CalendarAppointmentActions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,6 +88,7 @@ interface Appointment {
   address?: string | null;
   salesperson_confirmed?: boolean;
   salesperson_confirmed_at?: string | null;
+  salesperson_confirmation_status?: string | null;
   location_id?: string;
 }
 
@@ -234,8 +243,8 @@ export function AppointmentDetailSheet({
   const [isDeletingAppointment, setIsDeletingAppointment] = useState(false);
 
   // Salesperson confirmation state
-  const [salespersonConfirmed, setSalespersonConfirmed] = useState(false);
-  const [isUpdatingSalespersonConfirmed, setIsUpdatingSalespersonConfirmed] = useState(false);
+  const [repConfirmationStatus, setRepConfirmationStatus] = useState<RepConfirmationStatus>("unconfirmed");
+  const [isUpdatingRepStatus, setIsUpdatingRepStatus] = useState(false);
   
   // Direct status update state
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -489,33 +498,32 @@ export function AppointmentDetailSheet({
     }
   };
 
-  // Sync salesperson confirmed state, local status, and assigned user with appointment prop
+  // Sync rep confirmation status, local status, and assigned user with appointment prop
   useEffect(() => {
     if (appointment) {
-      setSalespersonConfirmed(appointment.salesperson_confirmed || false);
+      // Use new status field first, fallback to legacy boolean
+      const status = appointment.salesperson_confirmation_status as RepConfirmationStatus 
+        || (appointment.salesperson_confirmed ? "confirmed" : "unconfirmed");
+      setRepConfirmationStatus(status);
       setLocalStatus(appointment.appointment_status || null);
-      // Use salesperson_id (internal UUID) if available, otherwise fallback to assigned_user_id
       setLocalAssignedUserId((appointment as any).salesperson_id || appointment.assigned_user_id || null);
     }
   }, [appointment]);
 
-  // Toggle salesperson confirmed
-  const handleToggleSalespersonConfirmed = async () => {
-    // Support both ghl_id and id (for Google/local appointments)
+  // Update rep confirmation status
+  const handleUpdateRepStatus = async (newStatus: RepConfirmationStatus) => {
     const appointmentId = appointment?.id || appointment?.ghl_id;
     if (!appointmentId) return;
     
-    setIsUpdatingSalespersonConfirmed(true);
-    const oldValue = salespersonConfirmed;
+    setIsUpdatingRepStatus(true);
+    const oldValue = repConfirmationStatus;
     try {
-      const newValue = !salespersonConfirmed;
-      
-      // Use id (UUID) if available, otherwise fall back to ghl_id
       let query = supabase
         .from("appointments")
         .update({
-          salesperson_confirmed: newValue,
-          salesperson_confirmed_at: newValue ? new Date().toISOString() : null,
+          salesperson_confirmation_status: newStatus,
+          salesperson_confirmed: newStatus === "confirmed",
+          salesperson_confirmed_at: newStatus !== "unconfirmed" ? new Date().toISOString() : null,
           edited_by: user?.id || null,
           edited_at: new Date().toISOString(),
         });
@@ -527,31 +535,28 @@ export function AppointmentDetailSheet({
       }
       
       const { error } = await query;
-
       if (error) throw error;
 
-      // Record edit in appointment_edits table (ghl_id may be null for local/Google appointments)
       await supabase.from("appointment_edits").insert({
         appointment_ghl_id: appointment?.ghl_id || appointment?.id || "unknown",
         contact_ghl_id: appointment?.contact_id,
-        field_name: "salesperson_confirmed",
-        old_value: String(oldValue),
-        new_value: String(newValue),
+        field_name: "salesperson_confirmation_status",
+        old_value: oldValue,
+        new_value: newStatus,
         edited_by: user?.id || null,
         location_id: appointment?.location_id,
         company_id: companyId,
       });
 
-      setSalespersonConfirmed(newValue);
-      // Force immediate refetch of all appointment-related queries
+      setRepConfirmationStatus(newStatus);
       await queryClient.invalidateQueries({ queryKey: ["appointments"], refetchType: "all" });
       queryClient.invalidateQueries({ queryKey: ["appointment_edits"] });
-      toast.success(newValue ? "Salesperson confirmed" : "Confirmation removed");
+      toast.success(`Rep: ${newStatus}`);
     } catch (error) {
-      console.error("Error updating salesperson confirmation:", error);
-      toast.error("Failed to update confirmation");
+      console.error("Error updating rep status:", error);
+      toast.error("Failed to update");
     } finally {
-      setIsUpdatingSalespersonConfirmed(false);
+      setIsUpdatingRepStatus(false);
     }
   };
 
@@ -1501,22 +1506,43 @@ export function AppointmentDetailSheet({
                   {/* Sales Rep Confirmation - clickable toggle */}
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] text-muted-foreground">Rep:</span>
-                    <button
-                      onClick={handleToggleSalespersonConfirmed}
-                      disabled={isUpdatingSalespersonConfirmed}
-                      className={`h-6 px-2 rounded-md border text-xs inline-flex items-center gap-1 transition-colors ${
-                        salespersonConfirmed 
-                          ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/30" 
-                          : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
-                      } ${isUpdatingSalespersonConfirmed ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                    >
-                      {isUpdatingSalespersonConfirmed ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <PhoneCall className="h-3 w-3" />
-                      )}
-                      {salespersonConfirmed ? "Confirmed" : "Not Confirmed"}
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          disabled={isUpdatingRepStatus}
+                          className={`h-6 px-2 rounded-md border text-xs inline-flex items-center gap-1 transition-colors ${
+                            repConfirmationStatus === "confirmed"
+                              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
+                              : repConfirmationStatus === "rescheduled"
+                              ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/30"
+                              : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/30"
+                          } ${isUpdatingRepStatus ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                        >
+                          {isUpdatingRepStatus ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : repConfirmationStatus === "confirmed" ? (
+                            <Check className="h-3 w-3" />
+                          ) : repConfirmationStatus === "rescheduled" ? (
+                            <RefreshCw className="h-3 w-3" />
+                          ) : (
+                            <PhoneCall className="h-3 w-3" />
+                          )}
+                          {REP_CONFIRMATION_OPTIONS.find(o => o.value === repConfirmationStatus)?.label || "Unconfirmed"}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="min-w-[140px] bg-popover">
+                        {REP_CONFIRMATION_OPTIONS.map((option) => (
+                          <DropdownMenuItem
+                            key={option.value}
+                            onClick={() => handleUpdateRepStatus(option.value)}
+                            className={`cursor-pointer gap-2 ${repConfirmationStatus === option.value ? "bg-muted" : ""}`}
+                          >
+                            <option.icon className="h-3.5 w-3.5" />
+                            {option.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   
                   {/* Assigned Sales Rep - inline dropdown */}

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Calendar as CalendarIcon, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail, Copy, List, CalendarDays, FileText } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, User, Search, ChevronRight, CheckCircle2, PhoneCall, Loader2, MapPin, Phone, Target, Mail, Copy, List, CalendarDays, FileText, RefreshCw } from "lucide-react";
 import { format, isToday, isTomorrow, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, startOfWeek, endOfWeek, addMonths, subMonths } from "date-fns";
 import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
@@ -18,6 +18,7 @@ import { getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContac
 import { ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { REP_CONFIRMATION_OPTIONS, type RepConfirmationStatus } from "@/components/calendar/CalendarAppointmentActions";
 
 interface DBAppointment {
   id: string;
@@ -37,6 +38,7 @@ interface DBAppointment {
   ghl_date_updated?: string | null;
   salesperson_confirmed?: boolean;
   salesperson_confirmed_at?: string | null;
+  salesperson_confirmation_status?: string | null;
 }
 
 interface DBContact {
@@ -565,7 +567,7 @@ export function UpcomingAppointmentsSheet({
   const [selectedOpportunity, setSelectedOpportunity] = useState<DBOpportunity | null>(null);
   const [opportunitySheetOpen, setOpportunitySheetOpen] = useState(false);
   const [confirmingApptId, setConfirmingApptId] = useState<string | null>(null);
-  const [localConfirmedState, setLocalConfirmedState] = useState<Record<string, boolean>>({});
+  const [localRepStatusState, setLocalRepStatusState] = useState<Record<string, RepConfirmationStatus>>({});
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [localStatusState, setLocalStatusState] = useState<Record<string, string>>({});
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
@@ -596,17 +598,24 @@ export function UpcomingAppointmentsSheet({
     setOpportunitySheetOpen(true);
   };
 
-  const handleToggleConfirmed = async (appt: DBAppointment, e: React.MouseEvent) => {
+  // Helper to get rep confirmation status
+  const getRepStatus = (appt: DBAppointment): RepConfirmationStatus => {
+    if (localRepStatusState[appt.ghl_id]) return localRepStatusState[appt.ghl_id];
+    if (appt.salesperson_confirmation_status) return appt.salesperson_confirmation_status as RepConfirmationStatus;
+    return appt.salesperson_confirmed ? "confirmed" : "unconfirmed";
+  };
+
+  const handleUpdateRepStatus = async (appt: DBAppointment, newStatus: RepConfirmationStatus, e: React.MouseEvent) => {
     e.stopPropagation();
     setConfirmingApptId(appt.ghl_id);
-    const oldValue = localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed;
-    const newValue = !oldValue;
+    const oldValue = getRepStatus(appt);
     try {
       const { error } = await supabase
         .from("appointments")
         .update({
-          salesperson_confirmed: newValue,
-          salesperson_confirmed_at: newValue ? new Date().toISOString() : null,
+          salesperson_confirmation_status: newStatus,
+          salesperson_confirmed: newStatus === "confirmed", // Keep legacy field in sync
+          salesperson_confirmed_at: newStatus !== "unconfirmed" ? new Date().toISOString() : null,
           edited_by: user?.id || null,
           edited_at: new Date().toISOString(),
         })
@@ -618,20 +627,20 @@ export function UpcomingAppointmentsSheet({
       await supabase.from("appointment_edits").insert({
         appointment_ghl_id: appt.ghl_id,
         contact_ghl_id: appt.contact_id,
-        field_name: "salesperson_confirmed",
-        old_value: String(oldValue),
-        new_value: String(newValue),
+        field_name: "salesperson_confirmation_status",
+        old_value: oldValue,
+        new_value: newStatus,
         edited_by: user?.id || null,
         location_id: appt.location_id,
         company_id: companyId,
       });
 
-      setLocalConfirmedState((prev) => ({ ...prev, [appt.ghl_id]: newValue }));
+      setLocalRepStatusState((prev) => ({ ...prev, [appt.ghl_id]: newStatus }));
       queryClient.invalidateQueries({ queryKey: ["appointments"] });
       queryClient.invalidateQueries({ queryKey: ["appointment_edits"] });
-      toast.success(newValue ? "Confirmed" : "Unconfirmed");
+      toast.success(`Rep: ${newStatus}`);
     } catch (error) {
-      console.error("Error updating confirmation:", error);
+      console.error("Error updating rep status:", error);
       toast.error("Failed to update");
     } finally {
       setConfirmingApptId(null);
@@ -1220,27 +1229,50 @@ export function UpcomingAppointmentsSheet({
                                   ))}
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                              {/* Rep Confirmed Toggle */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className={`h-6 px-2 text-xs gap-1 border ${
-                                  (localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
-                                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
-                                    : "bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
-                                }`}
-                                onClick={(e) => handleToggleConfirmed(appt, e)}
-                                disabled={confirmingApptId === appt.ghl_id}
-                              >
-                                {confirmingApptId === appt.ghl_id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <PhoneCall className="h-3 w-3" />
-                                )}
-                                {(localConfirmedState[appt.ghl_id] ?? appt.salesperson_confirmed)
-                                  ? "Confirmed"
-                                  : "Unconfirmed"}
-                              </Button>
+                              {/* Rep Confirmation Status Dropdown */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className={`h-6 px-2 text-xs gap-1 border ${
+                                      getRepStatus(appt) === "confirmed"
+                                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
+                                        : getRepStatus(appt) === "rescheduled"
+                                        ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/30"
+                                        : "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/30"
+                                    }`}
+                                    disabled={confirmingApptId === appt.ghl_id}
+                                  >
+                                    {confirmingApptId === appt.ghl_id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : getRepStatus(appt) === "confirmed" ? (
+                                      <CheckCircle2 className="h-3 w-3" />
+                                    ) : getRepStatus(appt) === "rescheduled" ? (
+                                      <RefreshCw className="h-3 w-3" />
+                                    ) : (
+                                      <PhoneCall className="h-3 w-3" />
+                                    )}
+                                    {REP_CONFIRMATION_OPTIONS.find(o => o.value === getRepStatus(appt))?.label || "Unconfirmed"}
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent 
+                                  align="end" 
+                                  className="z-[9999] bg-popover border shadow-lg min-w-[140px]"
+                                  onCloseAutoFocus={(e) => e.preventDefault()}
+                                >
+                                  {REP_CONFIRMATION_OPTIONS.map((option) => (
+                                    <DropdownMenuItem
+                                      key={option.value}
+                                      onClick={(e) => handleUpdateRepStatus(appt, option.value, e)}
+                                      className={`cursor-pointer gap-2 ${getRepStatus(appt) === option.value ? "bg-muted" : ""}`}
+                                    >
+                                      <option.icon className="h-3.5 w-3.5" />
+                                      {option.label}
+                                    </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <div className="flex items-center gap-1">

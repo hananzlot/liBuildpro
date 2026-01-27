@@ -199,6 +199,7 @@ export type Database = {
           location_id: string
           notes: string | null
           provider: string | null
+          salesperson_confirmation_status: string | null
           salesperson_confirmed: boolean
           salesperson_confirmed_at: string | null
           salesperson_id: string | null
@@ -233,6 +234,7 @@ export type Database = {
           location_id: string
           notes?: string | null
           provider?: string | null
+          salesperson_confirmation_status?: string | null
           salesperson_confirmed?: boolean
           salesperson_confirmed_at?: string | null
           salesperson_id?: string | null
@@ -267,6 +269,7 @@ export type Database = {
           location_id?: string
           notes?: string | null
           provider?: string | null
+          salesperson_confirmation_status?: string | null
           salesperson_confirmed?: boolean
           salesperson_confirmed_at?: string | null
           salesperson_id?: string | null

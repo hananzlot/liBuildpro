@@ -43,6 +43,7 @@ interface DBAppointment {
   ghl_date_updated?: string | null;
   salesperson_confirmed?: boolean;
   salesperson_confirmed_at?: string | null;
+  salesperson_confirmation_status?: string | null;
 }
 
 interface DBSalesperson {
