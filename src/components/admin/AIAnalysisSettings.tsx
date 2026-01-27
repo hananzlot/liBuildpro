@@ -290,8 +290,8 @@ export function AIAnalysisSettings() {
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs bg-popover">
                       <p>
-                        <strong>Gemini (Google)</strong>: Supports PDF plan analysis, included with platform.<br/><br/>
-                        <strong>OpenAI</strong>: Requires your own API key. Does not support PDF plans (images only).
+                        <strong>Gemini (Google)</strong>: Fast, supports PDF plan analysis, included with platform.<br/><br/>
+                        <strong>OpenAI (GPT-5.2)</strong>: Advanced reasoning, supports PDF plan analysis.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -316,16 +316,16 @@ export function AIAnalysisSettings() {
                   </SelectItem>
                   <SelectItem value="openai">
                     <div className="flex items-center gap-2">
-                      <span>OpenAI (GPT-4o)</span>
-                      <span className="text-xs text-muted-foreground">- Requires API key</span>
+                      <span>OpenAI (GPT-5.2)</span>
+                      <span className="text-xs text-muted-foreground">- Advanced reasoning</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 {aiProvider === "openai" 
-                  ? "Using your OpenAI API key. Note: PDF plan analysis will automatically use Gemini since OpenAI doesn't support PDFs."
-                  : "Using Gemini via Lovable AI. Supports PDF plan analysis and is included with the platform."}
+                  ? "Using GPT-5.2 via Lovable AI. Supports PDF plan analysis with enhanced reasoning capabilities."
+                  : "Using Gemini via Lovable AI. Fast, supports PDF plan analysis, included with the platform."}
               </p>
             </div>
 
