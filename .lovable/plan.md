@@ -1,193 +1,113 @@
 
 
-# Plan: Implement OpenAI Files API for PDF Uploads
+# Plan: Fix AI PDF Analysis - ChatGPT Is Not Reading the Plans
 
-## Overview
-Modify the `generate-estimate-scope` edge function to upload PDF files to OpenAI's `/v1/files` endpoint, then reference the `file_id` in the chat completion request. This allows ChatGPT to analyze both the text content and visual diagrams in your construction plans.
+## Problem Identified
 
-## How It Works
+The PDF **is being uploaded successfully** to OpenAI, but ChatGPT is returning a **generic cookie-cutter estimate** instead of actually analyzing the construction plans.
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  1. User uploads PDF to Supabase Storage (estimate-plans)  │
-└─────────────────────────────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────┐
-│  2. Edge function fetches PDF from Supabase Storage URL    │
-└─────────────────────────────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────┐
-│  3. Upload PDF to OpenAI /v1/files endpoint                │
-│     - purpose: "user_data"                                  │
-│     - Returns file_id (e.g., "file-abc123...")             │
-└─────────────────────────────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────┐
-│  4. Call Chat Completions with file reference              │
-│     content: [                                              │
-│       { type: "file", file: { file_id: "file-abc123" } },  │
-│       { type: "text", text: "Generate estimate..." }       │
-│     ]                                                       │
-└─────────────────────────────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────┐
-│  5. ChatGPT analyzes PDF (text + page images)              │
-│     - Extracts specifications text                          │
-│     - "Sees" floor plans, elevations, diagrams             │
-└─────────────────────────────────────────────────────────────┘
-                           ↓
-┌─────────────────────────────────────────────────────────────┐
-│  6. Returns detailed estimate JSON                          │
-└─────────────────────────────────────────────────────────────┘
-```
+Evidence from logs:
+- PDF uploaded: `file-7mzLGgTXvku7zFWJmNrD2L` (32MB file)
+- Output: Generic "2636 sqft new home" estimate with only ~13 groups
+- No plan-specific details (no room names, no actual dimensions, no specifications from the PDF)
 
-## Implementation Details
+## Root Cause
 
-### Step 1: Add PDF Upload Function to Edge Function
+The current prompt tells ChatGPT to "ANALYZE THE ATTACHED CONSTRUCTION PLANS PDF CAREFULLY" but:
+1. This instruction is buried at the bottom of the prompt
+2. The prompt leads with generic scope info, so ChatGPT just uses that
+3. There's no emphasis on extracting PDF-specific data
+
+## Solution: Restructure the Prompt
+
+Modify the prompt to **force ChatGPT to analyze the PDF FIRST** before generating any estimates.
+
+### Changes to `generate-estimate-scope/index.ts`
+
+**1. Reorder the prompt when PDF is attached:**
+
+Move the PDF analysis instruction to the TOP and make it mandatory:
 
 ```typescript
-// New helper function in generate-estimate-scope/index.ts
-
-async function uploadPdfToOpenAI(
-  pdfBuffer: ArrayBuffer, 
-  filename: string, 
-  apiKey: string
-): Promise<string> {
-  const formData = new FormData();
-  formData.append('purpose', 'user_data');
-  formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), filename);
-
-  const response = await fetch('https://api.openai.com/v1/files', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to upload PDF to OpenAI: ${error}`);
-  }
-
-  const data = await response.json();
-  return data.id; // Returns file_id like "file-abc123..."
-}
-```
-
-### Step 2: Update PDF Handling Logic
-
-Replace the current placeholder logic (lines 132-135) with actual upload:
-
-```typescript
-if (contentType.includes('application/pdf')) {
-  console.log('PDF plans file detected - uploading to OpenAI...');
-  const pdfBuffer = await plansResponse.arrayBuffer();
-  const filename = `construction-plans-${Date.now()}.pdf`;
-  
-  try {
-    const fileId = await uploadPdfToOpenAI(pdfBuffer, filename, openaiApiKey);
-    parsedPlansContent = { type: 'file_id', value: fileId };
-    console.log('PDF uploaded to OpenAI, file_id:', fileId);
-  } catch (uploadError) {
-    console.error('Failed to upload PDF to OpenAI:', uploadError);
-    // Fallback to description-based if upload fails
-    parsedPlansContent = { type: 'text', value: '[PDF upload failed - using description only]' };
-  }
-}
-```
-
-### Step 3: Update Message Structure for OpenAI
-
-Modify the messages array to use the new file input format:
-
-```typescript
-// Build user message content array
-const userContent: any[] = [];
-
-// Add file reference if PDF was uploaded
+// When PDF is attached, front-load the analysis instruction
 if (parsedPlansContent?.type === 'file_id') {
-  userContent.push({
-    type: 'file',
-    file: { file_id: parsedPlansContent.value }
-  });
+  userPrompt = `**CRITICAL: YOU MUST ANALYZE THE ATTACHED PDF FIRST**
+
+I have attached construction plans as a PDF file. Before generating any estimate, you MUST:
+1. Read EVERY page of the PDF
+2. Extract ALL room names, dimensions, and square footages
+3. Identify all specifications, materials, and finishes mentioned
+4. Note any structural details (foundation type, framing, roofing)
+5. List all MEP (plumbing, electrical, HVAC) specifications found
+
+DO NOT generate a generic estimate. The estimate MUST reflect what is actually shown in the attached PDF plans.
+
+---
+
+${originalPrompt}
+
+---
+
+**MANDATORY PDF ANALYSIS CHECKLIST:**
+- [ ] List every room from the floor plan with dimensions
+- [ ] Identify roofing material and area from elevation drawings
+- [ ] Note foundation type from structural drawings
+- [ ] Extract any spec schedules (door, window, finish schedules)
+- [ ] Include any specific material callouts from the plans
+
+If you cannot read the PDF, say so explicitly. Do NOT make up generic values.`;
 }
-
-// Add the text prompt
-userContent.push({
-  type: 'text',
-  text: userPrompt
-});
-
-// Build messages array
-const messages = [
-  { role: 'system', content: systemPrompt },
-  { role: 'user', content: userContent }
-];
 ```
 
-### Step 4: Keep Image Support Working
-
-Images will continue to work as before (base64 inline):
+**2. Add explicit extraction request in system prompt:**
 
 ```typescript
-if (contentType.includes('image/')) {
-  // Existing image handling remains unchanged
-  const imageBuffer = await plansResponse.arrayBuffer();
-  const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-  const mimeType = contentType.split(';')[0];
-  parsedPlansContent = { 
-    type: 'image_url', 
-    value: `data:${mimeType};base64,${base64Image}` 
-  };
+const systemPromptWithPdf = `You are an expert construction estimator with strong plan-reading skills.
+
+IMPORTANT: When PDF plans are attached:
+- You MUST extract actual data from the plans
+- Never generate generic estimates when plans are provided
+- If you cannot read a detail, say "Unable to determine from plans"
+- Quote specific page numbers when referencing plan details
+
+Return COST values (what the contractor pays), not selling prices.`;
+```
+
+**3. Add validation of PDF analysis in response:**
+
+Add instructions to include a new field showing what was extracted:
+
+```typescript
+// Add to JSON schema
+"pdf_extracted_data": {
+  "rooms_identified": ["Room name - dimensions"],
+  "total_sqft_from_plans": number,
+  "specifications_found": ["spec 1", "spec 2"],
+  "unable_to_determine": ["items that couldn't be read"]
 }
 ```
 
-### Step 5: Also Fix the Per-Unit Cost Issue
-
-While updating the function, we'll also strengthen the prompt to ensure ChatGPT returns per-unit costs (not totals):
-
-```text
-**CRITICAL - COST FIELD RULES:**
-- "labor_cost" = RATE PER UNIT (e.g., $50/hour, NOT $500 for 10 hours)
-- "material_cost" = PRICE PER UNIT (e.g., $8/sqft, NOT $800 for 100 sqft)
-- NEVER multiply costs by quantity - return the UNIT RATE only
-
-CORRECT: 2000 board feet of lumber at $2/bf → quantity: 2000, material_cost: 2
-WRONG: material_cost: 4000 for 2000 board feet (this is the total, not per-unit!)
-```
-
-## Files to Modify
+## File to Modify
 
 | File | Changes |
 |------|---------|
-| `supabase/functions/generate-estimate-scope/index.ts` | Add PDF upload function, update message structure, fix cost prompt |
-
-## Technical Considerations
-
-### File Size Limits
-- OpenAI Files API supports up to **512 MB** per file
-- Your `estimate-plans` bucket limit is 200MB - well within range
-
-### Token Usage
-- PDF pages are converted to images by OpenAI
-- ~1,000-2,000 tokens per page (depending on complexity)
-- A 10-page construction plan ≈ 10,000-20,000 input tokens
-
-### Model Selection
-- Must use `gpt-4o` (not gpt-4o-mini) for file/vision support
-- gpt-4o-mini does NOT support file inputs
-
-### Cleanup (Optional)
-- OpenAI stores uploaded files until deleted
-- Could add cleanup logic to delete file after estimate generation
-- Or let them accumulate (they don't count against storage limits significantly)
+| `supabase/functions/generate-estimate-scope/index.ts` | Restructure prompt to prioritize PDF analysis, add explicit extraction requirements |
 
 ## Expected Outcome
 
-After implementation:
-- PDF construction plans will be fully analyzed by ChatGPT
-- ChatGPT will "see" floor plans, elevations, and diagrams
-- Text specifications will be extracted and understood
-- Estimates will be based on actual plan content, not just descriptions
+After this change:
+- ChatGPT will be forced to analyze the PDF before generating estimates
+- The estimate will include actual room names and dimensions from the plans
+- Quantities will be based on extracted measurements, not guesses
+- A new field will show what was extracted from the PDF for verification
+
+## Why This Will Work
+
+OpenAI's file analysis does work - the issue is prompt engineering. By:
+1. Making PDF analysis the FIRST instruction (not buried at the end)
+2. Requiring explicit extraction of details before estimating
+3. Adding a checklist that ChatGPT must address
+4. Asking for "unable to determine" items to catch failures
+
+ChatGPT will be forced to engage with the PDF content rather than defaulting to generic estimates.
 
