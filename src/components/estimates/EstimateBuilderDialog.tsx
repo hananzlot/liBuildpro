@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -195,6 +195,26 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [currentAIStage, setCurrentAIStage] = useState<string | null>(null);
   const [stageProgress, setStageProgress] = useState<{ current: number; total: number } | null>(null);
   const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
+
+  // Refs to avoid stale closures inside setTimeout / setInterval callbacks
+  const isGeneratingScopeRef = useRef(false);
+  const lastAIStageRef = useRef<string | null>(null);
+  const stageIndexRef = useRef<number>(0);
+  const jobPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    isGeneratingScopeRef.current = isGeneratingScope;
+  }, [isGeneratingScope]);
+
+  // Ensure we never leave polling timers running
+  useEffect(() => {
+    return () => {
+      if (jobPollIntervalRef.current) {
+        clearInterval(jobPollIntervalRef.current);
+        jobPollIntervalRef.current = null;
+      }
+    };
+  }, []);
   
   // AI Summary state for assumptions, inclusions/exclusions, missing info
   const [aiSummary, setAiSummary] = useState<AISummary>({ ...emptyAiSummary });
@@ -878,6 +898,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
 
     setIsGeneratingScope(true);
+    isGeneratingScopeRef.current = true;
+
+    // Reset per-run stage tracking
+    lastAIStageRef.current = null;
+    stageIndexRef.current = 0;
+    setCurrentAIStage(null);
+    setStageProgress(null);
     
     let jobId: string | null = null;
     let subscription: ReturnType<typeof supabase.channel> | null = null;
@@ -947,6 +974,65 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       jobId = jobData.id;
       console.log('Created AI generation job:', jobId);
       
+      const stopPolling = () => {
+        if (jobPollIntervalRef.current) {
+          clearInterval(jobPollIntervalRef.current);
+          jobPollIntervalRef.current = null;
+        }
+      };
+
+      const cleanupGeneration = () => {
+        setIsGeneratingScope(false);
+        isGeneratingScopeRef.current = false;
+        setCurrentAIStage(null);
+        setStageProgress(null);
+        stopPolling();
+        subscription?.unsubscribe();
+      };
+
+      const handleJobUpdate = (job: { 
+        status: string; 
+        result_json: any; 
+        error_message: string | null;
+        current_stage?: string | null;
+        total_stages?: number | null;
+      }) => {
+        console.log('Job update received:', job.status, job.current_stage);
+
+        // Update stage progress for UI.
+        // IMPORTANT: GROUP_ITEMS runs many times; we advance progress on each distinct stage value.
+        if (job.current_stage && job.current_stage !== lastAIStageRef.current) {
+          lastAIStageRef.current = job.current_stage;
+          stageIndexRef.current = stageIndexRef.current + 1;
+
+          setCurrentAIStage(job.current_stage);
+          if (job.total_stages) {
+            setStageProgress({
+              current: Math.min(stageIndexRef.current, job.total_stages),
+              total: job.total_stages,
+            });
+          }
+        }
+
+        if (job.status === 'completed' && job.result_json) {
+          // Success! Apply the scope and clean up
+          try {
+            if (job.result_json.warning) {
+              toast.warning(job.result_json.warning);
+            }
+            applyAIScope(job.result_json.scope);
+          } catch (e) {
+            console.error('Failed to apply AI scope:', e);
+            toast.error('Failed to apply AI-generated scope');
+          }
+          cleanupGeneration();
+        } else if (job.status === 'failed') {
+          // Error - show message and clean up
+          toast.error(job.error_message || 'AI generation failed');
+          cleanupGeneration();
+        }
+      };
+
       // Subscribe to realtime updates for this job
       subscription = supabase
         .channel(`job-${jobId}`)
@@ -963,57 +1049,33 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               status: string; 
               result_json: any; 
               error_message: string | null;
-              current_stage?: string;
-              total_stages?: number;
+              current_stage?: string | null;
+              total_stages?: number | null;
             };
-            console.log('Job update received:', job.status, job.current_stage);
-            
-            // Update stage progress for UI
-            if (job.current_stage) {
-              setCurrentAIStage(job.current_stage);
-              
-              // Parse stage number from current_stage
-              let stageNum = 1;
-              if (job.current_stage === 'PLAN_DIGEST') stageNum = 1;
-              else if (job.current_stage === 'ESTIMATE_PLAN') stageNum = 2;
-              else if (job.current_stage.startsWith('GROUP_ITEMS:')) {
-                // Extract group index from stage name
-                const match = job.current_stage.match(/GROUP_ITEMS:/);
-                if (match) stageNum = 3; // Will be incremented based on total
-              }
-              else if (job.current_stage === 'FINAL_ASSEMBLY') stageNum = job.total_stages || 4;
-              
-              if (job.total_stages) {
-                setStageProgress({ current: stageNum, total: job.total_stages });
-              }
-            }
-            
-            if (job.status === 'completed' && job.result_json) {
-              // Success! Apply the scope and clean up
-              try {
-                if (job.result_json.warning) {
-                  toast.warning(job.result_json.warning);
-                }
-                applyAIScope(job.result_json.scope);
-              } catch (e) {
-                console.error('Failed to apply AI scope:', e);
-                toast.error('Failed to apply AI-generated scope');
-              }
-              setIsGeneratingScope(false);
-              setCurrentAIStage(null);
-              setStageProgress(null);
-              subscription?.unsubscribe();
-            } else if (job.status === 'failed') {
-              // Error - show message and clean up
-              toast.error(job.error_message || 'AI generation failed');
-              setIsGeneratingScope(false);
-              setCurrentAIStage(null);
-              setStageProgress(null);
-              subscription?.unsubscribe();
-            }
+            handleJobUpdate(job);
           }
         )
         .subscribe();
+
+      // Fallback: poll job state in case realtime disconnects (keeps UI updating)
+      stopPolling();
+      jobPollIntervalRef.current = setInterval(async () => {
+        if (!isGeneratingScopeRef.current) return;
+        try {
+          const { data: polledJob } = await supabase
+            .from('estimate_generation_jobs')
+            .select('status, result_json, error_message, current_stage, total_stages')
+            .eq('id', jobId!)
+            .maybeSingle();
+
+          if (polledJob) {
+            handleJobUpdate(polledJob as any);
+          }
+        } catch (e) {
+          // Silent: realtime still may be working; avoid spam.
+          console.warn('Job polling failed:', e);
+        }
+      }, 10_000);
       
       // Call the edge function with the job ID
       const invokeBody = {
@@ -1059,14 +1121,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       // Set a max timeout as a safety net (5 minutes for jobs with PDFs)
       const maxTimeout = plansFileUrl ? 300_000 : 180_000;
       setTimeout(() => {
-        if (isGeneratingScope) {
+        if (isGeneratingScopeRef.current) {
           console.log('Safety timeout reached, checking job status...');
           // Check job status one more time
           supabase
             .from('estimate_generation_jobs')
             .select('status, result_json, error_message')
             .eq('id', jobId!)
-            .single()
+            .maybeSingle()
             .then(({ data: finalJob }) => {
               if (finalJob?.status === 'completed' && finalJob.result_json) {
                 const result = finalJob.result_json as { scope: any; warning?: string };
@@ -1075,10 +1137,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
               } else if (finalJob?.status === 'pending' || finalJob?.status === 'processing') {
                 toast.error('AI generation timed out. The job may still complete - check back later.');
               }
-              setIsGeneratingScope(false);
-              setCurrentAIStage(null);
-              setStageProgress(null);
-              subscription?.unsubscribe();
+              cleanupGeneration();
             });
         }
       }, maxTimeout);
@@ -1088,8 +1147,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       const msg = error instanceof Error ? error.message : "Failed to generate scope. Please try again.";
       toast.error(msg);
       setIsGeneratingScope(false);
+      isGeneratingScopeRef.current = false;
       setCurrentAIStage(null);
       setStageProgress(null);
+      if (jobPollIntervalRef.current) {
+        clearInterval(jobPollIntervalRef.current);
+        jobPollIntervalRef.current = null;
+      }
       subscription?.unsubscribe();
     }
   };
