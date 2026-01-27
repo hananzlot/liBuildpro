@@ -282,17 +282,41 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     plansFileName,
   }), [formData, groups, paymentSchedule, activeTab, aiSummary, linkedProjectId, linkedOpportunityUuid, linkedOpportunityGhlId, plansFileUrl, plansFileName]);
   
-  // Auto-save draft to sessionStorage when data changes (debounced via effect deps)
+  // Auto-save draft to sessionStorage when data changes
   useEffect(() => {
-    // Only save if dialog is open and we have meaningful data
+    // Only save if dialog is open
     if (!open) return;
-    // Skip saving during initial load or if we're in the process of loading from DB
-    // Save if we've restored a draft, or if user has entered any form data
-    const hasAnyFormData = formData.customer_name || formData.job_address || formData.estimate_title || formData.work_scope_description;
-    if (!draftRestored && !hasAnyFormData && groups.length === 0) return;
     
+    // Always save if we have the dialog open - removes the restrictive early return
+    // This ensures any form input gets saved immediately
     saveDraft(draftData);
-  }, [open, draftData, saveDraft, draftRestored]);
+  }, [open, draftData, saveDraft]);
+  
+  // Force save draft when tab visibility changes (user switches tabs)
+  useEffect(() => {
+    if (!open) return;
+    
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // Force save immediately when tab becomes hidden
+        saveDraft(draftData);
+        console.log('Draft saved on visibility change');
+      }
+    };
+    
+    const handleBeforeUnload = () => {
+      // Save before page unload
+      saveDraft(draftData);
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [open, draftData, saveDraft]);
   
   // Restore draft from sessionStorage when dialog opens (before DB data loads)
   useEffect(() => {
@@ -304,6 +328,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     // Try to load saved draft
     const savedDraft = loadDraft();
     if (savedDraft) {
+      console.log('Restoring draft:', savedDraft.formData?.job_address);
       // Restore all state from draft
       setFormData(savedDraft.formData);
       setGroups(savedDraft.groups || []);
