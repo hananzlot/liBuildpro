@@ -669,37 +669,17 @@ ${baseUserPrompt}`;
       console.log('Using OpenAI Responses API with PDF file upload...');
       apiProvider = 'OpenAI (GPT-5.2 + File)';
       
-      try {
-        // Step 1: Upload PDF to OpenAI Files API
-        const fileId = await uploadFileToOpenAI(pdfBuffer!, 'construction-plans.pdf', openaiApiKey);
-        
-        // Step 2: Call Responses API with file_id
-        aiResponse = await callOpenAIResponsesAPI(
-          systemPrompt,
-          userPrompt,
-          fileId,
-          openaiApiKey,
-          aiTemperature
-        );
-      } catch (uploadError) {
-        console.error('OpenAI file upload/API failed, falling back to Gemini:', uploadError);
-        // Fall back to Gemini with PDF as base64
-        apiProvider = 'Gemini (PDF fallback)';
-        const pdfBase64 = `data:application/pdf;base64,${bufferToBase64Chunked(pdfBuffer!)}`;
-        
-        const messages = [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: userPrompt },
-              { type: 'image_url', image_url: { url: pdfBase64 } }
-            ]
-          }
-        ];
-        
-        aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
-      }
+      // Step 1: Upload PDF to OpenAI Files API
+      const fileId = await uploadFileToOpenAI(pdfBuffer!, 'construction-plans.pdf', openaiApiKey);
+      
+      // Step 2: Call Responses API with file_id
+      aiResponse = await callOpenAIResponsesAPI(
+        systemPrompt,
+        userPrompt,
+        fileId,
+        openaiApiKey,
+        aiTemperature
+      );
     } else if (useOpenAI && hasImage) {
       // OpenAI with image (Chat Completions via gateway - images work fine)
       console.log('Using OpenAI via Lovable AI Gateway with image...');
