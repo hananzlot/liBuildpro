@@ -343,9 +343,8 @@ ${parsedPlansContent?.type === 'image_url' ? '- ANALYZE THE ATTACHED CONSTRUCTIO
       console.log('Using text-only prompt');
     }
 
-    let response: Response;
+    let response!: Response;
     let apiProvider: string;
-
     if (useOpenAI) {
       // Use OpenAI API directly with company's API key
       apiProvider = 'OpenAI';
@@ -370,19 +369,41 @@ ${parsedPlansContent?.type === 'image_url' ? '- ANALYZE THE ATTACHED CONSTRUCTIO
       
       console.log(`Using OpenAI API with model: ${modelToUse}`);
 
-      response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages,
-          temperature: aiTemperature,
-          max_tokens: 16000,
-        }),
-      });
+      // Retry logic with exponential backoff for rate limits
+      const maxRetries = 3;
+      let retryCount = 0;
+
+      while (retryCount <= maxRetries) {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modelToUse,
+            messages,
+            temperature: aiTemperature,
+            max_tokens: 16000,
+          }),
+        });
+
+        if (response.status === 429) {
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            // Parse retry-after header or use exponential backoff
+            const retryAfter = response.headers.get('retry-after');
+            const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(2000 * Math.pow(2, retryCount), 30000);
+            console.log(`Rate limited (429), retrying in ${waitTime}ms (attempt ${retryCount}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+          // Exhausted retries - will be handled by error handler below
+        }
+        
+        // Success or non-retryable error, break out of loop
+        break;
+      }
     } else {
       // Fall back to Lovable AI Gateway
       apiProvider = 'Lovable';
