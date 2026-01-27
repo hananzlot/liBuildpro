@@ -2420,36 +2420,19 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         <Card>
                           <CardContent className="py-8 text-center">
                             <FileText className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                            <p className="text-muted-foreground mb-4">No scope items yet.</p>
-                            <div className="flex flex-wrap items-center justify-center gap-2">
-                              <Button onClick={addGroup} variant="outline" size="sm">
-                                <FolderPlus className="mr-2 h-4 w-4" />
-                                Add Area
-                              </Button>
-                              <Button 
-                                size="sm"
-                                onClick={generateScope} 
-                                disabled={isGeneratingScope || !canGenerateAI}
-                                title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Generate scope with AI'}
-                              >
-                                {isGeneratingScope ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Wand2 className="mr-2 h-4 w-4" />
-                                )}
-                                Generate with AI
-                              </Button>
-                            </div>
-                            {!canGenerateAI && (
-                              <p className="text-xs text-amber-600 mt-3">
-                                Fill in {missingFields.join(', ')} in Customer tab to enable AI generation
-                              </p>
-                            )}
+                            <p className="text-muted-foreground mb-4">No scope items yet. Use AI to generate an estimate from the Work Scope Description above.</p>
                           </CardContent>
                         </Card>
                       </>
                     ) : (
-                      <Card>
+                      <>
+                        <div className="flex items-center justify-end mb-2">
+                          <Button onClick={addGroup} size="sm" variant="outline">
+                            <FolderPlus className="mr-2 h-4 w-4" />
+                            Add Area
+                          </Button>
+                        </div>
+                        <Card>
                         <Collapsible open={showLineItems} onOpenChange={setShowLineItems}>
                           <CardHeader className="py-3">
                             <div className="flex items-center justify-between gap-2">
@@ -2468,10 +2451,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 </Badge>
                               </CollapsibleTrigger>
                               <div className="flex flex-wrap items-center gap-2">
-                                <Button onClick={addGroup} size="sm" variant="outline">
-                                  <FolderPlus className="mr-2 h-4 w-4" />
-                                  Add Area
-                                </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -2745,6 +2724,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           </CollapsibleContent>
                         </Collapsible>
                       </Card>
+                      </>
                     );
                   })()}
 
