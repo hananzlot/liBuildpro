@@ -120,6 +120,22 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/follow-up/opportunity/:opportunityId"
+          element={
+            <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
+              <FollowUp />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/follow-up/opportunity/:opportunityId/task/:taskGhlId"
+          element={
+            <ProtectedRoute blockSalesOnly requiredFeature="ghl_integration">
+              <FollowUp />
+            </ProtectedRoute>
+          }
+        />
         
         {/* Contacts - admin only */}
         <Route
