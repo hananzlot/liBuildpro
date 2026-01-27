@@ -841,6 +841,92 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           </CardContent>
         </Card>
 
+        {/* AI Analysis (Project Understanding & Assumptions) */}
+        {(() => {
+          const ai = (estimate as any)?.ai_analysis as
+            | {
+                project_understanding?: string[];
+                assumptions?: string[];
+                inclusions?: string[];
+                exclusions?: string[];
+              }
+            | null;
+
+          const hasAny =
+            !!ai &&
+            ((ai.project_understanding?.length ?? 0) > 0 ||
+              (ai.assumptions?.length ?? 0) > 0 ||
+              (ai.inclusions?.length ?? 0) > 0 ||
+              (ai.exclusions?.length ?? 0) > 0);
+
+          if (!hasAny) return null;
+
+          const renderBullets = (items?: string[]) => {
+            if (!items || items.length === 0) return null;
+            return (
+              <ul className="mt-2 space-y-1 text-sm">
+                {items.map((item, idx) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <span className="text-muted-foreground">•</span>
+                    <span className="whitespace-pre-wrap">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            );
+          };
+
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  Project Understanding & Assumptions
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {(ai.project_understanding?.length ?? 0) > 0 && (
+                  <section>
+                    <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                      Project Understanding
+                    </h4>
+                    {renderBullets(ai.project_understanding)}
+                  </section>
+                )}
+
+                {(ai.assumptions?.length ?? 0) > 0 && (
+                  <section>
+                    <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                      Assumptions
+                    </h4>
+                    {renderBullets(ai.assumptions)}
+                  </section>
+                )}
+
+                {(((ai.inclusions?.length ?? 0) > 0) || ((ai.exclusions?.length ?? 0) > 0)) && (
+                  <section className="grid md:grid-cols-2 gap-6">
+                    {(ai.inclusions?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                          Inclusions
+                        </h4>
+                        {renderBullets(ai.inclusions)}
+                      </div>
+                    )}
+                    {(ai.exclusions?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                          Exclusions
+                        </h4>
+                        {renderBullets(ai.exclusions)}
+                      </div>
+                    )}
+                  </section>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         {/* Scope of Work */}
         <Card>
           <CardHeader>
