@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useEstimateDraft } from "@/hooks/useEstimateDraft";
+import { useEstimateDraftDB } from "@/hooks/useEstimateDraftDB";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -267,6 +268,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   
   // Draft persistence hook - saves form state to sessionStorage so it survives focus loss
   const { saveDraft, loadDraft, clearDraft } = useEstimateDraft(sourceEstimateId, open);
+
+  // DB-backed draft persistence (one draft per user/company)
+  const {
+    saveDraft: saveDraftDB,
+    flushPending: flushPendingDB,
+    loadDraft: loadDraftDB,
+    deleteDraft: deleteDraftDB,
+  } = useEstimateDraftDB();
   
   // Memoize draft data to avoid unnecessary re-saves
   const draftData = useMemo(() => ({
@@ -291,17 +300,20 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   const saveLatestDraft = useCallback(() => {
     saveDraft(latestDraftDataRef.current);
-  }, [saveDraft]);
+    // Also save to DB (debounced)
+    saveDraftDB(latestDraftDataRef.current);
+  }, [saveDraft, saveDraftDB]);
   
-  // Auto-save draft to sessionStorage when data changes
+  // Auto-save draft to sessionStorage + DB (debounced) when data changes
   useEffect(() => {
     // Only save if dialog is open
     if (!open) return;
     
-    // Always save if we have the dialog open - removes the restrictive early return
-    // This ensures any form input gets saved immediately
+    // Always save if we have the dialog open
     saveDraft(draftData);
-  }, [open, draftData, saveDraft]);
+    // Debounced DB save
+    saveDraftDB(draftData);
+  }, [open, draftData, saveDraft, saveDraftDB]);
   
   // Force save draft when tab visibility changes (user switches tabs)
   useEffect(() => {
@@ -313,6 +325,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         // save the latest snapshot.
         setTimeout(() => {
           saveLatestDraft();
+          flushPendingDB(); // Also flush pending DB draft
         }, 0);
       }
     };
@@ -320,11 +333,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     const handleBeforeUnload = () => {
       // Save before page unload
       saveLatestDraft();
+      flushPendingDB();
     };
 
     const handlePageHide = () => {
       // Save on navigation/close (more reliable than beforeunload in some cases)
       saveLatestDraft();
+      flushPendingDB();
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -336,36 +351,45 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [open, saveLatestDraft]);
+  }, [open, saveLatestDraft, flushPendingDB]);
   
-  // Restore draft from sessionStorage when dialog opens (before DB data loads)
+  // Restore draft from sessionStorage (or DB fallback) when dialog opens
   useEffect(() => {
     if (!open) {
       setDraftRestored(false);
       return;
     }
     
-    // Try to load saved draft
-    const savedDraft = loadDraft();
-    if (savedDraft) {
-      console.log('Restoring draft:', savedDraft.formData?.job_address);
-      // Restore all state from draft
-      setFormData(savedDraft.formData);
-      setGroups(savedDraft.groups || []);
-      setPaymentSchedule(savedDraft.paymentSchedule || []);
-      setActiveTab(savedDraft.activeTab || "customer");
-      setAiSummary(savedDraft.aiSummary || { ...emptyAiSummary });
-      setLinkedProjectId(savedDraft.linkedProjectId);
-      setLinkedOpportunityUuid(savedDraft.linkedOpportunityUuid);
-      setLinkedOpportunityGhlId(savedDraft.linkedOpportunityGhlId);
-      setPlansFileUrl(savedDraft.plansFileUrl);
-      setPlansFileName(savedDraft.plansFileName);
+    const restoreFromDraft = (draft: typeof draftData) => {
+      console.log('Restoring draft:', draft.formData?.job_address);
+      setFormData(draft.formData);
+      setGroups(draft.groups || []);
+      setPaymentSchedule(draft.paymentSchedule || []);
+      setActiveTab(draft.activeTab || "customer");
+      setAiSummary(draft.aiSummary || { ...emptyAiSummary });
+      setLinkedProjectId(draft.linkedProjectId);
+      setLinkedOpportunityUuid(draft.linkedOpportunityUuid);
+      setLinkedOpportunityGhlId(draft.linkedOpportunityGhlId);
+      setPlansFileUrl(draft.plansFileUrl);
+      setPlansFileName(draft.plansFileName);
       setDraftRestored(true);
-      
-      // Skip DB population to preserve draft
       setWasManuallyCleared(true);
+    };
+
+    // Try sessionStorage first (synchronous, instant)
+    const sessionDraft = loadDraft();
+    if (sessionDraft) {
+      restoreFromDraft(sessionDraft);
+      return;
     }
-  }, [open, loadDraft]);
+
+    // Otherwise try DB (async fallback)
+    loadDraftDB().then((dbDraft) => {
+      if (dbDraft) {
+        restoreFromDraft(dbDraft);
+      }
+    });
+  }, [open, loadDraft, loadDraftDB]);
 
   // Fetch projects for linking
   const { data: projects = [] } = useQuery({
@@ -1771,8 +1795,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return savedEstimateId;
     },
     onSuccess: (savedEstimateId: string | null) => {
-      // Clear the draft from sessionStorage on successful save
+      // Clear the draft from sessionStorage and DB on successful save
       clearDraft();
+      deleteDraftDB();
       setDraftRestored(false);
       
       // Update the current estimate ID so subsequent saves update instead of creating new
@@ -1912,8 +1937,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return savedEstimateId;
     },
     onSuccess: () => {
-      // Clear the draft from sessionStorage on successful save
+      // Clear the draft from sessionStorage and DB on successful save
       clearDraft();
+      deleteDraftDB();
       setDraftRestored(false);
       
       queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
@@ -2140,6 +2166,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                       duration: 5000,
                     });
                   }
+                  // Delete the DB draft on close (user abandoned without saving)
+                  clearDraft();
+                  deleteDraftDB();
                   onOpenChange(false);
                 }}
               >

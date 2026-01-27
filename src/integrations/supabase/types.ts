@@ -1732,6 +1732,41 @@ export type Database = {
           },
         ]
       }
+      estimate_drafts: {
+        Row: {
+          company_id: string
+          created_at: string
+          draft_data: Json
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          draft_data?: Json
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          draft_data?: Json
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_drafts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estimate_generation_jobs: {
         Row: {
           company_id: string | null
