@@ -607,11 +607,28 @@ ${baseUserPrompt}`;
       throw new Error(`${apiProvider} API error: ${response.status}`);
     }
 
-    const data = await response.json();
-    const generatedContent = data.choices[0].message.content;
+    // Safely parse response - handle empty or malformed responses
+    let data;
+    let responseText = '';
+    try {
+      responseText = await response.text();
+      console.log(`Raw API response length: ${responseText.length} chars`);
+      if (!responseText || responseText.trim() === '') {
+        console.error('API returned empty response body');
+        throw new Error('AI returned an empty response. The request may have timed out or the PDF may be too large. Try using a smaller file or remove the PDF.');
+      }
+      data = JSON.parse(responseText);
+    } catch (jsonParseError) {
+      console.error('Failed to parse API response as JSON:', jsonParseError);
+      console.error('Response text (first 1000 chars):', responseText.substring(0, 1000));
+      throw new Error('AI returned an invalid response. Please try again or use a smaller PDF file.');
+    }
+    
+    const generatedContent = data.choices?.[0]?.message?.content;
 
     if (!generatedContent) {
-      throw new Error('AI returned an empty response. Please try again.');
+      console.error('No content in AI response. Full response:', JSON.stringify(data).substring(0, 1000));
+      throw new Error('AI returned an empty response. The PDF may be too large or complex. Try using a smaller file or remove the PDF attachment.');
     }
 
     // IMPORTANT: do not log the full AI output (can be extremely large and slow to flush)
@@ -634,25 +651,31 @@ ${baseUserPrompt}`;
         }
       }
       
+      // Check if jsonStr is empty or whitespace-only
+      if (!jsonStr || jsonStr.trim() === '' || jsonStr.trim() === '{}') {
+        console.error('Extracted JSON is empty or minimal');
+        throw new Error('AI returned an incomplete response. Try simplifying the work scope or using a smaller PDF.');
+      }
+      
       // Check if the JSON appears to be truncated
       const openBraces = (jsonStr.match(/\{/g) || []).length;
       const closeBraces = (jsonStr.match(/\}/g) || []).length;
       if (openBraces > closeBraces) {
         console.error('JSON appears truncated - unbalanced braces:', { openBraces, closeBraces });
         console.error('Response length:', generatedContent.length);
-        throw new Error('AI response was truncated - estimate is too complex. Try simplifying the work scope description.');
+        throw new Error('AI response was truncated - the PDF may be too complex. Try using a smaller file or remove the PDF attachment.');
       }
       
       parsedScope = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
       console.error('Raw response (first 500 chars):', generatedContent.substring(0, 500));
-      console.error('Raw response (last 500 chars):', generatedContent.substring(generatedContent.length - 500));
+      console.error('Raw response (last 500 chars):', generatedContent.substring(Math.max(0, generatedContent.length - 500)));
       
-      if (parseError instanceof Error && parseError.message.includes('truncated')) {
+      if (parseError instanceof Error && (parseError.message.includes('truncated') || parseError.message.includes('incomplete'))) {
         throw parseError;
       }
-      throw new Error('Failed to parse AI response as JSON. The AI may have returned an incomplete response.');
+      throw new Error('Failed to parse AI response as JSON. Try simplifying the work scope or using a smaller PDF file.');
     }
 
     // Add region info to the response
