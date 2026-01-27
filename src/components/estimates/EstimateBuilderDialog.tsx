@@ -860,17 +860,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         : "draft";
       
       // Prepare estimate data
-      // Only persist AI analysis sections that have content
+      // Persist AI analysis if ANY AI section has content (including missing_info)
       const aiAnalysisData = (
         aiSummary.project_understanding.length > 0 ||
         aiSummary.assumptions.length > 0 ||
         aiSummary.inclusions.length > 0 ||
-        aiSummary.exclusions.length > 0
+        aiSummary.exclusions.length > 0 ||
+        aiSummary.missing_info.length > 0
       ) ? {
         project_understanding: aiSummary.project_understanding,
         assumptions: aiSummary.assumptions,
         inclusions: aiSummary.inclusions,
         exclusions: aiSummary.exclusions,
+        missing_info: aiSummary.missing_info,
       } : null;
 
       const estimateData = {
