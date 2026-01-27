@@ -2279,14 +2279,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           <div aria-hidden="true" />
                         </div>
                       
-                      <AISummaryCard
-                        summary={aiSummary}
-                        open={showAiSummary}
-                        onOpenChange={setShowAiSummary}
-                        onAnswerQuestions={() => setShowMissingInfoPanel(true)}
-                        isBusy={isGeneratingScope || isRegeneratingWithAnswers}
-                      />
-                      
                       {groups.map((group) => (
                         <Card key={group.id}>
                           <Collapsible open={group.isOpen} onOpenChange={() => toggleGroup(group.id)}>
