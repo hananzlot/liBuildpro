@@ -612,16 +612,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         };
         setAiSummary(nextSummary);
 
-        const hasAny =
-          nextSummary.project_understanding.length > 0 ||
-          nextSummary.assumptions.length > 0 ||
-          nextSummary.inclusions.length > 0 ||
-          nextSummary.exclusions.length > 0 ||
-          nextSummary.missing_info.length > 0;
-        setShowAiSummary(hasAny);
+        // AI Summary card defaults to collapsed - don't auto-open
       } else {
         setAiSummary({ ...emptyAiSummary });
-        setShowAiSummary(false);
       }
     }
   }, [existingEstimate, wasManuallyCleared]);
@@ -893,15 +886,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       missing_info: scope.missing_info || [],
     });
     
-    // Show summary if any sections have content
-    const hasSummary = (scope.project_understanding?.length > 0) || 
-                       (scope.assumptions?.length > 0) || 
-                       (scope.inclusions?.length > 0) || 
-                       (scope.exclusions?.length > 0) || 
-                       (scope.missing_info?.length > 0);
-    if (hasSummary) {
-      setShowAiSummary(true);
-    }
+    // AI Summary card defaults to collapsed - user can expand if needed
 
     toast.success("AI estimate generated successfully!");
     setActiveTab("scope");
