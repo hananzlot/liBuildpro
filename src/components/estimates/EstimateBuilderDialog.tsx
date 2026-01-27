@@ -2713,8 +2713,46 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 </TabsContent>
 
                 <TabsContent value="clarification" className="mt-0 space-y-4">
-                  {/* Next button for Clarification tab */}
-                  <TabNextButton currentTab="clarification" validation={validateClarificationTab()} />
+                  {/* Regenerate button at top when questions are answered */}
+                  {(() => {
+                    const parsedQuestions = parseMissingInfo(aiSummary.missing_info || []);
+                    const answeredCount = parsedQuestions.filter(q => clarificationAnswers[q.id]?.trim()).length;
+                    
+                    if (answeredCount > 0) {
+                      const handleRegenerateWithAnswers = () => {
+                        const formattedAnswers: Record<string, string> = {};
+                        parsedQuestions.forEach((q) => {
+                          if (clarificationAnswers[q.id]?.trim()) {
+                            formattedAnswers[q.text] = clarificationAnswers[q.id].trim();
+                          }
+                        });
+                        handleMissingInfoSubmit(formattedAnswers);
+                      };
+
+                      return (
+                        <Button
+                          onClick={handleRegenerateWithAnswers}
+                          disabled={isRegeneratingWithAnswers || isGeneratingScope}
+                          className="w-full"
+                          size="lg"
+                        >
+                          {isRegeneratingWithAnswers ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Regenerating Estimate...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="mr-2 h-4 w-4" />
+                              Regenerate Estimate with Answers ({answeredCount})
+                            </>
+                          )}
+                        </Button>
+                      );
+                    }
+                    
+                    return <TabNextButton currentTab="clarification" validation={validateClarificationTab()} />;
+                  })()}
                   
                   <Card>
                     <CardHeader>
@@ -2830,29 +2868,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 </div>
                               </div>
                             ))}
-
-                            {/* Regenerate button */}
-                            {answeredCount > 0 && (
-                              <div className="border-t pt-4">
-                                <Button
-                                  onClick={handleRegenerateWithAnswers}
-                                  disabled={isRegeneratingWithAnswers || isGeneratingScope}
-                                  className="w-full"
-                                >
-                                  {isRegeneratingWithAnswers ? (
-                                    <>
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                      Regenerating Estimate...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Wand2 className="mr-2 h-4 w-4" />
-                                      Regenerate Estimate with Answers ({answeredCount})
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                            )}
+                            {/* Regenerate button moved to top of tab */}
                           </div>
                         );
                       })()}
