@@ -519,7 +519,7 @@ export function SourceDetailSheet({
           return new Date(b.ghl_date_added || 0).getTime() - new Date(a.ghl_date_added || 0).getTime();
       }
     });
-  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts, showAppointments, showNoAppointments, contactIdsWithFilteredAppointments, contactIdsWithAnyAppointments]);
+  }, [sourceOpportunities, mode, statusFilter, stageFilter, sortBy, searchFilter, contacts, showAppointments, showNoAppointments, contactIdsWithFilteredAppointments, contactIdsWithAnyAppointments, badgeMappings, filterByBadge]);
 
   // Available statuses - "open" first, then alphabetically
   const availableStatuses = useMemo(() => {
