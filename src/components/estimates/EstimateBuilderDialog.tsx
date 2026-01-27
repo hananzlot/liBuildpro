@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useEstimateDraft } from "@/hooks/useEstimateDraft";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -250,6 +251,64 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [unitPriceDrafts, setUnitPriceDrafts] = useState<Record<string, string>>({});
   // Draft for final price input (auto-discount calculation)
   const [finalPriceDraft, setFinalPriceDraft] = useState<string>("");
+  
+  // Flag to track if we've restored a draft (to prevent overwriting with empty data)
+  const [draftRestored, setDraftRestored] = useState(false);
+  
+  // Draft persistence hook - saves form state to sessionStorage so it survives focus loss
+  const { saveDraft, loadDraft, clearDraft } = useEstimateDraft(sourceEstimateId, open);
+  
+  // Memoize draft data to avoid unnecessary re-saves
+  const draftData = useMemo(() => ({
+    formData,
+    groups,
+    paymentSchedule,
+    activeTab,
+    aiSummary,
+    linkedProjectId,
+    linkedOpportunityUuid,
+    linkedOpportunityGhlId,
+    plansFileUrl,
+    plansFileName,
+  }), [formData, groups, paymentSchedule, activeTab, aiSummary, linkedProjectId, linkedOpportunityUuid, linkedOpportunityGhlId, plansFileUrl, plansFileName]);
+  
+  // Auto-save draft to sessionStorage when data changes (debounced via effect deps)
+  useEffect(() => {
+    // Only save if dialog is open and we have meaningful data
+    if (!open) return;
+    // Skip saving during initial load or if we're in the process of loading from DB
+    if (!draftRestored && !formData.customer_name && groups.length === 0) return;
+    
+    saveDraft(draftData);
+  }, [open, draftData, saveDraft, draftRestored]);
+  
+  // Restore draft from sessionStorage when dialog opens (before DB data loads)
+  useEffect(() => {
+    if (!open) {
+      setDraftRestored(false);
+      return;
+    }
+    
+    // Try to load saved draft
+    const savedDraft = loadDraft();
+    if (savedDraft) {
+      // Restore all state from draft
+      setFormData(savedDraft.formData);
+      setGroups(savedDraft.groups || []);
+      setPaymentSchedule(savedDraft.paymentSchedule || []);
+      setActiveTab(savedDraft.activeTab || "customer");
+      setAiSummary(savedDraft.aiSummary || { ...emptyAiSummary });
+      setLinkedProjectId(savedDraft.linkedProjectId);
+      setLinkedOpportunityUuid(savedDraft.linkedOpportunityUuid);
+      setLinkedOpportunityGhlId(savedDraft.linkedOpportunityGhlId);
+      setPlansFileUrl(savedDraft.plansFileUrl);
+      setPlansFileName(savedDraft.plansFileName);
+      setDraftRestored(true);
+      
+      // Skip DB population to preserve draft
+      setWasManuallyCleared(true);
+    }
+  }, [open, loadDraft]);
 
   // Fetch projects for linking
   const { data: projects = [] } = useQuery({
@@ -1633,6 +1692,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return savedEstimateId;
     },
     onSuccess: (savedEstimateId: string | null) => {
+      // Clear the draft from sessionStorage on successful save
+      clearDraft();
+      setDraftRestored(false);
+      
       // Update the current estimate ID so subsequent saves update instead of creating new
       if (savedEstimateId && !currentEstimateId) {
         setCurrentEstimateId(savedEstimateId);
@@ -1770,6 +1833,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return savedEstimateId;
     },
     onSuccess: () => {
+      // Clear the draft from sessionStorage on successful save
+      clearDraft();
+      setDraftRestored(false);
+      
       queryClient.invalidateQueries({ queryKey: ["estimates", companyId] });
       toast.success("New estimate created from copy!");
       onOpenChange(false);
