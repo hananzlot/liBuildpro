@@ -599,9 +599,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
 
     // Validate file size based on company setting (default 50MB)
-    const maxSizeBytes = (plansMaxSizeMb || 50) * 1024 * 1024;
+    const effectiveMaxSize = plansMaxSizeMb || 50;
+    const maxSizeBytes = effectiveMaxSize * 1024 * 1024;
+    console.log('Plans upload - Max size setting:', effectiveMaxSize, 'MB, File size:', (file.size / 1024 / 1024).toFixed(2), 'MB');
     if (file.size > maxSizeBytes) {
-      toast.error(`File is too large. Maximum size is ${plansMaxSizeMb || 50}MB.`);
+      toast.error(`File is too large. Maximum size is ${effectiveMaxSize}MB.`);
       return;
     }
 
