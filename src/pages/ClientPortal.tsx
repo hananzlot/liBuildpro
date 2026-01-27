@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PortalEstimateView } from '@/components/portal/PortalEstimateView';
@@ -21,7 +21,10 @@ const usePortalTitle = () => {
 export default function ClientPortal() {
   usePortalTitle();
   const [searchParams] = useSearchParams();
-  const token = searchParams.get('token');
+  const { token: pathToken } = useParams<{ token?: string }>();
+  
+  // Support both path-based (/portal/{token}) and query-based (/portal?token=xxx) URLs
+  const token = pathToken || searchParams.get('token');
   const estimateToken = searchParams.get('estimate_token');
 
   // Handle multi-signer estimate token - cache for 10 min to speed up portal loads
