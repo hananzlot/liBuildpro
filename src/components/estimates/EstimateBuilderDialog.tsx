@@ -287,7 +287,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     // Only save if dialog is open and we have meaningful data
     if (!open) return;
     // Skip saving during initial load or if we're in the process of loading from DB
-    if (!draftRestored && !formData.customer_name && groups.length === 0) return;
+    // Save if we've restored a draft, or if user has entered any form data
+    const hasAnyFormData = formData.customer_name || formData.job_address || formData.estimate_title || formData.work_scope_description;
+    if (!draftRestored && !hasAnyFormData && groups.length === 0) return;
     
     saveDraft(draftData);
   }, [open, draftData, saveDraft, draftRestored]);
