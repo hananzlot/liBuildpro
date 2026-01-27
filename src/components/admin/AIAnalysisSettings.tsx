@@ -291,7 +291,7 @@ export function AIAnalysisSettings() {
                     <TooltipContent className="max-w-xs bg-popover">
                       <p>
                         <strong>Gemini (Google)</strong>: Fast, supports PDF plan analysis, included with platform.<br/><br/>
-                        <strong>OpenAI (GPT-5.2)</strong>: Advanced reasoning, supports PDF plan analysis.
+                        <strong>OpenAI (GPT-5.2)</strong>: Advanced reasoning for text/images. PDFs will automatically use Gemini.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -324,7 +324,7 @@ export function AIAnalysisSettings() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 {aiProvider === "openai" 
-                  ? "Using GPT-5.2 via Lovable AI. Supports PDF plan analysis with enhanced reasoning capabilities."
+                  ? "Using GPT-5.2 via Lovable AI for text/images. If you attach a PDF, it will automatically use Gemini (PDFs aren't accepted by GPT-5.2 in our current payload format)."
                   : "Using Gemini via Lovable AI. Fast, supports PDF plan analysis, included with the platform."}
               </p>
             </div>
