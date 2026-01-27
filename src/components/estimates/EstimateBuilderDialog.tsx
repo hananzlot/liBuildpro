@@ -407,6 +407,25 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             ...i,
             labor_cost: i.labor_cost ?? (i.item_type === 'labor' ? (i.cost || 0) : 0),
             material_cost: i.material_cost ?? (i.item_type === 'material' ? (i.cost || 0) : 0),
+            // Ensure computed totals exist even for legacy items that didn't have them persisted
+            cost:
+              (i.cost ?? 0) ||
+              ((i.labor_cost ?? (i.item_type === 'labor' ? (i.cost || 0) : 0)) +
+                (i.material_cost ?? (i.item_type === 'material' ? (i.cost || 0) : 0))),
+            unit_price:
+              i.unit_price ??
+              (((i.cost ?? 0) ||
+                ((i.labor_cost ?? (i.item_type === 'labor' ? (i.cost || 0) : 0)) +
+                  (i.material_cost ?? (i.item_type === 'material' ? (i.cost || 0) : 0)))) *
+                (1 + ((i.markup_percent ?? existingMarkup) / 100))),
+            line_total:
+              i.line_total ??
+              ((i.quantity ?? 1) *
+                (i.unit_price ??
+                  (((i.cost ?? 0) ||
+                    ((i.labor_cost ?? (i.item_type === 'labor' ? (i.cost || 0) : 0)) +
+                      (i.material_cost ?? (i.item_type === 'material' ? (i.cost || 0) : 0)))) *
+                    (1 + ((i.markup_percent ?? existingMarkup) / 100))))),
             notes: i.notes || "",
           })),
       }));
@@ -554,15 +573,28 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         sort_order: groups.length + gIdx,
         isOpen: true,
         items: g.items.map((item: any, iIdx: number) => {
-          const itemCost = item.cost || 0;
+          // AI now returns labor_cost/material_cost; some models may omit `cost`.
+          const parseNum = (v: any) => {
+            if (v === null || v === undefined) return 0;
+            if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+            const cleaned = String(v).replace(/,/g, '').trim();
+            const n = Number(cleaned);
+            return Number.isFinite(n) ? n : 0;
+          };
+
+          const laborCost = parseNum(item.labor_cost);
+          const materialCost = parseNum(item.material_cost);
+          const costFromAi = parseNum(item.cost);
+          const derivedCost = costFromAi > 0 ? costFromAi : (laborCost + materialCost);
+          const itemCost = derivedCost;
           // Always use the form's default markup, ignore AI markup suggestions
           const itemMarkup = formData.default_markup_percent;
           const itemUnitPrice = itemCost * (1 + itemMarkup / 100);
           const itemQuantity = item.quantity || 1;
           
-          // Parse labor and material costs from the AI response
-          const laborCost = item.labor_cost ?? (item.item_type === 'labor' ? itemCost : 0);
-          const materialCost = item.material_cost ?? (item.item_type === 'material' ? itemCost : 0);
+          // Ensure both fields exist (0 when not applicable)
+          const normalizedLaborCost = laborCost || (item.item_type === 'labor' ? itemCost : 0);
+          const normalizedMaterialCost = materialCost || (item.item_type === 'material' ? itemCost : 0);
           
           return {
             id: generateId(),
@@ -571,8 +603,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             quantity: itemQuantity,
             unit: item.unit || "each",
             cost: itemCost,
-            labor_cost: laborCost,
-            material_cost: materialCost,
+            labor_cost: normalizedLaborCost,
+            material_cost: normalizedMaterialCost,
             markup_percent: itemMarkup,
             unit_price: itemUnitPrice,
             line_total: itemQuantity * itemUnitPrice,
@@ -1662,6 +1694,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 {aiSummary.missing_info.length > 0 && (
                                   <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded p-3">
                                     <Label className="text-xs font-medium text-amber-700 dark:text-amber-300">Missing Information (Action Required)</Label>
+                                    <p className="mt-1 text-xs text-foreground/80">
+                                      To make these affect the estimate, add your answers in <span className="font-medium">Customer → Work Scope Description</span> and then click <span className="font-medium">Regenerate AI</span> (or adjust line items/allowances manually).
+                                    </p>
                                     <ul className="mt-1 text-sm space-y-1">
                                       {aiSummary.missing_info.map((item, idx) => (
                                         <li key={idx} className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
