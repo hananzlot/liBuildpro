@@ -1415,6 +1415,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0"
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
+        hideCloseButton
       >
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
@@ -1470,6 +1471,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   <Save className="mr-2 h-4 w-4" />
                 )}
                 Save Estimate
+              </Button>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Close
               </Button>
             </div>
           </div>
