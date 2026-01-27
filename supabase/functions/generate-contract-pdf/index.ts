@@ -270,6 +270,107 @@ serve(async (req) => {
     }
     yPos -= 20;
 
+    // AI ANALYSIS SECTIONS (Project Understanding, Assumptions, Inclusions/Exclusions)
+    const aiAnalysis = estimate.ai_analysis as {
+      project_understanding?: string[];
+      assumptions?: string[];
+      inclusions?: string[];
+      exclusions?: string[];
+    } | null;
+
+    if (aiAnalysis) {
+      // Project Understanding
+      if (aiAnalysis.project_understanding && aiAnalysis.project_understanding.length > 0) {
+        checkNewPage(60);
+        page.drawText('PROJECT UNDERSTANDING', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+        yPos -= 5;
+        page.drawLine({
+          start: { x: margin, y: yPos },
+          end: { x: width - margin, y: yPos },
+          thickness: 1,
+          color: lightGray,
+        });
+        yPos -= 15;
+
+        for (const item of aiAnalysis.project_understanding) {
+          checkNewPage(20);
+          const bulletText = `• ${sanitizeLine(item)}`;
+          drawWrappedParagraph(bulletText, margin + 5, contentWidth - 10, 10, helvetica, gray);
+          yPos -= 2;
+        }
+        yPos -= 15;
+      }
+
+      // Assumptions
+      if (aiAnalysis.assumptions && aiAnalysis.assumptions.length > 0) {
+        checkNewPage(60);
+        page.drawText('ASSUMPTIONS', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+        yPos -= 5;
+        page.drawLine({
+          start: { x: margin, y: yPos },
+          end: { x: width - margin, y: yPos },
+          thickness: 1,
+          color: lightGray,
+        });
+        yPos -= 15;
+
+        for (const item of aiAnalysis.assumptions) {
+          checkNewPage(20);
+          const bulletText = `• ${sanitizeLine(item)}`;
+          drawWrappedParagraph(bulletText, margin + 5, contentWidth - 10, 10, helvetica, gray);
+          yPos -= 2;
+        }
+        yPos -= 15;
+      }
+
+      // Inclusions & Exclusions (side by side if both exist, otherwise full width)
+      const hasInclusions = aiAnalysis.inclusions && aiAnalysis.inclusions.length > 0;
+      const hasExclusions = aiAnalysis.exclusions && aiAnalysis.exclusions.length > 0;
+
+      if (hasInclusions || hasExclusions) {
+        checkNewPage(80);
+        
+        // Section header
+        page.drawText('INCLUSIONS & EXCLUSIONS', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
+        yPos -= 5;
+        page.drawLine({
+          start: { x: margin, y: yPos },
+          end: { x: width - margin, y: yPos },
+          thickness: 1,
+          color: lightGray,
+        });
+        yPos -= 15;
+
+        // Draw inclusions
+        if (hasInclusions) {
+          page.drawText('Included:', { x: margin + 5, y: yPos, size: 10, font: helveticaBold, color: green });
+          yPos -= 14;
+          for (const item of aiAnalysis.inclusions!) {
+            checkNewPage(16);
+            const bulletText = `+ ${sanitizeLine(item)}`;
+            drawWrappedParagraph(bulletText, margin + 10, contentWidth - 15, 9, helvetica, gray);
+            yPos -= 2;
+          }
+          yPos -= 10;
+        }
+
+        // Draw exclusions
+        if (hasExclusions) {
+          const red = rgb(0.8, 0.2, 0.2);
+          page.drawText('Excluded:', { x: margin + 5, y: yPos, size: 10, font: helveticaBold, color: red });
+          yPos -= 14;
+          for (const item of aiAnalysis.exclusions!) {
+            checkNewPage(16);
+            const bulletText = `- ${sanitizeLine(item)}`;
+            drawWrappedParagraph(bulletText, margin + 10, contentWidth - 15, 9, helvetica, gray);
+            yPos -= 2;
+          }
+          yPos -= 10;
+        }
+        yPos -= 10;
+      }
+    }
+
     // SCOPE OF WORK DESCRIPTION (if enabled)
     if (estimate.show_scope_to_customer && estimate.work_scope_description) {
       page.drawText('SCOPE OF WORK', { x: margin, y: yPos, size: 12, font: helveticaBold, color: black });
