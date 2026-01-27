@@ -28,6 +28,17 @@ const App = () => (
       persister,
       maxAge: 1000 * 60 * 60 * 24, // 24 hours max cache age
       buster: "v1", // Change this to bust the cache when needed
+      // IMPORTANT: Don't persist mutations.
+      // Persisted mutation state can get stuck as "pending" across refresh/tab close,
+      // which incorrectly shows loading spinners (e.g., "Save Estimate").
+      dehydrateOptions: {
+        shouldDehydrateMutation: () => false,
+      },
+    }}
+    onSuccess={() => {
+      // If an older cache (created before the rule above) is restored,
+      // clear any hydrated mutations so UI doesn't think something is still saving.
+      queryClient.getMutationCache().clear();
     }}
   >
     <AuthProvider>
