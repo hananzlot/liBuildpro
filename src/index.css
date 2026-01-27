@@ -32,6 +32,10 @@
     --destructive: 0 60% 50%;
     --destructive-foreground: 0 0% 100%;
 
+    /* Warning/validation color - orange */
+    --warning: 30 95% 50%;
+    --warning-foreground: 0 0% 100%;
+
     --border: 216 18% 87%;
     --input: 216 18% 87%;
     --ring: 210 100% 40%;
@@ -97,6 +101,10 @@
 
     --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
+
+    /* Warning/validation color - orange */
+    --warning: 30 95% 55%;
+    --warning-foreground: 0 0% 100%;
 
     --border: 220 18% 22%;
     --input: 220 18% 22%;
