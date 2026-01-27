@@ -35,7 +35,8 @@ export function useAIGenerationQueue() {
     queryFn: async (): Promise<QueuedJob[]> => {
       if (!companyId) return [];
 
-      const { data, error } = await supabase
+      // Fetch jobs without embedded join (no FK relationship exists)
+      const { data: jobs, error } = await supabase
         .from("estimate_generation_jobs")
         .select(`
           id,
@@ -48,20 +49,32 @@ export function useAIGenerationQueue() {
           completed_at,
           created_by,
           error_message,
-          request_params,
-          profiles:created_by (
-            full_name,
-            email
-          )
+          request_params
         `)
         .eq("company_id", companyId)
         .in("status", ["pending", "processing"])
         .order("created_at", { ascending: true });
 
       if (error) throw error;
+      if (!jobs || jobs.length === 0) return [];
 
-      return (data || []).map((job) => {
-        const profile = job.profiles as { full_name?: string; email?: string } | null;
+      // Fetch creator profiles separately
+      const creatorIds = [...new Set(jobs.map(j => j.created_by).filter(Boolean))];
+      let profilesMap: Record<string, { full_name?: string; email?: string }> = {};
+      
+      if (creatorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", creatorIds);
+        
+        if (profiles) {
+          profilesMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+        }
+      }
+
+      return jobs.map((job) => {
+        const profile = job.created_by ? profilesMap[job.created_by] : null;
         return {
           ...job,
           request_params: job.request_params as QueuedJob["request_params"],
