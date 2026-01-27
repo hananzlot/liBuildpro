@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Image, FileText, Loader2, ChevronDown, ChevronUp, Check, File, X } from "lucide-react";
+import { Upload, Image, FileText, Loader2, ChevronDown, ChevronUp, Eye, File } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
-
+import { PdfViewerDialog } from "@/components/production/PdfViewerDialog";
 interface PortalFileUploadSectionProps {
   salespersonName: string;
   companyId: string;
@@ -47,6 +47,8 @@ export function PortalFileUploadSection({ salespersonName, companyId }: PortalFi
   const [isExpanded, setIsExpanded] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<ProjectDocument | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -276,10 +278,15 @@ export function PortalFileUploadSection({ salespersonName, companyId }: PortalFi
                           {documents.slice(0, 10).map((doc) => (
                             <div
                               key={doc.id}
-                              className="flex items-center gap-2 p-2 rounded bg-muted/50 text-sm"
+                              className="flex items-center gap-2 p-2 rounded bg-muted/50 text-sm cursor-pointer hover:bg-muted transition-colors"
+                              onClick={() => {
+                                setSelectedDoc(doc);
+                                setViewerOpen(true);
+                              }}
                             >
                               {getFileIcon(doc.file_type)}
                               <span className="flex-1 truncate text-xs">{doc.file_name}</span>
+                              <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                               <span className="text-[10px] text-muted-foreground shrink-0">
                                 {format(new Date(doc.created_at), "MMM d")}
                               </span>
@@ -288,6 +295,16 @@ export function PortalFileUploadSection({ salespersonName, companyId }: PortalFi
                         </div>
                       </ScrollArea>
                     </div>
+                  )}
+
+                  {/* File Viewer Dialog */}
+                  {selectedDoc && (
+                    <PdfViewerDialog
+                      open={viewerOpen}
+                      onOpenChange={setViewerOpen}
+                      fileUrl={selectedDoc.file_url}
+                      fileName={selectedDoc.file_name}
+                    />
                   )}
                 </>
               )}
