@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Brain, Save, Loader2, RotateCcw } from "lucide-react";
+import { Brain, Save, Loader2, RotateCcw, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const DEFAULT_POSITIVE_SIGNALS = `- Scope of work being discussed or documented
 - Price/estimate mentioned
@@ -125,6 +127,7 @@ export function AIAnalysisSettings() {
   const [criticalRules, setCriticalRules] = useState(DEFAULT_CRITICAL_RULES);
   const [aiVariability, setAiVariability] = useState(DEFAULT_AI_VARIABILITY);
   const [estimateInstructions, setEstimateInstructions] = useState(DEFAULT_ESTIMATE_INSTRUCTIONS);
+  const [aiProvider, setAiProvider] = useState<"gemini" | "openai">("gemini");
   const [hasChanges, setHasChanges] = useState(false);
 
   // Fetch existing settings
@@ -140,7 +143,8 @@ export function AIAnalysisSettings() {
           "ai_never_answers_negative_signals",
           "ai_never_answers_critical_rules",
           "ai_estimate_variability",
-          "ai_estimate_instructions"
+          "ai_estimate_instructions",
+          "ai_estimate_provider"
         ]);
       
       if (error) throw error;
@@ -157,12 +161,14 @@ export function AIAnalysisSettings() {
       const rules = settings.find(s => s.setting_key === "ai_never_answers_critical_rules");
       const variability = settings.find(s => s.setting_key === "ai_estimate_variability");
       const instructions = settings.find(s => s.setting_key === "ai_estimate_instructions");
+      const provider = settings.find(s => s.setting_key === "ai_estimate_provider");
       
       if (positive?.setting_value) setPositiveSignals(positive.setting_value);
       if (negative?.setting_value) setNegativeSignals(negative.setting_value);
       if (rules?.setting_value) setCriticalRules(rules.setting_value);
       if (variability?.setting_value) setAiVariability(parseFloat(variability.setting_value) || DEFAULT_AI_VARIABILITY);
       if (instructions?.setting_value) setEstimateInstructions(instructions.setting_value);
+      if (provider?.setting_value) setAiProvider(provider.setting_value as "gemini" | "openai");
     }
   }, [settings]);
 
@@ -210,6 +216,14 @@ export function AIAnalysisSettings() {
           setting_value: estimateInstructions,
           setting_type: "text",
           description: "Custom instructions for AI estimate generation",
+          updated_at: new Date().toISOString(),
+        },
+        {
+          company_id: companyId,
+          setting_key: "ai_estimate_provider",
+          setting_value: aiProvider,
+          setting_type: "text",
+          description: "AI provider for estimate generation (gemini or openai)",
           updated_at: new Date().toISOString(),
         },
       ];
@@ -265,6 +279,56 @@ export function AIAnalysisSettings() {
           </div>
         ) : (
           <>
+            {/* AI Provider Selection */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label>AI Provider for Estimates</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs bg-popover">
+                      <p>
+                        <strong>Gemini (Google)</strong>: Supports PDF plan analysis, included with platform.<br/><br/>
+                        <strong>OpenAI</strong>: Requires your own API key. Does not support PDF plans (images only).
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <Select
+                value={aiProvider}
+                onValueChange={(value: "gemini" | "openai") => {
+                  setAiProvider(value);
+                  setHasChanges(true);
+                }}
+              >
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue placeholder="Select AI provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gemini">
+                    <div className="flex items-center gap-2">
+                      <span>Gemini (Google)</span>
+                      <span className="text-xs text-muted-foreground">- Recommended</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="openai">
+                    <div className="flex items-center gap-2">
+                      <span>OpenAI (GPT-4o)</span>
+                      <span className="text-xs text-muted-foreground">- Requires API key</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {aiProvider === "openai" 
+                  ? "Using your OpenAI API key. Note: PDF plan analysis will automatically use Gemini since OpenAI doesn't support PDFs."
+                  : "Using Gemini via Lovable AI. Supports PDF plan analysis and is included with the platform."}
+              </p>
+            </div>
+
             <div className="space-y-4">
               <Label>AI Estimate Variability (Temperature)</Label>
               <div className="flex items-center gap-4">

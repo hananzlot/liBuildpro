@@ -105,6 +105,7 @@ serve(async (req) => {
     let customInstructions = '';
     let openaiApiKey = '';
     let aiModel = '';
+    let aiProvider = 'gemini'; // Default to Gemini
     
     if (companyId) {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
@@ -112,18 +113,19 @@ serve(async (req) => {
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       
-      // Fetch company settings including OpenAI API key
+      // Fetch company settings including OpenAI API key and provider preference
       const { data: settings } = await supabase
         .from('company_settings')
         .select('setting_key, setting_value')
         .eq('company_id', companyId)
-        .in('setting_key', ['ai_estimate_variability', 'ai_estimate_instructions', 'openai_api_key', 'ai_estimate_model']);
+        .in('setting_key', ['ai_estimate_variability', 'ai_estimate_instructions', 'openai_api_key', 'ai_estimate_model', 'ai_estimate_provider']);
       
       if (settings) {
         const variabilitySetting = settings.find((s: any) => s.setting_key === 'ai_estimate_variability');
         const instructionsSetting = settings.find((s: any) => s.setting_key === 'ai_estimate_instructions');
         const openaiKeySetting = settings.find((s: any) => s.setting_key === 'openai_api_key');
         const modelSetting = settings.find((s: any) => s.setting_key === 'ai_estimate_model');
+        const providerSetting = settings.find((s: any) => s.setting_key === 'ai_estimate_provider');
         
         if (variabilitySetting?.setting_value) {
           const parsed = parseFloat(variabilitySetting.setting_value);
@@ -142,6 +144,10 @@ serve(async (req) => {
         
         if (modelSetting?.setting_value) {
           aiModel = modelSetting.setting_value;
+        }
+        
+        if (providerSetting?.setting_value) {
+          aiProvider = providerSetting.setting_value;
         }
       }
       
@@ -162,10 +168,12 @@ serve(async (req) => {
       console.log('Has custom instructions:', !!customInstructions);
       console.log('Has OpenAI API key:', !!openaiApiKey);
       console.log('AI model preference:', aiModel || 'default');
+      console.log('AI provider preference:', aiProvider);
     }
 
-    // Determine which API to use
-    const useOpenAI = !!openaiApiKey;
+    // Determine which API to use based on provider setting
+    // Use OpenAI only if: provider is set to "openai" AND we have an API key
+    const useOpenAI = aiProvider === 'openai' && !!openaiApiKey;
     
     // Fall back to Lovable API if no OpenAI key
     if (!useOpenAI) {
