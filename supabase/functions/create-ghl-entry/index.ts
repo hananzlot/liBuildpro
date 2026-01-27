@@ -44,9 +44,14 @@ serve(async (req) => {
       companyId, // Company ID for multi-tenancy
     } = await req.json();
 
-    if (!firstName || !lastName) {
-      throw new Error('First name and last name are required');
+    // Allow entries with just firstName - use it as full name if lastName is missing
+    if (!firstName && !lastName) {
+      throw new Error('At least a first name or last name is required');
     }
+    
+    // If only one name part is provided, use it appropriately
+    const effectiveFirstName = firstName?.trim() || lastName?.trim() || '';
+    const effectiveLastName = lastName?.trim() || '';
 
     if (!pipelineId || !pipelineStageId) {
       throw new Error('Pipeline and stage are required');
@@ -78,7 +83,13 @@ serve(async (req) => {
     const GHL_API_KEY = credentials?.apiKey;
     const GHL_LOCATION_ID = locationId;
 
-    console.log(`Creating entry for ${firstName} ${lastName} (location: ${GHL_LOCATION_ID}, local-only: ${isLocalOnlyMode})`);
+    // Build display name - handle single name gracefully
+    const displayName = effectiveLastName 
+      ? `${effectiveFirstName} ${effectiveLastName}`.trim()
+      : effectiveFirstName;
+
+    console.log(`Creating entry for ${displayName} (location: ${GHL_LOCATION_ID}, local-only: ${isLocalOnlyMode})`);
+
 
     // Prepare custom fields
     const customFields: Array<{ id: string; value: string }> = [];
@@ -124,9 +135,9 @@ serve(async (req) => {
       const { data: contactData, error: contactError } = await supabase.from('contacts').insert({
         ghl_id: contactId,
         location_id: GHL_LOCATION_ID,
-        first_name: firstName,
-        last_name: lastName,
-        contact_name: `${firstName} ${lastName}`,
+        first_name: effectiveFirstName,
+        last_name: effectiveLastName,
+        contact_name: displayName,
         phone: phone || null,
         email: email || null,
         source: source || null,
@@ -152,7 +163,7 @@ serve(async (req) => {
         location_id: GHL_LOCATION_ID,
         contact_id: contactId,
         contact_uuid: contactUuid,
-        name: `${firstName} ${lastName}`,
+        name: displayName,
         status: 'open',
         pipeline_id: pipelineId,
         pipeline_stage_id: pipelineStageId,
@@ -178,7 +189,7 @@ serve(async (req) => {
       if (appointmentDateTime) {
         const startDate = new Date(appointmentDateTime);
         const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-        const appointmentTitle = `Appointment - ${firstName} ${lastName}`;
+        const appointmentTitle = `Appointment - ${displayName}`;
         
         appointmentId = generateLocalId('appt');
         const { error: apptError } = await supabase.from('appointments').insert({
@@ -210,8 +221,8 @@ serve(async (req) => {
       
       // Step 1: Create Contact in GHL
       const contactPayload: Record<string, unknown> = {
-        firstName,
-        lastName,
+        firstName: effectiveFirstName,
+        lastName: effectiveLastName || effectiveFirstName, // GHL requires lastName, fallback to firstName
         locationId: GHL_LOCATION_ID,
       };
 
@@ -251,9 +262,9 @@ serve(async (req) => {
       await supabase.from('contacts').upsert({
         ghl_id: contactId,
         location_id: GHL_LOCATION_ID,
-        first_name: firstName,
-        last_name: lastName,
-        contact_name: `${firstName} ${lastName}`,
+        first_name: effectiveFirstName,
+        last_name: effectiveLastName,
+        contact_name: displayName,
         phone: phone || null,
         email: email || null,
         source: source || null,
@@ -265,11 +276,11 @@ serve(async (req) => {
       }, { onConflict: 'ghl_id' });
 
       // Step 2: Create Opportunity in GHL
-      const oppName = `${firstName} ${lastName}`;
+      console.log('Creating opportunity in GHL...');
       console.log('Creating opportunity in GHL...');
       
       const oppPayload: Record<string, unknown> = {
-        name: oppName,
+        name: displayName,
         contactId: contactId,
         locationId: GHL_LOCATION_ID,
         status: 'open',
@@ -310,7 +321,7 @@ serve(async (req) => {
           ghl_id: opportunityId,
           location_id: GHL_LOCATION_ID,
           contact_id: contactId,
-          name: oppName,
+          name: displayName,
           status: 'open',
           pipeline_id: pipelineId,
           pipeline_stage_id: pipelineStageId,
@@ -331,7 +342,7 @@ serve(async (req) => {
         // Calculate start and end time
         const startDate = new Date(appointmentDateTime);
         const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-        const appointmentTitle = `Appointment - ${firstName} ${lastName}`;
+        const appointmentTitle = `Appointment - ${displayName}`;
 
         // If skipGHLAppointmentSync is true, create local-only appointment
         if (skipGHLAppointmentSync) {
