@@ -715,16 +715,16 @@ ${baseUserPrompt}`;
         
         aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5.2', aiTemperature, LOVABLE_API_KEY!);
       } else {
-        // OpenAI text-only - use fast model
-        console.log('Using OpenAI GPT-5-mini (text-only, fast)...');
-        apiProvider = 'OpenAI (GPT-5-mini)';
+        // OpenAI text-only - use GPT-5.2 to honor user's provider choice
+        console.log('Using OpenAI GPT-5.2 (text-only)...');
+        apiProvider = 'OpenAI (GPT-5.2)';
         
         const messages = [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ];
         
-        aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5-mini', aiTemperature, LOVABLE_API_KEY!);
+        aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5.2', aiTemperature, LOVABLE_API_KEY!);
       }
     } else {
       // ========== GEMINI PROVIDER (default) ==========
