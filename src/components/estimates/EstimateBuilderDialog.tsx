@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { AIGenerationProgress } from "./AIGenerationProgress";
+import { MissingInfoPanel } from "./MissingInfoPanel";
 
 import type { LinkedOpportunity } from "./EstimateSourceDialog";
 
@@ -189,6 +190,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     missing_info: [],
   });
   const [showAiSummary, setShowAiSummary] = useState(false);
+  
+  // Missing info panel state
+  const [showMissingInfoPanel, setShowMissingInfoPanel] = useState(false);
+  const [isRegeneratingWithAnswers, setIsRegeneratingWithAnswers] = useState(false);
   
   // Plans file upload state
   const [plansFileUrl, setPlansFileUrl] = useState<string | null>(null);
@@ -998,6 +1003,37 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setStageProgress(null);
       subscription?.unsubscribe();
     }
+  };
+
+  // Handle regeneration with answered missing info
+  const handleMissingInfoSubmit = async (answers: Record<string, string>) => {
+    if (Object.keys(answers).length === 0) {
+      toast.error("Please answer at least one question");
+      return;
+    }
+    
+    setIsRegeneratingWithAnswers(true);
+    setShowMissingInfoPanel(false);
+    
+    // Build enhanced work scope with answers
+    const answersText = Object.entries(answers)
+      .map(([question, answer]) => `${question}: ${answer}`)
+      .join('\n');
+    
+    const enhancedScope = `${formData.work_scope_description}\n\n--- Additional Information ---\n${answersText}`;
+    
+    // Update the work scope description
+    setFormData(prev => ({ ...prev, work_scope_description: enhancedScope }));
+    
+    // Clear existing groups to regenerate fresh
+    setGroups([]);
+    setPaymentSchedule([]);
+    
+    // Trigger regeneration (small delay to ensure state updates)
+    setTimeout(async () => {
+      await generateScope();
+      setIsRegeneratingWithAnswers(false);
+    }, 100);
   };
 
   // Group management
@@ -2155,17 +2191,42 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 
                                 {aiSummary.missing_info.length > 0 && (
                                   <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded p-3">
-                                    <Label className="text-xs font-medium text-amber-700 dark:text-amber-300">Missing Information (Action Required)</Label>
-                                    <p className="mt-1 text-xs text-foreground/80">
-                                      To make these affect the estimate, add your answers in <span className="font-medium">Customer → Work Scope Description</span> and then click <span className="font-medium">Regenerate AI</span> (or adjust line items/allowances manually).
-                                    </p>
-                                    <ul className="mt-1 text-sm space-y-1">
-                                      {aiSummary.missing_info.map((item, idx) => (
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1">
+                                        <Label className="text-xs font-medium text-amber-700 dark:text-amber-300">Missing Information ({aiSummary.missing_info.length} items)</Label>
+                                        <p className="mt-1 text-xs text-foreground/80">
+                                          Answer these questions to refine your estimate with more accurate pricing.
+                                        </p>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setShowMissingInfoPanel(true)}
+                                        className="flex-shrink-0 border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900"
+                                        disabled={isGeneratingScope || isRegeneratingWithAnswers}
+                                      >
+                                        {isRegeneratingWithAnswers ? (
+                                          <>
+                                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                            Regenerating...
+                                          </>
+                                        ) : (
+                                          <>Answer Questions</>
+                                        )}
+                                      </Button>
+                                    </div>
+                                    <ul className="mt-2 text-sm space-y-1 max-h-32 overflow-y-auto">
+                                      {aiSummary.missing_info.slice(0, 5).map((item, idx) => (
                                         <li key={idx} className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
-                                          <span>?</span>
-                                          <span>{item}</span>
+                                          <span className="text-amber-500">?</span>
+                                          <span className="line-clamp-1">{item}</span>
                                         </li>
                                       ))}
+                                      {aiSummary.missing_info.length > 5 && (
+                                        <li className="text-xs text-amber-600 dark:text-amber-400 italic">
+                                          + {aiSummary.missing_info.length - 5} more questions...
+                                        </li>
+                                      )}
                                     </ul>
                                   </div>
                                 )}
@@ -2989,6 +3050,15 @@ The more detail you provide, the more accurate the AI-generated estimate will be
         </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Missing Info Panel */}
+      <MissingInfoPanel
+        open={showMissingInfoPanel}
+        onOpenChange={setShowMissingInfoPanel}
+        missingInfo={aiSummary.missing_info}
+        onSubmit={handleMissingInfoSubmit}
+        isSubmitting={isRegeneratingWithAnswers}
+      />
     </>
   );
 }
