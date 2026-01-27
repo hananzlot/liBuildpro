@@ -1,15 +1,14 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { getAddressFromContact as getAddressUtil, findContactByIdOrGhlId } from "@/lib/utils";
 
 interface Opportunity {
@@ -85,10 +84,9 @@ export function OpportunitySearch({
   users,
   conversations = [],
 }: OpportunitySearchProps) {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
-  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
   const getStatusSortOrder = (status: string | null) => {
     switch (status?.toLowerCase()) {
@@ -170,8 +168,8 @@ export function OpportunitySearch({
   };
 
   const handleSelect = (opp: Opportunity) => {
-    setSelectedOpportunity(opp);
-    setDetailSheetOpen(true);
+    // Navigate to the opportunity route so it stays open across tab switches
+    navigate(`/opportunities/${opp.ghl_id}`);
     setIsOpen(false);
     setSearchQuery("");
   };
@@ -267,17 +265,6 @@ export function OpportunitySearch({
           )}
         </PopoverContent>
       </Popover>
-
-      <OpportunityDetailSheet
-        opportunity={selectedOpportunity}
-        appointments={appointments}
-        contacts={contacts}
-        users={users}
-        conversations={conversations}
-        open={detailSheetOpen}
-        onOpenChange={setDetailSheetOpen}
-        allOpportunities={opportunities}
-      />
     </>
   );
 }
