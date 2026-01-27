@@ -2064,6 +2064,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
               <ScrollArea className="flex-1 px-6 py-4">
                 <TabsContent value="customer" className="mt-0 space-y-4">
+                  {/* Next button for Customer tab */}
+                  <TabNextButton currentTab="customer" validation={validateCustomerTab()} />
+                  
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">Customer Information</CardTitle>
@@ -2189,12 +2192,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                     </CardContent>
                   </Card>
 
-                  {/* Next button for Customer tab */}
-                  <TabNextButton currentTab="customer" validation={validateCustomerTab()} />
-
                 </TabsContent>
 
                 <TabsContent value="scope" className="mt-0 space-y-4">
+                  {/* Next button for Scope tab */}
+                  <TabNextButton currentTab="scope" validation={validateScopeTab()} />
+                  
                   {/* Work Scope Description - First item in Scope tab */}
                   <Card>
                     <CardHeader>
@@ -2670,11 +2673,12 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     );
                   })()}
 
-                  {/* Next button for Scope tab */}
-                  <TabNextButton currentTab="scope" validation={validateScopeTab()} />
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-0 space-y-4">
+                  {/* Next button for Payments tab */}
+                  <TabNextButton currentTab="payments" validation={validatePaymentsTab()} />
+                  
                   <Card>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base flex items-center gap-2">
@@ -3070,8 +3074,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </CardContent>
                   </Card>
 
-                  {/* Next button for Payments tab */}
-                  <TabNextButton currentTab="payments" validation={validatePaymentsTab()} />
                 </TabsContent>
 
                 <TabsContent value="terms" className="mt-0 space-y-4">
