@@ -175,7 +175,7 @@ export function AppRoutes() {
           }
         />
         
-        {/* Estimates - list and detail routes */}
+        {/* Estimates - list, detail, and builder routes */}
         <Route
           path="/estimates"
           element={
@@ -186,6 +186,23 @@ export function AppRoutes() {
         />
         <Route
           path="/estimates/:estimateId"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
+              <Estimates />
+            </ProtectedRoute>
+          }
+        />
+        {/* Estimate builder route - keeps dialog open across tab switches */}
+        <Route
+          path="/estimates/builder"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
+              <Estimates />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/estimates/builder/:editId"
           element={
             <ProtectedRoute allowedRoles={['admin', 'contract_manager']} requiredFeature="estimates">
               <Estimates />
