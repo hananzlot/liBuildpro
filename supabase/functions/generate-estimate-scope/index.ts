@@ -54,6 +54,42 @@ function pdfToBase64DataUrl(pdfBuffer: ArrayBuffer): string {
   return `data:application/pdf;base64,${base64}`;
 }
 
+// Retry fetch with exponential backoff for transient errors
+async function fetchWithRetry(
+  url: string, 
+  options: RequestInit, 
+  maxRetries = 3
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // Retry on transient errors (503, 502, 429)
+      if (response.status === 503 || response.status === 502 || response.status === 429) {
+        const waitTime = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s
+        console.log(`API returned ${response.status}, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries})`);
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error as Error;
+      // Check if it's an abort error - don't retry those
+      if ((error as Error).name === 'AbortError') {
+        throw error;
+      }
+      const waitTime = Math.pow(2, attempt) * 2000;
+      console.log(`Network error, retrying in ${waitTime}ms (attempt ${attempt + 1}/${maxRetries}): ${(error as Error).message}`);
+      await new Promise(r => setTimeout(r, waitTime));
+    }
+  }
+  
+  throw lastError || new Error('Max retries exceeded');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -428,20 +464,34 @@ ${baseUserPrompt}`;
       
       console.log(`Using Lovable AI Gateway with model: ${modelToUse}${forceLovableAI ? ' (forced for PDF support)' : ''}`);
 
-      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages,
-          temperature: aiTemperature,
-          max_tokens: 16000,
-          response_format: { type: "json_object" },
-        }),
-      });
+      // Add timeout protection (90 seconds for large PDF processing)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+      try {
+        response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: modelToUse,
+            messages,
+            temperature: aiTemperature,
+            max_tokens: 16000,
+            response_format: { type: "json_object" },
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if ((error as Error).name === 'AbortError') {
+          throw new Error('AI processing timed out. Try with a smaller file or simpler work scope description.');
+        }
+        throw error;
+      }
     } else {
       // Use OpenAI API directly with company's API key (no PDF support)
       apiProvider = 'OpenAI';
@@ -503,9 +553,18 @@ ${baseUserPrompt}`;
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
           success: false, 
-          error: `Rate limit exceeded on ${apiProvider}. Please try again in a moment.` 
+          error: 'AI service rate limited. Please wait a moment and try again.' 
         }), {
           status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (response.status === 503 || response.status === 502) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'AI service temporarily unavailable. Please try again in a few moments.' 
+        }), {
+          status: response.status,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
