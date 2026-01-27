@@ -27,7 +27,7 @@ const App = () => (
     persistOptions={{
       persister,
       maxAge: 1000 * 60 * 60 * 24, // 24 hours max cache age
-      buster: "v1", // Change this to bust the cache when needed
+      buster: "v2", // Changed to bust stale mutation cache
       // IMPORTANT: Don't persist mutations.
       // Persisted mutation state can get stuck as "pending" across refresh/tab close,
       // which incorrectly shows loading spinners (e.g., "Save Estimate").
