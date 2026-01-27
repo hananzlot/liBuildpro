@@ -265,6 +265,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   
   // Flag to track if we've restored a draft (to prevent overwriting with empty data)
   const [draftRestored, setDraftRestored] = useState(false);
+
+  // Prevent initial auto-save from overwriting an existing draft with empty defaults.
+  // We only start auto-saving after we've attempted to restore from sessionStorage/DB.
+  const [didAttemptDraftRestore, setDidAttemptDraftRestore] = useState(false);
   
   // Draft persistence hook - saves form state to sessionStorage so it survives focus loss
   const { saveDraft, loadDraft, clearDraft } = useEstimateDraft(sourceEstimateId, open);
@@ -308,12 +312,16 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   useEffect(() => {
     // Only save if dialog is open
     if (!open) return;
+
+    // Critical: don't write an initial empty draft before we've tried to restore.
+    // Otherwise the existing "estimate-draft-new" gets overwritten and the form appears cleared.
+    if (!didAttemptDraftRestore) return;
     
     // Always save if we have the dialog open
     saveDraft(draftData);
     // Debounced DB save
     saveDraftDB(draftData);
-  }, [open, draftData, saveDraft, saveDraftDB]);
+  }, [open, didAttemptDraftRestore, draftData, saveDraft, saveDraftDB]);
   
   // Force save draft when tab visibility changes (user switches tabs)
   useEffect(() => {
@@ -357,6 +365,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   useEffect(() => {
     if (!open) {
       setDraftRestored(false);
+      setDidAttemptDraftRestore(false);
       return;
     }
     
@@ -380,15 +389,20 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     const sessionDraft = loadDraft();
     if (sessionDraft) {
       restoreFromDraft(sessionDraft);
+      setDidAttemptDraftRestore(true);
       return;
     }
 
     // Otherwise try DB (async fallback)
-    loadDraftDB().then((dbDraft) => {
-      if (dbDraft) {
-        restoreFromDraft(dbDraft);
-      }
-    });
+    loadDraftDB()
+      .then((dbDraft) => {
+        if (dbDraft) {
+          restoreFromDraft(dbDraft);
+        }
+      })
+      .finally(() => {
+        setDidAttemptDraftRestore(true);
+      });
   }, [open, loadDraft, loadDraftDB]);
 
   // Fetch projects for linking
