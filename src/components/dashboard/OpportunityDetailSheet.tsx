@@ -307,6 +307,9 @@ export function OpportunityDetailSheet({
   // Associated project for production link
   const [associatedProjectId, setAssociatedProjectId] = useState<string | null>(null);
 
+  // Portal link for same contact
+  const [portalLink, setPortalLink] = useState<string | null>(null);
+
   // Linked estimates
   const [linkedEstimates, setLinkedEstimates] = useState<{
     id: string;
@@ -330,6 +333,7 @@ export function OpportunityDetailSheet({
       setSavedContactName(null);
       setSavedOppName(null);
       setAssociatedProjectId(null);
+      setPortalLink(null);
       setSavedWonAt(null);
       setIsEditingWonAt(false);
       setSavedCreatedAt(null);
@@ -339,10 +343,11 @@ export function OpportunityDetailSheet({
     setWasOpen(open);
   }, [open]);
 
-  // Fetch associated project and estimates when sheet opens
+  // Fetch associated project, portal link, and estimates when sheet opens
   useEffect(() => {
     if (!open || !opportunity?.ghl_id) {
       setAssociatedProjectId(null);
+      setPortalLink(null);
       setLinkedEstimates([]);
       return;
     }
@@ -365,10 +370,54 @@ export function OpportunityDetailSheet({
         .order("created_at", { ascending: false });
       
       setLinkedEstimates(estimatesData || []);
+
+      // Fetch portal link for same contact (via projects linked to the same contact)
+      if (opportunity.contact_id || opportunity.contact_uuid) {
+        // Find projects for this contact that have active portal tokens
+        let projectsQuery = supabase
+          .from("projects")
+          .select("id")
+          .eq("company_id", companyId);
+        
+        if (opportunity.contact_uuid) {
+          projectsQuery = projectsQuery.eq("contact_uuid", opportunity.contact_uuid);
+        } else if (opportunity.contact_id) {
+          projectsQuery = projectsQuery.eq("contact_id", opportunity.contact_id);
+        }
+
+        const { data: contactProjects } = await projectsQuery;
+        
+        if (contactProjects && contactProjects.length > 0) {
+          const projectIds = contactProjects.map(p => p.id);
+          
+          // Find active portal token for any of these projects
+          const { data: portalToken } = await supabase
+            .from("client_portal_tokens")
+            .select("token")
+            .in("project_id", projectIds)
+            .eq("is_active", true)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          if (portalToken?.token) {
+            // Get app base URL from company settings or use default
+            const { data: baseUrlSetting } = await supabase
+              .from("company_settings")
+              .select("setting_value")
+              .eq("company_id", companyId)
+              .eq("setting_key", "app_base_url")
+              .maybeSingle();
+            
+            const baseUrl = baseUrlSetting?.setting_value || window.location.origin;
+            setPortalLink(`${baseUrl}/portal/${portalToken.token}`);
+          }
+        }
+      }
     };
     
     fetchProjectAndEstimates();
-  }, [open, opportunity?.ghl_id, opportunity?.id, companyId]);
+  }, [open, opportunity?.ghl_id, opportunity?.id, opportunity?.contact_id, opportunity?.contact_uuid, companyId]);
 
   // Fetch active salespeople for the assignment dropdown
   const { data: activeSalespeople = [] } = useQuery({
@@ -2120,6 +2169,22 @@ export function OpportunityDetailSheet({
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Customer Portal Link - Show at top if portal exists */}
+          {portalLink && (
+            <a
+              href={portalLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <ExternalLink className="h-4 w-4" />
+                <span className="text-sm font-medium">Open Customer Portal</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Opens in new tab</span>
+            </a>
+          )}
+
           {/* Contact Section - Now at the top with opportunity value */}
           <div className="border rounded-lg overflow-hidden">
             <div className="bg-muted/30 px-3 py-2 flex items-center justify-between border-b">
