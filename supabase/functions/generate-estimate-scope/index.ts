@@ -205,8 +205,8 @@ Return a JSON object with this EXACT structure (labor_cost and material_cost are
           "description": "SPECIFIC item description (e.g., 'Drywall - 1/2 inch sheets' not just 'Drywall')",
           "quantity": number,
           "unit": "hours|sqft|linear ft|each|set|LS",
-          "labor_cost": number,
-          "material_cost": number,
+          "labor_cost": number (labor cost per unit, 0 if material-only),
+          "material_cost": number (material cost per unit, 0 if labor-only),
           "markup_percent": number,
           "is_taxable": boolean,
           "notes": "what this covers, allowance details if applicable"
@@ -227,23 +227,6 @@ Return a JSON object with this EXACT structure (labor_cost and material_cost are
   "notes": "Any important notes",
   "first_payment_name": "Name for initial payment (not 'Deposit')"
 }
-
-**CRITICAL - COST FIELD RULES (READ CAREFULLY!):**
-- "labor_cost" = RATE PER SINGLE UNIT (e.g., $50 per hour, $3 per sqft for install labor)
-- "material_cost" = PRICE PER SINGLE UNIT (e.g., $8 per sqft, $2 per board-foot)
-- NEVER multiply costs by quantity - return ONLY the unit rate!
-- The system calculates: line_total = (labor_cost + material_cost) × quantity × (1 + markup%)
-
-CORRECT EXAMPLES:
-✓ 2000 board feet of lumber at $2/bf → quantity: 2000, material_cost: 2, labor_cost: 0
-✓ 40 hours of electrician at $75/hr → quantity: 40, labor_cost: 75, material_cost: 0
-✓ 1000 sqft flooring at $8/sqft material + $3/sqft install → quantity: 1000, material_cost: 8, labor_cost: 3
-✓ 500 sqft drywall at $1.50/sqft material + $2/sqft labor → quantity: 500, material_cost: 1.5, labor_cost: 2
-
-WRONG EXAMPLES (DO NOT DO THIS):
-✗ material_cost: 4000 for 2000 board feet (WRONG - this is the total, not per-unit!)
-✗ labor_cost: 3000 for 40 hours (WRONG - should be 75 per hour, not 75×40!)
-✗ material_cost: 8000 for 1000 sqft (WRONG - should be 8 per sqft!)
 
 GRANULARITY RULES:
 - Break each trade into 5-15 separate line items minimum
