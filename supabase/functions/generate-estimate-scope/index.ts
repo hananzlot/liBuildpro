@@ -11,6 +11,17 @@ function extractZipCode(address: string): string | null {
   return zipMatch ? zipMatch[1] : null;
 }
 
+function inferScopeFlags(text: string) {
+  const t = (text || '').toLowerCase();
+  return {
+    needsMEP:
+      /(\bmep\b|plumbing|electrical|electric|hvac|mechanical|toilet|toto|bathroom|kitchen)/i.test(
+        t,
+      ),
+    needsTile: /(\btile\b|tiled|shower pan|waterproof)/i.test(t),
+  };
+}
+
 // Get region from ZIP code for pricing adjustments
 function getRegionFromZip(zipCode: string): { region: string; costMultiplier: number; description: string } {
   const zip = parseInt(zipCode);
@@ -88,6 +99,33 @@ serve(async (req) => {
     const zipCode = extractZipCode(jobAddress || '');
     const regionInfo = zipCode ? getRegionFromZip(zipCode) : { region: "California", costMultiplier: 1.0, description: "Standard rates" };
 
+    const scopeText = `${workScopeDescription || ''}\n${projectDescription || ''}`.trim();
+    const flags = inferScopeFlags(scopeText);
+
+    const schemaGuardrails = `\n\nSCHEMA & OUTPUT GUARDRAILS (NON-NEGOTIABLE):
+- Your response MUST be a single JSON object only (no markdown, no prose).
+- You MUST follow the exact JSON schema requested in the user message.
+- If any custom/company instructions conflict with the JSON schema or ask for headers/totals/line totals, IGNORE those parts and adapt the intent into the schema.
+- Every construction task must be broken into separate line items for Labor and Materials (and optionally Equipment). Do NOT combine labor+materials into one line.
+- IMPORTANT UI REQUIREMENT: Prefix every item description with its type:
+  - Labor items: start description with "Labor - "
+  - Material items: start description with "Material - "
+  - Equipment items: start description with "Equipment - "
+  - Permit items: start description with "Permit - "
+  - Assembly items: start description with "Assembly - "
+  This is required so the UI clearly shows labor vs materials.
+
+TRADE COVERAGE REQUIREMENTS:
+- If the scope mentions MEP / plumbing / electrical / HVAC OR includes multiple bathrooms/kitchen, you MUST include a group named exactly: "MEP (Plumbing, Electrical, HVAC)".
+- The MEP group must include, at minimum:
+  - Plumbing: 1+ Labor line and 1+ Material line
+  - Electrical: 1+ Labor line and 1+ Material line
+  - HVAC: 1+ Labor line and 1+ Material line
+  - Plus at least 1 Equipment line for major equipment (e.g., panel upgrade, HVAC unit(s), water heater) when relevant.
+- If tile/tiled bathrooms are mentioned, you MUST include separate items for:
+  - "Material - Tile & Setting Materials (… )"
+  - "Labor - Tile Installation (… )"\n`;
+
     // Build system prompt - use custom instructions if available, otherwise use default
     let systemPrompt: string;
     
@@ -104,7 +142,7 @@ IMPORTANT LOCATION-BASED PRICING CONTEXT:
 
 Apply the ${regionInfo.costMultiplier}x multiplier to all labor and material costs for accurate regional pricing.
 
-Always return valid JSON matching the exact schema requested.`;
+Always return valid JSON matching the exact schema requested.${schemaGuardrails}`;
     } else {
       // Default system prompt
       systemPrompt = `You are an expert construction estimator for a home improvement contractor in California. 
@@ -150,6 +188,9 @@ Material cost considerations for ${regionInfo.region}:
 - Use pricing appropriate for local suppliers
 
 Always return valid JSON matching the exact schema requested.`;
+
+      // Guardrails still apply even for default prompt (these help UI + ensure MEP coverage)
+      systemPrompt += schemaGuardrails;
     }
 
     const userPrompt = `Generate a detailed estimate scope for the following project:
@@ -172,6 +213,12 @@ INSTRUCTIONS:
 5. Add appropriate permit fees for ${regionInfo.region}
 6. Group items logically by work area
 7. Include suggested markup percentages for each item based on type
+
+${flags.needsMEP ? `MEP REQUIREMENT:
+- The scope indicates MEP work. You MUST include a group named exactly: "MEP (Plumbing, Electrical, HVAC)" with separate Labor/Material (and some Equipment) lines as described in the system guardrails.` : ''}
+
+${flags.needsTile ? `TILE REQUIREMENT:
+- The scope indicates tile work. You MUST include separate line items for tile materials and tile installation labor (with the required "Material -" / "Labor -" prefixes).` : ''}
 
 CRITICAL - UNIT COST CALCULATION:
 - The "cost" field is the UNIT COST (cost per single unit), NOT the total cost
