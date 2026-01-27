@@ -4,13 +4,18 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addDays, subDays, isToday, isSameDay, parseISO } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, DollarSign } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, DollarSign, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScopePricingDialog } from "@/components/portal/ScopePricingDialog";
+import { PortalProposalsSection } from "@/components/salesperson-portal/PortalProposalsSection";
+import { PortalFileUploadSection } from "@/components/salesperson-portal/PortalFileUploadSection";
+import { PortalProjectLinksSection } from "@/components/salesperson-portal/PortalProjectLinksSection";
+import { PortalEstimatesPlaceholder } from "@/components/salesperson-portal/PortalEstimatesPlaceholder";
 interface Appointment {
   id: string;
   ghl_id: string | null;
@@ -95,6 +100,7 @@ function formatTimeShort(dateStr: string | null): string {
 
 export default function SalespersonCalendarPortal() {
   const { token } = useParams<{ token: string }>();
+  const [activeTab, setActiveTab] = useState<"calendar" | "tools">("calendar");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -348,18 +354,48 @@ export default function SalespersonCalendarPortal() {
             )}
             <div className="min-w-0">
               <h1 className="text-sm font-semibold text-foreground truncate">
-                {salesperson?.name}'s Calendar
+                {salesperson?.name}'s Portal
               </h1>
               {company?.name && (
                 <p className="text-xs text-muted-foreground truncate">{company.name}</p>
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={handleGoToToday} className="shrink-0">
-            Today
-          </Button>
+          {activeTab === "calendar" && (
+            <Button variant="outline" size="sm" onClick={handleGoToToday} className="shrink-0">
+              Today
+            </Button>
+          )}
         </div>
       </header>
+
+      {/* Main Tabs */}
+      <div className="bg-card border-b border-border">
+        <div className="max-w-4xl mx-auto">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "calendar" | "tools")}>
+            <TabsList className="w-full grid grid-cols-2 h-12 bg-transparent rounded-none">
+              <TabsTrigger 
+                value="calendar" 
+                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Calendar
+              </TabsTrigger>
+              <TabsTrigger 
+                value="tools" 
+                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+              >
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Tools
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
+
+      {/* Calendar Tab Content */}
+      {activeTab === "calendar" && (
+        <>
 
       {/* Navigation Bar */}
       <div className="bg-card border-b border-border px-4 py-2">
@@ -569,6 +605,27 @@ export default function SalespersonCalendarPortal() {
               );
             })}
           </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Tools Tab Content */}
+      {activeTab === "tools" && salesperson && (
+        <div className="max-w-2xl mx-auto p-4 space-y-4">
+          <PortalProposalsSection 
+            salespersonName={salesperson.name} 
+            companyId={salesperson.company_id} 
+          />
+          <PortalFileUploadSection 
+            salespersonName={salesperson.name} 
+            companyId={salesperson.company_id} 
+          />
+          <PortalProjectLinksSection 
+            salespersonName={salesperson.name} 
+            companyId={salesperson.company_id} 
+          />
+          <PortalEstimatesPlaceholder />
         </div>
       )}
 
