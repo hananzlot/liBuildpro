@@ -3044,14 +3044,14 @@ export function OpportunityDetailSheet({
         setAppointmentAddress("");
       }
     }}>
-        <DialogContent className="sm:max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               Add Appointment
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 overflow-y-auto flex-1 pr-2">
             <div className="space-y-2">
               <Label htmlFor="oppApptTitle">Appointment Title</Label>
               <Input id="oppApptTitle" value={appointmentTitle} onChange={e => setAppointmentTitle(e.target.value)} placeholder="Enter appointment title..." />
@@ -3117,7 +3117,7 @@ export function OpportunityDetailSheet({
               </p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setAppointmentDialogOpen(false)}>
               Cancel
             </Button>
