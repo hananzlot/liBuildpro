@@ -56,13 +56,16 @@ export function AIGenerationProgress({
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center">
       <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md w-full mx-4 space-y-4 relative">
-        {/* Close button */}
+        {/* Close button - z-index ensures it's clickable */}
         {onClose && (
           <Button
             variant="ghost"
             size="icon"
-            className="absolute top-2 right-2 h-8 w-8"
-            onClick={onClose}
+            className="absolute top-2 right-2 h-8 w-8 z-10 hover:bg-muted"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             title="Close progress view"
           >
             <X className="h-4 w-4" />
