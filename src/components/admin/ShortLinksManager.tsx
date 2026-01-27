@@ -85,7 +85,11 @@ export function ShortLinksManager() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Not authenticated");
 
-      const response = await supabase.functions.invoke("list-short-links", {
+      // Pass company_id as query param for super admin context
+      const params = new URLSearchParams();
+      if (companyId) params.set("company_id", companyId);
+
+      const response = await supabase.functions.invoke(`list-short-links?${params.toString()}`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 

@@ -18,6 +18,7 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const portalToken = url.searchParams.get("portal_token");
     const portalType = url.searchParams.get("portal_type");
+    const requestedCompanyId = url.searchParams.get("company_id"); // For super admin context
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 100);
     const offset = (page - 1) * limit;
@@ -159,14 +160,18 @@ Deno.serve(async (req) => {
       .eq("id", userId)
       .single();
 
-    if (profileError || !profile?.company_id) {
-      return new Response(JSON.stringify({ error: "User profile or company not found" }), {
-        status: 404,
+    // Super admins may not have a company_id in their profile - use requested company_id
+    const profileCompanyId = profile?.company_id || null;
+    
+    // Priority: requested company_id (for super admins) > profile company_id
+    companyId = requestedCompanyId || profileCompanyId;
+
+    if (!companyId) {
+      return new Response(JSON.stringify({ error: "No company context. Super admins must select a company first." }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    companyId = profile.company_id;
 
     // Internal users can see all links in their company
     const { data: links, error: linksError, count } = await supabaseUser
