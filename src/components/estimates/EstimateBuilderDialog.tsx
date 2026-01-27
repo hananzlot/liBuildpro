@@ -829,8 +829,34 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     } catch (error) {
       console.error("Error generating scope:", error);
       const msg = error instanceof Error ? error.message : "Failed to generate scope. Please try again.";
+      
+      // Check if error is likely due to browser aborting request during tab switch
+      const isConnectionAborted = msg.includes('Failed to fetch') || 
+                                   msg.includes('network') ||
+                                   msg.includes('connection') ||
+                                   msg.includes('aborted');
+      
+      if (isConnectionAborted && document.visibilityState === 'hidden') {
+        // Tab is hidden and connection was aborted - don't close progress yet
+        // Wait for tab to become visible and show retry option
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            setIsGeneratingScope(false);
+            toast.error("AI generation was interrupted. Please try again.", {
+              duration: 10000,
+              action: {
+                label: "Retry",
+                onClick: generateScope,
+              },
+            });
+          }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return; // Don't proceed to finally block
+      }
+      
       toast.error(msg);
-    } finally {
       setIsGeneratingScope(false);
     }
   };
