@@ -281,6 +281,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     plansFileUrl,
     plansFileName,
   }), [formData, groups, paymentSchedule, activeTab, aiSummary, linkedProjectId, linkedOpportunityUuid, linkedOpportunityGhlId, plansFileUrl, plansFileName]);
+
+  // Keep the latest draft snapshot in a ref so event handlers can always save
+  // the most up-to-date values without re-binding listeners on every keystroke.
+  const latestDraftDataRef = useRef(draftData);
+  useEffect(() => {
+    latestDraftDataRef.current = draftData;
+  }, [draftData]);
+
+  const saveLatestDraft = useCallback(() => {
+    saveDraft(latestDraftDataRef.current);
+  }, [saveDraft]);
   
   // Auto-save draft to sessionStorage when data changes
   useEffect(() => {
@@ -298,25 +309,34 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        // Force save immediately when tab becomes hidden
-        saveDraft(draftData);
-        console.log('Draft saved on visibility change');
+        // Let any debounced inputs flush their pending values first, then
+        // save the latest snapshot.
+        setTimeout(() => {
+          saveLatestDraft();
+        }, 0);
       }
     };
     
     const handleBeforeUnload = () => {
       // Save before page unload
-      saveDraft(draftData);
+      saveLatestDraft();
+    };
+
+    const handlePageHide = () => {
+      // Save on navigation/close (more reliable than beforeunload in some cases)
+      saveLatestDraft();
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
     };
-  }, [open, draftData, saveDraft]);
+  }, [open, saveLatestDraft]);
   
   // Restore draft from sessionStorage when dialog opens (before DB data loads)
   useEffect(() => {
