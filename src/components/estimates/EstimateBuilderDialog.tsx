@@ -545,7 +545,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       // Populate groups with items - ensure labor_cost/material_cost are populated
       const groupsWithItems = existingEstimate.groups.map((g: any) => ({
         ...g,
-        isOpen: true,
+        isOpen: false,
         items: existingEstimate.items
           .filter((i: any) => i.group_id === g.id)
           .map((i: any) => ({
@@ -793,7 +793,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       group_name: g.group_name,
       description: g.description || "",
       sort_order: gIdx,
-      isOpen: true,
+      isOpen: false,
       items: g.items.map((item: any, iIdx: number) => {
         // AI now returns labor_cost/material_cost; some models may omit `cost`.
         const parseNum = (v: any) => {
@@ -1250,7 +1250,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       group_name: "New Area",
       description: "",
       sort_order: groups.length,
-      isOpen: true,
+      isOpen: false,
       items: [],
     };
     setGroups([...groups, newGroup]);
