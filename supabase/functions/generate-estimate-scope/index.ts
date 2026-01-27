@@ -747,16 +747,23 @@ ${baseUserPrompt}`;
       
       aiResponse = await callLovableAIGateway(messages, 'google/gemini-2.5-pro', aiTemperature, LOVABLE_API_KEY!);
     } else {
-      // Text-only, use Gemini Flash (fastest)
-      console.log('Using Gemini Flash (text-only)...');
-      apiProvider = 'Gemini (Flash)';
-      
+      // Text-only: honor company's AI provider preference
       const messages = [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ];
       
-      aiResponse = await callLovableAIGateway(messages, 'google/gemini-3-flash-preview', aiTemperature, LOVABLE_API_KEY!);
+      if (aiProvider === 'openai') {
+        // Use OpenAI's fastest model when provider is set to OpenAI
+        console.log('Using OpenAI GPT-5-mini (text-only, fast)...');
+        apiProvider = 'OpenAI (GPT-5-mini)';
+        aiResponse = await callLovableAIGateway(messages, 'openai/gpt-5-mini', aiTemperature, LOVABLE_API_KEY!);
+      } else {
+        // Default to Gemini Flash (fastest)
+        console.log('Using Gemini Flash (text-only)...');
+        apiProvider = 'Gemini (Flash)';
+        aiResponse = await callLovableAIGateway(messages, 'google/gemini-3-flash-preview', aiTemperature, LOVABLE_API_KEY!);
+      }
     }
 
     console.log(`AI response received from ${apiProvider} (${aiResponse.content.length} chars)`);
