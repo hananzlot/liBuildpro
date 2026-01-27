@@ -80,7 +80,7 @@ export function AIGenerationProgress({ isGenerating, hasPlansFile }: AIGeneratio
   };
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center">
       <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md w-full mx-4 space-y-4">
         <div className="flex items-center gap-3">
           <div className="relative">
