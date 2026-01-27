@@ -227,6 +227,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [showMissingInfoPanel, setShowMissingInfoPanel] = useState(false);
   const [isRegeneratingWithAnswers, setIsRegeneratingWithAnswers] = useState(false);
   const [clarificationAnswers, setClarificationAnswers] = useState<Record<string, string>>({});
+  const [focusedQuestionId, setFocusedQuestionId] = useState<string | null>(null);
   
   // Controls visibility of the AI progress overlay (user can dismiss it)
   const [showAiProgress, setShowAiProgress] = useState(false);
@@ -2844,11 +2845,15 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             {/* Questions grouped by category - unanswered first, then answered */}
                             {(() => {
                               // Separate questions into unanswered and answered
+                              // A question is only "answered" if it has content AND is not currently focused
                               const allQuestions = Object.entries(groupedQuestions).flatMap(([category, questions]) => 
                                 questions.map(q => ({ ...q, category }))
                               );
-                              const unansweredQuestions = allQuestions.filter(q => !clarificationAnswers[q.id]?.trim());
-                              const answeredQuestions = allQuestions.filter(q => clarificationAnswers[q.id]?.trim());
+                              const isQuestionAnswered = (q: typeof allQuestions[0]) => 
+                                clarificationAnswers[q.id]?.trim() && focusedQuestionId !== q.id;
+                              
+                              const unansweredQuestions = allQuestions.filter(q => !isQuestionAnswered(q));
+                              const answeredQuestions = allQuestions.filter(q => isQuestionAnswered(q));
 
                               // Group by category for unanswered
                               const unansweredByCategory: Record<string, typeof unansweredQuestions> = {};
@@ -2885,6 +2890,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                                 type="text"
                                                 value={clarificationAnswers[question.id] || ""}
                                                 onChange={(e) => updateAnswer(question.id, e.target.value)}
+                                                onFocus={() => setFocusedQuestionId(question.id)}
+                                                onBlur={() => setFocusedQuestionId(null)}
                                                 placeholder="Enter your answer..."
                                               />
                                             )}
@@ -2924,6 +2931,8 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                                   type="text"
                                                   value={clarificationAnswers[question.id] || ""}
                                                   onChange={(e) => updateAnswer(question.id, e.target.value)}
+                                                  onFocus={() => setFocusedQuestionId(question.id)}
+                                                  onBlur={() => setFocusedQuestionId(null)}
                                                   placeholder="Enter your answer..."
                                                   className="border-primary/30 bg-background"
                                                 />
