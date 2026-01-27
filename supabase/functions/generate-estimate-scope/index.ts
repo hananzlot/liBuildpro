@@ -538,37 +538,59 @@ ${JSON.stringify(planDigest, null, 2)}`;
   return parseAIResponse(response.content, 'GROUP_ITEMS');
 }
 
-// Stage 4: FINAL_ASSEMBLY - Merge all results
-async function processFinalAssemblyStage(
+// Stage 4: FINAL_ASSEMBLY - Merge all results programmatically (no AI call needed)
+function processFinalAssemblyStage(
   estimatePlan: any,
-  groupResults: any[],
-  systemPrompt: string,
-  aiTemperature: number,
-  lovableApiKey: string,
-  aiProvider: string
-): Promise<any> {
-  console.log('=== STAGE 4: FINAL_ASSEMBLY ===');
+  groupResults: any[]
+): any {
+  console.log('=== STAGE 4: FINAL_ASSEMBLY (programmatic merge) ===');
   
-  const userMessage = `mode: "FINAL_ASSEMBLY"
-
-ESTIMATE_PLAN:
-${JSON.stringify(estimatePlan, null, 2)}
-
-GROUP_ITEMS_RESULTS:
-${JSON.stringify(groupResults, null, 2)}
-
-Merge all data into the final estimate schema.`;
-
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userMessage }
-  ];
+  // Merge all missing_info from groups
+  const allMissingInfo: string[] = [...(estimatePlan.missing_info || [])];
   
-  // Use provider preference for text-only
-  const model = aiProvider === 'openai' ? 'openai/gpt-5.2' : 'google/gemini-3-flash-preview';
-  const response = await callAIStage('FINAL_ASSEMBLY', messages, model, aiTemperature, lovableApiKey);
+  // Build final groups array with items
+  const finalGroups = groupResults.map((gr, idx) => {
+    // Collect missing_info from each group
+    if (gr.missing_info && Array.isArray(gr.missing_info)) {
+      allMissingInfo.push(...gr.missing_info);
+    }
+    
+    return {
+      group_name: gr.group_name,
+      description: gr.description || '',
+      sort_order: idx,
+      items: (gr.items || []).map((item: any, itemIdx: number) => ({
+        item_type: item.item_type || 'material',
+        description: item.description || 'Line item',
+        quantity: item.quantity ?? 1,
+        unit: item.unit || 'each',
+        labor_cost: item.labor_cost ?? 0,
+        material_cost: item.material_cost ?? 0,
+        markup_percent: item.markup_percent ?? estimatePlan.default_markup ?? 50,
+        is_taxable: item.is_taxable ?? true,
+        sort_order: itemIdx,
+      })),
+    };
+  });
   
-  return parseAIResponse(response.content, 'FINAL_ASSEMBLY');
+  // Build final result
+  const finalResult = {
+    project_understanding: estimatePlan.project_understanding || [],
+    assumptions: estimatePlan.assumptions || [],
+    inclusions: estimatePlan.inclusions || [],
+    exclusions: estimatePlan.exclusions || [],
+    missing_info: [...new Set(allMissingInfo)], // Deduplicate
+    groups: finalGroups,
+    payment_schedule: estimatePlan.payment_schedule || [],
+    suggested_deposit_percent: estimatePlan.suggested_deposit_percent ?? 20,
+    suggested_tax_rate: estimatePlan.suggested_tax_rate ?? 9.5,
+    notes: estimatePlan.notes || '',
+    first_payment_name: estimatePlan.first_payment_name || 'Deposit',
+  };
+  
+  console.log(`FINAL_ASSEMBLY: ${finalGroups.length} groups, ${finalGroups.reduce((sum: number, g: any) => sum + g.items.length, 0)} total items`);
+  
+  return finalResult;
 }
 
 // Main staged processing pipeline
@@ -723,13 +745,9 @@ async function processEstimateGenerationStaged(params: {
     await updateJobProgress(jobId, 'FINAL_ASSEMBLY', totalStages, totalStages, stageResults);
   }
   
-  const finalResult = await processFinalAssemblyStage(
+  const finalResult = processFinalAssemblyStage(
     estimatePlan,
-    groupResults,
-    systemPrompt,
-    aiTemperature,
-    LOVABLE_API_KEY,
-    aiProvider
+    groupResults
   );
   
   // Add metadata
