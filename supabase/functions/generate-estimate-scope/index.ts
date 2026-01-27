@@ -34,35 +34,10 @@ function getRegionFromZip(zipCode: string): { region: string; costMultiplier: nu
   return { region: "California", costMultiplier: 1.0, description: "Standard California market rates" };
 }
 
-// Upload PDF to OpenAI Files API
-async function uploadPdfToOpenAI(
-  pdfBuffer: ArrayBuffer, 
-  filename: string, 
-  apiKey: string
-): Promise<string> {
-  console.log(`Uploading PDF to OpenAI: ${filename}, size: ${pdfBuffer.byteLength} bytes`);
-  
-  const formData = new FormData();
-  formData.append('purpose', 'user_data');
-  formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), filename);
-
-  const response = await fetch('https://api.openai.com/v1/files', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: formData,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('OpenAI Files API error:', response.status, error);
-    throw new Error(`Failed to upload PDF to OpenAI: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json();
-  console.log('PDF uploaded successfully, file_id:', data.id);
-  return data.id;
+// Convert PDF buffer to base64 data URL for Gemini (which supports native PDF)
+function pdfToBase64DataUrl(pdfBuffer: ArrayBuffer): string {
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+  return `data:application/pdf;base64,${base64}`;
 }
 
 serve(async (req) => {
@@ -152,11 +127,12 @@ serve(async (req) => {
 
     // Parse uploaded plans file if provided
     // parsedPlansContent can be:
-    // - { type: 'file_id', value: string } for PDFs uploaded to OpenAI
+    // - { type: 'pdf_base64', value: string } for PDFs (Gemini can read these natively)
     // - { type: 'image_url', value: string } for base64 images
     // - { type: 'text', value: string } for fallback text descriptions
     // - null if no plans file
-    let parsedPlansContent: { type: 'file_id' | 'image_url' | 'text'; value: string } | null = null;
+    let parsedPlansContent: { type: 'pdf_base64' | 'image_url' | 'text'; value: string } | null = null;
+    let forceLovableAI = false; // Flag to force Lovable AI for PDF support
     
     if (plansFileUrl) {
       console.log('Fetching and parsing plans file...');
@@ -167,26 +143,13 @@ serve(async (req) => {
           const contentType = plansResponse.headers.get('content-type') || '';
           
           if (contentType.includes('application/pdf')) {
-            // For PDFs, upload to OpenAI Files API (requires OpenAI key)
-            if (useOpenAI) {
-              console.log('PDF plans file detected - uploading to OpenAI Files API...');
-              const pdfBuffer = await plansResponse.arrayBuffer();
-              const filename = `construction-plans-${Date.now()}.pdf`;
-              
-              try {
-                const fileId = await uploadPdfToOpenAI(pdfBuffer, filename, openaiApiKey);
-                parsedPlansContent = { type: 'file_id', value: fileId };
-                console.log('PDF uploaded to OpenAI, file_id:', fileId);
-              } catch (uploadError) {
-                console.error('Failed to upload PDF to OpenAI:', uploadError);
-                // Fallback to description-based if upload fails
-                parsedPlansContent = { type: 'text', value: '\n\n[CONSTRUCTION PLANS PDF UPLOADED - Upload to OpenAI failed. Please generate an estimate based on the work scope description above.]' };
-              }
-            } else {
-              // Using Lovable AI - PDF not directly supported, use description
-              console.log('PDF plans file detected but using Lovable AI - falling back to description-based estimation');
-              parsedPlansContent = { type: 'text', value: '\n\n[CONSTRUCTION PLANS FILE UPLOADED - PDF document provided. Please generate an estimate based on the work scope description above, which should describe the contents of the plans.]' };
-            }
+            // PDFs: Convert to base64 and use Gemini (Lovable AI) which supports native PDF
+            console.log('PDF plans file detected - converting to base64 for Gemini...');
+            const pdfBuffer = await plansResponse.arrayBuffer();
+            const base64Pdf = pdfToBase64DataUrl(pdfBuffer);
+            parsedPlansContent = { type: 'pdf_base64', value: base64Pdf };
+            forceLovableAI = true; // Force Lovable AI since OpenAI doesn't support PDF in Chat Completions
+            console.log(`PDF converted to base64, size: ${base64Pdf.length} chars`);
           } else if (contentType.includes('image/')) {
             // For images, convert to base64 for vision model
             const imageBuffer = await plansResponse.arrayBuffer();
@@ -211,7 +174,7 @@ serve(async (req) => {
     // Build system prompt - enhanced for PDF analysis
     let systemPrompt: string;
     
-    const hasPdfAttachment = parsedPlansContent?.type === 'file_id';
+    const hasPdfAttachment = parsedPlansContent?.type === 'pdf_base64';
     const hasImageAttachment = parsedPlansContent?.type === 'image_url';
     
     if (customInstructions) {
@@ -398,17 +361,22 @@ ${baseUserPrompt}`;
     ];
 
     // Build user message content based on what we have
-    // NOTE: OpenAI Chat Completions API does NOT support file_id - that's only for Assistants API
-    // For PDFs, we fall back to text-only prompt since we can't read PDFs directly in Chat Completions
-    if (parsedPlansContent?.type === 'file_id') {
-      // PDF was uploaded but Chat Completions can't read it - inform the prompt
+    // For PDFs, we use Gemini via Lovable AI which supports native PDF input
+    if (parsedPlansContent?.type === 'pdf_base64') {
+      // PDF attachment for Gemini - use inline_data format
       messages.push({
         role: 'user',
-        content: userPrompt + '\n\n[NOTE: Construction plans PDF was uploaded. Please generate the estimate based on the work scope description provided above. If specific dimensions are needed, list them in "missing_info".]'
+        content: [
+          { type: 'text', text: userPrompt },
+          { 
+            type: 'image_url', 
+            image_url: { url: parsedPlansContent.value }
+          }
+        ]
       });
-      console.log('PDF uploaded but Chat Completions API cannot read files - using text-only with note');
+      console.log('Using Gemini with PDF attachment');
     } else if (parsedPlansContent?.type === 'image_url') {
-      // Vision model message with image - this DOES work
+      // Vision model message with image - this works on both OpenAI and Gemini
       messages.push({
         role: 'user',
         content: [
@@ -428,22 +396,46 @@ ${baseUserPrompt}`;
 
     let response!: Response;
     let apiProvider: string;
-    if (useOpenAI) {
-      // Use OpenAI API directly with company's API key
+    
+    // Force Lovable AI (Gemini) for PDFs since OpenAI Chat Completions doesn't support PDF
+    if (forceLovableAI || !useOpenAI) {
+      // Use Lovable AI Gateway (Gemini) - supports native PDF
+      apiProvider = 'Lovable';
+      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+      
+      if (!LOVABLE_API_KEY) {
+        throw new Error('No AI API key configured. Please add your OpenAI API key in company settings.');
+      }
+      
+      // Use Gemini Pro for PDFs and images (better at document understanding)
+      const modelToUse = (hasPdfAttachment || hasImageAttachment) 
+        ? 'google/gemini-2.5-pro' 
+        : 'google/gemini-3-flash-preview';
+      
+      console.log(`Using Lovable AI Gateway with model: ${modelToUse}${forceLovableAI ? ' (forced for PDF support)' : ''}`);
+
+      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages,
+          temperature: aiTemperature,
+          max_tokens: 16000,
+          response_format: { type: "json_object" },
+        }),
+      });
+    } else {
+      // Use OpenAI API directly with company's API key (no PDF support)
       apiProvider = 'OpenAI';
       
-      // Model selection: 
-      // - gpt-4o for PDF files (file input requires gpt-4o)
-      // - gpt-4o for images (vision)
-      // - gpt-4o-mini for text-only (or use configured model)
+      // Model selection for OpenAI (images work, PDFs don't)
       let modelToUse: string;
-      const hasFileAttachment = parsedPlansContent?.type === 'file_id';
-      const hasImageAttachment = parsedPlansContent?.type === 'image_url';
       
-      if (hasFileAttachment) {
-        // PDF files require gpt-4o (gpt-4o-mini doesn't support file inputs)
-        modelToUse = 'gpt-4o';
-      } else if (aiModel) {
+      if (aiModel) {
         // Use configured model, but force gpt-4o for images if they chose gpt-4o-mini
         modelToUse = hasImageAttachment && aiModel === 'gpt-4o-mini' ? 'gpt-4o' : aiModel;
       } else {
@@ -488,32 +480,6 @@ ${baseUserPrompt}`;
         // Success or non-retryable error, break out of loop
         break;
       }
-    } else {
-      // Fall back to Lovable AI Gateway
-      apiProvider = 'Lovable';
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
-      
-      const hasImageAttachment = parsedPlansContent?.type === 'image_url';
-      const modelToUse = hasImageAttachment 
-        ? 'google/gemini-2.5-flash' // Vision-capable model
-        : 'google/gemini-3-flash-preview';
-      
-      console.log(`Using Lovable AI Gateway with model: ${modelToUse}`);
-
-      response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages,
-          temperature: aiTemperature,
-          max_tokens: 16000,
-          response_format: { type: "json_object" },
-        }),
-      });
     }
 
     if (!response.ok) {
