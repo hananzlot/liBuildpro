@@ -125,8 +125,15 @@ const generateId = () => crypto.randomUUID();
 
 export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSuccess, linkedOpportunity, createOpportunityOnSave = false, initialWorkScope }: EstimateBuilderDialogProps) {
   const { user, isSuperAdmin } = useAuth();
-  const { companyId } = useCompanyContext();
+  const { companyId: contextCompanyId } = useCompanyContext();
   const queryClient = useQueryClient();
+  
+  // Track the effective company ID - for existing estimates, use their company_id
+  const [estimateCompanyId, setEstimateCompanyId] = useState<string | null>(null);
+  
+  // Derive the effective companyId: existing estimate's company takes priority over context
+  // This allows Super Admins to edit estimates without needing to switch companies first
+  const companyId = estimateCompanyId || contextCompanyId;
   
   // Handle clone mode (creating new estimate from declined one)
   const isCloneMode = estimateId?.startsWith("clone:");
@@ -144,7 +151,6 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   
   // isEditing is true if we have a current estimate ID (either from prop or after first save)
   const isEditing = !!currentEstimateId && !isCloneMode;
-
   // Form state
   const [formData, setFormData] = useState<EstimateFormData>({
     customer_name: "",
@@ -484,6 +490,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       // Set linked project
       setLinkedProjectId(est.project_id || null);
       
+      // Set the estimate's company ID (important for Super Admins editing existing estimates)
+      if (est.company_id) {
+        setEstimateCompanyId(est.company_id);
+      }
+      
       // Set plans file URL if present
       if (est.plans_file_url) {
         setPlansFileUrl(est.plans_file_url);
@@ -534,6 +545,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setLinkedOpportunityGhlId(null);
       setPlansFileUrl(null);
       setPlansFileName(null);
+      setEstimateCompanyId(null); // Reset for new estimates - will use contextCompanyId
     }
   }, [open, estimateId]);
 
