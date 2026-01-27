@@ -54,22 +54,18 @@ export function AIGenerationProgress({
   const hasRealtimeUpdates = !!currentStage;
   
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center">
-      <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md w-full mx-4 space-y-4 relative">
-        {/* Close button - z-index ensures it's clickable */}
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center pointer-events-auto">
+      <div className="bg-card border rounded-lg shadow-lg p-6 max-w-md w-full mx-4 space-y-4 relative pointer-events-auto">
+        {/* Close button */}
         {onClose && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-2 right-2 h-8 w-8 z-10 hover:bg-muted"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
+          <button
+            type="button"
+            className="absolute top-3 right-3 h-8 w-8 rounded-md flex items-center justify-center hover:bg-muted transition-colors pointer-events-auto z-50 cursor-pointer"
+            onClick={onClose}
             title="Close progress view"
           >
             <X className="h-4 w-4" />
-          </Button>
+          </button>
         )}
         
         <div className="flex items-center gap-3">
