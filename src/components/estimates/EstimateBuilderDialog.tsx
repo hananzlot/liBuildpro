@@ -311,7 +311,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     enabled: open && !estimateId, // Only fetch for new estimates
   });
 
-  // Fetch default deposit settings and expiration days from company settings
+  // Fetch default deposit settings, expiration days, and plans max size from company settings
   const { data: estimateDefaults } = useQuery({
     queryKey: ["default-estimate-settings", companyId],
     queryFn: async () => {
@@ -342,6 +342,37 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return settings;
     },
     enabled: open && !estimateId && !!companyId, // Only fetch for new estimates
+  });
+
+  // Fetch plans max file size from company settings (with app_settings fallback)
+  const { data: plansMaxSizeMb } = useQuery({
+    queryKey: ["estimate-plans-max-size", companyId],
+    queryFn: async () => {
+      // Try company_settings first
+      if (companyId) {
+        const { data: companyData } = await supabase
+          .from("company_settings")
+          .select("setting_value")
+          .eq("company_id", companyId)
+          .eq("setting_key", "estimate_plans_max_size_mb")
+          .maybeSingle();
+        if (companyData?.setting_value) {
+          return parseInt(companyData.setting_value, 10);
+        }
+      }
+      // Fall back to app_settings
+      const { data: appData } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", "estimate_plans_max_size_mb")
+        .maybeSingle();
+      if (appData?.setting_value) {
+        return parseInt(appData.setting_value, 10);
+      }
+      // Default to 50MB if not configured
+      return 50;
+    },
+    enabled: open,
   });
 
   // Fetch existing estimate if editing or cloning
@@ -567,9 +598,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return;
     }
 
-    // Validate file size (65MB max)
-    if (file.size > 68157440) {
-      toast.error('File is too large. Maximum size is 65MB.');
+    // Validate file size based on company setting (default 50MB)
+    const maxSizeBytes = (plansMaxSizeMb || 50) * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      toast.error(`File is too large. Maximum size is ${plansMaxSizeMb || 50}MB.`);
       return;
     }
 
