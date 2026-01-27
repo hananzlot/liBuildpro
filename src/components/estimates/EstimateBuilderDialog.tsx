@@ -221,6 +221,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // AI Summary state for assumptions, inclusions/exclusions, missing info
   const [aiSummary, setAiSummary] = useState<AISummary>({ ...emptyAiSummary });
   const [showAiSummary, setShowAiSummary] = useState(false);
+  const [showWorkScopeDescription, setShowWorkScopeDescription] = useState(false);
   
   // Missing info panel state
   const [showMissingInfoPanel, setShowMissingInfoPanel] = useState(false);
@@ -2198,19 +2199,31 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   {/* Next button for Scope tab */}
                   <TabNextButton currentTab="scope" validation={validateScopeTab()} />
                   
-                  {/* Work Scope Description - First item in Scope tab */}
+                  {/* Work Scope Description - Collapsible, defaulted to collapsed */}
                   <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Work Scope Description
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <Textarea
-                        value={formData.work_scope_description}
-                        onChange={(e) => setFormData({ ...formData, work_scope_description: e.target.value })}
-                        placeholder="Describe the work in detail. Include all measurements, quantities, and specifications. Example:
+                    <Collapsible open={showWorkScopeDescription} onOpenChange={setShowWorkScopeDescription}>
+                      <CardHeader className="py-3">
+                        <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary w-full">
+                          {showWorkScopeDescription ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                          <FileText className="h-4 w-4" />
+                          <span className="font-semibold text-sm">Work Scope Description</span>
+                          {formData.work_scope_description?.trim() && (
+                            <Badge variant="outline" className="ml-auto">
+                              {formData.work_scope_description.length} chars
+                            </Badge>
+                          )}
+                        </CollapsibleTrigger>
+                      </CardHeader>
+                      <CollapsibleContent>
+                        <CardContent className="pt-0">
+                          <Textarea
+                            value={formData.work_scope_description}
+                            onChange={(e) => setFormData({ ...formData, work_scope_description: e.target.value })}
+                            placeholder="Describe the work in detail. Include all measurements, quantities, and specifications. Example:
 
 Kitchen remodel:
 - Remove existing cabinets (12 linear ft upper, 15 linear ft lower)
@@ -2221,120 +2234,122 @@ Kitchen remodel:
 - Flooring: 150 sqft luxury vinyl plank
 
 The more detail you provide, the more accurate the AI-generated estimate will be."
-                        className="min-h-[150px]"
-                      />
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Include measurements (sqft, linear ft, quantities) and specific materials. 
-                        The AI uses this + job site ZIP code for location-based pricing.
-                      </p>
-                      
-                      {/* Plans File Upload */}
-                      <div className="mt-4 pt-4 border-t">
-                        <Label className="text-sm font-medium flex items-center gap-2 mb-2">
-                          <Upload className="h-4 w-4" />
-                          Construction Plans (Optional)
-                        </Label>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          Upload PDF/image or paste a Google Drive link. The AI will analyze plans to generate a more accurate estimate.
-                        </p>
-                        
-                        {plansFileUrl ? (
-                          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                            <FileIcon className="h-5 w-5 text-primary" />
-                            <span className="flex-1 text-sm truncate">{plansFileName}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={removePlansFile}
-                              className="h-8 w-8 p-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {/* File Upload Option */}
-                            <div className="relative">
-                              <input
-                                type="file"
-                                accept=".pdf,image/jpeg,image/png,image/webp"
-                                onChange={handlePlansUpload}
-                                disabled={isUploadingPlans}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full"
-                                disabled={isUploadingPlans}
-                              >
-                                {isUploadingPlans ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Uploading...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Upload Plans (PDF or Image)
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                            
-                            {/* OR Divider */}
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-px bg-border" />
-                              <span className="text-xs text-muted-foreground">OR</span>
-                              <div className="flex-1 h-px bg-border" />
-                            </div>
-                            
-                            {/* Google Drive URL Input */}
-                            <div className="flex gap-2">
-                              <Input
-                                type="url"
-                                placeholder="Paste Google Drive link..."
-                                className="flex-1 text-sm"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    const input = e.currentTarget;
-                                    const url = input.value.trim();
-                                    if (url && url.includes('drive.google.com')) {
-                                      setPlansFileUrl(url);
-                                      setPlansFileName('Google Drive Link');
-                                      input.value = '';
-                                    }
-                                  }
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={(e) => {
-                                  const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                                  const url = input?.value?.trim();
-                                  if (url && url.includes('drive.google.com')) {
-                                    setPlansFileUrl(url);
-                                    setPlansFileName('Google Drive Link');
-                                    input.value = '';
-                                  } else if (url) {
-                                    toast.error('Please enter a valid Google Drive link');
-                                  }
-                                }}
-                              >
-                                Add
-                              </Button>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              Make sure the file is shared as "Anyone with the link"
+                            className="min-h-[150px]"
+                          />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Include measurements (sqft, linear ft, quantities) and specific materials. 
+                            The AI uses this + job site ZIP code for location-based pricing.
+                          </p>
+                          
+                          {/* Plans File Upload */}
+                          <div className="mt-4 pt-4 border-t">
+                            <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+                              <Upload className="h-4 w-4" />
+                              Construction Plans (Optional)
+                            </Label>
+                            <p className="text-xs text-muted-foreground mb-3">
+                              Upload PDF/image or paste a Google Drive link. The AI will analyze plans to generate a more accurate estimate.
                             </p>
+                            
+                            {plansFileUrl ? (
+                              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                                <FileIcon className="h-5 w-5 text-primary" />
+                                <span className="flex-1 text-sm truncate">{plansFileName}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={removePlansFile}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {/* File Upload Option */}
+                                <div className="relative">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,image/jpeg,image/png,image/webp"
+                                    onChange={handlePlansUpload}
+                                    disabled={isUploadingPlans}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full"
+                                    disabled={isUploadingPlans}
+                                  >
+                                    {isUploadingPlans ? (
+                                      <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Uploading...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Upload className="mr-2 h-4 w-4" />
+                                        Upload Plans (PDF or Image)
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                                
+                                {/* OR Divider */}
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-px bg-border" />
+                                  <span className="text-xs text-muted-foreground">OR</span>
+                                  <div className="flex-1 h-px bg-border" />
+                                </div>
+                                
+                                {/* Google Drive URL Input */}
+                                <div className="flex gap-2">
+                                  <Input
+                                    type="url"
+                                    placeholder="Paste Google Drive link..."
+                                    className="flex-1 text-sm"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        const input = e.currentTarget;
+                                        const url = input.value.trim();
+                                        if (url && url.includes('drive.google.com')) {
+                                          setPlansFileUrl(url);
+                                          setPlansFileName('Google Drive Link');
+                                          input.value = '';
+                                        }
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                                      const url = input?.value?.trim();
+                                      if (url && url.includes('drive.google.com')) {
+                                        setPlansFileUrl(url);
+                                        setPlansFileName('Google Drive Link');
+                                        input.value = '';
+                                      } else if (url) {
+                                        toast.error('Please enter a valid Google Drive link');
+                                      }
+                                    }}
+                                  >
+                                    Add
+                                  </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  Make sure the file is shared as "Anyone with the link"
+                                </p>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
+                        </CardContent>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </Card>
 
                   <AISummaryCard
