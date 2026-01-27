@@ -20,7 +20,7 @@ import {
   Plus, Trash2, Save, Wand2, Loader2, GripVertical, 
   User, MapPin, Calendar, DollarSign, Percent, FileText,
   ChevronDown, ChevronRight, FolderPlus, TrendingUp, Copy,
-  Upload, X, FileIcon
+  Upload, X, FileIcon, ArrowRight, AlertCircle
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -1865,6 +1865,76 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return amount.toFixed(2);
   };
 
+  // Tab validation functions
+  const validateCustomerTab = useCallback(() => {
+    const missing: string[] = [];
+    if (!formData.customer_name?.trim()) missing.push("Customer Name");
+    if (!formData.customer_email?.trim()) missing.push("Email");
+    if (!formData.estimate_title?.trim()) missing.push("Project Title");
+    if (!formData.job_address?.trim()) missing.push("Job Site Address");
+    return { isValid: missing.length === 0, missing };
+  }, [formData.customer_name, formData.customer_email, formData.estimate_title, formData.job_address]);
+
+  const validateScopeTab = useCallback(() => {
+    const missing: string[] = [];
+    if (!formData.work_scope_description?.trim() && groups.length === 0) {
+      missing.push("Work Scope Description or Line Items");
+    }
+    return { isValid: missing.length === 0, missing };
+  }, [formData.work_scope_description, groups.length]);
+
+  const validatePaymentsTab = useCallback(() => {
+    // Payments tab has no required fields - always valid
+    return { isValid: true, missing: [] as string[] };
+  }, []);
+
+  // Tab order for navigation
+  const tabOrder = ["customer", "scope", "payments", "terms"] as const;
+
+  const handleNextTab = useCallback((currentTab: string, validation: { isValid: boolean; missing: string[] }) => {
+    if (!validation.isValid) {
+      toast.error(`Please fill in: ${validation.missing.join(", ")}`);
+      return;
+    }
+    const currentIndex = tabOrder.indexOf(currentTab as typeof tabOrder[number]);
+    if (currentIndex < tabOrder.length - 1) {
+      setActiveTab(tabOrder[currentIndex + 1]);
+    }
+  }, []);
+
+  // Next button component for tabs
+  const TabNextButton = ({ currentTab, validation }: { currentTab: string; validation: { isValid: boolean; missing: string[] } }) => {
+    const currentIndex = tabOrder.indexOf(currentTab as typeof tabOrder[number]);
+    if (currentIndex >= tabOrder.length - 1) return null; // No next button on last tab
+    
+    const nextTabName = tabOrder[currentIndex + 1];
+    const nextTabLabels: Record<string, string> = {
+      scope: "Scope",
+      payments: "Payments",
+      terms: "Terms & Notes",
+    };
+
+    return (
+      <div className="flex items-center justify-end gap-2 pb-2">
+        {!validation.isValid && (
+          <div className="flex items-center gap-1 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <span>Missing: {validation.missing.join(", ")}</span>
+          </div>
+        )}
+        <Button
+          type="button"
+          onClick={() => handleNextTab(currentTab, validation)}
+          variant={validation.isValid ? "default" : "outline"}
+          size="sm"
+        >
+          Next: {nextTabLabels[nextTabName]}
+          <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    );
+  };
+
   if (loadingEstimate && isEditing) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2133,6 +2203,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                       </div>
                     </CardContent>
                   </Card>
+
+                  {/* Next button for Customer tab */}
+                  <TabNextButton currentTab="customer" validation={validateCustomerTab()} />
 
                 </TabsContent>
 
@@ -2611,6 +2684,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </div>
                     );
                   })()}
+
+                  {/* Next button for Scope tab */}
+                  <TabNextButton currentTab="scope" validation={validateScopeTab()} />
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-0 space-y-4">
@@ -3008,6 +3084,9 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                       )}
                     </CardContent>
                   </Card>
+
+                  {/* Next button for Payments tab */}
+                  <TabNextButton currentTab="payments" validation={validatePaymentsTab()} />
                 </TabsContent>
 
                 <TabsContent value="terms" className="mt-0 space-y-4">
