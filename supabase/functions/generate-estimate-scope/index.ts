@@ -198,25 +198,43 @@ serve(async (req) => {
     
     if (plansFileUrl) {
       console.log('Fetching and parsing plans file...');
+      console.log('Original URL:', plansFileUrl);
       try {
         // Convert Google Drive view links to direct download links
         let downloadUrl = plansFileUrl;
+        let isGoogleDrive = false;
         const googleDriveViewMatch = plansFileUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
         if (googleDriveViewMatch) {
           const fileId = googleDriveViewMatch[1];
-          downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-          console.log('Converted Google Drive link to direct download URL');
+          // Use the confirm=t parameter to bypass the virus scan confirmation page
+          downloadUrl = `https://drive.google.com/uc?export=download&confirm=t&id=${fileId}`;
+          isGoogleDrive = true;
+          console.log('Converted Google Drive link to direct download URL with confirm bypass');
         }
         
         // Fetch the file content
-        const plansResponse = await fetch(downloadUrl);
+        const plansResponse = await fetch(downloadUrl, {
+          headers: {
+            // Some servers require a User-Agent
+            'User-Agent': 'Mozilla/5.0 (compatible; EstimateBot/1.0)',
+          },
+        });
+        
+        console.log('Plans fetch response status:', plansResponse.status);
+        const contentType = plansResponse.headers.get('content-type') || '';
+        console.log('Plans fetch content-type:', contentType);
+        
         if (plansResponse.ok) {
-          const contentType = plansResponse.headers.get('content-type') || '';
-          
-          if (contentType.includes('application/pdf')) {
+          // Check if Google Drive returned an HTML confirmation page instead of the file
+          if (isGoogleDrive && contentType.includes('text/html')) {
+            console.warn('Google Drive returned HTML instead of file - file may be too large or require sign-in');
+            console.warn('Please ensure the file is shared publicly with "Anyone with the link"');
+            // Don't fail - continue without plans
+          } else if (contentType.includes('application/pdf') || (isGoogleDrive && contentType.includes('octet-stream'))) {
             // PDFs: Convert to base64 and use Gemini (Lovable AI) which supports native PDF
             console.log('PDF plans file detected - converting to base64 for Gemini...');
             const pdfBuffer = await plansResponse.arrayBuffer();
+            console.log('PDF buffer size:', pdfBuffer.byteLength, 'bytes');
             
             // Check file size before processing
             if (pdfBuffer.byteLength > MAX_PDF_SIZE_BYTES) {
@@ -236,6 +254,8 @@ serve(async (req) => {
             const mimeType = contentType.split(';')[0];
             parsedPlansContent = { type: 'image_url', value: `data:${mimeType};base64,${base64Image}` };
             console.log('Image plans file detected - will send to vision model');
+          } else {
+            console.warn('Unknown content type for plans file:', contentType);
           }
         } else {
           console.warn('Failed to fetch plans file:', plansResponse.status);
