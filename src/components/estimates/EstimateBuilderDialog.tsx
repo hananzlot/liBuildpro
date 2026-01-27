@@ -2074,29 +2074,33 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   <FileText className="h-4 w-4" />
                   Scope ({groups.reduce((sum, g) => sum + g.items.length, 0)} items)
                 </TabsTrigger>
-                <TabsTrigger value="clarification" className="flex items-center gap-2">
-                  <HelpCircle className="h-4 w-4" />
-                  Clarification
-                  {(() => {
-                    const parsedQuestions = parseMissingInfo(aiSummary.missing_info || []);
-                    const unansweredCount = parsedQuestions.filter(q => !clarificationAnswers[q.id]?.trim()).length;
-                    return unansweredCount > 0 ? (
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        {unansweredCount}
-                      </Badge>
-                    ) : parsedQuestions.length > 0 ? (
-                      <CheckCircle2 className="h-4 w-4 text-primary ml-1" />
-                    ) : null;
-                  })()}
-                </TabsTrigger>
-                <TabsTrigger value="payments" className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Payments
-                </TabsTrigger>
-                <TabsTrigger value="terms" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Terms & Notes
-                </TabsTrigger>
+                {groups.length > 0 && (
+                  <>
+                    <TabsTrigger value="clarification" className="flex items-center gap-2">
+                      <HelpCircle className="h-4 w-4" />
+                      Clarification
+                      {(() => {
+                        const parsedQuestions = parseMissingInfo(aiSummary.missing_info || []);
+                        const unansweredCount = parsedQuestions.filter(q => !clarificationAnswers[q.id]?.trim()).length;
+                        return unansweredCount > 0 ? (
+                          <Badge variant="secondary" className="ml-1 text-xs">
+                            {unansweredCount}
+                          </Badge>
+                        ) : parsedQuestions.length > 0 ? (
+                          <CheckCircle2 className="h-4 w-4 text-primary ml-1" />
+                        ) : null;
+                      })()}
+                    </TabsTrigger>
+                    <TabsTrigger value="payments" className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Payments
+                    </TabsTrigger>
+                    <TabsTrigger value="terms" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Terms & Notes
+                    </TabsTrigger>
+                  </>
+                )}
               </TabsList>
 
               <ScrollArea className="flex-1 px-6 py-4">
