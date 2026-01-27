@@ -673,16 +673,38 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         plansFileUrl: plansFileUrl, // Pass the uploaded plans URL
       };
 
+      // Create a visibility-aware timeout that pauses when tab is hidden
+      // This prevents false timeouts when user switches tabs
+      const createVisibilityAwareTimeout = (ms: number): Promise<never> => {
+        return new Promise((_, reject) => {
+          let elapsedTime = 0;
+          let lastTickTime = Date.now();
+          let intervalId: ReturnType<typeof setInterval>;
+          
+          const checkTimeout = () => {
+            const now = Date.now();
+            // Only count time if the document is visible
+            if (document.visibilityState === 'visible') {
+              elapsedTime += now - lastTickTime;
+            }
+            lastTickTime = now;
+            
+            if (elapsedTime >= ms) {
+              clearInterval(intervalId);
+              reject(new Error(`AI generation timed out after ${Math.round(ms / 1000)}s. Please try again.`));
+            }
+          };
+          
+          // Check every second
+          intervalId = setInterval(checkTimeout, 1000);
+        });
+      };
+
       const { data, error } = await Promise.race([
         supabase.functions.invoke("generate-estimate-scope", {
           body: invokeBody,
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () => reject(new Error(`AI generation timed out after ${Math.round(timeoutMs / 1000)}s. Please try again.`)),
-            timeoutMs,
-          ),
-        ),
+        createVisibilityAwareTimeout(timeoutMs),
       ]);
 
       if (error) throw error;
