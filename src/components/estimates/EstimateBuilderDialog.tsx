@@ -1396,7 +1396,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   if (loadingEstimate && isEditing) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl h-[90vh]">
+        <DialogContent 
+          className="max-w-6xl h-[90vh]"
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
@@ -1407,7 +1411,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0">
+      <DialogContent 
+        className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-xl">
