@@ -222,6 +222,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [aiSummary, setAiSummary] = useState<AISummary>({ ...emptyAiSummary });
   const [showAiSummary, setShowAiSummary] = useState(false);
   const [showWorkScopeDescription, setShowWorkScopeDescription] = useState(false);
+  const [showLineItems, setShowLineItems] = useState(false);
   
   // Missing info panel state
   const [showMissingInfoPanel, setShowMissingInfoPanel] = useState(false);
@@ -2444,53 +2445,66 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         </Card>
                       </>
                     ) : (
-                      <div className="space-y-4">
-                        {/* Line Items header (left) + actions (center) */}
-                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                          <h3 className="font-semibold justify-self-start">Line Items</h3>
-
-                          <div className="flex flex-wrap items-center justify-center gap-2 justify-self-center">
-                            <Button onClick={addGroup} size="sm" variant="outline">
-                              <FolderPlus className="mr-2 h-4 w-4" />
-                              Add Area
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSkipAutoRecovery(true); // Prevent auto-recovery from re-applying old data
-                                setWasManuallyCleared(true); // Prevent DB reload from overwriting cleared state
-                                setGroups([]);
-                                setPaymentSchedule([]);
-                                setAiSummary({ ...emptyAiSummary });
-                                setShowAiSummary(false);
-                              }}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Clear All
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setGroups([]);
-                                setPaymentSchedule([]);
-                                setTimeout(() => generateScope(), 100);
-                              }}
-                              disabled={isGeneratingScope || !canGenerateAI}
-                              title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Clear and regenerate with AI'}
-                            >
-                              {isGeneratingScope ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              ) : (
-                                <Wand2 className="mr-2 h-4 w-4" />
-                              )}
-                              Regenerate AI
-                            </Button>
-                          </div>
-
-                          <div aria-hidden="true" />
-                        </div>
-                      
+                      <Card>
+                        <Collapsible open={showLineItems} onOpenChange={setShowLineItems}>
+                          <CardHeader className="py-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary">
+                                {showLineItems ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                                <h3 className="font-semibold">Line Items</h3>
+                                <Badge variant="secondary">
+                                  {groups.length} {groups.length === 1 ? 'area' : 'areas'}
+                                </Badge>
+                                <Badge variant="outline">
+                                  {groups.reduce((sum, g) => sum + g.items.length, 0)} items
+                                </Badge>
+                              </CollapsibleTrigger>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button onClick={addGroup} size="sm" variant="outline">
+                                  <FolderPlus className="mr-2 h-4 w-4" />
+                                  Add Area
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSkipAutoRecovery(true);
+                                    setWasManuallyCleared(true);
+                                    setGroups([]);
+                                    setPaymentSchedule([]);
+                                    setAiSummary({ ...emptyAiSummary });
+                                    setShowAiSummary(false);
+                                  }}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Clear All
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setGroups([]);
+                                    setPaymentSchedule([]);
+                                    setTimeout(() => generateScope(), 100);
+                                  }}
+                                  disabled={isGeneratingScope || !canGenerateAI}
+                                  title={!canGenerateAI ? `Missing: ${missingFields.join(', ')}` : 'Clear and regenerate with AI'}
+                                >
+                                  {isGeneratingScope ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Wand2 className="mr-2 h-4 w-4" />
+                                  )}
+                                  Regenerate AI
+                                </Button>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CollapsibleContent>
+                            <CardContent className="space-y-4 pt-0">
                       {groups.map((group) => (
                         <Card key={group.id}>
                           <Collapsible open={group.isOpen} onOpenChange={() => toggleGroup(group.id)}>
@@ -2723,7 +2737,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           </Collapsible>
                         </Card>
                       ))}
-                    </div>
+                            </CardContent>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </Card>
                     );
                   })()}
 
