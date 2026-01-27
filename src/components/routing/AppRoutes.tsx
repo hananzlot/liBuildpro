@@ -256,6 +256,7 @@ export function AppRoutes() {
         
         {/* Public client portal - no auth required */}
         <Route path="/portal" element={<ClientPortal />} />
+        <Route path="/portal/:token" element={<ClientPortal />} />
         
         {/* Public document portal - no auth required */}
         <Route path="/document-portal" element={<DocumentPortal />} />
