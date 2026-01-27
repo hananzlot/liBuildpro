@@ -255,6 +255,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Draft for final price input (auto-discount calculation)
   const [finalPriceDraft, setFinalPriceDraft] = useState<string>("");
   
+  // Track validation attempts to show field highlighting
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
+  
   // Flag to track if we've restored a draft (to prevent overwriting with empty data)
   const [draftRestored, setDraftRestored] = useState(false);
   
@@ -1881,14 +1884,23 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return { isValid: true, missing: [] as string[] };
   }, []);
 
+  // Helper to get validation error class for required fields
+  const getFieldErrorClass = useCallback((fieldValue: string | undefined | null) => {
+    if (!showValidationErrors) return "";
+    if (!fieldValue?.trim()) return "border-warning ring-1 ring-warning focus-visible:ring-warning";
+    return "";
+  }, [showValidationErrors]);
+
   // Tab order for navigation
   const tabOrder = ["customer", "scope", "clarification", "payments", "terms"] as const;
 
   const handleNextTab = useCallback((currentTab: string, validation: { isValid: boolean; missing: string[] }) => {
     if (!validation.isValid) {
+      setShowValidationErrors(true);
       toast.error(`Please fill in: ${validation.missing.join(", ")}`);
       return;
     }
+    setShowValidationErrors(false);
     const currentIndex = tabOrder.indexOf(currentTab as typeof tabOrder[number]);
     if (currentIndex < tabOrder.length - 1) {
       setActiveTab(tabOrder[currentIndex + 1]);
@@ -1911,7 +1923,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return (
       <div className="flex items-center justify-end gap-2 pb-2">
         {!validation.isValid && (
-          <div className="flex items-center gap-1 text-sm text-destructive">
+          <div className="flex items-center gap-1 text-sm text-warning">
             <AlertCircle className="h-4 w-4" />
             <span>Missing: {validation.missing.join(", ")}</span>
           </div>
@@ -2103,6 +2115,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           value={formData.customer_name}
                           onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
                           placeholder="John Smith"
+                          className={getFieldErrorClass(formData.customer_name)}
                         />
                       </div>
                       <div className="space-y-2">
@@ -2114,6 +2127,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
                           placeholder="john@example.com"
                           required
+                          className={getFieldErrorClass(formData.customer_email)}
                         />
                       </div>
                       <div className="space-y-2">
@@ -2132,6 +2146,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           value={formData.estimate_title}
                           onChange={(e) => setFormData({ ...formData, estimate_title: e.target.value })}
                           placeholder="Kitchen Remodel"
+                          className={getFieldErrorClass(formData.estimate_title)}
                         />
                       </div>
                       <div className="space-y-2 md:col-span-2">
@@ -2142,6 +2157,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                           onChange={(e) => setFormData({ ...formData, job_address: e.target.value })}
                           placeholder="123 Main St, Los Angeles, CA 90001"
                           required
+                          className={getFieldErrorClass(formData.job_address)}
                         />
                         <p className="text-xs text-muted-foreground">Include full address with city, state, and ZIP code for accurate pricing</p>
                       </div>
