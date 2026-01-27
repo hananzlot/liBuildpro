@@ -781,12 +781,12 @@ ${baseUserPrompt}`;
         throw new Error('AI returned an incomplete response. Try simplifying the work scope or using a smaller PDF.');
       }
       
-      // Check for truncated JSON
+      // Check for truncated JSON (unbalanced braces indicate incomplete response)
       const openBraces = (jsonStr.match(/\{/g) || []).length;
       const closeBraces = (jsonStr.match(/\}/g) || []).length;
       if (openBraces > closeBraces) {
-        console.error('JSON appears truncated:', { openBraces, closeBraces });
-        throw new Error('AI response was truncated - the PDF may be too complex. Try using a smaller file.');
+        console.error('JSON appears truncated:', { openBraces, closeBraces, responseLength: jsonStr.length });
+        throw new Error('TOKEN_LIMIT_EXCEEDED: The AI response was cut off because the estimate is too complex. Please try one of the following:\n\n• Simplify the work scope description\n• Remove or use a smaller PDF file\n• Break the project into smaller phases and generate estimates separately');
       }
       
       parsedScope = JSON.parse(jsonStr);
@@ -795,6 +795,12 @@ ${baseUserPrompt}`;
       console.error('Raw response (first 500 chars):', aiResponse.content.substring(0, 500));
       console.error('Raw response (last 500 chars):', aiResponse.content.substring(Math.max(0, aiResponse.content.length - 500)));
       
+      // Re-throw token limit errors with the clear message
+      if (parseError instanceof Error && parseError.message.includes('TOKEN_LIMIT_EXCEEDED')) {
+        throw new Error('The AI response was cut off because the estimate is too complex. Please try one of the following:\n\n• Simplify the work scope description\n• Remove or use a smaller PDF file\n• Break the project into smaller phases and generate estimates separately');
+      }
+      
+      // Re-throw other truncation/incomplete errors
       if (parseError instanceof Error && (parseError.message.includes('truncated') || parseError.message.includes('incomplete'))) {
         throw parseError;
       }
