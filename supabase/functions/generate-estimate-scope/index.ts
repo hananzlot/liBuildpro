@@ -398,21 +398,17 @@ ${baseUserPrompt}`;
     ];
 
     // Build user message content based on what we have
+    // NOTE: OpenAI Chat Completions API does NOT support file_id - that's only for Assistants API
+    // For PDFs, we fall back to text-only prompt since we can't read PDFs directly in Chat Completions
     if (parsedPlansContent?.type === 'file_id') {
-      // OpenAI with PDF file reference
+      // PDF was uploaded but Chat Completions can't read it - inform the prompt
       messages.push({
         role: 'user',
-        content: [
-          { 
-            type: 'file', 
-            file: { file_id: parsedPlansContent.value }
-          },
-          { type: 'text', text: userPrompt }
-        ]
+        content: userPrompt + '\n\n[NOTE: Construction plans PDF was uploaded. Please generate the estimate based on the work scope description provided above. If specific dimensions are needed, list them in "missing_info".]'
       });
-      console.log('Using OpenAI with PDF file reference');
+      console.log('PDF uploaded but Chat Completions API cannot read files - using text-only with note');
     } else if (parsedPlansContent?.type === 'image_url') {
-      // Vision model message with image
+      // Vision model message with image - this DOES work
       messages.push({
         role: 'user',
         content: [
@@ -472,6 +468,7 @@ ${baseUserPrompt}`;
             messages,
             temperature: aiTemperature,
             max_tokens: 16000,
+            response_format: { type: "json_object" },
           }),
         });
 
@@ -514,6 +511,7 @@ ${baseUserPrompt}`;
           messages,
           temperature: aiTemperature,
           max_tokens: 16000,
+          response_format: { type: "json_object" },
         }),
       });
     }
