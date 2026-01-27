@@ -2830,44 +2830,102 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               </div>
                             </div>
 
-                            {/* Questions grouped by category */}
-                            {Object.entries(groupedQuestions).map(([category, questions]) => (
-                              <div key={category}>
-                                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                                  {category}
-                                </h4>
-                                <div className="space-y-4">
-                                  {questions.map((question) => (
-                                    <div key={question.id} className="space-y-2">
-                                      <Label className="text-sm flex items-start gap-2">
-                                        {clarificationAnswers[question.id]?.trim() ? (
-                                          <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                                        ) : (
-                                          <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                                        )}
-                                        <span>{question.text}</span>
-                                      </Label>
-                                      
-                                      {question.type === "multiselect" && question.options ? (
-                                        <MultiSelectDropdown
-                                          options={question.options}
-                                          selected={getMultiSelectValue(question.id)}
-                                          onChange={(selected) => updateMultiSelectAnswer(question.id, selected)}
-                                          placeholder="Select one or more options..."
-                                        />
-                                      ) : (
-                                        <Input
-                                          type="text"
-                                          value={clarificationAnswers[question.id] || ""}
-                                          onChange={(e) => updateAnswer(question.id, e.target.value)}
-                                          placeholder="Enter your answer..."
-                                        />
-                                      )}
+                            {/* Questions grouped by category - unanswered first, then answered */}
+                            {(() => {
+                              // Separate questions into unanswered and answered
+                              const allQuestions = Object.entries(groupedQuestions).flatMap(([category, questions]) => 
+                                questions.map(q => ({ ...q, category }))
+                              );
+                              const unansweredQuestions = allQuestions.filter(q => !clarificationAnswers[q.id]?.trim());
+                              const answeredQuestions = allQuestions.filter(q => clarificationAnswers[q.id]?.trim());
+
+                              // Group by category for unanswered
+                              const unansweredByCategory: Record<string, typeof unansweredQuestions> = {};
+                              unansweredQuestions.forEach(q => {
+                                if (!unansweredByCategory[q.category]) unansweredByCategory[q.category] = [];
+                                unansweredByCategory[q.category].push(q);
+                              });
+
+                              return (
+                                <>
+                                  {/* Unanswered questions */}
+                                  {Object.entries(unansweredByCategory).map(([category, questions]) => (
+                                    <div key={category}>
+                                      <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                                        {category}
+                                      </h4>
+                                      <div className="space-y-4">
+                                        {questions.map((question) => (
+                                          <div key={question.id} className="space-y-2 p-3 rounded-lg border border-border bg-background">
+                                            <Label className="text-sm flex items-start gap-2">
+                                              <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                              <span>{question.text}</span>
+                                            </Label>
+                                            
+                                            {question.type === "multiselect" && question.options ? (
+                                              <MultiSelectDropdown
+                                                options={question.options}
+                                                selected={getMultiSelectValue(question.id)}
+                                                onChange={(selected) => updateMultiSelectAnswer(question.id, selected)}
+                                                placeholder="Select one or more options..."
+                                              />
+                                            ) : (
+                                              <Input
+                                                type="text"
+                                                value={clarificationAnswers[question.id] || ""}
+                                                onChange={(e) => updateAnswer(question.id, e.target.value)}
+                                                placeholder="Enter your answer..."
+                                              />
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
                                   ))}
-                                </div>
-                              </div>
-                            ))}
+
+                                  {/* Answered questions section */}
+                                  {answeredQuestions.length > 0 && (
+                                    <div className="border-t pt-4 mt-4">
+                                      <h4 className="text-sm font-semibold text-primary uppercase tracking-wide mb-3 flex items-center gap-2">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Answered ({answeredQuestions.length})
+                                      </h4>
+                                      <div className="space-y-3">
+                                        {answeredQuestions.map((question) => (
+                                          <div 
+                                            key={question.id} 
+                                            className="p-3 rounded-lg border border-primary/20 bg-primary/5"
+                                          >
+                                            <div className="flex items-start gap-2 mb-2">
+                                              <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                                              <span className="text-sm font-medium">{question.text}</span>
+                                            </div>
+                                            <div className="ml-6">
+                                              {question.type === "multiselect" && question.options ? (
+                                                <MultiSelectDropdown
+                                                  options={question.options}
+                                                  selected={getMultiSelectValue(question.id)}
+                                                  onChange={(selected) => updateMultiSelectAnswer(question.id, selected)}
+                                                  placeholder="Select one or more options..."
+                                                />
+                                              ) : (
+                                                <Input
+                                                  type="text"
+                                                  value={clarificationAnswers[question.id] || ""}
+                                                  onChange={(e) => updateAnswer(question.id, e.target.value)}
+                                                  placeholder="Enter your answer..."
+                                                  className="border-primary/30 bg-background"
+                                                />
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                             {/* Regenerate button moved to top of tab */}
                           </div>
                         );
