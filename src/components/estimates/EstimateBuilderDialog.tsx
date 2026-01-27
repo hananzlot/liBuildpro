@@ -1860,18 +1860,24 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                   Debug
                 </Button>
               )}
-              <Button
-                variant="outline"
-                onClick={generateScope}
-                disabled={isGeneratingScope}
-              >
-                {isGeneratingScope ? (
+              {isGeneratingScope ? (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAiProgress(true)}
+                  className="border-primary/50 text-primary"
+                >
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
+                  View Progress
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={generateScope}
+                >
                   <Wand2 className="mr-2 h-4 w-4" />
-                )}
-                AI Generate Scope
-              </Button>
+                  AI Generate Scope
+                </Button>
+              )}
               {isEditing && (
                 <Button 
                   variant="outline" 
@@ -1894,7 +1900,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 )}
                 Save Estimate
               </Button>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  if (isGeneratingScope) {
+                    toast.info("AI generation will continue in the background. Re-open this estimate to see progress.", {
+                      duration: 5000,
+                    });
+                  }
+                  onOpenChange(false);
+                }}
+              >
                 Close
               </Button>
             </div>
