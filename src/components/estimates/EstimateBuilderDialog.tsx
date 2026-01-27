@@ -700,9 +700,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
   }, [existingEstimate, wasManuallyCleared]);
 
-  // Reset form when dialog opens for new estimate
+  // Reset form when dialog opens for new estimate - but SKIP if we restored a draft
   useEffect(() => {
-    if (open && !estimateId) {
+    if (open && !estimateId && !draftRestored) {
       setFormData({
         customer_name: "",
         customer_email: "",
@@ -745,7 +745,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setShowMissingInfoPanel(false);
       setIsRegeneratingWithAnswers(false);
     }
-  }, [open, estimateId]);
+  }, [open, estimateId, draftRestored]);
 
   // Auto-populate from linked opportunity when provided
   useEffect(() => {
