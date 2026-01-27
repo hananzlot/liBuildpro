@@ -661,21 +661,36 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
     setIsGeneratingScope(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-estimate-scope", {
-        body: {
-          projectType: formData.estimate_title,
-          projectDescription: formData.notes,
-          workScopeDescription: formData.work_scope_description,
-          jobAddress: formData.job_address,
-          existingGroups: groups.map(g => g.group_name),
-          defaultMarkupPercent: formData.default_markup_percent,
-          companyId: companyId,
-          plansFileUrl: plansFileUrl, // Pass the uploaded plans URL
-        },
-      });
+      const timeoutMs = plansFileUrl ? 180_000 : 120_000;
+      const invokeBody = {
+        projectType: formData.estimate_title,
+        projectDescription: formData.notes,
+        workScopeDescription: formData.work_scope_description,
+        jobAddress: formData.job_address,
+        existingGroups: groups.map(g => g.group_name),
+        defaultMarkupPercent: formData.default_markup_percent,
+        companyId: companyId,
+        plansFileUrl: plansFileUrl, // Pass the uploaded plans URL
+      };
+
+      const { data, error } = await Promise.race([
+        supabase.functions.invoke("generate-estimate-scope", {
+          body: invokeBody,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`AI generation timed out after ${Math.round(timeoutMs / 1000)}s. Please try again.`)),
+            timeoutMs,
+          ),
+        ),
+      ]);
 
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
+
+      if (data.warning) {
+        toast.warning(data.warning);
+      }
 
       const scope = data.scope;
       
@@ -791,7 +806,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setActiveTab("scope");
     } catch (error) {
       console.error("Error generating scope:", error);
-      toast.error("Failed to generate scope. Please try again.");
+      const msg = error instanceof Error ? error.message : "Failed to generate scope. Please try again.";
+      toast.error(msg);
     } finally {
       setIsGeneratingScope(false);
     }

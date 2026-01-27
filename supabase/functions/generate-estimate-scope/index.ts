@@ -499,7 +499,8 @@ ${baseUserPrompt}`;
             model: modelToUse,
             messages,
             temperature: aiTemperature,
-            max_tokens: 16000,
+            // Keep responses reasonably sized to avoid gateway/client timeouts.
+            max_tokens: 12000,
             response_format: { type: "json_object" },
           }),
           signal: controller.signal,
@@ -528,12 +529,12 @@ ${baseUserPrompt}`;
       
       console.log(`Using OpenAI API with model: ${modelToUse}`);
 
-      // Retry logic with exponential backoff for rate limits
-      const maxRetries = 3;
-      let retryCount = 0;
+      // Add timeout protection (90 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-      while (retryCount <= maxRetries) {
-        response = await fetch('https://api.openai.com/v1/chat/completions', {
+      try {
+        response = await fetchWithRetry('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${openaiApiKey}`,
@@ -543,26 +544,19 @@ ${baseUserPrompt}`;
             model: modelToUse,
             messages,
             temperature: aiTemperature,
-            max_tokens: 16000,
+            // Keep responses reasonably sized to avoid gateway/client timeouts.
+            max_tokens: 12000,
             response_format: { type: "json_object" },
           }),
+          signal: controller.signal,
         });
-
-        if (response.status === 429) {
-          retryCount++;
-          if (retryCount <= maxRetries) {
-            // Parse retry-after header or use exponential backoff
-            const retryAfter = response.headers.get('retry-after');
-            const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(2000 * Math.pow(2, retryCount), 30000);
-            console.log(`Rate limited (429), retrying in ${waitTime}ms (attempt ${retryCount}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            continue;
-          }
-          // Exhausted retries - will be handled by error handler below
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if ((error as Error).name === 'AbortError') {
+          throw new Error('AI processing timed out. Try with a smaller file or simpler work scope description.');
         }
-        
-        // Success or non-retryable error, break out of loop
-        break;
+        throw error;
       }
     }
 
@@ -605,8 +599,13 @@ ${baseUserPrompt}`;
 
     const data = await response.json();
     const generatedContent = data.choices[0].message.content;
-    
-    console.log('Generated estimate scope:', generatedContent);
+
+    if (!generatedContent) {
+      throw new Error('AI returned an empty response. Please try again.');
+    }
+
+    // IMPORTANT: do not log the full AI output (can be extremely large and slow to flush)
+    console.log(`AI response received from ${apiProvider} (${generatedContent.length} chars)`);
 
     let parsedScope;
     try {
@@ -659,6 +658,10 @@ ${baseUserPrompt}`;
     // Add warning if PDF was too large to process
     if (pdfTooLarge) {
       parsedScope.warning = 'The uploaded PDF was too large to analyze (max 20MB). The estimate was generated from the work description only. For better results, please upload a smaller PDF or compress the file.';
+      // If the model included PDF-extracted fields anyway, strip them to keep payload smaller.
+      if (parsedScope.pdf_extracted_data) {
+        delete parsedScope.pdf_extracted_data;
+      }
     }
 
     return new Response(JSON.stringify({ 

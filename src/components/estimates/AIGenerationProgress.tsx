@@ -139,7 +139,7 @@ export function AIGenerationProgress({ isGenerating, hasPlansFile }: AIGeneratio
         
         {hasPlansFile && elapsedTime > 90000 && (
           <p className="text-xs text-amber-600 text-center">
-            Processing is taking longer than usual. This may be due to OpenAI rate limits.
+            Processing is taking longer than usual. This may be due to AI rate limits.
           </p>
         )}
       </div>
