@@ -473,6 +473,19 @@ export function EstimatePreviewDialog({
                             )}
                           </div>
                         ))}
+                        {/* Phase Subtotal - only show when details are visible */}
+                        {showDetails && groupedItems[group.id]?.length > 0 && (
+                          <div className="flex justify-between items-center pt-2 mt-2 border-t border-dashed">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              {group.group_name} Subtotal
+                            </span>
+                            <span className="font-semibold">
+                              {formatCurrency(
+                                groupedItems[group.id].reduce((sum: number, item: LineItem) => sum + (item.line_total || 0), 0)
+                              )}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
