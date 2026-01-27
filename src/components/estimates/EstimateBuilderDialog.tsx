@@ -174,6 +174,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [paymentSchedule, setPaymentSchedule] = useState<PaymentPhase[]>([]);
   const [isGeneratingScope, setIsGeneratingScope] = useState(false);
   const [activeTab, setActiveTab] = useState("customer");
+  
+  // AI stage tracking for multi-stage generation
+  const [currentAIStage, setCurrentAIStage] = useState<string | null>(null);
+  const [stageProgress, setStageProgress] = useState<{ current: number; total: number } | null>(null);
   const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
   
   // AI Summary state for assumptions, inclusions/exclusions, missing info
@@ -816,8 +820,34 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             filter: `id=eq.${jobId}`,
           },
           (payload) => {
-            const job = payload.new as { status: string; result_json: any; error_message: string | null };
-            console.log('Job update received:', job.status);
+            const job = payload.new as { 
+              status: string; 
+              result_json: any; 
+              error_message: string | null;
+              current_stage?: string;
+              total_stages?: number;
+            };
+            console.log('Job update received:', job.status, job.current_stage);
+            
+            // Update stage progress for UI
+            if (job.current_stage) {
+              setCurrentAIStage(job.current_stage);
+              
+              // Parse stage number from current_stage
+              let stageNum = 1;
+              if (job.current_stage === 'PLAN_DIGEST') stageNum = 1;
+              else if (job.current_stage === 'ESTIMATE_PLAN') stageNum = 2;
+              else if (job.current_stage.startsWith('GROUP_ITEMS:')) {
+                // Extract group index from stage name
+                const match = job.current_stage.match(/GROUP_ITEMS:/);
+                if (match) stageNum = 3; // Will be incremented based on total
+              }
+              else if (job.current_stage === 'FINAL_ASSEMBLY') stageNum = job.total_stages || 4;
+              
+              if (job.total_stages) {
+                setStageProgress({ current: stageNum, total: job.total_stages });
+              }
+            }
             
             if (job.status === 'completed' && job.result_json) {
               // Success! Apply the scope and clean up
@@ -831,11 +861,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 toast.error('Failed to apply AI-generated scope');
               }
               setIsGeneratingScope(false);
+              setCurrentAIStage(null);
+              setStageProgress(null);
               subscription?.unsubscribe();
             } else if (job.status === 'failed') {
               // Error - show message and clean up
               toast.error(job.error_message || 'AI generation failed');
               setIsGeneratingScope(false);
+              setCurrentAIStage(null);
+              setStageProgress(null);
               subscription?.unsubscribe();
             }
           }
@@ -903,6 +937,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 toast.error('AI generation timed out. The job may still complete - check back later.');
               }
               setIsGeneratingScope(false);
+              setCurrentAIStage(null);
+              setStageProgress(null);
               subscription?.unsubscribe();
             });
         }
@@ -913,6 +949,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       const msg = error instanceof Error ? error.message : "Failed to generate scope. Please try again.";
       toast.error(msg);
       setIsGeneratingScope(false);
+      setCurrentAIStage(null);
+      setStageProgress(null);
       subscription?.unsubscribe();
     }
   };
@@ -1535,7 +1573,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       {/* AI Generation Progress Overlay */}
       <AIGenerationProgress 
         isGenerating={isGeneratingScope} 
-        hasPlansFile={!!plansFileUrl} 
+        hasPlansFile={!!plansFileUrl}
+        currentStage={currentAIStage}
+        stageProgress={stageProgress}
       />
       
       <Dialog open={open} onOpenChange={onOpenChange}>

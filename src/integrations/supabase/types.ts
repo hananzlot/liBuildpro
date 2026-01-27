@@ -1738,39 +1738,48 @@ export type Database = {
           completed_at: string | null
           created_at: string
           created_by: string | null
+          current_stage: string | null
           error_message: string | null
           estimate_id: string
           id: string
           request_params: Json | null
           result_json: Json | null
+          stage_results: Json | null
           started_at: string | null
           status: string
+          total_stages: number | null
         }
         Insert: {
           company_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          current_stage?: string | null
           error_message?: string | null
           estimate_id: string
           id?: string
           request_params?: Json | null
           result_json?: Json | null
+          stage_results?: Json | null
           started_at?: string | null
           status?: string
+          total_stages?: number | null
         }
         Update: {
           company_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
+          current_stage?: string | null
           error_message?: string | null
           estimate_id?: string
           id?: string
           request_params?: Json | null
           result_json?: Json | null
+          stage_results?: Json | null
           started_at?: string | null
           status?: string
+          total_stages?: number | null
         }
         Relationships: [
           {
