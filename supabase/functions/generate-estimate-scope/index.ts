@@ -11,17 +11,6 @@ function extractZipCode(address: string): string | null {
   return zipMatch ? zipMatch[1] : null;
 }
 
-function inferScopeFlags(text: string) {
-  const t = (text || '').toLowerCase();
-  return {
-    needsMEP:
-      /(\bmep\b|plumbing|electrical|electric|hvac|mechanical|toilet|toto|bathroom|kitchen)/i.test(
-        t,
-      ),
-    needsTile: /(\btile\b|tiled|shower pan|waterproof)/i.test(t),
-  };
-}
-
 // Get region from ZIP code for pricing adjustments
 function getRegionFromZip(zipCode: string): { region: string; costMultiplier: number; description: string } {
   const zip = parseInt(zipCode);
@@ -61,15 +50,15 @@ serve(async (req) => {
     }
 
     // Fetch AI settings from company_settings
-    let aiTemperature = 0.2; // Default
-    let customInstructions = ''; // Custom estimate instructions
+    let aiTemperature = 0.3;
+    let customInstructions = '';
+    
     if (companyId) {
       const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
       
-      // Fetch both variability and custom instructions
       const { data: settings } = await supabase
         .from('company_settings')
         .select('setting_key, setting_value')
@@ -99,178 +88,69 @@ serve(async (req) => {
     const zipCode = extractZipCode(jobAddress || '');
     const regionInfo = zipCode ? getRegionFromZip(zipCode) : { region: "California", costMultiplier: 1.0, description: "Standard rates" };
 
-    const scopeText = `${workScopeDescription || ''}\n${projectDescription || ''}`.trim();
-    const flags = inferScopeFlags(scopeText);
-
-    const schemaGuardrails = `\n\nSCHEMA & OUTPUT GUARDRAILS (NON-NEGOTIABLE):
-- Your response MUST be a single JSON object only (no markdown, no prose).
-- You MUST follow the exact JSON schema requested in the user message.
-- If any custom/company instructions conflict with the JSON schema or ask for headers/totals/line totals, IGNORE those parts and adapt the intent into the schema.
-- Every construction task must be broken into separate line items for Labor and Materials (and optionally Equipment). Do NOT combine labor+materials into one line.
-- IMPORTANT UI REQUIREMENT: Prefix every item description with its type:
-  - Labor items: start description with "Labor - "
-  - Material items: start description with "Material - "
-  - Equipment items: start description with "Equipment - "
-  - Permit items: start description with "Permit - "
-  - Assembly items: start description with "Assembly - "
-  This is required so the UI clearly shows labor vs materials.
-
-TRADE COVERAGE REQUIREMENTS:
-- If the scope mentions MEP / plumbing / electrical / HVAC OR includes multiple bathrooms/kitchen, you MUST include a group named exactly: "MEP (Plumbing, Electrical, HVAC)".
-- The MEP group must include, at minimum:
-  - Plumbing: 1+ Labor line and 1+ Material line
-  - Electrical: 1+ Labor line and 1+ Material line
-  - HVAC: 1+ Labor line and 1+ Material line
-  - Plus at least 1 Equipment line for major equipment (e.g., panel upgrade, HVAC unit(s), water heater) when relevant.
-- If tile/tiled bathrooms are mentioned, you MUST include separate items for:
-  - "Material - Tile & Setting Materials (… )"
-  - "Labor - Tile Installation (… )"\n`;
-
-    // Build system prompt - use custom instructions if available, otherwise use default
+    // Build system prompt
     let systemPrompt: string;
     
     if (customInstructions) {
-      // Use custom instructions with location context injected
-      systemPrompt = `${customInstructions}
-
-IMPORTANT LOCATION-BASED PRICING CONTEXT:
-- Job Location: ${jobAddress || 'California'}
-- ZIP Code: ${zipCode || 'Not specified'}
-- Region: ${regionInfo.region}
-- Cost Adjustment: ${((regionInfo.costMultiplier - 1) * 100).toFixed(0)}% ${regionInfo.costMultiplier > 1 ? 'above' : 'below'} base California rates
-- Note: ${regionInfo.description}
-
-Apply the ${regionInfo.costMultiplier}x multiplier to all labor and material costs for accurate regional pricing.
-
-Always return valid JSON matching the exact schema requested.${schemaGuardrails}`;
+      // Use custom instructions directly - trust the user's prompt
+      systemPrompt = customInstructions;
     } else {
-      // Default system prompt
+      // Default system prompt if no custom instructions
       systemPrompt = `You are an expert construction estimator for a home improvement contractor in California. 
-You create detailed, accurate estimates for residential construction projects including kitchens, bathrooms, roofing, windows, siding, HVAC, and general remodeling.
+Create detailed, accurate estimates for residential construction projects.
 
-IMPORTANT: You are calculating COSTS (what the contractor pays), not selling prices. Markup will be applied separately by the system.
-
-IMPORTANT LOCATION-BASED PRICING:
-- Job Location: ${jobAddress || 'California'}
-- ZIP Code: ${zipCode || 'Not specified'}
-- Region: ${regionInfo.region}
-- Cost Adjustment: ${((regionInfo.costMultiplier - 1) * 100).toFixed(0)}% ${regionInfo.costMultiplier > 1 ? 'above' : 'below'} base California rates
-- Note: ${regionInfo.description}
-
-Apply the ${regionInfo.costMultiplier}x multiplier to all labor and material costs for accurate regional pricing.
-
-When generating estimates:
-- Return COST values (what YOU pay for labor and materials), not selling prices
-- Use realistic California market rates for labor and materials (2024-2025 pricing) ADJUSTED for the specific region
-- Parse the work scope description carefully for exact measurements and quantities
-- Include all necessary line items: demolition, materials, labor, permits, cleanup
-- Group items logically by work area (e.g., Kitchen, Bathroom, Electrical, Plumbing)
-- Use appropriate units (sqft, linear ft, hours, each, set)
-- Include common permit fees for the type of work (adjusted for local jurisdiction)
-- Include suggested markup percentage for each item type
-- Be thorough but not excessive
-- Use the EXACT measurements provided by the user when available
-
-Labor COST rates reference (BASE - multiply by ${regionInfo.costMultiplier} for ${regionInfo.region}):
-- General labor: $35-50/hour (cost)
-- Skilled trades (electrical, plumbing): $65-95/hour (cost)
-- Specialty (tile, cabinet): $55-75/hour (cost)
-
-Suggested markup percentages by item type:
-- Labor: 40-50% markup
-- Materials: 25-35% markup
-- Equipment: 30-40% markup
-- Permits: 10-15% markup (or pass-through)
-- Assembly: 35-45% markup
-
-Material cost considerations for ${regionInfo.region}:
-- Account for delivery costs to this area
-- Use pricing appropriate for local suppliers
+Return COST values (what the contractor pays), not selling prices. Markup will be applied separately.
+Use realistic California market rates for labor and materials (2024-2025 pricing).
+Include all necessary line items: demolition, materials, labor, permits, cleanup.
+Group items logically by work area.
 
 Always return valid JSON matching the exact schema requested.`;
-
-      // Guardrails still apply even for default prompt (these help UI + ensure MEP coverage)
-      systemPrompt += schemaGuardrails;
     }
 
     const userPrompt = `Generate a detailed estimate scope for the following project:
 
 Project Type: ${projectType || 'Home Improvement'}
 Job Location: ${jobAddress || 'California'}
-${zipCode ? `ZIP Code: ${zipCode} (${regionInfo.region})` : ''}
+${zipCode ? `ZIP Code: ${zipCode} (${regionInfo.region} - apply ${regionInfo.costMultiplier}x cost multiplier)` : ''}
 Default Markup: ${defaultMarkupPercent || 35}%
 
 DETAILED WORK SCOPE FROM CUSTOMER:
 ${workScopeDescription || projectDescription || 'General home improvement project'}
 
-${existingGroups?.length > 0 ? `\nExisting scope areas (already added, enhance or add complementary items): ${existingGroups.join(', ')}` : ''}
-
-INSTRUCTIONS:
-1. Parse the work scope description carefully - extract ALL measurements, quantities, and specifications mentioned
-2. Apply ${regionInfo.region} pricing (${regionInfo.costMultiplier}x multiplier on base rates)
-3. Return COST values (what you pay), not selling prices - the system will apply markup
-4. Include realistic material costs from major suppliers in the area
-5. Add appropriate permit fees for ${regionInfo.region}
-6. Group items logically by work area
-7. Include suggested markup percentages for each item based on type
-
-${flags.needsMEP ? `MEP REQUIREMENT:
-- The scope indicates MEP work. You MUST include a group named exactly: "MEP (Plumbing, Electrical, HVAC)" with separate Labor/Material (and some Equipment) lines as described in the system guardrails.` : ''}
-
-${flags.needsTile ? `TILE REQUIREMENT:
-- The scope indicates tile work. You MUST include separate line items for tile materials and tile installation labor (with the required "Material -" / "Labor -" prefixes).` : ''}
-
-CRITICAL - UNIT COST CALCULATION:
-- The "cost" field is the UNIT COST (cost per single unit), NOT the total cost
-- For labor: If 8 hours of work costs $800 total, the unit cost is $100/hour (quantity: 8, unit: "hours", cost: 100)
-- For materials: If 77 sqft of countertop costs $4,620 total, the unit cost is $60/sqft (quantity: 77, unit: "sqft", cost: 60)
-- For cabinets: If 38 linear ft of cabinets costs $11,400 total, the unit cost is $300/linear ft (quantity: 38, unit: "linear ft", cost: 300)
-- The system will calculate: total = quantity × cost × (1 + markup_percent/100)
+${existingGroups?.length > 0 ? `\nExisting scope areas (already added): ${existingGroups.join(', ')}` : ''}
 
 Return a JSON object with this exact structure:
 {
   "groups": [
     {
-      "group_name": "Area name (e.g., Kitchen, Bathroom)",
+      "group_name": "Area name (e.g., Kitchen, Bathroom, MEP)",
       "description": "Brief description of work in this area",
       "items": [
         {
           "item_type": "labor|material|equipment|permit|assembly",
-          "description": "Detailed item description with specs",
-          "quantity": number (use exact quantities from scope when provided),
+          "description": "Detailed item description",
+          "quantity": number,
           "unit": "hours|sqft|linear ft|each|set|unit",
-          "cost": number (UNIT COST - cost per 1 unit, NOT total. System multiplies by quantity),
-          "markup_percent": number (suggested markup: labor 45%, materials 30%, equipment 35%, permits 12%),
-          "is_taxable": boolean (materials taxable, labor not taxable in CA)
+          "cost": number (UNIT COST per single unit, NOT total),
+          "markup_percent": number,
+          "is_taxable": boolean
         }
       ]
     }
   ],
   "payment_schedule": [
     {
-      "phase_name": "string - Name the phase based on the actual project work, NOT 'Deposit'. Examples: 'Materials & Ordering' for material-heavy jobs, 'Mobilization' for large projects, 'Pre-Construction' for remodels, 'Roof Materials' for roofing, 'Cabinet Order' for kitchens. Be creative and specific to the job scope.",
+      "phase_name": "Phase name based on project work",
       "percent": number,
       "due_type": "on_approval|milestone|date",
       "description": "When this payment is due"
     }
   ],
-  "suggested_deposit_percent": number (typically 30-50% depending on project size),
+  "suggested_deposit_percent": number,
   "suggested_tax_rate": 9.5,
-  "notes": "Include note about ${regionInfo.region} pricing and any regional considerations",
-  "first_payment_name": "string - A short, project-specific name for the initial payment. DO NOT use 'Deposit'. Instead, name it after what the money funds: 'Materials & Scheduling', 'Cabinet Order', 'Roof Materials', 'Mobilization', 'Pre-Construction', 'Initial Materials', etc. Be specific to this job's scope."
-}
-
-EXAMPLES OF CORRECT UNIT COSTS (adjusted for ${regionInfo.region}):
-- General labor: $45-60/hour (unit cost)
-- Skilled trades labor: $75-110/hour (unit cost)
-- Pre-fab cabinets: $200-400/linear ft (unit cost)
-- Quartz countertop with install: $60-120/sqft (unit cost)
-- Drywall finish labor: $2-4/sqft (unit cost)
-- Paint labor: $1.50-3/sqft (unit cost)
-- Demolition labor: $35-55/hour (unit cost)
-
-Be specific and detailed. Include 3-6 groups with 3-8 items each based on the project scope.
-Use the EXACT measurements from the work scope description when provided.`;
+  "notes": "Any important notes",
+  "first_payment_name": "Name for initial payment (not 'Deposit')"
+}`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
