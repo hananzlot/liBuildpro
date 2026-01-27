@@ -27,6 +27,7 @@ import { GHLFieldMappings } from "@/components/admin/GHLFieldMappings";
 import { GoogleCalendarManager } from "@/components/admin/GoogleCalendarManager";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
+import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { format } from "date-fns";
 import {
@@ -1119,6 +1120,9 @@ export default function AdminSettings() {
                     </CollapsibleContent>
                   </Card>
                 </Collapsible>
+
+                {/* Stage Badge Mappings */}
+                <StageBadgeMappingsEditor />
 
                 <Card>
                   <CardHeader>

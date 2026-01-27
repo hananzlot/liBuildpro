@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { findContactByIdOrGhlId } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStageBadgeMappings } from "@/hooks/useStageBadgeMappings";
 
 // Helper to get PST/PDT offset in hours (uses UTC methods for correctness)
 const getPSTOffset = (utcDate: Date): number => {
@@ -159,6 +160,10 @@ export function SourceDetailSheet({
 }: SourceDetailSheetProps) {
   const { user, companyId: authCompanyId } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Badge mappings from Admin Settings
+  const effectiveCompanyId = authCompanyId || opportunities[0]?.company_id || filteredOpportunities[0]?.company_id || null;
+  const { mappings: badgeMappings, isConfigured: hasBadgeMappings, getCountForBadge, filterByBadge } = useStageBadgeMappings(effectiveCompanyId);
   
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -474,13 +479,20 @@ export function SourceDetailSheet({
     }
 
     if (stageFilter !== "all") {
-      // Use includes() for "no contact" and "no answer" to match the count logic
-      if (stageFilter === "no contact") {
-        opps = opps.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted"));
-      } else if (stageFilter === "no answer") {
-        opps = opps.filter(o => o.stage_name?.toLowerCase().includes("no answer") || o.stage_name?.toLowerCase().includes("never answer"));
+      // Check if stageFilter is a configured badge name
+      const badgeMapping = badgeMappings.find(m => m.badgeName === stageFilter);
+      if (badgeMapping) {
+        // Filter by badge (stages associated with this badge)
+        opps = filterByBadge(stageFilter, opps);
       } else {
-        opps = opps.filter(o => o.stage_name === stageFilter);
+        // Legacy hardcoded matching for backwards compatibility when no mappings configured
+        if (stageFilter === "no contact") {
+          opps = opps.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted"));
+        } else if (stageFilter === "no answer") {
+          opps = opps.filter(o => o.stage_name?.toLowerCase().includes("no answer") || o.stage_name?.toLowerCase().includes("never answer"));
+        } else {
+          opps = opps.filter(o => o.stage_name === stageFilter);
+        }
       }
     }
     
@@ -633,46 +645,75 @@ export function SourceDetailSheet({
                 </button>
                 <button
                   onClick={() => { setStatusFilter("open"); setStageFilter("all"); }}
-                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "open" ? "bg-blue-500/20 text-blue-400" : "hover:bg-muted"}`}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "open" ? "bg-blue-500/20 text-blue-500" : "hover:bg-muted"}`}
                 >
                   <span className="text-muted-foreground">Open: </span>
                   <span className="font-medium">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "open").length}</span>
                 </button>
-                <button
-                  onClick={() => { setStatusFilter("all"); setStageFilter("no contact"); }}
-                  className={`px-2 py-0.5 rounded-md transition-colors ${stageFilter === "no contact" ? "bg-amber-500/20 text-amber-400" : "hover:bg-muted"}`}
-                >
-                  <span className="text-muted-foreground">No Contact: </span>
-                  <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted")).length}</span>
-                </button>
-                <button
-                  onClick={() => { setStatusFilter("all"); setStageFilter("no answer"); }}
-                  className={`px-2 py-0.5 rounded-md transition-colors ${stageFilter === "no answer" ? "bg-amber-500/20 text-amber-400" : "hover:bg-muted"}`}
-                >
-                  <span className="text-muted-foreground">No Answer: </span>
-                  <span className="font-medium text-amber-400">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no answer") || o.stage_name?.toLowerCase().includes("never answer")).length}</span>
-                </button>
+
+                {/* Dynamic badge filters from Admin Settings */}
+                {hasBadgeMappings ? (
+                  badgeMappings.map(mapping => {
+                    const count = getCountForBadge(mapping.badgeName, sourceOpportunities);
+                    const colorClass = mapping.color === "red" ? "bg-red-500/20 text-red-500" :
+                      mapping.color === "blue" ? "bg-blue-500/20 text-blue-500" :
+                      mapping.color === "green" ? "bg-green-500/20 text-green-500" :
+                      mapping.color === "purple" ? "bg-purple-500/20 text-purple-500" :
+                      mapping.color === "orange" ? "bg-orange-500/20 text-orange-500" :
+                      mapping.color === "teal" ? "bg-teal-500/20 text-teal-500" :
+                      "bg-amber-500/20 text-amber-500";
+                    return (
+                      <button
+                        key={mapping.badgeName}
+                        onClick={() => { setStatusFilter("all"); setStageFilter(mapping.badgeName); }}
+                        className={`px-2 py-0.5 rounded-md transition-colors ${stageFilter === mapping.badgeName ? colorClass : "hover:bg-muted"}`}
+                      >
+                        <span className="text-muted-foreground">{mapping.badgeName}: </span>
+                        <span className={`font-medium ${stageFilter === mapping.badgeName ? "" : colorClass.split(" ")[1]}`}>{count}</span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  /* Legacy hardcoded badges when no mappings configured */
+                  <>
+                    <button
+                      onClick={() => { setStatusFilter("all"); setStageFilter("no contact"); }}
+                      className={`px-2 py-0.5 rounded-md transition-colors ${stageFilter === "no contact" ? "bg-amber-500/20 text-amber-500" : "hover:bg-muted"}`}
+                    >
+                      <span className="text-muted-foreground">No Contact: </span>
+                      <span className="font-medium text-amber-500">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no contact") || o.stage_name?.toLowerCase().includes("not contacted")).length}</span>
+                    </button>
+                    <button
+                      onClick={() => { setStatusFilter("all"); setStageFilter("no answer"); }}
+                      className={`px-2 py-0.5 rounded-md transition-colors ${stageFilter === "no answer" ? "bg-amber-500/20 text-amber-500" : "hover:bg-muted"}`}
+                    >
+                      <span className="text-muted-foreground">No Answer: </span>
+                      <span className="font-medium text-amber-500">{sourceOpportunities.filter(o => o.stage_name?.toLowerCase().includes("no answer") || o.stage_name?.toLowerCase().includes("never answer")).length}</span>
+                    </button>
+                  </>
+                )}
+
                 <div className="px-2 py-0.5">
                   <span className="text-muted-foreground">Appointments: </span>
                   <span className="font-medium">{uniqueAppointmentsCount}</span>
                 </div>
                 <button
                   onClick={() => { setStatusFilter("lost"); setStageFilter("all"); }}
-                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "lost" ? "bg-red-500/20 text-red-400" : "hover:bg-muted"}`}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "lost" ? "bg-red-500/20 text-red-500" : "hover:bg-muted"}`}
                 >
                   <span className="text-muted-foreground">Lost: </span>
-                  <span className="font-medium text-red-400">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "lost").length}</span>
+                  <span className="font-medium text-red-500">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "lost").length}</span>
                 </button>
                 <button
                   onClick={() => { setStatusFilter("won"); setStageFilter("all"); }}
-                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "won" ? "bg-emerald-500/20 text-emerald-400" : "hover:bg-muted"}`}
+                  className={`px-2 py-0.5 rounded-md transition-colors ${statusFilter === "won" ? "bg-emerald-500/20 text-emerald-500" : "hover:bg-muted"}`}
                 >
                   <span className="text-muted-foreground">Won: </span>
-                  <span className="font-medium text-emerald-400">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</span>
+                  <span className="font-medium text-emerald-500">{sourceOpportunities.filter(o => o.status?.toLowerCase() === "won").length}</span>
                 </button>
                 <div className="px-2 py-0.5">
                   <span className="text-muted-foreground">Won Value: </span>
-                  <span className="font-medium text-emerald-400">{formatCurrency(wonValue)}</span>
+                  <span className="font-medium text-emerald-500">{formatCurrency(wonValue)}</span>
                 </div>
               </div>
             )}
