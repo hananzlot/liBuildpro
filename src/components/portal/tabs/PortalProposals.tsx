@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatUnit } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
@@ -649,7 +650,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                             <p className="font-medium">{item.description}</p>
                             {selectedEstimate.show_details_to_customer && (
                               <p className="text-sm text-muted-foreground">
-                                {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                                {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)}
                               </p>
                             )}
                           </div>
@@ -673,7 +674,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                           <p className="font-medium">{item.description}</p>
                           {selectedEstimate.show_details_to_customer && (
                             <p className="text-sm text-muted-foreground">
-                              {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                              {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)}
                             </p>
                           )}
                         </div>

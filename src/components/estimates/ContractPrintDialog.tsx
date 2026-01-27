@@ -135,7 +135,7 @@ export function ContractPrintDialog({ estimateId, open, onOpenChange }: Contract
             <div>${item.description}</div>
             ${showDetails ? `
               <div class="line-item-detail">
-                ${item.quantity} ${item.unit} × <span class="unit-price">${formatCurrency(item.unit_price)}</span>
+                ${item.quantity}${item.unit && item.unit.toUpperCase() !== 'LS' ? ` ${item.unit}` : ''} × <span class="unit-price">${formatCurrency(item.unit_price)}</span>
               </div>
             ` : ""}
           </div>

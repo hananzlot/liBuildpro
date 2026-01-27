@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { formatUnit } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -470,7 +471,7 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
                           </span>
                           <span>{item.description}</span>
                           <span className="text-muted-foreground ml-2">
-                            ({item.quantity} {item.unit} × {formatCurrency(item.unit_price)})
+                            ({item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)})
                           </span>
                         </div>
                         <span className="font-medium ml-4">{formatCurrency(item.line_total)}</span>
@@ -492,7 +493,7 @@ export function EstimateDetailSheet({ estimateId, open, onOpenChange }: Estimate
                           </span>
                           <span>{item.description}</span>
                           <span className="text-muted-foreground ml-2">
-                            ({item.quantity} {item.unit} × {formatCurrency(item.unit_price)})
+                            ({item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)})
                           </span>
                         </div>
                         <span className="font-medium ml-4">{formatCurrency(item.line_total)}</span>
