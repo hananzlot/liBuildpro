@@ -184,6 +184,10 @@ serve(async (req) => {
     let parsedPlansContent: { type: 'pdf_base64' | 'image_url' | 'text'; value: string } | null = null;
     let forceLovableAI = false; // Flag to force Lovable AI for PDF support
     
+    // Max PDF size for Gemini API (20MB raw = ~27MB base64)
+    const MAX_PDF_SIZE_BYTES = 20 * 1024 * 1024; // 20MB limit
+    let pdfTooLarge = false;
+    
     if (plansFileUrl) {
       console.log('Fetching and parsing plans file...');
       try {
@@ -196,10 +200,18 @@ serve(async (req) => {
             // PDFs: Convert to base64 and use Gemini (Lovable AI) which supports native PDF
             console.log('PDF plans file detected - converting to base64 for Gemini...');
             const pdfBuffer = await plansResponse.arrayBuffer();
-            const base64Pdf = pdfToBase64DataUrl(pdfBuffer);
-            parsedPlansContent = { type: 'pdf_base64', value: base64Pdf };
-            forceLovableAI = true; // Force Lovable AI since OpenAI doesn't support PDF in Chat Completions
-            console.log(`PDF converted to base64, size: ${base64Pdf.length} chars`);
+            
+            // Check file size before processing
+            if (pdfBuffer.byteLength > MAX_PDF_SIZE_BYTES) {
+              console.warn(`PDF too large for AI processing: ${(pdfBuffer.byteLength / (1024 * 1024)).toFixed(1)}MB (max ${MAX_PDF_SIZE_BYTES / (1024 * 1024)}MB)`);
+              pdfTooLarge = true;
+              // Continue without PDF - will generate estimate from description only
+            } else {
+              const base64Pdf = pdfToBase64DataUrl(pdfBuffer);
+              parsedPlansContent = { type: 'pdf_base64', value: base64Pdf };
+              forceLovableAI = true; // Force Lovable AI since OpenAI doesn't support PDF in Chat Completions
+              console.log(`PDF converted to base64, size: ${base64Pdf.length} chars`);
+            }
           } else if (contentType.includes('image/')) {
             // For images, convert to base64 for vision model using chunked encoding
             const imageBuffer = await plansResponse.arrayBuffer();
@@ -635,10 +647,16 @@ ${baseUserPrompt}`;
 
     // Add info about which API was used
     parsedScope.apiProvider = apiProvider;
+    
+    // Add warning if PDF was too large to process
+    if (pdfTooLarge) {
+      parsedScope.warning = 'The uploaded PDF was too large to analyze (max 20MB). The estimate was generated from the work description only. For better results, please upload a smaller PDF or compress the file.';
+    }
 
     return new Response(JSON.stringify({ 
       success: true,
-      scope: parsedScope 
+      scope: parsedScope,
+      warning: pdfTooLarge ? 'PDF too large - estimate generated from description only' : undefined
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
