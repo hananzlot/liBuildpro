@@ -96,7 +96,42 @@ serve(async (req) => {
   }
 
   try {
-    const { projectType, projectDescription, workScopeDescription, jobAddress, existingGroups, defaultMarkupPercent, companyId, plansFileUrl } = await req.json();
+    // Robust request parsing: avoid throwing `SyntaxError: Unexpected end of JSON input`
+    // when the caller accidentally sends an empty body.
+    const bodyText = await req.text();
+    if (!bodyText || bodyText.trim() === '') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Request body is required.',
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let body: any;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid JSON in request body.',
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const {
+      projectType,
+      projectDescription,
+      workScopeDescription,
+      jobAddress,
+      existingGroups,
+      defaultMarkupPercent,
+      companyId,
+      plansFileUrl,
+    } = body;
 
     console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent, companyId, hasPlans: !!plansFileUrl });
 
@@ -323,6 +358,7 @@ Always return valid JSON matching the exact schema requested.`;
     }
 
     // Build the base user prompt
+    // NOTE: We keep output compact to reduce token usage and avoid truncated JSON responses.
     const baseUserPrompt = `Generate a HIGHLY DETAILED estimate scope for the following project.
 
 CRITICAL: Create maximum granularity - break every task into its smallest components. Aim for 50+ line items.
@@ -352,6 +388,13 @@ CORRECT EXAMPLES:
 WRONG EXAMPLES (DO NOT DO THIS):
 - material_cost: 4000 for 2000 board feet (this is the total, not per-unit!)
 - labor_cost: 650 for 10 hours of work (this is the total, not per-unit!)
+
+OUTPUT COMPACTNESS RULES (VERY IMPORTANT):
+- Return ONLY raw JSON (no markdown fences, no commentary).
+- Keep these arrays short to avoid truncation: project_understanding<=5, assumptions<=8, inclusions<=8, exclusions<=8, missing_info<=8.
+- Keep each line item description <= 90 characters.
+- Keep notes short (<= 140 characters) or omit notes when not needed.
+- Do not include long prose anywhere.
 
 Return a JSON object with this EXACT structure (labor_cost and material_cost are REQUIRED and separate):
 {
