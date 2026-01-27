@@ -626,9 +626,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         setPlansFileName(file.name);
         toast.success('Plans file uploaded successfully');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error uploading plans:', err);
-      toast.error('Failed to upload plans file');
+      // Provide more specific error message for size limit errors
+      if (err?.statusCode === '413' || err?.message?.includes('exceeded the maximum')) {
+        toast.error(`File is too large. The storage limit is 100MB. Your file may be larger than expected.`);
+      } else {
+        toast.error('Failed to upload plans file');
+      }
     } finally {
       setIsUploadingPlans(false);
     }
