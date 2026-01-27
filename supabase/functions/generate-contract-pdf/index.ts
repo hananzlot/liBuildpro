@@ -460,6 +460,32 @@ serve(async (req) => {
           }
           yPos -= 14;
         }
+        
+        // Phase subtotal - only show when details are visible
+        if (showDetails && groupItems.length > 0) {
+          const groupTotal = groupItems.reduce((sum: number, item: any) => sum + (item.line_total || 0), 0);
+          checkNewPage(20);
+          
+          // Dashed line separator
+          page.drawLine({
+            start: { x: margin + 5, y: yPos + 5 },
+            end: { x: width - margin, y: yPos + 5 },
+            thickness: 0.5,
+            color: gray,
+            dashArray: [3, 3],
+          });
+          yPos -= 5;
+          
+          // Subtotal label and value
+          const subtotalLabel = `${sanitizeLine(group.group_name)} Subtotal`;
+          page.drawText(subtotalLabel, { x: margin + 5, y: yPos, size: 9, font: helvetica, color: gray });
+          
+          // Right-align group subtotal
+          const groupTotalText = formatCurrency(groupTotal);
+          const groupTotalWidth = helveticaBold.widthOfTextAtSize(groupTotalText, 9);
+          page.drawText(groupTotalText, { x: rightEdge - totalColWidth + (totalColWidth - groupTotalWidth), y: yPos, size: 9, font: helveticaBold, color: black });
+          yPos -= 14;
+        }
         yPos -= 10;
       }
     }
