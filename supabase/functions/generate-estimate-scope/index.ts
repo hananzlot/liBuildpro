@@ -477,20 +477,21 @@ ${baseUserPrompt}`;
     }
     
     // Determine which model to use
+    // Both Gemini and GPT-5.2 support PDFs via Lovable AI Gateway
     let modelToUse: string;
     
-    if (forceLovableAI || hasPdfAttachment) {
-      // PDFs require Gemini (native PDF support)
-      modelToUse = 'google/gemini-2.5-pro';
-      apiProvider = 'Gemini';
-    } else if (useOpenAI) {
-      // User selected OpenAI - use GPT-5.2 via Lovable AI Gateway
+    if (useOpenAI) {
+      // User selected OpenAI - use GPT-5.2 via Lovable AI Gateway (supports PDFs)
       modelToUse = 'openai/gpt-5.2';
       apiProvider = 'OpenAI (GPT-5.2)';
+    } else if (hasPdfAttachment || hasImageAttachment) {
+      // For Gemini with attachments, use Pro model for better vision capabilities
+      modelToUse = 'google/gemini-2.5-pro';
+      apiProvider = 'Gemini (Pro)';
     } else {
-      // Default: Gemini for text/images
-      modelToUse = hasImageAttachment ? 'google/gemini-2.5-pro' : 'google/gemini-3-flash-preview';
-      apiProvider = 'Gemini';
+      // Default: Gemini Flash for text-only (faster)
+      modelToUse = 'google/gemini-3-flash-preview';
+      apiProvider = 'Gemini (Flash)';
     }
     
     console.log(`Using Lovable AI Gateway with model: ${modelToUse} (provider: ${apiProvider})`);
