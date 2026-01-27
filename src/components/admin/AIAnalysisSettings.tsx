@@ -343,17 +343,17 @@ export function AIAnalysisSettings() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 onClick={() => saveMutation.mutate()}
-                disabled={!hasChanges || saveMutation.isPending}
+                disabled={saveMutation.isPending}
               >
                 {saveMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (
                   <Save className="h-4 w-4 mr-2" />
                 )}
-                Save Settings
+                Save All AI Settings
               </Button>
               <Button
                 variant="outline"
@@ -363,6 +363,16 @@ export function AIAnalysisSettings() {
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Reset to Defaults
               </Button>
+              {!settings?.find(s => s.setting_key === "ai_estimate_instructions")?.setting_value && (
+                <span className="text-sm text-destructive font-medium">
+                  ⚠️ Estimate instructions not saved - click "Save All AI Settings" to persist
+                </span>
+              )}
+              {hasChanges && (
+                <span className="text-sm text-muted-foreground italic">
+                  Unsaved changes
+                </span>
+              )}
             </div>
           </>
         )}
