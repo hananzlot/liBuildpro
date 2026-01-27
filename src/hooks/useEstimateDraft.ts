@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 
 // Session storage key prefix for estimate drafts
 const DRAFT_KEY_PREFIX = "estimate-draft-";
@@ -28,41 +28,37 @@ export interface EstimateDraft {
  * @param isOpen - Whether the dialog is currently open
  */
 export function useEstimateDraft(estimateId: string | null | undefined, isOpen: boolean) {
-  const draftKeyRef = useRef<string>("");
-  
-  // Compute the storage key - use estimateId if editing, or "new" for new estimates
-  useEffect(() => {
-    const key = estimateId ? `${DRAFT_KEY_PREFIX}${estimateId}` : `${DRAFT_KEY_PREFIX}new`;
-    draftKeyRef.current = key;
-  }, [estimateId]);
+  // Compute the storage key synchronously - use estimateId if editing, or "new" for new estimates
+  // This must be computed immediately (not in an effect) so saveDraft works on the first render
+  const draftKey = estimateId ? `${DRAFT_KEY_PREFIX}${estimateId}` : `${DRAFT_KEY_PREFIX}new`;
 
   /**
    * Save draft to sessionStorage
    */
   const saveDraft = useCallback((draft: Omit<EstimateDraft, "savedAt">) => {
-    if (!draftKeyRef.current) return;
+    if (!draftKey) return;
     
     try {
       const fullDraft: EstimateDraft = {
         ...draft,
         savedAt: Date.now(),
       };
-      sessionStorage.setItem(draftKeyRef.current, JSON.stringify(fullDraft));
+      sessionStorage.setItem(draftKey, JSON.stringify(fullDraft));
     } catch (err) {
       // sessionStorage might be full or unavailable - silently fail
       console.warn("Failed to save estimate draft:", err);
     }
-  }, []);
+  }, [draftKey]);
 
   /**
    * Load draft from sessionStorage
    * Returns null if no draft exists or if the draft is stale (> 4 hours old)
    */
   const loadDraft = useCallback((): EstimateDraft | null => {
-    if (!draftKeyRef.current) return null;
+    if (!draftKey) return null;
     
     try {
-      const stored = sessionStorage.getItem(draftKeyRef.current);
+      const stored = sessionStorage.getItem(draftKey);
       if (!stored) return null;
       
       const draft = JSON.parse(stored) as EstimateDraft;
@@ -70,7 +66,7 @@ export function useEstimateDraft(estimateId: string | null | undefined, isOpen: 
       // Check if draft is too old (4 hours)
       const maxAge = 4 * 60 * 60 * 1000;
       if (Date.now() - draft.savedAt > maxAge) {
-        sessionStorage.removeItem(draftKeyRef.current);
+        sessionStorage.removeItem(draftKey);
         return null;
       }
       
@@ -79,21 +75,21 @@ export function useEstimateDraft(estimateId: string | null | undefined, isOpen: 
       console.warn("Failed to load estimate draft:", err);
       return null;
     }
-  }, []);
+  }, [draftKey]);
 
   /**
    * Clear the draft from sessionStorage
    * Call this after successful save
    */
   const clearDraft = useCallback(() => {
-    if (!draftKeyRef.current) return;
+    if (!draftKey) return;
     
     try {
-      sessionStorage.removeItem(draftKeyRef.current);
+      sessionStorage.removeItem(draftKey);
     } catch (err) {
       console.warn("Failed to clear estimate draft:", err);
     }
-  }, []);
+  }, [draftKey]);
 
   /**
    * Clear all estimate drafts (for debugging or cleanup)
