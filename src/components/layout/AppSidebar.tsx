@@ -3,7 +3,9 @@ import { useAppVersion } from "@/hooks/useAppVersion";
 import { useSidebarFinancials } from "@/hooks/useSidebarFinancials";
 import { useTodayAppointmentsCount } from "@/hooks/useTodayAppointmentsCount";
 import { usePendingScopeSubmissionsCount } from "@/hooks/usePendingScopeSubmissionsCount";
+import { useAIGenerationQueue } from "@/hooks/useAIGenerationQueue";
 import { VersionBumpDialog } from "@/components/layout/VersionBumpDialog";
+import { AIQueueSheet } from "@/components/admin/AIQueueSheet";
 import { CompanySwitcher } from "@/components/layout/CompanySwitcher";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
@@ -33,7 +35,8 @@ import {
   Calendar,
   CalendarDays,
   ClipboardList,
-  Contact
+  Contact,
+  BrainCircuit
 } from "lucide-react";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
@@ -311,7 +314,11 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
   const { totalUnpaidAR, apDueByFocusDay, formatCompactCurrency } = useSidebarFinancials();
   const { data: todayAppointmentsCount = 0 } = useTodayAppointmentsCount();
   const { data: pendingScopesCount = 0 } = usePendingScopeSubmissionsCount();
+  const { activeCount: aiQueueCount } = useAIGenerationQueue();
   const collapsed = state === "collapsed";
+
+  // State for AI Queue sheet
+  const [aiQueueOpen, setAiQueueOpen] = useState(false);
 
   const closeSidebar = () => {
     // Close sidebar on both mobile and desktop
@@ -808,6 +815,26 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
                     </DropdownMenu>
                   </SidebarMenuItem>
 
+                  {/* AI Queue Management */}
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      tooltip={`AI Queue${aiQueueCount > 0 ? ` (${aiQueueCount})` : ''}`}
+                      onClick={() => setAiQueueOpen(true)}
+                    >
+                      <BrainCircuit className="h-4 w-4" />
+                      {!collapsed && (
+                        <span className="flex items-center gap-2">
+                          AI Queue
+                          {aiQueueCount > 0 && (
+                            <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-xs">
+                              {aiQueueCount}
+                            </Badge>
+                          )}
+                        </span>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+
                   {adminMenuItems.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton 
@@ -864,6 +891,9 @@ export function AppSidebar({ onAdminAction, onChangePassword }: AppSidebarProps)
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+
+      {/* AI Queue Sheet */}
+      <AIQueueSheet open={aiQueueOpen} onOpenChange={setAiQueueOpen} />
     </Sidebar>
   );
 }
