@@ -201,6 +201,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [showMissingInfoPanel, setShowMissingInfoPanel] = useState(false);
   const [isRegeneratingWithAnswers, setIsRegeneratingWithAnswers] = useState(false);
   
+  // Flag to skip auto-recovery after user manually clears groups
+  const [skipAutoRecovery, setSkipAutoRecovery] = useState(false);
+  
   // Plans file upload state
   const [plansFileUrl, setPlansFileUrl] = useState<string | null>(null);
   const [plansFileName, setPlansFileName] = useState<string | null>(null);
@@ -546,6 +549,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setPlansFileUrl(null);
       setPlansFileName(null);
       setEstimateCompanyId(null); // Reset for new estimates - will use contextCompanyId
+      setSkipAutoRecovery(false); // Allow recovery for fresh estimates
     }
   }, [open, estimateId]);
 
@@ -784,7 +788,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   // Check for completed/recovered AI generation jobs and apply results
   useEffect(() => {
-    if (!open || !currentEstimateId || groups.length > 0) return;
+    // Skip if: dialog closed, no estimate ID, already have groups, or user manually cleared
+    if (!open || !currentEstimateId || groups.length > 0 || skipAutoRecovery) return;
     
     const checkForCompletedJob = async () => {
       try {
@@ -825,7 +830,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     };
     
     checkForCompletedJob();
-  }, [open, currentEstimateId, groups.length, applyAIScope]);
+  }, [open, currentEstimateId, groups.length, applyAIScope, skipAutoRecovery]);
 
   // AI Scope Generation with job-based background processing
   const generateScope = async () => {
@@ -2091,6 +2096,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               variant="outline"
                               size="sm"
                               onClick={() => {
+                                setSkipAutoRecovery(true); // Prevent auto-recovery from re-applying old data
                                 setGroups([]);
                                 setPaymentSchedule([]);
                               }}
