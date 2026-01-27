@@ -718,8 +718,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Important: wait until we've attempted to restore a draft.
   // Otherwise on mount the restore effect can run, but this reset effect still runs with the
   // pre-restore values and wipes the restored draft.
+  // Also skip reset if we have a linkedOpportunity - let that effect handle population instead.
   useEffect(() => {
-    if (open && !estimateId && didAttemptDraftRestore && !draftRestored) {
+    if (open && !estimateId && didAttemptDraftRestore && !draftRestored && !linkedOpportunity) {
       setFormData({
         customer_name: "",
         customer_email: "",
@@ -762,7 +763,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setShowMissingInfoPanel(false);
       setIsRegeneratingWithAnswers(false);
     }
-  }, [open, estimateId, didAttemptDraftRestore, draftRestored]);
+  }, [open, estimateId, didAttemptDraftRestore, draftRestored, linkedOpportunity]);
 
   // Auto-populate from linked opportunity when provided
   // Important: Must wait for draft restore attempt to complete, otherwise the reset effect
