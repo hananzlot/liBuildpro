@@ -71,6 +71,23 @@ export function EstimatePreviewDialog({
 
   const handleGeneratePdf = async () => {
     if (!estimateId) return;
+
+    // The PDF generator reads AI sections from `estimates.ai_analysis`.
+    // If it hasn't been saved yet, the PDF won't include the new sections.
+    const ai = (data?.estimate as any)?.ai_analysis;
+    const hasAiSections =
+      !!ai &&
+      ((Array.isArray(ai.project_understanding) && ai.project_understanding.length > 0) ||
+        (Array.isArray(ai.assumptions) && ai.assumptions.length > 0) ||
+        (Array.isArray(ai.inclusions) && ai.inclusions.length > 0) ||
+        (Array.isArray(ai.exclusions) && ai.exclusions.length > 0));
+
+    if (!hasAiSections) {
+      toast.warning(
+        'AI sections are not saved on this estimate yet. Open the estimate, click Regenerate AI, then Save—after that the PDF preview will include Project Understanding / Assumptions / Inclusions & Exclusions.'
+      );
+      return;
+    }
     
     setGeneratingPdf(true);
     try {
