@@ -765,8 +765,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   }, [open, estimateId, didAttemptDraftRestore, draftRestored]);
 
   // Auto-populate from linked opportunity when provided
+  // Important: Must wait for draft restore attempt to complete, otherwise the reset effect
+  // will wipe out the populated data. Only populate if no draft was restored.
   useEffect(() => {
-    if (open && linkedOpportunity && !estimateId) {
+    if (open && linkedOpportunity && !estimateId && didAttemptDraftRestore && !draftRestored) {
       // Set opportunity tracking (only if there's a real opportunity ID)
       if (linkedOpportunity.id) {
         setLinkedOpportunityUuid(linkedOpportunity.id);
@@ -788,7 +790,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         salesperson_name: linkedOpportunity.salesperson_name || prev.salesperson_name,
       }));
     }
-  }, [open, linkedOpportunity, estimateId, initialWorkScope]);
+  }, [open, linkedOpportunity, estimateId, initialWorkScope, didAttemptDraftRestore, draftRestored]);
 
   // Apply default terms when they're loaded for new estimates
   useEffect(() => {
