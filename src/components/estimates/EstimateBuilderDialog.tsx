@@ -3256,6 +3256,26 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                 </TabsContent>
 
                 <TabsContent value="terms" className="mt-0 space-y-4">
+                  {/* Save button for Terms tab */}
+                  <Button 
+                    onClick={() => saveMutation.mutate()} 
+                    disabled={saveMutation.isPending}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {saveMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Estimate
+                      </>
+                    )}
+                  </Button>
+                  
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-base">Customer View Options</CardTitle>
