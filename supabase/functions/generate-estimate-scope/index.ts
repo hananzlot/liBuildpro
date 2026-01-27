@@ -34,9 +34,23 @@ function getRegionFromZip(zipCode: string): { region: string; costMultiplier: nu
   return { region: "California", costMultiplier: 1.0, description: "Standard California market rates" };
 }
 
+// Convert buffer to base64 in chunks to avoid memory issues with large files
+function bufferToBase64Chunked(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 8192; // Process 8KB at a time
+  let result = '';
+  
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    result += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  
+  return btoa(result);
+}
+
 // Convert PDF buffer to base64 data URL for Gemini (which supports native PDF)
 function pdfToBase64DataUrl(pdfBuffer: ArrayBuffer): string {
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+  const base64 = bufferToBase64Chunked(pdfBuffer);
   return `data:application/pdf;base64,${base64}`;
 }
 
@@ -151,9 +165,9 @@ serve(async (req) => {
             forceLovableAI = true; // Force Lovable AI since OpenAI doesn't support PDF in Chat Completions
             console.log(`PDF converted to base64, size: ${base64Pdf.length} chars`);
           } else if (contentType.includes('image/')) {
-            // For images, convert to base64 for vision model
+            // For images, convert to base64 for vision model using chunked encoding
             const imageBuffer = await plansResponse.arrayBuffer();
-            const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+            const base64Image = bufferToBase64Chunked(imageBuffer);
             const mimeType = contentType.split(';')[0];
             parsedPlansContent = { type: 'image_url', value: `data:${mimeType};base64,${base64Image}` };
             console.log('Image plans file detected - will send to vision model');
