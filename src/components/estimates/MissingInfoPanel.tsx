@@ -18,7 +18,7 @@ interface MissingInfoPanelProps {
   isSubmitting?: boolean;
 }
 
-interface ParsedQuestion {
+export interface ParsedQuestion {
   id: string;
   text: string;
   type: "text" | "multiselect";
@@ -27,14 +27,14 @@ interface ParsedQuestion {
 }
 
 // Multi-select dropdown component
-interface MultiSelectDropdownProps {
+export interface MultiSelectDropdownProps {
   options: string[];
   selected: string[];
   onChange: (selected: string[]) => void;
   placeholder?: string;
 }
 
-function MultiSelectDropdown({ options, selected, onChange, placeholder = "Select options..." }: MultiSelectDropdownProps) {
+export function MultiSelectDropdown({ options, selected, onChange, placeholder = "Select options..." }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
 
   const toggleOption = (option: string) => {
@@ -108,7 +108,7 @@ function MultiSelectDropdown({ options, selected, onChange, placeholder = "Selec
 }
 
 // Parse missing info strings to extract structured questions with deduplication
-function parseMissingInfo(items: string[]): ParsedQuestion[] {
+export function parseMissingInfo(items: string[]): ParsedQuestion[] {
   const seenTexts = new Set<string>();
   const questions: ParsedQuestion[] = [];
   
@@ -322,7 +322,7 @@ function parseMissingInfo(items: string[]): ParsedQuestion[] {
 }
 
 // Group questions by category
-function groupByCategory(questions: ParsedQuestion[]): Record<string, ParsedQuestion[]> {
+export function groupByCategory(questions: ParsedQuestion[]): Record<string, ParsedQuestion[]> {
   return questions.reduce((acc, q) => {
     const cat = q.category || "Other";
     if (!acc[cat]) acc[cat] = [];

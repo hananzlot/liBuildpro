@@ -20,13 +20,13 @@ import {
   Plus, Trash2, Save, Wand2, Loader2, GripVertical, 
   User, MapPin, Calendar, DollarSign, Percent, FileText,
   ChevronDown, ChevronRight, FolderPlus, TrendingUp, Copy,
-  Upload, X, FileIcon, ArrowRight, AlertCircle
+  Upload, X, FileIcon, ArrowRight, AlertCircle, HelpCircle, CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { AIGenerationProgress } from "./AIGenerationProgress";
-import { MissingInfoPanel } from "./MissingInfoPanel";
+import { MissingInfoPanel, parseMissingInfo, groupByCategory, MultiSelectDropdown, type ParsedQuestion } from "./MissingInfoPanel";
 import { AISummaryCard } from "./AISummaryCard";
 
 import type { LinkedOpportunity } from "./EstimateSourceDialog";
@@ -226,6 +226,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Missing info panel state
   const [showMissingInfoPanel, setShowMissingInfoPanel] = useState(false);
   const [isRegeneratingWithAnswers, setIsRegeneratingWithAnswers] = useState(false);
+  const [clarificationAnswers, setClarificationAnswers] = useState<Record<string, string>>({});
   
   // Controls visibility of the AI progress overlay (user can dismiss it)
   const [showAiProgress, setShowAiProgress] = useState(false);
@@ -1874,8 +1875,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     return { isValid: true, missing: [] as string[] };
   }, []);
 
+  const validateClarificationTab = useCallback(() => {
+    // Clarification tab is optional - always valid
+    return { isValid: true, missing: [] as string[] };
+  }, []);
+
   // Tab order for navigation
-  const tabOrder = ["customer", "scope", "payments", "terms"] as const;
+  const tabOrder = ["customer", "scope", "clarification", "payments", "terms"] as const;
 
   const handleNextTab = useCallback((currentTab: string, validation: { isValid: boolean; missing: string[] }) => {
     if (!validation.isValid) {
@@ -1896,6 +1902,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     const nextTabName = tabOrder[currentIndex + 1];
     const nextTabLabels: Record<string, string> = {
       scope: "Scope",
+      clarification: "Clarification",
       payments: "Payments",
       terms: "Terms & Notes",
     };
@@ -2052,6 +2059,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 <TabsTrigger value="scope" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
                   Scope ({groups.reduce((sum, g) => sum + g.items.length, 0)} items)
+                </TabsTrigger>
+                <TabsTrigger value="clarification" className="flex items-center gap-2">
+                  <HelpCircle className="h-4 w-4" />
+                  Clarification
+                  {aiSummary.missing_info.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 text-xs">
+                      {aiSummary.missing_info.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="payments" className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
@@ -2688,6 +2704,154 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     );
                   })()}
 
+                </TabsContent>
+
+                <TabsContent value="clarification" className="mt-0 space-y-4">
+                  {/* Next button for Clarification tab */}
+                  <TabNextButton currentTab="clarification" validation={validateClarificationTab()} />
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <HelpCircle className="h-4 w-4" />
+                        Additional Clarification (Optional)
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Answer these questions to refine your estimate. The AI will use this information to generate more accurate pricing.
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const parsedQuestions = parseMissingInfo(aiSummary.missing_info || []);
+                        const groupedQuestions = groupByCategory(parsedQuestions);
+                        const answeredCount = Object.values(clarificationAnswers).filter(v => v && v.trim()).length;
+                        const totalCount = parsedQuestions.length;
+                        const progress = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
+
+                        const updateAnswer = (id: string, value: string) => {
+                          setClarificationAnswers(prev => ({ ...prev, [id]: value }));
+                        };
+
+                        const updateMultiSelectAnswer = (id: string, selected: string[]) => {
+                          setClarificationAnswers(prev => ({ ...prev, [id]: selected.join(", ") }));
+                        };
+
+                        const getMultiSelectValue = (id: string): string[] => {
+                          const value = clarificationAnswers[id];
+                          if (!value) return [];
+                          return value.split(", ").filter(s => s.trim());
+                        };
+
+                        const handleRegenerateWithAnswers = () => {
+                          const formattedAnswers: Record<string, string> = {};
+                          parsedQuestions.forEach((q) => {
+                            if (clarificationAnswers[q.id]?.trim()) {
+                              formattedAnswers[q.text] = clarificationAnswers[q.id].trim();
+                            }
+                          });
+                          handleMissingInfoSubmit(formattedAnswers);
+                        };
+
+                        if (parsedQuestions.length === 0) {
+                          return (
+                            <div className="text-center py-8">
+                              <HelpCircle className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                              <p className="text-muted-foreground">
+                                No clarification questions at this time.
+                              </p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Generate an estimate with AI to see questions here.
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-6">
+                            {/* Progress indicator */}
+                            <div className="border rounded-lg p-4 bg-muted/30">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm text-muted-foreground">
+                                  {answeredCount} of {totalCount} answered
+                                </span>
+                                <Badge variant={progress === 100 ? "default" : "secondary"}>
+                                  {progress}%
+                                </Badge>
+                              </div>
+                              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-primary transition-all duration-300"
+                                  style={{ width: `${progress}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Questions grouped by category */}
+                            {Object.entries(groupedQuestions).map(([category, questions]) => (
+                              <div key={category}>
+                                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                                  {category}
+                                </h4>
+                                <div className="space-y-4">
+                                  {questions.map((question) => (
+                                    <div key={question.id} className="space-y-2">
+                                      <Label className="text-sm flex items-start gap-2">
+                                        {clarificationAnswers[question.id]?.trim() ? (
+                                          <CheckCircle2 className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+                                        ) : (
+                                          <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                        )}
+                                        <span>{question.text}</span>
+                                      </Label>
+                                      
+                                      {question.type === "multiselect" && question.options ? (
+                                        <MultiSelectDropdown
+                                          options={question.options}
+                                          selected={getMultiSelectValue(question.id)}
+                                          onChange={(selected) => updateMultiSelectAnswer(question.id, selected)}
+                                          placeholder="Select one or more options..."
+                                        />
+                                      ) : (
+                                        <Input
+                                          type="text"
+                                          value={clarificationAnswers[question.id] || ""}
+                                          onChange={(e) => updateAnswer(question.id, e.target.value)}
+                                          placeholder="Enter your answer..."
+                                        />
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* Regenerate button */}
+                            {answeredCount > 0 && (
+                              <div className="border-t pt-4">
+                                <Button
+                                  onClick={handleRegenerateWithAnswers}
+                                  disabled={isRegeneratingWithAnswers || isGeneratingScope}
+                                  className="w-full"
+                                >
+                                  {isRegeneratingWithAnswers ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Regenerating Estimate...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Wand2 className="mr-2 h-4 w-4" />
+                                      Regenerate Estimate with Answers ({answeredCount})
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 <TabsContent value="payments" className="mt-0 space-y-4">
