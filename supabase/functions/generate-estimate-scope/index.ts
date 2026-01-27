@@ -199,8 +199,17 @@ serve(async (req) => {
     if (plansFileUrl) {
       console.log('Fetching and parsing plans file...');
       try {
+        // Convert Google Drive view links to direct download links
+        let downloadUrl = plansFileUrl;
+        const googleDriveViewMatch = plansFileUrl.match(/drive\.google\.com\/file\/d\/([^\/]+)/);
+        if (googleDriveViewMatch) {
+          const fileId = googleDriveViewMatch[1];
+          downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+          console.log('Converted Google Drive link to direct download URL');
+        }
+        
         // Fetch the file content
-        const plansResponse = await fetch(plansFileUrl);
+        const plansResponse = await fetch(downloadUrl);
         if (plansResponse.ok) {
           const contentType = plansResponse.headers.get('content-type') || '';
           
