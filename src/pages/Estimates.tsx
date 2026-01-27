@@ -191,6 +191,12 @@ export default function Estimates() {
         if (tokenDeleteError) throw tokenDeleteError;
       }
 
+      // Delete estimate_generation_jobs (AI generation tracking)
+      await supabase
+        .from("estimate_generation_jobs")
+        .delete()
+        .eq("estimate_id", estimateId);
+
       // Delete estimate_payment_schedule
       await supabase
         .from("estimate_payment_schedule")
