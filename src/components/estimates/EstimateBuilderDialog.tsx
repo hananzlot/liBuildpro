@@ -2063,11 +2063,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 <TabsTrigger value="clarification" className="flex items-center gap-2">
                   <HelpCircle className="h-4 w-4" />
                   Clarification
-                  {aiSummary.missing_info.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {aiSummary.missing_info.length}
-                    </Badge>
-                  )}
+                  {(() => {
+                    const parsedQuestions = parseMissingInfo(aiSummary.missing_info || []);
+                    const unansweredCount = parsedQuestions.filter(q => !clarificationAnswers[q.id]?.trim()).length;
+                    return unansweredCount > 0 ? (
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {unansweredCount}
+                      </Badge>
+                    ) : parsedQuestions.length > 0 ? (
+                      <CheckCircle2 className="h-4 w-4 text-primary ml-1" />
+                    ) : null;
+                  })()}
                 </TabsTrigger>
                 <TabsTrigger value="payments" className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4" />
