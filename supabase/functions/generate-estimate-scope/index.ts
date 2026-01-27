@@ -34,6 +34,37 @@ function getRegionFromZip(zipCode: string): { region: string; costMultiplier: nu
   return { region: "California", costMultiplier: 1.0, description: "Standard California market rates" };
 }
 
+// Upload PDF to OpenAI Files API
+async function uploadPdfToOpenAI(
+  pdfBuffer: ArrayBuffer, 
+  filename: string, 
+  apiKey: string
+): Promise<string> {
+  console.log(`Uploading PDF to OpenAI: ${filename}, size: ${pdfBuffer.byteLength} bytes`);
+  
+  const formData = new FormData();
+  formData.append('purpose', 'user_data');
+  formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), filename);
+
+  const response = await fetch('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('OpenAI Files API error:', response.status, error);
+    throw new Error(`Failed to upload PDF to OpenAI: ${response.status} - ${error}`);
+  }
+
+  const data = await response.json();
+  console.log('PDF uploaded successfully, file_id:', data.id);
+  return data.id;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -120,7 +151,13 @@ serve(async (req) => {
     }
 
     // Parse uploaded plans file if provided
-    let parsedPlansContent = '';
+    // parsedPlansContent can be:
+    // - { type: 'file_id', value: string } for PDFs uploaded to OpenAI
+    // - { type: 'image_url', value: string } for base64 images
+    // - { type: 'text', value: string } for fallback text descriptions
+    // - null if no plans file
+    let parsedPlansContent: { type: 'file_id' | 'image_url' | 'text'; value: string } | null = null;
+    
     if (plansFileUrl) {
       console.log('Fetching and parsing plans file...');
       try {
@@ -130,15 +167,32 @@ serve(async (req) => {
           const contentType = plansResponse.headers.get('content-type') || '';
           
           if (contentType.includes('application/pdf')) {
-            // For PDFs, we'll describe what we received and ask the AI to work with the description
-            parsedPlansContent = `\n\n[CONSTRUCTION PLANS FILE UPLOADED - PDF document provided. Please generate an estimate based on the work scope description above, which should describe the contents of the plans.]`;
-            console.log('PDF plans file detected - using description-based estimation');
+            // For PDFs, upload to OpenAI Files API (requires OpenAI key)
+            if (useOpenAI) {
+              console.log('PDF plans file detected - uploading to OpenAI Files API...');
+              const pdfBuffer = await plansResponse.arrayBuffer();
+              const filename = `construction-plans-${Date.now()}.pdf`;
+              
+              try {
+                const fileId = await uploadPdfToOpenAI(pdfBuffer, filename, openaiApiKey);
+                parsedPlansContent = { type: 'file_id', value: fileId };
+                console.log('PDF uploaded to OpenAI, file_id:', fileId);
+              } catch (uploadError) {
+                console.error('Failed to upload PDF to OpenAI:', uploadError);
+                // Fallback to description-based if upload fails
+                parsedPlansContent = { type: 'text', value: '\n\n[CONSTRUCTION PLANS PDF UPLOADED - Upload to OpenAI failed. Please generate an estimate based on the work scope description above.]' };
+              }
+            } else {
+              // Using Lovable AI - PDF not directly supported, use description
+              console.log('PDF plans file detected but using Lovable AI - falling back to description-based estimation');
+              parsedPlansContent = { type: 'text', value: '\n\n[CONSTRUCTION PLANS FILE UPLOADED - PDF document provided. Please generate an estimate based on the work scope description above, which should describe the contents of the plans.]' };
+            }
           } else if (contentType.includes('image/')) {
             // For images, convert to base64 for vision model
             const imageBuffer = await plansResponse.arrayBuffer();
             const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
             const mimeType = contentType.split(';')[0];
-            parsedPlansContent = `data:${mimeType};base64,${base64Image}`;
+            parsedPlansContent = { type: 'image_url', value: `data:${mimeType};base64,${base64Image}` };
             console.log('Image plans file detected - will send to vision model');
           }
         } else {
@@ -184,9 +238,24 @@ Default Markup: ${defaultMarkupPercent || 35}%
 
 DETAILED WORK SCOPE FROM CUSTOMER:
 ${workScopeDescription || projectDescription || 'General home improvement project'}
-${parsedPlansContent && !parsedPlansContent.startsWith('data:') ? parsedPlansContent : ''}
+${parsedPlansContent?.type === 'text' ? parsedPlansContent.value : ''}
 
 ${existingGroups?.length > 0 ? `\nExisting scope areas (already added): ${existingGroups.join(', ')}` : ''}
+
+**CRITICAL - COST FIELD RULES (READ CAREFULLY):**
+- "labor_cost" = RATE PER UNIT (e.g., $50/hour, NOT $500 for 10 hours)
+- "material_cost" = PRICE PER UNIT (e.g., $8/sqft, NOT $800 for 100 sqft)
+- NEVER multiply costs by quantity - return the UNIT RATE only
+- The system will calculate totals by multiplying quantity × unit cost
+
+CORRECT EXAMPLES:
+- 2000 board feet of lumber at $2/bf → quantity: 2000, unit: "bf", material_cost: 2
+- 10 hours of framing labor at $65/hr → quantity: 10, unit: "hours", labor_cost: 65
+- 500 sqft drywall install at $1.50/sqft labor → quantity: 500, unit: "sqft", labor_cost: 1.5
+
+WRONG EXAMPLES (DO NOT DO THIS):
+- material_cost: 4000 for 2000 board feet (this is the total, not per-unit!)
+- labor_cost: 650 for 10 hours of work (this is the total, not per-unit!)
 
 Return a JSON object with this EXACT structure (labor_cost and material_cost are REQUIRED and separate):
 {
@@ -205,8 +274,8 @@ Return a JSON object with this EXACT structure (labor_cost and material_cost are
           "description": "SPECIFIC item description (e.g., 'Drywall - 1/2 inch sheets' not just 'Drywall')",
           "quantity": number,
           "unit": "hours|sqft|linear ft|each|set|LS",
-          "labor_cost": number (labor cost per unit, 0 if material-only),
-          "material_cost": number (material cost per unit, 0 if labor-only),
+          "labor_cost": number (PER UNIT labor cost, 0 if material-only),
+          "material_cost": number (PER UNIT material cost, 0 if labor-only),
           "markup_percent": number,
           "is_taxable": boolean,
           "notes": "what this covers, allowance details if applicable"
@@ -232,16 +301,30 @@ GRANULARITY RULES:
 - Break each trade into 5-15 separate line items minimum
 - Example: "Flooring" becomes: "Flooring - Remove existing", "Flooring - Subfloor prep", "Flooring - Underlayment material", "Flooring - Underlayment install labor", "Flooring - Hardwood material", "Flooring - Hardwood install labor", "Flooring - Transition strips", "Flooring - Baseboards remove/replace"
 - Every line MUST have both labor_cost and material_cost fields (use 0 if not applicable)
-- Include often-forgotten items: mobilization, protection, dust control, daily cleanup, dumpsters, permits, inspections, final cleaning, punch list${parsedPlansContent && parsedPlansContent.startsWith('data:') ? '\n- ANALYZE THE ATTACHED CONSTRUCTION PLANS IMAGE CAREFULLY to extract dimensions, room layouts, and scope details' : ''}`;
+- Include often-forgotten items: mobilization, protection, dust control, daily cleanup, dumpsters, permits, inspections, final cleaning, punch list
+${parsedPlansContent?.type === 'file_id' ? '- ANALYZE THE ATTACHED CONSTRUCTION PLANS PDF CAREFULLY to extract dimensions, room layouts, specifications, and scope details' : ''}
+${parsedPlansContent?.type === 'image_url' ? '- ANALYZE THE ATTACHED CONSTRUCTION PLANS IMAGE CAREFULLY to extract dimensions, room layouts, and scope details' : ''}`;
 
-    // Build messages array - include image if we have one
+    // Build messages array based on content type
     const messages: any[] = [
       { role: 'system', content: systemPrompt },
     ];
 
-    const hasImageAttachment = parsedPlansContent && parsedPlansContent.startsWith('data:');
-
-    if (hasImageAttachment) {
+    // Build user message content based on what we have
+    if (parsedPlansContent?.type === 'file_id') {
+      // OpenAI with PDF file reference
+      messages.push({
+        role: 'user',
+        content: [
+          { 
+            type: 'file', 
+            file: { file_id: parsedPlansContent.value }
+          },
+          { type: 'text', text: userPrompt }
+        ]
+      });
+      console.log('Using OpenAI with PDF file reference');
+    } else if (parsedPlansContent?.type === 'image_url') {
       // Vision model message with image
       messages.push({
         role: 'user',
@@ -249,13 +332,15 @@ GRANULARITY RULES:
           { type: 'text', text: userPrompt },
           { 
             type: 'image_url', 
-            image_url: { url: parsedPlansContent }
+            image_url: { url: parsedPlansContent.value }
           }
         ]
       });
       console.log('Using vision model with image attachment');
     } else {
+      // Text-only message
       messages.push({ role: 'user', content: userPrompt });
+      console.log('Using text-only prompt');
     }
 
     let response: Response;
@@ -265,9 +350,18 @@ GRANULARITY RULES:
       // Use OpenAI API directly with company's API key
       apiProvider = 'OpenAI';
       
-      // Model selection: gpt-4o for images, gpt-4o-mini for text (or use configured model)
+      // Model selection: 
+      // - gpt-4o for PDF files (file input requires gpt-4o)
+      // - gpt-4o for images (vision)
+      // - gpt-4o-mini for text-only (or use configured model)
       let modelToUse: string;
-      if (aiModel) {
+      const hasFileAttachment = parsedPlansContent?.type === 'file_id';
+      const hasImageAttachment = parsedPlansContent?.type === 'image_url';
+      
+      if (hasFileAttachment) {
+        // PDF files require gpt-4o (gpt-4o-mini doesn't support file inputs)
+        modelToUse = 'gpt-4o';
+      } else if (aiModel) {
         // Use configured model, but force gpt-4o for images if they chose gpt-4o-mini
         modelToUse = hasImageAttachment && aiModel === 'gpt-4o-mini' ? 'gpt-4o' : aiModel;
       } else {
@@ -294,6 +388,7 @@ GRANULARITY RULES:
       apiProvider = 'Lovable';
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')!;
       
+      const hasImageAttachment = parsedPlansContent?.type === 'image_url';
       const modelToUse = hasImageAttachment 
         ? 'google/gemini-2.5-flash' // Vision-capable model
         : 'google/gemini-3-flash-preview';
