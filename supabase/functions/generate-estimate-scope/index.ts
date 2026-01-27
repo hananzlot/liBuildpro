@@ -467,97 +467,62 @@ ${baseUserPrompt}`;
     let response!: Response;
     let apiProvider: string;
     
-    // Force Lovable AI (Gemini) for PDFs since OpenAI Chat Completions doesn't support PDF
-    if (forceLovableAI || !useOpenAI) {
-      // Use Lovable AI Gateway (Gemini) - supports native PDF
-      apiProvider = 'Lovable';
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      
-      if (!LOVABLE_API_KEY) {
-        throw new Error('No AI API key configured. Please add your OpenAI API key in company settings.');
-      }
-      
-      // Use Gemini Pro for PDFs and images (better at document understanding)
-      const modelToUse = (hasPdfAttachment || hasImageAttachment) 
-        ? 'google/gemini-2.5-pro' 
-        : 'google/gemini-3-flash-preview';
-      
-      console.log(`Using Lovable AI Gateway with model: ${modelToUse}${forceLovableAI ? ' (forced for PDF support)' : ''}`);
-
-      // Add timeout protection (90 seconds for large PDF processing)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
-
-      try {
-        response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: modelToUse,
-            messages,
-            temperature: aiTemperature,
-            // Keep responses reasonably sized to avoid gateway/client timeouts.
-            max_tokens: 12000,
-            response_format: { type: "json_object" },
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        if ((error as Error).name === 'AbortError') {
-          throw new Error('AI processing timed out. Try with a smaller file or simpler work scope description.');
-        }
-        throw error;
-      }
+    // All requests go through Lovable AI Gateway
+    // - Gemini models for PDFs (native PDF support)
+    // - OpenAI GPT-5.2 when user selects OpenAI provider (via gateway)
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    
+    if (!LOVABLE_API_KEY) {
+      throw new Error('No AI API key configured. Please contact support.');
+    }
+    
+    // Determine which model to use
+    let modelToUse: string;
+    
+    if (forceLovableAI || hasPdfAttachment) {
+      // PDFs require Gemini (native PDF support)
+      modelToUse = 'google/gemini-2.5-pro';
+      apiProvider = 'Gemini';
+    } else if (useOpenAI) {
+      // User selected OpenAI - use GPT-5.2 via Lovable AI Gateway
+      modelToUse = 'openai/gpt-5.2';
+      apiProvider = 'OpenAI (GPT-5.2)';
     } else {
-      // Use OpenAI API directly with company's API key (no PDF support)
-      apiProvider = 'OpenAI';
-      
-      // Model selection for OpenAI (images work, PDFs don't)
-      let modelToUse: string;
-      
-      if (aiModel) {
-        // Use configured model, but force gpt-4o for images if they chose gpt-4o-mini
-        modelToUse = hasImageAttachment && aiModel === 'gpt-4o-mini' ? 'gpt-4o' : aiModel;
-      } else {
-        modelToUse = hasImageAttachment ? 'gpt-4o' : 'gpt-4o-mini';
-      }
-      
-      console.log(`Using OpenAI API with model: ${modelToUse}`);
+      // Default: Gemini for text/images
+      modelToUse = hasImageAttachment ? 'google/gemini-2.5-pro' : 'google/gemini-3-flash-preview';
+      apiProvider = 'Gemini';
+    }
+    
+    console.log(`Using Lovable AI Gateway with model: ${modelToUse} (provider: ${apiProvider})`);
 
-      // Add timeout protection (90 seconds)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
+    // Add timeout protection (90 seconds for large PDF processing)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-      try {
-        response = await fetchWithRetry('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: modelToUse,
-            messages,
-            temperature: aiTemperature,
-            // Keep responses reasonably sized to avoid gateway/client timeouts.
-            max_tokens: 12000,
-            response_format: { type: "json_object" },
-          }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        if ((error as Error).name === 'AbortError') {
-          throw new Error('AI processing timed out. Try with a smaller file or simpler work scope description.');
-        }
-        throw error;
+    try {
+      response = await fetchWithRetry('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages,
+          temperature: aiTemperature,
+          // Keep responses reasonably sized to avoid gateway/client timeouts.
+          max_tokens: 12000,
+          response_format: { type: "json_object" },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if ((error as Error).name === 'AbortError') {
+        throw new Error('AI processing timed out. Try with a smaller file or simpler work scope description.');
       }
+      throw error;
     }
 
     if (!response.ok) {
