@@ -3,6 +3,41 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+// --- Global flush-on-tab-switch support -------------------------------------
+// These components debounce writes via setTimeout. When the user switches browser
+// tabs quickly, the timeout may not fire before the page becomes hidden.
+// We register each debounced field's "flush" function in a module-level set and
+// trigger them all on visibility/page lifecycle events.
+
+type Flusher = () => void;
+const debouncedFlushers = new Set<Flusher>();
+let flushListenersInitialized = false;
+
+function initDebouncedFlushListeners() {
+  if (flushListenersInitialized) return;
+  flushListenersInitialized = true;
+
+  const flushAll = () => {
+    // Copy to array to avoid issues if a flusher unregisters during iteration.
+    Array.from(debouncedFlushers).forEach((flush) => {
+      try {
+        flush();
+      } catch (e) {
+        // Never block other flushers.
+        console.warn("Failed to flush debounced input:", e);
+      }
+    });
+  };
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushAll();
+  });
+  // pagehide fires reliably on tab close / navigation (including bfcache).
+  window.addEventListener("pagehide", flushAll);
+  // beforeunload is best-effort; still flush synchronously.
+  window.addEventListener("beforeunload", flushAll);
+}
+
 interface DebouncedInputProps extends Omit<React.ComponentProps<typeof Input>, 'onChange'> {
   value: string;
   onSave: (value: string) => void;
@@ -17,8 +52,20 @@ export function DebouncedInput({
   ...props 
 }: DebouncedInputProps) {
   const [localValue, setLocalValue] = React.useState(value);
-  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = React.useRef(value);
+  const localValueRef = React.useRef(localValue);
+  const onSaveRef = React.useRef(onSave);
+  const flushRef = React.useRef<() => void>(() => {});
+
+  // Keep refs in sync for global flushers
+  React.useEffect(() => {
+    localValueRef.current = localValue;
+  }, [localValue]);
+
+  React.useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
 
   // Sync local value when prop changes from external updates
   React.useEffect(() => {
@@ -27,6 +74,19 @@ export function DebouncedInput({
       lastSavedRef.current = value;
     }
   }, [value]);
+
+  // A stable "flush" implementation that always reads the latest refs.
+  flushRef.current = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    const current = localValueRef.current;
+    if (current !== lastSavedRef.current) {
+      onSaveRef.current(current);
+      lastSavedRef.current = current;
+    }
+  };
 
   const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -47,19 +107,18 @@ export function DebouncedInput({
   }, [onSave, debounceMs]);
 
   const handleBlur = React.useCallback(() => {
-    // Clear timeout and save immediately on blur
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (localValue !== lastSavedRef.current) {
-      onSave(localValue);
-      lastSavedRef.current = localValue;
-    }
-  }, [localValue, onSave]);
+    flushRef.current();
+  }, []);
 
   // Cleanup on unmount
   React.useEffect(() => {
+    initDebouncedFlushListeners();
+
+    const flusher: Flusher = () => flushRef.current();
+    debouncedFlushers.add(flusher);
+
     return () => {
+      debouncedFlushers.delete(flusher);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -91,8 +150,19 @@ export function DebouncedTextarea({
   ...props 
 }: DebouncedTextareaProps) {
   const [localValue, setLocalValue] = React.useState(value);
-  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = React.useRef(value);
+  const localValueRef = React.useRef(localValue);
+  const onSaveRef = React.useRef(onSave);
+  const flushRef = React.useRef<() => void>(() => {});
+
+  React.useEffect(() => {
+    localValueRef.current = localValue;
+  }, [localValue]);
+
+  React.useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
 
   // Sync local value when prop changes from external updates
   React.useEffect(() => {
@@ -101,6 +171,18 @@ export function DebouncedTextarea({
       lastSavedRef.current = value;
     }
   }, [value]);
+
+  flushRef.current = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    const current = localValueRef.current;
+    if (current !== lastSavedRef.current) {
+      onSaveRef.current(current);
+      lastSavedRef.current = current;
+    }
+  };
 
   const handleChange = React.useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
@@ -121,19 +203,18 @@ export function DebouncedTextarea({
   }, [onSave, debounceMs]);
 
   const handleBlur = React.useCallback(() => {
-    // Clear timeout and save immediately on blur
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    if (localValue !== lastSavedRef.current) {
-      onSave(localValue);
-      lastSavedRef.current = localValue;
-    }
-  }, [localValue, onSave]);
+    flushRef.current();
+  }, []);
 
   // Cleanup on unmount
   React.useEffect(() => {
+    initDebouncedFlushListeners();
+
+    const flusher: Flusher = () => flushRef.current();
+    debouncedFlushers.add(flusher);
+
     return () => {
+      debouncedFlushers.delete(flusher);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -165,8 +246,19 @@ export function DebouncedNumberInput({
   ...props 
 }: DebouncedNumberInputProps) {
   const [localValue, setLocalValue] = React.useState(value?.toString() ?? "");
-  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = React.useRef(value);
+  const localValueRef = React.useRef(localValue);
+  const onSaveRef = React.useRef(onSave);
+  const flushRef = React.useRef<() => void>(() => {});
+
+  React.useEffect(() => {
+    localValueRef.current = localValue;
+  }, [localValue]);
+
+  React.useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
 
   // Sync local value when prop changes from external updates
   React.useEffect(() => {
@@ -175,6 +267,19 @@ export function DebouncedNumberInput({
       lastSavedRef.current = value;
     }
   }, [value]);
+
+  flushRef.current = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    const raw = localValueRef.current;
+    const numValue = raw ? parseFloat(raw) : null;
+    if (numValue !== lastSavedRef.current) {
+      onSaveRef.current(numValue);
+      lastSavedRef.current = numValue;
+    }
+  };
 
   const handleChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -196,20 +301,18 @@ export function DebouncedNumberInput({
   }, [onSave, debounceMs]);
 
   const handleBlur = React.useCallback(() => {
-    // Clear timeout and save immediately on blur
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    const numValue = localValue ? parseFloat(localValue) : null;
-    if (numValue !== lastSavedRef.current) {
-      onSave(numValue);
-      lastSavedRef.current = numValue;
-    }
-  }, [localValue, onSave]);
+    flushRef.current();
+  }, []);
 
   // Cleanup on unmount
   React.useEffect(() => {
+    initDebouncedFlushListeners();
+
+    const flusher: Flusher = () => flushRef.current();
+    debouncedFlushers.add(flusher);
+
     return () => {
+      debouncedFlushers.delete(flusher);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
