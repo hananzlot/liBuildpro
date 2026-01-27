@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatUnit } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -386,7 +387,7 @@ function ScopeOfWorkDisplay({ estimateId }: { estimateId: string }) {
                 <div className="flex-1">
                   <p className="font-medium">{item.description}</p>
                   <p className="text-sm text-muted-foreground">
-                    {item.quantity} {item.unit}
+                    {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''}
                   </p>
                 </div>
               </div>

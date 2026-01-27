@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatUnit } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -463,7 +464,7 @@ export function EstimatePreviewDialog({
                               <p className="font-medium">{item.description}</p>
                               {showDetails && (
                                 <p className="text-sm text-muted-foreground">
-                                  {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                                  {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)}
                                 </p>
                               )}
                             </div>
@@ -487,7 +488,7 @@ export function EstimatePreviewDialog({
                             <p className="font-medium">{item.description}</p>
                             {showDetails && (
                               <p className="text-sm text-muted-foreground">
-                                {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                                {item.quantity}{formatUnit(item.unit) ? ` ${formatUnit(item.unit)}` : ''} × {formatCurrency(item.unit_price)}
                               </p>
                             )}
                           </div>

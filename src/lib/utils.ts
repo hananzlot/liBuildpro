@@ -142,3 +142,10 @@ export function findUserByIdOrGhlId<T extends { id?: string; ghl_id: string }>(
   }
   return undefined;
 }
+
+// Format unit for display - hide "LS" (Lump Sum) as it's confusing to customers
+export const formatUnit = (unit: string | null | undefined): string => {
+  if (!unit) return '';
+  if (unit.toUpperCase() === 'LS') return '';
+  return unit;
+};
