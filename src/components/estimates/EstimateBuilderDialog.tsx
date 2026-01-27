@@ -44,19 +44,31 @@ interface LineItem {
   unit: string;
   unit_price: number;
   cost: number;
+  labor_cost: number;
+  material_cost: number;
   markup_percent: number;
   line_total: number;
   is_taxable: boolean;
   sort_order: number;
+  notes?: string;
 }
 
 interface Group {
   id: string;
   group_name: string;
   description: string;
+  trade?: string;
   sort_order: number;
   items: LineItem[];
   isOpen: boolean;
+}
+
+interface AISummary {
+  project_understanding: string[];
+  assumptions: string[];
+  inclusions: string[];
+  exclusions: string[];
+  missing_info: string[];
 }
 
 interface PaymentPhase {
@@ -162,12 +174,24 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [activeTab, setActiveTab] = useState("customer");
   const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
   
+  // AI Summary state for assumptions, inclusions/exclusions, missing info
+  const [aiSummary, setAiSummary] = useState<AISummary>({
+    project_understanding: [],
+    assumptions: [],
+    inclusions: [],
+    exclusions: [],
+    missing_info: [],
+  });
+  const [showAiSummary, setShowAiSummary] = useState(false);
+  
   // Linked opportunity tracking
   const [linkedOpportunityUuid, setLinkedOpportunityUuid] = useState<string | null>(null);
   const [linkedOpportunityGhlId, setLinkedOpportunityGhlId] = useState<string | null>(null);
 
   // Draft string values for money inputs so users can type decimals (e.g. "12.")
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
+  const [laborCostDrafts, setLaborCostDrafts] = useState<Record<string, string>>({});
+  const [materialCostDrafts, setMaterialCostDrafts] = useState<Record<string, string>>({});
   const [unitPriceDrafts, setUnitPriceDrafts] = useState<Record<string, string>>({});
   // Draft for final price input (auto-discount calculation)
   const [finalPriceDraft, setFinalPriceDraft] = useState<string>("");
@@ -373,13 +397,18 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         salesperson_name: est.salesperson_name || "",
       });
 
-      // Populate groups with items
+      // Populate groups with items - ensure labor_cost/material_cost are populated
       const groupsWithItems = existingEstimate.groups.map((g: any) => ({
         ...g,
         isOpen: true,
         items: existingEstimate.items
           .filter((i: any) => i.group_id === g.id)
-          .map((i: any) => ({ ...i })),
+          .map((i: any) => ({
+            ...i,
+            labor_cost: i.labor_cost ?? (i.item_type === 'labor' ? (i.cost || 0) : 0),
+            material_cost: i.material_cost ?? (i.item_type === 'material' ? (i.cost || 0) : 0),
+            notes: i.notes || "",
+          })),
       }));
       setGroups(groupsWithItems);
       
@@ -531,6 +560,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           const itemUnitPrice = itemCost * (1 + itemMarkup / 100);
           const itemQuantity = item.quantity || 1;
           
+          // Parse labor and material costs from the AI response
+          const laborCost = item.labor_cost ?? (item.item_type === 'labor' ? itemCost : 0);
+          const materialCost = item.material_cost ?? (item.item_type === 'material' ? itemCost : 0);
+          
           return {
             id: generateId(),
             item_type: item.item_type || "material",
@@ -538,11 +571,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
             quantity: itemQuantity,
             unit: item.unit || "each",
             cost: itemCost,
+            labor_cost: laborCost,
+            material_cost: materialCost,
             markup_percent: itemMarkup,
             unit_price: itemUnitPrice,
             line_total: itemQuantity * itemUnitPrice,
             is_taxable: item.is_taxable !== false,
             sort_order: iIdx,
+            notes: item.notes || "",
           };
         }),
       }));
@@ -584,6 +620,25 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       // Note: We no longer override deposit_percent from AI - company settings take precedence
       if (scope.notes) {
         setFormData(prev => ({ ...prev, notes: prev.notes ? `${prev.notes}\n\n${scope.notes}` : scope.notes }));
+      }
+      
+      // Capture AI summary sections if provided
+      setAiSummary({
+        project_understanding: scope.project_understanding || [],
+        assumptions: scope.assumptions || [],
+        inclusions: scope.inclusions || [],
+        exclusions: scope.exclusions || [],
+        missing_info: scope.missing_info || [],
+      });
+      
+      // Show summary if any sections have content
+      const hasSummary = (scope.project_understanding?.length > 0) || 
+                         (scope.assumptions?.length > 0) || 
+                         (scope.inclusions?.length > 0) || 
+                         (scope.exclusions?.length > 0) || 
+                         (scope.missing_info?.length > 0);
+      if (hasSummary) {
+        setShowAiSummary(true);
       }
 
       toast.success("AI generated scope added successfully!");
@@ -630,11 +685,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       quantity: 1,
       unit: "each",
       cost: 0,
+      labor_cost: 0,
+      material_cost: 0,
       markup_percent: formData.default_markup_percent,
       unit_price: 0,
       line_total: 0,
       is_taxable: true,
       sort_order: groups.find(g => g.id === groupId)?.items.length || 0,
+      notes: "",
     };
     setGroups(groups.map(g => 
       g.id === groupId ? { ...g, items: [...g.items, newItem] } : g
@@ -650,13 +708,16 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           if (item.id !== itemId) return item;
           const updated = { ...item, ...updates };
           
-          // If cost or markup changed, recalculate unit_price
-          if ('cost' in updates || 'markup_percent' in updates) {
+          // If labor_cost or material_cost changed, recalculate cost as sum
+          if ('labor_cost' in updates || 'material_cost' in updates) {
+            updated.cost = updated.labor_cost + updated.material_cost;
             updated.unit_price = updated.cost * (1 + updated.markup_percent / 100);
           }
           
-          // If unit_price was directly edited, back-calculate markup (optional behavior)
-          // For now, just allow direct price edits
+          // If cost or markup changed directly, recalculate unit_price
+          if ('cost' in updates || 'markup_percent' in updates) {
+            updated.unit_price = updated.cost * (1 + updated.markup_percent / 100);
+          }
           
           // Recalculate line total
           updated.line_total = updated.quantity * updated.unit_price;
@@ -1516,6 +1577,107 @@ The more detail you provide, the more accurate the AI-generated estimate will be
 
                           <div aria-hidden="true" />
                         </div>
+                      
+                      {/* AI Summary Section - Assumptions, Inclusions/Exclusions, Missing Info */}
+                      {(aiSummary.project_understanding.length > 0 || 
+                        aiSummary.assumptions.length > 0 || 
+                        aiSummary.inclusions.length > 0 || 
+                        aiSummary.exclusions.length > 0 || 
+                        aiSummary.missing_info.length > 0) && (
+                        <Card className="mb-4 border-dashed">
+                          <Collapsible open={showAiSummary} onOpenChange={setShowAiSummary}>
+                            <CardHeader className="py-2">
+                              <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary w-full">
+                                {showAiSummary ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                                <span className="font-semibold text-sm">AI Analysis & Assumptions</span>
+                                <Badge variant="outline" className="ml-auto">
+                                  {aiSummary.missing_info.length > 0 ? `${aiSummary.missing_info.length} items need clarification` : 'Complete'}
+                                </Badge>
+                              </CollapsibleTrigger>
+                            </CardHeader>
+                            <CollapsibleContent>
+                              <CardContent className="pt-0 space-y-3">
+                                {aiSummary.project_understanding.length > 0 && (
+                                  <div>
+                                    <Label className="text-xs font-medium text-muted-foreground">Project Understanding</Label>
+                                    <ul className="mt-1 text-sm space-y-1">
+                                      {aiSummary.project_understanding.map((item, idx) => (
+                                        <li key={idx} className="flex items-start gap-2">
+                                          <span className="text-muted-foreground">•</span>
+                                          <span>{item}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {aiSummary.assumptions.length > 0 && (
+                                  <div>
+                                    <Label className="text-xs font-medium text-muted-foreground">Assumptions</Label>
+                                    <ul className="mt-1 text-sm space-y-1">
+                                      {aiSummary.assumptions.map((item, idx) => (
+                                        <li key={idx} className="flex items-start gap-2">
+                                          <span className="text-muted-foreground">•</span>
+                                          <span>{item}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                  {aiSummary.inclusions.length > 0 && (
+                                    <div>
+                                      <Label className="text-xs font-medium text-green-600">Inclusions</Label>
+                                      <ul className="mt-1 text-sm space-y-1">
+                                        {aiSummary.inclusions.map((item, idx) => (
+                                          <li key={idx} className="flex items-start gap-2">
+                                            <span className="text-green-600">✓</span>
+                                            <span>{item}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                  
+                                  {aiSummary.exclusions.length > 0 && (
+                                    <div>
+                                      <Label className="text-xs font-medium text-destructive">Exclusions</Label>
+                                      <ul className="mt-1 text-sm space-y-1">
+                                        {aiSummary.exclusions.map((item, idx) => (
+                                          <li key={idx} className="flex items-start gap-2">
+                                            <span className="text-destructive">✗</span>
+                                            <span>{item}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {aiSummary.missing_info.length > 0 && (
+                                  <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded p-3">
+                                    <Label className="text-xs font-medium text-amber-700 dark:text-amber-300">Missing Information (Action Required)</Label>
+                                    <ul className="mt-1 text-sm space-y-1">
+                                      {aiSummary.missing_info.map((item, idx) => (
+                                        <li key={idx} className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
+                                          <span>?</span>
+                                          <span>{item}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </Card>
+                      )}
+                      
                       {groups.map((group) => (
                         <Card key={group.id}>
                           <Collapsible open={group.isOpen} onOpenChange={() => toggleGroup(group.id)}>
@@ -1567,39 +1729,24 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   </p>
                                 ) : (
                                   <div className="space-y-2">
-                                    {/* Header row - Wider layout with better readability */}
+                                    {/* Header row - Labor $ and Materials $ columns */}
                                     <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
-                                      <div className="w-24">Type</div>
-                                      <div className="flex-1 min-w-[180px]">Description</div>
-                                      <div className="w-20">Qty</div>
+                                      <div className="flex-1 min-w-[200px]">Description</div>
+                                      <div className="w-16">Qty</div>
                                       <div className="w-20">Unit</div>
-                                      <div className="w-24">Cost</div>
-                                      <div className="w-20">Markup %</div>
-                                      <div className="w-28">Price</div>
-                                      <div className="w-28">Total</div>
+                                      <div className="w-20">Labor $</div>
+                                      <div className="w-20">Material $</div>
+                                      <div className="w-16">Markup</div>
+                                      <div className="w-24">Price</div>
+                                      <div className="w-24 text-right">Total</div>
                                       <div className="w-8"></div>
                                     </div>
                                     {group.items.map((item) => (
                                       <div key={item.id} className="flex items-start gap-2">
-                                        <Select
-                                          value={item.item_type}
-                                          onValueChange={(v) => updateLineItem(group.id, item.id, { item_type: v })}
-                                        >
-                                          <SelectTrigger className="w-24 h-8 text-xs mt-1">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {itemTypes.map((t) => (
-                                              <SelectItem key={t.value} value={t.value}>
-                                                {t.label}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
                                         <Textarea
                                           value={item.description}
                                           onChange={(e) => updateLineItem(group.id, item.id, { description: e.target.value })}
-                                          className="flex-1 min-w-[180px] min-h-[32px] text-sm resize-none overflow-hidden py-1.5"
+                                          className="flex-1 min-w-[200px] min-h-[32px] text-sm resize-none overflow-hidden py-1.5"
                                           placeholder="Item description"
                                           rows={1}
                                           onInput={(e) => {
@@ -1619,8 +1766,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                             type="text"
                                             inputMode="decimal"
                                             value={item.quantity}
-                                            onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updateLineItem(group.id, item.id, { quantity: parseFloat(val) || 0 }); }}
-                                            className="w-20 h-8 text-sm"
+                                            onChange={(e) => { 
+                                              const val = e.target.value; 
+                                              if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                                                updateLineItem(group.id, item.id, { quantity: parseFloat(val) || 0 }); 
+                                              }
+                                            }}
+                                            className="w-16 h-8 text-sm"
                                           />
                                           <Select
                                             value={item.unit}
@@ -1637,22 +1789,18 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                               ))}
                                             </SelectContent>
                                           </Select>
-                                          {/* Cost field - 2 decimal display */}
+                                          {/* Labor $ field */}
                                           <Input
                                             type="text"
                                             inputMode="decimal"
-                                            value={costDrafts[item.id] ?? formatMoney(item.cost)}
+                                            value={laborCostDrafts[item.id] ?? formatMoney(item.labor_cost)}
                                             onChange={(e) => {
                                               const val = e.target.value.replace(/,/g, ".");
                                               if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
-                                                setCostDrafts((prev) => ({ ...prev, [item.id]: val }));
-
-                                                // Only commit to numeric state when it's a valid number (not a trailing dot)
+                                                setLaborCostDrafts((prev) => ({ ...prev, [item.id]: val }));
                                                 if (val !== "" && val !== "." && !val.endsWith(".")) {
-                                                  updateLineItem(group.id, item.id, { cost: Number(val) });
-                                                  // Cost changes recalc unit price; drop any manual price draft
+                                                  updateLineItem(group.id, item.id, { labor_cost: Number(val) });
                                                   setUnitPriceDrafts((prev) => {
-                                                    if (!(item.id in prev)) return prev;
                                                     const next = { ...prev };
                                                     delete next[item.id];
                                                     return next;
@@ -1661,24 +1809,45 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                               }
                                             }}
                                             onBlur={() => {
-                                              const draft = costDrafts[item.id];
+                                              const draft = laborCostDrafts[item.id];
                                               if (draft === undefined) return;
-
                                               const normalized = draft === "" || draft === "." ? 0 : Number(draft);
-                                              updateLineItem(group.id, item.id, { cost: normalized });
-
-                                              setCostDrafts((prev) => ({ ...prev, [item.id]: formatMoney(normalized) }));
-                                              setUnitPriceDrafts((prev) => {
-                                                if (!(item.id in prev)) return prev;
-                                                const next = { ...prev };
-                                                delete next[item.id];
-                                                return next;
-                                              });
+                                              updateLineItem(group.id, item.id, { labor_cost: normalized });
+                                              setLaborCostDrafts((prev) => ({ ...prev, [item.id]: formatMoney(normalized) }));
                                             }}
-                                            className="w-24 h-8 text-sm"
+                                            className="w-20 h-8 text-sm"
                                             placeholder="0.00"
                                           />
-                                          {/* Markup % field - aligned */}
+                                          {/* Material $ field */}
+                                          <Input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={materialCostDrafts[item.id] ?? formatMoney(item.material_cost)}
+                                            onChange={(e) => {
+                                              const val = e.target.value.replace(/,/g, ".");
+                                              if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
+                                                setMaterialCostDrafts((prev) => ({ ...prev, [item.id]: val }));
+                                                if (val !== "" && val !== "." && !val.endsWith(".")) {
+                                                  updateLineItem(group.id, item.id, { material_cost: Number(val) });
+                                                  setUnitPriceDrafts((prev) => {
+                                                    const next = { ...prev };
+                                                    delete next[item.id];
+                                                    return next;
+                                                  });
+                                                }
+                                              }
+                                            }}
+                                            onBlur={() => {
+                                              const draft = materialCostDrafts[item.id];
+                                              if (draft === undefined) return;
+                                              const normalized = draft === "" || draft === "." ? 0 : Number(draft);
+                                              updateLineItem(group.id, item.id, { material_cost: normalized });
+                                              setMaterialCostDrafts((prev) => ({ ...prev, [item.id]: formatMoney(normalized) }));
+                                            }}
+                                            className="w-20 h-8 text-sm"
+                                            placeholder="0.00"
+                                          />
+                                          {/* Markup % field */}
                                           <Input
                                             type="text"
                                             inputMode="decimal"
@@ -1686,22 +1855,18 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                             onChange={(e) => {
                                               const val = e.target.value;
                                               if (val === '' || /^\d*\.?\d*$/.test(val)) {
-                                                updateLineItem(group.id, item.id, {
-                                                  markup_percent: parseFloat(val) || 0,
-                                                });
-                                                // Markup changes recalc unit price; drop any manual price draft
+                                                updateLineItem(group.id, item.id, { markup_percent: parseFloat(val) || 0 });
                                                 setUnitPriceDrafts((prev) => {
-                                                  if (!(item.id in prev)) return prev;
                                                   const next = { ...prev };
                                                   delete next[item.id];
                                                   return next;
                                                 });
                                               }
                                             }}
-                                            className="w-20 h-8 text-sm"
+                                            className="w-16 h-8 text-sm"
                                             placeholder="35"
                                           />
-                                          {/* Price field - 2 decimal display */}
+                                          {/* Price field */}
                                           <Input
                                             type="text"
                                             inputMode="decimal"
@@ -1710,7 +1875,6 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                               const val = e.target.value.replace(/,/g, ".");
                                               if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
                                                 setUnitPriceDrafts((prev) => ({ ...prev, [item.id]: val }));
-
                                                 if (val !== "" && val !== "." && !val.endsWith(".")) {
                                                   updateLineItem(group.id, item.id, { unit_price: Number(val) });
                                                 }
@@ -1719,14 +1883,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                             onBlur={() => {
                                               const draft = unitPriceDrafts[item.id];
                                               if (draft === undefined) return;
-
                                               const normalized = draft === "" || draft === "." ? 0 : Number(draft);
                                               updateLineItem(group.id, item.id, { unit_price: normalized });
                                               setUnitPriceDrafts((prev) => ({ ...prev, [item.id]: formatMoney(normalized) }));
                                             }}
-                                            className="w-28 h-8 text-sm"
+                                            className="w-24 h-8 text-sm"
                                           />
-                                          <div className="w-28 text-sm font-medium text-right">
+                                          <div className="w-24 text-sm font-medium text-right">
                                             {formatCurrency(item.line_total)}
                                           </div>
                                           <Button
