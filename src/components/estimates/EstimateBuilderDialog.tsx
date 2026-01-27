@@ -233,6 +233,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Controls visibility of the AI progress overlay (user can dismiss it)
   const [showAiProgress, setShowAiProgress] = useState(false);
   
+  // Queue position tracking for concurrent AI requests
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  
   // Flag to skip auto-recovery after user manually clears groups
   const [skipAutoRecovery, setSkipAutoRecovery] = useState(false);
   
@@ -969,6 +972,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     
     let jobId: string | null = null;
     let subscription: ReturnType<typeof supabase.channel> | null = null;
+    let queueSubscription: ReturnType<typeof supabase.channel> | null = null;
     
     try {
       // Ensure we have an estimate ID - for new estimates, create a minimal draft first
@@ -1047,8 +1051,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         isGeneratingScopeRef.current = false;
         setCurrentAIStage(null);
         setStageProgress(null);
+        setQueuePosition(null);
         stopPolling();
         subscription?.unsubscribe();
+        queueSubscription?.unsubscribe();
       };
 
       const handleJobUpdate = (job: { 
@@ -1156,6 +1162,39 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         body: invokeBody,
       });
 
+      // Set queue position from response (if we're in a queue)
+      if (!error && data?.queuePosition) {
+        setQueuePosition(data.queuePosition);
+        if (data.queuePosition > 1) {
+          toast.info(`You're #${data.queuePosition} in the AI queue. Your request will process automatically.`);
+        }
+        
+        // Subscribe to queue position updates
+        queueSubscription = supabase
+          .channel(`queue-${jobId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'estimate_generation_queue',
+              filter: `job_id=eq.${jobId}`,
+            },
+            (payload) => {
+              const queueEntry = payload.new as { position: number; status: string };
+              if (queueEntry.status === 'waiting') {
+                setQueuePosition(queueEntry.position);
+                if (queueEntry.position === 1) {
+                  toast.info("You're next! Your AI generation will start shortly.");
+                }
+              } else if (queueEntry.status === 'processing') {
+                setQueuePosition(null); // Clear queue position when actually processing
+              }
+            }
+          )
+          .subscribe();
+      }
+
       // If we get an immediate response (fast generation), use it directly
       if (!error && data?.success && data?.scope) {
         console.log('Got immediate response, applying directly');
@@ -1165,6 +1204,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         applyAIScope(data.scope);
         setIsGeneratingScope(false);
         subscription?.unsubscribe();
+        queueSubscription?.unsubscribe();
         return;
       }
       
@@ -1966,6 +2006,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         hasPlansFile={!!plansFileUrl}
         currentStage={currentAIStage}
         stageProgress={stageProgress}
+        queuePosition={queuePosition}
         onClose={() => setShowAiProgress(false)}
       />
       

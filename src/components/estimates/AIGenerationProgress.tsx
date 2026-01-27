@@ -1,12 +1,13 @@
-import { Loader2, FileSearch, Brain, ListTree, CheckCircle2, Layers, X } from "lucide-react";
+import { Loader2, FileSearch, Brain, ListTree, CheckCircle2, Layers, X, Users } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface AIGenerationProgressProps {
   isGenerating: boolean;
   hasPlansFile: boolean;
   currentStage?: string | null;
   stageProgress?: { current: number; total: number } | null;
+  queuePosition?: number | null;
   onClose?: () => void;
 }
 
@@ -38,6 +39,7 @@ export function AIGenerationProgress({
   hasPlansFile, 
   currentStage,
   stageProgress,
+  queuePosition,
   onClose
 }: AIGenerationProgressProps) {
   if (!isGenerating) return null;
@@ -52,6 +54,7 @@ export function AIGenerationProgress({
   
   // Determine stage description based on whether we have real-time updates
   const hasRealtimeUpdates = !!currentStage;
+  const isWaitingInQueue = queuePosition && queuePosition > 1 && !hasRealtimeUpdates;
   
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[100] flex items-center justify-center pointer-events-auto">
@@ -70,15 +73,55 @@ export function AIGenerationProgress({
         
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            {isWaitingInQueue ? (
+              <Users className="h-8 w-8 text-amber-500" />
+            ) : (
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            )}
           </div>
-          <div>
-            <h3 className="font-semibold text-lg">Generating AI Estimate</h3>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-lg">
+                {isWaitingInQueue ? "Waiting in Queue" : "Generating AI Estimate"}
+              </h3>
+              {isWaitingInQueue && (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                  #{queuePosition} in line
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
-              {hasPlansFile ? "Analyzing your construction plans..." : "Building your estimate..."}
+              {isWaitingInQueue 
+                ? "Another estimate is being generated. You'll start automatically when it's done."
+                : hasPlansFile 
+                  ? "Analyzing your construction plans..." 
+                  : "Building your estimate..."}
             </p>
           </div>
         </div>
+        
+        {/* Queue waiting indicator */}
+        {isWaitingInQueue && (
+          <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="flex gap-1">
+              {Array.from({ length: Math.min(queuePosition!, 5) }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-3 w-3 rounded-full ${
+                    idx === queuePosition! - 1 
+                      ? "bg-amber-500 animate-pulse" 
+                      : "bg-amber-300"
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {queuePosition === 2 
+                ? "You're next! Starting soon..." 
+                : `${queuePosition! - 1} estimate${queuePosition! > 2 ? 's' : ''} ahead of you`}
+            </span>
+          </div>
+        )}
         
         {/* Progress bar - only show if we have stage progress */}
         {hasRealtimeUpdates && stageProgress && (
@@ -91,11 +134,13 @@ export function AIGenerationProgress({
           </div>
         )}
         
-        {/* Current stage indicator */}
-        <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-          <StageIcon className="h-5 w-5 text-primary animate-pulse" />
-          <span className="text-sm font-medium">{stageMessage}</span>
-        </div>
+        {/* Current stage indicator - only show when not waiting in queue */}
+        {!isWaitingInQueue && (
+          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+            <StageIcon className="h-5 w-5 text-primary animate-pulse" />
+            <span className="text-sm font-medium">{stageMessage}</span>
+          </div>
+        )}
         
         {/* Stage pipeline visualization */}
         {hasRealtimeUpdates && stageProgress && (
@@ -119,7 +164,11 @@ export function AIGenerationProgress({
         )}
         
         {/* Informational text */}
-        {hasRealtimeUpdates ? (
+        {isWaitingInQueue ? (
+          <p className="text-xs text-muted-foreground text-center">
+            Your request will automatically advance when the current generation completes.
+          </p>
+        ) : hasRealtimeUpdates ? (
           <p className="text-xs text-muted-foreground text-center">
             {hasPlansFile 
               ? "Processing plans and generating detailed line items..."
@@ -132,10 +181,12 @@ export function AIGenerationProgress({
         )}
         
         {/* Multi-stage benefit message */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
-          <Layers className="h-3 w-3" />
-          <span>Multi-stage processing for better results</span>
-        </div>
+        {!isWaitingInQueue && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
+            <Layers className="h-3 w-3" />
+            <span>Multi-stage processing for better results</span>
+          </div>
+        )}
         
         {/* Close explanation */}
         {onClose && (
