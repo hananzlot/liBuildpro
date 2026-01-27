@@ -2116,6 +2116,7 @@ export type Database = {
       }
       estimates: {
         Row: {
+          ai_analysis: Json | null
           billing_address: string | null
           company_id: string | null
           contact_id: string | null
@@ -2162,6 +2163,7 @@ export type Database = {
           work_scope_description: string | null
         }
         Insert: {
+          ai_analysis?: Json | null
           billing_address?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -2208,6 +2210,7 @@ export type Database = {
           work_scope_description?: string | null
         }
         Update: {
+          ai_analysis?: Json | null
           billing_address?: string | null
           company_id?: string | null
           contact_id?: string | null

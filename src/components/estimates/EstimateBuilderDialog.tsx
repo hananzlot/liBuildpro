@@ -860,6 +860,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         : "draft";
       
       // Prepare estimate data
+      // Only persist AI analysis sections that have content
+      const aiAnalysisData = (
+        aiSummary.project_understanding.length > 0 ||
+        aiSummary.assumptions.length > 0 ||
+        aiSummary.inclusions.length > 0 ||
+        aiSummary.exclusions.length > 0
+      ) ? {
+        project_understanding: aiSummary.project_understanding,
+        assumptions: aiSummary.assumptions,
+        inclusions: aiSummary.inclusions,
+        exclusions: aiSummary.exclusions,
+      } : null;
+
       const estimateData = {
         customer_name: formData.customer_name,
         customer_email: formData.customer_email || null,
@@ -891,6 +904,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         company_id: companyId,
         opportunity_uuid: linkedOpportunityUuid || null,
         opportunity_id: linkedOpportunityGhlId || null,
+        ai_analysis: aiAnalysisData,
       };
       
       // Only set status for new estimates (not when editing)
