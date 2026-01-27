@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useSearchParams, useParams, useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams, useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,14 +66,19 @@ const statusLabels: Record<string, string> = {
 
 export default function Estimates() {
   const navigate = useNavigate();
-  const { estimateId: urlEstimateId } = useParams<{ estimateId?: string }>();
+  const location = useLocation();
+  const { estimateId: urlEstimateId, editId: urlEditId } = useParams<{ estimateId?: string; editId?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = (searchParams.get("view") as ViewType) || "list";
   const { isAdmin } = useAuth();
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
-  const [builderOpen, setBuilderOpen] = useState(false);
-  const [editingEstimateId, setEditingEstimateId] = useState<string | null>(null);
+  
+  // Route-based builder state: /estimates/builder or /estimates/builder/:editId
+  const isBuilderRoute = location.pathname.startsWith('/estimates/builder');
+  const builderOpen = isBuilderRoute;
+  const editingEstimateId = urlEditId || null;
+  
   const [sendDialogEstimate, setSendDialogEstimate] = useState<Estimate | null>(null);
   const [isResendMode, setIsResendMode] = useState(false);
   const [printEstimateId, setPrintEstimateId] = useState<string | null>(null);
@@ -85,13 +90,13 @@ export default function Estimates() {
   const [linkedOpportunity, setLinkedOpportunity] = useState<LinkedOpportunity | null>(null);
   const [createOpportunityOnSave, setCreateOpportunityOnSave] = useState(false);
 
-  // Handle source dialog continue
+  // Handle source dialog continue - navigate to builder route
   const handleSourceDialogContinue = (opportunity: LinkedOpportunity | null, createOpp: boolean) => {
     setLinkedOpportunity(opportunity);
     setCreateOpportunityOnSave(createOpp);
     setSourceDialogOpen(false);
-    setEditingEstimateId(null);
-    setBuilderOpen(true);
+    // Navigate to builder route (new estimate)
+    navigate('/estimates/builder');
   };
 
   // Handle new estimate button click
@@ -277,9 +282,8 @@ export default function Estimates() {
 
   // Handle creating a new estimate from a declined one
   const handleCreateNewFromDeclined = (estimate: Estimate) => {
-    // We'll pass the source estimate ID to the builder via a special prop
-    setEditingEstimateId(`clone:${estimate.id}`);
-    setBuilderOpen(true);
+    // Navigate to builder with clone prefix
+    navigate(`/estimates/builder/clone:${estimate.id}`);
   };
 
   // Copy portal link for a proposal and open in new tab
@@ -510,7 +514,7 @@ export default function Estimates() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => { setEditingEstimateId(estimate.id); setBuilderOpen(true); }}
+                        onClick={() => navigate(`/estimates/builder/${estimate.id}`)}
                         title="Edit"
                       >
                         <Edit className="h-4 w-4" />
@@ -771,12 +775,13 @@ export default function Estimates() {
         onContinue={handleSourceDialogContinue}
       />
 
-      {/* Estimate Builder Dialog */}
+      {/* Estimate Builder Dialog - route-based so it stays open across tab switches */}
       <EstimateBuilderDialog
         open={builderOpen}
         onOpenChange={(open) => {
-          setBuilderOpen(open);
           if (!open) {
+            // Navigate back to estimates list when closing
+            navigate(`/estimates${currentView !== 'list' ? `?view=${currentView}` : ''}`, { replace: true });
             setLinkedOpportunity(null);
             setCreateOpportunityOnSave(false);
           }
