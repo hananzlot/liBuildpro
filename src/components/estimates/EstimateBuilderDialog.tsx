@@ -151,10 +151,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Track the current estimate ID (updated after first save for new estimates)
   const [currentEstimateId, setCurrentEstimateId] = useState<string | null>(sourceEstimateId || null);
   
-  // Reset currentEstimateId when dialog opens with a different estimateId
+  // Reset currentEstimateId and wasManuallyCleared when dialog opens with a different estimateId
   useEffect(() => {
     if (open) {
       setCurrentEstimateId(sourceEstimateId || null);
+      setWasManuallyCleared(false); // Reset manual clear flag on dialog open
     }
   }, [open, sourceEstimateId]);
   
@@ -226,6 +227,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   
   // Flag to skip auto-recovery after user manually clears groups
   const [skipAutoRecovery, setSkipAutoRecovery] = useState(false);
+  
+  // Track if user manually cleared during this editing session (prevents DB reload from overwriting)
+  const [wasManuallyCleared, setWasManuallyCleared] = useState(false);
   
   // Plans file upload state
   const [plansFileUrl, setPlansFileUrl] = useState<string | null>(null);
@@ -441,9 +445,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     enabled: !!sourceEstimateId && open,
   });
 
-  // Populate form when editing
+  // Populate form when editing (skip if user manually cleared during this session)
   useEffect(() => {
-    if (existingEstimate?.estimate) {
+    if (existingEstimate?.estimate && !wasManuallyCleared) {
       const est = existingEstimate.estimate;
       
       // Infer markup percent from existing line items (use the first item's markup, or default to 50)
@@ -558,7 +562,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         setShowAiSummary(false);
       }
     }
-  }, [existingEstimate]);
+  }, [existingEstimate, wasManuallyCleared]);
 
   // Reset form when dialog opens for new estimate
   useEffect(() => {
@@ -597,6 +601,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setPlansFileName(null);
       setEstimateCompanyId(null); // Reset for new estimates - will use contextCompanyId
       setSkipAutoRecovery(false); // Allow recovery for fresh estimates
+      setWasManuallyCleared(false); // Allow DB population for fresh estimates
 
       // Reset AI analysis UI
       setAiSummary({ ...emptyAiSummary });
@@ -2251,8 +2256,11 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               size="sm"
                               onClick={() => {
                                 setSkipAutoRecovery(true); // Prevent auto-recovery from re-applying old data
+                                setWasManuallyCleared(true); // Prevent DB reload from overwriting cleared state
                                 setGroups([]);
                                 setPaymentSchedule([]);
+                                setAiSummary({ ...emptyAiSummary });
+                                setShowAiSummary(false);
                               }}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
