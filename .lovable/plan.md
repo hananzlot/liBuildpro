@@ -1,146 +1,193 @@
 
-# Plan: Fix ChatGPT AI Estimate Cost Interpretation
 
-## Problem Identified
+# Plan: Implement OpenAI Files API for PDF Uploads
 
-After switching from Lovable AI (Google Gemini) to your OpenAI API (ChatGPT), the AI is returning **total costs** instead of **per-unit costs** for `labor_cost` and `material_cost` fields.
+## Overview
+Modify the `generate-estimate-scope` edge function to upload PDF files to OpenAI's `/v1/files` endpoint, then reference the `file_id` in the chat completion request. This allows ChatGPT to analyze both the text content and visual diagrams in your construction plans.
 
-### Example from Estimate 2053 (ChatGPT):
-| Item | Quantity | Unit | AI Returned `material_cost` | Expected Per-Unit Cost | Result |
-|------|----------|------|---------------------------|----------------------|--------|
-| Lumber - Framing | 2,000 | board feet | $4,000 | ~$2/bf | $8,000,000 (wrong!) |
-| Hardwood Flooring | 1,000 | sqft | $8,000 | ~$8/sqft | $8,000,000 (wrong!) |
+## How It Works
 
-### What's Happening:
-1. ChatGPT calculates `2,000 board feet × $2/bf = $4,000` and returns `material_cost: 4000`
-2. Frontend then calculates: `$4,000 × 2,000 = $8,000,000` (double-counting!)
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  1. User uploads PDF to Supabase Storage (estimate-plans)  │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│  2. Edge function fetches PDF from Supabase Storage URL    │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│  3. Upload PDF to OpenAI /v1/files endpoint                │
+│     - purpose: "user_data"                                  │
+│     - Returns file_id (e.g., "file-abc123...")             │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│  4. Call Chat Completions with file reference              │
+│     content: [                                              │
+│       { type: "file", file: { file_id: "file-abc123" } },  │
+│       { type: "text", text: "Generate estimate..." }       │
+│     ]                                                       │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│  5. ChatGPT analyzes PDF (text + page images)              │
+│     - Extracts specifications text                          │
+│     - "Sees" floor plans, elevations, diagrams             │
+└─────────────────────────────────────────────────────────────┘
+                           ↓
+┌─────────────────────────────────────────────────────────────┐
+│  6. Returns detailed estimate JSON                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### Estimate 2052 (Lovable AI / Gemini) worked because Gemini returned per-unit costs:
-- Lumber: `material_cost: 2` (per board foot) → `$2 × 2,000 = $4,000` ✓
+## Implementation Details
 
----
+### Step 1: Add PDF Upload Function to Edge Function
 
-## Solution: Strengthen the Prompt for ChatGPT
+```typescript
+// New helper function in generate-estimate-scope/index.ts
 
-Modify the `generate-estimate-scope` edge function to make the prompt **crystal clear** that costs must be **PER UNIT, not total**.
+async function uploadPdfToOpenAI(
+  pdfBuffer: ArrayBuffer, 
+  filename: string, 
+  apiKey: string
+): Promise<string> {
+  const formData = new FormData();
+  formData.append('purpose', 'user_data');
+  formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), filename);
 
-### Changes to `supabase/functions/generate-estimate-scope/index.ts`:
+  const response = await fetch('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: formData,
+  });
 
-**1. Update the JSON schema example (line 202-213):**
-```javascript
-"items": [
-  {
-    "item_type": "labor|material|equipment|permit|assembly",
-    "description": "SPECIFIC item description",
-    "quantity": number,
-    "unit": "hours|sqft|linear ft|each|set|LS",
-    "labor_cost": number,  // PER-UNIT labor cost (e.g., $50/hour, NOT $500 for 10 hours)
-    "material_cost": number,  // PER-UNIT material cost (e.g., $8/sqft, NOT $800 for 100 sqft)
-    "markup_percent": number,
-    "is_taxable": boolean,
-    "notes": "string"
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to upload PDF to OpenAI: ${error}`);
   }
-]
+
+  const data = await response.json();
+  return data.id; // Returns file_id like "file-abc123..."
+}
 ```
 
-**2. Add explicit clarification in the prompt:**
+### Step 2: Update PDF Handling Logic
+
+Replace the current placeholder logic (lines 132-135) with actual upload:
+
+```typescript
+if (contentType.includes('application/pdf')) {
+  console.log('PDF plans file detected - uploading to OpenAI...');
+  const pdfBuffer = await plansResponse.arrayBuffer();
+  const filename = `construction-plans-${Date.now()}.pdf`;
+  
+  try {
+    const fileId = await uploadPdfToOpenAI(pdfBuffer, filename, openaiApiKey);
+    parsedPlansContent = { type: 'file_id', value: fileId };
+    console.log('PDF uploaded to OpenAI, file_id:', fileId);
+  } catch (uploadError) {
+    console.error('Failed to upload PDF to OpenAI:', uploadError);
+    // Fallback to description-based if upload fails
+    parsedPlansContent = { type: 'text', value: '[PDF upload failed - using description only]' };
+  }
+}
 ```
-CRITICAL COST RULES:
-- labor_cost = cost PER UNIT (e.g., $50 per hour, $3 per sqft)
-- material_cost = cost PER UNIT (e.g., $8 per sqft, $2 per board foot)
-- DO NOT multiply by quantity - return the UNIT RATE only
-- The system will calculate: line_total = (labor_cost + material_cost) × quantity × (1 + markup)
 
-EXAMPLE:
-- 100 sqft of flooring at $8/sqft → material_cost: 8 (NOT 800)
-- 20 hours of labor at $50/hour → labor_cost: 50 (NOT 1000)
+### Step 3: Update Message Structure for OpenAI
+
+Modify the messages array to use the new file input format:
+
+```typescript
+// Build user message content array
+const userContent: any[] = [];
+
+// Add file reference if PDF was uploaded
+if (parsedPlansContent?.type === 'file_id') {
+  userContent.push({
+    type: 'file',
+    file: { file_id: parsedPlansContent.value }
+  });
+}
+
+// Add the text prompt
+userContent.push({
+  type: 'text',
+  text: userPrompt
+});
+
+// Build messages array
+const messages = [
+  { role: 'system', content: systemPrompt },
+  { role: 'user', content: userContent }
+];
 ```
 
-**3. Add optional normalization logic (safety net):**
-Add a heuristic check: if `(labor_cost + material_cost) > quantity × 100`, assume AI returned totals and divide by quantity.
+### Step 4: Keep Image Support Working
 
----
+Images will continue to work as before (base64 inline):
+
+```typescript
+if (contentType.includes('image/')) {
+  // Existing image handling remains unchanged
+  const imageBuffer = await plansResponse.arrayBuffer();
+  const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+  const mimeType = contentType.split(';')[0];
+  parsedPlansContent = { 
+    type: 'image_url', 
+    value: `data:${mimeType};base64,${base64Image}` 
+  };
+}
+```
+
+### Step 5: Also Fix the Per-Unit Cost Issue
+
+While updating the function, we'll also strengthen the prompt to ensure ChatGPT returns per-unit costs (not totals):
+
+```text
+**CRITICAL - COST FIELD RULES:**
+- "labor_cost" = RATE PER UNIT (e.g., $50/hour, NOT $500 for 10 hours)
+- "material_cost" = PRICE PER UNIT (e.g., $8/sqft, NOT $800 for 100 sqft)
+- NEVER multiply costs by quantity - return the UNIT RATE only
+
+CORRECT: 2000 board feet of lumber at $2/bf → quantity: 2000, material_cost: 2
+WRONG: material_cost: 4000 for 2000 board feet (this is the total, not per-unit!)
+```
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `supabase/functions/generate-estimate-scope/index.ts` | Strengthen prompt with explicit per-unit cost examples and rules |
+| `supabase/functions/generate-estimate-scope/index.ts` | Add PDF upload function, update message structure, fix cost prompt |
 
----
+## Technical Considerations
 
-## Technical Implementation Details
+### File Size Limits
+- OpenAI Files API supports up to **512 MB** per file
+- Your `estimate-plans` bucket limit is 200MB - well within range
 
-### Updated Prompt Section (lines 191-235):
-```text
-Return a JSON object with this EXACT structure:
-{
-  "groups": [
-    {
-      "group_name": "Phase - Trade",
-      "description": "Brief description",
-      "items": [
-        {
-          "item_type": "labor|material|equipment|permit|assembly",
-          "description": "Specific item description",
-          "quantity": number,
-          "unit": "hours|sqft|linear ft|each|set|LS",
-          "labor_cost": number,
-          "material_cost": number,
-          "markup_percent": number,
-          "is_taxable": boolean,
-          "notes": "string"
-        }
-      ]
-    }
-  ]
-}
+### Token Usage
+- PDF pages are converted to images by OpenAI
+- ~1,000-2,000 tokens per page (depending on complexity)
+- A 10-page construction plan ≈ 10,000-20,000 input tokens
 
-**CRITICAL - COST FIELD RULES:**
-- "labor_cost" = RATE PER UNIT (e.g., $50/hour, $3/sqft for install labor)
-- "material_cost" = PRICE PER UNIT (e.g., $8/sqft, $2/board-foot)
-- NEVER multiply costs by quantity - the system handles that
-- The formula is: line_total = (labor_cost + material_cost) × quantity × (1 + markup%)
+### Model Selection
+- Must use `gpt-4o` (not gpt-4o-mini) for file/vision support
+- gpt-4o-mini does NOT support file inputs
 
-CORRECT EXAMPLES:
-✓ 2000 board feet of lumber at $2/bf → quantity: 2000, material_cost: 2
-✓ 40 hours of electrician at $75/hr → quantity: 40, labor_cost: 75
-✓ 1000 sqft flooring at $8/sqft material + $3/sqft install → quantity: 1000, material_cost: 8, labor_cost: 3
-
-WRONG EXAMPLES:
-✗ material_cost: 4000 for 2000 board feet (this is total, not per-unit!)
-✗ labor_cost: 3000 for 40 hours (should be 75 per hour)
-```
-
----
+### Cleanup (Optional)
+- OpenAI stores uploaded files until deleted
+- Could add cleanup logic to delete file after estimate generation
+- Or let them accumulate (they don't count against storage limits significantly)
 
 ## Expected Outcome
 
-After this fix:
-- **Estimate 2053 (if regenerated)**: Would show ~$936K instead of ~$17.8M
-- **Future estimates**: ChatGPT will return proper per-unit costs
-- **Backward compatible**: Lovable AI (Gemini) will continue to work correctly
+After implementation:
+- PDF construction plans will be fully analyzed by ChatGPT
+- ChatGPT will "see" floor plans, elevations, and diagrams
+- Text specifications will be extracted and understood
+- Estimates will be based on actual plan content, not just descriptions
 
----
-
-## Risk Mitigation
-
-As a safety net, we can also add normalization logic in the frontend to detect and correct this issue:
-
-```typescript
-// In EstimateBuilderDialog.tsx, when processing AI response:
-let laborCost = parseNum(item.labor_cost);
-let materialCost = parseNum(item.material_cost);
-const quantity = item.quantity || 1;
-
-// Heuristic: if combined cost seems like a total (> $500/unit for most items), normalize
-const combinedCost = laborCost + materialCost;
-if (combinedCost > 500 && quantity > 1) {
-  // AI likely returned totals instead of per-unit
-  laborCost = laborCost / quantity;
-  materialCost = materialCost / quantity;
-  console.warn(`Normalized costs for "${item.description}" (likely AI returned totals)`);
-}
-```
-
-This provides a fallback in case the prompt fix alone doesn't fully solve the issue.
