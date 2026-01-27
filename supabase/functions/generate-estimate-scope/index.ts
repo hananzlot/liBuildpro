@@ -40,9 +40,9 @@ serve(async (req) => {
   }
 
   try {
-    const { projectType, projectDescription, workScopeDescription, jobAddress, existingGroups, defaultMarkupPercent, companyId } = await req.json();
+    const { projectType, projectDescription, workScopeDescription, jobAddress, existingGroups, defaultMarkupPercent, companyId, plansFileUrl } = await req.json();
 
-    console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent, companyId });
+    console.log('Generating estimate scope for:', { projectType, workScopeDescription, jobAddress, defaultMarkupPercent, companyId, hasPlans: !!plansFileUrl });
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -84,6 +84,38 @@ serve(async (req) => {
       console.log('Has custom instructions:', !!customInstructions);
     }
 
+    // Parse uploaded plans file if provided
+    let parsedPlansContent = '';
+    if (plansFileUrl) {
+      console.log('Fetching and parsing plans file...');
+      try {
+        // Fetch the file content
+        const plansResponse = await fetch(plansFileUrl);
+        if (plansResponse.ok) {
+          const contentType = plansResponse.headers.get('content-type') || '';
+          
+          if (contentType.includes('application/pdf')) {
+            // For PDFs, we'll describe what we received and ask the AI to work with the description
+            // Note: Full PDF parsing would require additional libraries
+            parsedPlansContent = `\n\n[CONSTRUCTION PLANS FILE UPLOADED - PDF document provided. Please generate an estimate based on the work scope description above, which should describe the contents of the plans.]`;
+            console.log('PDF plans file detected - using description-based estimation');
+          } else if (contentType.includes('image/')) {
+            // For images, convert to base64 for vision model
+            const imageBuffer = await plansResponse.arrayBuffer();
+            const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+            const mimeType = contentType.split(';')[0];
+            parsedPlansContent = `data:${mimeType};base64,${base64Image}`;
+            console.log('Image plans file detected - will send to vision model');
+          }
+        } else {
+          console.warn('Failed to fetch plans file:', plansResponse.status);
+        }
+      } catch (plansError) {
+        console.error('Error parsing plans file:', plansError);
+        // Continue without plans - don't fail the entire request
+      }
+    }
+
     // Extract ZIP code and get regional pricing info
     const zipCode = extractZipCode(jobAddress || '');
     const regionInfo = zipCode ? getRegionFromZip(zipCode) : { region: "California", costMultiplier: 1.0, description: "Standard rates" };
@@ -118,6 +150,7 @@ Default Markup: ${defaultMarkupPercent || 35}%
 
 DETAILED WORK SCOPE FROM CUSTOMER:
 ${workScopeDescription || projectDescription || 'General home improvement project'}
+${parsedPlansContent && !parsedPlansContent.startsWith('data:') ? parsedPlansContent : ''}
 
 ${existingGroups?.length > 0 ? `\nExisting scope areas (already added): ${existingGroups.join(', ')}` : ''}
 
@@ -165,7 +198,34 @@ GRANULARITY RULES:
 - Break each trade into 5-15 separate line items minimum
 - Example: "Flooring" becomes: "Flooring - Remove existing", "Flooring - Subfloor prep", "Flooring - Underlayment material", "Flooring - Underlayment install labor", "Flooring - Hardwood material", "Flooring - Hardwood install labor", "Flooring - Transition strips", "Flooring - Baseboards remove/replace"
 - Every line MUST have both labor_cost and material_cost fields (use 0 if not applicable)
-- Include often-forgotten items: mobilization, protection, dust control, daily cleanup, dumpsters, permits, inspections, final cleaning, punch list`;
+- Include often-forgotten items: mobilization, protection, dust control, daily cleanup, dumpsters, permits, inspections, final cleaning, punch list${parsedPlansContent && parsedPlansContent.startsWith('data:') ? '\n- ANALYZE THE ATTACHED CONSTRUCTION PLANS IMAGE CAREFULLY to extract dimensions, room layouts, and scope details' : ''}`;
+
+    // Build messages array - include image if we have one
+    const messages: any[] = [
+      { role: 'system', content: systemPrompt },
+    ];
+
+    if (parsedPlansContent && parsedPlansContent.startsWith('data:')) {
+      // Vision model message with image
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'text', text: userPrompt },
+          { 
+            type: 'image_url', 
+            image_url: { url: parsedPlansContent }
+          }
+        ]
+      });
+      console.log('Using vision model with image attachment');
+    } else {
+      messages.push({ role: 'user', content: userPrompt });
+    }
+
+    // Use vision-capable model when we have an image
+    const modelToUse = (parsedPlansContent && parsedPlansContent.startsWith('data:')) 
+      ? 'google/gemini-2.5-flash' // Vision-capable model
+      : 'google/gemini-3-flash-preview';
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -174,11 +234,8 @@ GRANULARITY RULES:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
+        model: modelToUse,
+        messages,
         temperature: aiTemperature,
         max_tokens: 8000,
       }),

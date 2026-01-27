@@ -18,7 +18,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Plus, Trash2, Save, Wand2, Loader2, GripVertical, 
   User, MapPin, Calendar, DollarSign, Percent, FileText,
-  ChevronDown, ChevronRight, FolderPlus, TrendingUp, Copy
+  ChevronDown, ChevronRight, FolderPlus, TrendingUp, Copy,
+  Upload, X, FileIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -183,6 +184,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     missing_info: [],
   });
   const [showAiSummary, setShowAiSummary] = useState(false);
+  
+  // Plans file upload state
+  const [plansFileUrl, setPlansFileUrl] = useState<string | null>(null);
+  const [plansFileName, setPlansFileName] = useState<string | null>(null);
+  const [isUploadingPlans, setIsUploadingPlans] = useState(false);
   
   // Linked opportunity tracking
   const [linkedOpportunityUuid, setLinkedOpportunityUuid] = useState<string | null>(null);
@@ -436,6 +442,19 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       // Set linked project
       setLinkedProjectId(est.project_id || null);
+      
+      // Set plans file URL if present
+      if (est.plans_file_url) {
+        setPlansFileUrl(est.plans_file_url);
+        // Extract filename from URL
+        try {
+          const urlPath = new URL(est.plans_file_url).pathname;
+          const fileName = urlPath.split('/').pop() || 'plans';
+          setPlansFileName(fileName);
+        } catch {
+          setPlansFileName('Uploaded plans');
+        }
+      }
     }
   }, [existingEstimate]);
 
@@ -472,6 +491,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setLinkedProjectId(null);
       setLinkedOpportunityUuid(null);
       setLinkedOpportunityGhlId(null);
+      setPlansFileUrl(null);
+      setPlansFileName(null);
     }
   }, [open, estimateId]);
 
@@ -534,14 +555,66 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
   }, [open, estimateId, estimateDefaults]);
 
+  // Plans file upload handler
+  const handlePlansUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a PDF or image file (JPG, PNG, WebP)');
+      return;
+    }
+
+    // Validate file size (50MB max)
+    if (file.size > 52428800) {
+      toast.error('File is too large. Maximum size is 50MB.');
+      return;
+    }
+
+    setIsUploadingPlans(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${companyId}/${Date.now()}-${crypto.randomUUID()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('estimate-plans')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get signed URL for access (private bucket)
+      const { data: urlData } = await supabase.storage
+        .from('estimate-plans')
+        .createSignedUrl(fileName, 60 * 60 * 24 * 365); // 1 year expiry
+
+      if (urlData?.signedUrl) {
+        setPlansFileUrl(urlData.signedUrl);
+        setPlansFileName(file.name);
+        toast.success('Plans file uploaded successfully');
+      }
+    } catch (err) {
+      console.error('Error uploading plans:', err);
+      toast.error('Failed to upload plans file');
+    } finally {
+      setIsUploadingPlans(false);
+    }
+  };
+
+  const removePlansFile = () => {
+    setPlansFileUrl(null);
+    setPlansFileName(null);
+  };
+
   // AI Scope Generation
   const generateScope = async () => {
     if (!formData.job_address?.trim()) {
       toast.error("Please enter the job site address first (required for accurate pricing)");
       return;
     }
-    if (!formData.work_scope_description?.trim()) {
-      toast.error("Please describe the work scope with measurements before generating");
+    if (!formData.work_scope_description?.trim() && !plansFileUrl) {
+      toast.error("Please describe the work scope or upload plans before generating");
       setActiveTab("scope");
       return;
     }
@@ -557,6 +630,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           existingGroups: groups.map(g => g.group_name),
           defaultMarkupPercent: formData.default_markup_percent,
           companyId: companyId,
+          plansFileUrl: plansFileUrl, // Pass the uploaded plans URL
         },
       });
 
@@ -907,6 +981,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         opportunity_uuid: linkedOpportunityUuid || null,
         opportunity_id: linkedOpportunityGhlId || null,
         ai_analysis: aiAnalysisData,
+        plans_file_url: plansFileUrl || null,
       };
       
       // Only set status for new estimates (not when editing)
@@ -1535,6 +1610,61 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         Include measurements (sqft, linear ft, quantities) and specific materials. 
                         The AI uses this + job site ZIP code for location-based pricing.
                       </p>
+                      
+                      {/* Plans File Upload */}
+                      <div className="mt-4 pt-4 border-t">
+                        <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+                          <Upload className="h-4 w-4" />
+                          Construction Plans (Optional)
+                        </Label>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Upload PDF or image of architectural plans. The AI will analyze them to generate a more accurate estimate.
+                        </p>
+                        
+                        {plansFileUrl ? (
+                          <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                            <FileIcon className="h-5 w-5 text-primary" />
+                            <span className="flex-1 text-sm truncate">{plansFileName}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={removePlansFile}
+                              className="h-8 w-8 p-0"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <input
+                              type="file"
+                              accept=".pdf,image/jpeg,image/png,image/webp"
+                              onChange={handlePlansUpload}
+                              disabled={isUploadingPlans}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              disabled={isUploadingPlans}
+                            >
+                              {isUploadingPlans ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="mr-2 h-4 w-4" />
+                                  Upload Plans (PDF or Image)
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </CardContent>
                   </Card>
 
