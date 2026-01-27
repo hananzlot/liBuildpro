@@ -237,7 +237,7 @@ GRANULARITY RULES:
         model: modelToUse,
         messages,
         temperature: aiTemperature,
-        max_tokens: 8000,
+        max_tokens: 16000,
       }),
     });
 
@@ -274,15 +274,38 @@ GRANULARITY RULES:
     try {
       // Try to extract JSON from the response (handle markdown code blocks)
       let jsonStr = generatedContent;
+      
+      // Check for markdown code blocks - use a more robust regex
       const jsonMatch = generatedContent.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         jsonStr = jsonMatch[1].trim();
+      } else {
+        // Try to find JSON object directly (starts with { and ends with })
+        const directJsonMatch = generatedContent.match(/\{[\s\S]*\}/);
+        if (directJsonMatch) {
+          jsonStr = directJsonMatch[0];
+        }
       }
+      
+      // Check if the JSON appears to be truncated
+      const openBraces = (jsonStr.match(/\{/g) || []).length;
+      const closeBraces = (jsonStr.match(/\}/g) || []).length;
+      if (openBraces > closeBraces) {
+        console.error('JSON appears truncated - unbalanced braces:', { openBraces, closeBraces });
+        console.error('Response length:', generatedContent.length);
+        throw new Error('AI response was truncated - estimate is too complex. Try simplifying the work scope description.');
+      }
+      
       parsedScope = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      console.error('Raw response:', generatedContent);
-      throw new Error('Failed to parse AI response as JSON');
+      console.error('Raw response (first 500 chars):', generatedContent.substring(0, 500));
+      console.error('Raw response (last 500 chars):', generatedContent.substring(generatedContent.length - 500));
+      
+      if (parseError instanceof Error && parseError.message.includes('truncated')) {
+        throw parseError;
+      }
+      throw new Error('Failed to parse AI response as JSON. The AI may have returned an incomplete response.');
     }
 
     // Add region info to the response
