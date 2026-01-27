@@ -496,9 +496,11 @@ ${baseUserPrompt}`;
     
     console.log(`Using Lovable AI Gateway with model: ${modelToUse} (provider: ${apiProvider})`);
 
-    // Add timeout protection (90 seconds for large PDF processing)
+    // Add timeout protection - OpenAI models need more time for complex reasoning
+    const isOpenAIModel = modelToUse.startsWith('openai/');
+    const timeoutMs = isOpenAIModel ? 150000 : 90000; // 150s for OpenAI, 90s for Gemini
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       // Build request body - OpenAI models use max_completion_tokens, Gemini uses max_tokens
