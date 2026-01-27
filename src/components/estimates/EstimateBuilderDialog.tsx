@@ -567,9 +567,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return;
     }
 
-    // Validate file size (50MB max)
-    if (file.size > 52428800) {
-      toast.error('File is too large. Maximum size is 50MB.');
+    // Validate file size (65MB max)
+    if (file.size > 68157440) {
+      toast.error('File is too large. Maximum size is 65MB.');
       return;
     }
 
