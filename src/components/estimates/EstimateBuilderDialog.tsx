@@ -26,6 +26,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { updateOpportunityValueFromEstimates } from "@/lib/estimateValueUtils";
 import { AIGenerationProgress } from "./AIGenerationProgress";
 import { MissingInfoPanel } from "./MissingInfoPanel";
+import { AISummaryCard } from "./AISummaryCard";
 
 import type { LinkedOpportunity } from "./EstimateSourceDialog";
 
@@ -73,6 +74,14 @@ interface AISummary {
   exclusions: string[];
   missing_info: string[];
 }
+
+const emptyAiSummary: AISummary = {
+  project_understanding: [],
+  assumptions: [],
+  inclusions: [],
+  exclusions: [],
+  missing_info: [],
+};
 
 interface PaymentPhase {
   id: string;
@@ -188,13 +197,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
   
   // AI Summary state for assumptions, inclusions/exclusions, missing info
-  const [aiSummary, setAiSummary] = useState<AISummary>({
-    project_understanding: [],
-    assumptions: [],
-    inclusions: [],
-    exclusions: [],
-    missing_info: [],
-  });
+  const [aiSummary, setAiSummary] = useState<AISummary>({ ...emptyAiSummary });
   const [showAiSummary, setShowAiSummary] = useState(false);
   
   // Missing info panel state
@@ -510,6 +513,30 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           setPlansFileName('Uploaded plans');
         }
       }
+
+      // Populate AI analysis sections (Project Understanding, Assumptions, Inclusions, Exclusions, Missing Info)
+      const ai = (est as any).ai_analysis as Partial<AISummary> | null;
+      if (ai && typeof ai === "object") {
+        const nextSummary: AISummary = {
+          project_understanding: Array.isArray(ai.project_understanding) ? ai.project_understanding : [],
+          assumptions: Array.isArray(ai.assumptions) ? ai.assumptions : [],
+          inclusions: Array.isArray(ai.inclusions) ? ai.inclusions : [],
+          exclusions: Array.isArray(ai.exclusions) ? ai.exclusions : [],
+          missing_info: Array.isArray(ai.missing_info) ? ai.missing_info : [],
+        };
+        setAiSummary(nextSummary);
+
+        const hasAny =
+          nextSummary.project_understanding.length > 0 ||
+          nextSummary.assumptions.length > 0 ||
+          nextSummary.inclusions.length > 0 ||
+          nextSummary.exclusions.length > 0 ||
+          nextSummary.missing_info.length > 0;
+        setShowAiSummary(hasAny);
+      } else {
+        setAiSummary({ ...emptyAiSummary });
+        setShowAiSummary(false);
+      }
     }
   }, [existingEstimate]);
 
@@ -550,6 +577,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setPlansFileName(null);
       setEstimateCompanyId(null); // Reset for new estimates - will use contextCompanyId
       setSkipAutoRecovery(false); // Allow recovery for fresh estimates
+
+      // Reset AI analysis UI
+      setAiSummary({ ...emptyAiSummary });
+      setShowAiSummary(false);
+      setShowMissingInfoPanel(false);
+      setIsRegeneratingWithAnswers(false);
     }
   }, [open, estimateId]);
 
@@ -1687,8 +1720,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         >
           <DialogHeader className="px-6 py-4 border-b">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl">
-              {isEditing ? "Edit Estimate" : isCloneMode ? "New Estimate (from Declined)" : "New Estimate"}
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <span>
+                {isEditing ? "Edit Estimate" : isCloneMode ? "New Estimate (from Declined)" : "New Estimate"}
+              </span>
+              {isEditing && (existingEstimate as any)?.estimate?.estimate_number && (
+                <Badge variant="outline" className="text-xs">
+                  Est #{(existingEstimate as any).estimate.estimate_number}
+                </Badge>
+              )}
             </DialogTitle>
             <div className="flex items-center gap-2">
               {isSuperAdmin && isEditing && (
@@ -2039,6 +2079,14 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                     </CardContent>
                   </Card>
 
+                  <AISummaryCard
+                    summary={aiSummary}
+                    open={showAiSummary}
+                    onOpenChange={setShowAiSummary}
+                    onAnswerQuestions={() => setShowMissingInfoPanel(true)}
+                    isBusy={isGeneratingScope || isRegeneratingWithAnswers}
+                  />
+
                   {/* Check if mandatory fields are filled for AI generation */}
                   {(() => {
                     const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim();
@@ -2128,133 +2176,13 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           <div aria-hidden="true" />
                         </div>
                       
-                      {/* AI Summary Section - Assumptions, Inclusions/Exclusions, Missing Info */}
-                      {(aiSummary.project_understanding.length > 0 || 
-                        aiSummary.assumptions.length > 0 || 
-                        aiSummary.inclusions.length > 0 || 
-                        aiSummary.exclusions.length > 0 || 
-                        aiSummary.missing_info.length > 0) && (
-                        <Card className="mb-4 border-dashed">
-                          <Collapsible open={showAiSummary} onOpenChange={setShowAiSummary}>
-                            <CardHeader className="py-2">
-                              <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary w-full">
-                                {showAiSummary ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                                <span className="font-semibold text-sm">AI Analysis & Assumptions</span>
-                                <Badge variant="outline" className="ml-auto">
-                                  {aiSummary.missing_info.length > 0 ? `${aiSummary.missing_info.length} items need clarification` : 'Complete'}
-                                </Badge>
-                              </CollapsibleTrigger>
-                            </CardHeader>
-                            <CollapsibleContent>
-                              <CardContent className="pt-0 space-y-3">
-                                {aiSummary.project_understanding.length > 0 && (
-                                  <div>
-                                    <Label className="text-xs font-medium text-muted-foreground">Project Understanding</Label>
-                                    <ul className="mt-1 text-sm space-y-1">
-                                      {aiSummary.project_understanding.map((item, idx) => (
-                                        <li key={idx} className="flex items-start gap-2">
-                                          <span className="text-muted-foreground">•</span>
-                                          <span>{item}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                
-                                {aiSummary.assumptions.length > 0 && (
-                                  <div>
-                                    <Label className="text-xs font-medium text-muted-foreground">Assumptions</Label>
-                                    <ul className="mt-1 text-sm space-y-1">
-                                      {aiSummary.assumptions.map((item, idx) => (
-                                        <li key={idx} className="flex items-start gap-2">
-                                          <span className="text-muted-foreground">•</span>
-                                          <span>{item}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                
-                                <div className="grid grid-cols-2 gap-4">
-                                  {aiSummary.inclusions.length > 0 && (
-                                    <div>
-                                      <Label className="text-xs font-medium text-green-600">Inclusions</Label>
-                                      <ul className="mt-1 text-sm space-y-1">
-                                        {aiSummary.inclusions.map((item, idx) => (
-                                          <li key={idx} className="flex items-start gap-2">
-                                            <span className="text-green-600">✓</span>
-                                            <span>{item}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  
-                                  {aiSummary.exclusions.length > 0 && (
-                                    <div>
-                                      <Label className="text-xs font-medium text-destructive">Exclusions</Label>
-                                      <ul className="mt-1 text-sm space-y-1">
-                                        {aiSummary.exclusions.map((item, idx) => (
-                                          <li key={idx} className="flex items-start gap-2">
-                                            <span className="text-destructive">✗</span>
-                                            <span>{item}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </div>
-                                
-                                {aiSummary.missing_info.length > 0 && (
-                                  <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded p-3">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="flex-1">
-                                        <Label className="text-xs font-medium text-amber-700 dark:text-amber-300">Missing Information ({aiSummary.missing_info.length} items)</Label>
-                                        <p className="mt-1 text-xs text-foreground/80">
-                                          Answer these questions to refine your estimate with more accurate pricing.
-                                        </p>
-                                      </div>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => setShowMissingInfoPanel(true)}
-                                        className="flex-shrink-0 border-amber-500 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900"
-                                        disabled={isGeneratingScope || isRegeneratingWithAnswers}
-                                      >
-                                        {isRegeneratingWithAnswers ? (
-                                          <>
-                                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                            Regenerating...
-                                          </>
-                                        ) : (
-                                          <>Answer Questions</>
-                                        )}
-                                      </Button>
-                                    </div>
-                                    <ul className="mt-2 text-sm space-y-1 max-h-32 overflow-y-auto">
-                                      {aiSummary.missing_info.slice(0, 5).map((item, idx) => (
-                                        <li key={idx} className="flex items-start gap-2 text-amber-800 dark:text-amber-200">
-                                          <span className="text-amber-500">?</span>
-                                          <span className="line-clamp-1">{item}</span>
-                                        </li>
-                                      ))}
-                                      {aiSummary.missing_info.length > 5 && (
-                                        <li className="text-xs text-amber-600 dark:text-amber-400 italic">
-                                          + {aiSummary.missing_info.length - 5} more questions...
-                                        </li>
-                                      )}
-                                    </ul>
-                                  </div>
-                                )}
-                              </CardContent>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        </Card>
-                      )}
+                      <AISummaryCard
+                        summary={aiSummary}
+                        open={showAiSummary}
+                        onOpenChange={setShowAiSummary}
+                        onAnswerQuestions={() => setShowMissingInfoPanel(true)}
+                        isBusy={isGeneratingScope || isRegeneratingWithAnswers}
+                      />
                       
                       {groups.map((group) => (
                         <Card key={group.id}>
