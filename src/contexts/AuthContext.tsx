@@ -108,8 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [simulatedRole, setSimulatedRole] = useState<AppRole | null>(null);
   
-  // Super admin company switching
-  const [viewingCompanyId, setViewingCompanyIdState] = useState<string | null>(null);
+  // Super admin company switching - persist to sessionStorage
+  const [viewingCompanyId, setViewingCompanyIdState] = useState<string | null>(() => {
+    // Initialize from sessionStorage
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('super_admin_viewing_company') || null;
+    }
+    return null;
+  });
   const [viewingCompany, setViewingCompany] = useState<Company | null>(null);
 
   // Derive base company and corporation IDs from profile
@@ -219,12 +225,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     setViewingCompanyIdState(newCompanyId);
     
+    // Persist to sessionStorage
     if (newCompanyId) {
+      sessionStorage.setItem('super_admin_viewing_company', newCompanyId);
       fetchViewingCompany(newCompanyId);
     } else {
+      sessionStorage.removeItem('super_admin_viewing_company');
       setViewingCompany(null);
     }
   }, [actualIsSuperAdmin, fetchViewingCompany]);
+
+  // Restore viewing company from sessionStorage on mount for super admins
+  useEffect(() => {
+    if (actualIsSuperAdmin && viewingCompanyId && !viewingCompany) {
+      fetchViewingCompany(viewingCompanyId);
+    }
+  }, [actualIsSuperAdmin, viewingCompanyId, viewingCompany, fetchViewingCompany]);
 
   useEffect(() => {
     // Set up auth state listener FIRST
