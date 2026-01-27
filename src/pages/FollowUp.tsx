@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useGHLMetrics, type DateRange } from "@/hooks/useGHLContacts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,15 +19,34 @@ const FollowUp = () => {
     refetch
   } = useGHLMetrics(undefined);
 
+  // Cache the last valid opportunity to prevent sheet from closing during refetches
+  const lastValidOpportunityRef = useRef<any>(null);
+
   // Derive selected opportunity from URL param
   const selectedOpportunity = useMemo(() => {
-    if (!opportunityId || !metrics?.allOpportunities?.length) return null;
-    return metrics.allOpportunities.find(
+    if (!opportunityId) return null;
+    if (!metrics?.allOpportunities?.length) {
+      // Return cached opportunity during loading/refetch
+      return lastValidOpportunityRef.current;
+    }
+    const found = metrics.allOpportunities.find(
       (o: any) => o.id === opportunityId || o.ghl_id === opportunityId
     ) || null;
+    return found;
   }, [opportunityId, metrics?.allOpportunities]);
 
-  // Modal open state derived from URL
+  // Update the cache when we have a valid opportunity
+  useEffect(() => {
+    if (selectedOpportunity && opportunityId) {
+      lastValidOpportunityRef.current = selectedOpportunity;
+    }
+    // Clear cache when sheet is closed
+    if (!opportunityId) {
+      lastValidOpportunityRef.current = null;
+    }
+  }, [selectedOpportunity, opportunityId]);
+
+  // Modal open state derived from URL - stays open as long as URL has opportunityId
   const oppDetailSheetOpen = !!opportunityId;
 
   const handleDetailSheetClose = (open: boolean) => {
@@ -85,7 +104,7 @@ const FollowUp = () => {
         )}
       </div>
 
-      {/* Opportunity Detail Sheet - open state derived from URL */}
+      {/* Opportunity Detail Sheet - open state derived from URL, uses cached opportunity during refetches */}
       <OpportunityDetailSheet 
         opportunity={selectedOpportunity} 
         appointments={metrics?.allAppointments || []} 
