@@ -1,11 +1,16 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   DollarSign,
   ArrowUpDown,
@@ -21,6 +26,9 @@ import {
   CalendarIcon,
   StickyNote,
   ListChecks,
+  Plus,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -31,6 +39,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Opportunity {
   id?: string;
@@ -139,6 +148,8 @@ export function OpportunitiesTable({
   tasks = [],
 }: OpportunitiesTableProps) {
   const { companyId } = useCompanyContext();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<string[]>([]);
@@ -149,6 +160,21 @@ export function OpportunitiesTable({
   const [sortColumn, setSortColumn] = useState<SortColumn>("updatedDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Quick add task dialog state
+  const [quickTaskDialogOpen, setQuickTaskDialogOpen] = useState(false);
+  const [quickTaskContactId, setQuickTaskContactId] = useState<string | null>(null);
+  const [quickTaskContactName, setQuickTaskContactName] = useState<string>("");
+  const [quickTaskTitle, setQuickTaskTitle] = useState("");
+  const [quickTaskDueDate, setQuickTaskDueDate] = useState("");
+  const [isCreatingQuickTask, setIsCreatingQuickTask] = useState(false);
+
+  // Quick add note dialog state
+  const [quickNoteDialogOpen, setQuickNoteDialogOpen] = useState(false);
+  const [quickNoteContactId, setQuickNoteContactId] = useState<string | null>(null);
+  const [quickNoteContactName, setQuickNoteContactName] = useState<string>("");
+  const [quickNoteText, setQuickNoteText] = useState("");
+  const [isCreatingQuickNote, setIsCreatingQuickNote] = useState(false);
   const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
   const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
 
@@ -673,6 +699,121 @@ export function OpportunitiesTable({
     return sortDirection === "asc" ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
+  // Check if a task is overdue (due date has passed and not completed)
+  const isTaskOverdue = (task: Task): boolean => {
+    if (task.completed || !task.due_date) return false;
+    const dueDate = new Date(task.due_date);
+    const now = new Date();
+    return dueDate < now;
+  };
+
+  // Check if opportunity has an overdue task
+  const hasOverdueTask = (contactId: string | null): boolean => {
+    if (!contactId) return false;
+    const task = latestTaskByContact.get(contactId);
+    return task ? isTaskOverdue(task) : false;
+  };
+
+  // Open quick task dialog
+  const openQuickTaskDialog = (e: React.MouseEvent, contactId: string | null, contactName: string) => {
+    e.stopPropagation();
+    if (!contactId) {
+      toast.error("No contact linked to this opportunity");
+      return;
+    }
+    setQuickTaskContactId(contactId);
+    setQuickTaskContactName(contactName);
+    setQuickTaskTitle("");
+    setQuickTaskDueDate("");
+    setQuickTaskDialogOpen(true);
+  };
+
+  // Open quick note dialog
+  const openQuickNoteDialog = (e: React.MouseEvent, contactId: string | null, contactName: string) => {
+    e.stopPropagation();
+    if (!contactId) {
+      toast.error("No contact linked to this opportunity");
+      return;
+    }
+    setQuickNoteContactId(contactId);
+    setQuickNoteContactName(contactName);
+    setQuickNoteText("");
+    setQuickNoteDialogOpen(true);
+  };
+
+  // Create quick task
+  const handleCreateQuickTask = async () => {
+    if (!quickTaskContactId || !quickTaskTitle.trim()) {
+      toast.error("Please enter a task title");
+      return;
+    }
+    setIsCreatingQuickTask(true);
+    try {
+      // Get location_id from contact or default
+      const contact = contactMap.get(quickTaskContactId);
+      const locationId = contact?.ghl_id ? "pVeFrqvtYWNIPRIi0Fmr" : "local";
+      
+      const { error } = await supabase.functions.invoke("create-ghl-task", {
+        body: {
+          contactId: quickTaskContactId,
+          title: quickTaskTitle.trim(),
+          body: "",
+          dueDate: quickTaskDueDate || null,
+          assignedTo: user?.id || null,
+          locationId: locationId,
+          companyId: companyId,
+          enteredBy: user?.id || null,
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Task created");
+      setQuickTaskDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["ghl-metrics"] });
+    } catch (error) {
+      console.error("Error creating task:", error);
+      toast.error("Failed to create task");
+    } finally {
+      setIsCreatingQuickTask(false);
+    }
+  };
+
+  // Create quick note
+  const handleCreateQuickNote = async () => {
+    if (!quickNoteContactId || !quickNoteText.trim()) {
+      toast.error("Please enter a note");
+      return;
+    }
+    setIsCreatingQuickNote(true);
+    try {
+      // Get location_id from contact or default
+      const contact = contactMap.get(quickNoteContactId);
+      const locationId = contact?.ghl_id ? "pVeFrqvtYWNIPRIi0Fmr" : "local";
+      
+      const { error } = await supabase.functions.invoke("create-contact-note", {
+        body: {
+          contactId: quickNoteContactId,
+          body: quickNoteText.trim(),
+          companyId: companyId,
+          locationId: locationId,
+          enteredBy: user?.id || null,
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Note added");
+      setQuickNoteDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["ghl-metrics"] });
+    } catch (error) {
+      console.error("Error creating note:", error);
+      toast.error("Failed to add note");
+    } finally {
+      setIsCreatingQuickNote(false);
+    }
+  };
+
   return (
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -892,17 +1033,28 @@ export function OpportunitiesTable({
                     ? contact.contact_name 
                     : (opp.name || contact?.contact_name || "Unnamed");
 
+                  // Check if this opportunity has an overdue task
+                  const overdueTask = latestTask && isTaskOverdue(latestTask);
+
                   return (
                     <TableRow
                       key={opp.ghl_id}
-                      className="border-border/30 hover:bg-muted/30 cursor-pointer"
+                      className={cn(
+                        "border-border/30 hover:bg-muted/30 cursor-pointer",
+                        overdueTask && "bg-destructive/5 hover:bg-destructive/10"
+                      )}
                       onClick={() => handleRowClick(opp)}
                     >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
+                          {overdueTask && (
+                            <span title="Has overdue task">
+                              <AlertTriangle className="h-4 w-4 text-destructive flex-shrink-0" />
+                            </span>
+                          )}
                           {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
                             <span title="Has appointment">
-                              <CalendarCheck className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                              <CalendarCheck className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                             </span>
                           ) : (
                             <span title="No appointment">
@@ -919,7 +1071,7 @@ export function OpportunitiesTable({
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{contact?.source || "-"}</TableCell>
 
-                      <TableCell className="font-mono text-emerald-400">{formatCurrency(opp.monetary_value)}</TableCell>
+                      <TableCell className="font-mono text-emerald-500">{formatCurrency(opp.monetary_value)}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getStatusColor(opp.status)}>
                           {opp.status || "Unknown"}
@@ -947,34 +1099,62 @@ export function OpportunitiesTable({
                         )}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm max-w-[180px]">
-                        {latestNote ? (
-                          <div className="flex flex-col">
-                            <span className="text-xs">
-                              {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString() : "-"}
-                            </span>
-                            {notePreview && (
-                              <span className="text-xs text-muted-foreground/70 truncate" title={latestNote.body?.replace(/<[^>]*>/g, '') || ''}>
-                                {notePreview}
+                        <div className="flex items-center gap-1">
+                          {latestNote ? (
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className="text-xs">
+                                {latestNote.ghl_date_added ? new Date(latestNote.ghl_date_added).toLocaleDateString() : "-"}
                               </span>
-                            )}
-                          </div>
-                        ) : (
-                          "-"
-                        )}
+                              {notePreview && (
+                                <span className="text-xs text-muted-foreground/70 truncate" title={latestNote.body?.replace(/<[^>]*>/g, '') || ''}>
+                                  {notePreview}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="flex-1">-</span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10"
+                            onClick={(e) => openQuickNoteDialog(e, opp.contact_id, displayName)}
+                            title="Add note"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {latestTask ? (
-                          <div className="flex flex-col">
-                            <span className="text-xs">
-                              {new Date(latestTask.created_at).toLocaleDateString()}
-                            </span>
-                            <span className="text-xs text-muted-foreground/70 truncate max-w-[120px]" title={latestTask.title}>
-                              {latestTask.title.slice(0, 30)}{latestTask.title.length > 30 ? '...' : ''}
-                            </span>
-                          </div>
-                        ) : (
-                          "-"
-                        )}
+                      <TableCell className={cn(
+                        "text-sm",
+                        overdueTask ? "text-destructive" : "text-muted-foreground"
+                      )}>
+                        <div className="flex items-center gap-1">
+                          {latestTask ? (
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className={cn("text-xs", overdueTask && "font-medium")}>
+                                {latestTask.due_date 
+                                  ? new Date(latestTask.due_date).toLocaleDateString() 
+                                  : new Date(latestTask.created_at).toLocaleDateString()}
+                                {overdueTask && " (Overdue)"}
+                              </span>
+                              <span className="text-xs text-muted-foreground/70 truncate max-w-[120px]" title={latestTask.title}>
+                                {latestTask.title.slice(0, 30)}{latestTask.title.length > 30 ? '...' : ''}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="flex-1">-</span>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 flex-shrink-0 hover:bg-primary/10"
+                            onClick={(e) => openQuickTaskDialog(e, opp.contact_id, displayName)}
+                            title="Add task"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{salesRepName || "-"}</TableCell>
                     </TableRow>
@@ -1026,6 +1206,106 @@ export function OpportunitiesTable({
         onOpenChange={setSheetOpen}
         allOpportunities={opportunities}
       />
+
+      {/* Quick Add Task Dialog */}
+      <Dialog open={quickTaskDialogOpen} onOpenChange={setQuickTaskDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListChecks className="h-5 w-5" />
+              Add Task for {quickTaskContactName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quick-task-title">Task Title *</Label>
+              <Input
+                id="quick-task-title"
+                value={quickTaskTitle}
+                onChange={(e) => setQuickTaskTitle(e.target.value)}
+                placeholder="Enter task title"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quick-task-due">Due Date (Optional)</Label>
+              <Input
+                id="quick-task-due"
+                type="date"
+                value={quickTaskDueDate}
+                onChange={(e) => setQuickTaskDueDate(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickTaskDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateQuickTask} 
+              disabled={isCreatingQuickTask || !quickTaskTitle.trim()}
+            >
+              {isCreatingQuickTask ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Task
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Add Note Dialog */}
+      <Dialog open={quickNoteDialogOpen} onOpenChange={setQuickNoteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <StickyNote className="h-5 w-5" />
+              Add Note for {quickNoteContactName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quick-note-text">Note *</Label>
+              <Textarea
+                id="quick-note-text"
+                value={quickNoteText}
+                onChange={(e) => setQuickNoteText(e.target.value)}
+                placeholder="Enter your note..."
+                rows={4}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickNoteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateQuickNote} 
+              disabled={isCreatingQuickNote || !quickNoteText.trim()}
+            >
+              {isCreatingQuickNote ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Note
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
