@@ -62,24 +62,25 @@ export function PortalProposalsSection({ salespersonName, salespersonId, company
     queryKey: ["salesperson-portal-proposals", salespersonId, salespersonName, companyId],
     queryFn: async () => {
       if (!companyId) return [];
+      if (!salespersonId && !salespersonName) return [];
 
-      // Build filter: prefer salesperson_id if provided, fallback to salesperson_name
-      let query = supabase
+      // Build OR filter to match by salesperson_id OR salesperson_name
+      // This handles both old records (with only name) and new records (with UUID)
+      const orConditions: string[] = [];
+      if (salespersonId) {
+        orConditions.push(`salesperson_id.eq.${salespersonId}`);
+      }
+      if (salespersonName) {
+        orConditions.push(`salesperson_name.eq.${salespersonName}`);
+      }
+
+      const { data: estimatesData, error } = await supabase
         .from("estimates")
         .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, sent_at, signed_at, created_at")
         .eq("company_id", companyId)
         .in("status", ["sent", "viewed", "accepted", "declined"])
+        .or(orConditions.join(","))
         .order("created_at", { ascending: false });
-
-      if (salespersonId) {
-        query = query.eq("salesperson_id", salespersonId);
-      } else if (salespersonName) {
-        query = query.eq("salesperson_name", salespersonName);
-      } else {
-        return [];
-      }
-
-      const { data: estimatesData, error } = await query;
 
       if (error) throw error;
       if (!estimatesData?.length) return [];
