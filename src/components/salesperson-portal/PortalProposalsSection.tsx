@@ -68,6 +68,15 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
     }
   };
 
+  // Determine if it's a proposal (sent) or estimate (not sent yet, though we filter by sent status)
+  const getTypeBadge = (estimate: Estimate) => {
+    // If it has been sent, it's a Proposal; otherwise it's an Estimate
+    if (estimate.sent_at) {
+      return <Badge variant="outline" className="text-[10px] px-1.5 py-0">Proposal</Badge>;
+    }
+    return <Badge variant="outline" className="text-[10px] px-1.5 py-0">Estimate</Badge>;
+  };
+
   const formatCurrency = (amount: number | null) => {
     if (!amount) return "-";
     return new Intl.NumberFormat("en-US", {
@@ -117,13 +126,28 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
                   {estimates.map((estimate) => (
                     <div
                       key={estimate.id}
-                      className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                      className={`p-3 rounded-lg border bg-card transition-colors ${
+                        estimate.plans_file_url 
+                          ? "cursor-pointer hover:bg-muted/50" 
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (estimate.plans_file_url) {
+                          setSelectedPdf({
+                            url: estimate.plans_file_url,
+                            name: estimate.estimate_title || `Estimate #${estimate.estimate_number}`,
+                          });
+                        }
+                      }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm truncate">
-                            {estimate.estimate_title || `Estimate #${estimate.estimate_number}`}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm truncate">
+                              {estimate.estimate_title || `Estimate #${estimate.estimate_number}`}
+                            </p>
+                            {getTypeBadge(estimate)}
+                          </div>
                           <p className="text-xs text-muted-foreground truncate">
                             {estimate.customer_name}
                           </p>
@@ -146,18 +170,7 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
                             {formatCurrency(estimate.total)}
                           </span>
                           {estimate.plans_file_url && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                              onClick={() => setSelectedPdf({
-                                url: estimate.plans_file_url!,
-                                name: estimate.estimate_title || `Estimate #${estimate.estimate_number}`,
-                              })}
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              View PDF
-                            </Button>
+                            <Eye className="h-4 w-4 text-muted-foreground" />
                           )}
                         </div>
                       </div>
