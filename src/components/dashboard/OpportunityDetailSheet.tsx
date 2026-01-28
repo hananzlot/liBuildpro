@@ -2038,9 +2038,14 @@ export function OpportunityDetailSheet({
   const contact = findContactByIdOrGhlId(contacts, opportunity.contact_uuid, opportunity.contact_id);
   const relatedAppointments = appointments.filter(a => a.contact_id === opportunity.contact_id);
   const effectiveAssignedTo = savedValues.assigned_to !== undefined ? savedValues.assigned_to : opportunity.assigned_to;
-  const assignedUser = findUserByIdOrGhlId(users, undefined, effectiveAssignedTo);
+  
+  // Find assigned salesperson - check salespeople first (by ghl_user_id or id), then fallback to GHL users
+  const assignedSalesperson = activeSalespeople.find(
+    sp => sp.ghl_user_id === effectiveAssignedTo || sp.id === effectiveAssignedTo
+  );
+  const assignedUser = assignedSalesperson ? null : findUserByIdOrGhlId(users, undefined, effectiveAssignedTo);
   const contactName = savedContactName || contact?.contact_name || (contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}` : contact?.first_name || contact?.last_name || "Unknown");
-  const userName = assignedUser?.name || (assignedUser?.first_name && assignedUser?.last_name ? `${assignedUser.first_name} ${assignedUser.last_name}` : "Unassigned");
+  const userName = assignedSalesperson?.name || assignedUser?.name || (assignedUser?.first_name && assignedUser?.last_name ? `${assignedUser.first_name} ${assignedUser.last_name}` : "Unassigned");
   // Get address from opportunity first, fallback to contact custom_fields, then appointment address
   const addressFromOpportunity = opportunity?.address;
   const contactAddress = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS);
@@ -2540,12 +2545,15 @@ export function OpportunityDetailSheet({
                     <SelectItem value="__unassigned__" className="text-xs">
                       Unassigned
                     </SelectItem>
-                    {filteredUsers.map(user => {
-                  const name = user.name || (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name || user.last_name || user.email || "Unknown");
-                  return <SelectItem key={user.ghl_id} value={user.ghl_id} className="text-xs">
-                            {name}
-                          </SelectItem>;
-                })}
+                    {activeSalespeople.map(sp => (
+                      <SelectItem 
+                        key={sp.id} 
+                        value={sp.ghl_user_id || sp.id} 
+                        className="text-xs"
+                      >
+                        {sp.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select> : <div className="font-medium truncate">{userName}</div>}
             </div>
