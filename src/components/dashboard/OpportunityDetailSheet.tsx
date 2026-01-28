@@ -2065,10 +2065,11 @@ export function OpportunityDetailSheet({
   const effectiveAssignedTo = savedValues.assigned_to !== undefined ? savedValues.assigned_to : opportunity.assigned_to;
   
   // Find assigned salesperson - check salespeople first (by ghl_user_id or id), then fallback to GHL users
-  const assignedSalesperson = activeSalespeople.find(
-    sp => sp.ghl_user_id === effectiveAssignedTo || sp.id === effectiveAssignedTo
-  );
-  const assignedUser = assignedSalesperson ? null : findUserByIdOrGhlId(users, undefined, effectiveAssignedTo);
+  // Guard: only match if effectiveAssignedTo is actually set (not null/undefined)
+  const assignedSalesperson = effectiveAssignedTo
+    ? activeSalespeople.find(sp => sp.ghl_user_id === effectiveAssignedTo || sp.id === effectiveAssignedTo)
+    : null;
+  const assignedUser = assignedSalesperson ? null : (effectiveAssignedTo ? findUserByIdOrGhlId(users, undefined, effectiveAssignedTo) : null);
   const contactName = savedContactName || contact?.contact_name || (contact?.first_name && contact?.last_name ? `${contact.first_name} ${contact.last_name}` : contact?.first_name || contact?.last_name || "Unknown");
   const userName = assignedSalesperson?.name || assignedUser?.name || (assignedUser?.first_name && assignedUser?.last_name ? `${assignedUser.first_name} ${assignedUser.last_name}` : "Unassigned");
   // Get address from opportunity first, fallback to contact custom_fields, then appointment address
