@@ -629,7 +629,7 @@ export function PortalEstimateCreator({
                             <div className="text-right shrink-0 flex flex-col items-end gap-1">
                               {estimate.total != null && estimate.total > 0 ? (
                                 <p className="font-semibold text-sm text-primary">
-                                  ${estimate.total.toLocaleString()}
+                                  ${estimate.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                               ) : estimate.is_generating ? (
                                 <p className="text-xs text-muted-foreground italic">Processing...</p>
