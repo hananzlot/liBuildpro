@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -2510,6 +2511,7 @@ function PaymentDialog({
     payment_fee: "",
     check_number: "",
     invoice_id: "",
+    deposit_verified: false,
   });
   const [amountError, setAmountError] = useState("");
   const [bankSearch, setBankSearch] = useState("");
@@ -2574,6 +2576,7 @@ function PaymentDialog({
         payment_fee: payment.payment_fee?.toString() || "",
         check_number: payment.check_number || "",
         invoice_id: payment.invoice_id || "",
+        deposit_verified: payment.deposit_verified ?? false,
       });
     } else if (prePopulatedData) {
       setFormData({
@@ -2585,9 +2588,10 @@ function PaymentDialog({
         payment_fee: "",
         check_number: "",
         invoice_id: prePopulatedData.invoice_id || "",
+        deposit_verified: false, // New payments default to not deposited
       });
     } else {
-      setFormData({ bank_name: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "" });
+      setFormData({ bank_name: "", projected_received_date: "", payment_schedule: "", payment_status: "Pending", payment_amount: "", payment_fee: "", check_number: "", invoice_id: "", deposit_verified: false });
     }
     setAmountError("");
     setBankSearch("");
@@ -2624,6 +2628,7 @@ function PaymentDialog({
       check_number: formData.check_number || null,
       invoice_id: formData.invoice_id || null,
       payment_phase_id: paymentPhaseId,
+      deposit_verified: formData.deposit_verified,
     });
   };
 
@@ -2755,6 +2760,18 @@ function PaymentDialog({
               <Input value={formData.check_number} onChange={(e) => setFormData(p => ({ ...p, check_number: e.target.value }))} />
             </div>
           </div>
+          {formData.payment_status === "Received" && (
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="deposit_verified" 
+                checked={formData.deposit_verified} 
+                onCheckedChange={(checked) => setFormData(p => ({ ...p, deposit_verified: !!checked }))} 
+              />
+              <Label htmlFor="deposit_verified" className="text-sm font-normal cursor-pointer">
+                Deposit Verified
+              </Label>
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={isPending || !formData.bank_name}>{isPending ? "Saving..." : "Save"}</Button>
