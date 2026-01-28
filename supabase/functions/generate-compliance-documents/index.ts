@@ -124,29 +124,61 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get estimate with full details - use explicit FK names to disambiguate multiple relationships
+    // Get estimate (no embedded joins). Some schemas have multiple FKs from estimates.contact_uuid -> contacts.id,
+    // which makes PostgREST embedding ambiguous unless we specify the exact relationship. For overlay testing,
+    // we don't need embedding; we can fetch related rows explicitly when needed.
     const { data: estimate, error: estimateError } = await supabase
       .from("estimates")
-      .select(`
-        *,
-        contacts:contact_uuid!fk_estimates_contact_uuid (
-          contact_name,
-          first_name,
-          last_name,
-          email,
-          phone
-        ),
-        opportunities:opportunity_uuid!fk_estimates_opportunity_uuid (
-          name,
-          monetary_value
-        )
-      `)
+      .select("*")
       .eq("id", estimateId)
       .maybeSingle();
 
-    if (estimateError || !estimate) {
+    if (estimateError) {
       console.error("Error fetching estimate:", estimateError);
+      throw new Error(`Estimate query failed: ${estimateError.message || "unknown error"}`);
+    }
+    if (!estimate) {
       throw new Error("Estimate not found");
+    }
+
+    // Fetch contact details (optional)
+    let contact: any = null;
+    if (estimate.contact_uuid) {
+      const { data: c, error: cErr } = await supabase
+        .from("contacts")
+        .select("contact_name, first_name, last_name, email, phone")
+        .eq("id", estimate.contact_uuid)
+        .maybeSingle();
+      if (cErr) console.warn("Error fetching contact by UUID:", cErr);
+      contact = c;
+    } else if (estimate.contact_id) {
+      const { data: c, error: cErr } = await supabase
+        .from("contacts")
+        .select("contact_name, first_name, last_name, email, phone")
+        .eq("ghl_id", estimate.contact_id)
+        .maybeSingle();
+      if (cErr) console.warn("Error fetching contact by GHL ID:", cErr);
+      contact = c;
+    }
+
+    // Fetch opportunity details (optional)
+    let opportunity: any = null;
+    if (estimate.opportunity_uuid) {
+      const { data: o, error: oErr } = await supabase
+        .from("opportunities")
+        .select("name, monetary_value")
+        .eq("id", estimate.opportunity_uuid)
+        .maybeSingle();
+      if (oErr) console.warn("Error fetching opportunity by UUID:", oErr);
+      opportunity = o;
+    } else if (estimate.opportunity_id) {
+      const { data: o, error: oErr } = await supabase
+        .from("opportunities")
+        .select("name, monetary_value")
+        .eq("ghl_id", estimate.opportunity_id)
+        .maybeSingle();
+      if (oErr) console.warn("Error fetching opportunity by GHL ID:", oErr);
+      opportunity = o;
     }
 
     // Get company settings
@@ -189,10 +221,11 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Build placeholder data
-    const contact = estimate.contacts as any;
-    const customerName = contact?.contact_name || 
+    const customerName =
+      contact?.contact_name ||
       [contact?.first_name, contact?.last_name].filter(Boolean).join(" ") ||
-      estimate.customer_name || "";
+      estimate.customer_name ||
+      "";
 
     const lineItemsText = (lineItems || [])
       .map((item: any) => `• ${item.title}: ${formatCurrency(item.total_price)}`)
@@ -205,19 +238,28 @@ const handler = async (req: Request): Promise<Response> => {
     const placeholderData: PlaceholderData = {
       customer_name: customerName,
       customer_email: contact?.email || estimate.customer_email || "",
-      customer_phone: contact?.phone || "",
-      project_name: estimate.project_name || "",
+      customer_phone: contact?.phone || estimate.customer_phone || "",
+
+      // This app stores the "project/job name" for estimates as estimate_title
+      project_name: estimate.estimate_title || opportunity?.name || "",
       project_address: estimate.job_address || "",
-      estimate_total: formatCurrency(estimate.estimate_total),
+
+      // Estimates table uses `total` (not estimate_total)
+      estimate_total: formatCurrency(estimate.total),
       deposit_amount: formatCurrency(estimate.deposit_amount),
-      scope_description: estimate.work_scope || "",
-      salesperson_name: salespersonName,
+
+      // Estimates table uses `work_scope_description`
+      scope_description: estimate.work_scope_description || "",
+
+      salesperson_name: salespersonName || estimate.salesperson_name || "",
       company_name: settingsMap.company_name || "",
       company_address: settingsMap.company_address || "",
       company_phone: settingsMap.company_phone || "",
       company_license: settingsMap.license_number || "",
       current_date: formatDate(new Date()),
-      expiration_date: estimate.valid_until ? formatDate(new Date(estimate.valid_until)) : "",
+
+      // Estimates table uses `expiration_date`
+      expiration_date: estimate.expiration_date ? formatDate(new Date(estimate.expiration_date)) : "",
       line_items: lineItemsText,
       payment_schedule: paymentScheduleText,
       terms_and_conditions: estimate.terms_and_conditions || settingsMap.default_terms_and_conditions || "",
