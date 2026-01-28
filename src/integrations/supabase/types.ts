@@ -1943,8 +1943,10 @@ export type Database = {
           id: string
           is_taxable: boolean | null
           item_type: Database["public"]["Enums"]["estimate_line_item_type"]
+          labor_cost: number | null
           line_total: number | null
           markup_percent: number | null
+          material_cost: number | null
           quantity: number | null
           sort_order: number | null
           unit: string | null
@@ -1960,8 +1962,10 @@ export type Database = {
           id?: string
           is_taxable?: boolean | null
           item_type?: Database["public"]["Enums"]["estimate_line_item_type"]
+          labor_cost?: number | null
           line_total?: number | null
           markup_percent?: number | null
+          material_cost?: number | null
           quantity?: number | null
           sort_order?: number | null
           unit?: string | null
@@ -1977,8 +1981,10 @@ export type Database = {
           id?: string
           is_taxable?: boolean | null
           item_type?: Database["public"]["Enums"]["estimate_line_item_type"]
+          labor_cost?: number | null
           line_total?: number | null
           markup_percent?: number | null
+          material_cost?: number | null
           quantity?: number | null
           sort_order?: number | null
           unit?: string | null

@@ -366,6 +366,8 @@ async function persistScopeToDatabase(
         quantity: quantity,
         unit: item.unit || 'LS',
         cost: baseCost,
+        labor_cost: laborCost,
+        material_cost: materialCost,
         markup_percent: markupPercent,
         unit_price: unitPrice,
         line_total: lineTotal,
