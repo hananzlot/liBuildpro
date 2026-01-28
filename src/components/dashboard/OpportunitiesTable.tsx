@@ -788,16 +788,11 @@ export function OpportunitiesTable({
     }
     setIsCreatingQuickNote(true);
     try {
-      // Get location_id from contact or default
-      const contact = contactMap.get(quickNoteContactId);
-      const locationId = contact?.ghl_id ? "pVeFrqvtYWNIPRIi0Fmr" : "local";
-      
       const { error } = await supabase.functions.invoke("create-contact-note", {
         body: {
           contactId: quickNoteContactId,
           body: quickNoteText.trim(),
           companyId: companyId,
-          locationId: locationId,
           enteredBy: user?.id || null,
         }
       });
