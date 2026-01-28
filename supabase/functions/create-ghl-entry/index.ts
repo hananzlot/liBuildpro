@@ -156,6 +156,19 @@ serve(async (req) => {
       contactUuid = contactData?.id || null;
       console.log('Local contact created:', contactId, 'UUID:', contactUuid);
 
+      // Look up salesperson UUID if assignedTo is provided
+      let salespersonId: string | null = null;
+      if (assignedTo) {
+        const { data: spData } = await supabase
+          .from('salespeople')
+          .select('id')
+          .or(`id.eq.${assignedTo},ghl_user_id.eq.${assignedTo}`)
+          .eq('company_id', companyId)
+          .maybeSingle();
+        salespersonId = spData?.id || null;
+        console.log('Resolved salesperson_id:', salespersonId, 'from assignedTo:', assignedTo);
+      }
+
       // Create local opportunity with contact_uuid
       opportunityId = generateLocalId('opp');
       const { data: oppData, error: oppError } = await supabase.from('opportunities').insert({
@@ -170,6 +183,7 @@ serve(async (req) => {
         pipeline_name: pipelineName,
         stage_name: stageName,
         assigned_to: assignedTo || null,
+        salesperson_id: salespersonId,
         address: address || null,
         scope_of_work: scope || null,
         ghl_date_added: new Date().toISOString(),
@@ -180,10 +194,10 @@ serve(async (req) => {
 
       if (oppError) {
         console.error('Error creating local opportunity:', oppError);
-      } else {
-        opportunityUuid = oppData?.id || null;
-        console.log('Local opportunity created:', opportunityId, 'UUID:', opportunityUuid);
+        throw new Error(`Failed to create opportunity: ${oppError.message}`);
       }
+      opportunityUuid = oppData?.id || null;
+      console.log('Local opportunity created:', opportunityId, 'UUID:', opportunityUuid);
 
       // Create local appointment if date/time provided
       if (appointmentDateTime) {
@@ -258,8 +272,8 @@ serve(async (req) => {
       contactId = contactData.contact?.id;
       console.log('Contact created:', contactId);
 
-      // Cache contact in Supabase
-      await supabase.from('contacts').upsert({
+      // Cache contact in Supabase and get the UUID
+      const { data: upsertedContact } = await supabase.from('contacts').upsert({
         ghl_id: contactId,
         location_id: GHL_LOCATION_ID,
         first_name: effectiveFirstName,
@@ -273,10 +287,25 @@ serve(async (req) => {
         ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
         company_id: companyId || null,
-      }, { onConflict: 'ghl_id' });
+      }, { onConflict: 'ghl_id' }).select('id').single();
+      
+      contactUuid = upsertedContact?.id || null;
+      console.log('Contact cached in Supabase, UUID:', contactUuid);
+
+      // Look up salesperson UUID if assignedTo is provided
+      let salespersonId: string | null = null;
+      if (assignedTo) {
+        const { data: spData } = await supabase
+          .from('salespeople')
+          .select('id')
+          .or(`id.eq.${assignedTo},ghl_user_id.eq.${assignedTo}`)
+          .eq('company_id', companyId)
+          .maybeSingle();
+        salespersonId = spData?.id || null;
+        console.log('Resolved salesperson_id:', salespersonId, 'from assignedTo:', assignedTo);
+      }
 
       // Step 2: Create Opportunity in GHL
-      console.log('Creating opportunity in GHL...');
       console.log('Creating opportunity in GHL...');
       
       const oppPayload: Record<string, unknown> = {
@@ -307,20 +336,15 @@ serve(async (req) => {
       if (!oppResponse.ok) {
         const errorText = await oppResponse.text();
         console.error('GHL Opportunity API error:', oppResponse.status, errorText);
-        // Don't throw - contact was created, just log the opportunity error
-        console.warn('Opportunity creation failed but contact was created');
-      }
-
-      if (oppResponse.ok) {
-        const oppData = await oppResponse.json();
-        opportunityId = oppData.opportunity?.id;
-        console.log('Opportunity created:', opportunityId);
-
-        // Cache opportunity in Supabase with pipeline/stage info and get the UUID
-        const { data: upsertedOpp } = await supabase.from('opportunities').upsert({
+        // If GHL fails, still create opportunity locally so it's not lost
+        console.warn('GHL opportunity creation failed, creating locally instead...');
+        
+        opportunityId = generateLocalId('opp');
+        const { data: localOppData, error: localOppError } = await supabase.from('opportunities').insert({
           ghl_id: opportunityId,
           location_id: GHL_LOCATION_ID,
           contact_id: contactId,
+          contact_uuid: contactUuid,
           name: displayName,
           status: 'open',
           pipeline_id: pipelineId,
@@ -328,13 +352,52 @@ serve(async (req) => {
           pipeline_name: pipelineName,
           stage_name: stageName,
           assigned_to: assignedTo || null,
+          salesperson_id: salespersonId,
+          address: address || null,
+          scope_of_work: scope || null,
+          ghl_date_added: new Date().toISOString(),
+          entered_by: enteredBy || null,
+          provider: 'local', // Mark as local since GHL failed
+          company_id: companyId || null,
+        }).select('id').single();
+        
+        if (localOppError) {
+          console.error('Error creating local fallback opportunity:', localOppError);
+        } else {
+          opportunityUuid = localOppData?.id || null;
+          console.log('Local fallback opportunity created:', opportunityId, 'UUID:', opportunityUuid);
+        }
+      } else {
+        const oppData = await oppResponse.json();
+        opportunityId = oppData.opportunity?.id;
+        console.log('GHL Opportunity created:', opportunityId);
+
+        // Cache opportunity in Supabase with pipeline/stage info and get the UUID
+        const { data: upsertedOpp, error: upsertError } = await supabase.from('opportunities').upsert({
+          ghl_id: opportunityId,
+          location_id: GHL_LOCATION_ID,
+          contact_id: contactId,
+          contact_uuid: contactUuid,
+          name: displayName,
+          status: 'open',
+          pipeline_id: pipelineId,
+          pipeline_stage_id: pipelineStageId,
+          pipeline_name: pipelineName,
+          stage_name: stageName,
+          assigned_to: assignedTo || null,
+          salesperson_id: salespersonId,
+          address: address || null,
+          scope_of_work: scope || null,
           ghl_date_added: new Date().toISOString(),
           entered_by: enteredBy || null,
           company_id: companyId || null,
         }, { onConflict: 'ghl_id' }).select('id').single();
         
+        if (upsertError) {
+          console.error('Error caching opportunity in Supabase:', upsertError);
+        }
         opportunityUuid = upsertedOpp?.id || null;
-        console.log('Opportunity UUID:', opportunityUuid);
+        console.log('Opportunity cached in Supabase, UUID:', opportunityUuid);
       }
 
       // Step 3: Create Appointment if date/time provided
