@@ -596,8 +596,34 @@ export function ContactDetailSheet({
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete Contact</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete "{contactName}"? This will unlink all related opportunities, appointments, and projects. This action cannot be undone.
+                        <AlertDialogDescription asChild>
+                          <div className="space-y-3">
+                            <p>Are you sure you want to delete "{contactName}"?</p>
+                            
+                            {relatedOpportunities.length > 0 && (
+                              <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-destructive">
+                                <p className="font-medium flex items-center gap-2">
+                                  <Briefcase className="h-4 w-4" />
+                                  Warning: {relatedOpportunities.length} opportunity{relatedOpportunities.length > 1 ? 'ies' : 'y'} will be deleted
+                                </p>
+                                <ul className="mt-2 text-sm space-y-1 ml-6 list-disc">
+                                  {relatedOpportunities.slice(0, 5).map((opp) => (
+                                    <li key={opp.id}>
+                                      {opp.name || 'Unnamed'} 
+                                      {opp.monetary_value ? ` (${formatCurrency(opp.monetary_value)})` : ''}
+                                    </li>
+                                  ))}
+                                  {relatedOpportunities.length > 5 && (
+                                    <li>...and {relatedOpportunities.length - 5} more</li>
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+                            
+                            <p className="text-muted-foreground text-sm">
+                              This will also unlink all related appointments and projects. This action cannot be undone.
+                            </p>
+                          </div>
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -608,7 +634,7 @@ export function ContactDetailSheet({
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                           {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                          Delete
+                          Delete{relatedOpportunities.length > 0 ? ` Contact & ${relatedOpportunities.length} Opportunit${relatedOpportunities.length > 1 ? 'ies' : 'y'}` : ''}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
