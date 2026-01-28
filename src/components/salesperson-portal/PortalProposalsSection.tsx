@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, ExternalLink, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, ExternalLink, Loader2, ChevronDown, ChevronUp, Eye } from "lucide-react";
 import { format } from "date-fns";
+import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
 
 interface PortalProposalsSectionProps {
   salespersonName: string;
@@ -28,6 +29,7 @@ interface Estimate {
 
 export function PortalProposalsSection({ salespersonName, companyId }: PortalProposalsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
 
   // Fetch app base URL for portal links
   const { data: appBaseUrl } = useQuery({
@@ -95,6 +97,12 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
   });
 
   const handleOpenProposal = (estimate: Estimate) => {
+    // Open the preview dialog instead of redirecting
+    setSelectedEstimateId(estimate.id);
+  };
+
+  const handleOpenPortal = (e: React.MouseEvent, estimate: Estimate) => {
+    e.stopPropagation(); // Prevent row click from triggering preview
     if (estimate.portal_token) {
       const portalUrl = `${appBaseUrl || window.location.origin}/portal/${estimate.portal_token}`;
       window.open(portalUrl, "_blank");
@@ -136,6 +144,11 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
 
   return (
     <>
+      <EstimatePreviewDialog
+        estimateId={selectedEstimateId}
+        open={!!selectedEstimateId}
+        onOpenChange={(open) => !open && setSelectedEstimateId(null)}
+      />
       <Card className="border-0 shadow-lg">
         <CardHeader 
           className="pb-2 cursor-pointer" 
@@ -210,9 +223,18 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
                           <span className="font-semibold text-sm text-emerald-600">
                             {formatCurrency(estimate.total)}
                           </span>
-                          {estimate.portal_token && (
-                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            <Eye className="h-4 w-4 text-primary" />
+                            {estimate.portal_token && (
+                              <button
+                                onClick={(e) => handleOpenPortal(e, estimate)}
+                                className="p-0.5 hover:bg-muted rounded"
+                                title="Open customer portal"
+                              >
+                                <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
