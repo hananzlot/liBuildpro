@@ -15,6 +15,7 @@ import {
   Calculator, ChevronDown, ChevronRight, Loader2, Save, Wand2, 
   FileText, CheckCircle, Clock, DollarSign, Eye, Pencil
 } from "lucide-react";
+import { PortalEstimateDetailSheet } from "./PortalEstimateDetailSheet";
 
 interface PortalEstimateCreatorProps {
   salespersonId: string;
@@ -69,6 +70,8 @@ export function PortalEstimateCreator({
   const [isSavingScope, setIsSavingScope] = useState(false);
   const [scopeSaved, setScopeSaved] = useState(false);
   const [isRequestingAI, setIsRequestingAI] = useState(false);
+  const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch opportunities assigned to this salesperson
@@ -416,7 +419,8 @@ export function PortalEstimateCreator({
     : projects.find(p => p.id === selectedId);
 
   return (
-    <Card className="border border-border/50 shadow-md rounded-xl overflow-hidden">
+    <>
+      <Card className="border border-border/50 shadow-md rounded-xl overflow-hidden">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
           <CardHeader className="pb-3 pt-4 px-4 cursor-pointer bg-gradient-to-r from-primary/5 to-transparent hover:bg-primary/5 transition-colors">
@@ -600,49 +604,66 @@ export function PortalEstimateCreator({
                   
                   <ScrollArea className="h-[200px]">
                     <div className="space-y-2 pr-2">
-                      {myEstimates.map(estimate => (
-                        <div
-                          key={estimate.id}
-                          className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm">#{estimate.estimate_number}</span>
-                                {getStatusBadge(estimate.status)}
-                                {estimate.is_generating && (
-                                  <Badge variant="outline" className="text-[10px] gap-1">
-                                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                                    Generating
-                                  </Badge>
+                      {myEstimates.map(estimate => {
+                        const canClick = !estimate.is_generating && estimate.total != null && estimate.total > 0;
+                        return (
+                          <div
+                            key={estimate.id}
+                            className={`p-3 rounded-lg border bg-card transition-colors ${
+                              canClick ? "cursor-pointer hover:bg-muted/50 hover:border-primary/30" : ""
+                            }`}
+                            onClick={() => {
+                              if (canClick) {
+                                setSelectedEstimateId(estimate.id);
+                                setDetailSheetOpen(true);
+                              }
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm">#{estimate.estimate_number}</span>
+                                  {getStatusBadge(estimate.status)}
+                                  {estimate.is_generating && (
+                                    <Badge variant="outline" className="text-[10px] gap-1">
+                                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                      Generating
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-foreground truncate mt-0.5">
+                                  {estimate.customer_name}
+                                </p>
+                                {estimate.job_address && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {estimate.job_address}
+                                  </p>
                                 )}
                               </div>
-                              <p className="text-sm text-foreground truncate mt-0.5">
-                                {estimate.customer_name}
-                              </p>
-                              {estimate.job_address && (
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {estimate.job_address}
+                              <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                                {estimate.total != null && estimate.total > 0 ? (
+                                  <>
+                                    <p className="font-semibold text-sm text-primary">
+                                      ${estimate.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                      <Eye className="h-3 w-3 mr-1" />
+                                      View
+                                    </Button>
+                                  </>
+                                ) : estimate.is_generating ? (
+                                  <p className="text-xs text-muted-foreground italic">Processing...</p>
+                                ) : (
+                                  <p className="text-xs text-amber-600">Pending</p>
+                                )}
+                                <p className="text-[10px] text-muted-foreground">
+                                  {new Date(estimate.created_at).toLocaleDateString()}
                                 </p>
-                              )}
-                            </div>
-                            <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                              {estimate.total != null && estimate.total > 0 ? (
-                                <p className="font-semibold text-sm text-primary">
-                                  ${estimate.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                              ) : estimate.is_generating ? (
-                                <p className="text-xs text-muted-foreground italic">Processing...</p>
-                              ) : (
-                                <p className="text-xs text-amber-600">Pending</p>
-                              )}
-                              <p className="text-[10px] text-muted-foreground">
-                                {new Date(estimate.created_at).toLocaleDateString()}
-                              </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 </div>
@@ -658,5 +679,13 @@ export function PortalEstimateCreator({
         </CollapsibleContent>
       </Collapsible>
     </Card>
+      {/* Estimate Detail Sheet */}
+      <PortalEstimateDetailSheet
+        estimateId={selectedEstimateId}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        companyId={companyId}
+      />
+    </>
   );
 }
