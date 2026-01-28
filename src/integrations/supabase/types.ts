@@ -1088,6 +1088,66 @@ export type Database = {
           },
         ]
       }
+      compliance_document_templates: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          requires_separate_signature: boolean
+          template_file_name: string
+          template_file_url: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          requires_separate_signature?: boolean
+          template_file_name: string
+          template_file_url: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          requires_separate_signature?: boolean
+          template_file_name?: string
+          template_file_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_document_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_document_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_notes: {
         Row: {
           body: string | null
@@ -1731,6 +1791,80 @@ export type Database = {
             columns: ["line_item_id"]
             isOneToOne: false
             referencedRelation: "estimate_line_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estimate_compliance_documents: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          estimate_id: string
+          generated_at: string | null
+          generated_file_url: string | null
+          id: string
+          sent_at: string | null
+          signature_document_id: string | null
+          signed_at: string | null
+          status: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          estimate_id: string
+          generated_at?: string | null
+          generated_file_url?: string | null
+          id?: string
+          sent_at?: string | null
+          signature_document_id?: string | null
+          signed_at?: string | null
+          status?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          estimate_id?: string
+          generated_at?: string | null
+          generated_file_url?: string | null
+          id?: string
+          sent_at?: string | null
+          signature_document_id?: string | null
+          signed_at?: string | null
+          status?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estimate_compliance_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_compliance_documents_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_compliance_documents_signature_document_id_fkey"
+            columns: ["signature_document_id"]
+            isOneToOne: false
+            referencedRelation: "signature_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimate_compliance_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_document_templates"
             referencedColumns: ["id"]
           },
         ]
