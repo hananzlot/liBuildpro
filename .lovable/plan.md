@@ -1,157 +1,95 @@
 
-# Plan: Update Portal Query to Include Opportunity-Assigned Projects
+# Plan: Add PDF Preview for Proposals in Salesperson Portal
 
 ## Summary
-Enhance the `PortalProjectLinksSection` component to also find projects that are linked to opportunities assigned to the salesperson. Currently, only projects where the salesperson is directly set as `primary_salesperson` (or secondary/tertiary/quaternary) are shown. Projects linked via opportunity assignment are missed.
+Update the My Proposals section to show an inline estimate preview dialog when clicking a proposal record, instead of redirecting to the customer portal. The salesperson will see the same preview that customers see, with the option to generate a PDF.
 
-## Current Problem
+## Current Behavior
+- Clicking a proposal row opens the customer portal in a new tab
+- No inline preview is available
 
-The current query only checks:
-```sql
-primary_salesperson = salespersonName
-OR secondary_salesperson = salespersonName
-OR tertiary_salesperson = salespersonName
-OR quaternary_salesperson = salespersonName
-```
-
-However, projects like #47 (Amal Alwan) have:
-- `primary_salesperson: null`
-- But linked to an opportunity with `assigned_to: sKyd4E0c4l51cpdgr7uv` (Brendan G)
-
-## Solution
-
-Update the component to:
-1. Accept additional props: `salespersonId` (UUID) and `salespersonGhlUserId` (optional)
-2. Perform a two-step query:
-   - **Step 1**: Get projects directly assigned to the salesperson (current behavior)
-   - **Step 2**: Get projects linked to opportunities assigned to the salesperson
+## New Behavior
+- Clicking a proposal row opens the `EstimatePreviewDialog` showing the full estimate details
+- The dialog includes a "View PDF" button to generate and open the PDF in a new tab
+- An optional external link icon/button can still open the customer portal if needed
 
 ## Technical Implementation
 
-### 1. Update Props Interface
-
-Add new props to accept the salesperson's UUID and GHL user ID:
+### 1. Add State for Selected Estimate
 
 ```typescript
-interface PortalProjectLinksSectionProps {
-  salespersonName: string;
-  salespersonId: string;           // NEW: Internal UUID
-  salespersonGhlUserId?: string;   // NEW: GHL user ID (optional)
-  companyId: string;
-}
+const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
 ```
 
-### 2. Update Query Logic
+### 2. Update Click Handler
 
-Modify the query function to:
-
-```text
-Step 1: Fetch projects directly assigned by name (existing behavior)
-  - Match primary/secondary/tertiary/quaternary_salesperson
-
-Step 2: Fetch projects linked via opportunity assignment
-  - Query opportunities where assigned_to = ghl_user_id
-  - Get project IDs from opportunity_uuid relationship
-  - Join with projects table
-
-Step 3: Combine and deduplicate results
-  - Merge both sets of projects
-  - Use Map to ensure unique project IDs
-```
-
-### 3. Updated Query Implementation
+Replace the current redirect behavior:
 
 ```typescript
-queryFn: async () => {
-  if (!salespersonName || !companyId) return [];
+const handleOpenProposal = (estimate: Estimate) => {
+  // Open the preview dialog instead of redirecting
+  setSelectedEstimateId(estimate.id);
+};
+```
 
-  // Step 1: Projects directly assigned to salesperson
-  const { data: directProjects, error: directError } = await supabase
-    .from("projects")
-    .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name")
-    .eq("company_id", companyId)
-    .or(`primary_salesperson.eq.${salespersonName},secondary_salesperson.eq.${salespersonName},tertiary_salesperson.eq.${salespersonName},quaternary_salesperson.eq.${salespersonName}`)
-    .is("deleted_at", null);
+### 3. Add External Link Button (Optional)
 
-  if (directError) throw directError;
+To preserve portal access, add a separate button/icon:
 
-  // Step 2: Projects linked via opportunity assignment
-  let opportunityProjects: Project[] = [];
-  
-  if (salespersonGhlUserId) {
-    // Get opportunities assigned to this salesperson
-    const { data: opportunities } = await supabase
-      .from("opportunities")
-      .select("id, ghl_id")
-      .eq("company_id", companyId)
-      .eq("assigned_to", salespersonGhlUserId);
-
-    if (opportunities?.length) {
-      const oppIds = opportunities.map(o => o.id);
-      const oppGhlIds = opportunities.map(o => o.ghl_id).filter(Boolean);
-
-      // Get projects linked to these opportunities
-      const { data: linkedProjects } = await supabase
-        .from("projects")
-        .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name")
-        .eq("company_id", companyId)
-        .is("deleted_at", null)
-        .or(
-          oppIds.map(id => `opportunity_uuid.eq.${id}`).join(',') + 
-          (oppGhlIds.length ? ',' + oppGhlIds.map(id => `opportunity_id.eq.${id}`).join(',') : '')
-        );
-
-      opportunityProjects = linkedProjects || [];
-    }
+```typescript
+const handleOpenPortal = (e: React.MouseEvent, estimate: Estimate) => {
+  e.stopPropagation(); // Prevent row click
+  if (estimate.portal_token) {
+    const portalUrl = `${appBaseUrl || window.location.origin}/portal/${estimate.portal_token}`;
+    window.open(portalUrl, "_blank");
   }
-
-  // Step 3: Merge and deduplicate
-  const projectMap = new Map<string, Project>();
-  [...(directProjects || []), ...opportunityProjects].forEach(p => {
-    if (!projectMap.has(p.id)) {
-      projectMap.set(p.id, p);
-    }
-  });
-
-  const allProjects = Array.from(projectMap.values())
-    .sort((a, b) => (b.project_number || 0) - (a.project_number || 0));
-
-  // Fetch portal tokens for combined projects...
-}
+};
 ```
 
-### 4. Update Parent Component Props
-
-In `SalespersonCalendarPortal.tsx`, update the `PortalProjectLinksSection` usage:
+### 4. Import and Render EstimatePreviewDialog
 
 ```typescript
-<PortalProjectLinksSection 
-  salespersonName={salesperson.name} 
-  salespersonId={salesperson.id}           // ADD
-  salespersonGhlUserId={salesperson.ghl_user_id}  // ADD
-  companyId={salesperson.company_id} 
+import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
+
+// At the bottom of the component return:
+<EstimatePreviewDialog
+  estimateId={selectedEstimateId}
+  open={!!selectedEstimateId}
+  onOpenChange={(open) => !open && setSelectedEstimateId(null)}
 />
 ```
 
-## Files to Modify
+### 5. Update Row UI
+
+Add an `Eye` icon for preview (row click) and keep `ExternalLink` as a separate action:
+
+| Action | Trigger | Behavior |
+|--------|---------|----------|
+| Click row | Opens EstimatePreviewDialog | Inline preview with PDF button |
+| Click external link icon | Opens customer portal | New tab |
+
+### Visual Changes
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│ Estimate Title                           [Proposal]     │
+│ Customer Name                                           │
+│ 📍 123 Main St                                          │
+│ [Sent] Jan 15, 2026                    $15,000 👁 🔗   │
+└─────────────────────────────────────────────────────────┘
+                                          ↑    ↑
+                                     Preview  Portal
+```
+
+## File to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/salesperson-portal/PortalProjectLinksSection.tsx` | Add new props, update query logic to include opportunity-linked projects |
-| `src/pages/SalespersonCalendarPortal.tsx` | Pass `salespersonId` and `salespersonGhlUserId` props |
+| `src/components/salesperson-portal/PortalProposalsSection.tsx` | Add EstimatePreviewDialog import, add state for selected estimate, update click handler, add separate portal link button |
 
-## Query Key Update
+## Technical Considerations
 
-Update the query key to include all relevant identifiers for proper cache invalidation:
-
-```typescript
-queryKey: ["salesperson-portal-project-links", salespersonName, salespersonId, salespersonGhlUserId, companyId]
-```
-
-## Expected Outcome
-
-After this change, salespeople like Brendan G will see all projects where:
-1. They are directly assigned as primary/secondary/tertiary/quaternary salesperson
-2. The project is linked to an opportunity that is assigned to them (via `ghl_user_id`)
-
-This will include projects #46, #47, #48, #50 for Brendan G's portal.
+- The `EstimatePreviewDialog` already handles all the estimate data fetching and rendering
+- The "View PDF" button within the dialog calls `generate-contract-pdf` edge function
+- No new dependencies required - just reusing existing components
+- Portal access is preserved via the separate external link icon
