@@ -130,6 +130,18 @@ serve(async (req) => {
       .update({ contact_id: null, contact_uuid: null })
       .eq("contact_uuid", contact.id);
 
+    // Delete or unlink tasks associated with this contact
+    const { error: tasksError } = await supabase
+      .from("ghl_tasks")
+      .delete()
+      .eq("contact_uuid", contact.id);
+
+    if (tasksError) {
+      console.error("Error deleting tasks for contact:", tasksError);
+    } else {
+      console.log("Deleted tasks for contact", contact.id);
+    }
+
     // Delete the contact
     const { error: deleteError } = await supabase
       .from("contacts")
