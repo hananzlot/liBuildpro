@@ -20,6 +20,7 @@ import {
 import { PortalEstimateDetailSheet } from "./PortalEstimateDetailSheet";
 
 interface PortalEstimateCreatorProps {
+  portalToken: string;
   salespersonId: string;
   salespersonName: string;
   salespersonGhlUserId: string | null;
@@ -60,6 +61,7 @@ interface Estimate {
 }
 
 export function PortalEstimateCreator({
+  portalToken,
   salespersonId,
   salespersonName,
   salespersonGhlUserId,
@@ -311,20 +313,6 @@ export function PortalEstimateCreator({
     // Store the validated job address with zip code
     const finalJobAddress = jobAddress;
 
-    // We need the authenticated user id for RLS policies on estimates/jobs
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError) {
-      console.error("Error reading auth user:", authError);
-      toast.error("Authentication error. Please refresh and try again.");
-      return;
-    }
-
-    const userId = authData.user?.id;
-    if (!userId) {
-      toast.error("You must be signed in to generate an AI estimate.");
-      return;
-    }
-
     setIsRequestingAI(true);
     try {
       // Get customer details from opportunity or project
@@ -368,51 +356,34 @@ export function PortalEstimateCreator({
       }
 
       // Create the estimate record first
-      const { data: estimate, error: estimateError } = await supabase
-        .from("estimates")
-        .insert({
-          company_id: companyId,
-          created_by: userId,
-          customer_name: customerName,
-          customer_email: customerEmail,
-          customer_phone: customerPhone,
-          job_address: finalJobAddress,
-          estimate_title: `Estimate for ${customerName}`,
-          estimate_date: new Date().toISOString().split("T")[0],
-          status: "draft",
-          work_scope_description: workScope.trim(),
-          salesperson_name: salespersonName,
-          salesperson_id: salespersonId,
-          created_by_source: "salesperson_portal",
-          opportunity_uuid: opportunityUuid,
-          opportunity_id: opportunityGhlId,
-          contact_id: contactId,
-          show_details_to_customer: false,
-          show_scope_to_customer: true,
-          show_line_items_to_customer: true,
-        })
-        .select()
-        .single();
+      if (!portalToken) {
+        toast.error("This portal link is missing a token. Please reopen the portal link.");
+        return;
+      }
 
-      if (estimateError) throw estimateError;
+      const { data, error } = await supabase.functions.invoke("create-portal-estimate", {
+        body: {
+          portalToken,
+          companyId,
+          salespersonId,
+          salespersonName,
+          customerName,
+          customerEmail,
+          customerPhone,
+          jobAddress: finalJobAddress,
+          workScope: workScope.trim(),
+          opportunityUuid,
+          opportunityGhlId,
+          contactId,
+        },
+      });
 
-      // Queue the AI generation job
-      const { error: queueError } = await supabase
-        .from("estimate_generation_jobs")
-        .insert({
-          company_id: companyId,
-          estimate_id: estimate.id,
-          created_by: userId,
-          status: "pending",
-          request_params: {
-            job_address: finalJobAddress,
-            customer_name: customerName,
-            work_scope: workScope.trim(),
-            created_from: "salesperson_portal",
-          },
-        });
+      if (error) throw error;
 
-      if (queueError) throw queueError;
+      // If function returns a partial error, surface it
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       toast.success("AI estimate generation queued! You'll see the estimate in your list once complete.");
       

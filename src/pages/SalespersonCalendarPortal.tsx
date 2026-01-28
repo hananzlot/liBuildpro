@@ -623,6 +623,7 @@ export default function SalespersonCalendarPortal() {
             <div className="grid grid-cols-1 gap-3">
               {/* Create Estimate - Primary action at top */}
               <PortalEstimateCreator
+                portalToken={token || ""}
                 salespersonId={salesperson.id}
                 salespersonName={salesperson.name}
                 salespersonGhlUserId={salesperson.ghl_user_id}
