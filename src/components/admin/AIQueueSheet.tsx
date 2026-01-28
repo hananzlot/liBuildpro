@@ -161,7 +161,7 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
                             <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                             <div className="min-w-0">
                               <p className="font-medium truncate max-w-[180px]" title={jobAddress}>
-                                {jobAddress}
+                                {job.estimate_number ? `#${job.estimate_number} - ` : ""}{jobAddress}
                               </p>
                               {getStatusBadge(job.status)}
                             </div>

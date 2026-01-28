@@ -23,6 +23,8 @@ export interface QueuedJob {
   // Joined from profiles
   creator_name?: string | null;
   creator_email?: string | null;
+  // Joined from estimates
+  estimate_number?: number | null;
 }
 
 export function useAIGenerationQueue() {
@@ -73,6 +75,21 @@ export function useAIGenerationQueue() {
         }
       }
 
+      // Fetch estimate numbers separately
+      const estimateIds = [...new Set(jobs.map(j => j.estimate_id))];
+      let estimatesMap: Record<string, number | null> = {};
+      
+      if (estimateIds.length > 0) {
+        const { data: estimates } = await supabase
+          .from("estimates")
+          .select("id, estimate_number")
+          .in("id", estimateIds);
+        
+        if (estimates) {
+          estimatesMap = Object.fromEntries(estimates.map(e => [e.id, e.estimate_number]));
+        }
+      }
+
       return jobs.map((job) => {
         const profile = job.created_by ? profilesMap[job.created_by] : null;
         return {
@@ -80,6 +97,7 @@ export function useAIGenerationQueue() {
           request_params: job.request_params as QueuedJob["request_params"],
           creator_name: profile?.full_name || null,
           creator_email: profile?.email || null,
+          estimate_number: estimatesMap[job.estimate_id] ?? null,
         };
       });
     },
