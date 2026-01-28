@@ -6,18 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, DollarSign, Plus, Trash2 } from "lucide-react";
-import { findUserByIdOrGhlId } from "@/lib/utils";
 
-interface GHLUser {
-  id?: string;
-  ghl_id: string;
+interface Salesperson {
+  id: string;
   name: string | null;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  location_id?: string;
+  ghl_user_id: string | null;
+  is_active: boolean | null;
 }
 
 interface OpportunitySale {
@@ -36,9 +33,8 @@ interface OpportunitySalesDialogProps {
   opportunityId: string;
   contactId: string | null;
   locationId: string;
-  users: GHLUser[];
   userId?: string;
-  userGhlId?: string | null;
+  currentSalespersonId?: string | null;
   onSalesUpdated: () => void;
 }
 
@@ -50,9 +46,8 @@ export function OpportunitySalesDialog({
   opportunityId,
   contactId,
   locationId,
-  users,
   userId,
-  userGhlId,
+  currentSalespersonId,
   onSalesUpdated,
 }: OpportunitySalesDialogProps) {
   const { companyId } = useCompanyContext();
@@ -68,25 +63,39 @@ export function OpportunitySalesDialog({
   const [soldToPhone, setSoldToPhone] = useState("");
   const [soldBy, setSoldBy] = useState("");
 
-  // Filter users to primary location only
-  const filteredUsers = users
-    .filter(u => !u.location_id || u.location_id === PRIMARY_LOCATION_ID)
-    .sort((a, b) => {
-      const nameA = (a.name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.email || 'Unknown').toLowerCase();
-      const nameB = (b.name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.email || 'Unknown').toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
+  // Fetch active salespeople from salespeople table
+  const { data: salespeople = [] } = useQuery<Salesperson[]>({
+    queryKey: ["active-salespeople-for-sales", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name, ghl_user_id, is_active")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId && open,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  // Fetch existing sales
+  // Sort salespeople alphabetically
+  const sortedSalespeople = [...salespeople].sort((a, b) => 
+    (a.name || "Unknown").localeCompare(b.name || "Unknown")
+  );
+
+  // Fetch existing sales and set default sold_by
   useEffect(() => {
     if (open && opportunityId) {
       fetchSales();
-      // Set default sold_by to logged in user's GHL ID
-      if (userGhlId) {
-        setSoldBy(userGhlId);
+      // Set default sold_by to current salesperson ID (internal UUID)
+      if (currentSalespersonId) {
+        setSoldBy(currentSalespersonId);
       }
     }
-  }, [open, opportunityId, userGhlId]);
+  }, [open, opportunityId, currentSalespersonId]);
 
   const fetchSales = async () => {
     setIsLoading(true);
@@ -128,7 +137,7 @@ export function OpportunitySalesDialog({
         sold_date: soldDate,
         sold_to_name: soldToName || null,
         sold_to_phone: soldToPhone || null,
-        sold_by: soldBy || null,
+        sold_by: soldBy || null, // Now stores internal salesperson ID
         entered_by: userId,
         company_id: companyId,
       });
@@ -140,7 +149,7 @@ export function OpportunitySalesDialog({
       setSoldDate(new Date().toISOString().split("T")[0]);
       setSoldToName("");
       setSoldToPhone("");
-      if (userGhlId) setSoldBy(userGhlId);
+      if (currentSalespersonId) setSoldBy(currentSalespersonId);
       
       await fetchSales();
       onSalesUpdated();
@@ -173,11 +182,16 @@ export function OpportunitySalesDialog({
     }
   };
 
-  const getUserName = (ghlId: string | null) => {
-    if (!ghlId) return "Unknown";
-    const user = findUserByIdOrGhlId(users, undefined, ghlId);
-    if (!user) return "Unknown";
-    return user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || "Unknown";
+  // Get salesperson name by internal ID (supports both internal UUID and legacy GHL ID)
+  const getSalespersonName = (soldById: string | null) => {
+    if (!soldById) return "Unknown";
+    // First try to match by internal ID
+    const byInternalId = salespeople.find(sp => sp.id === soldById);
+    if (byInternalId) return byInternalId.name || "Unknown";
+    // Fallback: try matching by ghl_user_id for legacy records
+    const byGhlId = salespeople.find(sp => sp.ghl_user_id === soldById);
+    if (byGhlId) return byGhlId.name || "Unknown";
+    return "Unknown";
   };
 
   const formatCurrency = (value: number) => {
@@ -237,7 +251,7 @@ export function OpportunitySalesDialog({
                     )}
                     <div className="text-sm">
                       <span className="text-muted-foreground">Sold by: </span>
-                      {getUserName(sale.sold_by)}
+                      {getSalespersonName(sale.sold_by)}
                     </div>
                   </div>
                   <Button
@@ -312,9 +326,10 @@ export function OpportunitySalesDialog({
                     <SelectValue placeholder="Select sales rep" />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredUsers.map((user) => (
-                      <SelectItem key={user.ghl_id} value={user.ghl_id}>
-                        {user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email || "Unknown"}
+                    <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                    {sortedSalespeople.map((sp) => (
+                      <SelectItem key={sp.id} value={sp.id}>
+                        {sp.name || "Unknown"}
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -1078,7 +1078,15 @@ export function OpportunityDetailSheet({
     try {
       const contact = contacts.find(c => c.ghl_id === opportunity.contact_id);
       const locationId = contact?.location_id || "pVeFrqvtYWNIPRIi0Fmr";
-      const assignedToValue = appointmentAssignee && appointmentAssignee !== "__unassigned__" ? appointmentAssignee : null;
+      
+      // Get the selected salesperson (if any) and extract both IDs
+      const selectedSalesperson = appointmentAssignee && appointmentAssignee !== "__unassigned__"
+        ? activeSalespeople.find(sp => sp.id === appointmentAssignee)
+        : null;
+      // For GHL sync, use ghl_user_id if available
+      const assignedToForGhl = selectedSalesperson?.ghl_user_id || null;
+      // Internal salesperson ID for our database
+      const salespersonId = selectedSalesperson?.id || null;
 
       // Treat input as PST
       const timeStr = appointmentTime || "09:00";
@@ -1094,7 +1102,8 @@ export function OpportunityDetailSheet({
           title: appointmentTitle.trim(),
           startTime: utcDate.toISOString(),
           calendarId: null,
-          assignedUserId: assignedToValue,
+          assignedUserId: assignedToForGhl,
+          salespersonId: salespersonId, // Internal UUID for database
           address: appointmentAddress.trim() || null,
           notes: appointmentNotes.trim() || null,
           enteredBy: user?.id || null,
@@ -1334,14 +1343,13 @@ export function OpportunityDetailSheet({
     setEditedStage(stageToUse);
     setEditedMonetaryValue((savedValues.monetary_value ?? opportunity?.monetary_value)?.toString() ?? "0");
     
-    // Find matching salesperson for the assigned_to value and use their dropdown value
+    // Find matching salesperson for the assigned_to value and use internal ID
     const rawAssignedTo = savedValues.assigned_to ?? opportunity?.assigned_to;
     const matchingSalesperson = activeSalespeople.find(
-      sp => sp.ghl_user_id === rawAssignedTo || sp.id === rawAssignedTo
+      sp => sp.id === rawAssignedTo || sp.ghl_user_id === rawAssignedTo
     );
-    const assignedToValue = matchingSalesperson 
-      ? (matchingSalesperson.ghl_user_id || matchingSalesperson.id)
-      : (rawAssignedTo || "__unassigned__");
+    // Always use internal salesperson ID for the dropdown value
+    const assignedToValue = matchingSalesperson?.id || "__unassigned__";
     setEditedAssignedTo(assignedToValue);
     const contact = findContactByIdOrGhlId(contacts, opportunity?.contact_uuid, opportunity?.contact_id);
     const contactSource = contact?.source ? normalizeSourceName(contact.source) : "";
@@ -1608,6 +1616,13 @@ export function OpportunityDetailSheet({
       const monetaryValue = parseFloat(editedMonetaryValue) || 0;
 
       // Call edge function to update GHL first, then Supabase
+      // Convert internal salesperson ID to GHL user ID for GHL sync
+      let assignedToForGhl: string | null = null;
+      if (editedAssignedTo && editedAssignedTo !== "__unassigned__") {
+        const selectedSalesperson = activeSalespeople.find(sp => sp.id === editedAssignedTo);
+        assignedToForGhl = selectedSalesperson?.ghl_user_id || editedAssignedTo;
+      }
+
       const {
         data,
         error
@@ -1620,7 +1635,7 @@ export function OpportunityDetailSheet({
           pipeline_name: pipeline_name,
           pipeline_stage_id: pipeline_stage_id,
           monetary_value: monetaryValue,
-          assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo,
+          assigned_to: assignedToForGhl,
           edited_by: user?.id || null
         }
       });
@@ -1647,13 +1662,14 @@ export function OpportunityDetailSheet({
       }
 
       // Store saved values to display immediately (before query refresh)
+      // Store the internal salesperson ID for display, but GHL gets the ghl_user_id for sync
       const newSavedValues = {
         status: editedStatus,
         stage_name: editedStage,
         pipeline_name: pipeline_name,
         pipeline_id: editedPipeline,
         monetary_value: monetaryValue,
-        assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo,
+        assigned_to: editedAssignedTo === "__unassigned__" ? null : editedAssignedTo, // Keep internal ID for display matching
         source: editedSource || null
       };
       console.log("Saving values:", newSavedValues);
@@ -2557,7 +2573,7 @@ export function OpportunityDetailSheet({
                     {activeSalespeople.map(sp => (
                       <SelectItem 
                         key={sp.id} 
-                        value={sp.ghl_user_id || sp.id} 
+                        value={sp.id} 
                         className="text-xs"
                       >
                         {sp.name}
@@ -3189,7 +3205,7 @@ export function OpportunityDetailSheet({
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {[...activeSalespeople].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map(sp => (
-                    <SelectItem key={sp.id} value={sp.ghl_user_id || sp.id}>
+                    <SelectItem key={sp.id} value={sp.id}>
                       {sp.name || "Unknown"}
                     </SelectItem>
                   ))}
@@ -3198,12 +3214,14 @@ export function OpportunityDetailSheet({
               {/* Warning when assignee differs from opportunity owner */}
               {appointmentAssignee && 
                appointmentAssignee !== "__unassigned__" && 
-               opportunity?.assigned_to && 
-               appointmentAssignee !== opportunity.assigned_to && (() => {
-                 const selectedSp = activeSalespeople.find(sp => sp.ghl_user_id === appointmentAssignee || sp.id === appointmentAssignee);
-                 const ownerSp = activeSalespeople.find(sp => sp.ghl_user_id === opportunity.assigned_to);
-                 const selectedName = selectedSp?.name || "Selected user";
-                 const ownerName = ownerSp?.name || "Opportunity owner";
+               opportunity?.assigned_to && (() => {
+                 // Check if the selected salesperson matches the opportunity owner
+                 const selectedSp = activeSalespeople.find(sp => sp.id === appointmentAssignee);
+                 const ownerSp = activeSalespeople.find(sp => sp.id === opportunity.assigned_to || sp.ghl_user_id === opportunity.assigned_to);
+                 // Show warning only if we found both and they differ
+                 if (!selectedSp || !ownerSp || selectedSp.id === ownerSp.id) return null;
+                 const selectedName = selectedSp.name || "Selected user";
+                 const ownerName = ownerSp.name || "Opportunity owner";
                  return (
                    <Alert className="mt-2 bg-amber-500/10 border-amber-500/30 py-2 px-3">
                      <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -3260,9 +3278,20 @@ export function OpportunityDetailSheet({
       />
 
       {/* Sales Dialog */}
-      {opportunity && <OpportunitySalesDialog open={salesDialogOpen} onOpenChange={setSalesDialogOpen} opportunityId={opportunity.ghl_id} contactId={opportunity.contact_id} locationId="pVeFrqvtYWNIPRIi0Fmr" users={users} userId={user?.id} userGhlId={profile?.ghl_user_id} onSalesUpdated={() => queryClient.invalidateQueries({
-      queryKey: ["opportunity_sales"]
-    })} />}
+      {opportunity && (
+        <OpportunitySalesDialog 
+          open={salesDialogOpen} 
+          onOpenChange={setSalesDialogOpen} 
+          opportunityId={opportunity.ghl_id} 
+          contactId={opportunity.contact_id} 
+          locationId="pVeFrqvtYWNIPRIi0Fmr" 
+          userId={user?.id} 
+          currentSalespersonId={assignedSalesperson?.id || null}
+          onSalesUpdated={() => queryClient.invalidateQueries({
+            queryKey: ["opportunity_sales"]
+          })} 
+        />
+      )}
 
       {/* Estimate Builder Dialog - Pre-linked to this opportunity */}
       {opportunity && (

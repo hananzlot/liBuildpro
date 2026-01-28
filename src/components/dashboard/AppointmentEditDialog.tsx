@@ -112,9 +112,14 @@ export function AppointmentEditDialog({
       setNotes(appointment.notes || "");
       setStatus(appointment.appointment_status === "noshow" ? "no_show" : (appointment.appointment_status || ""));
       
-      // Find salesperson by ghl_user_id to get their internal ID for the dropdown
-      const matchedSalesperson = salespeople.find(sp => sp.ghl_user_id === appointment.assigned_user_id);
-      setAssignee(matchedSalesperson?.ghl_user_id || appointment.assigned_user_id || "__unassigned__");
+      // Find salesperson by internal ID first, then fallback to ghl_user_id for legacy
+      const matchedByInternalId = salespeople.find(sp => sp.id === appointment.assigned_user_id);
+      const matchedByGhlId = !matchedByInternalId 
+        ? salespeople.find(sp => sp.ghl_user_id === appointment.assigned_user_id)
+        : null;
+      const matchedSalesperson = matchedByInternalId || matchedByGhlId;
+      // Use internal salesperson ID as the assignee value
+      setAssignee(matchedSalesperson?.id || "__unassigned__");
       setUpdateTime(false);
 
       if (appointment.start_time) {
@@ -161,12 +166,20 @@ export function AppointmentEditDialog({
 
     setIsUpdating(true);
     try {
-      const assignedToValue = assignee && assignee !== "__unassigned__" ? assignee : null;
+      // Convert internal salesperson ID to ghl_user_id for GHL sync (if available)
+      let assignedToValue: string | null = null;
+      if (assignee && assignee !== "__unassigned__") {
+        const selectedSalesperson = salespeople.find(sp => sp.id === assignee);
+        // Use ghl_user_id for GHL sync if available, otherwise use internal ID
+        assignedToValue = selectedSalesperson?.ghl_user_id || assignee;
+      }
 
       const updateBody: Record<string, unknown> = {
         ghl_id: appointment.ghl_id,
+        appointmentUuid: appointment.id,
         title: title.trim(),
         assignedUserId: assignedToValue,
+        salespersonId: assignee && assignee !== "__unassigned__" ? assignee : null, // Pass internal ID separately
         address: address.trim() || null,
         notes: notes.trim() || null,
         status: status || null,
@@ -365,7 +378,7 @@ export function AppointmentEditDialog({
               <SelectContent>
                 <SelectItem value="__unassigned__">Unassigned</SelectItem>
                 {sortedSalespeople.map((sp) => (
-                  <SelectItem key={sp.id} value={sp.ghl_user_id || sp.id}>
+                  <SelectItem key={sp.id} value={sp.id}>
                     {sp.name || "Unknown"}
                   </SelectItem>
                 ))}
