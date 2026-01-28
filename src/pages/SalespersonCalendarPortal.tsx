@@ -899,23 +899,27 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
                     <span className="text-sm font-medium">Open Customer Portal</span>
                   </div>
                 </a>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-2"
-                  onClick={handleSendThankYouEmail}
-                  disabled={isSendingThankYou || !contact?.email}
-                  size="sm"
-                >
-                  {isSendingThankYou ? (
-                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                  ) : (
-                    <Mail className="h-4 w-4 shrink-0" />
-                  )}
-                  <span className="truncate">Send Thank-You Email</span>
-                  {!contact?.email && (
-                    <span className="text-xs text-muted-foreground ml-auto shrink-0">No email</span>
-                  )}
-                </Button>
+                {/* Only show thank-you email button if the rep created the portal (not pre-existing) */}
+                {portalLink && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-2"
+                    onClick={handleSendThankYouEmail}
+                    disabled={isSendingThankYou || !contact?.email}
+                    size="sm"
+                  >
+                    {isSendingThankYou ? (
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                    ) : (
+                      <Mail className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="truncate">Thank you email after your initial meeting only</span>
+                    <span className="text-xs text-muted-foreground shrink-0">(optional)</span>
+                    {!contact?.email && (
+                      <span className="text-xs text-destructive ml-auto shrink-0">No email</span>
+                    )}
+                  </Button>
+                )}
               </>
             ) : (
               <Button
