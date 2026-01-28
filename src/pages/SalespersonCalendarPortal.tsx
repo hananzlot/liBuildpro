@@ -15,7 +15,7 @@ import { ScopePricingDialog } from "@/components/portal/ScopePricingDialog";
 import { PortalProposalsSection } from "@/components/salesperson-portal/PortalProposalsSection";
 import { PortalFileUploadSection } from "@/components/salesperson-portal/PortalFileUploadSection";
 import { PortalProjectLinksSection } from "@/components/salesperson-portal/PortalProjectLinksSection";
-import { PortalEstimatesPlaceholder } from "@/components/salesperson-portal/PortalEstimatesPlaceholder";
+import { PortalEstimateCreator } from "@/components/salesperson-portal/PortalEstimateCreator";
 interface Appointment {
   id: string;
   ghl_id: string | null;
@@ -621,6 +621,13 @@ export default function SalespersonCalendarPortal() {
             
             {/* Mobile-optimized grid of tool cards */}
             <div className="grid grid-cols-1 gap-3">
+              {/* Create Estimate - Primary action at top */}
+              <PortalEstimateCreator
+                salespersonId={salesperson.id}
+                salespersonName={salesperson.name}
+                salespersonGhlUserId={salesperson.ghl_user_id}
+                companyId={salesperson.company_id}
+              />
               <PortalProposalsSection 
                 salespersonName={salesperson.name} 
                 companyId={salesperson.company_id} 
@@ -637,7 +644,6 @@ export default function SalespersonCalendarPortal() {
                 salespersonGhlUserId={salesperson.ghl_user_id}
                 companyId={salesperson.company_id}
               />
-              <PortalEstimatesPlaceholder />
             </div>
           </div>
         </div>
