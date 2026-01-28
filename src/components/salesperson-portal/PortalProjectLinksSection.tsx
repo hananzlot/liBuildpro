@@ -78,7 +78,7 @@ export function PortalProjectLinksSection({
 
       if (directError) throw directError;
 
-      // Step 2: Get projects linked via opportunity assignment (if salesperson has ghl_user_id)
+      // Step 2: Get projects linked via opportunity assignment ONLY if no salesperson is assigned
       let opportunityProjects: typeof directProjects = [];
       
       if (salespersonGhlUserId) {
@@ -98,14 +98,23 @@ export function PortalProjectLinksSection({
           const ghlIdFilters = oppGhlIds.length ? oppGhlIds.map(id => `opportunity_id.eq.${id}`).join(',') : '';
           const combinedFilter = ghlIdFilters ? `${uuidFilters},${ghlIdFilters}` : uuidFilters;
 
+          // Only include projects with NO salesperson assigned
           const { data: linkedProjects } = await supabase
             .from("projects")
-            .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name")
+            .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name, primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson")
             .eq("company_id", companyId)
             .is("deleted_at", null)
             .or(combinedFilter);
 
-          opportunityProjects = linkedProjects || [];
+          // Filter to only include projects without any salesperson assigned
+          opportunityProjects = (linkedProjects || [])
+            .filter(p => 
+              !p.primary_salesperson && 
+              !p.secondary_salesperson && 
+              !p.tertiary_salesperson && 
+              !p.quaternary_salesperson
+            )
+            .map(({ primary_salesperson, secondary_salesperson, tertiary_salesperson, quaternary_salesperson, ...rest }) => rest);
         }
       }
 
