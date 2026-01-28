@@ -308,13 +308,15 @@ export function PortalEstimateCreator({
     setMissingZipCode(false);
     setManualZipCode("");
 
+    // Store the validated job address with zip code
+    const finalJobAddress = jobAddress;
+
     setIsRequestingAI(true);
     try {
       // Get customer details from opportunity or project
       let customerName = "";
       let customerEmail = "";
       let customerPhone = "";
-      let jobAddress = "";
       let opportunityUuid: string | null = null;
       let opportunityGhlId: string | null = null;
       let contactId: string | null = null;
@@ -346,7 +348,6 @@ export function PortalEstimateCreator({
         const proj = projects.find(p => p.id === selectedId);
         if (proj) {
           customerName = [proj.customer_first_name, proj.customer_last_name].filter(Boolean).join(" ") || proj.project_name || "Customer";
-          jobAddress = proj.project_address || "";
           opportunityUuid = proj.opportunity_uuid;
           opportunityGhlId = proj.opportunity_id;
         }
@@ -360,7 +361,7 @@ export function PortalEstimateCreator({
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
-          job_address: jobAddress,
+          job_address: finalJobAddress,
           estimate_title: `Estimate for ${customerName}`,
           estimate_date: new Date().toISOString().split("T")[0],
           status: "draft",
@@ -388,7 +389,7 @@ export function PortalEstimateCreator({
           estimate_id: estimate.id,
           status: "pending",
           request_params: {
-            job_address: jobAddress,
+            job_address: finalJobAddress,
             customer_name: customerName,
             work_scope: workScope.trim(),
             created_from: "salesperson_portal",
