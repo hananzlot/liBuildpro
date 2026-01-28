@@ -170,7 +170,13 @@ export function PortalEstimateCreator({
   });
 
   // Fetch estimates created by this salesperson
-  const { data: myEstimates = [], isLoading: estimatesLoading } = useQuery({
+  const {
+    data: myEstimates = [],
+    isLoading: estimatesLoading,
+    isFetching: estimatesFetching,
+    error: estimatesError,
+    refetch: refetchMyEstimates,
+  } = useQuery({
     queryKey: ["portal-my-estimates", companyId, salespersonId],
     queryFn: async () => {
       // Fetch estimates
@@ -183,14 +189,21 @@ export function PortalEstimateCreator({
         .limit(20);
 
       if (error) throw error;
+
+      // If there are no estimates, avoid running an empty `.in()` query (can error in PostgREST)
+      if (!estimates || estimates.length === 0) {
+        return [] as Estimate[];
+      }
       
       // Fetch pending/running generation jobs to show status
-      const estimateIds = (estimates || []).map(e => e.id);
-      const { data: jobs } = await supabase
+      const estimateIds = estimates.map((e) => e.id);
+      const { data: jobs, error: jobsError } = await supabase
         .from("estimate_generation_jobs")
         .select("estimate_id, status")
         .in("estimate_id", estimateIds)
         .in("status", ["pending", "running"]);
+
+      if (jobsError) throw jobsError;
       
       const generatingIds = new Set((jobs || []).map(j => j.estimate_id));
       
@@ -648,34 +661,63 @@ export function PortalEstimateCreator({
       </Collapsible>
 
       {/* My Estimates Section - Always visible outside collapsible */}
-      {(myEstimates.length > 0 || estimatesLoading) && (
-        <div className="border-t border-border/50 px-4 py-3 space-y-2">
+      <div className="border-t border-border/50 px-4 py-3 space-y-2">
+        <div className="flex items-center justify-between gap-2">
           <Label className="text-sm font-medium flex items-center gap-2">
             <FileText className="h-4 w-4" />
             My Estimates ({myEstimates.length})
           </Label>
-          
-          {estimatesLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
-              {myEstimates.map(estimate => {
-                  const canClick = !estimate.is_generating && estimate.total != null && estimate.total > 0;
-                  return (
-                    <div
-                      key={estimate.id}
-                      className={`p-3 rounded-lg border bg-card transition-colors ${
-                        canClick ? "cursor-pointer hover:bg-muted/50 hover:border-primary/30" : ""
-                      }`}
-                      onClick={() => {
-                        if (canClick) {
-                          setSelectedEstimateId(estimate.id);
-                          setDetailSheetOpen(true);
-                        }
-                      }}
-                    >
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => refetchMyEstimates()}
+            disabled={estimatesFetching}
+            className="h-7 px-2"
+            title="Refresh"
+          >
+            {estimatesFetching ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <span className="text-xs">Refresh</span>
+            )}
+          </Button>
+        </div>
+
+        {estimatesError ? (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="ml-2">
+              Couldn’t load your estimates. Tap Refresh to try again.
+            </AlertDescription>
+          </Alert>
+        ) : estimatesLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : myEstimates.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No estimates found yet.
+          </p>
+        ) : (
+          <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            {myEstimates.map((estimate) => {
+              const canOpen = !estimate.is_generating;
+              return (
+                <button
+                  type="button"
+                  key={estimate.id}
+                  className={`w-full text-left p-3 rounded-lg border bg-card transition-colors ${
+                    canOpen ? "hover:bg-muted/50 hover:border-primary/30" : "opacity-70"
+                  }`}
+                  onClick={() => {
+                    if (canOpen) {
+                      setSelectedEstimateId(estimate.id);
+                      setDetailSheetOpen(true);
+                    }
+                  }}
+                  disabled={!canOpen}
+                >
                       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -718,13 +760,12 @@ export function PortalEstimateCreator({
                           </p>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-          )}
-        </div>
-      )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </Card>
       {/* Estimate Detail Sheet */}
       <PortalEstimateDetailSheet
