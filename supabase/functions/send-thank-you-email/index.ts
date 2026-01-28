@@ -91,6 +91,10 @@ serve(async (req) => {
       );
     }
 
+    // Generate info@ CC email from the company's from email domain
+    const emailDomain = fromEmail.split('@')[1];
+    const infoCcEmail = emailDomain ? `info@${emailDomain}` : null;
+
     // Get email template (company-specific or default)
     let template = DEFAULT_TEMPLATE;
     if (settingsMap.email_template_thank_you_meeting) {
@@ -220,19 +224,27 @@ serve(async (req) => {
       </html>
     `;
 
-    // Send the email
+    // Send the email with CC to info@
+    const emailPayload: Record<string, unknown> = {
+      from: `${fromName} <${fromEmail}>`,
+      to: [to],
+      subject: subject,
+      html: htmlContent,
+    };
+
+    // Add CC if info@ email was generated
+    if (infoCcEmail) {
+      emailPayload.cc = [infoCcEmail];
+      console.log(`Adding CC to: ${infoCcEmail}`);
+    }
+
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
-      body: JSON.stringify({
-        from: `${fromName} <${fromEmail}>`,
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     if (!res.ok) {
