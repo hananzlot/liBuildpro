@@ -53,6 +53,7 @@ interface Estimate {
   total: number | null;
   status: string;
   created_at: string;
+  is_generating?: boolean;
 }
 
 export function PortalEstimateCreator({
@@ -162,7 +163,8 @@ export function PortalEstimateCreator({
   const { data: myEstimates = [], isLoading: estimatesLoading } = useQuery({
     queryKey: ["portal-my-estimates", companyId, salespersonId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch estimates
+      const { data: estimates, error } = await supabase
         .from("estimates")
         .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, created_at")
         .eq("company_id", companyId)
@@ -171,10 +173,25 @@ export function PortalEstimateCreator({
         .limit(20);
 
       if (error) throw error;
-      return (data || []) as Estimate[];
+      
+      // Fetch pending/running generation jobs to show status
+      const estimateIds = (estimates || []).map(e => e.id);
+      const { data: jobs } = await supabase
+        .from("estimate_generation_jobs")
+        .select("estimate_id, status")
+        .in("estimate_id", estimateIds)
+        .in("status", ["pending", "running"]);
+      
+      const generatingIds = new Set((jobs || []).map(j => j.estimate_id));
+      
+      return (estimates || []).map(e => ({
+        ...e,
+        is_generating: generatingIds.has(e.id),
+      })) as Estimate[];
     },
     enabled: !!companyId && !!salespersonId,
-    staleTime: 2 * 60 * 1000,
+    staleTime: 30 * 1000, // Refresh more frequently to show generation updates
+    refetchInterval: 30 * 1000, // Auto-refresh every 30s
   });
 
   // When selection changes, pre-fill with existing scope if available
@@ -241,6 +258,35 @@ export function PortalEstimateCreator({
   const handleRequestAIEstimate = async () => {
     if (!selectedId || !workScope.trim()) {
       toast.error("Please save the work scope first");
+      return;
+    }
+
+    // Get job address to validate
+    let jobAddress = "";
+    if (selectedType === "opportunity") {
+      const opp = opportunities.find(o => o.id === selectedId);
+      if (opp?.contact_id) {
+        const { data: contact } = await supabase
+          .from("contacts")
+          .select("custom_fields")
+          .eq("ghl_id", opp.contact_id)
+          .single();
+        // Try to get address from custom fields
+        const customFields = contact?.custom_fields as Record<string, string> | null;
+        if (customFields?.address) jobAddress = customFields.address;
+      }
+    } else {
+      const proj = projects.find(p => p.id === selectedId);
+      jobAddress = proj?.project_address || "";
+    }
+
+    // Validate address has zip code (basic check for 5 digits)
+    const zipRegex = /\b\d{5}(-\d{4})?\b/;
+    if (!zipRegex.test(jobAddress)) {
+      toast.error(
+        "Missing or invalid zip code in the job address. Please update the opportunity/project address with a valid zip code before generating an estimate.",
+        { duration: 6000 }
+      );
       return;
     }
 
@@ -564,6 +610,12 @@ export function PortalEstimateCreator({
                               <div className="flex items-center gap-2">
                                 <span className="font-medium text-sm">#{estimate.estimate_number}</span>
                                 {getStatusBadge(estimate.status)}
+                                {estimate.is_generating && (
+                                  <Badge variant="outline" className="text-[10px] gap-1">
+                                    <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                    Generating
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-sm text-foreground truncate mt-0.5">
                                 {estimate.customer_name}
@@ -574,11 +626,15 @@ export function PortalEstimateCreator({
                                 </p>
                               )}
                             </div>
-                            <div className="text-right shrink-0">
-                              {estimate.total != null && (
-                                <p className="font-semibold text-sm text-emerald-600">
+                            <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                              {estimate.total != null && estimate.total > 0 ? (
+                                <p className="font-semibold text-sm text-primary">
                                   ${estimate.total.toLocaleString()}
                                 </p>
+                              ) : estimate.is_generating ? (
+                                <p className="text-xs text-muted-foreground italic">Processing...</p>
+                              ) : (
+                                <p className="text-xs text-amber-600">Pending</p>
                               )}
                               <p className="text-[10px] text-muted-foreground">
                                 {new Date(estimate.created_at).toLocaleDateString()}
