@@ -85,34 +85,39 @@ export function PortalEstimateCreator({
   const { data: opportunities = [], isLoading: oppsLoading } = useQuery({
     queryKey: ["portal-opportunities", companyId, salespersonId, salespersonGhlUserId],
     queryFn: async () => {
-      // Build filter: match salesperson_id (UUID) OR assigned_to (UUID or GHL user ID)
-      const filters: string[] = [];
-      if (salespersonId) {
-        filters.push(`salesperson_id.eq.${salespersonId}`);
-        // Also check assigned_to for UUID (migration may have stored UUID there)
-        filters.push(`assigned_to.eq.${salespersonId}`);
-      }
-      if (salespersonGhlUserId) {
-        filters.push(`assigned_to.eq.${salespersonGhlUserId}`);
-      }
+      if (!salespersonId) return [];
       
-      if (filters.length === 0) return [];
+      // Build OR filter: match salesperson_id (UUID) OR assigned_to (UUID or GHL user ID)
+      // Format: "salesperson_id.eq.UUID,assigned_to.eq.UUID,assigned_to.eq.GHL_ID"
+      const orConditions: string[] = [
+        `salesperson_id.eq.${salespersonId}`,
+        `assigned_to.eq.${salespersonId}`,
+      ];
+      if (salespersonGhlUserId) {
+        orConditions.push(`assigned_to.eq.${salespersonGhlUserId}`);
+      }
       
       const { data, error } = await supabase
         .from("opportunities")
-        .select("id, ghl_id, name, contact_id, scope_of_work, monetary_value, stage_name")
+        .select("id, ghl_id, name, contact_id, scope_of_work, monetary_value, stage_name, status")
         .eq("company_id", companyId)
-        .or(filters.join(","))
+        .eq("status", "open")
+        .or(orConditions.join(","))
         .not("stage_name", "ilike", "%lost%")
         .not("stage_name", "ilike", "%abandon%")
         .order("created_at", { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.error("[PortalEstimateCreator] Error fetching opportunities:", error);
+        throw error;
+      }
+      
+      console.log("[PortalEstimateCreator] Fetched opportunities:", data?.length, "for salesperson:", salespersonId);
       return (data || []) as Opportunity[];
     },
     enabled: !!companyId && !!salespersonId,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000, // Refresh more frequently to catch new assignments
   });
 
   // Fetch projects assigned to this salesperson
