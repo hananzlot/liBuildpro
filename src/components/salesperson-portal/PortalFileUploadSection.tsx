@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { PdfViewerDialog } from "@/components/production/PdfViewerDialog";
 interface PortalFileUploadSectionProps {
   salespersonName: string;
+  salespersonId: string;
+  salespersonGhlUserId?: string;
   companyId: string;
 }
 
@@ -43,7 +45,12 @@ const ALLOWED_TYPES = [
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15MB
 
-export function PortalFileUploadSection({ salespersonName, companyId }: PortalFileUploadSectionProps) {
+export function PortalFileUploadSection({ 
+  salespersonName, 
+  salespersonId,
+  salespersonGhlUserId,
+  companyId 
+}: PortalFileUploadSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -52,22 +59,63 @@ export function PortalFileUploadSection({ salespersonName, companyId }: PortalFi
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch projects where this salesperson is assigned
+  // Fetch projects where this salesperson is assigned (directly or via opportunity)
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ["salesperson-portal-projects", salespersonName, companyId],
+    queryKey: ["salesperson-portal-upload-projects", salespersonName, salespersonId, salespersonGhlUserId, companyId],
     queryFn: async () => {
       if (!salespersonName || !companyId) return [];
 
-      const { data, error } = await supabase
+      // Step 1: Get projects directly assigned to salesperson by name
+      const { data: directProjects, error: directError } = await supabase
         .from("projects")
         .select("id, project_number, project_name, project_address")
         .eq("company_id", companyId)
         .or(`primary_salesperson.eq.${salespersonName},secondary_salesperson.eq.${salespersonName},tertiary_salesperson.eq.${salespersonName},quaternary_salesperson.eq.${salespersonName}`)
-        .is("deleted_at", null)
-        .order("project_number", { ascending: false });
+        .is("deleted_at", null);
 
-      if (error) throw error;
-      return data as Project[];
+      if (directError) throw directError;
+
+      // Step 2: Get projects linked via opportunity assignment (if salesperson has ghl_user_id)
+      let opportunityProjects: typeof directProjects = [];
+      
+      if (salespersonGhlUserId) {
+        // Get opportunities assigned to this salesperson
+        const { data: opportunities } = await supabase
+          .from("opportunities")
+          .select("id, ghl_id")
+          .eq("company_id", companyId)
+          .eq("assigned_to", salespersonGhlUserId);
+
+        if (opportunities?.length) {
+          const oppUuids = opportunities.map(o => o.id);
+          const oppGhlIds = opportunities.map(o => o.ghl_id).filter(Boolean) as string[];
+
+          // Build OR filter for projects linked to these opportunities
+          const uuidFilters = oppUuids.map(id => `opportunity_uuid.eq.${id}`).join(',');
+          const ghlIdFilters = oppGhlIds.length ? oppGhlIds.map(id => `opportunity_id.eq.${id}`).join(',') : '';
+          const combinedFilter = ghlIdFilters ? `${uuidFilters},${ghlIdFilters}` : uuidFilters;
+
+          const { data: linkedProjects } = await supabase
+            .from("projects")
+            .select("id, project_number, project_name, project_address")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .or(combinedFilter);
+
+          opportunityProjects = linkedProjects || [];
+        }
+      }
+
+      // Step 3: Merge and deduplicate
+      const projectMap = new Map<string, (typeof directProjects)[0]>();
+      [...(directProjects || []), ...opportunityProjects].forEach(p => {
+        if (!projectMap.has(p.id)) {
+          projectMap.set(p.id, p);
+        }
+      });
+
+      return Array.from(projectMap.values())
+        .sort((a, b) => (b.project_number || 0) - (a.project_number || 0)) as Project[];
     },
     enabled: !!salespersonName && !!companyId,
     staleTime: 5 * 60 * 1000,
