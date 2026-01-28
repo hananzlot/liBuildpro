@@ -99,19 +99,19 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get estimate with full details
+    // Get estimate with full details - use explicit FK names to avoid ambiguity
     const { data: estimate, error: estimateError } = await supabase
       .from("estimates")
       .select(`
         *,
-        contacts:contact_uuid (
+        contacts:contact_uuid!estimates_contact_uuid_fkey (
           contact_name,
           first_name,
           last_name,
           email,
           phone
         ),
-        opportunities:opportunity_uuid (
+        opportunities:opportunity_uuid!estimates_opportunity_uuid_fkey (
           name,
           monetary_value
         )
