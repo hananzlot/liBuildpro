@@ -27,6 +27,7 @@ interface SendProposalDialogProps {
   customerPhone?: string | null;
   jobAddress?: string | null;
   isResend?: boolean;
+  onSuccess?: () => void;
 }
 
 const SIGNER_COLORS = [
@@ -42,6 +43,7 @@ export function SendProposalDialog({
   customerPhone,
   jobAddress,
   isResend = false,
+  onSuccess,
 }: SendProposalDialogProps) {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
@@ -559,6 +561,8 @@ export function SendProposalDialog({
       queryClient.invalidateQueries({ queryKey: ['estimates'] });
       queryClient.invalidateQueries({ queryKey: ['estimate-signers', estimateId] });
       queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      // Call the external onSuccess callback if provided
+      onSuccess?.();
       onOpenChange(false);
     },
     onError: (error: Error) => {

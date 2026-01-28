@@ -567,9 +567,21 @@ export function PortalEstimateDetailSheet({
           onOpenChange={setSendDialogOpen}
           estimateId={estimate.id}
           customerName={estimate.customer_name || ""}
-          customerEmail={estimate.customer_email}
+          customerEmail={editedCustomerInfo.customer_email ?? estimate.customer_email}
           customerPhone={estimate.customer_phone}
-          jobAddress={estimate.job_address}
+          jobAddress={editedCustomerInfo.job_address ?? estimate.job_address}
+          onSuccess={() => {
+            // Invalidate portal-specific queries
+            queryClient.invalidateQueries({ queryKey: ["portal-estimate-detail", estimateId] });
+            queryClient.invalidateQueries({ queryKey: ["portal-my-estimates"] });
+            // Invalidate proposals section so it shows the newly sent proposal
+            queryClient.invalidateQueries({ queryKey: ["salesperson-portal-proposals"] });
+            // Also invalidate main app estimate queries
+            queryClient.invalidateQueries({ queryKey: ["estimates"] });
+            queryClient.invalidateQueries({ queryKey: ["company-estimates"] });
+            // Close the sheet after successful send
+            onOpenChange(false);
+          }}
         />
       )}
     </>
