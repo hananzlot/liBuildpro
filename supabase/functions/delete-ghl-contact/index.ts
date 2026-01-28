@@ -6,43 +6,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper to get GHL API key from database
-async function getGHLApiKey(supabase: any, locationId: string | null): Promise<string | null> {
-  if (!locationId || locationId === 'local') {
-    return null;
-  }
-
-  const { data: integration, error } = await supabase
-    .from("company_integrations")
-    .select("id, api_key_encrypted")
-    .eq("provider", "ghl")
-    .eq("location_id", locationId)
-    .eq("is_active", true)
-    .single();
-
-  if (error || !integration || !integration.api_key_encrypted) {
-    return null;
-  }
-
-  const { data: apiKey, error: vaultError } = await supabase.rpc(
-    "get_ghl_api_key_encrypted",
-    { p_integration_id: integration.id }
-  );
-
-  if (vaultError || !apiKey) {
-    return null;
-  }
-
-  return apiKey;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { contactId, contactUuid, deleteFromGHL = false } = await req.json();
+    const { contactId, contactUuid } = await req.json();
 
     if (!contactId && !contactUuid) {
       return new Response(
@@ -51,7 +21,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Deleting contact ${contactId || contactUuid}, deleteFromGHL: ${deleteFromGHL}`);
+    console.log(`Deleting contact ${contactId || contactUuid} (local-only)`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -81,30 +51,6 @@ serve(async (req) => {
         JSON.stringify({ error: "Contact not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    }
-
-    // Optionally delete from GHL first
-    if (deleteFromGHL && contact.ghl_id && !contact.ghl_id.startsWith("local_")) {
-      const apiKey = await getGHLApiKey(supabase, contact.location_id);
-      
-      if (apiKey) {
-        console.log(`Attempting to delete contact ${contact.ghl_id} from GHL`);
-        const ghlResponse = await fetch(`https://services.leadconnectorhq.com/contacts/${contact.ghl_id}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            Version: "2021-07-28",
-          },
-        });
-
-        if (!ghlResponse.ok) {
-          const errorText = await ghlResponse.text();
-          console.error("GHL API delete error:", ghlResponse.status, errorText);
-          // Continue with local delete even if GHL fails
-        } else {
-          console.log("GHL contact delete successful");
-        }
-      }
     }
 
     // Delete related records first (those with ON DELETE SET NULL won't cascade)

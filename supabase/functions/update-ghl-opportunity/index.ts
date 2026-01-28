@@ -6,80 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper to get GHL API key from database - throws error if not configured
-async function getGHLApiKey(supabase: any, locationId: string): Promise<string | null> {
-  // Check if this is a local-only opportunity (skip GHL lookup)
-  if (!locationId || locationId === 'local') {
-    return null;
-  }
-
-  // Query company_integrations for this location
-  const { data: integration, error } = await supabase
-    .from("company_integrations")
-    .select("id, api_key_encrypted")
-    .eq("provider", "ghl")
-    .eq("location_id", locationId)
-    .eq("is_active", true)
-    .single();
-
-  if (error || !integration || !integration.api_key_encrypted) {
-    console.error(`GHL integration not configured for location ${locationId}`);
-    return null; // Allow local-only updates
-  }
-
-  // Get decrypted API key using pgcrypto function
-  const { data: apiKey, error: vaultError } = await supabase.rpc(
-    "get_ghl_api_key_encrypted",
-    { p_integration_id: integration.id }
-  );
-
-  if (vaultError || !apiKey) {
-    console.error(`Failed to retrieve GHL API key for location ${locationId}: ${vaultError?.message}`);
-    return null; // Allow local-only updates
-  }
-
-  return apiKey;
-}
-
-// Helper function to delay execution
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// Helper function to make GHL API request with retry logic
-async function fetchWithRetry(
-  url: string, 
-  options: RequestInit, 
-  maxRetries = 3
-): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const response = await fetch(url, options);
-    
-    if (response.ok) {
-      return response;
-    }
-    
-    // Handle rate limiting (429)
-    if (response.status === 429) {
-      const retryAfter = response.headers.get('Retry-After');
-      const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt + 1) * 1000;
-      console.log(`Rate limited (429). Waiting ${waitTime}ms before retry ${attempt + 1}/${maxRetries}`);
-      await delay(waitTime);
-      continue;
-    }
-    
-    // For other errors, don't retry
-    const errorText = await response.text();
-    lastError = new Error(`GHL API Error: ${response.status} - ${errorText}`);
-    console.error('GHL API Error:', errorText);
-    throw lastError;
-  }
-  
-  throw lastError || new Error('Max retries exceeded');
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -130,65 +56,9 @@ serve(async (req) => {
       }
     }
 
-    const ghlApiKey = await getGHLApiKey(supabase, effectiveLocationId);
-    
-    // Check if this is a local-only opportunity or no GHL credentials
-    const isLocalOpportunity = ghl_id.startsWith('local_');
-    const skipGHLSync = !ghlApiKey || isLocalOpportunity;
+    console.log(`Updating opportunity ${ghl_id} (local-only): name=${name}, status=${status}, pipeline_id=${pipeline_id}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
 
-    console.log(`Updating opportunity ${ghl_id} (location: ${effectiveLocationId}, local-only: ${skipGHLSync}): name=${name}, status=${status}, pipeline_id=${pipeline_id}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
-
-    // Build the update payload for GHL
-    const ghlPayload: Record<string, string | number> = {};
-    
-    if (name) {
-      ghlPayload.name = name;
-    }
-    
-    if (status) {
-      ghlPayload.status = status;
-    }
-    
-    if (pipeline_id && !pipeline_id.startsWith('local_')) {
-      ghlPayload.pipelineId = pipeline_id;
-    }
-    
-    // Only send pipeline_stage_id to GHL if it's a valid GHL stage ID (not local_stage_X)
-    if (pipeline_stage_id && !pipeline_stage_id.startsWith('local_')) {
-      ghlPayload.pipelineStageId = pipeline_stage_id;
-    }
-
-    if (monetary_value !== undefined && monetary_value !== null) {
-      ghlPayload.monetaryValue = Number(monetary_value);
-    }
-
-    if (assigned_to) {
-      ghlPayload.assignedTo = assigned_to;
-    }
-
-    // Update GHL first with retry logic for rate limiting (only if not local-only)
-    if (!skipGHLSync && Object.keys(ghlPayload).length > 0) {
-      const ghlResponse = await fetchWithRetry(
-        `https://services.leadconnectorhq.com/opportunities/${ghl_id}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${ghlApiKey}`,
-            'Version': '2021-07-28',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(ghlPayload),
-        },
-        3 // max retries
-      );
-
-      const ghlData = await ghlResponse.json();
-      console.log('GHL update successful:', ghlData);
-    } else {
-      console.log('Skipping GHL sync - local-only opportunity or no GHL credentials');
-    }
-
-    // Now update Supabase
+    // Build the update payload for Supabase
     const supabaseUpdate: Record<string, string | number | null> = {};
     if (name) {
       supabaseUpdate.name = name;
@@ -216,12 +86,10 @@ serve(async (req) => {
     }
     
     // Handle won_at timestamp
-    // If explicitly provided (admin edit), use that value
     if (won_at !== undefined) {
       supabaseUpdate.won_at = won_at;
       console.log(`Setting won_at to explicitly provided value: ${won_at}`);
     }
-    // If status is changing TO "won" and wasn't "won" before, and won_at not explicitly provided, set it now
     else if (status === 'won' && currentOpp?.status !== 'won' && !currentOpp?.won_at) {
       supabaseUpdate.won_at = new Date().toISOString();
       console.log(`Auto-setting won_at to current time for status change to won`);
@@ -470,11 +338,11 @@ serve(async (req) => {
       }
     }
 
-    console.log('Opportunity updated successfully' + (skipGHLSync ? ' (local only)' : ' in both GHL and Supabase'));
+    console.log('Opportunity updated successfully (local only)');
 
     return new Response(JSON.stringify({ 
       success: true, 
-      localOnly: skipGHLSync,
+      localOnly: true,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
