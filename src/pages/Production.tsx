@@ -69,7 +69,8 @@ import { SalespeopleManagement } from "@/components/admin/SalespeopleManagement"
 import { ScopeSubmissionsManagement } from "@/components/production/ScopeSubmissionsManagement";
 import { SubcontractorWarningsCard } from "@/components/production/SubcontractorWarningsCard";
 import { ProjectImportDialog } from "@/components/production/ProjectImportDialog";
-import { AdminKPIFilters } from "@/components/production/AdminKPIFilters";
+import { AdminKPIFilters, PROJECT_STATUSES } from "@/components/production/AdminKPIFilters";
+import { MultiSelectFilter } from "@/components/dashboard/MultiSelectFilter";
 import { CashFlowChart } from "@/components/production/CashFlowChart";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -1595,14 +1596,10 @@ export default function Production() {
         <div className="py-4 px-4 lg:px-6 space-y-4">
           {activeView === 'projects' && (
             <div className="space-y-4">
-              {/* Date Range Filter for KPIs + Search/Status Filters */}
+              {/* Date Range Filter for KPIs */}
               <AdminKPIFilters
                 dateRange={kpiDateRange}
                 onDateRangeChange={setKpiDateRange}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                selectedStatuses={selectedStatuses}
-                onStatusesChange={setSelectedStatuses}
               />
 
               {/* Collapsible KPI Cards Section */}
@@ -1945,22 +1942,41 @@ export default function Production() {
                   {sortedAndFilteredProjects.length} project{sortedAndFilteredProjects.length !== 1 ? "s" : ""} found
                 </CardDescription>
               </div>
-              {isAdmin && (
-                <Button
-                  variant={showArchived ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={() => setShowArchived(!showArchived)}
-                  className="gap-2"
-                >
-                  <Archive className="h-4 w-4" />
-                  {showArchived ? "Hide Archived" : "Show Archived"}
-                  {archivedProjects.length > 0 && (
-                    <Badge variant="secondary" className="ml-1">
-                      {archivedProjects.length}
-                    </Badge>
-                  )}
-                </Button>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {isAdmin && (
+                  <Button
+                    variant={showArchived ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setShowArchived(!showArchived)}
+                    className="gap-2"
+                  >
+                    <Archive className="h-4 w-4" />
+                    {showArchived ? "Hide Archived" : "Show Archived"}
+                    {archivedProjects.length > 0 && (
+                      <Badge variant="secondary" className="ml-1">
+                        {archivedProjects.length}
+                      </Badge>
+                    )}
+                  </Button>
+                )}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 w-56 h-9"
+                  />
+                </div>
+                <MultiSelectFilter
+                  options={PROJECT_STATUSES.map(status => ({ value: status, label: status }))}
+                  selected={selectedStatuses}
+                  onChange={setSelectedStatuses}
+                  placeholder="Status"
+                  icon={<Filter className="h-3.5 w-3.5" />}
+                  className="w-[160px]"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading ? (
