@@ -272,6 +272,12 @@ export function OpportunityDetailSheet({
   const [editedAddress, setEditedAddress] = useState("");
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
+  // Phone editing
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [editedPhone, setEditedPhone] = useState("");
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [savedPhone, setSavedPhone] = useState<string | null>(null);
+
   // Contact name editing
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedFirstName, setEditedFirstName] = useState("");
@@ -342,6 +348,7 @@ export function OpportunityDetailSheet({
       setSavedValues({});
       setSavedContactName(null);
       setSavedOppName(null);
+      setSavedPhone(null);
       setAssociatedProjectId(null);
       setPortalLink(null);
       setSavedWonAt(null);
@@ -349,6 +356,8 @@ export function OpportunityDetailSheet({
       setSavedCreatedAt(null);
       setIsEditingCreatedAt(false);
       setLinkedEstimates([]);
+      setIsEditingPhone(false);
+      setIsEditingAddress(false);
     }
     setWasOpen(open);
   }, [open]);
@@ -1893,6 +1902,37 @@ export function OpportunityDetailSheet({
       setIsSavingAddress(false);
     }
   };
+
+  const handleSavePhone = async () => {
+    if (!opportunity?.contact_id && !opportunity?.contact_uuid) return;
+    setIsSavingPhone(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-contact-phone", {
+        body: {
+          contactId: opportunity.contact_id,
+          contactUuid: opportunity.contact_uuid,
+          phone: editedPhone.trim(),
+          editedBy: user?.id || null,
+          opportunityGhlId: opportunity.ghl_id,
+          companyId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success("Phone updated");
+      setIsEditingPhone(false);
+      setSavedPhone(editedPhone.trim() || null);
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+    } catch (error) {
+      console.error("Error saving phone:", error);
+      toast.error("Failed to save phone");
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
   const handleSaveName = async () => {
     if (!opportunity?.contact_id) return;
     setIsSavingName(true);
@@ -2559,17 +2599,55 @@ export function OpportunityDetailSheet({
               <div className="grid gap-1.5 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Phone className="h-3.5 w-3.5 shrink-0" />
-                  {contact?.phone ? <>
-                      <a href={`tel:${contact.phone}`} className="text-primary hover:underline truncate">
-                        {contact.phone}
-                      </a>
-                      <button className="text-muted-foreground hover:text-primary p-0.5" onClick={() => {
-                    navigator.clipboard.writeText(contact.phone!);
-                    toast.success("Phone copied");
-                  }}>
-                        <Copy className="h-3 w-3" />
+                  {isEditingPhone ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <Input
+                        value={editedPhone}
+                        onChange={(e) => setEditedPhone(e.target.value)}
+                        placeholder="Enter phone..."
+                        className="h-7 text-sm flex-1"
+                        autoFocus
+                      />
+                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleSavePhone} disabled={isSavingPhone}>
+                        {isSavingPhone ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setIsEditingPhone(false)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditedPhone(savedPhone ?? contact?.phone ?? "");
+                          setIsEditingPhone(true);
+                        }}
+                        className="hover:underline text-left"
+                      >
+                        {(savedPhone ?? contact?.phone) ? (
+                          <span className="text-primary">{savedPhone ?? contact?.phone}</span>
+                        ) : (
+                          <span className="italic text-muted-foreground/60">No phone - click to add</span>
+                        )}
                       </button>
-                    </> : <span className="italic text-muted-foreground/60">No phone</span>}
+                      {(savedPhone ?? contact?.phone) && (
+                        <>
+                          <a href={`tel:${savedPhone ?? contact?.phone}`} className="text-muted-foreground hover:text-primary p-0.5" title="Call">
+                            <Phone className="h-3 w-3" />
+                          </a>
+                          <button
+                            className="text-muted-foreground hover:text-primary p-0.5"
+                            onClick={() => {
+                              navigator.clipboard.writeText(savedPhone ?? contact?.phone ?? "");
+                              toast.success("Phone copied");
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-start gap-2">
