@@ -1,95 +1,122 @@
 
-# Plan: Add PDF Preview for Proposals in Salesperson Portal
+# Plan: Make Tasks and Notes Fully Independent of GHL
 
 ## Summary
-Update the My Proposals section to show an inline estimate preview dialog when clicking a proposal record, instead of redirecting to the customer portal. The salesperson will see the same preview that customers see, with the option to generate a PDF.
 
-## Current Behavior
-- Clicking a proposal row opens the customer portal in a new tab
-- No inline preview is available
+Refactor the task and note creation/update/deletion flow to be completely local (Supabase-only). GHL IDs will remain optional metadata for records that were originally synced FROM GHL, but all new records created in the app will be stored locally without any attempt to sync to GHL.
 
-## New Behavior
-- Clicking a proposal row opens the `EstimatePreviewDialog` showing the full estimate details
-- The dialog includes a "View PDF" button to generate and open the PDF in a new tab
-- An optional external link icon/button can still open the customer portal if needed
+---
 
-## Technical Implementation
+## Current Problem
 
-### 1. Add State for Selected Estimate
+The error `GHL API Error: 422 - The assigned to field is invalid` occurs because:
+1. The `create-ghl-task` edge function attempts to sync tasks to GoHighLevel when GHL credentials exist
+2. The `assignedTo` field contains an internal Supabase UUID (user's profile ID), but GHL expects a GHL User ID
+3. This mismatch causes the GHL API to reject the request
 
-```typescript
-const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
-```
+The same pattern exists in `create-contact-note`, which also attempts GHL sync.
 
-### 2. Update Click Handler
+---
 
-Replace the current redirect behavior:
+## Proposed Changes
 
-```typescript
-const handleOpenProposal = (estimate: Estimate) => {
-  // Open the preview dialog instead of redirecting
-  setSelectedEstimateId(estimate.id);
-};
-```
+### 1. Edge Function: `create-ghl-task/index.ts`
+**Goal**: Create tasks locally only - never sync to GHL
 
-### 3. Add External Link Button (Optional)
+**Changes**:
+- Remove all GHL API call logic (lines 142-208)
+- Always use the local-only creation path
+- Keep the `ghl_id` field populated with a local ID (e.g., `local_task_...`) for backwards compatibility
+- Set `provider` to `'local'` for all new tasks
+- Remove the `getGHLApiKey` lookup since it's no longer needed for task creation
 
-To preserve portal access, add a separate button/icon:
+### 2. Edge Function: `create-contact-note/index.ts`
+**Goal**: Create notes locally only - never sync to GHL
 
-```typescript
-const handleOpenPortal = (e: React.MouseEvent, estimate: Estimate) => {
-  e.stopPropagation(); // Prevent row click
-  if (estimate.portal_token) {
-    const portalUrl = `${appBaseUrl || window.location.origin}/portal/${estimate.portal_token}`;
-    window.open(portalUrl, "_blank");
-  }
-};
-```
+**Changes**:
+- Remove GHL API call logic (lines 100-143)
+- Always use the local-only creation path (similar to how local contacts are handled)
+- Generate a `local_note_...` ID for the `ghl_id` field
+- Set `provider` to `'local'` for all new notes
 
-### 4. Import and Render EstimatePreviewDialog
+### 3. Edge Function: `update-ghl-task/index.ts`
+**Goal**: Update tasks locally only - never sync to GHL
 
-```typescript
-import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDialog";
+**Changes**:
+- Remove GHL API call logic (lines 117-152)
+- Always use the local-only update path
+- Keep edit tracking functionality (`edited_by`, `edited_at`)
 
-// At the bottom of the component return:
-<EstimatePreviewDialog
-  estimateId={selectedEstimateId}
-  open={!!selectedEstimateId}
-  onOpenChange={(open) => !open && setSelectedEstimateId(null)}
-/>
-```
+### 4. Edge Function: `delete-ghl-task/index.ts`
+**Goal**: Delete tasks locally only - never sync to GHL
 
-### 5. Update Row UI
+**Changes**:
+- Remove GHL API call logic (lines 106-131)
+- Always use the local-only delete path
 
-Add an `Eye` icon for preview (row click) and keep `ExternalLink` as a separate action:
+### 5. Frontend: `OpportunitiesTable.tsx`
+**Goal**: Simplify task/note creation - remove GHL-specific logic
 
-| Action | Trigger | Behavior |
-|--------|---------|----------|
-| Click row | Opens EstimatePreviewDialog | Inline preview with PDF button |
-| Click external link icon | Opens customer portal | New tab |
+**Changes**:
+- Remove hardcoded location ID fallbacks (line 793: `"pVeFrqvtYWNIPRIi0Fmr"`)
+- Simplify the edge function calls - no need to pass `locationId` for GHL purposes
+- The `assignedTo` field should use internal UUIDs (which it already does)
 
-### Visual Changes
+---
 
+## Technical Details
+
+### Task Creation Flow (After Changes)
 ```text
-┌─────────────────────────────────────────────────────────┐
-│ Estimate Title                           [Proposal]     │
-│ Customer Name                                           │
-│ 📍 123 Main St                                          │
-│ [Sent] Jan 15, 2026                    $15,000 👁 🔗   │
-└─────────────────────────────────────────────────────────┘
-                                          ↑    ↑
-                                     Preview  Portal
+User clicks "Add Task" 
+  → Frontend sends: { contactId, title, body, dueDate, assignedTo, companyId, enteredBy }
+  → Edge function generates local ID: "local_task_1706547841234_abc123"
+  → Insert directly into ghl_tasks table with provider='local'
+  → Return success to frontend
 ```
 
-## File to Modify
+### Note Creation Flow (After Changes)
+```text
+User clicks "Add Note"
+  → Frontend sends: { contactId, body, companyId, enteredBy }
+  → Edge function generates local ID: "local_note_1706547841234_xyz789"
+  → Insert directly into contact_notes table with provider='local'
+  → Return success to frontend
+```
 
-| File | Changes |
-|------|---------|
-| `src/components/salesperson-portal/PortalProposalsSection.tsx` | Add EstimatePreviewDialog import, add state for selected estimate, update click handler, add separate portal link button |
+### Data Model Compatibility
+- The `ghl_id` column already allows NULL and is not required to be a real GHL ID
+- The `provider` column (`'ghl'` or `'local'`) already exists and will distinguish record sources
+- Existing records synced from GHL will retain their original `ghl_id` values
+- New records will have `local_...` prefixed IDs
 
-## Technical Considerations
+---
 
-- The `EstimatePreviewDialog` already handles all the estimate data fetching and rendering
-- The "View PDF" button within the dialog calls `generate-contract-pdf` edge function
-- No new dependencies required - just reusing existing components
-- Portal access is preserved via the separate external link icon
+## Files to Modify
+
+| File | Change Type | Description |
+|------|-------------|-------------|
+| `supabase/functions/create-ghl-task/index.ts` | Simplify | Remove GHL sync, always create locally |
+| `supabase/functions/create-contact-note/index.ts` | Simplify | Remove GHL sync, always create locally |
+| `supabase/functions/update-ghl-task/index.ts` | Simplify | Remove GHL sync, always update locally |
+| `supabase/functions/delete-ghl-task/index.ts` | Simplify | Remove GHL sync, always delete locally |
+| `src/components/dashboard/OpportunitiesTable.tsx` | Minor | Remove hardcoded location ID fallback |
+
+---
+
+## Benefits
+
+1. **Reliability**: No more GHL API errors when creating tasks/notes
+2. **Performance**: Faster task/note creation (no external API call)
+3. **Independence**: App functionality works regardless of GHL integration status
+4. **Consistency**: All activity created in the app follows the same local-first pattern
+5. **Simplicity**: Cleaner edge function code with single code path
+
+---
+
+## What Remains GHL-Connected
+
+- **Contacts sync**: GHL → Supabase (via `sync-ghl-recent`)
+- **Opportunities sync**: GHL → Supabase (via `sync-ghl-recent`)
+- **Appointments sync**: GHL ↔ Supabase (bidirectional for calendar)
+- **Task sync FROM GHL**: `sync-ghl-tasks` can still pull task status updates from GHL to Supabase
