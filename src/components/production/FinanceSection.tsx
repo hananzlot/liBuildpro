@@ -403,6 +403,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
       queryClient.invalidateQueries({ queryKey: ["project-invoices", projectId], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ["all-project-invoices"], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ["project-payments", projectId], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ["next-invoice-number"] });
       setInvoiceDialogOpen(false);
       setEditingInvoice(null);
     },
@@ -2303,6 +2304,38 @@ function InvoiceDialog({
   });
   const [amountError, setAmountError] = useState("");
   const [phaseError, setPhaseError] = useState("");
+  const { companyId: dialogCompanyId } = useCompanyContext();
+
+  // Query to get the next invoice number for new invoices
+  const { data: nextInvoiceNumber } = useQuery({
+    queryKey: ["next-invoice-number", dialogCompanyId],
+    queryFn: async () => {
+      if (!dialogCompanyId) return "1001";
+      
+      // Get invoice numbers for this company
+      const { data } = await supabase
+        .from("project_invoices")
+        .select("invoice_number")
+        .eq("company_id", dialogCompanyId)
+        .not("invoice_number", "is", null);
+      
+      if (!data || data.length === 0) return "1001";
+      
+      // Find the highest numeric invoice number
+      let maxNumber = 1000;
+      for (const inv of data) {
+        const numMatch = inv.invoice_number?.match(/\d+/);
+        if (numMatch) {
+          const num = parseInt(numMatch[0], 10);
+          if (num > maxNumber) maxNumber = num;
+        }
+      }
+      
+      return (maxNumber + 1).toString();
+    },
+    enabled: open && !invoice && !!dialogCompanyId,
+    staleTime: 0, // Always fetch fresh
+  });
 
   // Reset form when dialog opens or invoice/prePopulatedData changes
   // Use JSON.stringify to ensure we detect object content changes
@@ -2328,20 +2361,27 @@ function InvoiceDialog({
         payment_phase_id: invoice.payment_phase_id || "",
       });
     } else if (prePopulatedData) {
-      // Pre-populate from payment phase
+      // Pre-populate from payment phase with auto-generated invoice number
       setFormData({
-        invoice_number: "",
+        invoice_number: nextInvoiceNumber || "",
         invoice_date: prePopulatedData.invoice_date || new Date().toISOString().split('T')[0],
         amount: prePopulatedData.amount?.toString() || "",
         agreement_id: prePopulatedData.agreement_id || "",
         payment_phase_id: prePopulatedData.payment_phase_id || "",
       });
     } else {
-      setFormData({ invoice_number: "", invoice_date: "", amount: "", agreement_id: "", payment_phase_id: "" });
+      // New invoice with auto-generated number
+      setFormData({ 
+        invoice_number: nextInvoiceNumber || "", 
+        invoice_date: new Date().toISOString().split('T')[0], 
+        amount: "", 
+        agreement_id: "", 
+        payment_phase_id: "" 
+      });
     }
     setAmountError("");
     setPhaseError("");
-  }, [open, invoice, prePopulatedKey, paymentPhases]);
+  }, [open, invoice, prePopulatedKey, paymentPhases, nextInvoiceNumber]);
 
   // Filter phases by selected agreement, but always include the currently selected phase
   const filteredPhases = useMemo(() => {
