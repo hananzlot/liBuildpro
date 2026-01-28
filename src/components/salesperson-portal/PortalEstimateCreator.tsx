@@ -5,15 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { 
   Calculator, ChevronDown, ChevronRight, Loader2, Save, Wand2, 
-  FileText, CheckCircle, Clock, DollarSign, Eye, Pencil
+  FileText, CheckCircle, Clock, DollarSign, Eye, Pencil, AlertTriangle
 } from "lucide-react";
 import { PortalEstimateDetailSheet } from "./PortalEstimateDetailSheet";
 
@@ -72,6 +74,9 @@ export function PortalEstimateCreator({
   const [isRequestingAI, setIsRequestingAI] = useState(false);
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [missingZipCode, setMissingZipCode] = useState(false);
+  const [manualZipCode, setManualZipCode] = useState("");
+  const [currentJobAddress, setCurrentJobAddress] = useState("");
   const queryClient = useQueryClient();
 
   // Fetch opportunities assigned to this salesperson
@@ -201,6 +206,9 @@ export function PortalEstimateCreator({
   const handleSelectionChange = (id: string) => {
     setSelectedId(id);
     setScopeSaved(false);
+    setMissingZipCode(false);
+    setManualZipCode("");
+    setCurrentJobAddress("");
     
     if (selectedType === "opportunity") {
       const opp = opportunities.find(o => o.id === id);
@@ -283,15 +291,22 @@ export function PortalEstimateCreator({
       jobAddress = proj?.project_address || "";
     }
 
+    // If user provided a manual zip code, append it to the address
+    if (manualZipCode.trim()) {
+      jobAddress = jobAddress ? `${jobAddress} ${manualZipCode.trim()}` : manualZipCode.trim();
+    }
+
     // Validate address has zip code (basic check for 5 digits)
     const zipRegex = /\b\d{5}(-\d{4})?\b/;
     if (!zipRegex.test(jobAddress)) {
-      toast.error(
-        "Missing or invalid zip code in the job address. Please update the opportunity/project address with a valid zip code before generating an estimate.",
-        { duration: 6000 }
-      );
+      setCurrentJobAddress(jobAddress);
+      setMissingZipCode(true);
       return;
     }
+
+    // Clear zip code warning if validation passes
+    setMissingZipCode(false);
+    setManualZipCode("");
 
     setIsRequestingAI(true);
     try {
@@ -589,6 +604,54 @@ export function PortalEstimateCreator({
                     Create AI Estimate
                   </Button>
                 </div>
+
+                {/* Missing Zip Code Warning */}
+                {missingZipCode && (
+                  <Alert variant="destructive" className="mt-3">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="ml-2">
+                      <div className="space-y-3">
+                        <p className="font-medium">
+                          Missing zip code in job address
+                        </p>
+                        {currentJobAddress && (
+                          <p className="text-sm opacity-80">
+                            Current address: {currentJobAddress || "(empty)"}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            placeholder="Enter 5-digit zip code"
+                            value={manualZipCode}
+                            onChange={(e) => setManualZipCode(e.target.value.replace(/[^0-9-]/g, "").slice(0, 10))}
+                            className="h-8 w-36 bg-background"
+                            maxLength={10}
+                          />
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={handleRequestAIEstimate}
+                            disabled={!manualZipCode.trim() || !/^\d{5}(-\d{4})?$/.test(manualZipCode.trim())}
+                          >
+                            <Wand2 className="h-3.5 w-3.5 mr-1" />
+                            Retry
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setMissingZipCode(false);
+                              setManualZipCode("");
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             )}
 
