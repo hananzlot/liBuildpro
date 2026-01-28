@@ -141,6 +141,26 @@ If you have any questions, please don't hesitate to contact us.
 Best regards,
 The {{company_name}} Team`,
   },
+  thank_you_meeting: {
+    subject: "Thank You for Meeting With Us - {{company_name}}",
+    body: `Dear {{customer_name}},
+
+Thank you so much for taking the time to meet with us and considering our services! We truly appreciate the opportunity to learn about your project and discuss how we can help.
+
+We've set up a personalized customer portal for you where you can:
+- **Upload any documents** we discussed (plans, photos, permits, etc.)
+- **Ask questions** directly to our team
+- **Track progress** as we prepare your proposal
+
+Click the button below to access your portal anytime.
+
+If you have any questions or need anything at all, please don't hesitate to reach out. We're here to help!
+
+We look forward to working with you.
+
+Best regards,
+The {{company_name}} Team`,
+  },
 };
 
 const TEMPLATE_META: Record<string, { name: string; description: string; icon: React.ReactNode }> = {
@@ -173,6 +193,11 @@ const TEMPLATE_META: Record<string, { name: string; description: string; icon: R
     name: "Daily Portal Update Email",
     description: "Automated/manual email sent to customers when their project has updates",
     icon: <Mail className="h-5 w-5 text-primary" />,
+  },
+  thank_you_meeting: {
+    name: "Thank You for Meeting",
+    description: "Email to thank customers for meeting with you and point them to their portal",
+    icon: <FileText className="h-5 w-5 text-amber-500" />,
   },
 };
 
@@ -413,7 +438,7 @@ export function EmailTemplatesManager() {
           <div className="space-y-2 text-sm text-muted-foreground mb-4">
             <p><strong>Available variables:</strong></p>
             <div className="flex flex-wrap gap-2">
-              {["customer_name", "company_name", "estimate_title", "estimate_number", "total", "job_address", "message", "decline_reason", "project_number", "project_address"].map((v) => (
+              {["customer_name", "company_name", "estimate_title", "estimate_number", "total", "job_address", "message", "decline_reason", "project_number", "project_address", "portal_link"].map((v) => (
                 <code key={v} className="bg-muted px-2 py-0.5 rounded text-xs">{`{{${v}}}`}</code>
               ))}
             </div>
