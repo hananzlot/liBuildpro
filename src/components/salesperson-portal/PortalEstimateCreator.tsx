@@ -682,9 +682,9 @@ export function PortalEstimateCreator({
                               }
                             }}
                           >
-                            <div className="flex items-start justify-between gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-medium text-sm">#{estimate.estimate_number}</span>
                                   {getStatusBadge(estimate.status)}
                                   {estimate.is_generating && (
@@ -698,28 +698,28 @@ export function PortalEstimateCreator({
                                   {estimate.customer_name}
                                 </p>
                                 {estimate.job_address && (
-                                  <p className="text-xs text-muted-foreground truncate">
+                                  <p className="text-xs text-muted-foreground truncate max-w-full">
                                     {estimate.job_address}
                                   </p>
                                 )}
                               </div>
-                              <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                              <div className="flex items-center justify-between sm:justify-end sm:flex-col sm:items-end gap-1 sm:gap-1 mt-1 sm:mt-0 shrink-0">
                                 {estimate.total != null && estimate.total > 0 ? (
-                                  <>
-                                    <p className="font-semibold text-sm text-primary">
+                                  <div className="flex items-center gap-2 sm:flex-col sm:items-end">
+                                    <p className="font-semibold text-sm text-primary whitespace-nowrap">
                                       ${estimate.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </p>
                                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
                                       <Eye className="h-3 w-3 mr-1" />
                                       View
                                     </Button>
-                                  </>
+                                  </div>
                                 ) : estimate.is_generating ? (
                                   <p className="text-xs text-muted-foreground italic">Processing...</p>
                                 ) : (
                                   <p className="text-xs text-amber-600">Pending</p>
                                 )}
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-[10px] text-muted-foreground whitespace-nowrap">
                                   {new Date(estimate.created_at).toLocaleDateString()}
                                 </p>
                               </div>
