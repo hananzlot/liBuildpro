@@ -31,7 +31,7 @@ export function PortalProjectLinksSection({
   salespersonGhlUserId,
   companyId 
 }: PortalProjectLinksSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Fetch app base URL setting

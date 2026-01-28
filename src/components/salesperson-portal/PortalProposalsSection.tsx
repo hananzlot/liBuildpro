@@ -28,7 +28,7 @@ interface Estimate {
 }
 
 export function PortalProposalsSection({ salespersonName, companyId }: PortalProposalsSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
 
   // Fetch app base URL for portal links
