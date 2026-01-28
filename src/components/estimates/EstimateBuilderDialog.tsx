@@ -439,6 +439,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     enabled: open && !!companyId,
   });
 
+  // Helper to get salesperson_id from salesperson_name
+  const getSalespersonId = useCallback((name: string | null | undefined): string | null => {
+    if (!name) return null;
+    const sp = salespeople.find(s => s.name === name);
+    return sp?.id || null;
+  }, [salespeople]);
+
   // Calculate totals including cost and profit
   const calculateTotals = useCallback(() => {
     const subtotal = groups.reduce((sum, group) => 
@@ -1116,6 +1123,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           show_scope_to_customer: formData.show_scope_to_customer,
           show_line_items_to_customer: formData.show_line_items_to_customer,
           salesperson_name: formData.salesperson_name || null,
+          salesperson_id: getSalespersonId(formData.salesperson_name),
           company_id: companyId,
           opportunity_uuid: linkedOpportunityUuid || null,
           opportunity_id: linkedOpportunityGhlId || null,
@@ -1180,6 +1188,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           show_scope_to_customer: formData.show_scope_to_customer,
           show_line_items_to_customer: formData.show_line_items_to_customer,
           salesperson_name: formData.salesperson_name || null,
+          salesperson_id: getSalespersonId(formData.salesperson_name),
           opportunity_uuid: linkedOpportunityUuid || null,
           opportunity_id: linkedOpportunityGhlId || null,
           plans_file_url: plansFileUrl || null,
@@ -1702,6 +1711,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_scope_to_customer: formData.show_scope_to_customer,
         show_line_items_to_customer: formData.show_line_items_to_customer,
         salesperson_name: formData.salesperson_name || null,
+        salesperson_id: getSalespersonId(formData.salesperson_name),
         company_id: companyId,
         opportunity_uuid: linkedOpportunityUuid || null,
         opportunity_id: linkedOpportunityGhlId || null,
@@ -1980,6 +1990,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         show_scope_to_customer: formData.show_scope_to_customer,
         show_line_items_to_customer: formData.show_line_items_to_customer,
         salesperson_name: formData.salesperson_name || null,
+        salesperson_id: getSalespersonId(formData.salesperson_name),
         company_id: companyId,
       };
 
