@@ -21,13 +21,49 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { opportunityId } = await req.json();
+    const { opportunityId, excludeFromSync = true } = await req.json();
 
     if (!opportunityId) {
       throw new Error('Missing opportunityId');
     }
 
-    console.log(`Deleting opportunity: ${opportunityId} (local-only)`);
+    console.log(`Deleting opportunity: ${opportunityId} (local-only, excludeFromSync: ${excludeFromSync})`);
+
+    // Fetch opportunity details before deleting
+    const { data: opportunity } = await supabase
+      .from('opportunities')
+      .select('id, ghl_id, location_id, company_id, name')
+      .eq('ghl_id', opportunityId)
+      .maybeSingle();
+
+    if (!opportunity) {
+      console.log('Opportunity not found in database');
+      return new Response(JSON.stringify({ 
+        success: true,
+        message: 'Opportunity not found or already deleted'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Add to sync exclusions if requested (prevents re-sync from GHL)
+    if (excludeFromSync && opportunity.ghl_id && opportunity.location_id) {
+      const { error: exclusionError } = await supabase
+        .from('ghl_sync_exclusions')
+        .upsert({
+          ghl_id: opportunity.ghl_id,
+          record_type: 'opportunity',
+          location_id: opportunity.location_id,
+          company_id: opportunity.company_id,
+          reason: `Deleted via app: ${opportunity.name || 'Unknown'}`,
+        }, { onConflict: 'ghl_id,record_type,location_id' });
+
+      if (exclusionError) {
+        console.error('Error adding sync exclusion:', exclusionError);
+      } else {
+        console.log('Added opportunity to sync exclusions');
+      }
+    }
 
     // Delete from Supabase
     const { error: deleteError } = await supabase
@@ -44,7 +80,8 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       success: true,
-      message: 'Opportunity deleted'
+      message: 'Opportunity deleted',
+      excludedFromSync: excludeFromSync
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
