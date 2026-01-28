@@ -10,6 +10,7 @@ import { EstimatePreviewDialog } from "@/components/estimates/EstimatePreviewDia
 
 interface PortalProposalsSectionProps {
   salespersonName: string;
+  salespersonId?: string;
   companyId: string;
 }
 
@@ -27,7 +28,7 @@ interface Estimate {
   portal_token?: string | null;
 }
 
-export function PortalProposalsSection({ salespersonName, companyId }: PortalProposalsSectionProps) {
+export function PortalProposalsSection({ salespersonName, salespersonId, companyId }: PortalProposalsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedEstimateId, setSelectedEstimateId] = useState<string | null>(null);
 
@@ -57,19 +58,28 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
     staleTime: 30 * 60 * 1000,
   });
 
-  const { data: estimates = [], isLoading } = useQuery({
-    queryKey: ["salesperson-portal-proposals", salespersonName, companyId],
+  const { data: estimates = [], isLoading, refetch } = useQuery({
+    queryKey: ["salesperson-portal-proposals", salespersonId, salespersonName, companyId],
     queryFn: async () => {
-      if (!salespersonName || !companyId) return [];
+      if (!companyId) return [];
 
-      // Fetch estimates where this salesperson is assigned
-      const { data: estimatesData, error } = await supabase
+      // Build filter: prefer salesperson_id if provided, fallback to salesperson_name
+      let query = supabase
         .from("estimates")
         .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, sent_at, signed_at, created_at")
         .eq("company_id", companyId)
-        .eq("salesperson_name", salespersonName)
         .in("status", ["sent", "viewed", "accepted", "declined"])
         .order("created_at", { ascending: false });
+
+      if (salespersonId) {
+        query = query.eq("salesperson_id", salespersonId);
+      } else if (salespersonName) {
+        query = query.eq("salesperson_name", salespersonName);
+      } else {
+        return [];
+      }
+
+      const { data: estimatesData, error } = await query;
 
       if (error) throw error;
       if (!estimatesData?.length) return [];
@@ -92,8 +102,9 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
         portal_token: tokenMap.get(e.id) || null,
       })) as Estimate[];
     },
-    enabled: !!salespersonName && !!companyId,
-    staleTime: 5 * 60 * 1000,
+    enabled: !!companyId && !!(salespersonId || salespersonName),
+    staleTime: 30 * 1000, // 30 seconds - refresh more often to catch new proposals
+    refetchInterval: 60 * 1000, // Auto-refresh every minute
   });
 
   const handleOpenProposal = (estimate: Estimate) => {
