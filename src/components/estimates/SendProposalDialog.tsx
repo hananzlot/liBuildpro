@@ -446,6 +446,24 @@ export function SendProposalDialog({
 
   const sendEmailMutation = useMutation({
     mutationFn: async () => {
+      // Generate compliance documents before sending
+      if (companyId) {
+        try {
+          const { data: complianceResult, error: complianceError } = await supabase.functions.invoke(
+            'generate-compliance-documents',
+            { body: { estimateId, companyId } }
+          );
+          if (complianceError) {
+            console.error('Error generating compliance documents:', complianceError);
+          } else if (complianceResult?.documents?.length > 0) {
+            console.log(`Generated ${complianceResult.documents.length} compliance document(s)`);
+          }
+        } catch (err) {
+          console.error('Failed to generate compliance documents:', err);
+          // Don't fail the send for this - compliance docs are supplementary
+        }
+      }
+
       if (multipleSigners) {
         // Fetch created signers with tokens
         const { data: signersWithTokens, error: fetchError } = await supabase

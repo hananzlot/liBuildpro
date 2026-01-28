@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar, Link2 } from "lucide-react";
+import { Settings, Mail, Building, Save, Loader2, AlertTriangle, Wrench, Pencil, Users, FileText, MessageSquare, DollarSign, Database, Link, Sparkles, Key, CheckCircle2, XCircle, ChevronDown, Target, GitBranch, Plus, Trash2, Eye, EyeOff, ExternalLink, Calendar, Link2, FileSignature } from "lucide-react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AdminCleanup } from "@/components/dashboard/AdminCleanup";
 import { SourceManagement } from "@/components/dashboard/SourceManagement";
@@ -28,6 +28,7 @@ import { GoogleCalendarManager } from "@/components/admin/GoogleCalendarManager"
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
+import { ComplianceTemplatesManager } from "@/components/admin/ComplianceTemplatesManager";
 import { BankManagement } from "@/components/admin/BankManagement";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { format } from "date-fns";
@@ -672,7 +673,7 @@ export default function AdminSettings() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-12">
+          <TabsList className="flex flex-wrap gap-1 h-auto p-1">
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
@@ -688,6 +689,10 @@ export default function AdminSettings() {
             <TabsTrigger value="emails" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
               <span className="hidden sm:inline">Emails</span>
+            </TabsTrigger>
+            <TabsTrigger value="compliance" className="flex items-center gap-2">
+              <FileSignature className="h-4 w-4" />
+              <span className="hidden sm:inline">Compliance</span>
             </TabsTrigger>
             <TabsTrigger value="chat" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
@@ -1613,6 +1618,11 @@ export default function AdminSettings() {
 
             {/* Bank Management */}
             <BankManagement />
+          </TabsContent>
+
+          {/* Compliance Templates Tab */}
+          <TabsContent value="compliance" className="mt-6">
+            <ComplianceTemplatesManager />
           </TabsContent>
 
           {/* Chat Management Tab */}
