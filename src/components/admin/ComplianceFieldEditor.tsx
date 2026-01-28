@@ -80,6 +80,37 @@ export function ComplianceFieldEditor({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
+  const resolveTemplateUrl = useCallback(
+    async (rawUrl: string) => {
+      // Older templates were stored in the (private) `compliance-templates` bucket but saved using a
+      // public URL. Supabase returns "Bucket not found" for public URLs against private buckets.
+      // Fix by generating a signed URL on the fly.
+      const publicPrefix = "/storage/v1/object/public/";
+      const idx = rawUrl.indexOf(publicPrefix);
+      if (idx === -1) return rawUrl;
+
+      const after = rawUrl.slice(idx + publicPrefix.length); // "bucket/path..."
+      const slash = after.indexOf("/");
+      if (slash === -1) return rawUrl;
+
+      const bucket = after.slice(0, slash);
+      const path = after.slice(slash + 1);
+
+      if (bucket !== "compliance-templates") return rawUrl;
+
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 60 * 10); // 10 minutes
+
+      if (error || !data?.signedUrl) {
+        throw error || new Error("Unable to create signed URL for template");
+      }
+
+      return data.signedUrl;
+    },
+    []
+  );
+
   // Load PDF and render current page
   useEffect(() => {
     if (!open || !templateFileUrl) return;
@@ -87,7 +118,8 @@ export function ComplianceFieldEditor({
     const loadPdf = async () => {
       setLoading(true);
       try {
-        const loadingTask = pdfjsLib.getDocument(templateFileUrl);
+        const urlToLoad = await resolveTemplateUrl(templateFileUrl);
+        const loadingTask = pdfjsLib.getDocument(urlToLoad);
         const pdf = await loadingTask.promise;
         setPdfDoc(pdf);
         setTotalPages(pdf.numPages);
@@ -95,11 +127,12 @@ export function ComplianceFieldEditor({
       } catch (error) {
         console.error("Error loading PDF:", error);
         toast.error("Failed to load PDF template");
+        setLoading(false);
       }
     };
 
     loadPdf();
-  }, [open, templateFileUrl]);
+  }, [open, templateFileUrl, resolveTemplateUrl]);
 
   // Render current page
   useEffect(() => {
