@@ -685,6 +685,29 @@ serve(async (req) => {
         console.log(`Loaded ${salespersonLookup.size} salespeople for salesperson_id mapping`);
       }
 
+      // Fetch sync exclusions for this location (deleted records that should not re-sync)
+      const excludedOpportunityIds = new Set<string>();
+      const excludedContactIds = new Set<string>();
+      const excludedAppointmentIds = new Set<string>();
+      
+      const { data: exclusions } = await supabase
+        .from('ghl_sync_exclusions')
+        .select('ghl_id, record_type')
+        .eq('location_id', integration.location_id);
+      
+      if (exclusions) {
+        for (const ex of exclusions) {
+          if (ex.record_type === 'opportunity') {
+            excludedOpportunityIds.add(ex.ghl_id);
+          } else if (ex.record_type === 'contact') {
+            excludedContactIds.add(ex.ghl_id);
+          } else if (ex.record_type === 'appointment') {
+            excludedAppointmentIds.add(ex.ghl_id);
+          }
+        }
+        console.log(`Loaded sync exclusions: ${excludedOpportunityIds.size} opportunities, ${excludedContactIds.size} contacts, ${excludedAppointmentIds.size} appointments`);
+      }
+
       // Fetch recent opportunities
       const opportunities = await fetchRecentOpportunities(apiKey, integration.location_id, sinceDate);
 
@@ -735,6 +758,12 @@ serve(async (req) => {
       const GHL_LOCATION_2_ID = 'XYDIgpHivVWHii65sId5'; // Results Grow - needs enhanced UTM extraction
       
       for (const contactId of allContactsToFetch) {
+        // Skip excluded contacts (previously deleted, should not re-sync)
+        if (excludedContactIds.has(contactId)) {
+          console.log(`Skipping excluded contact: ${contactId}`);
+          continue;
+        }
+        
         const contact = await fetchContact(apiKey, contactId, integration.location_id);
         if (contact) {
           const displayName = buildContactDisplayName({
@@ -905,6 +934,13 @@ serve(async (req) => {
       let skippedDuplicates = 0;
 
       for (const o of opportunities) {
+        // Skip excluded opportunities (previously deleted, should not re-sync)
+        if (excludedOpportunityIds.has(o.id)) {
+          console.log(`Skipping excluded opportunity: ${o.id}`);
+          skippedDuplicates++;
+          continue;
+        }
+        
         // Try to extract scope from contact's attributions
         const attributions = o.contactId ? contactAttributions.get(o.contactId) : null;
         const scopeFromCampaign = extractScopeFromAttribution(attributions || null);
@@ -998,7 +1034,13 @@ serve(async (req) => {
       // Fetch and upsert recent appointments
       const appointments = await fetchRecentAppointments(apiKey, integration.location_id, sinceDate);
       
-      const apptsToUpsert = appointments.map(a => ({
+      // Filter out excluded appointments
+      const filteredAppointments = appointments.filter(a => !excludedAppointmentIds.has(a.id));
+      if (filteredAppointments.length < appointments.length) {
+        console.log(`Filtered out ${appointments.length - filteredAppointments.length} excluded appointments`);
+      }
+      
+      const apptsToUpsert = filteredAppointments.map(a => ({
         ghl_id: a.id,
         company_id: integration.company_id,
         provider: 'ghl',

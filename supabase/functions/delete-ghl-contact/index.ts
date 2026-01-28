@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { contactId, contactUuid } = await req.json();
+    const { contactId, contactUuid, excludeFromSync = true } = await req.json();
 
     if (!contactId && !contactUuid) {
       return new Response(
@@ -21,7 +21,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Deleting contact ${contactId || contactUuid} (local-only)`);
+    console.log(`Deleting contact ${contactId || contactUuid} (local-only, excludeFromSync: ${excludeFromSync})`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -33,14 +33,14 @@ serve(async (req) => {
     if (contactUuid) {
       const result = await supabase
         .from("contacts")
-        .select("id, ghl_id, location_id, contact_name")
+        .select("id, ghl_id, location_id, contact_name, company_id")
         .eq("id", contactUuid)
         .maybeSingle();
       contact = result.data;
     } else if (contactId) {
       const result = await supabase
         .from("contacts")
-        .select("id, ghl_id, location_id, contact_name")
+        .select("id, ghl_id, location_id, contact_name, company_id")
         .eq("ghl_id", contactId)
         .maybeSingle();
       contact = result.data;
@@ -51,6 +51,25 @@ serve(async (req) => {
         JSON.stringify({ error: "Contact not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Add to sync exclusions if requested (prevents re-sync from GHL)
+    if (excludeFromSync && contact.ghl_id && contact.location_id) {
+      const { error: exclusionError } = await supabase
+        .from('ghl_sync_exclusions')
+        .upsert({
+          ghl_id: contact.ghl_id,
+          record_type: 'contact',
+          location_id: contact.location_id,
+          company_id: contact.company_id,
+          reason: `Deleted via app: ${contact.contact_name || 'Unknown'}`,
+        }, { onConflict: 'ghl_id,record_type,location_id' });
+
+      if (exclusionError) {
+        console.error('Error adding sync exclusion:', exclusionError);
+      } else {
+        console.log('Added contact to sync exclusions');
+      }
     }
 
     // Delete related records first (those with ON DELETE SET NULL won't cascade)
@@ -97,7 +116,7 @@ serve(async (req) => {
     console.log(`Successfully deleted contact ${contact.id}`);
 
     return new Response(
-      JSON.stringify({ success: true, deletedContactId: contact.id }),
+      JSON.stringify({ success: true, deletedContactId: contact.id, excludedFromSync: excludeFromSync }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {

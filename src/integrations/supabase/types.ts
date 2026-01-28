@@ -2621,6 +2621,54 @@ export type Database = {
           },
         ]
       }
+      ghl_sync_exclusions: {
+        Row: {
+          company_id: string | null
+          excluded_at: string
+          excluded_by: string | null
+          ghl_id: string
+          id: string
+          location_id: string
+          reason: string | null
+          record_type: string
+        }
+        Insert: {
+          company_id?: string | null
+          excluded_at?: string
+          excluded_by?: string | null
+          ghl_id: string
+          id?: string
+          location_id: string
+          reason?: string | null
+          record_type: string
+        }
+        Update: {
+          company_id?: string | null
+          excluded_at?: string
+          excluded_by?: string | null
+          ghl_id?: string
+          id?: string
+          location_id?: string
+          reason?: string | null
+          record_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ghl_sync_exclusions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ghl_sync_exclusions_excluded_by_fkey"
+            columns: ["excluded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ghl_tasks: {
         Row: {
           assigned_to: string | null
