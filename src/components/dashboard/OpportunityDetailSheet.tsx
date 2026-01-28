@@ -1333,7 +1333,16 @@ export function OpportunityDetailSheet({
     setEditedPipeline(pipelineIdToUse);
     setEditedStage(stageToUse);
     setEditedMonetaryValue((savedValues.monetary_value ?? opportunity?.monetary_value)?.toString() ?? "0");
-    setEditedAssignedTo(savedValues.assigned_to ?? opportunity?.assigned_to ?? "__unassigned__");
+    
+    // Find matching salesperson for the assigned_to value and use their dropdown value
+    const rawAssignedTo = savedValues.assigned_to ?? opportunity?.assigned_to;
+    const matchingSalesperson = activeSalespeople.find(
+      sp => sp.ghl_user_id === rawAssignedTo || sp.id === rawAssignedTo
+    );
+    const assignedToValue = matchingSalesperson 
+      ? (matchingSalesperson.ghl_user_id || matchingSalesperson.id)
+      : (rawAssignedTo || "__unassigned__");
+    setEditedAssignedTo(assignedToValue);
     const contact = findContactByIdOrGhlId(contacts, opportunity?.contact_uuid, opportunity?.contact_id);
     const contactSource = contact?.source ? normalizeSourceName(contact.source) : "";
     setEditedSource(savedValues.source ?? contactSource);
