@@ -4480,7 +4480,7 @@ function CommissionTab({
         <Card className="p-3 border-primary/20">
           <div className="text-xs text-muted-foreground">Commission Pool ({commissionSplitPct}%)</div>
           <p className={cn("text-lg font-bold", commissionPool >= 0 ? "text-primary" : "text-destructive")}>
-            {formatCurrency(commissionPool)}
+            {formatCurrencyWithDecimals(commissionPool)}
           </p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
             (Contracts - Lead - Bills) × {commissionSplitPct}%
@@ -4489,7 +4489,7 @@ function CommissionTab({
         <Card className="p-3 border-emerald-500/20">
           <div className="text-xs text-muted-foreground">Company Profit (After Comm)</div>
           <p className={cn("text-lg font-bold", companyProfit >= 0 ? "text-emerald-600" : "text-destructive")}>
-            {formatCurrency(companyProfit)}
+            {formatCurrencyWithDecimals(companyProfit)}
           </p>
           <p className="text-[10px] text-muted-foreground mt-0.5">
             Profit - Commission Pool
@@ -4531,23 +4531,23 @@ function CommissionTab({
                     <TableCell className="text-xs font-medium">{sp.name || "-"}</TableCell>
                     <TableCell className="text-xs text-right">{sp.commissionPct}%</TableCell>
                     <TableCell className="text-xs text-right font-semibold text-emerald-600">
-                      {formatCurrency(sp.commissionAmount)}
+                      {formatCurrencyWithDecimals(sp.commissionAmount)}
                     </TableCell>
                     <TableCell className="text-xs text-right text-muted-foreground">
-                      {formatCurrency(sp.paid)}
+                      {formatCurrencyWithDecimals(sp.paid)}
                     </TableCell>
                     <TableCell className={cn("text-xs text-right font-medium", sp.balance > 0 ? "text-amber-600" : "text-emerald-600")}>
-                      {formatCurrency(sp.balance)}
+                      {formatCurrencyWithDecimals(sp.balance)}
                     </TableCell>
                   </TableRow>
                 ))}
                 <TableRow className="font-semibold bg-muted/50">
                   <TableCell className="text-xs">Total</TableCell>
                   <TableCell className="text-xs text-right">{totalCommissionPct}%</TableCell>
-                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrency(totalCommissionOwed)}</TableCell>
-                  <TableCell className="text-xs text-right text-muted-foreground">{formatCurrency(totalCommissionPaid)}</TableCell>
+                  <TableCell className="text-xs text-right text-emerald-600">{formatCurrencyWithDecimals(totalCommissionOwed)}</TableCell>
+                  <TableCell className="text-xs text-right text-muted-foreground">{formatCurrencyWithDecimals(totalCommissionPaid)}</TableCell>
                   <TableCell className={cn("text-xs text-right", totalCommissionBalance > 0 ? "text-amber-600" : "text-emerald-600")}>
-                    {formatCurrency(totalCommissionBalance)}
+                    {formatCurrencyWithDecimals(totalCommissionBalance)}
                   </TableCell>
                 </TableRow>
               </TableBody>
