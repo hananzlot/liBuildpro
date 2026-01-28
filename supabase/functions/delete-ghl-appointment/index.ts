@@ -6,38 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper to get GHL API key from database - returns null if not configured
-async function getGHLApiKey(supabase: any, locationId: string): Promise<string | null> {
-  if (!locationId || locationId === 'local') {
-    return null;
-  }
-
-  const { data: integration, error } = await supabase
-    .from("company_integrations")
-    .select("id, api_key_encrypted")
-    .eq("provider", "ghl")
-    .eq("location_id", locationId)
-    .eq("is_active", true)
-    .single();
-
-  if (error || !integration || !integration.api_key_encrypted) {
-    console.error(`GHL integration not configured for location ${locationId}`);
-    return null;
-  }
-
-  const { data: apiKey, error: vaultError } = await supabase.rpc(
-    "get_ghl_api_key_encrypted",
-    { p_integration_id: integration.id }
-  );
-
-  if (vaultError || !apiKey) {
-    console.error(`Failed to retrieve GHL API key: ${vaultError?.message}`);
-    return null;
-  }
-
-  return apiKey;
-}
-
 // Helper to delete event from Google Calendar
 async function deleteFromGoogleCalendar(
   supabase: any, 
@@ -170,129 +138,59 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { appointmentId, appointmentUuid, locationId } = await req.json();
+    const { appointmentId, appointmentUuid } = await req.json();
 
     // Support deletion by UUID when ghl_id is null (e.g., Google Calendar appointments)
     if (!appointmentId && !appointmentUuid) {
       throw new Error('Missing appointmentId or appointmentUuid');
     }
 
-    // If we only have UUID (no ghl_id), check for Google Calendar sync first
-    if (!appointmentId && appointmentUuid) {
-      console.log(`Deleting appointment by UUID (no GHL ID): ${appointmentUuid}`);
-      
-      // Fetch appointment to check for Google Calendar data
-      const { data: apptData, error: apptError } = await supabase
+    console.log(`Deleting appointment: ${appointmentId || appointmentUuid} (local-only)`);
+
+    // Fetch appointment to check for Google Calendar data
+    let appointment = null;
+    if (appointmentUuid) {
+      const { data } = await supabase
         .from('appointments')
-        .select('google_calendar_id, google_event_id, company_id')
+        .select('id, ghl_id, google_calendar_id, google_event_id, company_id')
         .eq('id', appointmentUuid)
         .single();
-
-      if (!apptError && apptData?.google_event_id && apptData?.google_calendar_id && apptData?.company_id) {
-        // Delete from Google Calendar
-        await deleteFromGoogleCalendar(
-          supabase,
-          apptData.google_calendar_id,
-          apptData.google_event_id,
-          apptData.company_id
-        );
-      }
-      
-      const { error: deleteError } = await supabase
+      appointment = data;
+    } else if (appointmentId) {
+      const { data } = await supabase
         .from('appointments')
-        .delete()
-        .eq('id', appointmentUuid);
-
-      if (deleteError) {
-        console.error('Supabase delete error:', deleteError);
-        throw new Error(`Failed to delete from Supabase: ${deleteError.message}`);
-      }
-      
-      console.log('Appointment deleted from Supabase by UUID');
-
-      return new Response(JSON.stringify({ 
-        success: true,
-        message: 'Appointment deleted'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // If locationId not provided, look it up from the database
-    let effectiveLocationId = locationId;
-    let googleCalendarId: string | null = null;
-    let googleEventId: string | null = null;
-    let companyId: string | null = null;
-    
-    if (!effectiveLocationId) {
-      const { data: apptData } = await supabase
-        .from('appointments')
-        .select('location_id, google_calendar_id, google_event_id, company_id')
+        .select('id, ghl_id, google_calendar_id, google_event_id, company_id')
         .eq('ghl_id', appointmentId)
         .single();
-      
-      effectiveLocationId = apptData?.location_id || 'local';
-      googleCalendarId = apptData?.google_calendar_id;
-      googleEventId = apptData?.google_event_id;
-      companyId = apptData?.company_id;
-    }
-
-    const ghlApiKey = await getGHLApiKey(supabase, effectiveLocationId);
-
-    console.log(`Deleting appointment (location: ${effectiveLocationId}): ${appointmentId}`);
-
-    // Check if this is a local-only appointment (ghl_id starts with "local_") or no GHL credentials
-    const isLocalAppointment = appointmentId.startsWith('local_');
-
-    if (!isLocalAppointment && ghlApiKey) {
-      // GHL doesn't support DELETE for appointments, so we cancel it first via PUT
-      const ghlResponse = await fetch(`https://services.leadconnectorhq.com/calendars/events/appointments/${appointmentId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${ghlApiKey}`,
-          'Version': '2021-04-15',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          appointmentStatus: 'cancelled',
-        }),
-      });
-
-      if (!ghlResponse.ok) {
-        const errorText = await ghlResponse.text();
-        console.error('GHL API Error:', ghlResponse.status, errorText);
-        
-        // If 404, the appointment doesn't exist in GHL - still proceed to delete from Supabase
-        if (ghlResponse.status !== 404) {
-          // Log but don't throw - we still want to delete from Supabase
-          console.warn('GHL cancellation failed, will still delete from Supabase');
-        } else {
-          console.log('Appointment not found in GHL - will remove from Supabase only');
-        }
-      } else {
-        console.log('GHL appointment cancelled successfully');
-      }
-    } else {
-      console.log('Local appointment - skipping GHL');
+      appointment = data;
     }
 
     // Delete from Google Calendar if applicable
-    if (googleEventId && googleCalendarId && companyId) {
-      await deleteFromGoogleCalendar(supabase, googleCalendarId, googleEventId, companyId);
+    if (appointment?.google_event_id && appointment?.google_calendar_id && appointment?.company_id) {
+      await deleteFromGoogleCalendar(
+        supabase,
+        appointment.google_calendar_id,
+        appointment.google_event_id,
+        appointment.company_id
+      );
     }
 
     // Delete from Supabase
-    const { error: deleteError } = await supabase
-      .from('appointments')
-      .delete()
-      .eq('ghl_id', appointmentId);
+    let deleteQuery = supabase.from('appointments').delete();
+    if (appointmentUuid) {
+      deleteQuery = deleteQuery.eq('id', appointmentUuid);
+    } else if (appointmentId) {
+      deleteQuery = deleteQuery.eq('ghl_id', appointmentId);
+    }
+
+    const { error: deleteError } = await deleteQuery;
 
     if (deleteError) {
       console.error('Supabase delete error:', deleteError);
       throw new Error(`Failed to delete from Supabase: ${deleteError.message}`);
     }
     
-    console.log('Appointment fully deleted from Supabase');
+    console.log('Appointment deleted from Supabase');
 
     return new Response(JSON.stringify({ 
       success: true,
@@ -302,7 +200,7 @@ serve(async (req) => {
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Error cancelling appointment:', errorMessage);
+    console.error('Error deleting appointment:', errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

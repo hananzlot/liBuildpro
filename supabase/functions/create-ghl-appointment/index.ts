@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -13,39 +12,9 @@ const jsonResponse = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-// Helper to get GHL API key from database - throws error if not configured for GHL sync
-async function getGHLApiKey(supabase: any, locationId: string): Promise<string> {
-  if (!locationId) {
-    throw new Error("Location ID is required for GHL sync");
-  }
-
-  const { data: integration, error } = await supabase
-    .from("company_integrations")
-    .select("id, api_key_encrypted")
-    .eq("provider", "ghl")
-    .eq("location_id", locationId)
-    .eq("is_active", true)
-    .single();
-
-  if (error || !integration || !integration.api_key_encrypted) {
-    throw new Error(
-      `GHL integration not configured for location ${locationId}. ` +
-      `Please add the integration in Admin Settings → GHL tab.`
-    );
-  }
-
-  const { data: apiKey, error: vaultError } = await supabase.rpc(
-    "get_ghl_api_key_encrypted",
-    { p_integration_id: integration.id }
-  );
-
-  if (vaultError || !apiKey) {
-    throw new Error(
-      `Failed to retrieve GHL API key for location ${locationId}: ${vaultError?.message || "Key not found"}`
-    );
-  }
-
-  return apiKey;
+// Generate a local-only ID for appointments
+function generateLocalId(): string {
+  return `local_appt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
 serve(async (req) => {
@@ -70,21 +39,12 @@ serve(async (req) => {
       address,
       notes,
       enteredBy,
-      skipGHLSync, // If true, only save to Supabase without calling GHL API
       companyId,   // Company ID for multi-tenancy
     } = await req.json();
 
-    // calendarId is required only when syncing to GHL
     if (!contactId || !title || !startTime) {
       return jsonResponse(
         { error: "contactId, title, and startTime are required" },
-        400,
-      );
-    }
-
-    if (!skipGHLSync && !calendarId) {
-      return jsonResponse(
-        { error: "calendarId is required when syncing to GHL" },
         400,
       );
     }
@@ -101,7 +61,7 @@ serve(async (req) => {
         .single();
       
       if (!effectiveLocationId) {
-        effectiveLocationId = contactData?.location_id;
+        effectiveLocationId = contactData?.location_id || 'local';
       }
       if (!effectiveCompanyId) {
         effectiveCompanyId = contactData?.company_id;
@@ -112,137 +72,39 @@ serve(async (req) => {
     const startDate = new Date(startTime);
     const endDate = endTime ? new Date(endTime) : new Date(startDate.getTime() + 60 * 60 * 1000);
 
-    // Supabase-first: If skipGHLSync, save directly to Supabase without GHL sync
-    if (skipGHLSync) {
-      console.log(`Creating appointment in Supabase for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
-      
-      // Generate a local-only ID prefixed with "local_"
-      const localId = `local_${crypto.randomUUID()}`;
-      
-      const { error: dbError } = await supabase.from("appointments").insert({
-        ghl_id: localId,
-        location_id: effectiveLocationId,
-        contact_id: contactId,
-        calendar_id: calendarId || null,
-        title,
-        start_time: startDate.toISOString(),
-        end_time: endDate.toISOString(),
-        appointment_status: "confirmed",
-        assigned_user_id: assignedUserId || null,
-        address: address || null,
-        notes: notes ? `[LOCAL] ${notes}` : "[LOCAL - not synced to GHL]",
-        ghl_date_added: new Date().toISOString(),
-        entered_by: enteredBy || null,
-        company_id: effectiveCompanyId || null,
-      });
-
-      if (dbError) {
-        console.error("Error saving local appointment:", dbError);
-        return jsonResponse({ error: "Failed to save appointment locally" }, 500);
-      }
-
-      console.log("Appointment created in Supabase:", localId);
-      return jsonResponse({
-        success: true,
-        appointmentId: localId,
-        local: true,
-        message: "Appointment created",
-      });
-    }
-
-    // --- Supabase + GHL sync path ---
-    const GHL_API_KEY = await getGHLApiKey(supabase, effectiveLocationId);
-
-    console.log(`Creating appointment with GHL sync for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
-
-    const apptPayload: Record<string, unknown> = {
-      contactId,
-      locationId: effectiveLocationId,
+    console.log(`Creating local appointment for contact ${contactId} (location: ${effectiveLocationId}): ${title}`);
+    
+    // Generate a local-only ID
+    const localId = generateLocalId();
+    
+    const { error: dbError } = await supabase.from("appointments").insert({
+      ghl_id: localId,
+      location_id: effectiveLocationId,
+      contact_id: contactId,
+      calendar_id: calendarId || null,
       title,
-      startTime: startDate.toISOString(),
-      endTime: endDate.toISOString(),
-      appointmentStatus: "confirmed",
-      calendarId,
-    };
+      start_time: startDate.toISOString(),
+      end_time: endDate.toISOString(),
+      appointment_status: "confirmed",
+      assigned_user_id: assignedUserId || null,
+      address: address || null,
+      notes: notes || null,
+      ghl_date_added: new Date().toISOString(),
+      entered_by: enteredBy || null,
+      provider: 'local',
+      company_id: effectiveCompanyId || null,
+    });
 
-    if (assignedUserId) apptPayload.assignedUserId = assignedUserId;
-    if (address) apptPayload.address = address;
-    if (notes) apptPayload.notes = notes;
-
-    console.log("Sending to GHL:", JSON.stringify(apptPayload));
-
-    const apptResponse = await fetch(
-      "https://services.leadconnectorhq.com/calendars/events/appointments",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GHL_API_KEY}`,
-          "Content-Type": "application/json",
-          Version: "2021-04-15",
-        },
-        body: JSON.stringify(apptPayload),
-      },
-    );
-
-    if (!apptResponse.ok) {
-      const errorText = await apptResponse.text();
-      console.error("GHL Appointment API error:", apptResponse.status, errorText);
-
-      try {
-        const parsed = JSON.parse(errorText);
-        const msg = parsed?.message || parsed?.error || errorText;
-        return jsonResponse(
-          {
-            error: `GHL API error: ${apptResponse.status} - ${msg}`,
-            details: parsed,
-          },
-          apptResponse.status,
-        );
-      } catch {
-        return jsonResponse(
-          { error: `GHL API error: ${apptResponse.status} - ${errorText}` },
-          apptResponse.status,
-        );
-      }
+    if (dbError) {
+      console.error("Error saving appointment:", dbError);
+      return jsonResponse({ error: "Failed to save appointment" }, 500);
     }
 
-    const apptData = await apptResponse.json();
-    const appointmentId = apptData.id || apptData.appointment?.id;
-    console.log("Appointment created in GHL:", appointmentId);
-
-    // Save appointment to Supabase (primary storage)
-    if (appointmentId) {
-      const { error: dbError } = await supabase.from("appointments").upsert(
-        {
-          ghl_id: appointmentId,
-          location_id: effectiveLocationId,
-          contact_id: contactId,
-          calendar_id: calendarId,
-          title,
-          start_time: startDate.toISOString(),
-          end_time: endDate.toISOString(),
-          appointment_status: "confirmed",
-          assigned_user_id: assignedUserId || null,
-          address: address || null,
-          notes: notes || null,
-          ghl_date_added: new Date().toISOString(),
-          entered_by: enteredBy || null,
-          company_id: effectiveCompanyId || null,
-        },
-        { onConflict: "ghl_id" },
-      );
-
-      if (dbError) {
-        console.error("Error saving appointment to Supabase:", dbError);
-      } else {
-        console.log("Appointment saved to Supabase");
-      }
-    }
-
+    console.log("Appointment created:", localId);
     return jsonResponse({
       success: true,
-      appointmentId,
-      data: apptData,
+      appointmentId: localId,
+      message: "Appointment created",
     });
 
   } catch (error: unknown) {
