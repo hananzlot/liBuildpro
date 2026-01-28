@@ -31,6 +31,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { OpportunityDetailSheet } from "./OpportunityDetailSheet";
+import { AppointmentDetailSheet } from "./AppointmentDetailSheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MultiSelectFilter } from "./MultiSelectFilter";
 import { DateRange } from "react-day-picker";
@@ -61,6 +62,7 @@ interface Opportunity {
 }
 
 interface Appointment {
+  id?: string;
   ghl_id: string;
   title: string | null;
   appointment_status: string | null;
@@ -68,7 +70,14 @@ interface Appointment {
   end_time: string | null;
   notes: string | null;
   contact_id: string | null;
+  contact_uuid?: string | null;
   assigned_user_id: string | null;
+  calendar_id: string | null;
+  address?: string | null;
+  salesperson_confirmed?: boolean;
+  salesperson_confirmed_at?: string | null;
+  salesperson_confirmation_status?: string | null;
+  location_id?: string;
 }
 
 interface Contact {
@@ -180,6 +189,20 @@ export function OpportunitiesTable({
   const [isCreatingQuickNote, setIsCreatingQuickNote] = useState(false);
   const [tableDateField, setTableDateField] = useState<"updatedDate" | "createdDate">("updatedDate");
   const [tableDateRange, setTableDateRange] = useState<DateRange | undefined>(undefined);
+
+  // Appointment sheet state
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [appointmentSheetOpen, setAppointmentSheetOpen] = useState(false);
+  
+  // Quick add appointment dialog state
+  const [quickApptDialogOpen, setQuickApptDialogOpen] = useState(false);
+  const [quickApptContactId, setQuickApptContactId] = useState<string | null>(null);
+  const [quickApptContactName, setQuickApptContactName] = useState<string>("");
+  const [quickApptOpportunity, setQuickApptOpportunity] = useState<Opportunity | null>(null);
+  const [quickApptTitle, setQuickApptTitle] = useState("");
+  const [quickApptDate, setQuickApptDate] = useState("");
+  const [quickApptTime, setQuickApptTime] = useState("09:00");
+  const [isCreatingQuickAppt, setIsCreatingQuickAppt] = useState(false);
 
   const uniqueStages = useMemo(() => {
     const stages = new Set<string>();
@@ -814,6 +837,74 @@ export function OpportunitiesTable({
     }
   };
 
+  // Handle clicking calendar icon - open existing appointment or create new
+  const handleCalendarIconClick = (e: React.MouseEvent, opp: Opportunity, contact: Contact | undefined) => {
+    e.stopPropagation(); // Prevent row click
+    
+    const contactAppts = opp.contact_id ? appointmentsByContact.get(opp.contact_id) : [];
+    
+    if (contactAppts && contactAppts.length > 0) {
+      // Open the most recent/upcoming appointment
+      const now = new Date();
+      const upcoming = contactAppts
+        .filter(a => a.start_time && new Date(a.start_time) > now)
+        .sort((a, b) => new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime());
+      
+      const apptToShow = upcoming[0] || contactAppts[0];
+      setSelectedAppointment(apptToShow);
+      setAppointmentSheetOpen(true);
+    } else {
+      // No appointments - open create dialog
+      const contactName = contact?.contact_name || 
+        `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || 
+        opp.name || "Unknown";
+      
+      setQuickApptContactId(opp.contact_id);
+      setQuickApptContactName(contactName);
+      setQuickApptOpportunity(opp);
+      setQuickApptTitle(`Meeting with ${contactName}`);
+      setQuickApptDate(format(new Date(), "yyyy-MM-dd"));
+      setQuickApptTime("09:00");
+      setQuickApptDialogOpen(true);
+    }
+  };
+
+  // Create quick appointment
+  const handleCreateQuickAppt = async () => {
+    if (!quickApptContactId || !quickApptTitle.trim() || !quickApptDate) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+    setIsCreatingQuickAppt(true);
+    try {
+      const startTime = new Date(`${quickApptDate}T${quickApptTime}:00`);
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // 1 hour
+      
+      const { error } = await supabase.functions.invoke("create-ghl-appointment", {
+        body: {
+          contactId: quickApptContactId,
+          title: quickApptTitle.trim(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          enteredBy: user?.id || null,
+          companyId: companyId,
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Appointment created");
+      setQuickApptDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["ghl_appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-metrics"] });
+    } catch (error) {
+      console.error("Error creating appointment:", error);
+      toast.error("Failed to create appointment");
+    } finally {
+      setIsCreatingQuickAppt(false);
+    }
+  };
+
   return (
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
@@ -1053,13 +1144,23 @@ export function OpportunitiesTable({
                             </span>
                           )}
                           {opp.contact_id && contactsWithAppointments.has(opp.contact_id) ? (
-                            <span title="Has appointment">
+                            <button
+                              type="button"
+                              title="View appointment"
+                              className="p-0.5 rounded hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                              onClick={(e) => handleCalendarIconClick(e, opp, contact)}
+                            >
                               <CalendarCheck className="h-4 w-4 text-emerald-500 flex-shrink-0" />
-                            </span>
+                            </button>
                           ) : (
-                            <span title="No appointment">
+                            <button
+                              type="button"
+                              title="Create appointment"
+                              className="p-0.5 rounded hover:bg-muted transition-colors"
+                              onClick={(e) => handleCalendarIconClick(e, opp, contact)}
+                            >
                               <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
-                            </span>
+                            </button>
                           )}
                           {opp.scope_of_work ? (
                             <Tooltip>
@@ -1328,6 +1429,82 @@ export function OpportunitiesTable({
                 <>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Note
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Appointment Detail Sheet */}
+      <AppointmentDetailSheet
+        appointment={selectedAppointment}
+        opportunities={opportunities}
+        appointments={appointments}
+        contacts={contacts}
+        users={users}
+        open={appointmentSheetOpen}
+        onOpenChange={setAppointmentSheetOpen}
+      />
+
+      {/* Quick Add Appointment Dialog */}
+      <Dialog open={quickApptDialogOpen} onOpenChange={setQuickApptDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Schedule Appointment for {quickApptContactName}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quick-appt-title">Title *</Label>
+              <Input
+                id="quick-appt-title"
+                value={quickApptTitle}
+                onChange={(e) => setQuickApptTitle(e.target.value)}
+                placeholder="Meeting title"
+                autoFocus
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="quick-appt-date">Date *</Label>
+                <Input
+                  id="quick-appt-date"
+                  type="date"
+                  value={quickApptDate}
+                  onChange={(e) => setQuickApptDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quick-appt-time">Time *</Label>
+                <Input
+                  id="quick-appt-time"
+                  type="time"
+                  value={quickApptTime}
+                  onChange={(e) => setQuickApptTime(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickApptDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateQuickAppt} 
+              disabled={isCreatingQuickAppt || !quickApptTitle.trim() || !quickApptDate}
+            >
+              {isCreatingQuickAppt ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Appointment
                 </>
               )}
             </Button>
