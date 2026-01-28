@@ -2278,6 +2278,7 @@ export type Database = {
           contact_uuid: string | null
           created_at: string
           created_by: string | null
+          created_by_source: string | null
           customer_email: string | null
           customer_name: string
           customer_phone: string | null
@@ -2302,6 +2303,7 @@ export type Database = {
           opportunity_uuid: string | null
           plans_file_url: string | null
           project_id: string | null
+          salesperson_id: string | null
           salesperson_name: string | null
           sent_at: string | null
           show_details_to_customer: boolean
@@ -2326,6 +2328,7 @@ export type Database = {
           contact_uuid?: string | null
           created_at?: string
           created_by?: string | null
+          created_by_source?: string | null
           customer_email?: string | null
           customer_name: string
           customer_phone?: string | null
@@ -2350,6 +2353,7 @@ export type Database = {
           opportunity_uuid?: string | null
           plans_file_url?: string | null
           project_id?: string | null
+          salesperson_id?: string | null
           salesperson_name?: string | null
           sent_at?: string | null
           show_details_to_customer?: boolean
@@ -2374,6 +2378,7 @@ export type Database = {
           contact_uuid?: string | null
           created_at?: string
           created_by?: string | null
+          created_by_source?: string | null
           customer_email?: string | null
           customer_name?: string
           customer_phone?: string | null
@@ -2398,6 +2403,7 @@ export type Database = {
           opportunity_uuid?: string | null
           plans_file_url?: string | null
           project_id?: string | null
+          salesperson_id?: string | null
           salesperson_name?: string | null
           sent_at?: string | null
           show_details_to_customer?: boolean
@@ -2455,6 +2461,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estimates_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "salespeople"
             referencedColumns: ["id"]
           },
           {
