@@ -1998,7 +1998,10 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
         open={paymentDialogOpen}
         onOpenChange={(open) => {
           setPaymentDialogOpen(open);
-          if (!open) setPrePopulatedPayment(null);
+          if (!open) {
+            setPrePopulatedPayment(null);
+            setEditingPayment(null);
+          }
         }}
         payment={editingPayment}
         prePopulatedData={prePopulatedPayment}
