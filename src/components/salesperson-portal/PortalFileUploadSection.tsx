@@ -51,7 +51,7 @@ export function PortalFileUploadSection({
   salespersonGhlUserId,
   companyId 
 }: PortalFileUploadSectionProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
