@@ -21,18 +21,35 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { ghl_id, name, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at, ghl_date_added, company_id } = await req.json();
+    const { ghl_id, opportunity_uuid, name, status, stage_name, pipeline_id, pipeline_name, pipeline_stage_id, monetary_value, assigned_to, location_id, edited_by, won_at, ghl_date_added, company_id } = await req.json();
 
-    if (!ghl_id) {
-      throw new Error('Missing ghl_id');
+    // Support both ghl_id and opportunity_uuid (internal UUID) for identification
+    // This allows updating local-only opportunities that don't have a GHL ID
+    if (!ghl_id && !opportunity_uuid) {
+      throw new Error('Missing identifier: provide either ghl_id or opportunity_uuid');
     }
 
+    // Determine which column to use for lookup
+    const lookupColumn = opportunity_uuid ? 'id' : 'ghl_id';
+    const lookupValue = opportunity_uuid || ghl_id;
+
+    console.log(`Looking up opportunity by ${lookupColumn}: ${lookupValue}`);
+
     // Fetch current opportunity values BEFORE update
-    const { data: currentOpp } = await supabase
+    const { data: currentOpp, error: fetchError } = await supabase
       .from('opportunities')
-      .select('name, status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at, ghl_date_added, company_id, contact_id')
-      .eq('ghl_id', ghl_id)
+      .select('id, ghl_id, name, status, stage_name, pipeline_name, monetary_value, assigned_to, location_id, won_at, ghl_date_added, company_id, contact_id, contact_uuid, scope_of_work')
+      .eq(lookupColumn, lookupValue)
       .single();
+
+    if (fetchError || !currentOpp) {
+      console.error('Error fetching opportunity:', fetchError);
+      throw new Error(`Opportunity not found: ${lookupValue}`);
+    }
+
+    // Use the actual ghl_id from the record for edit tracking (may be local_opp_... or a real GHL ID)
+    const effectiveGhlId = currentOpp.ghl_id || `local_opp_${currentOpp.id}`;
+    const effectiveUuid = currentOpp.id;
 
     // If location_id not provided, use from database
     let effectiveLocationId = location_id;
@@ -51,12 +68,23 @@ serve(async (req) => {
           .from('contacts')
           .select('company_id')
           .eq('ghl_id', currentOpp.contact_id)
-          .single();
-        effectiveCompanyId = contactData?.company_id;
+          .maybeSingle();
+        
+        // Also try by UUID if ghl_id lookup failed
+        if (!contactData && currentOpp.contact_uuid) {
+          const { data: contactByUuid } = await supabase
+            .from('contacts')
+            .select('company_id')
+            .eq('id', currentOpp.contact_uuid)
+            .maybeSingle();
+          effectiveCompanyId = contactByUuid?.company_id;
+        } else {
+          effectiveCompanyId = contactData?.company_id;
+        }
       }
     }
 
-    console.log(`Updating opportunity ${ghl_id} (local-only): name=${name}, status=${status}, pipeline_id=${pipeline_id}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
+    console.log(`Updating opportunity ${effectiveGhlId} (UUID: ${effectiveUuid}): name=${name}, status=${status}, pipeline_id=${pipeline_id}, stage_name=${stage_name}, pipeline_stage_id=${pipeline_stage_id}, monetary_value=${monetary_value}, assigned_to=${assigned_to}`);
 
     // Build the update payload for Supabase
     const supabaseUpdate: Record<string, string | number | null> = {};
@@ -101,14 +129,14 @@ serve(async (req) => {
       console.log(`Setting ghl_date_added to explicitly provided value: ${ghl_date_added}`);
     }
 
-    console.log(`Supabase update payload for ${ghl_id}:`, JSON.stringify(supabaseUpdate));
+    console.log(`Supabase update payload for ${effectiveUuid}:`, JSON.stringify(supabaseUpdate));
 
-    // Only update if there are fields to update
+    // Only update if there are fields to update - use UUID for reliable matching
     if (Object.keys(supabaseUpdate).length > 0) {
       const { data: updateResult, error: supabaseError } = await supabase
         .from('opportunities')
         .update(supabaseUpdate)
-        .eq('ghl_id', ghl_id)
+        .eq('id', effectiveUuid)
         .select('won_at')
         .single();
 
@@ -136,7 +164,7 @@ serve(async (req) => {
       // Check name
       if (name && currentOpp.name !== name) {
         editsToInsert.push({
-          opportunity_ghl_id: ghl_id,
+          opportunity_ghl_id: effectiveGhlId,
           field_name: 'name',
           old_value: currentOpp.name || null,
           new_value: name,
@@ -149,7 +177,7 @@ serve(async (req) => {
       // Check status
       if (status && currentOpp.status !== status) {
         editsToInsert.push({
-          opportunity_ghl_id: ghl_id,
+          opportunity_ghl_id: effectiveGhlId,
           field_name: 'status',
           old_value: currentOpp.status || null,
           new_value: status,
@@ -162,7 +190,7 @@ serve(async (req) => {
       // Check stage_name
       if (stage_name && currentOpp.stage_name !== stage_name) {
         editsToInsert.push({
-          opportunity_ghl_id: ghl_id,
+          opportunity_ghl_id: effectiveGhlId,
           field_name: 'stage_name',
           old_value: currentOpp.stage_name || null,
           new_value: stage_name,
@@ -175,7 +203,7 @@ serve(async (req) => {
       // Check pipeline_name
       if (pipeline_name && currentOpp.pipeline_name !== pipeline_name) {
         editsToInsert.push({
-          opportunity_ghl_id: ghl_id,
+          opportunity_ghl_id: effectiveGhlId,
           field_name: 'pipeline_name',
           old_value: currentOpp.pipeline_name || null,
           new_value: pipeline_name,
@@ -191,7 +219,7 @@ serve(async (req) => {
         const newValue = Number(monetary_value);
         if (oldValue !== newValue) {
           editsToInsert.push({
-            opportunity_ghl_id: ghl_id,
+            opportunity_ghl_id: effectiveGhlId,
             field_name: 'monetary_value',
             old_value: oldValue?.toString() || null,
             new_value: newValue.toString(),
@@ -205,7 +233,7 @@ serve(async (req) => {
       // Check assigned_to
       if (assigned_to && currentOpp.assigned_to !== assigned_to) {
         editsToInsert.push({
-          opportunity_ghl_id: ghl_id,
+          opportunity_ghl_id: effectiveGhlId,
           field_name: 'assigned_to',
           old_value: currentOpp.assigned_to || null,
           new_value: assigned_to,
@@ -218,7 +246,7 @@ serve(async (req) => {
       // Check won_at (only if explicitly provided - admin edits)
       if (won_at !== undefined && currentOpp.won_at !== won_at) {
         editsToInsert.push({
-          opportunity_ghl_id: ghl_id,
+          opportunity_ghl_id: effectiveGhlId,
           field_name: 'won_at',
           old_value: currentOpp.won_at || null,
           new_value: won_at,
@@ -231,7 +259,7 @@ serve(async (req) => {
       // Check ghl_date_added (only if explicitly provided - super admin edits)
       if (ghl_date_added !== undefined && currentOpp.ghl_date_added !== ghl_date_added) {
         editsToInsert.push({
-          opportunity_ghl_id: ghl_id,
+          opportunity_ghl_id: effectiveGhlId,
           field_name: 'ghl_date_added',
           old_value: currentOpp.ghl_date_added || null,
           new_value: ghl_date_added,
@@ -243,7 +271,7 @@ serve(async (req) => {
 
       // Insert all edits
       if (editsToInsert.length > 0) {
-        console.log(`Tracking ${editsToInsert.length} field edits for opportunity ${ghl_id}`);
+        console.log(`Tracking ${editsToInsert.length} field edits for opportunity ${effectiveGhlId}`);
         const { error: editError } = await supabase
           .from('opportunity_edits')
           .insert(editsToInsert);
@@ -256,85 +284,100 @@ serve(async (req) => {
 
     // AUTO-CREATE PROJECT WHEN OPPORTUNITY IS MARKED AS WON
     if (status === 'won' && currentOpp?.status !== 'won') {
-      console.log(`Opportunity ${ghl_id} marked as won - creating project...`);
+      console.log(`Opportunity ${effectiveGhlId} marked as won - creating project...`);
       
-      // Check if project already exists for this opportunity
-      const { data: existingProject } = await supabase
+      // Check if project already exists for this opportunity (by UUID or ghl_id)
+      let existingProject = null;
+      
+      // First try by opportunity_uuid
+      const { data: projectByUuid } = await supabase
         .from('projects')
         .select('id')
-        .eq('opportunity_id', ghl_id)
-        .single();
+        .eq('opportunity_uuid', effectiveUuid)
+        .maybeSingle();
+      
+      existingProject = projectByUuid;
+      
+      // Fallback to ghl_id lookup
+      if (!existingProject && effectiveGhlId) {
+        const { data: projectByGhlId } = await supabase
+          .from('projects')
+          .select('id')
+          .eq('opportunity_id', effectiveGhlId)
+          .maybeSingle();
+        existingProject = projectByGhlId;
+      }
       
       if (!existingProject) {
-        // Fetch opportunity details
-        const { data: opportunity } = await supabase
-          .from('opportunities')
-          .select('*, contacts:contact_id(*)')
-          .eq('ghl_id', ghl_id)
-          .single();
+        // Fetch contact details if available
+        let contact = null;
+        if (currentOpp.contact_uuid) {
+          const { data: contactData } = await supabase
+            .from('contacts')
+            .select('*')
+            .eq('id', currentOpp.contact_uuid)
+            .maybeSingle();
+          contact = contactData;
+        } else if (currentOpp.contact_id) {
+          const { data: contactData } = await supabase
+            .from('contacts')
+            .select('*')
+            .eq('ghl_id', currentOpp.contact_id)
+            .maybeSingle();
+          contact = contactData;
+        }
         
-        if (opportunity) {
-          // Fetch contact details if available
-          let contact = null;
-          if (opportunity.contact_id) {
-            const { data: contactData } = await supabase
-              .from('contacts')
-              .select('*')
-              .eq('ghl_id', opportunity.contact_id)
-              .single();
-            contact = contactData;
-          }
-          
-          // Get scope of work from opportunity (primary) or fallback to contact custom_fields (legacy)
-          let projectScope: string | null = opportunity.scope_of_work || null;
-          
-          // Fallback: Extract scope from contact's custom_fields if not on opportunity
-          if (!projectScope && contact?.custom_fields && Array.isArray(contact.custom_fields)) {
-            const scopeField = contact.custom_fields.find(
-              (field: { id: string; value: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
-            );
-            if (scopeField && scopeField.value) {
-              projectScope = scopeField.value;
-              console.log(`Found scope of work from contact custom field (legacy): ${projectScope}`);
-            }
-          }
-          if (projectScope) {
-            console.log(`Using scope of work: ${projectScope}`);
-          }
-          
-          // Create the project
-          const projectData = {
-            opportunity_id: ghl_id,
-            contact_id: opportunity.contact_id,
-            location_id: effectiveLocationId,
-            project_name: opportunity.name || `Project from ${contact?.contact_name || 'Unknown'}`,
-            project_status: 'New Job',
-            customer_first_name: contact?.first_name || null,
-            customer_last_name: contact?.last_name || null,
-            customer_email: contact?.email || null,
-            cell_phone: contact?.phone || null,
-            lead_source: contact?.source || null,
-            primary_salesperson: opportunity.assigned_to || null,
-            estimated_cost: opportunity.monetary_value || 0,
-            sold_dispatch_value: opportunity.monetary_value || 0,
-            project_scope_dispatch: projectScope,
-            company_id: effectiveCompanyId || opportunity.company_id || null,
-          };
-          
-          const { data: newProject, error: projectError } = await supabase
-            .from('projects')
-            .insert(projectData)
-            .select()
-            .single();
-          
-          if (projectError) {
-            console.error('Error creating project:', projectError);
-          } else {
-            console.log(`Project created successfully: ${newProject.id} (Project #${newProject.project_number})`);
+        // Get scope of work from opportunity (primary) or fallback to contact custom_fields (legacy)
+        let projectScope: string | null = currentOpp.scope_of_work || null;
+        
+        // Fallback: Extract scope from contact's custom_fields if not on opportunity
+        if (!projectScope && contact?.custom_fields && Array.isArray(contact.custom_fields)) {
+          const scopeField = contact.custom_fields.find(
+            (field: { id: string; value: string }) => field.id === 'KwQRtJT0aMSHnq3mwR68'
+          );
+          if (scopeField && scopeField.value) {
+            projectScope = scopeField.value;
+            console.log(`Found scope of work from contact custom field (legacy): ${projectScope}`);
           }
         }
+        if (projectScope) {
+          console.log(`Using scope of work: ${projectScope}`);
+        }
+        
+        // Create the project - use both UUID and ghl_id references
+        const projectData = {
+          opportunity_id: effectiveGhlId,
+          opportunity_uuid: effectiveUuid,
+          contact_id: currentOpp.contact_id,
+          contact_uuid: currentOpp.contact_uuid || contact?.id || null,
+          location_id: effectiveLocationId,
+          project_name: currentOpp.name || `Project from ${contact?.contact_name || 'Unknown'}`,
+          project_status: 'New Job',
+          customer_first_name: contact?.first_name || null,
+          customer_last_name: contact?.last_name || null,
+          customer_email: contact?.email || null,
+          cell_phone: contact?.phone || null,
+          lead_source: contact?.source || null,
+          primary_salesperson: currentOpp.assigned_to || null,
+          estimated_cost: currentOpp.monetary_value || 0,
+          sold_dispatch_value: currentOpp.monetary_value || 0,
+          project_scope_dispatch: projectScope,
+          company_id: effectiveCompanyId || currentOpp.company_id || null,
+        };
+        
+        const { data: newProject, error: projectError } = await supabase
+          .from('projects')
+          .insert(projectData)
+          .select()
+          .single();
+        
+        if (projectError) {
+          console.error('Error creating project:', projectError);
+        } else {
+          console.log(`Project created successfully: ${newProject.id} (Project #${newProject.project_number})`);
+        }
       } else {
-        console.log(`Project already exists for opportunity ${ghl_id}`);
+        console.log(`Project already exists for opportunity ${effectiveGhlId}`);
       }
     }
 
@@ -343,6 +386,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       localOnly: true,
+      opportunityId: effectiveUuid,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
