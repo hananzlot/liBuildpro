@@ -67,7 +67,7 @@ export function PortalEstimateCreator({
   salespersonGhlUserId,
   companyId,
 }: PortalEstimateCreatorProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [selectedType, setSelectedType] = useState<"opportunity" | "project">("opportunity");
   const [selectedId, setSelectedId] = useState<string>("");
   const [workScope, setWorkScope] = useState("");
