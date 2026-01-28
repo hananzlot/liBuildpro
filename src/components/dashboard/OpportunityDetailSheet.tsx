@@ -2462,23 +2462,25 @@ export function OpportunityDetailSheet({
                 </div>
                 <span className="text-xs text-muted-foreground">Opens in new tab</span>
               </a>
-              {/* Send Thank You Email Button */}
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={handleSendThankYouEmail}
-                disabled={isSendingThankYou || !contact?.email}
-              >
-                {isSendingThankYou ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Mail className="h-4 w-4" />
-                )}
-                <span>Send Thank-You Email</span>
-                {!contact?.email && (
-                  <span className="text-xs text-muted-foreground ml-auto">No email</span>
-                )}
-              </Button>
+              {/* Send Thank You Email Button - Admin only */}
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={handleSendThankYouEmail}
+                  disabled={isSendingThankYou || !contact?.email}
+                >
+                  {isSendingThankYou ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  <span>Send Thank-You Email</span>
+                  {!contact?.email && (
+                    <span className="text-xs text-muted-foreground ml-auto">No email</span>
+                  )}
+                </Button>
+              )}
             </div>
           ) : (
             <Button
