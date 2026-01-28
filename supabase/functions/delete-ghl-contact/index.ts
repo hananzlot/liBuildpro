@@ -75,11 +75,42 @@ serve(async (req) => {
     // Delete related records first (those with ON DELETE SET NULL won't cascade)
     // Contact notes have ON DELETE CASCADE, so they'll be deleted automatically
     
-    // Update opportunities to remove contact reference
-    await supabase
+    // Count and delete opportunities associated with this contact
+    const { data: opportunitiesToDelete } = await supabase
       .from("opportunities")
-      .update({ contact_id: null, contact_uuid: null })
-      .eq("contact_uuid", contact.id);
+      .select("id, ghl_id, name")
+      .or(`contact_uuid.eq.${contact.id},contact_id.eq.${contact.ghl_id || 'none'}`);
+    
+    const opportunitiesDeleted = opportunitiesToDelete?.length || 0;
+    console.log(`Found ${opportunitiesDeleted} opportunities to delete for contact ${contact.id}`);
+    
+    if (opportunitiesDeleted > 0) {
+      // First update estimates to remove opportunity references
+      for (const opp of opportunitiesToDelete || []) {
+        await supabase
+          .from("estimates")
+          .update({ opportunity_id: null, opportunity_uuid: null })
+          .or(`opportunity_uuid.eq.${opp.id},opportunity_id.eq.${opp.ghl_id || 'none'}`);
+        
+        // Update projects to remove opportunity references
+        await supabase
+          .from("projects")
+          .update({ opportunity_id: null, opportunity_uuid: null })
+          .or(`opportunity_uuid.eq.${opp.id},opportunity_id.eq.${opp.ghl_id || 'none'}`);
+      }
+      
+      // Delete the opportunities
+      const { error: oppDeleteError } = await supabase
+        .from("opportunities")
+        .delete()
+        .or(`contact_uuid.eq.${contact.id},contact_id.eq.${contact.ghl_id || 'none'}`);
+      
+      if (oppDeleteError) {
+        console.error('Error deleting opportunities:', oppDeleteError);
+      } else {
+        console.log(`Successfully deleted ${opportunitiesDeleted} opportunities`);
+      }
+    }
 
     // Update appointments to remove contact reference
     await supabase
@@ -87,7 +118,7 @@ serve(async (req) => {
       .update({ contact_id: null, contact_uuid: null })
       .eq("contact_uuid", contact.id);
 
-    // Update projects to remove contact reference
+    // Update projects to remove contact reference (those not already handled via opportunity)
     await supabase
       .from("projects")
       .update({ contact_id: null, contact_uuid: null })
@@ -116,7 +147,12 @@ serve(async (req) => {
     console.log(`Successfully deleted contact ${contact.id}`);
 
     return new Response(
-      JSON.stringify({ success: true, deletedContactId: contact.id, excludedFromSync: excludeFromSync }),
+      JSON.stringify({ 
+        success: true, 
+        deletedContactId: contact.id, 
+        excludedFromSync: excludeFromSync,
+        opportunitiesDeleted: opportunitiesDeleted,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
