@@ -612,22 +612,32 @@ export default function SalespersonCalendarPortal() {
 
       {/* Tools Tab Content */}
       {activeTab === "tools" && salesperson && (
-        <div className="max-w-2xl mx-auto p-4 space-y-4">
-          <PortalProposalsSection 
-            salespersonName={salesperson.name} 
-            companyId={salesperson.company_id} 
-          />
-          <PortalFileUploadSection 
-            salespersonName={salesperson.name} 
-            companyId={salesperson.company_id} 
-          />
-          <PortalProjectLinksSection 
-            salespersonName={salesperson.name}
-            salespersonId={salesperson.id}
-            salespersonGhlUserId={salesperson.ghl_user_id}
-            companyId={salesperson.company_id}
-          />
-          <PortalEstimatesPlaceholder />
+        <div className="p-4 pb-8">
+          <div className="max-w-2xl mx-auto">
+            {/* Quick access title */}
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3 px-1">
+              Quick Access
+            </p>
+            
+            {/* Mobile-optimized grid of tool cards */}
+            <div className="grid grid-cols-1 gap-3">
+              <PortalProposalsSection 
+                salespersonName={salesperson.name} 
+                companyId={salesperson.company_id} 
+              />
+              <PortalFileUploadSection 
+                salespersonName={salesperson.name} 
+                companyId={salesperson.company_id} 
+              />
+              <PortalProjectLinksSection 
+                salespersonName={salesperson.name}
+                salespersonId={salesperson.id}
+                salespersonGhlUserId={salesperson.ghl_user_id}
+                companyId={salesperson.company_id}
+              />
+              <PortalEstimatesPlaceholder />
+            </div>
+          </div>
         </div>
       )}
 

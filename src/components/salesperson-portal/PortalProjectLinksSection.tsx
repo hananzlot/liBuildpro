@@ -174,24 +174,33 @@ export function PortalProjectLinksSection({
   };
 
   return (
-    <Card className="border-0 shadow-lg">
+    <Card className="border border-border/50 shadow-md rounded-xl overflow-hidden">
       <CardHeader
-        className="pb-2 cursor-pointer"
+        className="pb-3 pt-4 px-4 cursor-pointer bg-gradient-to-r from-primary/5 to-transparent"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Link className="h-5 w-5 text-primary" />
-            Customer Portals
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Link className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold">Customer Portals</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {projectsWithPortals.length > 0 ? `${projectsWithPortals.length} active` : "Share project portals"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
             {projectsWithPortals.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{projectsWithPortals.length}</Badge>
+              <Badge variant="secondary" className="font-medium">{projectsWithPortals.length}</Badge>
             )}
-          </CardTitle>
-          {isExpanded ? (
-            <ChevronUp className="h-5 w-5 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-muted-foreground" />
-          )}
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
         </div>
       </CardHeader>
 

@@ -4,26 +4,37 @@ import { Calculator, Sparkles } from "lucide-react";
 
 export function PortalEstimatesPlaceholder() {
   return (
-    <Card className="border-0 shadow-lg bg-gradient-to-br from-primary/5 to-primary/10">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Calculator className="h-5 w-5 text-primary" />
-          Create Estimates
-          <Badge className="bg-primary/20 text-primary border-0 ml-1">
-            <Sparkles className="h-3 w-3 mr-1" />
-            Coming Soon
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-center py-6">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
-            <Calculator className="h-8 w-8 text-primary" />
+    <Card className="border border-border/50 shadow-md rounded-xl overflow-hidden">
+      <CardHeader className="pb-3 pt-4 px-4 bg-gradient-to-r from-primary/5 to-transparent">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Calculator className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                Create Estimates
+                <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] px-1.5">
+                  <Sparkles className="h-2.5 w-2.5 mr-0.5" />
+                  Soon
+                </Badge>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">Build estimates on mobile</p>
+            </div>
           </div>
-          <h3 className="font-semibold text-foreground mb-1">Build Your Own Estimates</h3>
-          <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-            Soon you'll be able to create and send estimates directly from your mobile device.
-          </p>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-3 pb-4 px-4">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-dashed border-border">
+          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Calculator className="h-6 w-6 text-primary/60" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">Coming Soon</p>
+            <p className="text-xs text-muted-foreground">
+              Create & send estimates from your phone
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>
