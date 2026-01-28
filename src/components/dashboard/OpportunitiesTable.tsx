@@ -91,6 +91,7 @@ interface Contact {
   phone: string | null;
   source: string | null;
   custom_fields?: unknown;
+  attributions?: unknown;
   ghl_date_added?: string | null;
   assigned_to?: string | null;
 }
@@ -1162,41 +1163,66 @@ export function OpportunitiesTable({
                               <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                             </button>
                           )}
-                          {opp.scope_of_work ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-help underline decoration-dotted underline-offset-2">{displayName}</span>
-                              </TooltipTrigger>
-                              <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
-                                <p className="font-semibold mb-1">Scope of Work:</p>
-                                <p>{opp.scope_of_work}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : (
-                            <span>{displayName}</span>
-                          )}
+                          {(() => {
+                            // Get scope with fallback: opportunity -> contact custom field -> attributions
+                            const scopeFromOpportunity = opp.scope_of_work;
+                            const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                            const scopeFromAttributions = (() => {
+                              if (!contact?.attributions) return null;
+                              const attrs = contact.attributions as Array<{ utmCampaign?: string }>;
+                              const campaign = attrs.find(a => a.utmCampaign)?.utmCampaign;
+                              return campaign || null;
+                            })();
+                            const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
+                            
+                            return scopeOfWork ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help underline decoration-dotted underline-offset-2">{displayName}</span>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
+                                  <p className="font-semibold mb-1">Scope of Work:</p>
+                                  <p>{scopeOfWork}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span>{displayName}</span>
+                            );
+                          })()}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {opp.scope_of_work ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="cursor-help underline decoration-dotted underline-offset-2">
-                                {opp.pipeline_name && opp.stage_name
-                                  ? `${opp.pipeline_name} / ${opp.stage_name}`
-                                  : opp.stage_name || opp.pipeline_name || "-"}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
-                              <p className="font-semibold mb-1">Scope of Work:</p>
-                              <p>{opp.scope_of_work}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : (
-                          opp.pipeline_name && opp.stage_name
+                        {(() => {
+                          // Same fallback logic for stage column
+                          const scopeFromOpportunity = opp.scope_of_work;
+                          const scopeFromCustomField = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.SCOPE_OF_WORK);
+                          const scopeFromAttributions = (() => {
+                            if (!contact?.attributions) return null;
+                            const attrs = contact.attributions as Array<{ utmCampaign?: string }>;
+                            const campaign = attrs.find(a => a.utmCampaign)?.utmCampaign;
+                            return campaign || null;
+                          })();
+                          const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
+                          const stageText = opp.pipeline_name && opp.stage_name
                             ? `${opp.pipeline_name} / ${opp.stage_name}`
-                            : opp.stage_name || opp.pipeline_name || "-"
-                        )}
+                            : opp.stage_name || opp.pipeline_name || "-";
+                          
+                          return scopeOfWork ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help underline decoration-dotted underline-offset-2">
+                                  {stageText}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
+                                <p className="font-semibold mb-1">Scope of Work:</p>
+                                <p>{scopeOfWork}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            stageText
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{contact?.source || "-"}</TableCell>
 
