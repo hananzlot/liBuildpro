@@ -121,8 +121,8 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
                 <p className="text-sm text-muted-foreground">No proposals sent yet</p>
               </div>
             ) : (
-              <ScrollArea className="max-h-[400px]">
-                <div className="space-y-2">
+              <ScrollArea className="h-[300px] pr-2">
+                <div className="space-y-2 pr-2">
                   {estimates.map((estimate) => (
                     <div
                       key={estimate.id}
