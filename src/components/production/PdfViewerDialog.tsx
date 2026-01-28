@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import { ExternalLink, ZoomIn, ZoomOut, RotateCw, X } from "lucide-react";
 
 interface PdfViewerDialogProps {
   open: boolean;
@@ -28,7 +28,7 @@ export function PdfViewerDialog({ open, onOpenChange, fileUrl, fileName }: PdfVi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+      <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0" hideCloseButton>
         <DialogHeader className="px-4 py-3 border-b flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-sm font-medium truncate pr-4">
@@ -71,6 +71,15 @@ export function PdfViewerDialog({ open, onOpenChange, fileUrl, fileName }: PdfVi
               >
                 <ExternalLink className="h-4 w-4 mr-1" />
                 Open in New Tab
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onOpenChange(false)}
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
               </Button>
             </div>
           </div>
