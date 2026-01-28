@@ -1,4 +1,7 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -135,6 +138,7 @@ export function OpportunitiesTable({
   notes = [],
   tasks = [],
 }: OpportunitiesTableProps) {
+  const { companyId } = useCompanyContext();
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [stageFilter, setStageFilter] = useState<string[]>([]);
@@ -161,20 +165,44 @@ export function OpportunitiesTable({
     return uniqueStages.map((stage) => ({ value: stage, label: stage }));
   }, [uniqueStages]);
 
-  // Get unique sales reps from users
-  const uniqueSalesReps = useMemo(() => {
-    return users
-      .map((u) => ({
-        ghl_id: u.ghl_id,
-        name: u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || u.ghl_id,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [users]);
+  // Fetch salespeople for the filter (use salespeople table instead of ghl_users)
+  const { data: salespeople = [] } = useQuery({
+    queryKey: ["salespeople-for-filter", companyId],
+    queryFn: async () => {
+      if (!companyId) return [];
+      const { data, error } = await supabase
+        .from("salespeople")
+        .select("id, name, ghl_user_id, is_active")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!companyId,
+    staleTime: 10 * 60 * 1000,
+  });
 
-  // Format sales reps for multi-select
+  // Format sales reps for multi-select - use internal UUID as value
   const salesRepOptions = useMemo(() => {
-    return uniqueSalesReps.map((rep) => ({ value: rep.ghl_id, label: rep.name }));
-  }, [uniqueSalesReps]);
+    return salespeople.map((sp) => ({ 
+      value: sp.id, // Use internal UUID
+      label: sp.name || "Unknown",
+      ghlUserId: sp.ghl_user_id, // Keep for matching
+    }));
+  }, [salespeople]);
+
+  // Create a map from salesperson UUID to their GHL user ID for matching
+  const salespersonIdMap = useMemo(() => {
+    const map = new Map<string, { uuid: string; ghlId: string | null }>();
+    salespeople.forEach((sp) => {
+      map.set(sp.id, { uuid: sp.id, ghlId: sp.ghl_user_id });
+      if (sp.ghl_user_id) {
+        map.set(sp.ghl_user_id, { uuid: sp.id, ghlId: sp.ghl_user_id });
+      }
+    });
+    return map;
+  }, [salespeople]);
 
   // Get unique sources from contacts
   const uniqueSources = useMemo(() => {
@@ -313,17 +341,28 @@ export function OpportunitiesTable({
       filtered = filtered.filter((opp) => !opp.contact_id || !contactsWithAppointments.has(opp.contact_id));
     }
 
-    // Apply sales rep filter (multi-select)
+    // Apply sales rep filter (multi-select) - match using both UUID and GHL ID
     if (salesRepFilter.length > 0) {
+      // Build a set of all IDs to match (both UUIDs and GHL IDs for selected salespeople)
+      const matchingIds = new Set<string>();
+      salesRepFilter.forEach((selectedId) => {
+        matchingIds.add(selectedId); // Add the UUID
+        // Also add the GHL ID if this salesperson has one
+        const sp = salespeople.find(s => s.id === selectedId);
+        if (sp?.ghl_user_id) {
+          matchingIds.add(sp.ghl_user_id);
+        }
+      });
+      
       filtered = filtered.filter((opp) => {
-        // Check opportunity assigned_to
-        if (opp.assigned_to && salesRepFilter.includes(opp.assigned_to)) return true;
+        // Check opportunity assigned_to (could be UUID or GHL ID)
+        if (opp.assigned_to && matchingIds.has(opp.assigned_to)) return true;
         // Check contact assigned_to
         const contact = opp.contact_id ? contactMap.get(opp.contact_id) : null;
-        if (contact?.assigned_to && salesRepFilter.includes(contact.assigned_to)) return true;
+        if (contact?.assigned_to && matchingIds.has(contact.assigned_to)) return true;
         // Check appointment assigned_user_id
         const oppAppointments = opp.contact_id ? appointmentsByContact.get(opp.contact_id) || [] : [];
-        return oppAppointments.some((a) => a.assigned_user_id && salesRepFilter.includes(a.assigned_user_id));
+        return oppAppointments.some((a) => a.assigned_user_id && matchingIds.has(a.assigned_user_id));
       });
     }
 
@@ -447,6 +486,7 @@ export function OpportunitiesTable({
     statusFilter,
     appointmentFilter,
     salesRepFilter,
+    salespeople,
     sortColumn,
     sortDirection,
     contactsWithAppointments,
