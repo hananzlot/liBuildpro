@@ -36,6 +36,7 @@ import { MultiSelectFilter } from "./MultiSelectFilter";
 import { DateRange } from "react-day-picker";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn, getAddressFromContact, extractCustomField, CUSTOM_FIELD_IDS, findContactByIdOrGhlId } from "@/lib/utils";
@@ -56,6 +57,7 @@ interface Opportunity {
   contact_id: string | null;
   contact_uuid?: string | null;
   assigned_to: string | null;
+  scope_of_work?: string | null;
 }
 
 interface Appointment {
@@ -1059,13 +1061,41 @@ export function OpportunitiesTable({
                               <CalendarX className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                             </span>
                           )}
-                          <span>{displayName}</span>
+                          {opp.scope_of_work ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help underline decoration-dotted underline-offset-2">{displayName}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
+                                <p className="font-semibold mb-1">Scope of Work:</p>
+                                <p>{opp.scope_of_work}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span>{displayName}</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {opp.pipeline_name && opp.stage_name
-                          ? `${opp.pipeline_name} / ${opp.stage_name}`
-                          : opp.stage_name || opp.pipeline_name || "-"}
+                        {opp.scope_of_work ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help underline decoration-dotted underline-offset-2">
+                                {opp.pipeline_name && opp.stage_name
+                                  ? `${opp.pipeline_name} / ${opp.stage_name}`
+                                  : opp.stage_name || opp.pipeline_name || "-"}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs whitespace-pre-wrap text-sm">
+                              <p className="font-semibold mb-1">Scope of Work:</p>
+                              <p>{opp.scope_of_work}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          opp.pipeline_name && opp.stage_name
+                            ? `${opp.pipeline_name} / ${opp.stage_name}`
+                            : opp.stage_name || opp.pipeline_name || "-"
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-sm">{contact?.source || "-"}</TableCell>
 
