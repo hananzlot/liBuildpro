@@ -9,12 +9,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Trash2, Plus, GripVertical, ChevronLeft, ChevronRight } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
+// @ts-ignore - worker import
+import PdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-// Set worker path - use a specific version that matches the installed package
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url
-).toString();
+// Set worker path using the imported worker URL
+pdfjsLib.GlobalWorkerOptions.workerSrc = PdfWorker;
 
 interface ComplianceFieldEditorProps {
   open: boolean;
