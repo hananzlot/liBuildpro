@@ -1,11 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getGHLCredentials } from "../_shared/ghl-credentials.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Generate a local-only ID for notes
+function generateLocalNoteId(): string {
+  return `local_note_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -48,102 +52,48 @@ serve(async (req) => {
         .single();
       
       if (!effectiveLocationId) {
-        effectiveLocationId = contactData?.location_id;
+        effectiveLocationId = contactData?.location_id || 'local';
       }
       if (!effectiveCompanyId) {
         effectiveCompanyId = contactData?.company_id;
       }
     }
 
-    if (!effectiveLocationId) {
-      throw new Error('Could not determine location_id for contact');
-    }
-
-    // Check if this is a local contact (no GHL sync needed)
-    if (contactId.startsWith('local_')) {
-      console.log('Creating local note for local contact:', contactId);
-      
-      const localNoteId = `local_note_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      
-      const { data: newNote, error: insertError } = await supabase
-        .from('contact_notes')
-        .insert({
-          ghl_id: localNoteId,
-          contact_id: contactId,
-          location_id: effectiveLocationId,
-          body: body,
-          ghl_date_added: new Date().toISOString(),
-          entered_by: enteredBy || null,
-          provider: 'local',
-          company_id: effectiveCompanyId || null,
-        })
-        .select()
-        .single();
-      
-      if (insertError) {
-        return new Response(
-          JSON.stringify({ error: `Failed to create local note: ${insertError.message}` }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          note: newNote,
-          localOnlyMode: true,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get GHL credentials from vault
-    const credentials = await getGHLCredentials(supabase, effectiveLocationId);
-
-    console.log(`Creating note for contact: ${contactId} (location: ${effectiveLocationId})`);
-
-    // Create note in GHL
-    const response = await fetch(`https://services.leadconnectorhq.com/contacts/${contactId}/notes`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${credentials.apiKey}`,
-        'Version': '2021-07-28',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ body }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`GHL API error: ${response.status} - ${errorText}`);
-      return new Response(
-        JSON.stringify({ error: `GHL API error: ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const result = await response.json();
-    console.log(`Note created successfully:`, result);
-
-    // Save to Supabase for caching
-    if (result.note) {
-      const note = result.note;
-      await supabase.from('contact_notes').upsert({
-        ghl_id: note.id,
+    // Always create notes locally - no GHL sync
+    console.log('Creating local note for contact:', contactId);
+    
+    const localNoteId = generateLocalNoteId();
+    
+    const { data: newNote, error: insertError } = await supabase
+      .from('contact_notes')
+      .insert({
+        ghl_id: localNoteId,
         contact_id: contactId,
-        body: note.body,
-        user_id: note.userId || null,
         location_id: effectiveLocationId,
-        ghl_date_added: note.dateAdded ? new Date(note.dateAdded).toISOString() : new Date().toISOString(),
+        body: body,
+        ghl_date_added: new Date().toISOString(),
         entered_by: enteredBy || null,
+        provider: 'local',
         company_id: effectiveCompanyId || null,
-      }, { onConflict: 'ghl_id' });
-      
-      console.log('Note saved to Supabase');
+      })
+      .select()
+      .single();
+    
+    if (insertError) {
+      console.error('Failed to create note:', insertError);
+      return new Response(
+        JSON.stringify({ error: `Failed to create note: ${insertError.message}` }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
-
+    
+    console.log('Note created successfully:', newNote.id);
+    
     return new Response(
-      JSON.stringify({ success: true, note: result.note }),
+      JSON.stringify({ 
+        success: true, 
+        note: newNote,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
