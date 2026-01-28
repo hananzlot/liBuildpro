@@ -215,6 +215,9 @@ export function OpportunityDetailSheet({
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   const [newNoteText, setNewNoteText] = useState("");
   const [isCreatingNote, setIsCreatingNote] = useState(false);
+  const [isDeletingNote, setIsDeletingNote] = useState<string | null>(null);
+  const [deleteNoteDialogOpen, setDeleteNoteDialogOpen] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState<string | null>(null);
 
   // Tasks
   const [tasks, setTasks] = useState<DisplayTask[]>([]);
@@ -719,7 +722,35 @@ export function OpportunityDetailSheet({
     }
   };
 
-  // Helper function to refresh tasks from ghl_tasks
+  // Delete note handler (admin only)
+  const handleDeleteNote = async (noteId: string) => {
+    if (!opportunity?.contact_id) return;
+    setIsDeletingNote(noteId);
+    try {
+      // Delete from local database
+      const { error } = await supabase
+        .from("contact_notes")
+        .delete()
+        .eq("id", noteId);
+      
+      if (error) {
+        toast.error("Failed to delete note");
+        console.error("Error deleting note:", error);
+      } else {
+        toast.success("Note deleted");
+        // Remove from local state
+        setContactNotesList(prev => prev.filter(n => n.id !== noteId));
+      }
+    } catch (err) {
+      toast.error("Failed to delete note");
+      console.error("Failed to delete note:", err);
+    } finally {
+      setIsDeletingNote(null);
+      setDeleteNoteDialogOpen(false);
+      setNoteToDelete(null);
+    }
+  };
+
   const refreshTasksList = async () => {
     if (!opportunity?.contact_id) return;
     const {
@@ -2785,13 +2816,33 @@ export function OpportunityDetailSheet({
                   return <div key={note.id} className="bg-muted/30 rounded p-2">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                               <span>{noteUserName || "GHL User"}</span>
-                              <span>
-                                {new Date(note.dateAdded).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric"
-                        })}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span>
+                                  {new Date(note.dateAdded).toLocaleDateString("en-US", {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric"
+                                  })}
+                                </span>
+                                {(isAdmin || isSuperAdmin) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                                    onClick={() => {
+                                      setNoteToDelete(note.id);
+                                      setDeleteNoteDialogOpen(true);
+                                    }}
+                                    disabled={isDeletingNote === note.id}
+                                  >
+                                    {isDeletingNote === note.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                             <p className="text-sm whitespace-pre-wrap">{stripHtml(note.body)}</p>
                           </div>;
@@ -3414,5 +3465,28 @@ export function OpportunityDetailSheet({
         open={!!previewEstimateId}
         onOpenChange={(open) => !open && setPreviewEstimateId(null)}
       />
+
+      {/* Delete Note Confirmation Dialog */}
+      <AlertDialog open={deleteNoteDialogOpen} onOpenChange={setDeleteNoteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Note?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The note will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setNoteToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => noteToDelete && handleDeleteNote(noteToDelete)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!isDeletingNote}
+            >
+              {isDeletingNote && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>;
 }
