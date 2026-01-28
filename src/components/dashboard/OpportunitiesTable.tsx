@@ -772,6 +772,7 @@ export function OpportunitiesTable({
       toast.success("Task created");
       setQuickTaskDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-metrics"] });
     } catch (error) {
       console.error("Error creating task:", error);
       toast.error("Failed to create task");
@@ -802,6 +803,7 @@ export function OpportunitiesTable({
       toast.success("Note added");
       setQuickNoteDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ["contact_notes"] });
+      queryClient.invalidateQueries({ queryKey: ["ghl-metrics"] });
     } catch (error) {
       console.error("Error creating note:", error);
       toast.error("Failed to add note");
