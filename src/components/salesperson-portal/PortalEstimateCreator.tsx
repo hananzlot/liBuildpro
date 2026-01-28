@@ -85,10 +85,12 @@ export function PortalEstimateCreator({
   const { data: opportunities = [], isLoading: oppsLoading } = useQuery({
     queryKey: ["portal-opportunities", companyId, salespersonId, salespersonGhlUserId],
     queryFn: async () => {
-      // Build filter: match either salesperson_id (UUID) OR assigned_to (GHL user ID)
+      // Build filter: match salesperson_id (UUID) OR assigned_to (UUID or GHL user ID)
       const filters: string[] = [];
       if (salespersonId) {
         filters.push(`salesperson_id.eq.${salespersonId}`);
+        // Also check assigned_to for UUID (migration may have stored UUID there)
+        filters.push(`assigned_to.eq.${salespersonId}`);
       }
       if (salespersonGhlUserId) {
         filters.push(`assigned_to.eq.${salespersonGhlUserId}`);
@@ -132,10 +134,11 @@ export function PortalEstimateCreator({
       // Step 2: Get projects via opportunity assignment (only if no salesperson assigned)
       let opportunityProjects: Project[] = [];
       
-      // Fetch opportunities by salesperson_id OR assigned_to
+      // Fetch opportunities by salesperson_id OR assigned_to (UUID or GHL user ID)
       const oppFilters: string[] = [];
       if (salespersonId) {
         oppFilters.push(`salesperson_id.eq.${salespersonId}`);
+        oppFilters.push(`assigned_to.eq.${salespersonId}`);
       }
       if (salespersonGhlUserId) {
         oppFilters.push(`assigned_to.eq.${salespersonGhlUserId}`);
