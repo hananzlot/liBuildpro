@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy, ChevronDown, Pencil, Check, X, Trash2, Loader2 } from "lucide-react";
+import { Mail, Phone, Calendar, DollarSign, User, Tag, Clock, MapPin, Briefcase, FileText, MessageSquare, RefreshCw, Copy, ChevronDown, Pencil, Check, X, Trash2, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { findUserByIdOrGhlId } from "@/lib/utils";
@@ -241,6 +241,7 @@ export function ContactDetailSheet({
   const [updatingAppointmentId, setUpdatingAppointmentId] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ contact: true });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isCreatingOpportunity, setIsCreatingOpportunity] = useState(false);
   const [localContact, setLocalContact] = useState<Contact | null>(null);
 
   // Sync local state with prop
@@ -421,6 +422,60 @@ export function ContactDetailSheet({
     }
   };
 
+  const handleCreateOpportunity = async () => {
+    if (!localContact || !companyId) return;
+    setIsCreatingOpportunity(true);
+    try {
+      // Get the location_id from company integrations
+      const { data: integration } = await supabase
+        .from('company_integrations')
+        .select('location_id')
+        .eq('company_id', companyId)
+        .eq('provider', 'ghl')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      const locationId = integration?.location_id || `local_${companyId}`;
+      const oppName = localContact.contact_name || 
+        `${localContact.first_name || ''} ${localContact.last_name || ''}`.trim() || 
+        'New Opportunity';
+
+      // Create opportunity directly in Supabase (local-only)
+      const { data: newOpp, error } = await supabase
+        .from('opportunities')
+        .insert({
+          name: oppName,
+          contact_id: localContact.ghl_id,
+          contact_uuid: localContact.id,
+          company_id: companyId,
+          location_id: locationId,
+          status: 'open',
+          stage_name: 'New Lead',
+          pipeline_name: 'Main',
+          provider: 'local',
+          ghl_date_added: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({ title: "Opportunity created", description: `Created opportunity for ${oppName}` });
+      onRefresh?.();
+      
+      // Navigate to the new opportunity
+      if (newOpp?.id) {
+        onOpenChange(false);
+        navigate(`/opportunities/${newOpp.id}`);
+      }
+    } catch (error) {
+      console.error('Error creating opportunity:', error);
+      toast({ title: "Error", description: "Failed to create opportunity", variant: "destructive" });
+    } finally {
+      setIsCreatingOpportunity(false);
+    }
+  };
+
   if (!localContact) return null;
 
   const formatDateTime = (dateString: string | null | undefined) => {
@@ -512,6 +567,20 @@ export function ContactDetailSheet({
                 {contactName}
               </SheetTitle>
               <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-xs gap-1"
+                  onClick={handleCreateOpportunity}
+                  disabled={isCreatingOpportunity}
+                >
+                  {isCreatingOpportunity ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3" />
+                  )}
+                  Create Opportunity
+                </Button>
                 {onRefresh && (
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh}>
                     <RefreshCw className="h-4 w-4" />
