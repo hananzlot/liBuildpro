@@ -1,11 +1,11 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addDays, subDays, isToday, isSameDay, parseISO } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, DollarSign, FolderOpen } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, DollarSign, FolderOpen, Mail, ExternalLink, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import { PortalProposalsSection } from "@/components/salesperson-portal/PortalPr
 import { PortalFileUploadSection } from "@/components/salesperson-portal/PortalFileUploadSection";
 import { PortalProjectLinksSection } from "@/components/salesperson-portal/PortalProjectLinksSection";
 import { PortalEstimateCreator } from "@/components/salesperson-portal/PortalEstimateCreator";
+import { toast } from "sonner";
 interface Appointment {
   id: string;
   ghl_id: string | null;
@@ -681,7 +682,193 @@ interface AppointmentDetailViewProps {
 
 function AppointmentDetailView({ appointment, contact, opportunity, onClose, companyId, salespersonId }: AppointmentDetailViewProps) {
   const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+  const [isCreatingPortal, setIsCreatingPortal] = useState(false);
+  const [isSendingThankYou, setIsSendingThankYou] = useState(false);
+  const [portalLink, setPortalLink] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const displayName = contact?.contact_name || appointment.title || "Appointment";
+
+  // Check if a portal already exists for this opportunity/contact
+  const { data: existingPortal, refetch: refetchPortal } = useQuery({
+    queryKey: ["salesperson-portal-check", opportunity?.id, contact?.id, companyId],
+    queryFn: async () => {
+      if (!companyId) return null;
+      
+      // Check for existing project linked to this opportunity
+      let projectId: string | null = null;
+      
+      if (opportunity?.id) {
+        const { data: project } = await supabase
+          .from("projects")
+          .select("id")
+          .eq("company_id", companyId)
+          .or(`opportunity_uuid.eq.${opportunity.id},opportunity_id.eq.${opportunity.ghl_id}`)
+          .is("deleted_at", null)
+          .maybeSingle();
+        
+        if (project) projectId = project.id;
+      }
+      
+      // Fallback: check by contact
+      if (!projectId && contact?.id) {
+        const { data: project } = await supabase
+          .from("projects")
+          .select("id")
+          .eq("company_id", companyId)
+          .or(`contact_uuid.eq.${contact.id},contact_id.eq.${contact.ghl_id}`)
+          .is("deleted_at", null)
+          .maybeSingle();
+        
+        if (project) projectId = project.id;
+      }
+      
+      if (!projectId) return null;
+      
+      // Check for active portal token
+      const { data: token } = await supabase
+        .from("client_portal_tokens")
+        .select("token")
+        .eq("project_id", projectId)
+        .eq("is_active", true)
+        .maybeSingle();
+      
+      if (token?.token) {
+        // Get base URL
+        const { data: baseUrlSetting } = await supabase
+          .from("company_settings")
+          .select("setting_value")
+          .eq("company_id", companyId)
+          .eq("setting_key", "app_base_url")
+          .maybeSingle();
+        
+        const baseUrl = baseUrlSetting?.setting_value || window.location.origin;
+        return `${baseUrl}/portal/${token.token}`;
+      }
+      
+      return null;
+    },
+    enabled: !!companyId && !!(opportunity?.id || contact?.id),
+  });
+
+  // Set portal link from existing or newly created
+  useState(() => {
+    if (existingPortal) setPortalLink(existingPortal);
+  });
+
+  // Create pre-estimate portal
+  const handleCreatePortal = async () => {
+    if (!companyId) return;
+    setIsCreatingPortal(true);
+    try {
+      const customerFirstName = contact?.contact_name?.split(" ")[0] || "";
+      const customerLastName = contact?.contact_name?.split(" ").slice(1).join(" ") || "";
+      const customerEmail = contact?.email || "";
+      const customerPhone = contact?.phone || "";
+      const projectAddress = appointment.address || "";
+      
+      // Create project with "Pre-Estimate" status
+      const { data: newProject, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          opportunity_id: opportunity?.ghl_id,
+          opportunity_uuid: opportunity?.id,
+          contact_id: contact?.ghl_id || appointment.contact_id,
+          contact_uuid: contact?.id,
+          location_id: "salesperson-portal",
+          project_name: contact?.contact_name || appointment.title || "New Project",
+          project_status: "Pre-Estimate",
+          customer_first_name: customerFirstName,
+          customer_last_name: customerLastName,
+          customer_email: customerEmail,
+          cell_phone: customerPhone,
+          project_address: projectAddress,
+          scope_of_work: opportunity?.scope_of_work,
+          company_id: companyId,
+        })
+        .select("id")
+        .single();
+      
+      if (projectError) throw projectError;
+      
+      // Create portal token
+      const clientFullName = contact?.contact_name || appointment.title || "Customer";
+      const { error: tokenError } = await supabase
+        .from("client_portal_tokens")
+        .insert({
+          project_id: newProject.id,
+          client_name: clientFullName,
+          client_email: customerEmail || null,
+          company_id: companyId,
+          is_active: true,
+        });
+      
+      if (tokenError) throw tokenError;
+      
+      // Fetch the new portal link
+      const { data: portalToken } = await supabase
+        .from("client_portal_tokens")
+        .select("token")
+        .eq("project_id", newProject.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      
+      if (portalToken?.token) {
+        const { data: baseUrlSetting } = await supabase
+          .from("company_settings")
+          .select("setting_value")
+          .eq("company_id", companyId)
+          .eq("setting_key", "app_base_url")
+          .maybeSingle();
+        
+        const baseUrl = baseUrlSetting?.setting_value || window.location.origin;
+        setPortalLink(`${baseUrl}/portal/${portalToken.token}`);
+      }
+      
+      toast.success("Portal created successfully");
+      queryClient.invalidateQueries({ queryKey: ["salesperson-portal-check"] });
+    } catch (error) {
+      console.error("Error creating portal:", error);
+      toast.error("Failed to create portal");
+    } finally {
+      setIsCreatingPortal(false);
+    }
+  };
+
+  // Send thank-you email
+  const handleSendThankYouEmail = async () => {
+    const linkToUse = portalLink || existingPortal;
+    if (!companyId || !linkToUse) return;
+    
+    const customerEmail = contact?.email;
+    if (!customerEmail) {
+      toast.error("No email address found for this contact");
+      return;
+    }
+    
+    setIsSendingThankYou(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-thank-you-email", {
+        body: {
+          to: customerEmail,
+          customerName: contact?.contact_name || appointment.title || "Customer",
+          portalLink: linkToUse,
+          companyId,
+        },
+      });
+      
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      toast.success(`Thank-you email sent to ${customerEmail}`);
+    } catch (error) {
+      console.error("Error sending thank-you email:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to send email");
+    } finally {
+      setIsSendingThankYou(false);
+    }
+  };
+
+  const activePortalLink = portalLink || existingPortal;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -696,6 +883,57 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
 
       <ScrollArea className="flex-1 py-3">
         <div className="space-y-4 pr-2 max-w-full overflow-hidden">
+          {/* Portal Actions Section */}
+          <div className="space-y-2">
+            {activePortalLink ? (
+              <>
+                <a
+                  href={activePortalLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4 shrink-0" />
+                    <span className="text-sm font-medium">Open Customer Portal</span>
+                  </div>
+                </a>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start gap-2"
+                  onClick={handleSendThankYouEmail}
+                  disabled={isSendingThankYou || !contact?.email}
+                  size="sm"
+                >
+                  {isSendingThankYou ? (
+                    <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                  ) : (
+                    <Mail className="h-4 w-4 shrink-0" />
+                  )}
+                  <span className="truncate">Send Thank-You Email</span>
+                  {!contact?.email && (
+                    <span className="text-xs text-muted-foreground ml-auto shrink-0">No email</span>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={handleCreatePortal}
+                disabled={isCreatingPortal}
+                size="sm"
+              >
+                {isCreatingPortal ? (
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                ) : (
+                  <Plus className="h-4 w-4 shrink-0" />
+                )}
+                <span className="truncate">Create Customer Portal</span>
+              </Button>
+            )}
+          </div>
+
           {/* Customer Info - Compact mobile layout */}
           <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
             <div className="flex items-center gap-2.5">
