@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
@@ -652,7 +652,7 @@ export function PortalEstimateCreator({
         <div className="border-t border-border/50 px-4 py-3 space-y-2">
           <Label className="text-sm font-medium flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            My Estimates
+            My Estimates ({myEstimates.length})
           </Label>
           
           {estimatesLoading ? (
@@ -660,9 +660,8 @@ export function PortalEstimateCreator({
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <ScrollArea className="h-[200px]">
-              <div className="space-y-2 pr-2">
-                {myEstimates.map(estimate => {
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {myEstimates.map(estimate => {
                   const canClick = !estimate.is_generating && estimate.total != null && estimate.total > 0;
                   return (
                     <div
@@ -723,7 +722,6 @@ export function PortalEstimateCreator({
                   );
                 })}
               </div>
-            </ScrollArea>
           )}
         </div>
       )}
