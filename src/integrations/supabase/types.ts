@@ -1148,6 +1148,72 @@ export type Database = {
           },
         ]
       }
+      compliance_template_fields: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          field_key: string
+          field_label: string | null
+          font_color: string | null
+          font_size: number
+          id: string
+          page_number: number
+          template_id: string
+          text_align: string | null
+          updated_at: string
+          width: number | null
+          x_position: number
+          y_position: number
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          field_key: string
+          field_label?: string | null
+          font_color?: string | null
+          font_size?: number
+          id?: string
+          page_number?: number
+          template_id: string
+          text_align?: string | null
+          updated_at?: string
+          width?: number | null
+          x_position: number
+          y_position: number
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          field_key?: string
+          field_label?: string | null
+          font_color?: string | null
+          font_size?: number
+          id?: string
+          page_number?: number
+          template_id?: string
+          text_align?: string | null
+          updated_at?: string
+          width?: number | null
+          x_position?: number
+          y_position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_template_fields_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_template_fields_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_notes: {
         Row: {
           body: string | null

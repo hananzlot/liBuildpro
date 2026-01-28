@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,6 +18,17 @@ interface ComplianceTemplate {
   template_file_url: string;
   template_file_name: string;
   requires_separate_signature: boolean;
+}
+
+interface FieldPosition {
+  field_key: string;
+  page_number: number;
+  x_position: number;
+  y_position: number;
+  width: number;
+  font_size: number;
+  font_color: string;
+  text_align: string;
 }
 
 interface PlaceholderData {
@@ -55,6 +67,19 @@ const formatDate = (date: Date): string => {
     month: "long",
     day: "numeric",
   });
+};
+
+// Parse hex color to RGB values (0-1 range)
+const parseHexColor = (hex: string): { r: number; g: number; b: number } => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (result) {
+    return {
+      r: parseInt(result[1], 16) / 255,
+      g: parseInt(result[2], 16) / 255,
+      b: parseInt(result[3], 16) / 255,
+    };
+  }
+  return { r: 0, g: 0, b: 0 }; // Default to black
 };
 
 const handler = async (req: Request): Promise<Response> => {
@@ -204,6 +229,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const template of templates as ComplianceTemplate[]) {
       try {
+        console.log(`Processing template: ${template.name} (${template.id})`);
+
         // Check if already generated for this estimate
         const { data: existingDoc } = await supabase
           .from("estimate_compliance_documents")
@@ -212,22 +239,118 @@ const handler = async (req: Request): Promise<Response> => {
           .eq("template_id", template.id)
           .maybeSingle();
 
-        if (existingDoc && existingDoc.generated_file_url) {
+        if (existingDoc && existingDoc.generated_file_url && existingDoc.generated_file_url !== template.template_file_url) {
           console.log(`Document already generated for template ${template.id}`);
           generatedDocs.push(existingDoc);
           continue;
         }
 
-        // For now, we'll store the template URL and placeholder data
-        // In a production system, you'd use a PDF processing library to fill the placeholders
-        // Options include: pdf-lib (Deno), calling an external PDF generation service, etc.
-        
+        // Get field positions for this template
+        const { data: fieldPositions, error: fieldsError } = await supabase
+          .from("compliance_template_fields")
+          .select("*")
+          .eq("template_id", template.id);
+
+        if (fieldsError) {
+          console.error(`Error fetching field positions for template ${template.id}:`, fieldsError);
+        }
+
+        let generatedFileUrl = template.template_file_url;
+
+        // Only process PDF if there are field positions defined
+        if (fieldPositions && fieldPositions.length > 0) {
+          console.log(`Found ${fieldPositions.length} field positions for template ${template.id}`);
+
+          try {
+            // Fetch the original PDF
+            const pdfResponse = await fetch(template.template_file_url);
+            if (!pdfResponse.ok) {
+              throw new Error(`Failed to fetch PDF: ${pdfResponse.status}`);
+            }
+            const pdfBytes = await pdfResponse.arrayBuffer();
+
+            // Load the PDF document
+            const pdfDoc = await PDFDocument.load(pdfBytes);
+            const pages = pdfDoc.getPages();
+            const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+            // Draw text at each field position
+            for (const field of fieldPositions as FieldPosition[]) {
+              const pageIndex = field.page_number - 1;
+              if (pageIndex < 0 || pageIndex >= pages.length) {
+                console.warn(`Invalid page number ${field.page_number} for field ${field.field_key}`);
+                continue;
+              }
+
+              const page = pages[pageIndex];
+              const { height } = page.getSize();
+
+              // Get the value for this field
+              const fieldValue = placeholderData[field.field_key as keyof PlaceholderData] || "";
+              if (!fieldValue) continue;
+
+              // Parse color
+              const color = parseHexColor(field.font_color || "#000000");
+
+              // Calculate Y position (PDF coordinates are from bottom-left)
+              // We need to convert from top-left (as stored) to bottom-left
+              // The stored y_position is from the top, scaled at 1.5x
+              const scaleFactor = 1.5; // The editor uses 1.5x scale
+              const actualY = height - (field.y_position / scaleFactor) - (field.font_size || 12);
+              const actualX = field.x_position / scaleFactor;
+
+              // Draw the text
+              page.drawText(String(fieldValue), {
+                x: actualX,
+                y: actualY,
+                size: field.font_size || 12,
+                font: helveticaFont,
+                color: rgb(color.r, color.g, color.b),
+                maxWidth: (field.width || 200) / scaleFactor,
+              });
+
+              console.log(`Drew field ${field.field_key} at (${actualX}, ${actualY}) on page ${field.page_number}`);
+            }
+
+            // Save the modified PDF
+            const modifiedPdfBytes = await pdfDoc.save();
+
+            // Upload to storage
+            const fileName = `generated/${estimateId}/${template.id}-${Date.now()}.pdf`;
+            const { error: uploadError } = await supabase.storage
+              .from("compliance-templates")
+              .upload(fileName, modifiedPdfBytes, {
+                contentType: "application/pdf",
+                upsert: true,
+              });
+
+            if (uploadError) {
+              console.error(`Error uploading generated PDF:`, uploadError);
+              throw uploadError;
+            }
+
+            // Get the public URL
+            const { data: urlData } = supabase.storage
+              .from("compliance-templates")
+              .getPublicUrl(fileName);
+
+            generatedFileUrl = urlData.publicUrl;
+            console.log(`Generated PDF uploaded to: ${generatedFileUrl}`);
+          } catch (pdfError) {
+            console.error(`Error processing PDF for template ${template.id}:`, pdfError);
+            // Fall back to using the original template URL
+            generatedFileUrl = template.template_file_url;
+          }
+        } else {
+          console.log(`No field positions defined for template ${template.id}, using original PDF`);
+        }
+
         // Create or update the compliance document record
         const docData = {
           company_id: companyId,
           estimate_id: estimateId,
           template_id: template.id,
-          generated_file_url: template.template_file_url, // For now, use the template directly
+          generated_file_url: generatedFileUrl,
           status: "generated",
           generated_at: new Date().toISOString(),
         };
@@ -252,7 +375,7 @@ const handler = async (req: Request): Promise<Response> => {
               document_name: template.name,
               document_type: "compliance",
               template_id: template.id,
-              file_url: template.template_file_url,
+              file_url: generatedFileUrl,
               file_name: template.template_file_name,
               status: "draft",
               recipient_name: customerName,
