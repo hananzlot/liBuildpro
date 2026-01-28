@@ -10,6 +10,8 @@ import { toast } from "sonner";
 
 interface PortalProjectLinksSectionProps {
   salespersonName: string;
+  salespersonId: string;
+  salespersonGhlUserId?: string;
   companyId: string;
 }
 
@@ -23,7 +25,12 @@ interface ProjectWithPortal {
   portal_token: string | null;
 }
 
-export function PortalProjectLinksSection({ salespersonName, companyId }: PortalProjectLinksSectionProps) {
+export function PortalProjectLinksSection({ 
+  salespersonName, 
+  salespersonId,
+  salespersonGhlUserId,
+  companyId 
+}: PortalProjectLinksSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -55,26 +62,68 @@ export function PortalProjectLinksSection({ salespersonName, companyId }: Portal
     staleTime: 30 * 60 * 1000,
   });
 
-  // Fetch projects with their portal tokens
+  // Fetch projects with their portal tokens - now includes opportunity-linked projects
   const { data: projects = [], isLoading } = useQuery({
-    queryKey: ["salesperson-portal-project-links", salespersonName, companyId],
+    queryKey: ["salesperson-portal-project-links", salespersonName, salespersonId, salespersonGhlUserId, companyId],
     queryFn: async () => {
       if (!salespersonName || !companyId) return [];
 
-      // Get projects for this salesperson
-      const { data: projectsData, error: projectsError } = await supabase
+      // Step 1: Get projects directly assigned to salesperson by name
+      const { data: directProjects, error: directError } = await supabase
         .from("projects")
         .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name")
         .eq("company_id", companyId)
         .or(`primary_salesperson.eq.${salespersonName},secondary_salesperson.eq.${salespersonName},tertiary_salesperson.eq.${salespersonName},quaternary_salesperson.eq.${salespersonName}`)
-        .is("deleted_at", null)
-        .order("project_number", { ascending: false });
+        .is("deleted_at", null);
 
-      if (projectsError) throw projectsError;
-      if (!projectsData?.length) return [];
+      if (directError) throw directError;
 
-      // Get portal tokens for these projects
-      const projectIds = projectsData.map((p) => p.id);
+      // Step 2: Get projects linked via opportunity assignment (if salesperson has ghl_user_id)
+      let opportunityProjects: typeof directProjects = [];
+      
+      if (salespersonGhlUserId) {
+        // Get opportunities assigned to this salesperson
+        const { data: opportunities } = await supabase
+          .from("opportunities")
+          .select("id, ghl_id")
+          .eq("company_id", companyId)
+          .eq("assigned_to", salespersonGhlUserId);
+
+        if (opportunities?.length) {
+          const oppUuids = opportunities.map(o => o.id);
+          const oppGhlIds = opportunities.map(o => o.ghl_id).filter(Boolean) as string[];
+
+          // Build OR filter for projects linked to these opportunities
+          const uuidFilters = oppUuids.map(id => `opportunity_uuid.eq.${id}`).join(',');
+          const ghlIdFilters = oppGhlIds.length ? oppGhlIds.map(id => `opportunity_id.eq.${id}`).join(',') : '';
+          const combinedFilter = ghlIdFilters ? `${uuidFilters},${ghlIdFilters}` : uuidFilters;
+
+          const { data: linkedProjects } = await supabase
+            .from("projects")
+            .select("id, project_number, project_name, project_address, customer_first_name, customer_last_name")
+            .eq("company_id", companyId)
+            .is("deleted_at", null)
+            .or(combinedFilter);
+
+          opportunityProjects = linkedProjects || [];
+        }
+      }
+
+      // Step 3: Merge and deduplicate
+      const projectMap = new Map<string, (typeof directProjects)[0]>();
+      [...(directProjects || []), ...opportunityProjects].forEach(p => {
+        if (!projectMap.has(p.id)) {
+          projectMap.set(p.id, p);
+        }
+      });
+
+      const allProjects = Array.from(projectMap.values())
+        .sort((a, b) => (b.project_number || 0) - (a.project_number || 0));
+
+      // Step 4: Get portal tokens for all projects
+      if (!allProjects.length) return [];
+
+      const projectIds = allProjects.map((p) => p.id);
       const { data: tokensData } = await supabase
         .from("client_portal_tokens")
         .select("project_id, token")
@@ -86,7 +135,7 @@ export function PortalProjectLinksSection({ salespersonName, companyId }: Portal
         if (t.project_id) tokenMap.set(t.project_id, t.token);
       });
 
-      return projectsData.map((p) => ({
+      return allProjects.map((p) => ({
         ...p,
         portal_token: tokenMap.get(p.id) || null,
       })) as ProjectWithPortal[];

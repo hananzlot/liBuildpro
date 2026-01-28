@@ -622,8 +622,10 @@ export default function SalespersonCalendarPortal() {
             companyId={salesperson.company_id} 
           />
           <PortalProjectLinksSection 
-            salespersonName={salesperson.name} 
-            companyId={salesperson.company_id} 
+            salespersonName={salesperson.name}
+            salespersonId={salesperson.id}
+            salespersonGhlUserId={salesperson.ghl_user_id}
+            companyId={salesperson.company_id}
           />
           <PortalEstimatesPlaceholder />
         </div>
