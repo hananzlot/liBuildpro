@@ -281,7 +281,7 @@ export function PortalEstimateCreator({
           .from("contacts")
           .select("custom_fields")
           .eq("ghl_id", opp.contact_id)
-          .single();
+          .maybeSingle();
         // Try to get address from custom fields
         const customFields = contact?.custom_fields as Record<string, string> | null;
         if (customFields?.address) jobAddress = customFields.address;
@@ -311,6 +311,20 @@ export function PortalEstimateCreator({
     // Store the validated job address with zip code
     const finalJobAddress = jobAddress;
 
+    // We need the authenticated user id for RLS policies on estimates/jobs
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError) {
+      console.error("Error reading auth user:", authError);
+      toast.error("Authentication error. Please refresh and try again.");
+      return;
+    }
+
+    const userId = authData.user?.id;
+    if (!userId) {
+      toast.error("You must be signed in to generate an AI estimate.");
+      return;
+    }
+
     setIsRequestingAI(true);
     try {
       // Get customer details from opportunity or project
@@ -334,7 +348,7 @@ export function PortalEstimateCreator({
               .from("contacts")
               .select("contact_name, email, phone")
               .eq("ghl_id", contactId)
-              .single();
+              .maybeSingle();
             
             if (contact) {
               customerName = contact.contact_name || opp.name || "";
@@ -358,6 +372,7 @@ export function PortalEstimateCreator({
         .from("estimates")
         .insert({
           company_id: companyId,
+          created_by: userId,
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
@@ -387,6 +402,7 @@ export function PortalEstimateCreator({
         .insert({
           company_id: companyId,
           estimate_id: estimate.id,
+          created_by: userId,
           status: "pending",
           request_params: {
             job_address: finalJobAddress,
