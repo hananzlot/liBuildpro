@@ -81,17 +81,26 @@ export function PortalEstimateCreator({
   const [currentJobAddress, setCurrentJobAddress] = useState("");
   const queryClient = useQueryClient();
 
-  // Fetch opportunities assigned to this salesperson
+  // Fetch opportunities assigned to this salesperson (by internal ID or GHL user ID)
   const { data: opportunities = [], isLoading: oppsLoading } = useQuery({
-    queryKey: ["portal-opportunities", companyId, salespersonGhlUserId],
+    queryKey: ["portal-opportunities", companyId, salespersonId, salespersonGhlUserId],
     queryFn: async () => {
-      if (!salespersonGhlUserId) return [];
+      // Build filter: match either salesperson_id (UUID) OR assigned_to (GHL user ID)
+      const filters: string[] = [];
+      if (salespersonId) {
+        filters.push(`salesperson_id.eq.${salespersonId}`);
+      }
+      if (salespersonGhlUserId) {
+        filters.push(`assigned_to.eq.${salespersonGhlUserId}`);
+      }
+      
+      if (filters.length === 0) return [];
       
       const { data, error } = await supabase
         .from("opportunities")
         .select("id, ghl_id, name, contact_id, scope_of_work, monetary_value, stage_name")
         .eq("company_id", companyId)
-        .eq("assigned_to", salespersonGhlUserId)
+        .or(filters.join(","))
         .not("stage_name", "ilike", "%lost%")
         .not("stage_name", "ilike", "%abandon%")
         .order("created_at", { ascending: false })
@@ -100,13 +109,13 @@ export function PortalEstimateCreator({
       if (error) throw error;
       return (data || []) as Opportunity[];
     },
-    enabled: !!companyId && !!salespersonGhlUserId,
+    enabled: !!companyId && !!salespersonId,
     staleTime: 5 * 60 * 1000,
   });
 
   // Fetch projects assigned to this salesperson
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
-    queryKey: ["portal-projects", companyId, salespersonName, salespersonGhlUserId],
+    queryKey: ["portal-projects", companyId, salespersonName, salespersonId, salespersonGhlUserId],
     queryFn: async () => {
       // Step 1: Get directly assigned projects
       const { data: directProjects, error: directError } = await supabase
@@ -123,11 +132,21 @@ export function PortalEstimateCreator({
       // Step 2: Get projects via opportunity assignment (only if no salesperson assigned)
       let opportunityProjects: Project[] = [];
       
+      // Fetch opportunities by salesperson_id OR assigned_to
+      const oppFilters: string[] = [];
+      if (salespersonId) {
+        oppFilters.push(`salesperson_id.eq.${salespersonId}`);
+      }
       if (salespersonGhlUserId) {
+        oppFilters.push(`assigned_to.eq.${salespersonGhlUserId}`);
+      }
+      
+      if (oppFilters.length > 0) {
         const { data: opps } = await supabase
           .from("opportunities")
           .select("id, ghl_id")
-          .eq("assigned_to", salespersonGhlUserId);
+          .eq("company_id", companyId)
+          .or(oppFilters.join(","));
 
         if (opps && opps.length > 0) {
           const oppUuids = opps.map(o => o.id);
