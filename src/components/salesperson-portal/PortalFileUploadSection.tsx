@@ -179,24 +179,33 @@ export function PortalFileUploadSection({ salespersonName, companyId }: PortalFi
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   return (
-    <Card className="border-0 shadow-lg">
+    <Card className="border border-border/50 shadow-md rounded-xl overflow-hidden">
       <CardHeader
-        className="pb-2 cursor-pointer"
+        className="pb-3 pt-4 px-4 cursor-pointer bg-gradient-to-r from-primary/5 to-transparent"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Upload className="h-5 w-5 text-primary" />
-            Upload Files
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <Upload className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-semibold">Upload Files</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {projects.length > 0 ? `${projects.length} projects` : "Photos & documents"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
             {projects.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{projects.length} projects</Badge>
+              <Badge variant="secondary" className="font-medium">{projects.length}</Badge>
             )}
-          </CardTitle>
-          {isExpanded ? (
-            <ChevronUp className="h-5 w-5 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-5 w-5 text-muted-foreground" />
-          )}
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
         </div>
       </CardHeader>
 
