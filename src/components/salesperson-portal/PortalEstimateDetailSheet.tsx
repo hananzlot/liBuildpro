@@ -62,6 +62,12 @@ interface EditedItem {
   unit_price?: number;
 }
 
+interface EditedCustomerInfo {
+  customer_email?: string;
+  job_address?: string;
+  estimate_title?: string;
+}
+
 export function PortalEstimateDetailSheet({
   estimateId,
   open,
@@ -70,6 +76,7 @@ export function PortalEstimateDetailSheet({
 }: PortalEstimateDetailSheetProps) {
   const queryClient = useQueryClient();
   const [editedItems, setEditedItems] = useState<Record<string, EditedItem>>({});
+  const [editedCustomerInfo, setEditedCustomerInfo] = useState<EditedCustomerInfo>({});
   const [isSaving, setIsSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -154,7 +161,9 @@ export function PortalEstimateDetailSheet({
     return lineItems.reduce((sum, item) => sum + calculateLineTotal(item), 0);
   };
 
-  const hasChanges = Object.keys(editedItems).length > 0;
+  const hasItemChanges = Object.keys(editedItems).length > 0;
+  const hasCustomerChanges = Object.keys(editedCustomerInfo).length > 0;
+  const hasChanges = hasItemChanges || hasCustomerChanges;
 
   const handleSave = async () => {
     if (!hasChanges || !estimateId) return;
@@ -185,16 +194,36 @@ export function PortalEstimateDetailSheet({
 
       await Promise.all(updates);
 
-      // Recalculate and update estimate total
-      const newTotal = calculateTotal();
+      // Build the estimate update object
+      const estimateUpdate: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+
+      // Add recalculated total if line items changed
+      if (hasItemChanges) {
+        estimateUpdate.total = calculateTotal();
+      }
+
+      // Add customer info changes
+      if (editedCustomerInfo.customer_email !== undefined) {
+        estimateUpdate.customer_email = editedCustomerInfo.customer_email;
+      }
+      if (editedCustomerInfo.job_address !== undefined) {
+        estimateUpdate.job_address = editedCustomerInfo.job_address;
+      }
+      if (editedCustomerInfo.estimate_title !== undefined) {
+        estimateUpdate.estimate_title = editedCustomerInfo.estimate_title;
+      }
+
       const { error: updateError } = await supabase
         .from("estimates")
-        .update({ total: newTotal, updated_at: new Date().toISOString() })
+        .update(estimateUpdate)
         .eq("id", estimateId);
 
       if (updateError) throw updateError;
 
       setEditedItems({});
+      setEditedCustomerInfo({});
       toast.success("Estimate saved successfully!");
       // Invalidate portal queries
       queryClient.invalidateQueries({ queryKey: ["portal-estimate-detail", estimateId] });
@@ -273,22 +302,53 @@ export function PortalEstimateDetailSheet({
           ) : estimate ? (
             <>
               <ScrollArea className="flex-1 -mx-6 px-6">
-                {/* Customer Info */}
+                {/* Customer Info - Editable */}
                 <Card className="mb-4">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                       <User className="h-4 w-4" />
-                      Customer
+                      Customer & Project Details
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-1 text-sm">
+                  <CardContent className="space-y-3 text-sm">
                     <p className="font-medium">{estimate.customer_name}</p>
-                    {estimate.job_address && (
-                      <p className="text-muted-foreground flex items-center gap-1">
+                    
+                    {/* Estimate Title / Project Name */}
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Project Name</label>
+                      <Input
+                        value={editedCustomerInfo.estimate_title ?? estimate.estimate_title ?? ""}
+                        onChange={(e) => setEditedCustomerInfo(prev => ({ ...prev, estimate_title: e.target.value }))}
+                        placeholder="Enter project name"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+
+                    {/* Customer Email */}
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">Customer Email</label>
+                      <Input
+                        type="email"
+                        value={editedCustomerInfo.customer_email ?? estimate.customer_email ?? ""}
+                        onChange={(e) => setEditedCustomerInfo(prev => ({ ...prev, customer_email: e.target.value }))}
+                        placeholder="Enter customer email"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+
+                    {/* Job Address */}
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
-                        {estimate.job_address}
-                      </p>
-                    )}
+                        Job Address
+                      </label>
+                      <Input
+                        value={editedCustomerInfo.job_address ?? estimate.job_address ?? ""}
+                        onChange={(e) => setEditedCustomerInfo(prev => ({ ...prev, job_address: e.target.value }))}
+                        placeholder="Enter job address with zip code"
+                        className="h-8 text-sm"
+                      />
+                    </div>
                   </CardContent>
                 </Card>
 

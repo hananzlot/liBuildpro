@@ -423,7 +423,7 @@ export function PortalEstimateCreator({
 
   return (
     <>
-      <Card className="border border-border/50 shadow-md rounded-xl overflow-hidden">
+      <Card className="border border-border/50 shadow-md rounded-xl">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
           <CardHeader className="pb-3 pt-4 px-4 cursor-pointer bg-gradient-to-r from-primary/5 to-transparent hover:bg-primary/5 transition-colors">
