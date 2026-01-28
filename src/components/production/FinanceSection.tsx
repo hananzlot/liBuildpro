@@ -482,6 +482,24 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
     onError: (error) => toast.error(`Failed: ${error.message}`),
   });
 
+  // Quick toggle deposit verified
+  const toggleDepositVerifiedMutation = useMutation({
+    mutationFn: async ({ paymentId, depositVerified }: { paymentId: string; depositVerified: boolean }) => {
+      const { error } = await supabase
+        .from("project_payments")
+        .update({ deposit_verified: depositVerified })
+        .eq("id", paymentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Deposit status updated");
+      queryClient.invalidateQueries({ queryKey: ["project-payments", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["all-project-payments"] });
+      queryClient.invalidateQueries({ queryKey: ["pending-deposits"] });
+    },
+    onError: (error) => toast.error(`Failed: ${error.message}`),
+  });
+
   // Bill mutations - simplified (payments handled via QuickPay only)
   const saveBillMutation = useMutation({
     mutationFn: async (bill: Partial<Bill>) => {
@@ -1330,13 +1348,45 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                             <TableCell className="text-xs">{pmt.bank_name || "-"}</TableCell>
                             <TableCell className="text-xs">{formatDate(pmt.projected_received_date)}</TableCell>
                             <TableCell className="text-xs">
-                              <Badge variant="outline" className={
-                                pmt.payment_status === "Received" ? "bg-emerald-500/10 text-emerald-500" :
-                                pmt.payment_status === "Pending" ? "bg-amber-500/10 text-amber-500" :
-                                "bg-muted"
-                              }>
-                                {pmt.payment_status || "Pending"}
-                              </Badge>
+                              <div className="flex flex-col gap-1">
+                                <Badge variant="outline" className={
+                                  pmt.payment_status === "Received" ? "bg-emerald-500/10 text-emerald-500" :
+                                  pmt.payment_status === "Pending" ? "bg-amber-500/10 text-amber-500" :
+                                  "bg-muted"
+                                }>
+                                  {pmt.payment_status || "Pending"}
+                                </Badge>
+                                {pmt.payment_status === "Received" && !pmt.is_voided && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={cn(
+                                          "h-5 px-1.5 text-[10px] gap-1",
+                                          pmt.deposit_verified 
+                                            ? "text-emerald-600 hover:text-emerald-700" 
+                                            : "text-amber-600 hover:text-amber-700"
+                                        )}
+                                        onClick={() => toggleDepositVerifiedMutation.mutate({ 
+                                          paymentId: pmt.id, 
+                                          depositVerified: !pmt.deposit_verified 
+                                        })}
+                                        disabled={toggleDepositVerifiedMutation.isPending}
+                                      >
+                                        <Checkbox 
+                                          checked={pmt.deposit_verified ?? false} 
+                                          className="h-3 w-3 pointer-events-none"
+                                        />
+                                        {pmt.deposit_verified ? "Deposited" : "Not Deposited"}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Click to {pmt.deposit_verified ? "unmark" : "mark"} as deposited</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell className={cn("text-xs text-right", pmt.is_voided && "line-through")}>{formatCurrency(pmt.payment_amount)}</TableCell>
                             <TableCell>
