@@ -280,6 +280,153 @@ async function updateJobStatus(
   }
 }
 
+// Persist AI-generated scope to estimate database tables
+async function persistScopeToDatabase(
+  jobId: string,
+  scope: any,
+  companyId: string
+): Promise<void> {
+  const supabase = createSupabaseClient();
+  
+  console.log(`Persisting scope to database for job ${jobId}`);
+  
+  // Get the estimate_id from the job
+  const { data: job, error: jobError } = await supabase
+    .from('estimate_generation_jobs')
+    .select('estimate_id')
+    .eq('id', jobId)
+    .single();
+  
+  if (jobError || !job?.estimate_id) {
+    console.error(`Failed to get estimate_id for job ${jobId}:`, jobError);
+    return;
+  }
+  
+  const estimateId = job.estimate_id;
+  console.log(`Persisting scope for estimate ${estimateId}`);
+  
+  // Extract data from scope
+  const groups = scope.groups || [];
+  const paymentSchedule = scope.payment_schedule || [];
+  const taxRate = scope.suggested_tax_rate || 0;
+  const depositPercent = scope.suggested_deposit_percent || 0;
+  const firstPaymentName = scope.first_payment_name || 'Deposit';
+  
+  // Delete existing groups/items/schedule for this estimate
+  await supabase.from('estimate_line_items').delete().eq('estimate_id', estimateId);
+  await supabase.from('estimate_groups').delete().eq('estimate_id', estimateId);
+  await supabase.from('estimate_payment_schedule').delete().eq('estimate_id', estimateId);
+  
+  // Insert groups and line items
+  let totalEstimate = 0;
+  
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+    const group = groups[groupIndex];
+    
+    // Insert group
+    const { data: insertedGroup, error: groupError } = await supabase
+      .from('estimate_groups')
+      .insert({
+        estimate_id: estimateId,
+        company_id: companyId,
+        group_name: group.group_name || `Phase ${groupIndex + 1}`,
+        description: group.description || null,
+        sort_order: groupIndex,
+      })
+      .select('id')
+      .single();
+    
+    if (groupError) {
+      console.error(`Failed to insert group ${group.group_name}:`, groupError);
+      continue;
+    }
+    
+    const groupId = insertedGroup.id;
+    const items = group.items || [];
+    
+    // Insert line items for this group
+    const itemsToInsert = items.map((item: any, itemIndex: number) => {
+      // Calculate costs with markup
+      const laborCost = item.labor_cost || 0;
+      const materialCost = item.material_cost || 0;
+      const baseCost = laborCost + materialCost;
+      const markupPercent = item.markup_percent || 50;
+      const unitPrice = baseCost * (1 + markupPercent / 100);
+      const quantity = item.quantity || 1;
+      const lineTotal = unitPrice * quantity;
+      
+      totalEstimate += lineTotal;
+      
+      return {
+        estimate_id: estimateId,
+        company_id: companyId,
+        group_id: groupId,
+        item_type: item.item_type || 'assembly',
+        description: item.description || '',
+        quantity: quantity,
+        unit: item.unit || 'LS',
+        cost: baseCost,
+        markup_percent: markupPercent,
+        unit_price: unitPrice,
+        line_total: lineTotal,
+        is_taxable: item.is_taxable ?? true,
+        sort_order: item.sort_order ?? itemIndex,
+      };
+    });
+    
+    if (itemsToInsert.length > 0) {
+      const { error: itemsError } = await supabase
+        .from('estimate_line_items')
+        .insert(itemsToInsert);
+      
+      if (itemsError) {
+        console.error(`Failed to insert items for group ${group.group_name}:`, itemsError);
+      }
+    }
+  }
+  
+  // Insert payment schedule
+  if (paymentSchedule.length > 0) {
+    const scheduleToInsert = paymentSchedule.map((phase: any, index: number) => ({
+      estimate_id: estimateId,
+      company_id: companyId,
+      phase_name: phase.phase_name || `Phase ${index + 1}`,
+      percent: phase.percent || 0,
+      amount: (phase.percent / 100) * totalEstimate,
+      due_type: phase.due_type || 'milestone',
+      due_date: phase.due_date || null,
+      description: phase.description || null,
+      sort_order: index,
+    }));
+    
+    const { error: scheduleError } = await supabase
+      .from('estimate_payment_schedule')
+      .insert(scheduleToInsert);
+    
+    if (scheduleError) {
+      console.error(`Failed to insert payment schedule:`, scheduleError);
+    }
+  }
+  
+  // Update estimate with total, tax rate, and deposit
+  const { error: updateError } = await supabase
+    .from('estimates')
+    .update({
+      total: totalEstimate,
+      tax_rate: taxRate,
+      deposit_percent: depositPercent,
+      deposit_required: depositPercent > 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', estimateId);
+  
+  if (updateError) {
+    console.error(`Failed to update estimate total:`, updateError);
+  } else {
+    console.log(`Estimate ${estimateId} updated with total: ${totalEstimate}`);
+  }
+}
+
 // Queue management functions
 async function addToQueue(jobId: string, companyId: string, userId: string | null): Promise<number> {
   const supabase = createSupabaseClient();
@@ -1007,6 +1154,22 @@ serve(async (req) => {
         recovered: true,
       });
       
+      // Get company_id from the job to persist the scope
+      const { data: jobWithCompany } = await supabaseAdmin
+        .from('estimate_generation_jobs')
+        .select('estimate_id, company_id, request_params')
+        .eq('id', recoverJobId)
+        .single();
+      
+      // Try company_id column first, then fallback to request_params.companyId
+      const recoveryCompanyId = jobWithCompany?.company_id || (jobWithCompany?.request_params as any)?.companyId;
+      if (recoveryCompanyId && finalResult) {
+        console.log(`Recover mode: Persisting scope for company ${recoveryCompanyId}`);
+        await persistScopeToDatabase(recoverJobId, finalResult, recoveryCompanyId);
+      } else {
+        console.warn(`Recover mode: Missing companyId, skipping persistence`);
+      }
+      
       console.log(`Recover mode: Successfully recovered job ${recoverJobId}`);
       
       return new Response(JSON.stringify({
@@ -1090,6 +1253,11 @@ serve(async (req) => {
             scope: result.scope,
             warning: result.warning
           });
+          
+          // Persist the generated scope to estimate tables
+          if (result.scope && companyId) {
+            await persistScopeToDatabase(jobId, result.scope, companyId);
+          }
           
           // Mark queue entry as completed (triggers advancement for others)
           await updateQueueStatus(jobId, 'completed');
