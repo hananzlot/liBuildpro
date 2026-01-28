@@ -630,7 +630,8 @@ export default function SalespersonCalendarPortal() {
                 companyId={salesperson.company_id}
               />
               <PortalProposalsSection 
-                salespersonName={salesperson.name} 
+                salespersonName={salesperson.name}
+                salespersonId={salesperson.id}
                 companyId={salesperson.company_id} 
               />
               <PortalFileUploadSection 
