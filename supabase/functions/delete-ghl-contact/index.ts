@@ -142,6 +142,18 @@ serve(async (req) => {
       console.log("Deleted tasks for contact", contact.id);
     }
 
+    // Delete contact notes (FK constraint requires explicit deletion)
+    const { error: notesError } = await supabase
+      .from("contact_notes")
+      .delete()
+      .eq("contact_uuid", contact.id);
+
+    if (notesError) {
+      console.error("Error deleting notes for contact:", notesError);
+    } else {
+      console.log("Deleted notes for contact", contact.id);
+    }
+
     // Delete the contact
     const { error: deleteError } = await supabase
       .from("contacts")
