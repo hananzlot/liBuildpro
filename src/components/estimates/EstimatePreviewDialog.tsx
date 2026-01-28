@@ -29,6 +29,7 @@ import {
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { CompanyHeader } from '@/components/proposals/CompanyHeader';
+import { PdfViewerDialog } from '@/components/production/PdfViewerDialog';
 
 interface EstimatePreviewDialogProps {
   estimateId: string | null;
@@ -69,6 +70,7 @@ export function EstimatePreviewDialog({
   onOpenChange,
 }: EstimatePreviewDialogProps) {
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   const handleGeneratePdf = async () => {
     if (!estimateId) return;
@@ -99,7 +101,7 @@ export function EstimatePreviewDialog({
       if (error) throw error;
 
       if (data?.url) {
-        window.open(data.url, '_blank');
+        setPdfUrl(data.url);
         toast.success('PDF generated successfully');
       } else {
         throw new Error('Failed to generate PDF');
@@ -654,6 +656,14 @@ export function EstimatePreviewDialog({
           )}
         </ScrollArea>
       </DialogContent>
+
+      {/* PDF Viewer Dialog */}
+      <PdfViewerDialog
+        open={!!pdfUrl}
+        onOpenChange={(isOpen) => !isOpen && setPdfUrl(null)}
+        fileUrl={pdfUrl || ''}
+        fileName={`Proposal-${data?.estimate?.estimate_number || 'Preview'}.pdf`}
+      />
     </Dialog>
   );
 }
