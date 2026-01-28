@@ -5,13 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addDays, subDays, isToday, isSameDay, parseISO } from "date-fns";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, DollarSign, FolderOpen, Mail, ExternalLink, Plus } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, MapPin, Clock, Loader2, AlertCircle, User, FileText, Phone, FolderOpen, Mail, ExternalLink, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { ScopePricingDialog } from "@/components/portal/ScopePricingDialog";
+
 import { PortalProposalsSection } from "@/components/salesperson-portal/PortalProposalsSection";
 import { PortalFileUploadSection } from "@/components/salesperson-portal/PortalFileUploadSection";
 import { PortalProjectLinksSection } from "@/components/salesperson-portal/PortalProjectLinksSection";
@@ -654,17 +654,19 @@ export default function SalespersonCalendarPortal() {
 
       {/* Appointment Detail Sheet */}
       <Sheet open={!!selectedAppointment} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-xl px-4 sm:px-6">
-          {selectedAppointment && salesperson && (
-            <AppointmentDetailView
-              appointment={selectedAppointment}
-              contact={selectedAppointment.contact_id ? contactMap.get(selectedAppointment.contact_id) : null}
-              opportunity={selectedAppointment.contact_id ? opportunityMap.get(selectedAppointment.contact_id) : null}
-              onClose={() => setSelectedAppointment(null)}
-              companyId={salesperson.company_id}
-              salespersonId={salesperson.id}
-            />
-          )}
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-xl px-0">
+          <div className="max-w-2xl mx-auto h-full px-4 sm:px-6">
+            {selectedAppointment && salesperson && (
+              <AppointmentDetailView
+                appointment={selectedAppointment}
+                contact={selectedAppointment.contact_id ? contactMap.get(selectedAppointment.contact_id) : null}
+                opportunity={selectedAppointment.contact_id ? opportunityMap.get(selectedAppointment.contact_id) : null}
+                onClose={() => setSelectedAppointment(null)}
+                companyId={salesperson.company_id}
+                salespersonId={salesperson.id}
+              />
+            )}
+          </div>
         </SheetContent>
       </Sheet>
     </div>
@@ -681,7 +683,6 @@ interface AppointmentDetailViewProps {
 }
 
 function AppointmentDetailView({ appointment, contact, opportunity, onClose, companyId, salespersonId }: AppointmentDetailViewProps) {
-  const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
   const [isCreatingPortal, setIsCreatingPortal] = useState(false);
   const [isSendingThankYou, setIsSendingThankYou] = useState(false);
   const [portalLink, setPortalLink] = useState<string | null>(null);
@@ -967,17 +968,6 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
             </div>
           </div>
 
-          {/* Scope Pricing Action Button */}
-          <div className="w-full max-w-full">
-            <Button 
-              onClick={() => setScopeDialogOpen(true)}
-              className="w-full"
-              size="default"
-            >
-              <DollarSign className="h-4 w-4 mr-1.5 shrink-0" />
-              <span className="truncate">Request Pricing</span>
-            </Button>
-          </div>
 
           {/* Time & Date - Compact */}
           <div className="flex items-start gap-2.5">
@@ -1069,21 +1059,6 @@ function AppointmentDetailView({ appointment, contact, opportunity, onClose, com
         </div>
       </ScrollArea>
 
-      {/* Scope Pricing Dialog */}
-      <ScopePricingDialog
-        open={scopeDialogOpen}
-        onOpenChange={setScopeDialogOpen}
-        companyId={companyId}
-        salespersonId={salespersonId}
-        appointmentId={appointment.id}
-        opportunityId={opportunity?.id}
-        contactId={appointment.contact_id || undefined}
-        customerName={contact?.contact_name || appointment.title || ""}
-        customerPhone={contact?.phone || ""}
-        customerEmail={contact?.email || ""}
-        jobAddress={appointment.address || ""}
-        existingScope={opportunity?.scope_of_work || ""}
-      />
     </div>
   );
 }
