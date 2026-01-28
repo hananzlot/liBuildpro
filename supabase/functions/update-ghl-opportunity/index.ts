@@ -149,11 +149,12 @@ serve(async (req) => {
       ghlPayload.status = status;
     }
     
-    if (pipeline_id) {
+    if (pipeline_id && !pipeline_id.startsWith('local_')) {
       ghlPayload.pipelineId = pipeline_id;
     }
     
-    if (pipeline_stage_id) {
+    // Only send pipeline_stage_id to GHL if it's a valid GHL stage ID (not local_stage_X)
+    if (pipeline_stage_id && !pipeline_stage_id.startsWith('local_')) {
       ghlPayload.pipelineStageId = pipeline_stage_id;
     }
 
