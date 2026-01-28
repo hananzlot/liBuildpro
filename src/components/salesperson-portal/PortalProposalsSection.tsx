@@ -2,12 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, ExternalLink, Eye, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, ExternalLink, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { format } from "date-fns";
-import { PdfViewerDialog } from "@/components/production/PdfViewerDialog";
 
 interface PortalProposalsSectionProps {
   salespersonName: string;
@@ -24,13 +22,38 @@ interface Estimate {
   status: string | null;
   sent_at: string | null;
   signed_at: string | null;
-  plans_file_url: string | null;
   created_at: string;
+  portal_token?: string | null;
 }
 
 export function PortalProposalsSection({ salespersonName, companyId }: PortalProposalsSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
-  const [selectedPdf, setSelectedPdf] = useState<{ url: string; name: string } | null>(null);
+
+  // Fetch app base URL for portal links
+  const { data: appBaseUrl } = useQuery({
+    queryKey: ["app-base-url-setting", companyId],
+    queryFn: async () => {
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "app_base_url")
+        .maybeSingle();
+
+      if (companySettings?.setting_value) {
+        return companySettings.setting_value;
+      }
+
+      const { data: appSettings } = await supabase
+        .from("app_settings")
+        .select("setting_value")
+        .eq("setting_key", "app_base_url")
+        .maybeSingle();
+
+      return appSettings?.setting_value || window.location.origin;
+    },
+    staleTime: 30 * 60 * 1000,
+  });
 
   const { data: estimates = [], isLoading } = useQuery({
     queryKey: ["salesperson-portal-proposals", salespersonName, companyId],
@@ -38,20 +61,45 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
       if (!salespersonName || !companyId) return [];
 
       // Fetch estimates where this salesperson is assigned
-      const { data, error } = await supabase
+      const { data: estimatesData, error } = await supabase
         .from("estimates")
-        .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, sent_at, signed_at, plans_file_url, created_at")
+        .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, sent_at, signed_at, created_at")
         .eq("company_id", companyId)
         .eq("salesperson_name", salespersonName)
         .in("status", ["sent", "viewed", "accepted", "declined"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Estimate[];
+      if (!estimatesData?.length) return [];
+
+      // Fetch portal tokens for these estimates
+      const estimateIds = estimatesData.map(e => e.id);
+      const { data: tokensData } = await supabase
+        .from("client_portal_tokens")
+        .select("estimate_id, token")
+        .in("estimate_id", estimateIds)
+        .eq("is_active", true);
+
+      const tokenMap = new Map<string, string>();
+      tokensData?.forEach(t => {
+        if (t.estimate_id) tokenMap.set(t.estimate_id, t.token);
+      });
+
+      return estimatesData.map(e => ({
+        ...e,
+        portal_token: tokenMap.get(e.id) || null,
+      })) as Estimate[];
     },
     enabled: !!salespersonName && !!companyId,
     staleTime: 5 * 60 * 1000,
   });
+
+  const handleOpenProposal = (estimate: Estimate) => {
+    if (estimate.portal_token) {
+      const portalUrl = `${appBaseUrl || window.location.origin}/portal/${estimate.portal_token}`;
+      window.open(portalUrl, "_blank");
+    }
+  };
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
@@ -127,18 +175,11 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
                     <div
                       key={estimate.id}
                       className={`p-3 rounded-lg border bg-card transition-colors ${
-                        estimate.plans_file_url 
+                        estimate.portal_token 
                           ? "cursor-pointer hover:bg-muted/50" 
                           : ""
                       }`}
-                      onClick={() => {
-                        if (estimate.plans_file_url) {
-                          setSelectedPdf({
-                            url: estimate.plans_file_url,
-                            name: estimate.estimate_title || `Estimate #${estimate.estimate_number}`,
-                          });
-                        }
-                      }}
+                      onClick={() => handleOpenProposal(estimate)}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
@@ -169,8 +210,8 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
                           <span className="font-semibold text-sm text-emerald-600">
                             {formatCurrency(estimate.total)}
                           </span>
-                          {estimate.plans_file_url && (
-                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          {estimate.portal_token && (
+                            <ExternalLink className="h-4 w-4 text-muted-foreground" />
                           )}
                         </div>
                       </div>
@@ -182,16 +223,6 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
           </CardContent>
         )}
       </Card>
-
-      {/* PDF Viewer Dialog */}
-      {selectedPdf && (
-        <PdfViewerDialog
-          open={!!selectedPdf}
-          onOpenChange={(open) => !open && setSelectedPdf(null)}
-          fileUrl={selectedPdf.url}
-          fileName={selectedPdf.name}
-        />
-      )}
     </>
   );
 }
