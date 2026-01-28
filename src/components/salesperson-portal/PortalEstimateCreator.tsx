@@ -204,14 +204,27 @@ export function PortalEstimateCreator({
     error: estimatesError,
     refetch: refetchMyEstimates,
   } = useQuery({
-    queryKey: ["portal-my-estimates", companyId, salespersonId],
+    queryKey: ["portal-my-estimates", companyId, salespersonId, salespersonName],
     queryFn: async () => {
+      if (!companyId) return [];
+      if (!salespersonId && !salespersonName) return [];
+
+      // Build OR filter to match by salesperson_id OR salesperson_name
+      // This handles both old records (with only name) and new records (with UUID)
+      const orConditions: string[] = [];
+      if (salespersonId) {
+        orConditions.push(`salesperson_id.eq.${salespersonId}`);
+      }
+      if (salespersonName) {
+        orConditions.push(`salesperson_name.eq.${salespersonName}`);
+      }
+
       // Fetch estimates
       const { data: estimates, error } = await supabase
         .from("estimates")
         .select("id, estimate_number, estimate_title, customer_name, job_address, total, status, created_at")
         .eq("company_id", companyId)
-        .eq("salesperson_id", salespersonId)
+        .or(orConditions.join(","))
         .order("created_at", { ascending: false })
         .limit(20);
 
@@ -239,7 +252,7 @@ export function PortalEstimateCreator({
         is_generating: generatingIds.has(e.id),
       })) as Estimate[];
     },
-    enabled: !!companyId && !!salespersonId,
+    enabled: !!companyId && !!(salespersonId || salespersonName),
     staleTime: 30 * 1000, // Refresh more frequently to show generation updates
     refetchInterval: 30 * 1000, // Auto-refresh every 30s
   });
