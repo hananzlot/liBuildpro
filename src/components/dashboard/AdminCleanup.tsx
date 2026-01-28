@@ -242,7 +242,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
   const handleUpdateOpportunityStatus = async (opportunity: Opportunity, newStatus: string, newStage?: string) => {
     setUpdatingOppIds(prev => new Set(prev).add(opportunity.id));
     try {
-      const updatePayload: any = { ghl_id: opportunity.ghl_id, status: newStatus };
+      const updatePayload: any = { ghl_id: opportunity.ghl_id, opportunity_uuid: opportunity.id, status: newStatus };
       const dbUpdate: any = { status: newStatus };
       
       if (newStage) {
@@ -311,6 +311,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
           await supabase.functions.invoke('update-ghl-opportunity', {
             body: { 
               ghl_id: relatedOpp.ghl_id,
+              opportunity_uuid: relatedOpp.id,
               status: newOppStatus,
               stage_name: newOppStage,
               pipeline_stage_id: pipelineStageId,
@@ -357,7 +358,7 @@ export function AdminCleanup({ opportunities, contacts, appointments, users, onD
       setUpdatingOppIds(prev => new Set(prev).add(opp.id));
       try {
         const { error } = await supabase.functions.invoke('update-ghl-opportunity', {
-          body: { ghl_id: opp.ghl_id, status: newStatus, edited_by: user?.id || null }
+          body: { ghl_id: opp.ghl_id, opportunity_uuid: opp.id, status: newStatus, edited_by: user?.id || null }
         });
         if (!error) {
           await supabase.from('opportunities').update({ status: newStatus }).eq('id', opp.id);

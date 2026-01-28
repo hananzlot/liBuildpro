@@ -1432,6 +1432,7 @@ export function OpportunityDetailSheet({
       } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           pipeline_id: pipelineIdToUse,
           pipeline_name: newPipelineName,
           stage_name: newStageName,
@@ -1477,6 +1478,7 @@ export function OpportunityDetailSheet({
       } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           stage_name: newStageName,
           pipeline_stage_id: newStageId,
           edited_by: user?.id || null
@@ -1515,6 +1517,7 @@ export function OpportunityDetailSheet({
       const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           assigned_to: assignedToValue,
           edited_by: user?.id || null
         }
@@ -1613,6 +1616,7 @@ export function OpportunityDetailSheet({
       } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           status: newStatus,
           edited_by: user?.id || null
         }
@@ -1668,6 +1672,7 @@ export function OpportunityDetailSheet({
       } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           status: editedStatus,
           stage_name: editedStage,
           pipeline_id: editedPipeline,
@@ -1874,12 +1879,13 @@ export function OpportunityDetailSheet({
 
   // Save opportunity name
   const handleSaveOppName = async () => {
-    if (!opportunity?.ghl_id || !editedOppName.trim()) return;
+    if (!opportunity || (!opportunity.ghl_id && !opportunity.id) || !editedOppName.trim()) return;
     setIsSavingOppName(true);
     try {
       const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           name: editedOppName.trim(),
           edited_by: user?.id || null
         }
@@ -1919,6 +1925,7 @@ export function OpportunityDetailSheet({
       const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           won_at: wonAtValue,
           edited_by: user?.id || null
         }
@@ -1958,6 +1965,7 @@ export function OpportunityDetailSheet({
       const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           ghl_date_added: createdAtValue,
           edited_by: user?.id || null
         }

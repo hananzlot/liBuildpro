@@ -573,6 +573,7 @@ export function SourceDetailSheet({
       const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opp.ghl_id,
+          opportunity_uuid: opp.id,
           stage_name: newStageName,
           pipeline_stage_id: newStageId,
           edited_by: user?.id || null

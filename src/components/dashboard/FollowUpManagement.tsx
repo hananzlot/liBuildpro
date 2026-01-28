@@ -890,6 +890,7 @@ export function FollowUpManagement({
       } = await supabase.functions.invoke("update-ghl-opportunity", {
         body: {
           ghl_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
           status: opportunity.status,
           stage_name: newStageName,
           pipeline_stage_id: stageInfo.stageId,
