@@ -316,9 +316,10 @@ const handler = async (req: Request): Promise<Response> => {
             const modifiedPdfBytes = await pdfDoc.save();
 
             // Upload to storage
-            const fileName = `generated/${estimateId}/${template.id}-${Date.now()}.pdf`;
+            // Store generated PDFs in the existing public bucket under a namespaced folder.
+            const fileName = `compliance-templates/generated/${estimateId}/${template.id}-${Date.now()}.pdf`;
             const { error: uploadError } = await supabase.storage
-              .from("compliance-templates")
+              .from("project-attachments")
               .upload(fileName, modifiedPdfBytes, {
                 contentType: "application/pdf",
                 upsert: true,
@@ -331,7 +332,7 @@ const handler = async (req: Request): Promise<Response> => {
 
             // Get the public URL
             const { data: urlData } = supabase.storage
-              .from("compliance-templates")
+              .from("project-attachments")
               .getPublicUrl(fileName);
 
             generatedFileUrl = urlData.publicUrl;

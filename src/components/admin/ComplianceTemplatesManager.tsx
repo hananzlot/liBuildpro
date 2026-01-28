@@ -117,16 +117,18 @@ export function ComplianceTemplatesManager() {
       // Upload file if provided
       if (data.file) {
         const fileExt = data.file.name.split('.').pop();
-        const filePath = `${companyId}/${Date.now()}-${data.file.name}`;
+        // Store inside an existing public bucket to avoid missing-bucket issues.
+        // Keep templates namespaced to avoid collisions with other uploads.
+        const filePath = `compliance-templates/${companyId}/${Date.now()}-${data.file.name}`;
         
         const { error: uploadError } = await supabase.storage
-          .from("compliance-templates")
+          .from("project-attachments")
           .upload(filePath, data.file);
 
         if (uploadError) throw uploadError;
 
         const { data: urlData } = supabase.storage
-          .from("compliance-templates")
+          .from("project-attachments")
           .getPublicUrl(filePath);
 
         fileUrl = urlData.publicUrl;
