@@ -28,6 +28,7 @@ import { GoogleCalendarManager } from "@/components/admin/GoogleCalendarManager"
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
+import { BankManagement } from "@/components/admin/BankManagement";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
 import { format } from "date-fns";
 import {
@@ -1609,6 +1610,9 @@ export default function AdminSettings() {
                 ))}
               </CardContent>
             </Card>
+
+            {/* Bank Management */}
+            <BankManagement />
           </TabsContent>
 
           {/* Chat Management Tab */}
