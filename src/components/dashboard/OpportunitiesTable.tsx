@@ -149,7 +149,7 @@ export function OpportunitiesTable({
   tasks = [],
 }: OpportunitiesTableProps) {
   const { companyId } = useCompanyContext();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -760,7 +760,7 @@ export function OpportunitiesTable({
           title: quickTaskTitle.trim(),
           body: "",
           dueDate: quickTaskDueDate || null,
-          assignedTo: user?.id || null,
+          assignedTo: profile?.ghl_user_id || null, // Auto-assign to current user
           locationId: locationId,
           companyId: companyId,
           enteredBy: user?.id || null,

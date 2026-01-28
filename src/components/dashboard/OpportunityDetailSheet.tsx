@@ -780,7 +780,9 @@ export function OpportunityDetailSheet({
     const contactName = contact?.contact_name || `${contact?.first_name || ""} ${contact?.last_name || ""}`.trim() || "";
     setTaskTitle(`Follow up: ${opportunity?.name || contactName || "Opportunity"}`);
     setTaskNotes("");
-    setTaskAssignee(opportunity?.assigned_to || "__unassigned__");
+    // Auto-assign to current user (with option to reassign in the dialog)
+    const currentUserGhlId = profile?.ghl_user_id;
+    setTaskAssignee(currentUserGhlId || "__unassigned__");
     setTaskDueDate("");
     setTaskDueTime("09:00");
     setTaskDialogOpen(true);
