@@ -4398,6 +4398,7 @@ function CommissionTab({
           payment_method: payment.payment_method,
           payment_reference: payment.payment_reference,
           notes: payment.notes,
+          bank_name: payment.bank_name,
         };
         const { data: newPayment, error } = await supabase
           .from("commission_payments")
