@@ -124,25 +124,25 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get estimate with full details - use left join syntax (no ! hint) to allow null FKs
+    // Get estimate with full details - use explicit FK names to disambiguate multiple relationships
     const { data: estimate, error: estimateError } = await supabase
       .from("estimates")
       .select(`
         *,
-        contacts:contact_uuid (
+        contacts:contact_uuid!fk_estimates_contact_uuid (
           contact_name,
           first_name,
           last_name,
           email,
           phone
         ),
-        opportunities:opportunity_uuid (
+        opportunities:opportunity_uuid!fk_estimates_opportunity_uuid (
           name,
           monetary_value
         )
       `)
       .eq("id", estimateId)
-      .single();
+      .maybeSingle();
 
     if (estimateError || !estimate) {
       console.error("Error fetching estimate:", estimateError);
