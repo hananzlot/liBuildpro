@@ -1965,7 +1965,7 @@ export function AppointmentDetailSheet({
                 <SelectContent>
                   <SelectItem value="__unassigned__">Unassigned</SelectItem>
                   {activeSalespeople.map((sp) => (
-                    <SelectItem key={sp.id} value={sp.ghl_user_id || sp.id}>
+                    <SelectItem key={sp.id} value={sp.id}>
                       {sp.name || "Unknown"}
                     </SelectItem>
                   ))}
