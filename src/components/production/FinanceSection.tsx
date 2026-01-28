@@ -4585,7 +4585,7 @@ function CommissionTab({
                   <TableHead className="text-xs">Date</TableHead>
                   <TableHead className="text-xs">Salesperson</TableHead>
                   <TableHead className="text-xs">Method</TableHead>
-                  <TableHead className="text-xs">Reference</TableHead>
+                  <TableHead className="text-xs">Bank / Reference</TableHead>
                   <TableHead className="text-xs text-right">Amount</TableHead>
                   <TableHead className="text-xs w-[80px]"></TableHead>
                 </TableRow>
@@ -4596,7 +4596,9 @@ function CommissionTab({
                     <TableCell className="text-xs">{formatDate(payment.payment_date)}</TableCell>
                     <TableCell className="text-xs font-medium">{payment.salesperson_name}</TableCell>
                     <TableCell className="text-xs">{payment.payment_method || "-"}</TableCell>
-                    <TableCell className="text-xs">{payment.payment_reference || "-"}</TableCell>
+                    <TableCell className="text-xs">
+                      {[payment.bank_name, payment.payment_reference].filter(Boolean).join(" / ") || "-"}
+                    </TableCell>
                     <TableCell className="text-xs text-right font-semibold text-emerald-600">
                       {formatCurrency(payment.payment_amount)}
                     </TableCell>
