@@ -2696,13 +2696,17 @@ function PaymentDialog({
 
   // Get selected invoice to validate amount and get phase
   const selectedInvoice = invoices.find(i => i.id === formData.invoice_id);
-  const maxAmount = selectedInvoice?.open_balance || 0;
+  
+  // When editing an existing payment, add back the original payment amount to the available balance
+  // since the current open_balance already has this payment deducted
+  const originalPaymentAmount = payment?.invoice_id === formData.invoice_id ? (payment?.payment_amount || 0) : 0;
+  const maxAmount = (selectedInvoice?.open_balance || 0) + originalPaymentAmount;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(formData.payment_amount) || 0;
     
-    // Validate amount doesn't exceed invoice balance
+    // Validate amount doesn't exceed invoice balance (accounting for original payment when editing)
     if (formData.invoice_id && amount > maxAmount) {
       setAmountError(`Amount cannot exceed invoice balance of ${formatCurrency(maxAmount)}`);
       return;
