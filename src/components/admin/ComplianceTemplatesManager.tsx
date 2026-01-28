@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { FileText, Plus, Trash2, Upload, Loader2, GripVertical, Eye, Download, FileSignature } from "lucide-react";
+import { FileText, Plus, Trash2, Upload, Loader2, GripVertical, Eye, Download, FileSignature, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ComplianceFieldEditor } from "./ComplianceFieldEditor";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +73,7 @@ export function ComplianceTemplatesManager() {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fieldEditorOpen, setFieldEditorOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ComplianceTemplate | null>(null);
   const [uploading, setUploading] = useState(false);
   
@@ -346,6 +348,18 @@ export function ComplianceTemplatesManager() {
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSelectedTemplate(template);
+                      setFieldEditorOpen(true);
+                    }}
+                    title="Configure field positions"
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
                   
                   <Button
                     variant="ghost"
@@ -508,6 +522,18 @@ export function ComplianceTemplatesManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Field Position Editor */}
+      {selectedTemplate && companyId && (
+        <ComplianceFieldEditor
+          open={fieldEditorOpen}
+          onOpenChange={setFieldEditorOpen}
+          templateId={selectedTemplate.id}
+          templateName={selectedTemplate.name}
+          templateFileUrl={selectedTemplate.template_file_url}
+          companyId={companyId}
+        />
+      )}
     </Card>
   );
 }
