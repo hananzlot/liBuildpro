@@ -158,6 +158,7 @@ serve(async (req) => {
       estimate_id: estimate.id,
       status: "pending",
       request_params: {
+        companyId,
         job_address: jobAddress.trim(),
         customer_name: safeCustomerName,
         work_scope: workScope.trim(),
