@@ -75,6 +75,7 @@ import { CashFlowChart } from "@/components/production/CashFlowChart";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FinancialSearchResultsSheet } from "@/components/production/FinancialSearchResultsSheet";
+import { PendingDepositsSheet } from "@/components/production/PendingDepositsSheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 
@@ -263,6 +264,7 @@ export default function Production() {
   const [statusChangeDialogOpen, setStatusChangeDialogOpen] = useState(false);
   const [statusChangeProject, setStatusChangeProject] = useState<Project | null>(null);
   const [statusChangeNewStatus, setStatusChangeNewStatus] = useState<string>("");
+  const [pendingDepositsSheetOpen, setPendingDepositsSheetOpen] = useState(false);
   const { data: projects = [], isLoading, refetch } = useQuery({
     queryKey: ["projects", companyId],
     queryFn: async () => {
@@ -365,7 +367,7 @@ export default function Production() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("project_payments")
-        .select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided, bank_name, check_number")
+        .select("id, project_id, payment_amount, payment_status, projected_received_date, is_voided, bank_name, check_number, deposit_verified")
         .eq("company_id", companyId);
       if (error) throw error;
       return data;
@@ -1500,6 +1502,7 @@ export default function Production() {
       missingSalesperson: 0,
       missingCompletionDate: 0,
       overdueChecklists: 0,
+      pendingDeposits: 0,
     };
     
     // Exclude Proposal status and archived projects from bookkeeping warnings
@@ -1527,11 +1530,18 @@ export default function Production() {
     });
     counts.overdueChecklists = projectsWithOverdue.size;
     
+    // Count payments received but not yet deposit-verified
+    counts.pendingDeposits = allPayments.filter(p => 
+      p.payment_status === 'Received' && 
+      !p.is_voided && 
+      (p.deposit_verified === null || p.deposit_verified === false)
+    ).length;
+    
     return counts;
-  }, [projects, allChecklists]);
+  }, [projects, allChecklists, allPayments]);
 
   const totalWarnings = warningCounts.missingContract + warningCounts.missingPhases + warningCounts.phaseMismatch + warningCounts.contractMismatch;
-  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson + bookkeepingWarningCounts.missingCompletionDate + bookkeepingWarningCounts.overdueChecklists;
+  const totalBookkeepingWarnings = bookkeepingWarningCounts.missingSalesperson + bookkeepingWarningCounts.missingCompletionDate + bookkeepingWarningCounts.overdueChecklists + bookkeepingWarningCounts.pendingDeposits;
 
   // Get projects with specific warning type
   const getWarningProjects = useCallback((type: 'missingContract' | 'missingPhases' | 'phaseMismatch' | 'contractMismatch' | 'missingSalesperson' | 'missingCompletionDate' | 'overdueChecklists') => {
@@ -1867,6 +1877,19 @@ export default function Production() {
                             C
                           </Badge>
                           Overdue Checklists: {bookkeepingWarningCounts.overdueChecklists}
+                        </Button>
+                      )}
+                      {bookkeepingWarningCounts.pendingDeposits > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs bg-purple-500/10 border-purple-500/30 text-purple-600 hover:bg-purple-500/20"
+                          onClick={() => setPendingDepositsSheetOpen(true)}
+                        >
+                          <Badge variant="outline" className="mr-1.5 h-4 px-1 text-[9px] bg-purple-500 text-white border-0">
+                            $
+                          </Badge>
+                          Pending Deposits: {bookkeepingWarningCounts.pendingDeposits}
                         </Button>
                       )}
                     </div>
@@ -2981,6 +3004,18 @@ export default function Production() {
           searchQuery={searchQuery}
           records={getMatchingFinancialRecords(financialSearchSection)}
           onNavigateToProject={handleNavigateToProjectFromSearch}
+        />
+
+        {/* Pending Deposits Sheet */}
+        <PendingDepositsSheet
+          open={pendingDepositsSheetOpen}
+          onOpenChange={setPendingDepositsSheetOpen}
+          onOpenProject={(projectId) => {
+            const project = projects.find(p => p.id === projectId);
+            if (project) {
+              handleOpenProject(project);
+            }
+          }}
         />
       </TooltipProvider>
     </AppLayout>
