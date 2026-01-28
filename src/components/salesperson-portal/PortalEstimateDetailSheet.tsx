@@ -196,9 +196,15 @@ export function PortalEstimateDetailSheet({
 
       setEditedItems({});
       toast.success("Estimate saved successfully!");
+      // Invalidate portal queries
       queryClient.invalidateQueries({ queryKey: ["portal-estimate-detail", estimateId] });
       queryClient.invalidateQueries({ queryKey: ["portal-estimate-items", estimateId] });
       queryClient.invalidateQueries({ queryKey: ["portal-my-estimates"] });
+      // Also invalidate main app estimate queries so totals refresh there too
+      queryClient.invalidateQueries({ queryKey: ["estimates"] });
+      queryClient.invalidateQueries({ queryKey: ["estimate-detail", estimateId] });
+      queryClient.invalidateQueries({ queryKey: ["estimate-line-items", estimateId] });
+      queryClient.invalidateQueries({ queryKey: ["company-estimates"] });
     } catch (error) {
       console.error("Error saving estimate:", error);
       toast.error("Failed to save estimate");
