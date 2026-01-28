@@ -29,6 +29,7 @@ interface FieldPosition {
   font_size: number;
   font_color: string;
   text_align: string;
+  static_text?: string; // For static text fields typed by user
 }
 
 interface PlaceholderData {
@@ -327,8 +328,13 @@ const handler = async (req: Request): Promise<Response> => {
               const page = pages[pageIndex];
               const { height } = page.getSize();
 
-              // Get the value for this field
-              const fieldValue = placeholderData[field.field_key as keyof PlaceholderData] || "";
+              // Get the value for this field - static_text uses the stored text, others use placeholderData
+              let fieldValue: string;
+              if (field.field_key === "static_text") {
+                fieldValue = field.static_text || "";
+              } else {
+                fieldValue = placeholderData[field.field_key as keyof PlaceholderData] || "";
+              }
               if (!fieldValue) continue;
 
               // Parse color
