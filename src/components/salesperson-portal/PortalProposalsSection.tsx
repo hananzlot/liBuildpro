@@ -112,11 +112,11 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
   const getStatusBadge = (status: string | null) => {
     switch (status) {
       case "accepted":
-        return <Badge className="bg-emerald-100 text-emerald-700 border-0">Signed</Badge>;
+        return <Badge className="bg-primary/10 text-primary border-0">Signed</Badge>;
       case "sent":
-        return <Badge className="bg-blue-100 text-blue-700 border-0">Sent</Badge>;
+        return <Badge className="bg-secondary text-secondary-foreground border-0">Sent</Badge>;
       case "viewed":
-        return <Badge className="bg-amber-100 text-amber-700 border-0">Viewed</Badge>;
+        return <Badge className="bg-accent text-accent-foreground border-0">Viewed</Badge>;
       case "declined":
         return <Badge className="bg-destructive/10 text-destructive border-0">Declined</Badge>;
       default:
@@ -203,7 +203,7 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
                       }`}
                       onClick={() => handleOpenProposal(estimate)}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-sm truncate">
@@ -228,11 +228,11 @@ export function PortalProposalsSection({ salespersonName, companyId }: PortalPro
                             </span>
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <span className="font-semibold text-sm text-emerald-600">
+                        <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1.5 shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+                          <span className="font-semibold text-sm text-primary whitespace-nowrap">
                             {formatCurrency(estimate.total)}
                           </span>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center justify-end gap-1.5">
                             <Eye className="h-4 w-4 text-primary" />
                             {estimate.portal_token && (
                               <button
