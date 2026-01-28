@@ -4753,7 +4753,9 @@ function CommissionPaymentDialog({
   )?.balance || 0;
 
   const paymentAmount = parseFloat(formData.payment_amount) || 0;
-  const isOverpaying = formData.salesperson_name && paymentAmount > selectedSalespersonBalance;
+  // Allow overpayment by up to $1 (for rounding), but block anything more
+  const overpaymentAmount = paymentAmount - selectedSalespersonBalance;
+  const isOverpayingBlocked = formData.salesperson_name && overpaymentAmount > 1;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -4802,10 +4804,12 @@ function CommissionPaymentDialog({
                 inputMode="decimal"
                 value={formData.payment_amount}
                 onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) setFormData(p => ({ ...p, payment_amount: val })); }}
-                className={isOverpaying ? "border-amber-500" : ""}
+                className={isOverpayingBlocked ? "border-destructive" : ""}
               />
-              {isOverpaying && (
-                <p className="text-xs text-amber-600 mt-1">Amount exceeds balance</p>
+              {isOverpayingBlocked && (
+                <p className="text-xs text-destructive mt-1">
+                  Payment exceeds balance by {formatCurrency(overpaymentAmount)}. Cannot exceed balance by more than $1.
+                </p>
               )}
             </div>
           </div>
@@ -4879,7 +4883,7 @@ function CommissionPaymentDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button
               type="submit"
-              disabled={isPending || !formData.salesperson_name || !formData.bank_name || paymentAmount <= 0}
+              disabled={isPending || !formData.salesperson_name || !formData.bank_name || paymentAmount <= 0 || isOverpayingBlocked}
             >
               {isPending ? "Saving..." : editingPayment ? "Update Payment" : "Record Payment"}
             </Button>
