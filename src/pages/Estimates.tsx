@@ -111,7 +111,7 @@ export default function Estimates() {
   };
 
   // Fetch estimates - with optimized caching for faster navigation
-  const { data: estimates, isLoading } = useQuery({
+  const { data: estimates, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["estimates", companyId],
     queryFn: async () => {
       if (!companyId) return [];
@@ -125,9 +125,20 @@ export default function Estimates() {
       return data as Estimate[];
     },
     enabled: !!companyId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 2 * 60 * 1000, // 2 minutes - reduced to catch portal updates sooner
     gcTime: 30 * 60 * 1000, // 30 minutes
   });
+
+  // Refetch when page becomes visible (catches updates from portal)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && companyId) {
+        refetch();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [refetch, companyId]);
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -615,10 +626,21 @@ export default function Estimates() {
               Create estimates, send proposals, and manage contracts
             </p>
           </div>
-          <Button onClick={handleNewEstimateClick}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Estimate
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              title="Refresh estimates"
+            >
+              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button onClick={handleNewEstimateClick}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Estimate
+            </Button>
+          </div>
         </div>
 
         {/* Summary Cards */}
