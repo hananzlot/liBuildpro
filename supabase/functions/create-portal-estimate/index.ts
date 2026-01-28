@@ -170,30 +170,44 @@ serve(async (req) => {
       return json(500, { error: "Estimate created but failed to queue AI job", estimateId: estimate.id });
     }
 
-    // Trigger the AI generation by invoking the generate-estimate-scope function
-    // This runs in the background - we don't wait for it to complete
-    const generateUrl = `${SUPABASE_URL}/functions/v1/generate-estimate-scope`;
-    console.log("Triggering AI generation for estimate:", estimate.id, "job:", jobData.id);
-    
-    fetch(generateUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      },
-      body: JSON.stringify({
-        estimate_id: estimate.id,
-        company_id: companyId,
-        job_id: jobData.id,
-        work_scope: workScope.trim(),
-        job_address: jobAddress.trim(),
-        customer_name: safeCustomerName,
-      }),
-    }).catch((fetchErr) => {
-      console.error("Failed to trigger AI generation:", fetchErr);
-    });
+    // Trigger AI generation (non-blocking)
+    // IMPORTANT: generate-estimate-scope expects camelCase params (jobId, companyId, jobAddress, workScopeDescription, ...)
+    const triggerPayload = {
+      companyId,
+      jobId: jobData.id,
+      jobAddress: jobAddress.trim(),
+      workScopeDescription: workScope.trim(),
+      // Portal estimates don't have plans/groups yet; keep a sane default.
+      projectType: "General",
+      defaultMarkupPercent: 50,
+      stagedMode: true,
+    };
 
-    return json(200, { success: true, estimateId: estimate.id });
+    console.log("Triggering AI generation for estimate:", estimate.id, "job:", jobData.id);
+
+    const triggerTask = (async () => {
+      const { data: invokeData, error: invokeError } = await supabase.functions.invoke(
+        "generate-estimate-scope",
+        { body: triggerPayload }
+      );
+
+      if (invokeError) {
+        console.error("Failed to trigger generate-estimate-scope:", invokeError);
+      } else {
+        console.log("generate-estimate-scope invoked successfully:", invokeData);
+      }
+    })();
+
+    // @ts-ignore - EdgeRuntime is available in Supabase Edge Functions
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(triggerTask);
+    } else {
+      // Fallback: fire-and-forget
+      triggerTask.catch((err) => console.error("AI trigger task failed:", err));
+    }
+
+    return json(200, { success: true, estimateId: estimate.id, jobId: jobData.id });
   } catch (err) {
     console.error("create-portal-estimate unexpected error:", err);
     return json(500, { error: "Unexpected error" });
