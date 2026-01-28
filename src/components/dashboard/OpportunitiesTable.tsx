@@ -72,6 +72,7 @@ interface Appointment {
 interface Contact {
   id: string;
   ghl_id: string;
+  location_id: string;
   contact_name: string | null;
   first_name: string | null;
   last_name: string | null;
@@ -749,9 +750,9 @@ export function OpportunitiesTable({
     }
     setIsCreatingQuickTask(true);
     try {
-      // Get location_id from contact or default
+      // Get location_id from contact - let edge function look it up if not available
       const contact = contactMap.get(quickTaskContactId);
-      const locationId = contact?.ghl_id ? "pVeFrqvtYWNIPRIi0Fmr" : "local";
+      const locationId = contact?.location_id || null;
       
       const { error } = await supabase.functions.invoke("create-ghl-task", {
         body: {
