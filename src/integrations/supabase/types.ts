@@ -1158,6 +1158,7 @@ export type Database = {
           font_size: number
           id: string
           page_number: number
+          static_text: string | null
           template_id: string
           text_align: string | null
           updated_at: string
@@ -1174,6 +1175,7 @@ export type Database = {
           font_size?: number
           id?: string
           page_number?: number
+          static_text?: string | null
           template_id: string
           text_align?: string | null
           updated_at?: string
@@ -1190,6 +1192,7 @@ export type Database = {
           font_size?: number
           id?: string
           page_number?: number
+          static_text?: string | null
           template_id?: string
           text_align?: string | null
           updated_at?: string

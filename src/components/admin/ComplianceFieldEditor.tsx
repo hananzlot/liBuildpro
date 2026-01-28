@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Trash2, Plus, GripVertical, ChevronLeft, ChevronRight } from "lucide-react";
@@ -35,9 +36,11 @@ interface FieldPosition {
   font_size: number;
   font_color: string;
   text_align: string;
+  static_text?: string; // For static text fields typed by user
 }
 
 const AVAILABLE_FIELDS = [
+  { key: "static_text", label: "Static Text (Custom)" },
   { key: "customer_name", label: "Customer Name" },
   { key: "customer_email", label: "Customer Email" },
   { key: "customer_phone", label: "Customer Phone" },
@@ -196,6 +199,7 @@ export function ComplianceFieldEditor({
           font_size: Number(f.font_size) || 12,
           font_color: f.font_color || "#000000",
           text_align: f.text_align || "left",
+          static_text: f.static_text || "",
         }))
       );
     };
@@ -203,10 +207,10 @@ export function ComplianceFieldEditor({
     loadFields();
   }, [open, templateId]);
 
-  const addField = () => {
+  const addField = (isStaticText = false) => {
     const newField: FieldPosition = {
-      field_key: "customer_name",
-      field_label: "Customer Name",
+      field_key: isStaticText ? "static_text" : "customer_name",
+      field_label: isStaticText ? "Static Text" : "Customer Name",
       page_number: currentPage,
       x_position: 100,
       y_position: 100,
@@ -214,6 +218,7 @@ export function ComplianceFieldEditor({
       font_size: 12,
       font_color: "#000000",
       text_align: "left",
+      static_text: isStaticText ? "Enter your text here" : "",
     };
     setFields([...fields, newField]);
     setSelectedFieldIndex(fields.length);
@@ -298,26 +303,27 @@ export function ComplianceFieldEditor({
         .delete()
         .eq("template_id", templateId);
 
-      // Insert new fields
-      if (fields.length > 0) {
-        const { error } = await supabase.from("compliance_template_fields").insert(
-          fields.map((f) => ({
-            template_id: templateId,
-            company_id: companyId,
-            field_key: f.field_key,
-            field_label: f.field_label,
-            page_number: f.page_number,
-            x_position: f.x_position,
-            y_position: f.y_position,
-            width: f.width,
-            font_size: f.font_size,
-            font_color: f.font_color,
-            text_align: f.text_align,
-          }))
-        );
+        // Insert new fields
+        if (fields.length > 0) {
+          const { error } = await supabase.from("compliance_template_fields").insert(
+            fields.map((f) => ({
+              template_id: templateId,
+              company_id: companyId,
+              field_key: f.field_key,
+              field_label: f.field_label,
+              page_number: f.page_number,
+              x_position: f.x_position,
+              y_position: f.y_position,
+              width: f.width,
+              font_size: f.font_size,
+              font_color: f.font_color,
+              text_align: f.text_align,
+              static_text: f.field_key === "static_text" ? f.static_text : null,
+            }))
+          );
 
-        if (error) throw error;
-      }
+          if (error) throw error;
+        }
 
       toast.success("Field positions saved successfully");
       onOpenChange(false);
@@ -422,11 +428,18 @@ export function ComplianceFieldEditor({
 
           {/* Field Properties Panel */}
           <div className="w-80 flex flex-col border rounded-lg bg-background">
-            <div className="p-3 border-b flex items-center justify-between">
-              <h3 className="font-semibold">Fields</h3>
-              <Button size="sm" onClick={addField}>
-                <Plus className="h-4 w-4 mr-1" /> Add Field
-              </Button>
+            <div className="p-3 border-b space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Fields</h3>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => addField(false)} className="flex-1">
+                  <Plus className="h-4 w-4 mr-1" /> Data Field
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => addField(true)} className="flex-1">
+                  <Plus className="h-4 w-4 mr-1" /> Static Text
+                </Button>
+              </div>
             </div>
 
             <ScrollArea className="flex-1 p-3">
@@ -490,6 +503,7 @@ export function ComplianceFieldEditor({
                       updateField(selectedFieldIndex!, {
                         field_key: value,
                         field_label: fieldDef?.label || value,
+                        static_text: value === "static_text" ? (selectedField.static_text || "Enter your text here") : "",
                       });
                     }}
                   >
@@ -505,6 +519,24 @@ export function ComplianceFieldEditor({
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Static Text Input - only shown for static_text fields */}
+                {selectedField.field_key === "static_text" && (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Text Content</Label>
+                    <Textarea
+                      className="min-h-[60px] text-sm"
+                      placeholder="Enter the text to display..."
+                      value={selectedField.static_text || ""}
+                      onChange={(e) =>
+                        updateField(selectedFieldIndex!, { 
+                          static_text: e.target.value,
+                          field_label: e.target.value.slice(0, 30) || "Static Text"
+                        })
+                      }
+                    />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
