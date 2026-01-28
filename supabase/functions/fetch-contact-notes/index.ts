@@ -98,26 +98,74 @@ serve(async (req) => {
     let contactCompanyId: string | null = null;
     
     if (!effectiveLocationId) {
+      // Try looking up by ghl_id first
       const { data: contactData } = await supabase
         .from('contacts')
         .select('location_id, company_id')
         .eq('ghl_id', contact_id)
-        .single();
+        .maybeSingle();
       
       effectiveLocationId = contactData?.location_id;
       contactCompanyId = contactData?.company_id;
+      
+      // If not found by ghl_id, try by UUID (internal id)
+      if (!contactData) {
+        const { data: contactByUuid } = await supabase
+          .from('contacts')
+          .select('location_id, company_id, ghl_id')
+          .eq('id', contact_id)
+          .maybeSingle();
+        
+        effectiveLocationId = contactByUuid?.location_id;
+        contactCompanyId = contactByUuid?.company_id;
+      }
     } else {
       // Still fetch company_id for syncing
       const { data: contactData } = await supabase
         .from('contacts')
         .select('company_id')
         .eq('ghl_id', contact_id)
-        .single();
+        .maybeSingle();
       contactCompanyId = contactData?.company_id;
     }
 
+    // If no location_id, return cached notes only (local-only mode)
     if (!effectiveLocationId) {
-      throw new Error('Could not determine location_id for contact');
+      console.log(`No location_id for contact ${contact_id}, returning cached notes only (local-only mode)`);
+      
+      const { data: cachedNotes } = await supabase
+        .from('contact_notes')
+        .select(`
+          ghl_id,
+          body,
+          user_id,
+          ghl_date_added,
+          entered_by,
+          profiles:entered_by (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .or(`contact_id.eq.${contact_id},contact_uuid.eq.${contact_id}`)
+        .order('ghl_date_added', { ascending: false });
+      
+      const notesWithCreator = (cachedNotes || []).map((note: any) => ({
+        id: note.ghl_id,
+        body: note.body,
+        userId: note.user_id,
+        dateAdded: note.ghl_date_added,
+        enteredBy: note.entered_by,
+        enteredByName: note.profiles?.full_name || null,
+      }));
+      
+      return new Response(
+        JSON.stringify({ 
+          notes: notesWithCreator,
+          localOnlyMode: true,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Get GHL credentials from vault
