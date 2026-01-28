@@ -5850,6 +5850,10 @@ export type Database = {
         Args: { p_company_id: string }
         Returns: string
       }
+      get_scope_from_contact_attributions: {
+        Args: { p_contact_id: string; p_contact_uuid: string }
+        Returns: string
+      }
       get_user_company_id: { Args: never; Returns: string }
       get_user_corporation_id: { Args: never; Returns: string }
       has_company_access: {
