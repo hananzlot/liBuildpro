@@ -316,6 +316,9 @@ export function OpportunityDetailSheet({
   
   // Create portal state
   const [isCreatingPortal, setIsCreatingPortal] = useState(false);
+  
+  // Send thank you email state
+  const [isSendingThankYou, setIsSendingThankYou] = useState(false);
 
   // Linked estimates
   const [linkedEstimates, setLinkedEstimates] = useState<{
@@ -2277,6 +2280,39 @@ export function OpportunityDetailSheet({
     }
   };
 
+  // Send thank-you email handler
+  const handleSendThankYouEmail = async () => {
+    if (!opportunity || !companyId || !portalLink) return;
+    
+    const customerEmail = contact?.email;
+    if (!customerEmail) {
+      toast.error("No email address found for this contact");
+      return;
+    }
+    
+    setIsSendingThankYou(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-thank-you-email", {
+        body: {
+          to: customerEmail,
+          customerName: contactName || "Customer",
+          portalLink,
+          companyId,
+        },
+      });
+      
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      toast.success(`Thank-you email sent to ${customerEmail}`);
+    } catch (error) {
+      console.error("Error sending thank-you email:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to send email");
+    } finally {
+      setIsSendingThankYou(false);
+    }
+  };
+
   return <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-3xl overflow-y-auto p-0">
         {/* Header */}
@@ -2413,18 +2449,37 @@ export function OpportunityDetailSheet({
         <div className="p-4 space-y-4">
           {/* Customer Portal Link - Show at top if portal exists, or Create Portal button */}
           {portalLink ? (
-            <a
-              href={portalLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <ExternalLink className="h-4 w-4" />
-                <span className="text-sm font-medium">Open Customer Portal</span>
-              </div>
-              <span className="text-xs text-muted-foreground">Opens in new tab</span>
-            </a>
+            <div className="space-y-2">
+              <a
+                href={portalLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="text-sm font-medium">Open Customer Portal</span>
+                </div>
+                <span className="text-xs text-muted-foreground">Opens in new tab</span>
+              </a>
+              {/* Send Thank You Email Button */}
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={handleSendThankYouEmail}
+                disabled={isSendingThankYou || !contact?.email}
+              >
+                {isSendingThankYou ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="h-4 w-4" />
+                )}
+                <span>Send Thank-You Email</span>
+                {!contact?.email && (
+                  <span className="text-xs text-muted-foreground ml-auto">No email</span>
+                )}
+              </Button>
+            </div>
           ) : (
             <Button
               variant="outline"
