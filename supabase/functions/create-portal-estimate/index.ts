@@ -153,7 +153,7 @@ serve(async (req) => {
       return json(500, { error: "Failed to create estimate" });
     }
 
-    const { error: jobError } = await supabase.from("estimate_generation_jobs").insert({
+    const { data: jobData, error: jobError } = await supabase.from("estimate_generation_jobs").insert({
       company_id: companyId,
       estimate_id: estimate.id,
       status: "pending",
@@ -163,13 +163,35 @@ serve(async (req) => {
         work_scope: workScope.trim(),
         created_from: "salesperson_portal",
       },
-    });
+    }).select("id").single();
 
-    if (jobError) {
+    if (jobError || !jobData) {
       console.error("Job insert error:", jobError);
-      // If the job insert fails, we still created the estimate; return a useful error.
       return json(500, { error: "Estimate created but failed to queue AI job", estimateId: estimate.id });
     }
+
+    // Trigger the AI generation by invoking the generate-estimate-scope function
+    // This runs in the background - we don't wait for it to complete
+    const generateUrl = `${SUPABASE_URL}/functions/v1/generate-estimate-scope`;
+    console.log("Triggering AI generation for estimate:", estimate.id, "job:", jobData.id);
+    
+    fetch(generateUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        estimate_id: estimate.id,
+        company_id: companyId,
+        job_id: jobData.id,
+        work_scope: workScope.trim(),
+        job_address: jobAddress.trim(),
+        customer_name: safeCustomerName,
+      }),
+    }).catch((fetchErr) => {
+      console.error("Failed to trigger AI generation:", fetchErr);
+    });
 
     return json(200, { success: true, estimateId: estimate.id });
   } catch (err) {
