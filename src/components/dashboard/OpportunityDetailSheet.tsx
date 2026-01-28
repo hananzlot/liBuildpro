@@ -285,10 +285,11 @@ export function OpportunityDetailSheet({
   // Track if sheet was previously closed, to reset savedValues only on fresh open
   const [wasOpen, setWasOpen] = useState(false);
 
-  // Inline editing states for pipeline, stage, and status
+  // Inline editing states for pipeline, stage, status, and assigned to
   const [isInlineEditingPipeline, setIsInlineEditingPipeline] = useState(false);
   const [isInlineEditingStage, setIsInlineEditingStage] = useState(false);
   const [isInlineEditingStatus, setIsInlineEditingStatus] = useState(false);
+  const [isInlineEditingAssignedTo, setIsInlineEditingAssignedTo] = useState(false);
   const [isSavingInline, setIsSavingInline] = useState(false);
 
   // Won date editing (admin only)
@@ -1503,6 +1504,44 @@ export function OpportunityDetailSheet({
     }
   };
 
+  // Inline save for assigned_to change (without entering full edit mode)
+  const handleInlineAssignedToChange = async (newAssignedTo: string) => {
+    if (!opportunity) return;
+    setIsSavingInline(true);
+    try {
+      // Convert "__unassigned__" to null
+      const assignedToValue = newAssignedTo === "__unassigned__" ? null : newAssignedTo;
+      
+      const { data, error } = await supabase.functions.invoke("update-ghl-opportunity", {
+        body: {
+          ghl_id: opportunity.ghl_id,
+          assigned_to: assignedToValue,
+          edited_by: user?.id || null
+        }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      setSavedValues(prev => ({
+        ...prev,
+        assigned_to: assignedToValue
+      }));
+      toast.success("Assignment updated");
+      setIsInlineEditingAssignedTo(false);
+      queryClient.invalidateQueries({
+        queryKey: ["opportunities"]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["opportunity_edits"]
+      });
+    } catch (error) {
+      console.error("Error updating assigned to:", error);
+      toast.error("Failed to update assignment");
+    } finally {
+      setIsSavingInline(false);
+    }
+  };
+
   // Inline save for status change (without entering full edit mode)
   // Helper function to create a project when opportunity is won
   const createProjectForWonOpportunity = async (oppGhlId: string) => {
@@ -2581,7 +2620,38 @@ export function OpportunityDetailSheet({
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </Select> : <div className="font-medium truncate">{userName}</div>}
+                </Select> : isInlineEditingAssignedTo ? <Select 
+                  value={effectiveAssignedTo || "__unassigned__"} 
+                  onValueChange={handleInlineAssignedToChange} 
+                  disabled={isSavingInline} 
+                  onOpenChange={open => {
+                    if (!open && !isSavingInline) setIsInlineEditingAssignedTo(false);
+                  }} 
+                  defaultOpen
+                >
+                  <SelectTrigger className="h-7 text-xs">
+                    <SelectValue placeholder="Select rep" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unassigned__" className="text-xs">
+                      Unassigned
+                    </SelectItem>
+                    {activeSalespeople.map(sp => (
+                      <SelectItem 
+                        key={sp.id} 
+                        value={sp.id} 
+                        className="text-xs"
+                      >
+                        {sp.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select> : <button 
+                  className="font-medium truncate hover:underline text-left w-full cursor-pointer" 
+                  onClick={() => setIsInlineEditingAssignedTo(true)}
+                >
+                  {userName}
+                </button>}
             </div>
 
             {/* Source */}
