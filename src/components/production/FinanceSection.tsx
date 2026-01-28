@@ -4322,6 +4322,7 @@ function CommissionTab({
   totalBillsPaid: number;
   salespeople: SalespersonData[];
 }) {
+  const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<CommissionPayment | null>(null);
@@ -4392,6 +4393,7 @@ function CommissionTab({
       } else {
         const insertData = {
           project_id: projectId,
+          company_id: companyId,
           salesperson_name: payment.salesperson_name!,
           payment_date: payment.payment_date,
           payment_amount: payment.payment_amount || 0,
