@@ -313,6 +313,9 @@ export function OpportunityDetailSheet({
 
   // Portal link for same contact
   const [portalLink, setPortalLink] = useState<string | null>(null);
+  
+  // Create portal state
+  const [isCreatingPortal, setIsCreatingPortal] = useState(false);
 
   // Linked estimates
   const [linkedEstimates, setLinkedEstimates] = useState<{
@@ -2185,6 +2188,95 @@ export function OpportunityDetailSheet({
   // Prefer opportunity scope, fallback to contact custom field, then attributions
   const scopeOfWork = scopeFromOpportunity || scopeFromCustomField || scopeFromAttributions;
   const contactNotes = extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.NOTES);
+
+  // Create a pre-estimate project and portal for this opportunity
+  const handleCreatePortal = async () => {
+    if (!opportunity || !companyId) return;
+    setIsCreatingPortal(true);
+    try {
+      // Build customer info from contact
+      const customerFirstName = contact?.first_name || (contact?.contact_name?.split(" ")[0]) || "";
+      const customerLastName = contact?.last_name || (contact?.contact_name?.split(" ").slice(1).join(" ")) || "";
+      const customerEmail = contact?.email || "";
+      const customerPhone = contact?.phone || "";
+      
+      // Get address from opportunity or contact
+      const projectAddress = opportunity.address || extractCustomField(contact?.custom_fields, CUSTOM_FIELD_IDS.ADDRESS) || "";
+      
+      // Create project with "Pre-Estimate" status
+      const { data: newProject, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          opportunity_id: opportunity.ghl_id,
+          opportunity_uuid: opportunity.id,
+          contact_id: opportunity.contact_id,
+          contact_uuid: opportunity.contact_uuid || contact?.id,
+          location_id: opportunity.location_id,
+          project_name: opportunity.name || contactName || "New Project",
+          project_status: "Pre-Estimate",
+          customer_first_name: customerFirstName,
+          customer_last_name: customerLastName,
+          customer_email: customerEmail,
+          cell_phone: customerPhone,
+          project_address: projectAddress,
+          scope_of_work: scopeOfWork,
+          company_id: companyId,
+          created_by: user?.id,
+        })
+        .select("id")
+        .single();
+      
+      if (projectError) throw projectError;
+      
+      // Create a portal token for this project
+      const clientFullName = `${customerFirstName} ${customerLastName}`.trim() || contactName || "Customer";
+      const { error: tokenError } = await supabase
+        .from("client_portal_tokens")
+        .insert({
+          project_id: newProject.id,
+          client_name: clientFullName,
+          client_email: customerEmail || null,
+          company_id: companyId,
+          created_by: user?.id,
+          is_active: true,
+        });
+      
+      if (tokenError) throw tokenError;
+      
+      // Fetch the new portal link
+      const { data: portalToken } = await supabase
+        .from("client_portal_tokens")
+        .select("token")
+        .eq("project_id", newProject.id)
+        .eq("is_active", true)
+        .maybeSingle();
+      
+      if (portalToken?.token) {
+        const { data: baseUrlSetting } = await supabase
+          .from("company_settings")
+          .select("setting_value")
+          .eq("company_id", companyId)
+          .eq("setting_key", "app_base_url")
+          .maybeSingle();
+        
+        const baseUrl = baseUrlSetting?.setting_value || window.location.origin;
+        setPortalLink(`${baseUrl}/portal/${portalToken.token}`);
+      }
+      
+      setAssociatedProjectId(newProject.id);
+      
+      toast.success("Portal created successfully");
+      
+      // Invalidate queries to reflect changes
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    } catch (error) {
+      console.error("Error creating portal:", error);
+      toast.error("Failed to create portal");
+    } finally {
+      setIsCreatingPortal(false);
+    }
+  };
+
   return <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-3xl overflow-y-auto p-0">
         {/* Header */}
@@ -2319,8 +2411,8 @@ export function OpportunityDetailSheet({
         </div>
 
         <div className="p-4 space-y-4">
-          {/* Customer Portal Link - Show at top if portal exists */}
-          {portalLink && (
+          {/* Customer Portal Link - Show at top if portal exists, or Create Portal button */}
+          {portalLink ? (
             <a
               href={portalLink}
               target="_blank"
@@ -2333,6 +2425,21 @@ export function OpportunityDetailSheet({
               </div>
               <span className="text-xs text-muted-foreground">Opens in new tab</span>
             </a>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={handleCreatePortal}
+              disabled={isCreatingPortal}
+            >
+              {isCreatingPortal ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+              <span>Create Customer Portal</span>
+              <span className="text-xs text-muted-foreground ml-auto">Pre-Estimate Project</span>
+            </Button>
           )}
 
           {/* Contact Section - Now at the top with opportunity value */}
