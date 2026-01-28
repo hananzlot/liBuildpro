@@ -826,8 +826,12 @@ export function OpportunityDetailSheet({
       }
       toast.success("Task created");
 
-      // Refresh tasks list
+      // Refresh tasks list (local state)
       await refreshTasksList();
+      
+      // Invalidate global tasks query so OpportunitiesTable updates
+      queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
+      
       setTaskDialogOpen(false);
       setTaskTitle("");
       setTaskNotes("");
@@ -974,11 +978,13 @@ export function OpportunityDetailSheet({
       }
       toast.success("Task updated");
 
-      // Refresh tasks list
+      // Refresh tasks list (local state)
       await refreshTasksList();
-      queryClient.invalidateQueries({
-        queryKey: ["task_edits"]
-      });
+      
+      // Invalidate global queries so OpportunitiesTable updates
+      queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["task_edits"] });
+      
       setTaskDialogOpen(false);
       setEditingTask(null);
       setTaskTitle("");
@@ -1016,6 +1022,10 @@ export function OpportunityDetailSheet({
         }
       }
       setTasks(prev => prev.filter(t => t.id !== task.id));
+      
+      // Invalidate global tasks query so OpportunitiesTable updates
+      queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
+      
       toast.success("Task deleted");
     } catch (err) {
       console.error("Error deleting task:", err);
@@ -1072,9 +1082,11 @@ export function OpportunityDetailSheet({
         ...t,
         status: newStatus
       } : t));
-      queryClient.invalidateQueries({
-        queryKey: ["task_edits"]
-      });
+      
+      // Invalidate global queries so OpportunitiesTable updates
+      queryClient.invalidateQueries({ queryKey: ["ghl_tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["task_edits"] });
+      
       toast.success(newStatus === "completed" ? "Task completed" : "Task reopened");
     } catch (err) {
       console.error("Error updating task status:", err);
