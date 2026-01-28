@@ -4600,7 +4600,7 @@ function CommissionTab({
                       {[payment.bank_name, payment.payment_reference].filter(Boolean).join(" / ") || "-"}
                     </TableCell>
                     <TableCell className="text-xs text-right font-semibold text-emerald-600">
-                      {formatCurrency(payment.payment_amount)}
+                      {formatCurrencyWithDecimals(payment.payment_amount)}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
