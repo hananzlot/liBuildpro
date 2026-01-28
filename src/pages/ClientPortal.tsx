@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PortalEstimateView } from '@/components/portal/PortalEstimateView';
 import { ProjectPortal } from '@/components/portal/ProjectPortal';
+import { PortalPasscodeGate } from '@/components/portal/PortalPasscodeGate';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
@@ -22,6 +23,7 @@ export default function ClientPortal() {
   usePortalTitle();
   const [searchParams] = useSearchParams();
   const { token: pathToken } = useParams<{ token?: string }>();
+  const [isPasscodeVerified, setIsPasscodeVerified] = useState(false);
   
   // Support both path-based (/portal/{token}) and query-based (/portal?token=xxx) URLs
   const token = pathToken || searchParams.get('token');
@@ -62,7 +64,46 @@ export default function ClientPortal() {
     gcTime: 60 * 60 * 1000, // 1 hour
   });
 
-  const isLoading = isLoadingEstimateToken || isLoadingToken;
+  // Fetch project data for passcode verification (only for project portals)
+  const { data: projectData, isLoading: isLoadingProject } = useQuery({
+    queryKey: ['portal-project-passcode', tokenData?.project_id],
+    queryFn: async () => {
+      if (!tokenData?.project_id) return null;
+      const { data: project } = await supabase
+        .from('projects')
+        .select('project_address, company_id')
+        .eq('id', tokenData.project_id)
+        .maybeSingle();
+      
+      if (!project) return null;
+
+      // Fetch company branding for the gate
+      const { data: companySettings } = await supabase
+        .from('company_settings')
+        .select('setting_key, setting_value')
+        .eq('company_id', project.company_id)
+        .in('setting_key', ['company_name', 'company_logo_url']);
+
+      const settingsMap = (companySettings || []).reduce((acc: Record<string, string>, s: any) => {
+        acc[s.setting_key] = s.setting_value;
+        return acc;
+      }, {});
+
+      return {
+        address: project.project_address,
+        companyName: settingsMap.company_name,
+        companyLogoUrl: settingsMap.company_logo_url,
+      };
+    },
+    enabled: !!tokenData?.project_id && !isPasscodeVerified,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const handlePasscodeVerified = useCallback(() => {
+    setIsPasscodeVerified(true);
+  }, []);
+
+  const isLoading = isLoadingEstimateToken || isLoadingToken || isLoadingProject;
 
   if (!token && !estimateToken) {
     return (
@@ -104,7 +145,7 @@ export default function ClientPortal() {
       );
     }
 
-    // Show estimate view with signer-specific token
+    // Show estimate view with signer-specific token (no passcode for estimate signing)
     return (
       <PortalEstimateView 
         token={estimateToken} 
@@ -130,11 +171,24 @@ export default function ClientPortal() {
     );
   }
 
-  // If project_id exists, show full project portal
+  // If project_id exists, show full project portal (with passcode gate)
   if (tokenData.project_id) {
+    // Show passcode gate if not verified
+    if (!isPasscodeVerified && projectData) {
+      return (
+        <PortalPasscodeGate
+          projectAddress={projectData.address}
+          token={token!}
+          companyName={projectData.companyName}
+          companyLogoUrl={projectData.companyLogoUrl}
+          onVerified={handlePasscodeVerified}
+        />
+      );
+    }
+    
     return <ProjectPortal token={token!} />;
   }
 
-  // Otherwise, show estimate-only view (legacy single signer)
+  // Otherwise, show estimate-only view (legacy single signer - no passcode needed)
   return <PortalEstimateView token={token!} />;
 }
