@@ -16,8 +16,10 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const clientId = Deno.env.get("QUICKBOOKS_CLIENT_ID");
-    const clientSecret = Deno.env.get("QUICKBOOKS_CLIENT_SECRET");
+    // Secrets can sometimes include accidental leading/trailing whitespace.
+    // That breaks OAuth URLs (e.g., `client_id= <id>`), so we trim defensively.
+    const clientId = Deno.env.get("QUICKBOOKS_CLIENT_ID")?.trim();
+    const clientSecret = Deno.env.get("QUICKBOOKS_CLIENT_SECRET")?.trim();
 
     console.log("QuickBooks auth request received");
     console.log("Client ID configured:", !!clientId);
