@@ -19,7 +19,12 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("QUICKBOOKS_CLIENT_ID");
     const clientSecret = Deno.env.get("QUICKBOOKS_CLIENT_SECRET");
 
+    console.log("QuickBooks auth request received");
+    console.log("Client ID configured:", !!clientId);
+    console.log("Client Secret configured:", !!clientSecret);
+
     if (!clientId || !clientSecret) {
+      console.error("Missing QuickBooks credentials");
       return new Response(
         JSON.stringify({ error: "QuickBooks credentials not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -30,8 +35,13 @@ Deno.serve(async (req) => {
     const { action, companyId, code, realmId, redirectUri } = await req.json();
 
     if (action === "get-auth-url") {
+      console.log("Action: get-auth-url");
+      console.log("Company ID:", companyId);
+      console.log("Redirect URI:", redirectUri);
+      
       // Generate OAuth URL for the user to authorize
       if (!companyId || !redirectUri) {
+        console.error("Missing companyId or redirectUri");
         return new Response(
           JSON.stringify({ error: "companyId and redirectUri are required" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -42,6 +52,8 @@ Deno.serve(async (req) => {
       const scopes = "com.intuit.quickbooks.accounting";
       
       const authUrl = `${QUICKBOOKS_AUTH_URL}?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
+
+      console.log("Generated auth URL (without sensitive params):", `${QUICKBOOKS_AUTH_URL}?client_id=***&response_type=code&scope=${scopes}`);
 
       return new Response(
         JSON.stringify({ authUrl }),
