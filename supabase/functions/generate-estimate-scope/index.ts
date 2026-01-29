@@ -387,19 +387,50 @@ async function persistScopeToDatabase(
     }
   }
   
-  // Insert payment schedule
+  // Insert payment schedule with proper deposit cap handling
   if (paymentSchedule.length > 0) {
-    const scheduleToInsert = paymentSchedule.map((phase: any, index: number) => ({
-      estimate_id: estimateId,
-      company_id: companyId,
-      phase_name: phase.phase_name || `Phase ${index + 1}`,
-      percent: phase.percent || 0,
-      amount: (phase.percent / 100) * totalEstimate,
-      due_type: phase.due_type || 'milestone',
-      due_date: phase.due_date || null,
-      description: phase.description || null,
-      sort_order: index,
-    }));
+    // Fetch deposit_max_amount from the estimate to calculate proper deposit cap
+    const { data: estimateSettings } = await supabase
+      .from('estimates')
+      .select('deposit_percent, deposit_max_amount')
+      .eq('id', estimateId)
+      .single();
+    
+    const effectiveDepositPercent = estimateSettings?.deposit_percent ?? depositPercent;
+    const depositMaxAmount = estimateSettings?.deposit_max_amount;
+    
+    // Calculate capped deposit (matches UI logic in EstimateBuilderDialog)
+    const calculatedDeposit = (effectiveDepositPercent / 100) * totalEstimate;
+    const cappedDeposit = depositMaxAmount != null && depositMaxAmount > 0
+      ? Math.min(calculatedDeposit, depositMaxAmount)
+      : calculatedDeposit;
+    const remainingTotal = Math.max(0, totalEstimate - cappedDeposit);
+    
+    console.log(`Payment schedule calculation: total=${totalEstimate}, depositPercent=${effectiveDepositPercent}, maxAmount=${depositMaxAmount}, cappedDeposit=${cappedDeposit}, remaining=${remainingTotal}`);
+    
+    const scheduleToInsert = paymentSchedule.map((phase: any, index: number) => {
+      const phaseName = phase.phase_name || `Phase ${index + 1}`;
+      const isDepositPhase = phaseName.toLowerCase().includes('deposit');
+      const phasePercent = phase.percent || 0;
+      
+      // For deposit phase: use capped deposit amount, set percent to 0 since it's a fixed amount
+      // For other phases: calculate based on remaining total after deposit
+      const amount = isDepositPhase 
+        ? cappedDeposit 
+        : (remainingTotal * phasePercent) / 100;
+      
+      return {
+        estimate_id: estimateId,
+        company_id: companyId,
+        phase_name: phaseName,
+        percent: isDepositPhase ? 0 : phasePercent,
+        amount: amount,
+        due_type: phase.due_type || 'milestone',
+        due_date: phase.due_date || null,
+        description: phase.description || null,
+        sort_order: index,
+      };
+    });
     
     const { error: scheduleError } = await supabase
       .from('estimate_payment_schedule')
