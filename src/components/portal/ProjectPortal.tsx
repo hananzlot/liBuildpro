@@ -110,7 +110,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
       if (projError) throw projError;
       if (!project) throw new Error('Project not found');
 
-      // Get all estimates linked to this project
+      // Get all estimates linked to this project (exclude drafts - only show sent proposals)
       const { data: estimates } = await supabase
         .from('estimates')
         .select(`
@@ -118,6 +118,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
           estimate_signatures (*)
         `)
         .eq('project_id', tokenData.project_id)
+        .neq('status', 'draft')
         .order('created_at', { ascending: false });
 
       // Get project agreements
