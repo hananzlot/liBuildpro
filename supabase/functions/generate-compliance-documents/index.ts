@@ -415,35 +415,9 @@ const handler = async (req: Request): Promise<Response> => {
           continue;
         }
 
-        // If requires separate signature, create a signature document
-        if (template.requires_separate_signature && !existingDoc?.signature_document_id) {
-          const { data: sigDoc, error: sigError } = await supabase
-            .from("signature_documents")
-            .insert({
-              company_id: companyId,
-              document_name: template.name,
-              document_type: "compliance",
-              template_id: template.id,
-              file_url: generatedFileUrl,
-              file_name: template.template_file_name,
-              status: "draft",
-              recipient_name: customerName,
-              recipient_email: contact?.email || estimate.customer_email,
-              linked_estimate_id: estimateId,
-            })
-            .select()
-            .single();
-
-          if (sigError) {
-            console.error(`Error creating signature document for template ${template.id}:`, sigError);
-          } else if (sigDoc) {
-            // Link signature document to compliance document
-            await supabase
-              .from("estimate_compliance_documents")
-              .update({ signature_document_id: sigDoc.id })
-              .eq("id", upsertedDoc.id);
-          }
-        }
+        // Note: The signature_documents table is for a different feature. 
+        // Compliance document signing is handled via estimate_compliance_documents 
+        // and signed_compliance_documents tables in the frontend.
 
         generatedDocs.push(upsertedDoc);
         console.log(`Generated compliance document for template ${template.name}`);

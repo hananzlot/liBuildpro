@@ -88,7 +88,7 @@ export function ComplianceSigningFlow({
   const { data: complianceDocs, isLoading, refetch } = useQuery({
     queryKey: ['compliance-signing-docs', estimateId],
     queryFn: async () => {
-      // First check if documents already exist
+      // First check if documents already exist in signed_compliance_documents
       const { data: existing, error: existingError } = await supabase
         .from('signed_compliance_documents')
         .select(`
@@ -121,17 +121,13 @@ export function ComplianceSigningFlow({
         })) as ComplianceDocument[];
       }
 
-      // Generate compliance documents
-      const { data: generateResult, error: generateError } = await supabase.functions.invoke(
-        'generate-compliance-documents',
-        {
-          body: { estimateId, companyId },
-        }
-      );
+      // No signed_compliance_documents exist - check for generated docs in estimate_compliance_documents
+      const { data: generatedDocs } = await supabase
+        .from('estimate_compliance_documents')
+        .select('*')
+        .eq('estimate_id', estimateId);
 
-      if (generateError) throw generateError;
-
-      // Fetch active templates to create signing records
+      // Fetch active templates for this company
       const { data: templates } = await supabase
         .from('compliance_document_templates')
         .select('*')
@@ -140,8 +136,36 @@ export function ComplianceSigningFlow({
         .order('display_order');
 
       if (!templates || templates.length === 0) {
+        // No templates configured - return empty to trigger the "No Documents Required" UI
         return [];
       }
+
+      // Check if we need to generate documents
+      if (!generatedDocs || generatedDocs.length === 0) {
+        // Call edge function to generate compliance documents
+        const { data: generateResult, error: generateError } = await supabase.functions.invoke(
+          'generate-compliance-documents',
+          {
+            body: { estimateId, companyId },
+          }
+        );
+
+        if (generateError) {
+          console.error('Error generating compliance documents:', generateError);
+          // Continue anyway - we'll use original template URLs
+        }
+      }
+
+      // Re-fetch generated docs after generation
+      const { data: updatedGeneratedDocs } = await supabase
+        .from('estimate_compliance_documents')
+        .select('*')
+        .eq('estimate_id', estimateId);
+
+      // Create a map of template_id to generated file URL
+      const generatedUrlMap = new Map(
+        (updatedGeneratedDocs || []).map((d: any) => [d.template_id, d.generated_file_url])
+      );
 
       // Create signed_compliance_documents records for each template
       const docsToCreate = templates.map(template => ({
@@ -150,7 +174,7 @@ export function ComplianceSigningFlow({
         template_id: template.id,
         document_name: template.name,
         document_type: template.is_main_contract ? 'main_contract' : 'compliance',
-        file_url: generateResult?.documents?.find((d: any) => d.template_id === template.id)?.generated_file_url || template.template_file_url,
+        file_url: generatedUrlMap.get(template.id) || template.template_file_url,
         status: 'pending',
       }));
 
@@ -159,26 +183,15 @@ export function ComplianceSigningFlow({
         .insert(docsToCreate)
         .select();
 
-      if (createError) throw createError;
+      if (createError) {
+        console.error('Error creating signed_compliance_documents:', createError);
+        throw createError;
+      }
 
-      // Re-fetch with template info
-      const { data: finalDocs } = await supabase
-        .from('signed_compliance_documents')
-        .select(`
-          id,
-          template_id,
-          document_name,
-          document_type,
-          file_url,
-          status,
-          signed_at
-        `)
-        .eq('estimate_id', estimateId)
-        .order('created_at');
-
+      // Return created docs with template info
       const templateMap = new Map(templates.map(t => [t.id, t]));
 
-      return (finalDocs || []).map(doc => ({
+      return (createdDocs || []).map(doc => ({
         ...doc,
         template: templateMap.get(doc.template_id) || null,
       })) as ComplianceDocument[];
@@ -276,7 +289,11 @@ export function ComplianceSigningFlow({
               There are no compliance documents configured for this proposal.
             </DialogDescription>
           </DialogHeader>
-          <Button onClick={() => onOpenChange(false)}>
+          <Button onClick={() => {
+            // Advance the flow before closing
+            onAllSigned();
+            onOpenChange(false);
+          }}>
             Continue
           </Button>
         </DialogContent>
