@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, ArrowLeft } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const loginSchema = z.object({
   email: z.string().trim().email({ message: "Invalid email address" }),
@@ -34,7 +35,7 @@ const resetSchema = z.object({
 type AuthMode = "login" | "signup" | "forgot" | "reset";
 
 export default function Auth() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -43,9 +44,12 @@ export default function Auth() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string; confirmPassword?: string }>({});
+  const [processingOAuth, setProcessingOAuth] = useState(false);
 
-  const { signIn, signUp, resetPassword, updatePassword, user, isLoading } = useAuth();
+  const { signIn, signUp, resetPassword, updatePassword, user, isLoading, isSuperAdmin, setViewingCompanyId } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const oauthProcessedRef = useRef(false);
 
   // Check for reset mode from URL (when user clicks email link)
   useEffect(() => {
@@ -65,12 +69,87 @@ export default function Auth() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Handle QuickBooks OAuth callback that landed on /auth due to ProtectedRoute redirect
+  // This happens when the OAuth redirect comes back while the session is being restored
   useEffect(() => {
+    const handleQuickBooksCallback = async () => {
+      const code = searchParams.get("code");
+      const realmId = searchParams.get("realmId");
+      const state = searchParams.get("state");
+
+      // Only process if we have QuickBooks OAuth params and haven't processed yet
+      if (!code || !realmId || !state || oauthProcessedRef.current) {
+        return;
+      }
+
+      // Wait for user to be available (session restored)
+      if (isLoading || !user) {
+        return;
+      }
+
+      oauthProcessedRef.current = true;
+      setProcessingOAuth(true);
+
+      try {
+        // Parse state to get company ID
+        const { companyId } = JSON.parse(atob(state));
+        
+        if (!companyId) {
+          toast.error("Invalid OAuth state - missing company ID");
+          navigate("/admin/settings", { replace: true });
+          return;
+        }
+
+        console.log("Processing QuickBooks OAuth callback from /auth for company:", companyId);
+
+        // Restore super admin company context
+        if (isSuperAdmin && companyId) {
+          setViewingCompanyId(companyId);
+        }
+
+        const { data, error } = await supabase.functions.invoke("quickbooks-auth", {
+          body: {
+            action: "exchange-code",
+            code,
+            realmId,
+            companyId,
+            redirectUri: `${window.location.origin}/admin/settings`,
+          },
+        });
+
+        if (error || data?.error) {
+          console.error("QuickBooks token exchange failed:", error || data?.error);
+          toast.error(data?.error || "Failed to connect QuickBooks");
+        } else {
+          console.log("QuickBooks connected successfully!");
+          toast.success("QuickBooks connected successfully!");
+          queryClient.invalidateQueries({ queryKey: ["quickbooks-connection"] });
+        }
+      } catch (err) {
+        console.error("OAuth callback error:", err);
+        toast.error("Failed to process QuickBooks authorization");
+      } finally {
+        // Redirect to admin settings after processing
+        navigate("/admin/settings?tab=integrations", { replace: true });
+      }
+    };
+
+    handleQuickBooksCallback();
+  }, [searchParams, user, isLoading, isSuperAdmin, setViewingCompanyId, queryClient, navigate]);
+
+  useEffect(() => {
+    // Don't redirect if we're processing OAuth callback
+    if (processingOAuth) return;
+    
+    // Check if there are QuickBooks OAuth params - wait for those to be processed
+    const hasOAuthParams = searchParams.get("code") && searchParams.get("realmId") && searchParams.get("state");
+    if (hasOAuthParams) return;
+    
     // Only redirect if user is logged in AND not in reset mode
     if (!isLoading && user && mode !== "reset") {
       navigate("/", { replace: true });
     }
-  }, [user, isLoading, navigate, mode]);
+  }, [user, isLoading, navigate, mode, processingOAuth, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,10 +232,14 @@ export default function Auth() {
     setConfirmPassword("");
   };
 
-  if (isLoading) {
+  // Show loading state during auth loading or OAuth processing
+  if (isLoading || processingOAuth) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        {processingOAuth && (
+          <p className="text-sm text-muted-foreground">Connecting to QuickBooks...</p>
+        )}
       </div>
     );
   }
