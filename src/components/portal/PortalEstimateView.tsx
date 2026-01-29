@@ -316,26 +316,46 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
   // Fetch compliance package enabled setting when we have company_id
   useEffect(() => {
     const fetchComplianceSetting = async () => {
-      if (!portalData?.token?.company_id) return;
+      // IMPORTANT: client_portal_tokens.company_id can be null in some legacy rows.
+      // Always fall back to the estimate's company_id so compliance can still work.
+      const effectiveCompanyId = portalData?.token?.company_id || portalData?.estimate?.company_id;
+
+      if (!effectiveCompanyId) {
+        // Don't block the signing flow forever if company_id can't be resolved.
+        setCompliancePackageEnabled(false);
+        setComplianceSettingLoaded(true);
+        return;
+      }
       
       const { data, error } = await supabase
         .from('company_settings')
         .select('setting_value')
-        .eq('company_id', portalData.token.company_id)
+        .eq('company_id', effectiveCompanyId)
         .eq('setting_key', 'compliance_package_enabled')
         .maybeSingle();
       
-      if (!error && data?.setting_value === 'true') {
-        setCompliancePackageEnabled(true);
+      if (!error) {
+        const enabled = String(data?.setting_value ?? '').toLowerCase() === 'true';
+        setCompliancePackageEnabled(enabled);
       } else {
-        setCompliancePackageEnabled(false);
+        // Fallback: if the setting isn't readable (e.g. permission/RLS), infer enablement
+        // from whether the company has any active compliance templates.
+        const { data: template } = await supabase
+          .from('compliance_document_templates')
+          .select('id')
+          .eq('company_id', effectiveCompanyId)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+
+        setCompliancePackageEnabled(!!template?.id);
       }
       // Mark as loaded regardless of result
       setComplianceSettingLoaded(true);
     };
     
     fetchComplianceSetting();
-  }, [portalData?.token?.company_id]);
+  }, [portalData?.token?.company_id, portalData?.estimate?.company_id]);
 
   // Set initial signer info
   useEffect(() => {
@@ -1354,7 +1374,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           open={complianceFlowOpen}
           onOpenChange={setComplianceFlowOpen}
           estimateId={estimate.id}
-          companyId={portalData.token.company_id}
+          companyId={portalData.token.company_id || estimate.company_id}
           customerName={signerName || estimate.customer_name || ''}
           customerEmail={signerEmail || estimate.customer_email || ''}
           onAllSigned={() => {
