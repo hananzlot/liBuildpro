@@ -80,12 +80,14 @@ const FollowUp = () => {
             <h2 className="text-2xl font-bold text-foreground mb-1">Follow-up Management</h2>
             <p className="text-sm text-muted-foreground">Track appointments and opportunities that need attention</p>
           </div>
-          <OpportunitySearch
-            opportunities={metrics?.allOpportunities || []}
-            appointments={metrics?.allAppointments || []}
-            contacts={metrics?.allContacts || []}
-            users={metrics?.users || []}
-          />
+          {!isAdmin && (
+            <OpportunitySearch
+              opportunities={metrics?.allOpportunities || []}
+              appointments={metrics?.allAppointments || []}
+              contacts={metrics?.allContacts || []}
+              users={metrics?.users || []}
+            />
+          )}
         </div>
         
         {isLoading ? (
