@@ -344,7 +344,7 @@ export function GlobalAdminSearch() {
   };
 
   const handleSelectEstimate = (est: Estimate) => {
-    navigate(`/estimates/${est.id}`);
+    navigate(`/estimates/builder/${est.id}`);
     setIsOpen(false);
     setSearchQuery("");
   };
