@@ -1975,7 +1975,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
       const { subtotal, taxAmount, discountAmount, total, depositAmount } = calculateTotals();
       
-      // Prepare estimate data for a new estimate
+      // Get source estimate data to preserve links (project, opportunity, contact)
+      const sourceEstimate = existingEstimate?.estimate;
+      
+      // Prepare estimate data for a new estimate - preserve links from source
       const estimateData = {
         customer_name: formData.customer_name,
         customer_email: formData.customer_email || null,
@@ -2006,6 +2009,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         salesperson_name: formData.salesperson_name || null,
         salesperson_id: getSalespersonId(formData.salesperson_name),
         company_id: companyId,
+        // Preserve links from source estimate (don't create new project/opportunity)
+        project_id: sourceEstimate?.project_id || null,
+        opportunity_id: sourceEstimate?.opportunity_id || null,
+        opportunity_uuid: sourceEstimate?.opportunity_uuid || null,
+        contact_id: sourceEstimate?.contact_id || null,
+        contact_uuid: sourceEstimate?.contact_uuid || null,
       };
 
       // Create new estimate
