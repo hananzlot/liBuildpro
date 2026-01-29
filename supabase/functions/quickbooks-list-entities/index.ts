@@ -2,7 +2,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const QB_BASE_URL = "https://quickbooks.api.intuit.com/v3/company";
@@ -38,7 +39,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { access_token, realm_id, token_expires_at } = tokenData[0];
+    let { access_token, realm_id, token_expires_at } = tokenData[0];
 
     // Check if token needs refresh
     if (new Date(token_expires_at) <= new Date()) {
@@ -53,6 +54,25 @@ Deno.serve(async (req) => {
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // IMPORTANT: refresh-token updates the stored tokens, but this function must
+      // re-fetch them; otherwise we'd continue using the expired access_token.
+      const { data: refreshedTokenData, error: refreshedTokenError } = await supabase.rpc(
+        "get_quickbooks_tokens",
+        { p_company_id: companyId }
+      );
+
+      if (refreshedTokenError || !refreshedTokenData || refreshedTokenData.length === 0) {
+        console.error("Failed to load refreshed QuickBooks tokens:", refreshedTokenError);
+        return new Response(
+          JSON.stringify({ error: "Failed to load refreshed tokens", needsReauth: true }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      access_token = refreshedTokenData[0].access_token;
+      realm_id = refreshedTokenData[0].realm_id;
+      token_expires_at = refreshedTokenData[0].token_expires_at;
     }
 
     const qbHeaders = {
@@ -90,19 +110,41 @@ Deno.serve(async (req) => {
         // Get company info instead of query
         const companyInfoUrl = `${QB_BASE_URL}/${realm_id}/companyinfo/${realm_id}`;
         const companyRes = await fetch(companyInfoUrl, { headers: qbHeaders });
-        if (companyRes.ok) {
-          const companyData = await companyRes.json();
+        if (!companyRes.ok) {
+          const errorText = await companyRes.text();
+          const authFailed =
+            companyRes.status === 401 ||
+            companyRes.status === 403 ||
+            errorText.includes("ApplicationAuthorizationFailed") ||
+            errorText.includes('"code":"3100"') ||
+            errorText.includes("errorCode=003100");
+
+          console.error("QB API Error (companyinfo):", errorText);
           return new Response(
-            JSON.stringify({ 
-              entities: [{
-                Id: realm_id,
-                Name: companyData.CompanyInfo?.CompanyName || "Unknown Company"
-              }]
+            JSON.stringify({
+              error: "Failed to fetch company info",
+              needsReauth: authFailed ? true : undefined,
+              details: errorText,
             }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            {
+              status: authFailed ? 401 : 500,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
           );
         }
-        throw new Error("Failed to fetch company info");
+
+        const companyData = await companyRes.json();
+        return new Response(
+          JSON.stringify({
+            entities: [
+              {
+                Id: realm_id,
+                Name: companyData.CompanyInfo?.CompanyName || "Unknown Company",
+              },
+            ],
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       default:
         return new Response(
           JSON.stringify({ error: "Invalid entityType" }),
@@ -116,9 +158,24 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("QB API Error:", errorText);
+
+      const authFailed =
+        response.status === 401 ||
+        response.status === 403 ||
+        errorText.includes("ApplicationAuthorizationFailed") ||
+        errorText.includes('"code":"3100"') ||
+        errorText.includes("errorCode=003100");
+
       return new Response(
-        JSON.stringify({ error: "Failed to fetch from QuickBooks", details: errorText }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          error: "Failed to fetch from QuickBooks",
+          needsReauth: authFailed ? true : undefined,
+          details: errorText,
+        }),
+        {
+          status: authFailed ? 401 : 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
       );
     }
 
