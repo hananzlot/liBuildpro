@@ -99,23 +99,6 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
   // Fetch compliance package enabled setting
   useEffect(() => {
     const fetchComplianceSetting = async () => {
-      // Preferred: resolve via Edge Function (avoids portal RLS limitations on settings tables)
-      try {
-        const { data, error } = await supabase.functions.invoke('portal-compliance-enabled', {
-          body: { token },
-        });
-
-        console.log('[Compliance-Proposals] portal-compliance-enabled result:', { data, error });
-
-        if (!error && typeof data?.enabled === 'boolean') {
-          setCompliancePackageEnabled(data.enabled);
-          setComplianceSettingLoaded(true);
-          return;
-        }
-      } catch (e) {
-        console.warn('[Compliance-Proposals] portal-compliance-enabled invoke failed:', e);
-      }
-
       // Use the selected estimate's company_id or fall back to context companyId
       const effectiveCompanyId = selectedEstimate?.company_id || companyId;
 
@@ -128,6 +111,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         return;
       }
       
+      // Try direct database query first (RLS allows anonymous access to compliance_package_enabled)
       const { data, error } = await supabase
         .from('company_settings')
         .select('setting_value')
@@ -137,15 +121,18 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
       
       console.log('[Compliance-Proposals] company_settings query result:', { data, error });
       
-      if (!error) {
-        const enabled = String(data?.setting_value ?? '').toLowerCase() === 'true';
+      if (!error && data) {
+        const enabled = String(data.setting_value ?? '').toLowerCase() === 'true';
         console.log('[Compliance-Proposals] Setting enabled from company_settings:', enabled);
         setCompliancePackageEnabled(enabled);
         setComplianceSettingLoaded(true);
-      } else {
-        // Fallback: check if company has any active compliance templates
-        console.log('[Compliance-Proposals] Falling back to template check due to error:', error);
-        const { data: template } = await supabase
+        return;
+      }
+      
+      // Fallback 1: check if company has any active compliance templates (RLS allows portal visitors)
+      if (!error || error.code === 'PGRST116') {
+        console.log('[Compliance-Proposals] No setting found, checking for active templates');
+        const { data: template, error: templateError } = await supabase
           .from('compliance_document_templates')
           .select('id')
           .eq('company_id', effectiveCompanyId)
@@ -153,11 +140,37 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           .limit(1)
           .maybeSingle();
 
-        const enabled = !!template?.id;
-        console.log('[Compliance-Proposals] Setting enabled from templates fallback:', enabled);
-        setCompliancePackageEnabled(enabled);
-        setComplianceSettingLoaded(true);
+        if (!templateError) {
+          const enabled = !!template?.id;
+          console.log('[Compliance-Proposals] Setting enabled from templates:', enabled);
+          setCompliancePackageEnabled(enabled);
+          setComplianceSettingLoaded(true);
+          return;
+        }
       }
+      
+      // Fallback 2: use Edge Function (bypasses RLS completely)
+      console.log('[Compliance-Proposals] Using Edge Function fallback');
+      try {
+        const { data: fnData, error: fnError } = await supabase.functions.invoke('portal-compliance-enabled', {
+          body: { token },
+        });
+
+        console.log('[Compliance-Proposals] portal-compliance-enabled result:', { fnData, fnError });
+
+        if (!fnError && typeof fnData?.enabled === 'boolean') {
+          setCompliancePackageEnabled(fnData.enabled);
+          setComplianceSettingLoaded(true);
+          return;
+        }
+      } catch (e) {
+        console.warn('[Compliance-Proposals] portal-compliance-enabled invoke failed:', e);
+      }
+      
+      // Final fallback: disable compliance
+      console.log('[Compliance-Proposals] All methods failed, disabling compliance');
+      setCompliancePackageEnabled(false);
+      setComplianceSettingLoaded(true);
     };
     
     // Only fetch when we're viewing a proposal
