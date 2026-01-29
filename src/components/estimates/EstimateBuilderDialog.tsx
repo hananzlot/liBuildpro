@@ -2155,8 +2155,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     if (!formData.customer_email?.trim()) missing.push("Email");
     if (!formData.estimate_title?.trim()) missing.push("Project Title");
     if (!formData.job_address?.trim()) missing.push("Job Site Address");
+    if (!formData.salesperson_name?.trim()) missing.push("Salesperson");
     return { isValid: missing.length === 0, missing };
-  }, [formData.customer_name, formData.customer_email, formData.estimate_title, formData.job_address]);
+  }, [formData.customer_name, formData.customer_email, formData.estimate_title, formData.job_address, formData.salesperson_name]);
 
   const validateScopeTab = useCallback(() => {
     const missing: string[] = [];
@@ -2480,16 +2481,15 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="salesperson_name">Salesperson</Label>
+                        <Label htmlFor="salesperson_name">Salesperson <span className="text-destructive">*</span></Label>
                         <Select
-                          value={formData.salesperson_name || "none"}
-                          onValueChange={(value) => setFormData({ ...formData, salesperson_name: value === "none" ? "" : value })}
+                          value={formData.salesperson_name || ""}
+                          onValueChange={(value) => setFormData({ ...formData, salesperson_name: value })}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className={!formData.salesperson_name?.trim() ? "border-destructive" : ""}>
                             <SelectValue placeholder="Select salesperson..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">No salesperson assigned</SelectItem>
                             {salespeople.map((sp) => (
                               <SelectItem key={sp.id} value={sp.name}>
                                 {sp.name}
@@ -2497,6 +2497,9 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                             ))}
                           </SelectContent>
                         </Select>
+                        {!formData.salesperson_name?.trim() && (
+                          <p className="text-xs text-destructive">Salesperson is required</p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -2537,13 +2540,14 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
                 <TabsContent value="scope" className="mt-0 space-y-4">
                   {/* Custom button logic for Scope tab */}
                   {(() => {
-                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim();
+                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim();
                     const hasWorkScope = formData.work_scope_description?.trim()?.length > 0;
                     const hasEstimateValue = totals.total > 0;
                     const missingFields = [];
                     if (!formData.customer_name?.trim()) missingFields.push('Customer Name');
                     if (!formData.job_address?.trim()) missingFields.push('Job Address');
                     if (!formData.estimate_title?.trim()) missingFields.push('Project Title');
+                    if (!formData.salesperson_name?.trim()) missingFields.push('Salesperson');
                     
                     // Show "Generate AI Estimate" when user has entered work scope but no estimate yet
                     if (hasWorkScope && !hasEstimateValue) {
@@ -2760,11 +2764,12 @@ The more detail you provide, the more accurate the AI-generated estimate will be
 
                   {/* Check if mandatory fields are filled for AI generation */}
                   {(() => {
-                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim();
+                    const canGenerateAI = formData.customer_name?.trim() && formData.job_address?.trim() && formData.estimate_title?.trim() && formData.salesperson_name?.trim();
                     const missingFields = [];
                     if (!formData.customer_name?.trim()) missingFields.push('Customer Name');
                     if (!formData.job_address?.trim()) missingFields.push('Job Address');
                     if (!formData.estimate_title?.trim()) missingFields.push('Project Title');
+                    if (!formData.salesperson_name?.trim()) missingFields.push('Salesperson');
                     
                     return groups.length === 0 ? (
                       <>
