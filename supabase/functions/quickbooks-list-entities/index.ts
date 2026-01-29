@@ -91,6 +91,40 @@ Deno.serve(async (req) => {
 
     let { access_token, realm_id, token_expires_at } = tokenData[0];
 
+    // If QuickBooks rejects our access token (401/403), we can often recover by refreshing.
+    // (Not all 401s are recoverable — e.g. truly revoked tokens — but this reduces false reauth prompts.)
+    let didRefreshAfterAuthFailure = false;
+
+    const refreshAndReloadTokens = async () => {
+      console.log("Attempting QuickBooks token refresh...");
+
+      const refreshResult = await supabase.functions.invoke("quickbooks-auth", {
+        body: { action: "refresh-token", companyId },
+      });
+
+      if (refreshResult.error || refreshResult.data?.error) {
+        console.error("QuickBooks token refresh failed:", refreshResult.error || refreshResult.data?.error);
+        return null;
+      }
+
+      // Re-fetch updated tokens from DB.
+      const { data: refreshedTokenData, error: refreshedTokenError } = await supabase.rpc(
+        "get_quickbooks_tokens",
+        { p_company_id: companyId }
+      );
+
+      if (refreshedTokenError || !refreshedTokenData || refreshedTokenData.length === 0) {
+        console.error("Failed to load refreshed QuickBooks tokens:", refreshedTokenError);
+        return null;
+      }
+
+      return refreshedTokenData[0] as {
+        access_token: string;
+        realm_id: string;
+        token_expires_at: string;
+      };
+    };
+
     // Check if token needs refresh
     if (new Date(token_expires_at) <= new Date()) {
       console.log("Token expired, refreshing...");
@@ -125,7 +159,7 @@ Deno.serve(async (req) => {
       token_expires_at = refreshedTokenData[0].token_expires_at;
     }
 
-    const qbHeaders = {
+    const qbHeaders: Record<string, string> = {
       "Authorization": `Bearer ${access_token}`,
       "Accept": "application/json",
       "Content-Type": "application/json",
@@ -158,7 +192,7 @@ Deno.serve(async (req) => {
         break;
       case "companies":
         // Get company info instead of query
-        const companyAttempt = await fetchWithSandboxFallback(
+        let companyAttempt = await fetchWithSandboxFallback(
           (baseUrl) => `${baseUrl}/${realm_id}/companyinfo/${realm_id}`,
           qbHeaders
         );
@@ -168,6 +202,38 @@ Deno.serve(async (req) => {
             companyAttempt.status ?? 500,
             companyAttempt.errorText ?? ""
           );
+
+          // One recovery attempt: refresh token and retry the call.
+          if (authFailed && !didRefreshAfterAuthFailure) {
+            didRefreshAfterAuthFailure = true;
+            const refreshed = await refreshAndReloadTokens();
+            if (refreshed) {
+              access_token = refreshed.access_token;
+              realm_id = refreshed.realm_id;
+              token_expires_at = refreshed.token_expires_at;
+              qbHeaders["Authorization"] = `Bearer ${access_token}`;
+
+              companyAttempt = await fetchWithSandboxFallback(
+                (baseUrl) => `${baseUrl}/${realm_id}/companyinfo/${realm_id}`,
+                qbHeaders
+              );
+            }
+          }
+
+          if (companyAttempt.res) {
+            const companyData = await companyAttempt.res.json();
+            return new Response(
+              JSON.stringify({
+                entities: [
+                  {
+                    Id: realm_id,
+                    Name: companyData.CompanyInfo?.CompanyName || "Unknown Company",
+                  },
+                ],
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
 
           console.error("QB API Error (companyinfo):", companyAttempt.errorText);
           return new Response(
@@ -202,7 +268,7 @@ Deno.serve(async (req) => {
         );
     }
 
-    const queryAttempt = await fetchWithSandboxFallback(
+    let queryAttempt = await fetchWithSandboxFallback(
       (baseUrl) => `${baseUrl}/${realm_id}/query?query=${encodeURIComponent(query)}`,
       qbHeaders
     );
@@ -214,6 +280,41 @@ Deno.serve(async (req) => {
         queryAttempt.status ?? 500,
         queryAttempt.errorText ?? ""
       );
+
+      // One recovery attempt: refresh token and retry the query.
+      if (authFailed && !didRefreshAfterAuthFailure) {
+        didRefreshAfterAuthFailure = true;
+        const refreshed = await refreshAndReloadTokens();
+        if (refreshed) {
+          access_token = refreshed.access_token;
+          realm_id = refreshed.realm_id;
+          token_expires_at = refreshed.token_expires_at;
+          qbHeaders["Authorization"] = `Bearer ${access_token}`;
+
+          queryAttempt = await fetchWithSandboxFallback(
+            (baseUrl) => `${baseUrl}/${realm_id}/query?query=${encodeURIComponent(query)}`,
+            qbHeaders
+          );
+        }
+      }
+
+      if (queryAttempt.res) {
+        const data = await queryAttempt.res.json();
+        const entities = data.QueryResponse?.[resultKey] || [];
+
+        // Format response based on entity type
+        const formattedEntities = entities.map((entity: any) => ({
+          id: entity.Id,
+          name: entity.Name || entity.FullyQualifiedName || entity.DisplayName,
+          type: entity.AccountType || entity.Type || entityType,
+          subType: entity.AccountSubType || null,
+        }));
+
+        return new Response(
+          JSON.stringify({ entities: formattedEntities }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       return new Response(
         JSON.stringify({

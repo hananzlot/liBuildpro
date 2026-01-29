@@ -25,12 +25,20 @@ export function useQuickBooksCallback() {
       const realmId = searchParams.get("realmId");
       const state = searchParams.get("state");
 
+      // In development (React strict mode) effects can run twice due to mount/unmount.
+      // Intuit auth codes are single-use; double-submitting causes `invalid_grant`.
+      const processedKey = code ? `qb_oauth_processed:${code}` : null;
+      if (processedKey && sessionStorage.getItem(processedKey)) {
+        return;
+      }
+
       // Only process if we have all OAuth params and haven't already processed
       if (!code || !realmId || !state || processingRef.current) {
         return;
       }
 
       processingRef.current = true;
+      if (processedKey) sessionStorage.setItem(processedKey, "1");
 
       try {
         // Parse state to get company ID
