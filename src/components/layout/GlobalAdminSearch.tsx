@@ -112,19 +112,19 @@ export function GlobalAdminSearch() {
     staleTime: 60 * 1000,
   });
 
-  // Fetch projects for search
+  // Fetch projects for search (also used for opportunity address lookup)
   const { data: projects = [] } = useQuery({
     queryKey: ["global-search-projects", companyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name, project_address, primary_salesperson, cell_phone")
+        .select("id, project_number, project_name, project_status, customer_first_name, customer_last_name, project_address, primary_salesperson, cell_phone, opportunity_id")
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .order("project_number", { ascending: false })
         .limit(500);
       if (error) throw error;
-      return data as Project[];
+      return data as (Project & { opportunity_id?: string | null })[];
     },
     enabled: !!companyId && isOpen,
     staleTime: 60 * 1000,
@@ -135,10 +135,22 @@ export function GlobalAdminSearch() {
     return phone.replace(/\D/g, "");
   };
 
-  const getAddressWithFallback = (contactId: string | null): string => {
-    if (!contactId) return "";
-    const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
-    return getAddressFromContact(contact, appointments, contactId) || "";
+  // Enhanced address lookup: contact custom_fields → appointment address → project address
+  const getAddressWithFallback = (contactId: string | null, oppGhlId?: string | null): string => {
+    // 1. Try contact custom_fields
+    if (contactId) {
+      const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
+      const contactAddress = getAddressFromContact(contact, appointments, contactId);
+      if (contactAddress) return contactAddress;
+    }
+    
+    // 2. Try linked project address (by opportunity_id matching ghl_id)
+    if (oppGhlId) {
+      const linkedProject = projects.find(p => p.opportunity_id === oppGhlId);
+      if (linkedProject?.project_address) return linkedProject.project_address;
+    }
+    
+    return "";
   };
 
   const filteredOpportunities = useMemo(() => {
@@ -155,7 +167,7 @@ export function GlobalAdminSearch() {
         const contactName =
           contact?.contact_name?.toLowerCase() ||
           `${contact?.first_name || ""} ${contact?.last_name || ""}`.toLowerCase();
-        const address = getAddressWithFallback(opp.contact_id).toLowerCase();
+        const address = getAddressWithFallback(opp.contact_id, opp.ghl_id).toLowerCase();
         const phone = normalizePhone(contact?.phone);
 
         let phoneMatch = false;
@@ -171,7 +183,7 @@ export function GlobalAdminSearch() {
         );
       })
       .slice(0, 8);
-  }, [searchQuery, opportunities, contacts]);
+  }, [searchQuery, opportunities, contacts, projects, appointments]);
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -180,7 +192,7 @@ export function GlobalAdminSearch() {
     const queryDigits = searchQuery.replace(/\D/g, "");
     const isPhoneSearch = /^\d+$/.test(queryLower.replace(/[\s\-\(\)]/g, ""));
     
-    return projects
+    return (projects as Project[])
       .filter((proj) => {
         const name = proj.project_name?.toLowerCase() || "";
         const customerName = `${proj.customer_first_name || ""} ${proj.customer_last_name || ""}`.toLowerCase();
@@ -328,7 +340,7 @@ export function GlobalAdminSearch() {
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="font-medium truncate text-sm">
-                              {getAddressWithFallback(opp.contact_id) || "No address"}
+                              {getAddressWithFallback(opp.contact_id, opp.ghl_id) || "No address"}
                             </div>
                             <div className="text-xs text-muted-foreground truncate">
                               {getContactName(opp.contact_id)}
