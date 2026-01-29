@@ -295,8 +295,8 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
             <TableRow>
               <TableHead>Project</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Requested At</TableHead>
               <TableHead>Duration</TableHead>
-              <TableHead>Completed</TableHead>
               <TableHead>User</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -341,21 +341,16 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
                   </TableCell>
                   
                   <TableCell>
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Timer className="h-3.5 w-3.5" />
-                      <span>{duration}</span>
+                    <div className="text-sm">
+                      <p className="font-medium">{format(new Date(job.created_at), "MMM d, yyyy")}</p>
+                      <p className="text-muted-foreground text-xs">{format(new Date(job.created_at), "h:mm:ss a")}</p>
                     </div>
                   </TableCell>
                   
                   <TableCell>
                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span title={job.completed_at ? format(new Date(job.completed_at), "PPpp") : undefined}>
-                        {job.completed_at 
-                          ? formatDistanceToNow(new Date(job.completed_at), { addSuffix: true })
-                          : "—"
-                        }
-                      </span>
+                      <Timer className="h-3.5 w-3.5" />
+                      <span>{duration}</span>
                     </div>
                   </TableCell>
                   
