@@ -6173,6 +6173,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      backfill_contact_addresses_from_projects: {
+        Args: never
+        Returns: {
+          contacts_updated: number
+          opportunities_updated: number
+        }[]
+      }
       backfill_contact_uuids: { Args: never; Returns: undefined }
       generate_company_encryption_key: {
         Args: { p_company_id: string }
