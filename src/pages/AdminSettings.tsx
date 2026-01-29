@@ -742,7 +742,7 @@ export default function AdminSettings() {
                 <LogoUpload />
 
                 {/* Company Settings - Collapsible */}
-                <Collapsible defaultOpen={false}>
+                <Collapsible defaultOpen={false} className="group">
                   <Card>
                     <CollapsibleTrigger asChild>
                       <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -767,7 +767,7 @@ export default function AdminSettings() {
                 </Collapsible>
 
                 {/* Portal Settings - Collapsible */}
-                <Collapsible defaultOpen={false}>
+                <Collapsible defaultOpen={false} className="group">
                   <Card>
                     <CollapsibleTrigger asChild>
                       <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -792,7 +792,7 @@ export default function AdminSettings() {
                 </Collapsible>
 
                 {/* Estimate Settings - Collapsible */}
-                <Collapsible defaultOpen={false}>
+                <Collapsible defaultOpen={false} className="group">
                   <Card>
                     <CollapsibleTrigger asChild>
                       <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1135,7 +1135,7 @@ export default function AdminSettings() {
                 {/* Stage Badge Mappings */}
                 <StageBadgeMappingsEditor />
 
-                <Collapsible defaultOpen={false}>
+                <Collapsible defaultOpen={false} className="group">
                   <Card>
                     <CollapsibleTrigger asChild>
                       <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1188,7 +1188,7 @@ export default function AdminSettings() {
           {/* GHL Integrations Tab */}
           <TabsContent value="integrations" className="mt-6 space-y-6">
             {/* GHL Integration Toggle */}
-            <Collapsible defaultOpen={false}>
+            <Collapsible defaultOpen={false} className="group">
               <Card>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1251,7 +1251,7 @@ export default function AdminSettings() {
           {/* Custom Settings Tab */}
           <TabsContent value="custom" className="mt-6 space-y-6">
             {/* API Keys Settings */}
-            <Collapsible defaultOpen={false}>
+            <Collapsible defaultOpen={false} className="group">
               <Card>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1418,7 +1418,7 @@ export default function AdminSettings() {
           {/* Emails Tab */}
           <TabsContent value="emails" className="mt-6 space-y-6">
             {/* Resend API Configuration - Collapsible */}
-            <Collapsible defaultOpen={false}>
+            <Collapsible defaultOpen={false} className="group">
               <Card>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1530,7 +1530,7 @@ export default function AdminSettings() {
             </Collapsible>
 
             {/* Email Settings (Resend) */}
-            <Collapsible defaultOpen={false}>
+            <Collapsible defaultOpen={false} className="group">
               <Card>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1606,7 +1606,7 @@ export default function AdminSettings() {
 
           {/* Payables & Receivables Tab */}
           <TabsContent value="payables" className="mt-6">
-            <Collapsible defaultOpen={false}>
+            <Collapsible defaultOpen={false} className="group">
               <Card>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">

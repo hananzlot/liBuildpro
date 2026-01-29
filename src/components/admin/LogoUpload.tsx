@@ -6,10 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Upload, Loader2, Trash2, Image, Link, Save, Download } from "lucide-react";
+import { Upload, Loader2, Trash2, Image, Link, Save, Download, ChevronDown } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 export function LogoUpload() {
   const { company } = useAuth();
   const companyId = company?.id;
@@ -199,17 +203,24 @@ export function LogoUpload() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Image className="h-5 w-5" />
-          Company Logo
-        </CardTitle>
-        <CardDescription>
-          Upload your company logo. It will be displayed in the customer portal, emails, and as the site favicon.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Collapsible defaultOpen={false} className="group">
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Image className="h-5 w-5" />
+                Company Logo
+              </span>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </CardTitle>
+            <CardDescription>
+              Upload your company logo. It will be displayed in the customer portal, emails, and as the site favicon.
+            </CardDescription>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-6 pt-0">
         {/* Current Logo Preview */}
         {currentLogoUrl && (
           <div className="space-y-3">
@@ -328,7 +339,9 @@ export function LogoUpload() {
             Loading current logo...
           </div>
         )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }
