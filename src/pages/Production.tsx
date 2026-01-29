@@ -1613,6 +1613,21 @@ export default function Production() {
                   onDateRangeChange={setKpiDateRange}
                 />
                 <div className="flex gap-2 shrink-0">
+                  {isAdmin && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => createTestProjectMutation.mutate()}
+                      disabled={createTestProjectMutation.isPending}
+                    >
+                      {createTestProjectMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FlaskConical className="h-4 w-4 mr-2" />
+                      )}
+                      Add Test Project
+                    </Button>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
                     <Upload className="h-4 w-4 mr-2" />
                     Import
@@ -1916,25 +1931,6 @@ export default function Production() {
               {/* Subcontractor Expiration Warnings */}
               <SubcontractorWarningsCard />
 
-              {/* Admin Test Project Button */}
-              {isAdmin && (
-                <div className="flex justify-end">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => createTestProjectMutation.mutate()}
-                    disabled={createTestProjectMutation.isPending}
-                  >
-                    {createTestProjectMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <FlaskConical className="h-4 w-4 mr-2" />
-                    )}
-                    Add Test Project
-                  </Button>
-                </div>
-              )}
-              
               {/* Show matched financial sections when searching by amount */}
               {matchedFinancialSections.size > 0 && (
                 <div className="flex items-center gap-2 flex-wrap text-sm">
