@@ -417,6 +417,7 @@ export function SendProposalDialog({
             client_email: email || null,
             client_name: customerName,
             created_by: user.user?.id,
+            company_id: companyId,
           })
           .select()
           .single();
