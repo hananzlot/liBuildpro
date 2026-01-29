@@ -25,6 +25,7 @@ interface PortalDocumentsProps {
   agreements?: any[];
   projectId: string;
   uploadLimitMb?: number;
+  companyId?: string | null;
 }
 
 const ALLOWED_TYPES = [
@@ -39,7 +40,7 @@ const ALLOWED_TYPES = [
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.csv'];
 
-export function PortalDocuments({ documents, agreements = [], projectId, uploadLimitMb = 15 }: PortalDocumentsProps) {
+export function PortalDocuments({ documents, agreements = [], projectId, uploadLimitMb = 15, companyId }: PortalDocumentsProps) {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -156,7 +157,8 @@ export function PortalDocuments({ documents, agreements = [], projectId, uploadL
             file_url: publicUrl,
             file_type: file.type,
             category: 'Customer Upload',
-            notes: 'Document uploaded by customer via portal'
+            notes: 'Document uploaded by customer via portal',
+            company_id: companyId || null,
           });
 
         if (dbError) {

@@ -26,11 +26,12 @@ interface PortalPhotosProps {
   documents: any[];
   projectId: string;
   uploadLimitMb?: number;
+  companyId?: string | null;
 }
 
 type ViewMode = 'grid' | 'timeline' | 'categorized';
 
-export function PortalPhotos({ documents, projectId, uploadLimitMb = 15 }: PortalPhotosProps) {
+export function PortalPhotos({ documents, projectId, uploadLimitMb = 15, companyId }: PortalPhotosProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
@@ -90,7 +91,8 @@ export function PortalPhotos({ documents, projectId, uploadLimitMb = 15 }: Porta
             file_url: publicUrl,
             file_type: file.type,
             category: 'Customer Upload',
-            notes: 'Uploaded by customer via portal'
+            notes: 'Uploaded by customer via portal',
+            company_id: companyId || null,
           });
 
         if (dbError) {
