@@ -53,14 +53,15 @@ export function QuickBooksIntegration() {
   // which runs at a higher level (App.tsx) to ensure it processes
   // even before company context is restored after page reload.
 
-  // Connect mutation
+  // Connect mutation - accepts optional forceCompanySelect flag
   const connectMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (forceCompanySelect?: boolean) => {
       const { data, error } = await supabase.functions.invoke("quickbooks-auth", {
         body: {
           action: "get-auth-url",
           companyId,
           redirectUri: `${window.location.origin}/admin/settings`,
+          forceCompanySelect: forceCompanySelect ?? false,
         },
       });
 
@@ -125,9 +126,9 @@ export function QuickBooksIntegration() {
     },
   });
 
-  const handleConnect = () => {
+  const handleConnect = (forceCompanySelect?: boolean) => {
     setIsConnecting(true);
-    connectMutation.mutate();
+    connectMutation.mutate(forceCompanySelect);
   };
 
   if (isLoading) {
@@ -212,6 +213,18 @@ export function QuickBooksIntegration() {
               </Button>
               <Button
                 variant="outline"
+                onClick={() => handleConnect(true)}
+                disabled={isConnecting || connectMutation.isPending}
+                title="Reconnect and choose a different QuickBooks company"
+              >
+                {isConnecting || connectMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Link2 className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => disconnectMutation.mutate()}
                 disabled={disconnectMutation.isPending}
               >
@@ -225,7 +238,7 @@ export function QuickBooksIntegration() {
           </>
         ) : (
           <Button
-            onClick={handleConnect}
+            onClick={() => handleConnect()}
             disabled={isConnecting || connectMutation.isPending}
             className="w-full"
           >

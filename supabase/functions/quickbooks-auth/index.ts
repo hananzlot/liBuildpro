@@ -34,12 +34,13 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { action, companyId, code, realmId, redirectUri } = await req.json();
+    const { action, companyId, code, realmId, redirectUri, forceCompanySelect } = await req.json();
 
     if (action === "get-auth-url") {
       console.log("Action: get-auth-url");
       console.log("Company ID:", companyId);
       console.log("Redirect URI:", redirectUri);
+      console.log("Force company select:", forceCompanySelect);
       
       // Generate OAuth URL for the user to authorize
       if (!companyId || !redirectUri) {
@@ -53,9 +54,16 @@ Deno.serve(async (req) => {
       const state = btoa(JSON.stringify({ companyId }));
       const scopes = "com.intuit.quickbooks.accounting";
       
-      const authUrl = `${QUICKBOOKS_AUTH_URL}?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
+      // Build auth URL with optional prompt parameter
+      // Using prompt=consent forces re-authentication and company selection
+      let authUrl = `${QUICKBOOKS_AUTH_URL}?client_id=${clientId}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
+      
+      if (forceCompanySelect) {
+        // prompt=login forces user to log in again and pick a company
+        authUrl += "&prompt=login";
+      }
 
-      console.log("Generated auth URL (without sensitive params):", `${QUICKBOOKS_AUTH_URL}?client_id=***&response_type=code&scope=${scopes}`);
+      console.log("Generated auth URL (without sensitive params):", `${QUICKBOOKS_AUTH_URL}?client_id=***&response_type=code&scope=${scopes}${forceCompanySelect ? '&prompt=login' : ''}`);
 
       return new Response(
         JSON.stringify({ authUrl }),
