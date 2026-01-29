@@ -23,6 +23,7 @@ import { ChatManagement } from "@/components/admin/ChatManagement";
 import { LogoUpload } from "@/components/admin/LogoUpload";
 import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager";
 import { AIAnalysisSettings } from "@/components/admin/AIAnalysisSettings";
+import { AIEstimatorSettings } from "@/components/admin/AIEstimatorSettings";
 import { GHLFieldMappings } from "@/components/admin/GHLFieldMappings";
 import { GoogleCalendarManager } from "@/components/admin/GoogleCalendarManager";
 import { QuickBooksIntegration } from "@/components/admin/QuickBooksIntegration";
@@ -1328,6 +1329,8 @@ export default function AdminSettings() {
               </Card>
             </Collapsible>
 
+            <AIEstimatorSettings />
+            
             <AIAnalysisSettings />
             
             {/* Google Calendar Connections */}
