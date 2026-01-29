@@ -1213,6 +1213,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           estimate_id: targetEstimateId,
           company_id: companyId,
           status: 'pending',
+          created_by: user?.id || null,
           request_params: {
             projectType: formData.estimate_title,
             workScopeDescription: formData.work_scope_description,

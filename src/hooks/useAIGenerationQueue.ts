@@ -67,11 +67,19 @@ export function useAIGenerationQueue() {
 
     return jobs.map((job) => {
       const profile = job.created_by ? profilesMap[job.created_by] : null;
+      const requestParams = job.request_params as QueuedJob["request_params"];
+      
+      // For portal-created jobs, use salesperson_name from request_params
+      const creatorName = profile?.full_name 
+        || requestParams?.salesperson_name as string | undefined 
+        || null;
+      const creatorEmail = profile?.email || null;
+      
       return {
         ...job,
-        request_params: job.request_params as QueuedJob["request_params"],
-        creator_name: profile?.full_name || null,
-        creator_email: profile?.email || null,
+        request_params: requestParams,
+        creator_name: creatorName,
+        creator_email: creatorEmail,
         estimate_number: estimatesMap[job.estimate_id] ?? null,
       };
     });

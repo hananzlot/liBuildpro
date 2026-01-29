@@ -163,6 +163,8 @@ serve(async (req) => {
         customer_name: safeCustomerName,
         work_scope: workScope.trim(),
         created_from: "salesperson_portal",
+        salesperson_id: salespersonId,
+        salesperson_name: salespersonName,
       },
     }).select("id").single();
 
