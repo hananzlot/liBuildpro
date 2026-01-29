@@ -127,6 +127,18 @@ export function QuickBooksIntegration() {
   });
 
   const handleConnect = (forceCompanySelect?: boolean) => {
+    if (forceCompanySelect) {
+      // Show alert before reconnecting to set expectations
+      const confirmed = window.confirm(
+        "To connect a different QuickBooks company:\n\n" +
+        "1. A new window will open to QuickBooks\n" +
+        "2. You'll be asked to sign in\n" +
+        "3. IMPORTANT: If you have multiple companies, make sure to select the correct one during sign-in\n\n" +
+        "If you're already logged into QuickBooks, you may need to first go to qbo.intuit.com and switch companies before reconnecting.\n\n" +
+        "Continue?"
+      );
+      if (!confirmed) return;
+    }
     setIsConnecting(true);
     connectMutation.mutate(forceCompanySelect);
   };
@@ -215,12 +227,16 @@ export function QuickBooksIntegration() {
                 variant="outline"
                 onClick={() => handleConnect(true)}
                 disabled={isConnecting || connectMutation.isPending}
-                title="Reconnect and choose a different QuickBooks company"
+                title="Switch to a different QuickBooks company"
+                className="gap-1"
               >
                 {isConnecting || connectMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <Link2 className="h-4 w-4" />
+                  <>
+                    <Link2 className="h-4 w-4" />
+                    <span className="hidden sm:inline text-xs">Switch Company</span>
+                  </>
                 )}
               </Button>
               <Button
