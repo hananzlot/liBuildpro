@@ -251,6 +251,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
   // Linked opportunity tracking
   const [linkedOpportunityUuid, setLinkedOpportunityUuid] = useState<string | null>(null);
   const [linkedOpportunityGhlId, setLinkedOpportunityGhlId] = useState<string | null>(null);
+  
+  // Linked contact tracking
+  const [linkedContactUuid, setLinkedContactUuid] = useState<string | null>(null);
+  const [linkedContactId, setLinkedContactId] = useState<string | null>(null);
 
   // Draft string values for money inputs so users can type decimals (e.g. "12.")
   const [costDrafts, setCostDrafts] = useState<Record<string, string>>({});
@@ -692,6 +696,13 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       // Set linked project
       setLinkedProjectId(est.project_id || null);
       
+      // CRITICAL: Set linked opportunity and contact IDs from existing estimate
+      // Without this, re-saving an existing estimate clears these links
+      setLinkedOpportunityUuid(est.opportunity_uuid || null);
+      setLinkedOpportunityGhlId(est.opportunity_id || null);
+      setLinkedContactUuid(est.contact_uuid || null);
+      setLinkedContactId(est.contact_id || null);
+      
       // Set the estimate's company ID (important for Super Admins editing existing estimates)
       if (est.company_id) {
         setEstimateCompanyId(est.company_id);
@@ -766,6 +777,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setLinkedProjectId(null);
       setLinkedOpportunityUuid(null);
       setLinkedOpportunityGhlId(null);
+      setLinkedContactUuid(null);
+      setLinkedContactId(null);
       setPlansFileUrl(null);
       setPlansFileName(null);
       setEstimateCompanyId(null); // Reset for new estimates - will use contextCompanyId
@@ -789,6 +802,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       if (linkedOpportunity.id) {
         setLinkedOpportunityUuid(linkedOpportunity.id);
         setLinkedOpportunityGhlId(linkedOpportunity.ghl_id);
+      }
+      
+      // Set contact tracking from opportunity
+      if (linkedOpportunity.contact_uuid) {
+        setLinkedContactUuid(linkedOpportunity.contact_uuid);
+        setLinkedContactId(linkedOpportunity.contact_id);
       }
       
       // Determine the work scope: prefer initialWorkScope, then linkedOpportunity.scope_of_work
@@ -1123,6 +1142,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           company_id: companyId,
           opportunity_uuid: linkedOpportunityUuid || null,
           opportunity_id: linkedOpportunityGhlId || null,
+          contact_uuid: linkedContactUuid || null,
+          contact_id: linkedContactId || null,
           plans_file_url: plansFileUrl || null,
           status: 'draft' as const,
         };
@@ -1187,6 +1208,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
           salesperson_id: getSalespersonId(formData.salesperson_name),
           opportunity_uuid: linkedOpportunityUuid || null,
           opportunity_id: linkedOpportunityGhlId || null,
+          contact_uuid: linkedContactUuid || null,
+          contact_id: linkedContactId || null,
           plans_file_url: plansFileUrl || null,
         };
         
@@ -1778,6 +1801,8 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         company_id: companyId,
         opportunity_uuid: linkedOpportunityUuid || null,
         opportunity_id: linkedOpportunityGhlId || null,
+        contact_uuid: linkedContactUuid || null,
+        contact_id: linkedContactId || null,
         ai_analysis: aiAnalysisData,
         plans_file_url: plansFileUrl || null,
       };
