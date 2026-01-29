@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatUnit } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { SignatureCanvas } from '../SignatureCanvas';
+import { ComplianceSigningFlow } from '../ComplianceSigningFlow';
 import { updateOpportunityValueFromEstimates } from '@/lib/estimateValueUtils';
 import { 
   FileText, 
@@ -29,6 +30,7 @@ import {
   Phone,
   Mail,
   Loader2,
+  FileSignature,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -84,6 +86,76 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     data: string;
     font?: string;
   } | null>(null);
+
+  // Compliance flow state
+  const [complianceFlowOpen, setComplianceFlowOpen] = useState(false);
+  const [complianceComplete, setComplianceComplete] = useState(false);
+  const [compliancePackageEnabled, setCompliancePackageEnabled] = useState(false);
+  const [complianceSettingLoaded, setComplianceSettingLoaded] = useState(false);
+
+  // Get selected estimate for compliance flow
+  const selectedEstimate = estimates.find(e => e.id === selectedEstimateId);
+
+  // Fetch compliance package enabled setting
+  useEffect(() => {
+    const fetchComplianceSetting = async () => {
+      // Use the selected estimate's company_id or fall back to context companyId
+      const effectiveCompanyId = selectedEstimate?.company_id || companyId;
+
+      console.log('[Compliance-Proposals] Fetching setting for company:', effectiveCompanyId);
+
+      if (!effectiveCompanyId) {
+        console.log('[Compliance-Proposals] No company ID found, disabling compliance');
+        setCompliancePackageEnabled(false);
+        setComplianceSettingLoaded(true);
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('company_id', effectiveCompanyId)
+        .eq('setting_key', 'compliance_package_enabled')
+        .maybeSingle();
+      
+      console.log('[Compliance-Proposals] company_settings query result:', { data, error });
+      
+      if (!error) {
+        const enabled = String(data?.setting_value ?? '').toLowerCase() === 'true';
+        console.log('[Compliance-Proposals] Setting enabled from company_settings:', enabled);
+        setCompliancePackageEnabled(enabled);
+        setComplianceSettingLoaded(true);
+      } else {
+        // Fallback: check if company has any active compliance templates
+        console.log('[Compliance-Proposals] Falling back to template check due to error:', error);
+        const { data: template } = await supabase
+          .from('compliance_document_templates')
+          .select('id')
+          .eq('company_id', effectiveCompanyId)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+
+        const enabled = !!template?.id;
+        console.log('[Compliance-Proposals] Setting enabled from templates fallback:', enabled);
+        setCompliancePackageEnabled(enabled);
+        setComplianceSettingLoaded(true);
+      }
+    };
+    
+    // Only fetch when we're viewing a proposal
+    if (viewingProposal && selectedEstimateId) {
+      fetchComplianceSetting();
+    }
+  }, [viewingProposal, selectedEstimateId, selectedEstimate?.company_id, companyId]);
+
+  // Reset compliance state when changing proposals
+  useEffect(() => {
+    if (!viewingProposal) {
+      setComplianceComplete(false);
+      setComplianceSettingLoaded(false);
+    }
+  }, [viewingProposal]);
 
   const formatCurrency = (amount: number | null) => {
     if (amount === null || amount === undefined) return '$0.00';
@@ -832,7 +904,11 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                 <CardContent className="py-6">
                   <div className="text-center mb-4">
                     <h3 className="font-semibold text-lg">Ready to proceed?</h3>
-                    <p className="text-sm text-muted-foreground">Review the proposal above and accept or request changes</p>
+                    <p className="text-sm text-muted-foreground">
+                      {complianceComplete 
+                        ? 'All required documents signed. You can now sign the proposal.'
+                        : 'Review the proposal above and accept or request changes'}
+                    </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4">
                     <Button
@@ -847,10 +923,32 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                     <Button
                       className="flex-1"
                       size="lg"
-                      onClick={() => setSignatureDialogOpen(true)}
+                      disabled={!complianceSettingLoaded}
+                      onClick={() => {
+                        // If compliance is enabled and not yet complete, open compliance flow first
+                        if (!complianceComplete && compliancePackageEnabled) {
+                          setComplianceFlowOpen(true);
+                        } else {
+                          setSignatureDialogOpen(true);
+                        }
+                      }}
                     >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Accept & Sign Proposal
+                      {!complianceSettingLoaded ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : complianceComplete || !compliancePackageEnabled ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Sign Proposal
+                        </>
+                      ) : (
+                        <>
+                          <FileSignature className="h-4 w-4 mr-2" />
+                          Approve & Sign Documents
+                        </>
+                      )}
                     </Button>
                   </div>
                 </CardContent>
@@ -1193,6 +1291,24 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
           );
         })}
       </div>
+
+      {/* Compliance Signing Flow */}
+      {selectedEstimateId && selectedEstimate && (
+        <ComplianceSigningFlow
+          open={complianceFlowOpen}
+          onOpenChange={setComplianceFlowOpen}
+          estimateId={selectedEstimateId}
+          companyId={selectedEstimate.company_id || companyId || ''}
+          customerName={signerName || selectedEstimate.customer_name || ''}
+          customerEmail={signerEmail || selectedEstimate.customer_email || ''}
+          onAllSigned={() => {
+            setComplianceComplete(true);
+            setComplianceFlowOpen(false);
+            // Automatically open the main proposal signature dialog
+            setSignatureDialogOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 }
