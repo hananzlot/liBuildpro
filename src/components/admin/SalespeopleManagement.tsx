@@ -30,8 +30,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Salesperson {
   id: string;
@@ -64,6 +66,10 @@ export function SalespeopleManagement() {
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [selectedForMerge, setSelectedForMerge] = useState<Set<string>>(new Set());
   const [primaryMergeId, setPrimaryMergeId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [salespersonToDelete, setSalespersonToDelete] = useState<Salesperson | null>(null);
+  const [deleteAction, setDeleteAction] = useState<'archive' | 'reassign'>('archive');
+  const [reassignToId, setReassignToId] = useState<string>('');
 
   const { data: salespeople = [], isLoading } = useQuery({
     queryKey: ['salespeople', companyId],
@@ -182,6 +188,56 @@ export function SalespeopleManagement() {
     },
   });
 
+  // Fetch assigned record counts for each salesperson
+  const { data: assignedCounts = {} } = useQuery({
+    queryKey: ['salesperson-assigned-counts', companyId],
+    queryFn: async () => {
+      const counts: Record<string, { projects: number; opportunities: number; appointments: number; estimates: number }> = {};
+      
+      for (const sp of salespeople) {
+        // Count projects by name
+        const { count: projectCount } = await supabase
+          .from('projects')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', companyId)
+          .is('deleted_at', null)
+          .or(`primary_salesperson.eq.${sp.name},secondary_salesperson.eq.${sp.name},tertiary_salesperson.eq.${sp.name},quaternary_salesperson.eq.${sp.name}`);
+        
+        // Count opportunities by salesperson_id
+        const { count: oppCount } = await supabase
+          .from('opportunities')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', companyId)
+          .eq('salesperson_id', sp.id);
+        
+        // Count appointments by salesperson_id
+        const { count: apptCount } = await supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', companyId)
+          .eq('salesperson_id', sp.id);
+        
+        // Count estimates by salesperson_name or salesperson_id
+        const { count: estCount } = await supabase
+          .from('estimates')
+          .select('*', { count: 'exact', head: true })
+          .eq('company_id', companyId)
+          .or(`salesperson_name.eq.${sp.name},salesperson_id.eq.${sp.id}`);
+        
+        counts[sp.id] = {
+          projects: projectCount || 0,
+          opportunities: oppCount || 0,
+          appointments: apptCount || 0,
+          estimates: estCount || 0,
+        };
+      }
+      
+      return counts;
+    },
+    enabled: !!companyId && salespeople.length > 0,
+    staleTime: 30 * 1000,
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -193,9 +249,112 @@ export function SalespeopleManagement() {
     onSuccess: () => {
       toast.success('Salesperson deleted');
       queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['salesperson-assigned-counts', companyId] });
     },
     onError: (error: Error) => {
       toast.error(`Failed to delete: ${error.message}`);
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('salespeople')
+        .update({ is_active: false })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Salesperson archived');
+      queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
+      setDeleteDialogOpen(false);
+      setSalespersonToDelete(null);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to archive: ${error.message}`);
+    },
+  });
+
+  const reassignAndDeleteMutation = useMutation({
+    mutationFn: async ({ fromId, toId }: { fromId: string; toId: string }) => {
+      const fromSp = salespeople.find(s => s.id === fromId);
+      const toSp = salespeople.find(s => s.id === toId);
+      
+      if (!fromSp || !toSp) throw new Error('Invalid salesperson selection');
+
+      // Reassign projects
+      await supabase
+        .from('projects')
+        .update({ primary_salesperson: toSp.name })
+        .eq('company_id', companyId)
+        .eq('primary_salesperson', fromSp.name);
+      
+      await supabase
+        .from('projects')
+        .update({ secondary_salesperson: toSp.name })
+        .eq('company_id', companyId)
+        .eq('secondary_salesperson', fromSp.name);
+      
+      await supabase
+        .from('projects')
+        .update({ tertiary_salesperson: toSp.name })
+        .eq('company_id', companyId)
+        .eq('tertiary_salesperson', fromSp.name);
+      
+      await supabase
+        .from('projects')
+        .update({ quaternary_salesperson: toSp.name })
+        .eq('company_id', companyId)
+        .eq('quaternary_salesperson', fromSp.name);
+
+      // Reassign opportunities
+      await supabase
+        .from('opportunities')
+        .update({ salesperson_id: toId })
+        .eq('company_id', companyId)
+        .eq('salesperson_id', fromId);
+
+      // Reassign appointments
+      await supabase
+        .from('appointments')
+        .update({ salesperson_id: toId })
+        .eq('company_id', companyId)
+        .eq('salesperson_id', fromId);
+
+      // Reassign estimates
+      await supabase
+        .from('estimates')
+        .update({ salesperson_name: toSp.name, salesperson_id: toId })
+        .eq('company_id', companyId)
+        .or(`salesperson_name.eq.${fromSp.name},salesperson_id.eq.${fromId}`);
+
+      // Delete portal tokens for this salesperson
+      await supabase
+        .from('salesperson_portal_tokens')
+        .delete()
+        .eq('salesperson_id', fromId);
+
+      // Now delete the salesperson
+      const { error } = await supabase
+        .from('salespeople')
+        .delete()
+        .eq('id', fromId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Records reassigned and salesperson deleted');
+      queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['salesperson-assigned-counts', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] });
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      setDeleteDialogOpen(false);
+      setSalespersonToDelete(null);
+      setReassignToId('');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to reassign: ${error.message}`);
     },
   });
 
@@ -311,6 +470,40 @@ export function SalespeopleManagement() {
     }
   };
 
+  const handleDeleteClick = (salesperson: Salesperson) => {
+    const counts = assignedCounts[salesperson.id];
+    const totalAssigned = counts 
+      ? counts.projects + counts.opportunities + counts.appointments + counts.estimates 
+      : 0;
+    
+    if (totalAssigned === 0) {
+      // No assigned records - can delete directly
+      if (confirm(`Delete "${salesperson.name}"? This cannot be undone.`)) {
+        deleteMutation.mutate(salesperson.id);
+      }
+    } else {
+      // Has assigned records - show dialog with options
+      setSalespersonToDelete(salesperson);
+      setDeleteAction('archive');
+      setReassignToId('');
+      setDeleteDialogOpen(true);
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!salespersonToDelete) return;
+    
+    if (deleteAction === 'archive') {
+      archiveMutation.mutate(salespersonToDelete.id);
+    } else if (deleteAction === 'reassign' && reassignToId) {
+      reassignAndDeleteMutation.mutate({ 
+        fromId: salespersonToDelete.id, 
+        toId: reassignToId 
+      });
+    } else {
+      toast.error('Please select a salesperson to reassign records to');
+    }
+  };
 
   const missingSalespeople = projectSalespeople.filter(
     name => !salespeople.some(s => s.name.toLowerCase() === name.toLowerCase())
@@ -625,11 +818,7 @@ export function SalespeopleManagement() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive"
-                            onClick={() => {
-                              if (confirm('Delete this salesperson?')) {
-                                deleteMutation.mutate(person.id);
-                              }
-                            }}
+                            onClick={() => handleDeleteClick(person)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -778,6 +967,113 @@ export function SalespeopleManagement() {
               >
                 {mergeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Merge Records
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete/Archive Salesperson Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={(open) => { 
+          setDeleteDialogOpen(open); 
+          if (!open) {
+            setSalespersonToDelete(null);
+            setReassignToId('');
+          }
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-warning" />
+                Salesperson Has Assigned Records
+              </DialogTitle>
+              <DialogDescription>
+                "{salespersonToDelete?.name}" is assigned to records that need to be handled before removal.
+              </DialogDescription>
+            </DialogHeader>
+
+            {salespersonToDelete && assignedCounts[salespersonToDelete.id] && (
+              <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+                <p className="font-medium">Assigned Records:</p>
+                <ul className="text-muted-foreground space-y-0.5">
+                  {assignedCounts[salespersonToDelete.id].projects > 0 && (
+                    <li>• {assignedCounts[salespersonToDelete.id].projects} project(s)</li>
+                  )}
+                  {assignedCounts[salespersonToDelete.id].opportunities > 0 && (
+                    <li>• {assignedCounts[salespersonToDelete.id].opportunities} opportunity(ies)</li>
+                  )}
+                  {assignedCounts[salespersonToDelete.id].appointments > 0 && (
+                    <li>• {assignedCounts[salespersonToDelete.id].appointments} appointment(s)</li>
+                  )}
+                  {assignedCounts[salespersonToDelete.id].estimates > 0 && (
+                    <li>• {assignedCounts[salespersonToDelete.id].estimates} estimate(s)</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            <div className="space-y-4 py-2">
+              <RadioGroup value={deleteAction} onValueChange={(v) => setDeleteAction(v as 'archive' | 'reassign')}>
+                <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="archive" id="archive" className="mt-0.5" />
+                  <div className="space-y-1">
+                    <Label htmlFor="archive" className="font-medium cursor-pointer flex items-center gap-2">
+                      <Archive className="h-4 w-4" />
+                      Archive Salesperson
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Hide from the directory but keep all record assignments intact. Can be restored later.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="reassign" id="reassign" className="mt-0.5" />
+                  <div className="space-y-1 flex-1">
+                    <Label htmlFor="reassign" className="font-medium cursor-pointer flex items-center gap-2">
+                      <UserMinus className="h-4 w-4" />
+                      Reassign & Delete
+                    </Label>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Transfer all records to another salesperson, then permanently delete.
+                    </p>
+                    {deleteAction === 'reassign' && (
+                      <Select value={reassignToId} onValueChange={setReassignToId}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select salesperson to reassign to..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {salespeople
+                            .filter(sp => sp.id !== salespersonToDelete?.id)
+                            .map(sp => (
+                              <SelectItem key={sp.id} value={sp.id}>
+                                {sp.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant={deleteAction === 'reassign' ? 'destructive' : 'default'}
+                onClick={handleDeleteConfirm}
+                disabled={
+                  archiveMutation.isPending || 
+                  reassignAndDeleteMutation.isPending ||
+                  (deleteAction === 'reassign' && !reassignToId)
+                }
+              >
+                {(archiveMutation.isPending || reassignAndDeleteMutation.isPending) && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                {deleteAction === 'archive' ? 'Archive' : 'Reassign & Delete'}
               </Button>
             </DialogFooter>
           </DialogContent>
