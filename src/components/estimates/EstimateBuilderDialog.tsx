@@ -1592,19 +1592,28 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   // Drag and drop state for payment phases
   const [draggedPhaseId, setDraggedPhaseId] = useState<string | null>(null);
+  const [dragOverPhaseId, setDragOverPhaseId] = useState<string | null>(null);
 
   const handlePhaseDragStart = (e: React.DragEvent, phaseId: string) => {
     setDraggedPhaseId(phaseId);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const handlePhaseDragOver = (e: React.DragEvent) => {
+  const handlePhaseDragOver = (e: React.DragEvent, targetPhaseId: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    if (draggedPhaseId && targetPhaseId !== draggedPhaseId) {
+      setDragOverPhaseId(targetPhaseId);
+    }
+  };
+
+  const handlePhaseDragLeave = () => {
+    setDragOverPhaseId(null);
   };
 
   const handlePhaseDrop = (e: React.DragEvent, targetPhaseId: string) => {
     e.preventDefault();
+    setDragOverPhaseId(null);
     if (!draggedPhaseId || draggedPhaseId === targetPhaseId) {
       setDraggedPhaseId(null);
       return;
@@ -1637,6 +1646,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
 
   const handlePhaseDragEnd = () => {
     setDraggedPhaseId(null);
+    setDragOverPhaseId(null);
   };
 
   // Save estimate
@@ -3678,12 +3688,17 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             .map((phase) => (
                             <div 
                               key={phase.id} 
-                              className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
-                                draggedPhaseId === phase.id ? 'opacity-50 border-primary' : ''
+                              className={`flex items-center gap-3 p-3 border-2 rounded-lg transition-all duration-150 ${
+                                draggedPhaseId === phase.id 
+                                  ? 'opacity-50 border-primary scale-[0.98]' 
+                                  : dragOverPhaseId === phase.id && draggedPhaseId !== phase.id
+                                    ? 'border-primary bg-primary/10 shadow-md'
+                                    : 'border-border'
                               }`}
                               draggable
                               onDragStart={(e) => handlePhaseDragStart(e, phase.id)}
-                              onDragOver={handlePhaseDragOver}
+                              onDragOver={(e) => handlePhaseDragOver(e, phase.id)}
+                              onDragLeave={handlePhaseDragLeave}
                               onDrop={(e) => handlePhaseDrop(e, phase.id)}
                               onDragEnd={handlePhaseDragEnd}
                             >
