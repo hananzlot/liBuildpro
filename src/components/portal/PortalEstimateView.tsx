@@ -100,6 +100,9 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
     font?: string;
   } | null>(null);
 
+  // Fetch compliance package enabled setting for the company
+  const [compliancePackageEnabled, setCompliancePackageEnabled] = useState(false);
+
   // Fetch token and estimate data
   const { data: portalData, isLoading, error, refetch } = useQuery({
     queryKey: ['portal-estimate', token, isMultiSigner],
@@ -308,6 +311,28 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
       }
     },
   });
+
+  // Fetch compliance package enabled setting when we have company_id
+  useEffect(() => {
+    const fetchComplianceSetting = async () => {
+      if (!portalData?.token?.company_id) return;
+      
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('setting_value')
+        .eq('company_id', portalData.token.company_id)
+        .eq('setting_key', 'compliance_package_enabled')
+        .maybeSingle();
+      
+      if (!error && data?.setting_value === 'true') {
+        setCompliancePackageEnabled(true);
+      } else {
+        setCompliancePackageEnabled(false);
+      }
+    };
+    
+    fetchComplianceSetting();
+  }, [portalData?.token?.company_id]);
 
   // Set initial signer info
   useEffect(() => {
@@ -1163,16 +1188,18 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                   className="flex-1"
                   size="lg"
                   onClick={() => {
-                    // Check if there are compliance templates configured
-                    // If so, open the compliance flow first; otherwise go straight to signing
-                    if (!complianceComplete && !portalData.isMultiSigner) {
+                    // Only show compliance flow if:
+                    // 1. Compliance package is enabled for this company
+                    // 2. Compliance is not already complete
+                    // 3. Not in multi-signer mode (which skips compliance)
+                    if (!complianceComplete && !portalData.isMultiSigner && compliancePackageEnabled) {
                       setComplianceFlowOpen(true);
                     } else {
                       setSignatureDialogOpen(true);
                     }
                   }}
                 >
-                  {complianceComplete ? (
+                  {complianceComplete || !compliancePackageEnabled ? (
                     <>
                       <CheckCircle2 className="h-4 w-4 mr-2" />
                       Sign Proposal

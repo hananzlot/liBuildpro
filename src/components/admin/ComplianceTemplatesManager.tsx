@@ -87,6 +87,56 @@ export function ComplianceTemplatesManager() {
   const [isMainContract, setIsMainContract] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Fetch compliance package enabled setting
+  const { data: complianceEnabled = false } = useQuery({
+    queryKey: ["compliance-package-enabled", companyId],
+    queryFn: async () => {
+      if (!companyId) return false;
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("setting_value")
+        .eq("company_id", companyId)
+        .eq("setting_key", "compliance_package_enabled")
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Error fetching compliance setting:", error);
+        return false;
+      }
+      return data?.setting_value === "true";
+    },
+    enabled: !!companyId,
+  });
+
+  // Toggle compliance package mutation
+  const toggleComplianceMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!companyId) throw new Error("No company ID");
+      
+      const { error } = await supabase
+        .from("company_settings")
+        .upsert({
+          company_id: companyId,
+          setting_key: "compliance_package_enabled",
+          setting_value: enabled ? "true" : "false",
+          setting_type: "boolean",
+          description: "Enable the compliance document signing workflow for proposals",
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: "company_id,setting_key",
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["compliance-package-enabled", companyId] });
+      toast.success("Compliance workflow setting updated");
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update setting: ${error.message}`);
+    },
+  });
+
   // Fetch templates
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["compliance-templates", companyId],
@@ -300,7 +350,25 @@ export function ComplianceTemplatesManager() {
           These documents are automatically attached when sending proposals.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-6">
+        {/* Compliance Package Toggle */}
+        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <FileSignature className="h-4 w-4 text-muted-foreground" />
+              <span className="font-medium">Enable Compliance Signing Workflow</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              When enabled, customers must sign all compliance documents before signing the main proposal.
+            </p>
+          </div>
+          <Switch
+            checked={complianceEnabled}
+            onCheckedChange={(checked) => toggleComplianceMutation.mutate(checked)}
+            disabled={toggleComplianceMutation.isPending}
+          />
+        </div>
+
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
