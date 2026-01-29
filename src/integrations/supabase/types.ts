@@ -1097,6 +1097,7 @@ export type Database = {
           display_order: number
           id: string
           is_active: boolean
+          is_main_contract: boolean
           name: string
           requires_separate_signature: boolean
           template_file_name: string
@@ -1111,6 +1112,7 @@ export type Database = {
           display_order?: number
           id?: string
           is_active?: boolean
+          is_main_contract?: boolean
           name: string
           requires_separate_signature?: boolean
           template_file_name: string
@@ -1125,6 +1127,7 @@ export type Database = {
           display_order?: number
           id?: string
           is_active?: boolean
+          is_main_contract?: boolean
           name?: string
           requires_separate_signature?: boolean
           template_file_name?: string
@@ -5710,6 +5713,104 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signed_compliance_documents: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          document_name: string
+          document_type: string
+          estimate_id: string
+          file_url: string
+          id: string
+          ip_address: string | null
+          project_id: string | null
+          signature_data: string | null
+          signature_font: string | null
+          signature_type: string | null
+          signed_at: string | null
+          signed_file_url: string | null
+          signer_email: string | null
+          signer_name: string | null
+          status: string
+          template_id: string | null
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          document_name: string
+          document_type?: string
+          estimate_id: string
+          file_url: string
+          id?: string
+          ip_address?: string | null
+          project_id?: string | null
+          signature_data?: string | null
+          signature_font?: string | null
+          signature_type?: string | null
+          signed_at?: string | null
+          signed_file_url?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          document_name?: string
+          document_type?: string
+          estimate_id?: string
+          file_url?: string
+          id?: string
+          ip_address?: string | null
+          project_id?: string | null
+          signature_data?: string | null
+          signature_font?: string | null
+          signature_type?: string | null
+          signed_at?: string | null
+          signed_file_url?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          status?: string
+          template_id?: string | null
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signed_compliance_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signed_compliance_documents_estimate_id_fkey"
+            columns: ["estimate_id"]
+            isOneToOne: false
+            referencedRelation: "estimates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signed_compliance_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signed_compliance_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_document_templates"
             referencedColumns: ["id"]
           },
         ]

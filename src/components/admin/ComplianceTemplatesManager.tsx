@@ -41,6 +41,7 @@ interface ComplianceTemplate {
   template_file_url: string;
   template_file_name: string;
   requires_separate_signature: boolean;
+  is_main_contract: boolean;
   is_active: boolean;
   display_order: number;
   created_at: string;
@@ -83,6 +84,7 @@ export function ComplianceTemplatesManager() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [requiresSeparateSignature, setRequiresSeparateSignature] = useState(false);
+  const [isMainContract, setIsMainContract] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Fetch templates
@@ -108,6 +110,7 @@ export function ComplianceTemplatesManager() {
       name: string;
       description: string;
       requiresSeparateSignature: boolean;
+      isMainContract: boolean;
       file?: File;
       existingId?: string;
     }) => {
@@ -148,6 +151,7 @@ export function ComplianceTemplatesManager() {
         template_file_url: fileUrl,
         template_file_name: fileName,
         requires_separate_signature: data.requiresSeparateSignature,
+        is_main_contract: data.isMainContract,
         display_order: data.existingId ? selectedTemplate?.display_order : templates.length,
         updated_at: new Date().toISOString(),
       };
@@ -219,12 +223,14 @@ export function ComplianceTemplatesManager() {
       setName(template.name);
       setDescription(template.description || "");
       setRequiresSeparateSignature(template.requires_separate_signature);
+      setIsMainContract(template.is_main_contract);
       setSelectedFile(null);
     } else {
       setSelectedTemplate(null);
       setName("");
       setDescription("");
       setRequiresSeparateSignature(false);
+      setIsMainContract(false);
       setSelectedFile(null);
     }
     setDialogOpen(true);
@@ -236,6 +242,7 @@ export function ComplianceTemplatesManager() {
     setName("");
     setDescription("");
     setRequiresSeparateSignature(false);
+    setIsMainContract(false);
     setSelectedFile(null);
   };
 
@@ -254,6 +261,7 @@ export function ComplianceTemplatesManager() {
       name: name.trim(),
       description: description.trim(),
       requiresSeparateSignature,
+      isMainContract,
       file: selectedFile || undefined,
       existingId: selectedTemplate?.id,
     });
@@ -313,8 +321,13 @@ export function ComplianceTemplatesManager() {
                 <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
                 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium truncate">{template.name}</span>
+                    {template.is_main_contract && (
+                      <Badge variant="default" className="text-xs bg-primary">
+                        Main Contract
+                      </Badge>
+                    )}
                     {template.requires_separate_signature && (
                       <Badge variant="outline" className="text-xs">
                         <FileSignature className="h-3 w-3 mr-1" />
@@ -501,6 +514,28 @@ export function ComplianceTemplatesManager() {
                 id="requires-signature"
                 checked={requiresSeparateSignature}
                 onCheckedChange={setRequiresSeparateSignature}
+                disabled={isMainContract}
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 border rounded-lg border-primary/30 bg-primary/5">
+              <div>
+                <Label htmlFor="is-main-contract" className="font-medium">
+                  Main Contract Document
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  If enabled, this is the main contract that can only be signed after all required compliance docs are signed
+                </p>
+              </div>
+              <Switch
+                id="is-main-contract"
+                checked={isMainContract}
+                onCheckedChange={(checked) => {
+                  setIsMainContract(checked);
+                  if (checked) {
+                    setRequiresSeparateSignature(false);
+                  }
+                }}
               />
             </div>
 
