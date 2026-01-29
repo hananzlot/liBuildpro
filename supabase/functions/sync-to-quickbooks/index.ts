@@ -85,6 +85,23 @@ Deno.serve(async (req) => {
       errors: [],
     };
 
+    // Fetch mapping configurations
+    const { data: mappings } = await supabase
+      .from("quickbooks_mappings")
+      .select("*")
+      .eq("company_id", companyId);
+
+    const getMapping = (type: string, sourceValue?: string | null) => {
+      // First try to find a specific mapping for the source value
+      if (sourceValue) {
+        const specific = mappings?.find(
+          (m) => m.mapping_type === type && m.source_value === sourceValue
+        );
+        if (specific) return specific;
+      }
+      // Fall back to default mapping
+      return mappings?.find((m) => m.mapping_type === type && m.is_default);
+    };
     // Helper to find or create customer in QB
     async function findOrCreateCustomer(project: any): Promise<string | null> {
       const customerName = project.project_name || project.project_address || `Project ${project.project_number}`;
@@ -186,21 +203,35 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          // Get configured mappings
+          const itemMapping = getMapping("default_item");
+          const incomeAccountMapping = getMapping("income_account");
+
+          const lineItem: any = {
+            Amount: invoice.amount || 0,
+            DetailType: "SalesItemLineDetail",
+            SalesItemLineDetail: {
+              ItemRef: itemMapping 
+                ? { value: itemMapping.qbo_id, name: itemMapping.qbo_name }
+                : { value: "1", name: "Services" },
+            },
+            Description: invoice.description || `Invoice for ${invoice.projects?.project_name || "Project"}`,
+          };
+
+          // Add income account override if configured
+          if (incomeAccountMapping) {
+            lineItem.SalesItemLineDetail.IncomeAccountRef = {
+              value: incomeAccountMapping.qbo_id,
+              name: incomeAccountMapping.qbo_name,
+            };
+          }
+
           const qbInvoice = {
             CustomerRef: { value: customerId },
             DocNumber: invoice.invoice_number?.toString(),
             TxnDate: invoice.invoice_date?.split("T")[0],
             DueDate: invoice.due_date?.split("T")[0],
-            Line: [
-              {
-                Amount: invoice.amount || 0,
-                DetailType: "SalesItemLineDetail",
-                SalesItemLineDetail: {
-                  ItemRef: { value: "1", name: "Services" }, // Default item
-                },
-                Description: invoice.description || `Invoice for ${invoice.projects?.project_name || "Project"}`,
-              },
-            ],
+            Line: [lineItem],
             PrivateNote: invoice.notes,
           };
 
@@ -256,12 +287,23 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          const qbPayment = {
+          // Get configured payment method mapping
+          const paymentMethodMapping = getMapping("payment_method", payment.payment_method);
+
+          const qbPayment: any = {
             CustomerRef: { value: customerId },
             TotalAmt: payment.payment_amount || 0,
             TxnDate: payment.payment_date?.split("T")[0],
             PrivateNote: payment.payment_method ? `${payment.payment_method} - ${payment.payment_reference || ""}` : null,
           };
+
+          // Add payment method if configured
+          if (paymentMethodMapping) {
+            qbPayment.PaymentMethodRef = {
+              value: paymentMethodMapping.qbo_id,
+              name: paymentMethodMapping.qbo_name,
+            };
+          }
 
           const createRes = await fetch(`${QB_BASE_URL}/${realm_id}/payment`, {
             method: "POST",
@@ -314,6 +356,9 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          // Get configured expense account mapping
+          const expenseAccountMapping = getMapping("expense_account");
+
           const qbBill = {
             VendorRef: { value: vendorId },
             TxnDate: bill.bill_date?.split("T")[0],
@@ -323,7 +368,9 @@ Deno.serve(async (req) => {
                 Amount: bill.amount || 0,
                 DetailType: "AccountBasedExpenseLineDetail",
                 AccountBasedExpenseLineDetail: {
-                  AccountRef: { value: "1" }, // Default expense account
+                  AccountRef: expenseAccountMapping
+                    ? { value: expenseAccountMapping.qbo_id, name: expenseAccountMapping.qbo_name }
+                    : { value: "1" }, // Default expense account
                 },
                 Description: bill.description || `Bill for ${bill.projects?.project_name || "Project"}`,
               },

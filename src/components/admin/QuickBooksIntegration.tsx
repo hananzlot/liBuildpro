@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Link2, Unlink, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { QuickBooksCompanySelector } from "./QuickBooksCompanySelector";
+import { QuickBooksMappingConfig } from "./QuickBooksMappingConfig";
 
 export function QuickBooksIntegration() {
   const { companyId } = useCompanyContext();
@@ -122,7 +124,7 @@ export function QuickBooksIntegration() {
     );
   }
 
-  return (
+  const connectionCard = (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -225,5 +227,17 @@ export function QuickBooksIntegration() {
         </p>
       </CardContent>
     </Card>
+  );
+
+  return (
+    <div className="space-y-6">
+      {connectionCard}
+      {connection && (
+        <>
+          <QuickBooksCompanySelector />
+          <QuickBooksMappingConfig />
+        </>
+      )}
+    </div>
   );
 }

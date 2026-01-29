@@ -5203,6 +5203,7 @@ export type Database = {
         Row: {
           access_token_encrypted: string | null
           company_id: string
+          company_name: string | null
           connected_at: string | null
           connected_by: string | null
           created_at: string | null
@@ -5218,6 +5219,7 @@ export type Database = {
         Insert: {
           access_token_encrypted?: string | null
           company_id: string
+          company_name?: string | null
           connected_at?: string | null
           connected_by?: string | null
           created_at?: string | null
@@ -5233,6 +5235,7 @@ export type Database = {
         Update: {
           access_token_encrypted?: string | null
           company_id?: string
+          company_name?: string | null
           connected_at?: string | null
           connected_by?: string | null
           created_at?: string | null
@@ -5258,6 +5261,53 @@ export type Database = {
             columns: ["connected_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quickbooks_mappings: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          is_default: boolean | null
+          mapping_type: string
+          qbo_id: string
+          qbo_name: string
+          qbo_type: string | null
+          source_value: string | null
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          mapping_type: string
+          qbo_id: string
+          qbo_name: string
+          qbo_type?: string | null
+          source_value?: string | null
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          mapping_type?: string
+          qbo_id?: string
+          qbo_name?: string
+          qbo_type?: string | null
+          source_value?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quickbooks_mappings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
