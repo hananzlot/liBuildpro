@@ -102,6 +102,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
 
   // Fetch compliance package enabled setting for the company
   const [compliancePackageEnabled, setCompliancePackageEnabled] = useState(false);
+  const [complianceSettingLoaded, setComplianceSettingLoaded] = useState(false);
 
   // Fetch token and estimate data
   const { data: portalData, isLoading, error, refetch } = useQuery({
@@ -329,6 +330,8 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
       } else {
         setCompliancePackageEnabled(false);
       }
+      // Mark as loaded regardless of result
+      setComplianceSettingLoaded(true);
     };
     
     fetchComplianceSetting();
@@ -1187,6 +1190,7 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                 <Button
                   className="flex-1"
                   size="lg"
+                  disabled={!complianceSettingLoaded}
                   onClick={() => {
                     // Only show compliance flow if:
                     // 1. Compliance package is enabled for this company
@@ -1199,7 +1203,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                     }
                   }}
                 >
-                  {complianceComplete || !compliancePackageEnabled ? (
+                  {!complianceSettingLoaded ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : complianceComplete || !compliancePackageEnabled ? (
                     <>
                       <CheckCircle2 className="h-4 w-4 mr-2" />
                       Sign Proposal
