@@ -1673,6 +1673,11 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       setActiveTab("customer");
       return false;
     }
+    if (!formData.salesperson_name?.trim()) {
+      toast.error("Salesperson is required");
+      setActiveTab("customer");
+      return false;
+    }
     
     // Validate payment phases total equals estimate total
     // Note: We only count non-deposit phases since deposit is handled separately
