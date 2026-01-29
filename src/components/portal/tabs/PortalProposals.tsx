@@ -1106,6 +1106,24 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Compliance Signing Flow */}
+        {selectedEstimateId && selectedEstimate && (
+          <ComplianceSigningFlow
+            open={complianceFlowOpen}
+            onOpenChange={setComplianceFlowOpen}
+            estimateId={selectedEstimateId}
+            companyId={selectedEstimate.company_id || companyId || ''}
+            customerName={signerName || selectedEstimate.customer_name || ''}
+            customerEmail={signerEmail || selectedEstimate.customer_email || ''}
+            onAllSigned={() => {
+              setComplianceComplete(true);
+              setComplianceFlowOpen(false);
+              // Automatically open the main proposal signature dialog
+              setSignatureDialogOpen(true);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -1322,23 +1340,6 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
         })}
       </div>
 
-      {/* Compliance Signing Flow */}
-      {selectedEstimateId && selectedEstimate && (
-        <ComplianceSigningFlow
-          open={complianceFlowOpen}
-          onOpenChange={setComplianceFlowOpen}
-          estimateId={selectedEstimateId}
-          companyId={selectedEstimate.company_id || companyId || ''}
-          customerName={signerName || selectedEstimate.customer_name || ''}
-          customerEmail={signerEmail || selectedEstimate.customer_email || ''}
-          onAllSigned={() => {
-            setComplianceComplete(true);
-            setComplianceFlowOpen(false);
-            // Automatically open the main proposal signature dialog
-            setSignatureDialogOpen(true);
-          }}
-        />
-      )}
     </div>
   );
 }
