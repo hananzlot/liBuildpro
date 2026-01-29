@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, differenceInSeconds } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import {
   Sheet,
@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -29,6 +30,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   Eye, 
   Pause, 
@@ -37,7 +44,10 @@ import {
   Loader2, 
   Clock, 
   User,
-  MapPin 
+  MapPin,
+  CheckCircle2,
+  XCircle,
+  Timer
 } from "lucide-react";
 import { useAIGenerationQueue, type QueuedJob } from "@/hooks/useAIGenerationQueue";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,7 +84,7 @@ function getStatusBadge(status: string) {
     case "paused":
       return <Badge variant="outline" className="text-muted-foreground">Paused</Badge>;
     case "completed":
-      return <Badge variant="default">Completed</Badge>;
+      return <Badge className="bg-green-500 text-white">Completed</Badge>;
     case "failed":
       return <Badge variant="destructive">Failed</Badge>;
     default:
@@ -82,11 +92,25 @@ function getStatusBadge(status: string) {
   }
 }
 
+function formatDuration(startedAt: string | null, completedAt: string | null): string {
+  if (!startedAt || !completedAt) return "—";
+  const seconds = differenceInSeconds(new Date(completedAt), new Date(startedAt));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
 export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
   const navigate = useNavigate();
   const {
     queuedJobs,
+    historyJobs,
     isLoading,
+    isLoadingHistory,
     pauseJob,
     resumeJob,
     deleteJob,
@@ -109,146 +133,296 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
     }
   };
 
+  const renderActiveTable = () => {
+    if (isLoading) {
+      return (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      );
+    }
+
+    if (queuedJobs.length === 0) {
+      return (
+        <div className="text-center py-12 text-muted-foreground">
+          <Loader2 className="h-8 w-8 mx-auto mb-3 opacity-50" />
+          <p>No active AI generation requests</p>
+          <p className="text-sm mt-1">Jobs will appear here when users generate AI estimates</p>
+        </div>
+      );
+    }
+
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Project</TableHead>
+            <TableHead>Progress</TableHead>
+            <TableHead>Submitted</TableHead>
+            <TableHead>User</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {queuedJobs.map((job) => {
+            const progress = getProgressPercent(job);
+            const jobAddress = job.request_params?.job_address || "Unknown address";
+            
+            return (
+              <TableRow key={job.id}>
+                <TableCell>
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-medium truncate max-w-[180px]" title={jobAddress}>
+                        {job.estimate_number ? `#${job.estimate_number} - ` : ""}{jobAddress}
+                      </p>
+                      {getStatusBadge(job.status)}
+                    </div>
+                  </div>
+                </TableCell>
+                
+                <TableCell>
+                  <div className="w-24 space-y-1">
+                    <Progress value={progress} className="h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      {job.current_stage?.replace("GROUP_ITEMS:", "") || (job.status === "pending" ? "Waiting..." : "—")}
+                    </p>
+                  </div>
+                </TableCell>
+                
+                <TableCell>
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span title={format(new Date(job.created_at), "PPpp")}>
+                      {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                    </span>
+                  </div>
+                </TableCell>
+                
+                <TableCell>
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="truncate max-w-[100px]" title={job.creator_email || undefined}>
+                      {job.creator_name || job.creator_email || "Unknown"}
+                    </span>
+                  </div>
+                </TableCell>
+                
+                <TableCell>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleViewEstimate(job.estimate_id)}
+                      title="View estimate"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    
+                    {job.status === "paused" ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => resumeJob(job.id)}
+                        disabled={isResuming}
+                        title="Resume job"
+                      >
+                        <Play className="h-4 w-4" />
+                      </Button>
+                    ) : job.status === "pending" ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => pauseJob(job.id)}
+                        disabled={isPausing}
+                        title="Pause job"
+                      >
+                        <Pause className="h-4 w-4" />
+                      </Button>
+                    ) : null}
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => setDeleteConfirmJob(job)}
+                      disabled={isDeleting}
+                      title="Cancel job"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    );
+  };
+
+  const renderHistoryTable = () => {
+    if (isLoadingHistory) {
+      return (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      );
+    }
+
+    if (historyJobs.length === 0) {
+      return (
+        <div className="text-center py-12 text-muted-foreground">
+          <Clock className="h-8 w-8 mx-auto mb-3 opacity-50" />
+          <p>No job history yet</p>
+          <p className="text-sm mt-1">Completed and failed jobs will appear here</p>
+        </div>
+      );
+    }
+
+    return (
+      <TooltipProvider>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Project</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Duration</TableHead>
+              <TableHead>Completed</TableHead>
+              <TableHead>User</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {historyJobs.map((job) => {
+              const jobAddress = job.request_params?.job_address || "Unknown address";
+              const duration = formatDuration(job.started_at, job.completed_at);
+              
+              return (
+                <TableRow key={job.id}>
+                  <TableCell>
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate max-w-[180px]" title={jobAddress}>
+                          {job.estimate_number ? `#${job.estimate_number} - ` : ""}{jobAddress}
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell>
+                    {job.status === "failed" && job.error_message ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5 cursor-help">
+                            <XCircle className="h-4 w-4 text-destructive" />
+                            <Badge variant="destructive">Failed</Badge>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-xs">{job.error_message}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <Badge className="bg-green-500 text-white">Completed</Badge>
+                      </div>
+                    )}
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Timer className="h-3.5 w-3.5" />
+                      <span>{duration}</span>
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span title={job.completed_at ? format(new Date(job.completed_at), "PPpp") : undefined}>
+                        {job.completed_at 
+                          ? formatDistanceToNow(new Date(job.completed_at), { addSuffix: true })
+                          : "—"
+                        }
+                      </span>
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="flex items-center gap-1.5 text-sm">
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="truncate max-w-[100px]" title={job.creator_email || undefined}>
+                        {job.creator_name || job.creator_email || "Unknown"}
+                      </span>
+                    </div>
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="flex items-center justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleViewEstimate(job.estimate_id)}
+                        title="View estimate"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="sm:max-w-2xl overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              AI Generation Queue
-              {queuedJobs.length > 0 && (
-                <Badge variant="secondary">{queuedJobs.length}</Badge>
-              )}
-            </SheetTitle>
+            <SheetTitle>AI Generation Queue</SheetTitle>
             <SheetDescription>
-              View and manage AI estimate generation requests in the queue.
+              View and manage AI estimate generation requests.
             </SheetDescription>
           </SheetHeader>
 
           <div className="mt-6">
-            {isLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            ) : queuedJobs.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Loader2 className="h-8 w-8 mx-auto mb-3 opacity-50" />
-                <p>No active AI generation requests</p>
-                <p className="text-sm mt-1">Jobs will appear here when users generate AI estimates</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Progress</TableHead>
-                    <TableHead>Submitted</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {queuedJobs.map((job) => {
-                    const progress = getProgressPercent(job);
-                    const jobAddress = job.request_params?.job_address || "Unknown address";
-                    
-                    return (
-                      <TableRow key={job.id}>
-                        <TableCell>
-                          <div className="flex items-start gap-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                            <div className="min-w-0">
-                              <p className="font-medium truncate max-w-[180px]" title={jobAddress}>
-                                {job.estimate_number ? `#${job.estimate_number} - ` : ""}{jobAddress}
-                              </p>
-                              {getStatusBadge(job.status)}
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="w-24 space-y-1">
-                            <Progress value={progress} className="h-2" />
-                            <p className="text-xs text-muted-foreground">
-                              {job.current_stage?.replace("GROUP_ITEMS:", "") || (job.status === "pending" ? "Waiting..." : "—")}
-                            </p>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5" />
-                            <span title={format(new Date(job.created_at), "PPpp")}>
-                              {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-                            </span>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 text-sm">
-                            <User className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="truncate max-w-[100px]" title={job.creator_email || undefined}>
-                              {job.creator_name || job.creator_email || "Unknown"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleViewEstimate(job.estimate_id)}
-                              title="View estimate"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            
-                            {job.status === "paused" ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => resumeJob(job.id)}
-                                disabled={isResuming}
-                                title="Resume job"
-                              >
-                                <Play className="h-4 w-4" />
-                              </Button>
-                            ) : job.status === "pending" ? (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => pauseJob(job.id)}
-                                disabled={isPausing}
-                                title="Pause job"
-                              >
-                                <Pause className="h-4 w-4" />
-                              </Button>
-                            ) : null}
-                            
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => setDeleteConfirmJob(job)}
-                              disabled={isDeleting}
-                              title="Cancel job"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
+            <Tabs defaultValue="active">
+              <TabsList className="mb-4">
+                <TabsTrigger value="active" className="flex items-center gap-2">
+                  Active
+                  {queuedJobs.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                      {queuedJobs.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="active">
+                {renderActiveTable()}
+              </TabsContent>
+              
+              <TabsContent value="history">
+                {renderHistoryTable()}
+              </TabsContent>
+            </Tabs>
           </div>
         </SheetContent>
       </Sheet>
