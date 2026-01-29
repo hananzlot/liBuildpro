@@ -3672,7 +3672,10 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           )}
                           
                           {/* Other payment phases - editable with drag to reorder */}
-                          {paymentSchedule.filter(p => p.phase_name !== "Deposit").map((phase) => (
+                          {paymentSchedule
+                            .filter(p => p.phase_name !== "Deposit")
+                            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                            .map((phase) => (
                             <div 
                               key={phase.id} 
                               className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
