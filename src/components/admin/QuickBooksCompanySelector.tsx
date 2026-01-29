@@ -40,10 +40,15 @@ export function QuickBooksCompanySelector() {
       const { data, error } = await supabase.functions.invoke("quickbooks-list-entities", {
         body: { companyId, entityType: "companies" },
       });
-      if (error) throw error;
-      return data.entities?.[0] as QBCompany | undefined;
+      if (error || data?.needsReauth) {
+        console.error("Failed to load QuickBooks company info:", error || data);
+        toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
+        return undefined;
+      }
+      return data?.entities?.[0] as QBCompany | undefined;
     },
     enabled: !!companyId && !!connection,
+    retry: false,
   });
 
   // Update company name mutation

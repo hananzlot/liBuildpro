@@ -53,10 +53,15 @@ export function QuickBooksMappingConfig() {
       const { data, error } = await supabase.functions.invoke("quickbooks-list-entities", {
         body: { companyId, entityType: "accounts" },
       });
-      if (error) throw error;
-      return data.entities as QBEntity[];
+      if (error || data?.needsReauth) {
+        console.error("Failed to load QuickBooks accounts:", error || data);
+        toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
+        return [] as QBEntity[];
+      }
+      return (data?.entities || []) as QBEntity[];
     },
     enabled: !!companyId,
+    retry: false,
   });
 
   const { data: items, isLoading: itemsLoading, refetch: refetchItems } = useQuery({
@@ -65,10 +70,15 @@ export function QuickBooksMappingConfig() {
       const { data, error } = await supabase.functions.invoke("quickbooks-list-entities", {
         body: { companyId, entityType: "items" },
       });
-      if (error) throw error;
-      return data.entities as QBEntity[];
+      if (error || data?.needsReauth) {
+        console.error("Failed to load QuickBooks items:", error || data);
+        toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
+        return [] as QBEntity[];
+      }
+      return (data?.entities || []) as QBEntity[];
     },
     enabled: !!companyId,
+    retry: false,
   });
 
   const { data: paymentMethods, isLoading: paymentMethodsLoading } = useQuery({
@@ -77,10 +87,15 @@ export function QuickBooksMappingConfig() {
       const { data, error } = await supabase.functions.invoke("quickbooks-list-entities", {
         body: { companyId, entityType: "paymentMethods" },
       });
-      if (error) throw error;
-      return data.entities as QBEntity[];
+      if (error || data?.needsReauth) {
+        console.error("Failed to load QuickBooks payment methods:", error || data);
+        toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
+        return [] as QBEntity[];
+      }
+      return (data?.entities || []) as QBEntity[];
     },
     enabled: !!companyId,
+    retry: false,
   });
 
   // Save mapping mutation
