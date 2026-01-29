@@ -278,6 +278,12 @@ export function OpportunityDetailSheet({
   const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [savedPhone, setSavedPhone] = useState<string | null>(null);
 
+  // Email editing
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [editedEmail, setEditedEmail] = useState("");
+  const [isSavingEmail, setIsSavingEmail] = useState(false);
+  const [savedEmail, setSavedEmail] = useState<string | null>(null);
+
   // Contact name editing
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedFirstName, setEditedFirstName] = useState("");
@@ -349,6 +355,7 @@ export function OpportunityDetailSheet({
       setSavedContactName(null);
       setSavedOppName(null);
       setSavedPhone(null);
+      setSavedEmail(null);
       setAssociatedProjectId(null);
       setPortalLink(null);
       setSavedWonAt(null);
@@ -358,6 +365,7 @@ export function OpportunityDetailSheet({
       setLinkedEstimates([]);
       setIsEditingPhone(false);
       setIsEditingAddress(false);
+      setIsEditingEmail(false);
     }
     setWasOpen(open);
   }, [open]);
@@ -1933,6 +1941,37 @@ export function OpportunityDetailSheet({
       setIsSavingPhone(false);
     }
   };
+
+  const handleSaveEmail = async () => {
+    if (!opportunity?.contact_id && !opportunity?.contact_uuid) return;
+    setIsSavingEmail(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("update-contact-email", {
+        body: {
+          contactId: opportunity.contact_id,
+          contactUuid: opportunity.contact_uuid,
+          email: editedEmail.trim(),
+          editedBy: user?.id || null,
+          opportunityGhlId: opportunity.ghl_id,
+          companyId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast.success("Email updated");
+      setIsEditingEmail(false);
+      setSavedEmail(editedEmail.trim() || null);
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+    } catch (error) {
+      console.error("Error saving email:", error);
+      toast.error("Failed to save email");
+    } finally {
+      setIsSavingEmail(false);
+    }
+  };
   const handleSaveName = async () => {
     if (!opportunity?.contact_id) return;
     setIsSavingName(true);
@@ -2674,20 +2713,70 @@ export function OpportunityDetailSheet({
                 </div>
                 <div className="flex items-center gap-2">
                   <Mail className="h-3.5 w-3.5 shrink-0" />
-                  {contact?.email ? <>
-                      <a href={`mailto:${contact.email}`} target="_top" rel="noreferrer" className="text-primary hover:underline truncate">
-                        {contact.email}
-                      </a>
-                      <button className="text-muted-foreground hover:text-primary p-0.5" onClick={() => {
-                    navigator.clipboard.writeText(contact.email!);
-                    toast.success("Email copied");
-                  }}>
-                        <Copy className="h-3 w-3" />
+                  {isEditingEmail ? (
+                    <div className="flex-1 flex items-center gap-2">
+                      <Input
+                        value={editedEmail}
+                        onChange={(e) => setEditedEmail(e.target.value)}
+                        placeholder="Enter email..."
+                        className="h-7 text-sm flex-1"
+                        autoFocus
+                        type="email"
+                      />
+                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={handleSaveEmail} disabled={isSavingEmail}>
+                        {isSavingEmail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setIsEditingEmail(false)}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditedEmail(savedEmail ?? contact?.email ?? "");
+                          setIsEditingEmail(true);
+                        }}
+                        className="hover:underline text-left truncate"
+                      >
+                        {(savedEmail ?? contact?.email) ? (
+                          <span className="text-primary">{savedEmail ?? contact?.email}</span>
+                        ) : (
+                          <span className="italic text-muted-foreground/60">No email - click to add</span>
+                        )}
                       </button>
-                      <a href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(contact.email)}&body=${encodeURIComponent(`Dear ${(contact.first_name || '').charAt(0).toUpperCase() + (contact.first_name || '').slice(1).toLowerCase()} ${(contact.last_name || '').charAt(0).toUpperCase() + (contact.last_name || '').slice(1).toLowerCase()},${contactAddress ? `\n${contactAddress}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary text-xs">
-                        (Gmail)
-                      </a>
-                    </> : <span className="italic text-muted-foreground/60">No email</span>}
+                      {(savedEmail ?? contact?.email) && (
+                        <>
+                          <button
+                            className="text-muted-foreground hover:text-primary p-0.5"
+                            onClick={() => {
+                              navigator.clipboard.writeText(savedEmail ?? contact?.email ?? "");
+                              toast.success("Email copied");
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </button>
+                          <a
+                            href={`mailto:${savedEmail ?? contact?.email}`}
+                            target="_top"
+                            rel="noreferrer"
+                            className="text-muted-foreground hover:text-primary p-0.5"
+                            title="Send email"
+                          >
+                            <Mail className="h-3 w-3" />
+                          </a>
+                          <a
+                            href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(savedEmail ?? contact?.email ?? "")}&body=${encodeURIComponent(`Dear ${(contact?.first_name || '').charAt(0).toUpperCase() + (contact?.first_name || '').slice(1).toLowerCase()} ${(contact?.last_name || '').charAt(0).toUpperCase() + (contact?.last_name || '').slice(1).toLowerCase()},${contactAddress ? `\n${contactAddress}` : ''}\n\n\n\nBest regards,\nCA Pro Builders`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-muted-foreground hover:text-primary text-xs"
+                          >
+                            (Gmail)
+                          </a>
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Scope of Work */}
