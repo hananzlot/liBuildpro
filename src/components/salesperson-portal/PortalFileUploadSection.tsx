@@ -211,6 +211,8 @@ export function PortalFileUploadSection({
       if (successCount > 0) {
         toast.success(`Uploaded ${successCount} file${successCount > 1 ? "s" : ""}`);
         queryClient.invalidateQueries({ queryKey: ["salesperson-portal-project-documents", selectedProjectId] });
+        queryClient.invalidateQueries({ queryKey: ["project-portal"] });
+        queryClient.invalidateQueries({ queryKey: ["project-photos", selectedProjectId] });
       }
     } catch (err) {
       console.error("Upload error:", err);
