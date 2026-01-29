@@ -6248,6 +6248,10 @@ export type Database = {
         }
         Returns: string
       }
+      salesperson_portal_can_upload_to_project: {
+        Args: { p_project_id: string }
+        Returns: boolean
+      }
       store_ghl_api_key_encrypted: {
         Args: { p_api_key: string; p_integration_id: string }
         Returns: boolean
