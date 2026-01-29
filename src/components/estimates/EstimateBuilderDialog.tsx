@@ -678,8 +678,12 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       }));
       setGroups(groupsWithItems);
       
-      // Populate payment schedule
-      setPaymentSchedule(existingEstimate.schedule.map((s: any) => ({ ...s })));
+      // Populate payment schedule (exclude Deposit since it's shown as a separate uneditable row)
+      setPaymentSchedule(
+        existingEstimate.schedule
+          .filter((s: any) => s.phase_name !== "Deposit")
+          .map((s: any) => ({ ...s }))
+      );
 
       // Set linked project
       setLinkedProjectId(est.project_id || null);
@@ -948,19 +952,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     // Replace all groups (don't append) to avoid duplicates on regeneration
     setGroups(newGroups);
 
-    // Build payment schedule: always start with deposit, then add AI phases
-    const depositPhase: PaymentPhase = {
-      id: generateId(),
-      phase_name: "Deposit",
-      percent: 0, // Will be calculated based on min(percent, max) logic
-      amount: 0,
-      due_type: "on_approval",
-      due_date: null,
-      description: "Due upon contract signing",
-      sort_order: 0,
-    };
-    
-    // Filter out any "Deposit" phases from AI and add remaining phases
+    // Build payment schedule: only non-deposit phases from AI (deposit is shown separately in UI)
     const aiPhases: PaymentPhase[] = (scope.payment_schedule || [])
       .filter((p: any) => p.phase_name?.toLowerCase() !== 'deposit')
       .map((p: any, idx: number) => ({
@@ -971,10 +963,10 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
         due_type: p.due_type || "milestone",
         due_date: null,
         description: p.description || "",
-        sort_order: idx + 1,
+        sort_order: idx,
       }));
     
-    setPaymentSchedule([depositPhase, ...aiPhases]);
+    setPaymentSchedule(aiPhases);
 
     // Update tax rate if suggested (but NOT deposit - keep company defaults)
     if (scope.suggested_tax_rate) {
@@ -1633,15 +1625,17 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     }
     
     // Validate payment phases total equals estimate total
-    if (paymentSchedule.length > 0) {
+    // Note: We only count non-deposit phases since deposit is handled separately
+    const nonDepositPhases = paymentSchedule.filter(p => p.phase_name !== "Deposit");
+    if (nonDepositPhases.length > 0 || totals.depositAmount > 0) {
       const { total, depositAmount } = calculateTotals();
-      // Calculate phases total same way as the visual indicator
-      const phasesTotal = paymentSchedule.reduce((sum, phase) => {
-        if (phase.phase_name === "Deposit") {
-          return sum + depositAmount;
-        }
-        return sum + ((Math.max(0, total - depositAmount) * (phase.percent || 0)) / 100);
+      const remainingAfterDeposit = Math.max(0, total - depositAmount);
+      
+      // Phases total = deposit + sum of non-deposit phase amounts
+      const phasesTotal = depositAmount + nonDepositPhases.reduce((sum, phase) => {
+        return sum + ((remainingAfterDeposit * (phase.percent || 0)) / 100);
       }, 0);
+      
       // Allow small floating point tolerance (1 cent)
       if (Math.abs(phasesTotal - total) > 0.01) {
         toast.warning(`Cannot save - Payment phases total (${formatCurrency(phasesTotal)}) doesn't equal the estimate total (${formatCurrency(total)}). Difference: ${formatCurrency(Math.abs(phasesTotal - total))}`);
@@ -1792,24 +1786,43 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       }
 
       // Insert payment schedule
-      if (paymentSchedule.length > 0) {
-        const remainingTotal = Math.max(0, total - depositAmount);
-        const scheduleToInsert = paymentSchedule.map((phase) => {
-          const isDepositPhase = phase.phase_name === "Deposit";
-          return {
-            estimate_id: savedEstimateId,
-            phase_name: phase.phase_name,
-            // Deposit is a fixed amount (capped by deposit_max_amount), so don't store it as a percent.
-            percent: isDepositPhase ? 0 : phase.percent,
-            amount: isDepositPhase ? depositAmount : (remainingTotal * (phase.percent || 0)) / 100,
-            due_type: phase.due_type,
-            due_date: phase.due_date || null,
-            description: phase.description || null,
-            sort_order: phase.sort_order,
-            company_id: companyId,
-          };
+      // Always include deposit phase first if deposit > 0, then add non-deposit phases
+      const nonDepositPhases = paymentSchedule.filter(p => p.phase_name !== "Deposit");
+      const remainingTotal = Math.max(0, total - depositAmount);
+      
+      const scheduleToInsert: any[] = [];
+      
+      // Add deposit phase first if applicable
+      if (depositAmount > 0) {
+        scheduleToInsert.push({
+          estimate_id: savedEstimateId,
+          phase_name: "Deposit",
+          percent: 0, // Deposit is a fixed amount, not a percentage
+          amount: depositAmount,
+          due_type: "on_approval",
+          due_date: null,
+          description: "Due upon contract signing",
+          sort_order: 0,
+          company_id: companyId,
         });
-        
+      }
+      
+      // Add non-deposit phases
+      nonDepositPhases.forEach((phase, index) => {
+        scheduleToInsert.push({
+          estimate_id: savedEstimateId,
+          phase_name: phase.phase_name,
+          percent: phase.percent,
+          amount: (remainingTotal * (phase.percent || 0)) / 100,
+          due_type: phase.due_type,
+          due_date: phase.due_date || null,
+          description: phase.description || null,
+          sort_order: depositAmount > 0 ? index + 1 : index,
+          company_id: companyId,
+        });
+      });
+      
+      if (scheduleToInsert.length > 0) {
         const { error: scheduleError } = await supabase
           .from("estimate_payment_schedule")
           .insert(scheduleToInsert);
@@ -2046,23 +2059,43 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       }
 
       // Insert payment schedule
-      if (paymentSchedule.length > 0) {
-        const remainingTotal = Math.max(0, total - depositAmount);
-        const scheduleToInsert = paymentSchedule.map((phase) => {
-          const isDepositPhase = phase.phase_name === "Deposit";
-          return {
-            estimate_id: savedEstimateId,
-            phase_name: phase.phase_name,
-            percent: isDepositPhase ? 0 : phase.percent,
-            amount: isDepositPhase ? depositAmount : (remainingTotal * (phase.percent || 0)) / 100,
-            due_type: phase.due_type,
-            due_date: phase.due_date || null,
-            description: phase.description || null,
-            sort_order: phase.sort_order,
-            company_id: companyId,
-          };
+      // Always include deposit phase first if deposit > 0, then add non-deposit phases
+      const nonDepositPhases = paymentSchedule.filter(p => p.phase_name !== "Deposit");
+      const remainingTotal = Math.max(0, total - depositAmount);
+      
+      const scheduleToInsert: any[] = [];
+      
+      // Add deposit phase first if applicable
+      if (depositAmount > 0) {
+        scheduleToInsert.push({
+          estimate_id: savedEstimateId,
+          phase_name: "Deposit",
+          percent: 0, // Deposit is a fixed amount, not a percentage
+          amount: depositAmount,
+          due_type: "on_approval",
+          due_date: null,
+          description: "Due upon contract signing",
+          sort_order: 0,
+          company_id: companyId,
         });
-        
+      }
+      
+      // Add non-deposit phases
+      nonDepositPhases.forEach((phase, index) => {
+        scheduleToInsert.push({
+          estimate_id: savedEstimateId,
+          phase_name: phase.phase_name,
+          percent: phase.percent,
+          amount: (remainingTotal * (phase.percent || 0)) / 100,
+          due_type: phase.due_type,
+          due_date: phase.due_date || null,
+          description: phase.description || null,
+          sort_order: depositAmount > 0 ? index + 1 : index,
+          company_id: companyId,
+        });
+      });
+      
+      if (scheduleToInsert.length > 0) {
         const { error: scheduleError } = await supabase
           .from("estimate_payment_schedule")
           .insert(scheduleToInsert);
@@ -3521,7 +3554,45 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                         </p>
                       ) : (
                         <div className="space-y-3">
-                          {paymentSchedule.map((phase) => (
+                          {/* Deposit row - always shown first and uneditable */}
+                          {totals.depositAmount > 0 && (
+                            <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
+                              <Input
+                                value="Deposit"
+                                disabled
+                                className="w-40 bg-muted"
+                              />
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="text"
+                                  value="—"
+                                  disabled
+                                  className="w-20 bg-muted text-center"
+                                />
+                                <span className="text-muted-foreground">%</span>
+                              </div>
+                              <span className="text-sm font-medium text-foreground">
+                                = {formatCurrency(totals.depositAmount)}
+                              </span>
+                              <Select value="on_approval" disabled>
+                                <SelectTrigger className="w-32 bg-muted">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="on_approval">On Approval</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                value="Due upon contract signing"
+                                disabled
+                                className="flex-1 bg-muted"
+                              />
+                              <div className="w-8" /> {/* Spacer for alignment with delete buttons */}
+                            </div>
+                          )}
+                          
+                          {/* Other payment phases - editable */}
+                          {paymentSchedule.filter(p => p.phase_name !== "Deposit").map((phase) => (
                             <div key={phase.id} className="flex items-center gap-3 p-3 border rounded-lg">
                               <Input
                                 value={phase.phase_name}
@@ -3533,19 +3604,14 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 <Input
                                   type="text"
                                   inputMode="decimal"
-                                  value={phase.phase_name === "Deposit" ? 0 : phase.percent}
-                                  disabled={phase.phase_name === "Deposit"}
+                                  value={phase.percent}
                                   onChange={(e) => { const val = e.target.value; if (val === '' || /^\d*\.?\d*$/.test(val)) updatePaymentPhase(phase.id, { percent: parseFloat(val) || 0 }); }}
                                   className="w-20"
                                 />
                                 <span className="text-muted-foreground">%</span>
                               </div>
                               <span className="text-sm text-muted-foreground">
-                                = {formatCurrency(
-                                  phase.phase_name === "Deposit"
-                                    ? totals.depositAmount
-                                    : (Math.max(0, totals.total - totals.depositAmount) * (phase.percent || 0)) / 100
-                                )}
+                                = {formatCurrency((Math.max(0, totals.total - totals.depositAmount) * (phase.percent || 0)) / 100)}
                               </span>
                               <Select
                                 value={phase.due_type}
@@ -3578,18 +3644,22 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                           ))}
                           {/* Payment phases total vs estimate total indicator */}
                           {(() => {
-                            const phasesTotal = paymentSchedule.reduce((sum, phase) => {
-                              if (phase.phase_name === "Deposit") {
-                                return sum + totals.depositAmount;
-                              }
-                              return sum + ((Math.max(0, totals.total - totals.depositAmount) * (phase.percent || 0)) / 100);
+                            // Only count non-deposit phases for percent calculation
+                            const nonDepositPhases = paymentSchedule.filter(p => p.phase_name !== "Deposit");
+                            const remainingAfterDeposit = Math.max(0, totals.total - totals.depositAmount);
+                            
+                            // Phases total = deposit + sum of non-deposit phase amounts
+                            const phasesTotal = totals.depositAmount + nonDepositPhases.reduce((sum, phase) => {
+                              return sum + ((remainingAfterDeposit * (phase.percent || 0)) / 100);
                             }, 0);
+                            
                             const difference = Math.round((phasesTotal - totals.total) * 100) / 100;
                             const isBalanced = Math.abs(difference) < 0.01;
-                            const percentTotal = paymentSchedule.reduce((sum, p) => sum + p.percent, 0);
+                            
+                            // Only sum percent of non-deposit phases (should equal 100%)
+                            const percentTotal = nonDepositPhases.reduce((sum, p) => sum + (p.percent || 0), 0);
                             
                             // Find the last non-deposit phase for auto-balance
-                            const nonDepositPhases = paymentSchedule.filter(p => p.phase_name !== "Deposit");
                             const lastPhase = nonDepositPhases[nonDepositPhases.length - 1];
                             const canAutoBalance = lastPhase && !isBalanced && totals.total > 0;
                             
