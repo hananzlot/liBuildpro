@@ -77,6 +77,13 @@ export default function Auth() {
       const realmId = searchParams.get("realmId");
       const state = searchParams.get("state");
 
+      // Prevent double-submitting a single-use Intuit authorization code.
+      // This can happen with strict-mode remounts or fast route redirects.
+      const processedKey = code ? `qb_oauth_processed:${code}` : null;
+      if (processedKey && sessionStorage.getItem(processedKey)) {
+        return;
+      }
+
       // Only process if we have QuickBooks OAuth params and haven't processed yet
       if (!code || !realmId || !state || oauthProcessedRef.current) {
         return;
@@ -89,6 +96,7 @@ export default function Auth() {
 
       oauthProcessedRef.current = true;
       setProcessingOAuth(true);
+      if (processedKey) sessionStorage.setItem(processedKey, "1");
 
       try {
         // Parse state to get company ID

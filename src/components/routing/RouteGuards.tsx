@@ -42,6 +42,17 @@ export function ProtectedRoute({
   }
 
   if (!user) {
+    // IMPORTANT: Preserve OAuth callback params when a protected route redirects to /auth.
+    // Otherwise we lose the `code/realmId/state` needed to exchange tokens.
+    const isQuickBooksOAuthCallback =
+      location.search.includes("code=") &&
+      location.search.includes("realmId=") &&
+      location.search.includes("state=");
+
+    if (isQuickBooksOAuthCallback) {
+      return <Navigate to={{ pathname: "/auth", search: location.search }} replace />;
+    }
+
     return <Navigate to="/auth" replace />;
   }
 
