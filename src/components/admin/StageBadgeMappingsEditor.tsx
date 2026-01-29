@@ -193,7 +193,7 @@ export function StageBadgeMappingsEditor() {
   }
 
   return (
-    <Collapsible className="group">
+    <Collapsible defaultOpen={false} className="group">
       <Card>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
