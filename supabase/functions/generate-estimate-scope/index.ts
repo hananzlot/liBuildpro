@@ -241,6 +241,30 @@ async function updateJobProgress(
   }
 }
 
+// Check if job has been cancelled/deleted
+async function isJobCancelled(jobId: string): Promise<boolean> {
+  const supabase = createSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('estimate_generation_jobs')
+    .select('id, status')
+    .eq('id', jobId)
+    .maybeSingle();
+  
+  // Job deleted or status is cancelled/paused
+  if (error || !data) {
+    console.log(`Job ${jobId} has been deleted or not found - cancelling processing`);
+    return true;
+  }
+  
+  if (data.status === 'cancelled' || data.status === 'paused') {
+    console.log(`Job ${jobId} has status ${data.status} - stopping processing`);
+    return true;
+  }
+  
+  return false;
+}
+
 // Update job status
 async function updateJobStatus(
   jobId: string,
@@ -944,6 +968,11 @@ async function processEstimateGenerationStaged(params: {
     
     stageResults.plan_digest = planDigest;
     currentStageNum++;
+    
+    // Check for cancellation after PLAN_DIGEST
+    if (jobId && await isJobCancelled(jobId)) {
+      throw new Error('Job was cancelled by user');
+    }
   }
   
   // ===== STAGE 2: ESTIMATE_PLAN =====
@@ -967,6 +996,11 @@ async function processEstimateGenerationStaged(params: {
   stageResults.estimate_plan = estimatePlan;
   currentStageNum++;
   
+  // Check for cancellation after ESTIMATE_PLAN
+  if (jobId && await isJobCancelled(jobId)) {
+    throw new Error('Job was cancelled by user');
+  }
+  
   // Extract groups from ESTIMATE_PLAN
   const groups = estimatePlan.groups || [];
   const totalStages = baseStages + groups.length; // Add GROUP_ITEMS stages
@@ -975,6 +1009,11 @@ async function processEstimateGenerationStaged(params: {
   const groupResults: any[] = [];
   
   for (let i = 0; i < groups.length; i++) {
+    // Check for cancellation before each group
+    if (jobId && await isJobCancelled(jobId)) {
+      throw new Error('Job was cancelled by user');
+    }
+    
     const group = groups[i];
     const groupName = group.group_name || `Group ${i + 1}`;
     const groupDescription = group.description || '';
