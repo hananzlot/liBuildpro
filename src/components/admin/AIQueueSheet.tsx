@@ -47,7 +47,8 @@ import {
   MapPin,
   CheckCircle2,
   XCircle,
-  Timer
+  Timer,
+  Skull
 } from "lucide-react";
 import { useAIGenerationQueue, type QueuedJob } from "@/hooks/useAIGenerationQueue";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,12 +115,15 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
     pauseJob,
     resumeJob,
     deleteJob,
+    killAllJobs,
     isPausing,
     isResuming,
     isDeleting,
+    isKillingAll,
   } = useAIGenerationQueue();
 
   const [deleteConfirmJob, setDeleteConfirmJob] = useState<QueuedJob | null>(null);
+  const [showKillAllConfirm, setShowKillAllConfirm] = useState(false);
 
   const handleViewEstimate = (estimateId: string) => {
     onOpenChange(false);
@@ -131,6 +135,11 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
       deleteJob(deleteConfirmJob.id);
       setDeleteConfirmJob(null);
     }
+  };
+
+  const handleKillAllConfirm = () => {
+    killAllJobs();
+    setShowKillAllConfirm(false);
   };
 
   const renderActiveTable = () => {
@@ -398,17 +407,36 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
 
           <div className="mt-6">
             <Tabs defaultValue="active">
-              <TabsList className="mb-4">
-                <TabsTrigger value="active" className="flex items-center gap-2">
-                  Active
-                  {queuedJobs.length > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                      {queuedJobs.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="history">History</TabsTrigger>
-              </TabsList>
+              <div className="flex items-center justify-between mb-4">
+                <TabsList>
+                  <TabsTrigger value="active" className="flex items-center gap-2">
+                    Active
+                    {queuedJobs.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                        {queuedJobs.length}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="history">History</TabsTrigger>
+                </TabsList>
+                
+                {queuedJobs.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowKillAllConfirm(true)}
+                    disabled={isKillingAll}
+                    className="gap-1.5"
+                  >
+                    {isKillingAll ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Skull className="h-4 w-4" />
+                    )}
+                    Kill All
+                  </Button>
+                )}
+              </div>
               
               <TabsContent value="active">
                 {renderActiveTable()}
@@ -443,6 +471,29 @@ export function AIQueueSheet({ open, onOpenChange }: AIQueueSheetProps) {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Cancel Job
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Kill all confirmation dialog */}
+      <AlertDialog open={showKillAllConfirm} onOpenChange={setShowKillAllConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kill All Queued Jobs?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel all {queuedJobs.length} pending and processing jobs. 
+              The estimates will remain but won't have AI-generated content.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Jobs</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleKillAllConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Kill All Jobs
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

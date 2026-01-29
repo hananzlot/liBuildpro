@@ -230,6 +230,26 @@ export function useAIGenerationQueue() {
     },
   });
 
+  // Kill all pending/processing jobs
+  const killAllJobsMutation = useMutation({
+    mutationFn: async () => {
+      if (!companyId) throw new Error("No company context");
+      const { error } = await supabase
+        .from("estimate_generation_jobs")
+        .delete()
+        .eq("company_id", companyId)
+        .in("status", ["pending", "processing", "paused"]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ai-generation-queue"] });
+      toast.success("All queued jobs cancelled");
+    },
+    onError: (err) => {
+      toast.error("Failed to kill jobs: " + (err as Error).message);
+    },
+  });
+
   // Count of active jobs (pending + processing)
   const activeCount = queuedJobs.length;
 
@@ -243,8 +263,10 @@ export function useAIGenerationQueue() {
     pauseJob: pauseJobMutation.mutate,
     resumeJob: resumeJobMutation.mutate,
     deleteJob: deleteJobMutation.mutate,
+    killAllJobs: killAllJobsMutation.mutate,
     isPausing: pauseJobMutation.isPending,
     isResuming: resumeJobMutation.isPending,
     isDeleting: deleteJobMutation.isPending,
+    isKillingAll: killAllJobsMutation.isPending,
   };
 }
