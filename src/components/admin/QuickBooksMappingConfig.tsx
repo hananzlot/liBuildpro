@@ -34,6 +34,24 @@ export function QuickBooksMappingConfig() {
   const [needsReauth, setNeedsReauth] = useState(false);
   const hasShownReauthToast = useRef(false);
 
+  // First, verify a connection exists before attempting any entity calls
+  const { data: connection, isLoading: connectionLoading } = useQuery({
+    queryKey: ["quickbooks-connection", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("quickbooks_connections")
+        .select("id, is_active")
+        .eq("company_id", companyId)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!companyId,
+  });
+
+  const isConnected = !!connection;
+
   const markNeedsReauth = () => {
     setNeedsReauth(true);
     if (!hasShownReauthToast.current) {
@@ -93,7 +111,7 @@ export function QuickBooksMappingConfig() {
       }
       return (data?.entities || []) as QBEntity[];
     },
-    enabled: !!companyId && !needsReauth,
+    enabled: !!companyId && isConnected && !needsReauth,
     retry: false,
   });
 
@@ -110,7 +128,7 @@ export function QuickBooksMappingConfig() {
       }
       return (data?.entities || []) as QBEntity[];
     },
-    enabled: !!companyId && !needsReauth,
+    enabled: !!companyId && isConnected && !needsReauth,
     retry: false,
   });
 
@@ -127,7 +145,7 @@ export function QuickBooksMappingConfig() {
       }
       return (data?.entities || []) as QBEntity[];
     },
-    enabled: !!companyId && !needsReauth,
+    enabled: !!companyId && isConnected && !needsReauth,
     retry: false,
   });
 
@@ -177,7 +195,12 @@ export function QuickBooksMappingConfig() {
   const incomeAccounts = accounts?.filter((a) => ["Income", "Other Income"].includes(a.type)) || [];
   const expenseAccounts = accounts?.filter((a) => ["Expense", "Other Expense", "Cost of Goods Sold"].includes(a.type)) || [];
 
-  const isLoading = mappingsLoading || accountsLoading || itemsLoading || paymentMethodsLoading;
+  const isLoading = connectionLoading || mappingsLoading || accountsLoading || itemsLoading || paymentMethodsLoading;
+
+  // Don't render if not connected (parent should not render us, but safety guard)
+  if (!connectionLoading && !isConnected) {
+    return null;
+  }
 
   if (needsReauth) {
     return (
