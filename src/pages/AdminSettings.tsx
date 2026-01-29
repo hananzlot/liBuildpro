@@ -32,6 +32,7 @@ import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsE
 import { ComplianceTemplatesManager } from "@/components/admin/ComplianceTemplatesManager";
 import { BankManagement } from "@/components/admin/BankManagement";
 import { useKPIVisibility } from "@/hooks/useKPIVisibility";
+import { useQuickBooksCallback } from "@/hooks/useQuickBooksCallback";
 import { format } from "date-fns";
 import {
   Table,
@@ -94,6 +95,9 @@ export default function AdminSettings() {
   const activeTab = searchParams.get("tab") || "settings";
   const { isGHLEnabled } = useGHLMode();
   const { visibility: kpiVisibility, toggleLeadsResell, toggleMagazineSales, isToggling: isTogglingKPI } = useKPIVisibility();
+  
+  // Handle QuickBooks OAuth callback - must run before company context check
+  useQuickBooksCallback();
   
   const [editedSettings, setEditedSettings] = useState<Record<string, string>>({});
   const [testingApiKey, setTestingApiKey] = useState<string | null>(null);
