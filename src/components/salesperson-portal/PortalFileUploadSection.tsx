@@ -197,6 +197,7 @@ export function PortalFileUploadSection({
             category: isImage ? "Salesperson Photo" : "Salesperson Upload",
             notes: `Uploaded by ${salespersonName} via portal`,
             company_id: companyId,
+            uploaded_by: salespersonId, // Required for RLS policy validation
           });
 
         if (dbError) {

@@ -510,6 +510,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               documents={documents}
               projectId={project.id}
               uploadLimitMb={uploadLimitMb}
+              companyId={portalData?.token?.company_id || project.company_id}
             />
           </TabsContent>
 
@@ -519,6 +520,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
               agreements={agreements}
               projectId={project.id}
               uploadLimitMb={uploadLimitMb}
+              companyId={portalData?.token?.company_id || project.company_id}
             />
           </TabsContent>
 
