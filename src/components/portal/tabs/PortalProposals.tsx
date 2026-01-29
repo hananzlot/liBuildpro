@@ -954,9 +954,14 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
                       className="flex-1"
                       size="lg"
                       disabled={!complianceSettingLoaded}
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+
                         // If compliance is enabled and not yet complete, open compliance flow first
                         if (!complianceComplete && compliancePackageEnabled) {
+                          toast.message('Opening required documents…');
                           setComplianceFlowOpen(true);
                         } else {
                           setSignatureDialogOpen(true);

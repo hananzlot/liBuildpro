@@ -1226,12 +1226,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                   className="flex-1"
                   size="lg"
                   disabled={!complianceSettingLoaded}
-                  onClick={() => {
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+
                     // Only show compliance flow if:
                     // 1. Compliance package is enabled for this company
                     // 2. Compliance is not already complete
                     // 3. Not in multi-signer mode (which skips compliance)
                     if (!complianceComplete && !portalData.isMultiSigner && compliancePackageEnabled) {
+                      toast.message('Opening required documents…');
                       setComplianceFlowOpen(true);
                     } else {
                       setSignatureDialogOpen(true);
