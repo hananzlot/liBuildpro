@@ -3,16 +3,21 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Hook to handle QuickBooks OAuth callback at a high level.
  * This runs independently of company context to ensure the callback
  * is processed even before company selection is restored.
+ * 
+ * IMPORTANT: This also restores the super admin's company context
+ * from the OAuth state, since the redirect loses sessionStorage context.
  */
 export function useQuickBooksCallback() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const processingRef = useRef(false);
+  const { isSuperAdmin, setViewingCompanyId } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -37,6 +42,14 @@ export function useQuickBooksCallback() {
         }
 
         console.log("Processing QuickBooks OAuth callback for company:", companyId);
+
+        // CRITICAL: Restore super admin company context from OAuth state
+        // This ensures the admin is switched back to the company they were working on
+        // before the OAuth redirect took them away from the app
+        if (isSuperAdmin && companyId) {
+          console.log("Restoring super admin company context:", companyId);
+          setViewingCompanyId(companyId);
+        }
 
         const { data, error } = await supabase.functions.invoke("quickbooks-auth", {
           body: {
@@ -71,5 +84,5 @@ export function useQuickBooksCallback() {
     };
 
     handleCallback();
-  }, [searchParams, setSearchParams, queryClient]);
+  }, [searchParams, setSearchParams, queryClient, isSuperAdmin, setViewingCompanyId]);
 }

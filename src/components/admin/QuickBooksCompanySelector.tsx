@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, Building2, CheckCircle2, RefreshCw } from "lucide-react";
+import { Loader2, Building2, CheckCircle2, RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface QBCompany {
@@ -43,7 +42,6 @@ export function QuickBooksCompanySelector() {
       });
       if (error || data?.needsReauth) {
         console.error("Failed to load QuickBooks company info:", error || data);
-        toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
         return null;
       }
       return data?.entities?.[0] as QBCompany | null;
@@ -62,7 +60,6 @@ export function QuickBooksCompanySelector() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("QuickBooks company info updated");
       queryClient.invalidateQueries({ queryKey: ["quickbooks-connection"] });
     },
   });
@@ -95,6 +92,8 @@ export function QuickBooksCompanySelector() {
     return null;
   }
 
+  const companyName = connection.company_name || qbCompanyInfo?.Name;
+
   return (
     <Card>
       <CardHeader>
@@ -112,13 +111,18 @@ export function QuickBooksCompanySelector() {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <div>
               <p className="font-medium">
-                {connection.company_name || qbCompanyInfo?.Name || "Loading..."}
+                {companyName || (
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading company info...
+                  </span>
+                )}
               </p>
               <p className="text-xs text-muted-foreground">
                 Realm ID: {connection.realm_id}
@@ -130,6 +134,7 @@ export function QuickBooksCompanySelector() {
             size="sm"
             onClick={() => refetch()}
             disabled={companyInfoLoading}
+            title="Refresh company info"
           >
             {companyInfoLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -139,9 +144,34 @@ export function QuickBooksCompanySelector() {
           </Button>
         </div>
 
-        <p className="text-xs text-muted-foreground mt-4">
-          To sync with a different QuickBooks company, disconnect and reconnect with the desired company selected during OAuth.
-        </p>
+        {/* Multi-company info box */}
+        <div className="p-4 rounded-lg bg-muted/30 border border-dashed space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="space-y-2 text-sm">
+              <p className="font-medium">Have multiple QuickBooks companies?</p>
+              <p className="text-muted-foreground">
+                QuickBooks connects to whichever company is selected in your QuickBooks account during authorization.
+                To sync with a different company:
+              </p>
+              <ol className="list-decimal list-inside text-muted-foreground space-y-1 ml-1">
+                <li>
+                  <a 
+                    href="https://qbo.intuit.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    Open QuickBooks <ExternalLink className="h-3 w-3" />
+                  </a>{" "}
+                  and switch to the desired company
+                </li>
+                <li>Disconnect the current connection above</li>
+                <li>Click "Connect to QuickBooks" again</li>
+              </ol>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
