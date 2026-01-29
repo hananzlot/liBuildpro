@@ -38,6 +38,9 @@ const ALLOWED_TYPES = [
   "image/png",
   "image/webp",
   "image/gif",
+  // iPhone camera formats (often uploaded as HEIC/HEIF)
+  "image/heic",
+  "image/heif",
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -164,13 +167,20 @@ export function PortalFileUploadSection({
           continue;
         }
 
-        if (!ALLOWED_TYPES.includes(file.type)) {
-          toast.error(`${file.name}: Unsupported file type`);
+        // Some mobile uploads can have an empty mime-type; fall back to extension.
+        const fileExt = (file.name.split(".").pop() || "").toLowerCase();
+        const isLikelyImage = file.type.startsWith("image/") || /^(jpg|jpeg|png|webp|gif|heic|heif)$/.test(fileExt);
+        const inferredType = file.type || (isLikelyImage ? `image/${fileExt || "jpeg"}` : "");
+
+        if (!ALLOWED_TYPES.includes(inferredType)) {
+          toast.error(
+            `${file.name}: Unsupported file type${fileExt ? ` (.${fileExt})` : ""}. ` +
+              "Try JPEG/PNG, or set iPhone Camera > Formats > Most Compatible."
+          );
           continue;
         }
 
-        const fileExt = file.name.split(".").pop();
-        const fileName = `salesperson-uploads/${selectedProjectId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `salesperson-uploads/${selectedProjectId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt || "bin"}`;
 
         const { error: uploadError } = await supabase.storage
           .from("project-attachments")
@@ -178,7 +188,7 @@ export function PortalFileUploadSection({
 
         if (uploadError) {
           console.error("Upload error:", uploadError);
-          toast.error(`Failed to upload ${file.name}`);
+          toast.error(uploadError.message || `Failed to upload ${file.name}`);
           continue;
         }
 
@@ -186,14 +196,14 @@ export function PortalFileUploadSection({
           .from("project-attachments")
           .getPublicUrl(fileName);
 
-        const isImage = file.type.startsWith("image/");
+        const isImage = inferredType.startsWith("image/");
         const { error: dbError } = await supabase
           .from("project_documents")
           .insert({
             project_id: selectedProjectId,
             file_name: file.name,
             file_url: publicUrl,
-            file_type: file.type,
+            file_type: inferredType,
             category: isImage ? "Salesperson Photo" : "Salesperson Upload",
             notes: `Uploaded by ${salespersonName} via portal`,
             company_id: companyId,
@@ -202,7 +212,7 @@ export function PortalFileUploadSection({
 
         if (dbError) {
           console.error("DB error:", dbError);
-          toast.error(`Failed to save ${file.name}`);
+          toast.error(dbError.message || `Failed to save ${file.name}`);
           continue;
         }
 
