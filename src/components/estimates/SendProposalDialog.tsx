@@ -144,11 +144,26 @@ export function SendProposalDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from('estimates')
-        .select('project_id, estimate_title, job_address, customer_phone, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer, salesperson_name, opportunity_uuid, opportunity_id')
+        .select('project_id, estimate_title, job_address, customer_phone, show_scope_to_customer, show_line_items_to_customer, show_details_to_customer, salesperson_name, salesperson_id, opportunity_uuid, opportunity_id')
         .eq('id', estimateId)
         .single();
       if (error) throw error;
-      return data;
+      
+      // If no salesperson on estimate, try to get from opportunity
+      let salespersonName = data?.salesperson_name;
+      if (!salespersonName && data?.opportunity_uuid) {
+        const { data: oppData } = await supabase
+          .from('opportunities')
+          .select('salesperson_id, salespeople!opportunities_salesperson_id_fkey(name)')
+          .eq('id', data.opportunity_uuid)
+          .single();
+        
+        if (oppData?.salespeople?.name) {
+          salespersonName = oppData.salespeople.name;
+        }
+      }
+      
+      return { ...data, salesperson_name: salespersonName };
     },
     enabled: open,
   });
@@ -317,6 +332,8 @@ export function SendProposalDialog({
               // Link project to opportunity from the estimate
               opportunity_id: estimateData?.opportunity_id || null,
               opportunity_uuid: estimateData?.opportunity_uuid || null,
+              // Assign salesperson from estimate/opportunity
+              primary_salesperson: estimateData?.salesperson_name || null,
             })
             .select()
             .single();
