@@ -29,6 +29,7 @@ import { PortalInvoices } from './tabs/PortalInvoices';
 import { PortalPhotos } from './tabs/PortalPhotos';
 import { PortalDocuments } from './tabs/PortalDocuments';
 import { PortalChat } from './tabs/PortalChat';
+import { PortalSignedDocuments } from './tabs/PortalSignedDocuments';
 
 interface ProjectPortalProps {
   token: string;
@@ -272,6 +273,7 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
     { value: 'project', label: 'Project', icon: ClipboardList },
     { value: 'proposals', label: 'Proposals', icon: FileText, badge: estimates.length },
     { value: 'agreement', label: 'Agreement', icon: CheckCircle2 },
+    { value: 'signed-docs', label: 'Signed Docs', icon: Briefcase },
     { value: 'invoices', label: 'Invoices', icon: Receipt },
     { value: 'photos', label: 'Photos', icon: Camera, badge: documents.filter(d => d.file_type?.startsWith('image/')).length },
     { value: 'documents', label: 'Docs', icon: FolderOpen },
@@ -483,6 +485,13 @@ export function ProjectPortal({ token }: ProjectPortalProps) {
             <PortalAgreement 
               agreements={agreements}
               acceptedEstimate={acceptedEstimate}
+            />
+          </TabsContent>
+
+          <TabsContent value="signed-docs" className="mt-0 animate-fade-in">
+            <PortalSignedDocuments 
+              estimateId={acceptedEstimate?.id || estimates[0]?.id || ''}
+              projectId={project.id}
             />
           </TabsContent>
 

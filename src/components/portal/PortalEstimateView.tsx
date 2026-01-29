@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SignatureCanvas } from './SignatureCanvas';
 import { ClientComments } from './ClientComments';
 import { CompanyHeader } from '@/components/proposals/CompanyHeader';
+import { ComplianceSigningFlow } from './ComplianceSigningFlow';
 import {
   FileText,
   Calendar,
@@ -28,6 +29,7 @@ import {
   AlertCircle,
   Loader2,
   Users,
+  FileSignature,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -86,10 +88,12 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
   const queryClient = useQueryClient();
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [complianceFlowOpen, setComplianceFlowOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState('');
   const [signerName, setSignerName] = useState('');
   const [signerEmail, setSignerEmail] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [complianceComplete, setComplianceComplete] = useState(false);
   const [signatureData, setSignatureData] = useState<{
     type: 'typed' | 'drawn';
     data: string;
@@ -1140,7 +1144,9 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                 <p className="text-sm text-muted-foreground">
                   {portalData.isMultiSigner 
                     ? `Review the proposal above and add your signature (${signedCount + 1} of ${totalSigners})`
-                    : 'Review the proposal above and accept or request changes'}
+                    : complianceComplete 
+                      ? 'All required documents signed. You can now sign the proposal.'
+                      : 'Review the proposal above and accept or request changes'}
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -1156,10 +1162,27 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
                 <Button
                   className="flex-1"
                   size="lg"
-                  onClick={() => setSignatureDialogOpen(true)}
+                  onClick={() => {
+                    // Check if there are compliance templates configured
+                    // If so, open the compliance flow first; otherwise go straight to signing
+                    if (!complianceComplete && !portalData.isMultiSigner) {
+                      setComplianceFlowOpen(true);
+                    } else {
+                      setSignatureDialogOpen(true);
+                    }
+                  }}
                 >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Accept & Sign Proposal
+                  {complianceComplete ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Sign Proposal
+                    </>
+                  ) : (
+                    <>
+                      <FileSignature className="h-4 w-4 mr-2" />
+                      Approve & Sign Documents
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>
@@ -1288,6 +1311,24 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Compliance Documents Signing Flow */}
+      {portalData && (
+        <ComplianceSigningFlow
+          open={complianceFlowOpen}
+          onOpenChange={setComplianceFlowOpen}
+          estimateId={estimate.id}
+          companyId={portalData.token.company_id}
+          customerName={signerName || estimate.customer_name || ''}
+          customerEmail={signerEmail || estimate.customer_email || ''}
+          onAllSigned={() => {
+            setComplianceComplete(true);
+            setComplianceFlowOpen(false);
+            // Automatically open the main proposal signature dialog
+            setSignatureDialogOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 }
