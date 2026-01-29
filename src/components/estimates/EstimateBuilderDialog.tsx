@@ -21,7 +21,7 @@ import {
   Plus, Trash2, Save, Wand2, Loader2, GripVertical, 
   User, MapPin, Calendar, DollarSign, Percent, FileText,
   ChevronDown, ChevronRight, FolderPlus, TrendingUp, Copy,
-  Upload, X, FileIcon, ArrowRight, AlertCircle, HelpCircle, CheckCircle2
+  Upload, X, FileIcon, ArrowRight, AlertCircle, HelpCircle, CheckCircle2, Eye
 } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -2637,8 +2637,19 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                   type="button"
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => window.open(plansFileUrl, '_blank')}
+                                  className="h-8 w-8 p-0"
+                                  title="View plans"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={removePlansFile}
                                   className="h-8 w-8 p-0"
+                                  title="Remove plans"
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
