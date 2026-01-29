@@ -25,6 +25,7 @@ import { GHLIntegrationManager } from "@/components/admin/GHLIntegrationManager"
 import { AIAnalysisSettings } from "@/components/admin/AIAnalysisSettings";
 import { GHLFieldMappings } from "@/components/admin/GHLFieldMappings";
 import { GoogleCalendarManager } from "@/components/admin/GoogleCalendarManager";
+import { QuickBooksIntegration } from "@/components/admin/QuickBooksIntegration";
 import { useGHLMode } from "@/hooks/useGHLMode";
 import { ShortLinksManager } from "@/components/admin/ShortLinksManager";
 import { StageBadgeMappingsEditor } from "@/components/admin/StageBadgeMappingsEditor";
@@ -1378,6 +1379,9 @@ export default function AdminSettings() {
             
             {/* Google Calendar Connections */}
             <GoogleCalendarManager />
+            
+            {/* QuickBooks Online */}
+            <QuickBooksIntegration />
           </TabsContent>
 
           {/* Emails Tab */}
