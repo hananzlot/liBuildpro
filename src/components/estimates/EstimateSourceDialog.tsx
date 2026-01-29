@@ -57,7 +57,7 @@ export function EstimateSourceDialog({
       // Fetch opportunities
       const { data: opps, error } = await supabase
         .from("opportunities")
-        .select("id, ghl_id, name, contact_id, address, scope_of_work, monetary_value, status")
+        .select("id, ghl_id, name, contact_id, contact_uuid, address, scope_of_work, monetary_value, status")
         .eq("company_id", companyId)
         .in("status", ["open", "won"])
         .order("ghl_date_added", { ascending: false })
@@ -65,19 +65,21 @@ export function EstimateSourceDialog({
       
       if (error) throw error;
       
-      // Fetch contacts for these opportunities
-      const contactIds = [...new Set(opps?.filter(o => o.contact_id).map(o => o.contact_id) || [])];
+      // Fetch contacts for these opportunities (by UUID for better reliability)
+      const contactUuids = [...new Set(opps?.filter(o => o.contact_uuid).map(o => o.contact_uuid) || [])];
+      const contactGhlIds = [...new Set(opps?.filter(o => o.contact_id && !o.contact_uuid).map(o => o.contact_id) || [])];
       
-      let contactMap = new Map<string, { name: string | null; email: string | null; phone: string | null }>();
+      let contactMapByUuid = new Map<string, { name: string | null; email: string | null; phone: string | null }>();
+      let contactMapByGhlId = new Map<string, { id: string | null; name: string | null; email: string | null; phone: string | null }>();
       
-      if (contactIds.length > 0) {
+      if (contactUuids.length > 0) {
         const { data: contacts } = await supabase
           .from("contacts")
-          .select("ghl_id, contact_name, email, phone")
-          .in("ghl_id", contactIds);
+          .select("id, ghl_id, contact_name, email, phone")
+          .in("id", contactUuids);
         
         contacts?.forEach(c => {
-          contactMap.set(c.ghl_id, {
+          contactMapByUuid.set(c.id, {
             name: c.contact_name,
             email: c.email,
             phone: c.phone,
@@ -85,12 +87,37 @@ export function EstimateSourceDialog({
         });
       }
       
-      return (opps || []).map(opp => ({
-        ...opp,
-        contact_name: opp.contact_id ? contactMap.get(opp.contact_id)?.name : null,
-        contact_email: opp.contact_id ? contactMap.get(opp.contact_id)?.email : null,
-        contact_phone: opp.contact_id ? contactMap.get(opp.contact_id)?.phone : null,
-      }));
+      if (contactGhlIds.length > 0) {
+        const { data: contacts } = await supabase
+          .from("contacts")
+          .select("id, ghl_id, contact_name, email, phone")
+          .in("ghl_id", contactGhlIds);
+        
+        contacts?.forEach(c => {
+          contactMapByGhlId.set(c.ghl_id, {
+            id: c.id,
+            name: c.contact_name,
+            email: c.email,
+            phone: c.phone,
+          });
+        });
+      }
+      
+      return (opps || []).map(opp => {
+        // Get contact info - prefer UUID lookup, fall back to GHL ID
+        const contactByUuid = opp.contact_uuid ? contactMapByUuid.get(opp.contact_uuid) : null;
+        const contactByGhlId = opp.contact_id ? contactMapByGhlId.get(opp.contact_id) : null;
+        const contactInfo = contactByUuid || contactByGhlId;
+        
+        return {
+          ...opp,
+          // Ensure contact_uuid is set even if only contact_id was on the opportunity
+          contact_uuid: opp.contact_uuid || contactByGhlId?.id || null,
+          contact_name: contactInfo?.name || null,
+          contact_email: contactInfo?.email || null,
+          contact_phone: contactInfo?.phone || null,
+        };
+      });
     },
     enabled: open && !!companyId,
   });
