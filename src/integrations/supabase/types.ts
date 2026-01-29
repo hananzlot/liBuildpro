@@ -5199,6 +5199,116 @@ export type Database = {
           },
         ]
       }
+      quickbooks_connections: {
+        Row: {
+          access_token_encrypted: string | null
+          company_id: string
+          connected_at: string | null
+          connected_by: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          realm_id: string
+          refresh_token_encrypted: string | null
+          sync_error: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_token_encrypted?: string | null
+          company_id: string
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          realm_id: string
+          refresh_token_encrypted?: string | null
+          sync_error?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_token_encrypted?: string | null
+          company_id?: string
+          connected_at?: string | null
+          connected_by?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          realm_id?: string
+          refresh_token_encrypted?: string | null
+          sync_error?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quickbooks_connections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quickbooks_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quickbooks_sync_log: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          quickbooks_id: string | null
+          record_id: string
+          record_type: string
+          sync_error: string | null
+          sync_status: string
+          synced_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          quickbooks_id?: string | null
+          record_id: string
+          record_type: string
+          sync_error?: string | null
+          sync_status?: string
+          synced_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          quickbooks_id?: string | null
+          record_id?: string
+          record_type?: string
+          sync_error?: string | null
+          sync_status?: string
+          synced_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quickbooks_sync_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       salespeople: {
         Row: {
           company_id: string | null
@@ -6205,6 +6315,15 @@ export type Database = {
         Args: { p_company_id: string }
         Returns: number
       }
+      get_quickbooks_tokens: {
+        Args: { p_company_id: string }
+        Returns: {
+          access_token: string
+          realm_id: string
+          refresh_token: string
+          token_expires_at: string
+        }[]
+      }
       get_resend_api_key_encrypted: {
         Args: { p_company_id: string }
         Returns: string
@@ -6261,6 +6380,16 @@ export type Database = {
           p_access_token: string
           p_connection_id: string
           p_expires_at: string
+          p_refresh_token: string
+        }
+        Returns: boolean
+      }
+      store_quickbooks_tokens: {
+        Args: {
+          p_access_token: string
+          p_company_id: string
+          p_expires_at: string
+          p_realm_id: string
           p_refresh_token: string
         }
         Returns: boolean
