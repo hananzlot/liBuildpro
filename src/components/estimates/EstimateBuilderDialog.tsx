@@ -3693,7 +3693,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               <Input
                                 value={phase.phase_name}
                                 onChange={(e) => updatePaymentPhase(phase.id, { phase_name: e.target.value })}
-                                className="w-40"
+                                className="w-52"
                                 placeholder="Phase name"
                               />
                               <div className="flex items-center gap-2">
@@ -3706,7 +3706,7 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                                 />
                                 <span className="text-muted-foreground">%</span>
                               </div>
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">
                                 = {formatCurrency((Math.max(0, totals.total - totals.depositAmount) * (phase.percent || 0)) / 100)}
                               </span>
                               <Select
@@ -3725,14 +3725,21 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                               <Input
                                 value={phase.description}
                                 onChange={(e) => updatePaymentPhase(phase.id, { description: e.target.value })}
-                                className="flex-1"
+                                className="flex-1 min-w-[120px]"
                                 placeholder="Description"
+                                onKeyDown={(e) => e.stopPropagation()}
                               />
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => deletePaymentPhase(phase.id)}
-                                className="text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  deletePaymentPhase(phase.id);
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="text-destructive shrink-0"
+                                type="button"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
