@@ -1606,12 +1606,23 @@ export default function Production() {
         <div className="py-4 px-4 lg:px-6 space-y-4">
           {activeView === 'projects' && (
             <div className="space-y-4">
-              {/* Date Range Filter for KPIs */}
-              <AdminKPIFilters
-                dateRange={kpiDateRange}
-                onDateRangeChange={setKpiDateRange}
-              />
-
+              {/* Date Range Filter for KPIs + Action Buttons */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <AdminKPIFilters
+                  dateRange={kpiDateRange}
+                  onDateRangeChange={setKpiDateRange}
+                />
+                <div className="flex gap-2 shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import
+                  </Button>
+                  <Button size="sm" onClick={() => setNewProjectOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Project
+                  </Button>
+                </div>
+              </div>
               {/* Collapsible KPI Cards Section */}
               <Collapsible defaultOpen={false}>
                 <CollapsibleTrigger asChild>
@@ -1905,13 +1916,12 @@ export default function Production() {
               {/* Subcontractor Expiration Warnings */}
               <SubcontractorWarningsCard />
 
-              {/* Action Buttons */}
-          <section className="flex flex-col gap-2">
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-end">
-              <div className="flex gap-2">
-                {isAdmin && (
+              {/* Admin Test Project Button */}
+              {isAdmin && (
+                <div className="flex justify-end">
                   <Button 
                     variant="outline" 
+                    size="sm"
                     onClick={() => createTestProjectMutation.mutate()}
                     disabled={createTestProjectMutation.isPending}
                   >
@@ -1922,39 +1932,30 @@ export default function Production() {
                     )}
                     Add Test Project
                   </Button>
-                )}
-                <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Import
-                </Button>
-                <Button onClick={() => setNewProjectOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Project
-                </Button>
-              </div>
-            </div>
-            {/* Show matched financial sections when searching by amount */}
-            {matchedFinancialSections.size > 0 && (
-              <div className="flex items-center gap-2 flex-wrap text-sm">
-                <span className="text-muted-foreground text-xs">Found in:</span>
-                {Array.from(matchedFinancialSections).map((section) => {
-                  return (
-                    <Badge 
-                      key={section} 
-                      variant="secondary" 
-                      className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                      onClick={() => {
-                        setFinancialSearchSection(section);
-                        setFinancialSearchSheetOpen(true);
-                      }}
-                    >
-                      {section}
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                </div>
+              )}
+              
+              {/* Show matched financial sections when searching by amount */}
+              {matchedFinancialSections.size > 0 && (
+                <div className="flex items-center gap-2 flex-wrap text-sm">
+                  <span className="text-muted-foreground text-xs">Found in:</span>
+                  {Array.from(matchedFinancialSections).map((section) => {
+                    return (
+                      <Badge 
+                        key={section} 
+                        variant="secondary" 
+                        className="text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => {
+                          setFinancialSearchSection(section);
+                          setFinancialSearchSheetOpen(true);
+                        }}
+                      >
+                        {section}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
 
           {/* Projects Table */}
           <Card>
