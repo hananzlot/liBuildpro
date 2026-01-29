@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, X, Briefcase, FolderKanban } from "lucide-react";
+import { Search, X, Briefcase, FolderKanban, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -55,12 +55,22 @@ interface Project {
   cell_phone: string | null;
 }
 
+interface Estimate {
+  id: string;
+  estimate_number: number | null;
+  customer_name: string | null;
+  job_address: string | null;
+  status: string | null;
+  total: number | null;
+  created_at: string | null;
+}
+
 export function GlobalAdminSearch() {
   const navigate = useNavigate();
   const { companyId } = useCompanyContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"opportunities" | "projects">("opportunities");
+  const [activeTab, setActiveTab] = useState<"opportunities" | "projects" | "estimates">("opportunities");
 
   // Fetch opportunities for search
   const { data: opportunities = [] } = useQuery({
@@ -125,6 +135,23 @@ export function GlobalAdminSearch() {
         .limit(500);
       if (error) throw error;
       return data as (Project & { opportunity_id?: string | null })[];
+    },
+    enabled: !!companyId && isOpen,
+    staleTime: 60 * 1000,
+  });
+
+  // Fetch estimates for search
+  const { data: estimates = [] } = useQuery({
+    queryKey: ["global-search-estimates", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("estimates")
+        .select("id, estimate_number, customer_name, job_address, status, total, created_at")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      return data as Estimate[];
     },
     enabled: !!companyId && isOpen,
     staleTime: 60 * 1000,
@@ -218,6 +245,26 @@ export function GlobalAdminSearch() {
       .slice(0, 8);
   }, [searchQuery, projects]);
 
+  const filteredEstimates = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    
+    const queryLower = searchQuery.toLowerCase().trim();
+    
+    return estimates
+      .filter((est) => {
+        const customerName = est.customer_name?.toLowerCase() || "";
+        const address = est.job_address?.toLowerCase() || "";
+        const estimateNum = est.estimate_number?.toString() || "";
+        
+        return (
+          customerName.includes(queryLower) ||
+          address.includes(queryLower) ||
+          estimateNum.includes(searchQuery.trim())
+        );
+      })
+      .slice(0, 8);
+  }, [searchQuery, estimates]);
+
   const getContactName = (contactId: string | null) => {
     if (!contactId) return "Unknown";
     const contact = findContactByIdOrGhlId(contacts, undefined, contactId);
@@ -266,6 +313,24 @@ export function GlobalAdminSearch() {
     }
   };
 
+  const getEstimateStatusColor = (status: string | null) => {
+    switch (status?.toLowerCase()) {
+      case "signed":
+      case "accepted":
+        return "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30";
+      case "sent":
+      case "pending":
+        return "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30";
+      case "draft":
+        return "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30";
+      case "declined":
+      case "expired":
+        return "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30";
+      default:
+        return "bg-muted text-muted-foreground border-border";
+    }
+  };
+
   const handleSelectOpportunity = (opp: Opportunity) => {
     navigate(`/opportunities/${opp.ghl_id}`);
     setIsOpen(false);
@@ -278,7 +343,13 @@ export function GlobalAdminSearch() {
     setSearchQuery("");
   };
 
-  const totalResults = filteredOpportunities.length + filteredProjects.length;
+  const handleSelectEstimate = (est: Estimate) => {
+    navigate(`/estimates/${est.id}`);
+    setIsOpen(false);
+    setSearchQuery("");
+  };
+
+  const totalResults = filteredOpportunities.length + filteredProjects.length + filteredEstimates.length;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -313,16 +384,20 @@ export function GlobalAdminSearch() {
         </div>
 
         {searchQuery.trim() ? (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "opportunities" | "projects")}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "opportunities" | "projects" | "estimates")}>
             <div className="border-b px-3 py-2">
-              <TabsList className="grid w-full grid-cols-2 h-8">
-                <TabsTrigger value="opportunities" className="text-xs gap-1.5">
+              <TabsList className="grid w-full grid-cols-3 h-8">
+                <TabsTrigger value="opportunities" className="text-xs gap-1">
                   <Briefcase className="h-3 w-3" />
-                  Opportunities ({filteredOpportunities.length})
+                  Opps ({filteredOpportunities.length})
                 </TabsTrigger>
-                <TabsTrigger value="projects" className="text-xs gap-1.5">
+                <TabsTrigger value="projects" className="text-xs gap-1">
                   <FolderKanban className="h-3 w-3" />
                   Projects ({filteredProjects.length})
+                </TabsTrigger>
+                <TabsTrigger value="estimates" className="text-xs gap-1">
+                  <FileText className="h-3 w-3" />
+                  Estimates ({filteredEstimates.length})
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -396,6 +471,46 @@ export function GlobalAdminSearch() {
                 ) : (
                   <div className="p-6 text-center text-muted-foreground text-sm">
                     No projects found
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="estimates" className="m-0">
+              <div className="max-h-[280px] overflow-y-auto">
+                {filteredEstimates.length > 0 ? (
+                  <div className="p-2">
+                    {filteredEstimates.map((est) => (
+                      <button
+                        key={est.id}
+                        className="w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors"
+                        onClick={() => handleSelectEstimate(est)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate text-sm">
+                              {est.job_address || est.customer_name || "No address"}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {est.estimate_number && `#${est.estimate_number} • `}
+                              {est.customer_name}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
+                              {formatCurrency(est.total)}
+                            </span>
+                            <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${getEstimateStatusColor(est.status)}`}>
+                              {est.status || "Draft"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-muted-foreground text-sm">
+                    No estimates found
                   </div>
                 )}
               </div>
