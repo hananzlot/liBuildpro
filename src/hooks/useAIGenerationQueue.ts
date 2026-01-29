@@ -31,6 +31,52 @@ export function useAIGenerationQueue() {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
 
+  // Helper function to enrich jobs with profile and estimate data
+  const enrichJobs = async (jobs: any[]): Promise<QueuedJob[]> => {
+    if (!jobs || jobs.length === 0) return [];
+
+    // Fetch creator profiles separately
+    const creatorIds = [...new Set(jobs.map(j => j.created_by).filter(Boolean))];
+    let profilesMap: Record<string, { full_name?: string; email?: string }> = {};
+    
+    if (creatorIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", creatorIds);
+      
+      if (profiles) {
+        profilesMap = Object.fromEntries(profiles.map(p => [p.id, p]));
+      }
+    }
+
+    // Fetch estimate numbers separately
+    const estimateIds = [...new Set(jobs.map(j => j.estimate_id))];
+    let estimatesMap: Record<string, number | null> = {};
+    
+    if (estimateIds.length > 0) {
+      const { data: estimates } = await supabase
+        .from("estimates")
+        .select("id, estimate_number")
+        .in("id", estimateIds);
+      
+      if (estimates) {
+        estimatesMap = Object.fromEntries(estimates.map(e => [e.id, e.estimate_number]));
+      }
+    }
+
+    return jobs.map((job) => {
+      const profile = job.created_by ? profilesMap[job.created_by] : null;
+      return {
+        ...job,
+        request_params: job.request_params as QueuedJob["request_params"],
+        creator_name: profile?.full_name || null,
+        creator_email: profile?.email || null,
+        estimate_number: estimatesMap[job.estimate_id] ?? null,
+      };
+    });
+  };
+
   // Fetch all pending/processing jobs for this company
   const { data: queuedJobs = [], isLoading, refetch } = useQuery({
     queryKey: ["ai-generation-queue", companyId],
@@ -58,51 +104,43 @@ export function useAIGenerationQueue() {
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      if (!jobs || jobs.length === 0) return [];
-
-      // Fetch creator profiles separately
-      const creatorIds = [...new Set(jobs.map(j => j.created_by).filter(Boolean))];
-      let profilesMap: Record<string, { full_name?: string; email?: string }> = {};
-      
-      if (creatorIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .in("id", creatorIds);
-        
-        if (profiles) {
-          profilesMap = Object.fromEntries(profiles.map(p => [p.id, p]));
-        }
-      }
-
-      // Fetch estimate numbers separately
-      const estimateIds = [...new Set(jobs.map(j => j.estimate_id))];
-      let estimatesMap: Record<string, number | null> = {};
-      
-      if (estimateIds.length > 0) {
-        const { data: estimates } = await supabase
-          .from("estimates")
-          .select("id, estimate_number")
-          .in("id", estimateIds);
-        
-        if (estimates) {
-          estimatesMap = Object.fromEntries(estimates.map(e => [e.id, e.estimate_number]));
-        }
-      }
-
-      return jobs.map((job) => {
-        const profile = job.created_by ? profilesMap[job.created_by] : null;
-        return {
-          ...job,
-          request_params: job.request_params as QueuedJob["request_params"],
-          creator_name: profile?.full_name || null,
-          creator_email: profile?.email || null,
-          estimate_number: estimatesMap[job.estimate_id] ?? null,
-        };
-      });
+      return enrichJobs(jobs || []);
     },
     enabled: !!companyId,
     refetchInterval: 10000, // Poll every 10s as backup
+  });
+
+  // Fetch past jobs (completed/failed) for history tab
+  const { data: historyJobs = [], isLoading: isLoadingHistory } = useQuery({
+    queryKey: ["ai-generation-history", companyId],
+    queryFn: async (): Promise<QueuedJob[]> => {
+      if (!companyId) return [];
+
+      const { data: jobs, error } = await supabase
+        .from("estimate_generation_jobs")
+        .select(`
+          id,
+          estimate_id,
+          status,
+          current_stage,
+          total_stages,
+          created_at,
+          started_at,
+          completed_at,
+          created_by,
+          error_message,
+          request_params
+        `)
+        .eq("company_id", companyId)
+        .in("status", ["completed", "failed"])
+        .order("completed_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return enrichJobs(jobs || []);
+    },
+    enabled: !!companyId,
+    staleTime: 30000, // 30s stale time for history
   });
 
   // Subscribe to realtime updates
@@ -189,8 +227,10 @@ export function useAIGenerationQueue() {
 
   return {
     queuedJobs,
+    historyJobs,
     activeCount,
     isLoading,
+    isLoadingHistory,
     refetch,
     pauseJob: pauseJobMutation.mutate,
     resumeJob: resumeJobMutation.mutate,
