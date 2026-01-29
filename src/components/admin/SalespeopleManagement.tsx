@@ -30,7 +30,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, UserCircle, Phone, Mail, Link2, Copy, Check, ExternalLink, Merge, Archive, UserMinus, AlertTriangle, Eye, EyeOff, RotateCcw } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -69,21 +69,62 @@ export function SalespeopleManagement() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [salespersonToDelete, setSalespersonToDelete] = useState<Salesperson | null>(null);
   const [deleteAction, setDeleteAction] = useState<'archive' | 'reassign'>('archive');
+  const [showArchived, setShowArchived] = useState(false);
   const [reassignToId, setReassignToId] = useState<string>('');
 
   const { data: salespeople = [], isLoading } = useQuery({
-    queryKey: ['salespeople', companyId],
+    queryKey: ['salespeople', companyId, showArchived],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('salespeople')
         .select('*')
         .eq('company_id', companyId)
-        .eq('is_active', true)
+        .order('is_active', { ascending: false })
         .order('name');
+      
+      if (!showArchived) {
+        query = query.eq('is_active', true);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data as Salesperson[];
     },
     enabled: !!companyId,
+  });
+
+  // Count archived salespeople
+  const { data: archivedCount = 0 } = useQuery({
+    queryKey: ['salespeople-archived-count', companyId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('salespeople')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', companyId)
+        .eq('is_active', false);
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!companyId,
+  });
+
+  // Restore archived salesperson mutation
+  const restoreMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('salespeople')
+        .update({ is_active: true })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Salesperson restored');
+      queryClient.invalidateQueries({ queryKey: ['salespeople', companyId] });
+      queryClient.invalidateQueries({ queryKey: ['salespeople-archived-count', companyId] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to restore: ${error.message}`);
+    },
   });
 
 
@@ -697,12 +738,12 @@ export function SalespeopleManagement() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
             <Plus className="h-4 w-4 mr-2" />
             Add Salesperson
           </Button>
-          {salespeople.length >= 2 && (
+          {salespeople.filter(s => s.is_active).length >= 2 && (
             <Button variant="outline" onClick={openMergeDialog}>
               <Merge className="h-4 w-4 mr-2" />
               Merge Duplicates
@@ -718,6 +759,25 @@ export function SalespeopleManagement() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
               Sync from Projects ({missingSalespeople.length})
+            </Button>
+          )}
+          {archivedCount > 0 && (
+            <Button 
+              variant={showArchived ? "secondary" : "outline"}
+              onClick={() => setShowArchived(!showArchived)}
+              className="ml-auto"
+            >
+              {showArchived ? (
+                <>
+                  <EyeOff className="h-4 w-4 mr-2" />
+                  Hide Archived
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Show Archived ({archivedCount})
+                </>
+              )}
             </Button>
           )}
         </div>
@@ -747,13 +807,21 @@ export function SalespeopleManagement() {
                   const hasToken = portalTokens.some(t => t.salesperson_id === person.id);
                   const isCopied = copiedId === person.id;
                   const isGenerating = generatingFor === person.id;
+                  const isArchived = !person.is_active;
 
                   return (
-                    <TableRow key={person.id}>
+                    <TableRow key={person.id} className={isArchived ? "opacity-60 bg-muted/30" : ""}>
                       <TableCell className="font-medium">
-                        <div>
-                          {person.name}
-                          {person.ghl_user_id && (
+                        <div className="flex items-center gap-2">
+                          <span className={isArchived ? "text-muted-foreground" : ""}>
+                            {person.name}
+                          </span>
+                          {isArchived && (
+                            <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                              Archived
+                            </span>
+                          )}
+                          {person.ghl_user_id && !isArchived && (
                             <span className="block text-xs text-muted-foreground lg:hidden">
                               Linked to calendar
                             </span>
@@ -782,46 +850,69 @@ export function SalespeopleManagement() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
+                          {isArchived ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => restoreMutation.mutate(person.id)}
+                                  disabled={restoreMutation.isPending}
+                                >
+                                  {restoreMutation.isPending ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Restore salesperson</TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => generatePortalLink(person)}
+                                    disabled={isGenerating}
+                                  >
+                                    {isGenerating ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : isCopied ? (
+                                      <Check className="h-4 w-4 text-primary" />
+                                    ) : hasToken ? (
+                                      <Copy className="h-4 w-4 text-primary" />
+                                    ) : (
+                                      <Link2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {hasToken ? 'Copy portal link' : 'Generate portal link'}
+                                </TooltipContent>
+                              </Tooltip>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8"
-                                onClick={() => generatePortalLink(person)}
-                                disabled={isGenerating}
+                                onClick={() => handleEdit(person)}
                               >
-                                {isGenerating ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : isCopied ? (
-                                  <Check className="h-4 w-4 text-emerald-500" />
-                                ) : hasToken ? (
-                                  <Copy className="h-4 w-4 text-primary" />
-                                ) : (
-                                  <Link2 className="h-4 w-4" />
-                                )}
+                                <Pencil className="h-4 w-4" />
                               </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              {hasToken ? 'Copy portal link' : 'Generate portal link'}
-                            </TooltipContent>
-                          </Tooltip>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleEdit(person)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDeleteClick(person)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => handleDeleteClick(person)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
