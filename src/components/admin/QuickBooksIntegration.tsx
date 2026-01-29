@@ -49,7 +49,7 @@ export function QuickBooksIntegration() {
               code,
               realmId,
               companyId: stateCompanyId,
-              redirectUri: `${window.location.origin}/admin`,
+              redirectUri: `${window.location.origin}/admin/settings`,
             },
           });
 
@@ -79,7 +79,7 @@ export function QuickBooksIntegration() {
         body: {
           action: "get-auth-url",
           companyId,
-          redirectUri: `${window.location.origin}/admin`,
+          redirectUri: `${window.location.origin}/admin/settings`,
         },
       });
 
