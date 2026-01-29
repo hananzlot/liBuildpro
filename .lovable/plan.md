@@ -1,102 +1,152 @@
 
+# Plan: Fix Payment Phase Total Calculation Mismatch
 
-# Plan: Test PDF Field Overlay with Real Estimate Data
+## Problem Summary
 
-## Summary
-Add a quick "Test Overlay" button in the Compliance Template admin that generates a filled PDF using a real estimate and opens it in a viewer for immediate visual verification.
+When viewing estimate #2076, the payment phase totals appear incorrect because there's a mismatch between:
+1. **How phases are saved** (in the `generate-estimate-scope` edge function)
+2. **How phases are displayed** (in the EstimateBuilderDialog UI)
 
-## Problem Identified
-1. **Edge Function Bug**: The `generate-compliance-documents` function uses inner joins (`!estimates_contact_uuid_fkey`) which fail when `contact_uuid` is null, returning "Estimate not found"
-2. **No Quick Test UI**: There's no way to trigger generation and view the result without going through the full proposal workflow
+### Current State
 
-## Implementation Steps
+**Estimate 2076:**
+- Total: $2,358,247.50
+- Deposit Percent: 10%
+- Deposit Max Amount: $1,000
 
-### Step 1: Fix Edge Function Query (Critical Bug Fix)
+**Stored Payment Phases:**
+- Deposit: 10% = $235,824.75 (calculated as 10% of total)
+- Other phases: 15%, 15%, 20%, 20%, 10%, 10% = $2,122,422.75
 
-**File**: `supabase/functions/generate-compliance-documents/index.ts`
+**UI Display Logic:**
+- Deposit = min(10% × total, $1,000) = **$1,000**
+- Other phases = (total - $1,000) × percent / 100
 
-Change the estimate query from inner join to left join to handle null FKs:
+This creates a visible mismatch where the displayed phase amounts don't match the stored amounts.
 
-```text
-Before (lines 128-145):
-.select(`
-  *,
-  contacts:contact_uuid!estimates_contact_uuid_fkey (...)
-  opportunities:opportunity_uuid!estimates_opportunity_uuid_fkey (...)
-`)
+---
 
-After:
-.select(`
-  *,
-  contacts:contact_uuid (...)
-  opportunities:opportunity_uuid (...)
-`)
+## Root Cause
+
+Two separate calculation methods exist:
+
+| Component | Deposit Calculation | Other Phases |
+|-----------|---------------------|--------------|
+| Edge Function | `percent × total` | `percent × total` |
+| UI (Builder) | `min(percent × total, max_amount)` | `percent × (total - deposit) / 100` |
+
+The edge function does not respect the `deposit_max_amount` cap when saving phases.
+
+---
+
+## Solution
+
+Align the payment phase calculation in the `generate-estimate-scope` edge function to match the UI logic:
+
+1. **Fetch deposit settings** from the estimate or company settings
+2. **Calculate deposit** using the cap: `min(deposit_percent × total, deposit_max_amount)`
+3. **Calculate remaining total** after deposit
+4. **Store deposit phase** with `percent: 0` and `amount: depositAmount`
+5. **Store other phases** with amounts calculated from `remainingTotal`
+
+---
+
+## Technical Changes
+
+### 1. Update `supabase/functions/generate-estimate-scope/index.ts`
+
+**Location:** Lines 390-411 (payment schedule insertion)
+
+**Current Code:**
+```typescript
+const scheduleToInsert = paymentSchedule.map((phase: any, index: number) => ({
+  ...
+  percent: phase.percent || 0,
+  amount: (phase.percent / 100) * totalEstimate,
+  ...
+}));
 ```
 
-By removing the `!fk_name` hint, Supabase uses a left join which allows null FKs.
+**New Code:**
+```typescript
+// Fetch deposit_max_amount from estimate or default to Infinity (no cap)
+const { data: estimateSettings } = await supabase
+  .from('estimates')
+  .select('deposit_percent, deposit_max_amount')
+  .eq('id', estimateId)
+  .single();
 
----
+const depositPercent = estimateSettings?.deposit_percent || depositPercent;
+const depositMaxAmount = estimateSettings?.deposit_max_amount || Infinity;
 
-### Step 2: Add "Test Overlay" Button to ComplianceTemplatesManager
+// Calculate capped deposit
+const calculatedDeposit = (depositPercent / 100) * totalEstimate;
+const cappedDeposit = Math.min(calculatedDeposit, depositMaxAmount);
+const remainingTotal = Math.max(0, totalEstimate - cappedDeposit);
 
-**File**: `src/components/admin/ComplianceTemplatesManager.tsx`
+// Process phases with proper deposit handling
+const scheduleToInsert = paymentSchedule.map((phase: any, index: number) => {
+  const isDepositPhase = phase.phase_name?.toLowerCase().includes('deposit');
+  
+  return {
+    estimate_id: estimateId,
+    company_id: companyId,
+    phase_name: phase.phase_name || `Phase ${index + 1}`,
+    percent: isDepositPhase ? 0 : (phase.percent || 0),
+    amount: isDepositPhase 
+      ? cappedDeposit 
+      : (remainingTotal * (phase.percent || 0)) / 100,
+    due_type: phase.due_type || 'milestone',
+    due_date: phase.due_date || null,
+    description: phase.description || null,
+    sort_order: index,
+  };
+});
+```
 
-Add functionality to:
-1. Show a "Test" button (beaker icon) next to each template
-2. When clicked, open a dialog to select an estimate from a dropdown
-3. Call the `generate-compliance-documents` edge function
-4. Open the generated PDF in `PdfViewerDialog`
+### 2. Fix Existing Estimate Data (Optional One-Time Fix)
 
-```text
-New UI Flow:
-Template Row -> [Test Icon] -> Select Estimate Dialog -> Generate -> View PDF
+For estimate 2076 specifically, the user can:
+1. Open the estimate in the builder
+2. Increase `deposit_max_amount` to match the actual deposit needed ($250,000+)
+3. Click "Auto-balance" on the payment phases
+4. Save the estimate
+
+Alternatively, update the estimate's `deposit_max_amount` to a higher value:
+```sql
+UPDATE estimates 
+SET deposit_max_amount = 1000000 
+WHERE id = '0f6f684d-fd45-48e9-8b85-398b6e2805f9';
 ```
 
 ---
 
-### Step 3: Create Test Dialog Component
+## Files to Modify
 
-Add inline or separate component that:
-- Fetches recent estimates for the company
-- Shows dropdown to pick one
-- Has "Generate & Preview" button
-- Shows loading state during generation
-- Opens PDF viewer with result
+| File | Change |
+|------|--------|
+| `supabase/functions/generate-estimate-scope/index.ts` | Update payment schedule persistence logic to respect deposit cap |
 
 ---
 
-## Technical Details
+## Testing Plan
 
-### Files to Modify
+1. Create a new estimate via AI generation with:
+   - Large total (e.g., $500,000+)
+   - Low deposit_max_amount (e.g., $1,000)
+   - Verify phases calculate correctly with capped deposit
 
-| File | Changes |
-|------|---------|
-| `supabase/functions/generate-compliance-documents/index.ts` | Fix FK join syntax (line ~130) |
-| `src/components/admin/ComplianceTemplatesManager.tsx` | Add Test button + dialog + PDF viewer integration |
+2. Verify existing estimates display correctly when:
+   - deposit_max_amount matches or exceeds calculated deposit
+   - Phases sum to 100% and balance indicator shows green
 
-### Data Required for Test
-Using an estimate with populated data:
-- ID: `d2b327a7-43b8-4839-ac51-25e0d3070832`
-- Customer: "Mariana Winer"
-- Address: "5239 Haskell St, La Canada Flintridge, CA 91011"
-- Phone: "+15626734465"
-
-### Test Flow
-1. Click Test (beaker icon) on "Contract" template
-2. Select "Mariana Winer" estimate from dropdown
-3. Click "Generate & Preview"
-4. Edge function generates PDF with:
-   - `customer_name` = "Mariana Winer"
-   - `project_address` = "5239 Haskell St..."
-   - `customer_phone` = "+15626734465"
-5. PDF viewer opens showing the filled document
+3. Test editing an existing estimate and re-saving to ensure phases persist correctly
 
 ---
 
-## Expected Outcome
-After implementation, you can:
-1. Go to Admin Settings > Compliance Templates
-2. Click the Test button on your "Contract" template
-3. Pick an estimate from the dropdown
-4. Immediately see the generated PDF with your field overlays filled in
+## Impact Assessment
+
+- **Low risk**: Changes only affect new AI-generated estimates
+- **Backward compatible**: Existing estimates with matching deposit settings continue to work
+- **User action may be needed**: For estimates like #2076 where deposit_max_amount is too low, user should increase it or remove the cap
 
