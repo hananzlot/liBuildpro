@@ -99,6 +99,23 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
   // Fetch compliance package enabled setting
   useEffect(() => {
     const fetchComplianceSetting = async () => {
+      // Preferred: resolve via Edge Function (avoids portal RLS limitations on settings tables)
+      try {
+        const { data, error } = await supabase.functions.invoke('portal-compliance-enabled', {
+          body: { token },
+        });
+
+        console.log('[Compliance-Proposals] portal-compliance-enabled result:', { data, error });
+
+        if (!error && typeof data?.enabled === 'boolean') {
+          setCompliancePackageEnabled(data.enabled);
+          setComplianceSettingLoaded(true);
+          return;
+        }
+      } catch (e) {
+        console.warn('[Compliance-Proposals] portal-compliance-enabled invoke failed:', e);
+      }
+
       // Use the selected estimate's company_id or fall back to context companyId
       const effectiveCompanyId = selectedEstimate?.company_id || companyId;
 
@@ -147,7 +164,7 @@ export function PortalProposals({ estimates, projectId, token, portalTokenId, on
     if (viewingProposal && selectedEstimateId) {
       fetchComplianceSetting();
     }
-  }, [viewingProposal, selectedEstimateId, selectedEstimate?.company_id, companyId]);
+  }, [viewingProposal, selectedEstimateId, selectedEstimate?.company_id, companyId, token]);
 
   // Reset compliance state when changing proposals
   useEffect(() => {
