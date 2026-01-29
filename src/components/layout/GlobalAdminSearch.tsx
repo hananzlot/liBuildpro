@@ -338,7 +338,7 @@ export function GlobalAdminSearch() {
   };
 
   const handleSelectProject = (proj: Project) => {
-    navigate(`/production/projects/${proj.id}`);
+    navigate(`/production/${proj.id}`);
     setIsOpen(false);
     setSearchQuery("");
   };
