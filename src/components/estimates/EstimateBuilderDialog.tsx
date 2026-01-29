@@ -1590,6 +1590,55 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
     setPaymentSchedule(paymentSchedule.filter(p => p.id !== phaseId));
   };
 
+  // Drag and drop state for payment phases
+  const [draggedPhaseId, setDraggedPhaseId] = useState<string | null>(null);
+
+  const handlePhaseDragStart = (e: React.DragEvent, phaseId: string) => {
+    setDraggedPhaseId(phaseId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handlePhaseDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handlePhaseDrop = (e: React.DragEvent, targetPhaseId: string) => {
+    e.preventDefault();
+    if (!draggedPhaseId || draggedPhaseId === targetPhaseId) {
+      setDraggedPhaseId(null);
+      return;
+    }
+
+    const nonDepositPhases = paymentSchedule.filter(p => p.phase_name !== "Deposit");
+    const draggedIndex = nonDepositPhases.findIndex(p => p.id === draggedPhaseId);
+    const targetIndex = nonDepositPhases.findIndex(p => p.id === targetPhaseId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedPhaseId(null);
+      return;
+    }
+
+    // Reorder the phases
+    const reordered = [...nonDepositPhases];
+    const [removed] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, removed);
+
+    // Update sort_order and merge back with deposit phases
+    const depositPhases = paymentSchedule.filter(p => p.phase_name === "Deposit");
+    const updatedPhases = [
+      ...depositPhases,
+      ...reordered.map((p, idx) => ({ ...p, sort_order: idx }))
+    ];
+
+    setPaymentSchedule(updatedPhases);
+    setDraggedPhaseId(null);
+  };
+
+  const handlePhaseDragEnd = () => {
+    setDraggedPhaseId(null);
+  };
+
   // Save estimate
   // Validation before save
   const validateEstimate = (): boolean => {
@@ -3617,9 +3666,22 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             </div>
                           )}
                           
-                          {/* Other payment phases - editable */}
+                          {/* Other payment phases - editable with drag to reorder */}
                           {paymentSchedule.filter(p => p.phase_name !== "Deposit").map((phase) => (
-                            <div key={phase.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                            <div 
+                              key={phase.id} 
+                              className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
+                                draggedPhaseId === phase.id ? 'opacity-50 border-primary' : ''
+                              }`}
+                              draggable
+                              onDragStart={(e) => handlePhaseDragStart(e, phase.id)}
+                              onDragOver={handlePhaseDragOver}
+                              onDrop={(e) => handlePhaseDrop(e, phase.id)}
+                              onDragEnd={handlePhaseDragEnd}
+                            >
+                              <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+                                <GripVertical className="h-4 w-4" />
+                              </div>
                               <Input
                                 value={phase.phase_name}
                                 onChange={(e) => updatePaymentPhase(phase.id, { phase_name: e.target.value })}
