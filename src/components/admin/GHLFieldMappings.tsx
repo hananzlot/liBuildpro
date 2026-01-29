@@ -38,8 +38,14 @@ import {
   Pencil,
   Save,
   X,
-  Building2
+  Building2,
+  ChevronDown
 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface FieldMapping {
   id: string;
@@ -276,29 +282,36 @@ export function GHLFieldMappings() {
   const selectedIntegration = integrations?.find(i => i.id === effectiveIntegrationId);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Settings2 className="h-5 w-5" />
-              Custom Field Mappings
-            </CardTitle>
-            <CardDescription>
-              Map GHL custom field IDs to application fields. Each integration can have different mappings.
-            </CardDescription>
-          </div>
-          <Button 
-            size="sm" 
-            onClick={() => setAddDialogOpen(true)}
-            disabled={!effectiveIntegrationId}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Mapping
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Collapsible defaultOpen={false} className="group">
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5" />
+                <div>
+                  <CardTitle className="text-base">Custom Field Mappings</CardTitle>
+                  <CardDescription>
+                    Map GHL custom field IDs to application fields
+                  </CardDescription>
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-4 pt-0">
+            <div className="flex justify-end">
+              <Button 
+                size="sm" 
+                onClick={() => setAddDialogOpen(true)}
+                disabled={!effectiveIntegrationId}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Mapping
+              </Button>
+            </div>
         {/* Integration Selector */}
         {integrations && integrations.length > 0 && (
           <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
@@ -427,13 +440,14 @@ export function GHLFieldMappings() {
             </TableBody>
           </Table>
         )}
-      </CardContent>
+          </CardContent>
+        </CollapsibleContent>
 
-      {/* Add Mapping Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={(open) => {
-        setAddDialogOpen(open);
-        if (!open) resetForm();
-      }}>
+        {/* Add Mapping Dialog */}
+        <Dialog open={addDialogOpen} onOpenChange={(open) => {
+          setAddDialogOpen(open);
+          if (!open) resetForm();
+        }}>
         <DialogContent className="sm:max-w-[450px]">
           <DialogHeader>
             <DialogTitle>Add Field Mapping</DialogTitle>
@@ -528,5 +542,6 @@ export function GHLFieldMappings() {
         </DialogContent>
       </Dialog>
     </Card>
+  </Collapsible>
   );
 }

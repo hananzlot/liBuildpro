@@ -9,8 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Brain, Save, Loader2, RotateCcw, Info } from "lucide-react";
+import { Brain, Save, Loader2, RotateCcw, Info, ChevronDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const DEFAULT_POSITIVE_SIGNALS = `- Scope of work being discussed or documented
 - Price/estimate mentioned
@@ -626,18 +631,25 @@ export function AIAnalysisSettings() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5" />
-          AI "Never Answers" Analysis Settings
-        </CardTitle>
-        <CardDescription>
-          Customize how the AI analyzes contact notes to determine if an opportunity should be marked as "Never Answers". 
-          The AI prioritizes recent notes over older ones.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Collapsible defaultOpen={false} className="group">
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Brain className="h-5 w-5" />
+                AI "Never Answers" Analysis Settings
+              </span>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </CardTitle>
+            <CardDescription>
+              Customize how the AI analyzes contact notes to determine if an opportunity should be marked as "Never Answers". 
+              The AI prioritizes recent notes over older ones.
+            </CardDescription>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-6 pt-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -805,7 +817,9 @@ export function AIAnalysisSettings() {
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

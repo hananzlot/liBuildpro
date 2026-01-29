@@ -33,8 +33,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, Building2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Building2, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface Bank {
   id: string;
@@ -236,25 +241,32 @@ export function BankManagement() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Bank Accounts
-            </CardTitle>
-            <CardDescription>
-              Manage bank accounts used for payments across the system
-            </CardDescription>
-          </div>
-          <Button onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Bank
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
+    <Collapsible defaultOpen={false} className="group">
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                <div>
+                  <CardTitle className="text-base">Bank Accounts</CardTitle>
+                  <CardDescription>
+                    Manage bank accounts used for payments
+                  </CardDescription>
+                </div>
+              </div>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-0">
+            <div className="flex justify-end mb-4">
+              <Button onClick={() => handleOpenDialog()}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Bank
+              </Button>
+            </div>
         {isLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -310,10 +322,11 @@ export function BankManagement() {
             </TableBody>
           </Table>
         )}
-      </CardContent>
+          </CardContent>
+        </CollapsibleContent>
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        {/* Add/Edit Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingBank ? "Edit Bank" : "Add Bank Account"}</DialogTitle>
@@ -378,5 +391,6 @@ export function BankManagement() {
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+  </Collapsible>
   );
 }

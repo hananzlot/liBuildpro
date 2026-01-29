@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { FileText, Plus, Trash2, Upload, Loader2, GripVertical, Eye, Download, FileSignature, Settings2, FlaskConical } from "lucide-react";
+import { FileText, Plus, Trash2, Upload, Loader2, GripVertical, Eye, Download, FileSignature, Settings2, FlaskConical, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ComplianceFieldEditor } from "./ComplianceFieldEditor";
 import { ComplianceTestOverlayDialog } from "./ComplianceTestOverlayDialog";
@@ -32,6 +32,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface ComplianceTemplate {
   id: string;
@@ -333,24 +338,30 @@ export function ComplianceTemplatesManager() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <FileSignature className="h-5 w-5" />
-            Compliance Document Templates
-          </span>
-          <Button size="sm" onClick={() => handleOpenDialog()}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add Template
-          </Button>
-        </CardTitle>
-        <CardDescription>
-          Upload PDF templates with placeholders that will be auto-filled with customer and proposal information. 
-          These documents are automatically attached when sending proposals.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <Collapsible defaultOpen={false} className="group">
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <FileSignature className="h-5 w-5" />
+                Compliance Document Templates
+              </span>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </CardTitle>
+            <CardDescription>
+              Upload PDF templates with placeholders that will be auto-filled with customer and proposal information.
+            </CardDescription>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-6 pt-0">
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => handleOpenDialog()}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add Template
+              </Button>
+            </div>
         {/* Compliance Package Toggle */}
         <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border">
           <div className="space-y-0.5">
@@ -507,7 +518,8 @@ export function ComplianceTemplatesManager() {
             </div>
           </ScrollArea>
         </div>
-      </CardContent>
+          </CardContent>
+        </CollapsibleContent>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -665,5 +677,6 @@ export function ComplianceTemplatesManager() {
         />
       )}
     </Card>
+  </Collapsible>
   );
 }
