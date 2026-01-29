@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -16,6 +16,7 @@ interface QBCompany {
 export function QuickBooksCompanySelector() {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
+  const hasSyncedCompanyName = useRef(false);
 
   // Fetch current connection
   const { data: connection, isLoading: connectionLoading } = useQuery({
@@ -43,9 +44,9 @@ export function QuickBooksCompanySelector() {
       if (error || data?.needsReauth) {
         console.error("Failed to load QuickBooks company info:", error || data);
         toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
-        return undefined;
+        return null;
       }
-      return data?.entities?.[0] as QBCompany | undefined;
+      return data?.entities?.[0] as QBCompany | null;
     },
     enabled: !!companyId && !!connection,
     retry: false,
@@ -66,10 +67,19 @@ export function QuickBooksCompanySelector() {
     },
   });
 
-  // Sync company name if not set
-  if (qbCompanyInfo && connection && !connection.company_name) {
-    updateCompanyNameMutation.mutate(qbCompanyInfo.Name);
-  }
+  // Sync company name if not set - use useEffect to avoid calling mutate during render
+  useEffect(() => {
+    if (
+      qbCompanyInfo?.Name &&
+      connection &&
+      !connection.company_name &&
+      !hasSyncedCompanyName.current &&
+      !updateCompanyNameMutation.isPending
+    ) {
+      hasSyncedCompanyName.current = true;
+      updateCompanyNameMutation.mutate(qbCompanyInfo.Name);
+    }
+  }, [qbCompanyInfo, connection, updateCompanyNameMutation]);
 
   if (connectionLoading) {
     return (
