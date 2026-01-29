@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Settings2, Save, RefreshCw } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCw, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -31,6 +31,39 @@ export function QuickBooksMappingConfig() {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("accounts");
+  const [needsReauth, setNeedsReauth] = useState(false);
+  const hasShownReauthToast = useRef(false);
+
+  const markNeedsReauth = () => {
+    setNeedsReauth(true);
+    if (!hasShownReauthToast.current) {
+      hasShownReauthToast.current = true;
+      toast.error("QuickBooks authorization expired. Please reconnect QuickBooks.");
+    }
+  };
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      if (!companyId) throw new Error("No company ID");
+      const { error, data } = await supabase.functions.invoke("quickbooks-auth", {
+        body: { action: "disconnect", companyId },
+      });
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Disconnect failed");
+    },
+    onSuccess: () => {
+      toast.success("QuickBooks disconnected");
+      queryClient.invalidateQueries({ queryKey: ["quickbooks-connection", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["qb-accounts", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["qb-items", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["qb-payment-methods", companyId] });
+      queryClient.invalidateQueries({ queryKey: ["qb-mappings", companyId] });
+      setNeedsReauth(false);
+      hasShownReauthToast.current = false;
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to disconnect QuickBooks");
+    },
+  });
 
   // Fetch existing mappings
   const { data: mappings, isLoading: mappingsLoading } = useQuery({
@@ -55,12 +88,12 @@ export function QuickBooksMappingConfig() {
       });
       if (error || data?.needsReauth) {
         console.error("Failed to load QuickBooks accounts:", error || data);
-        toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
+        if (data?.needsReauth) markNeedsReauth();
         return [] as QBEntity[];
       }
       return (data?.entities || []) as QBEntity[];
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !needsReauth,
     retry: false,
   });
 
@@ -72,12 +105,12 @@ export function QuickBooksMappingConfig() {
       });
       if (error || data?.needsReauth) {
         console.error("Failed to load QuickBooks items:", error || data);
-        toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
+        if (data?.needsReauth) markNeedsReauth();
         return [] as QBEntity[];
       }
       return (data?.entities || []) as QBEntity[];
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !needsReauth,
     retry: false,
   });
 
@@ -89,12 +122,12 @@ export function QuickBooksMappingConfig() {
       });
       if (error || data?.needsReauth) {
         console.error("Failed to load QuickBooks payment methods:", error || data);
-        toast.error("QuickBooks authorization failed. Please reconnect QuickBooks.");
+        if (data?.needsReauth) markNeedsReauth();
         return [] as QBEntity[];
       }
       return (data?.entities || []) as QBEntity[];
     },
-    enabled: !!companyId,
+    enabled: !!companyId && !needsReauth,
     retry: false,
   });
 
@@ -145,6 +178,47 @@ export function QuickBooksMappingConfig() {
   const expenseAccounts = accounts?.filter((a) => ["Expense", "Other Expense", "Cost of Goods Sold"].includes(a.type)) || [];
 
   const isLoading = mappingsLoading || accountsLoading || itemsLoading || paymentMethodsLoading;
+
+  if (needsReauth) {
+    return (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Settings2 className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">QuickBooks Mapping</CardTitle>
+              <CardDescription>Reconnect QuickBooks to load accounts and items</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">QuickBooks authorization was revoked.</p>
+              <p className="text-destructive/80">
+                Click disconnect below, then use “Connect to QuickBooks” to re-authorize.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => disconnectMutation.mutate()}
+            disabled={disconnectMutation.isPending}
+          >
+            {disconnectMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : null}
+            Disconnect QuickBooks
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (

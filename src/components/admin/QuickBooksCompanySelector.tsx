@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -16,6 +16,7 @@ export function QuickBooksCompanySelector() {
   const { companyId } = useCompanyContext();
   const queryClient = useQueryClient();
   const hasSyncedCompanyName = useRef(false);
+  const [needsReauth, setNeedsReauth] = useState(false);
 
   // Fetch current connection
   const { data: connection, isLoading: connectionLoading } = useQuery({
@@ -42,6 +43,7 @@ export function QuickBooksCompanySelector() {
       });
       if (error || data?.needsReauth) {
         console.error("Failed to load QuickBooks company info:", error || data);
+        if (data?.needsReauth) setNeedsReauth(true);
         return null;
       }
       return data?.entities?.[0] as QBCompany | null;
@@ -117,7 +119,11 @@ export function QuickBooksCompanySelector() {
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <div>
               <p className="font-medium">
-                {companyName || (
+                {needsReauth ? (
+                  <span className="text-destructive">Authorization expired — reconnect QuickBooks</span>
+                ) : companyName ? (
+                  companyName
+                ) : (
                   <span className="text-muted-foreground flex items-center gap-1">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Loading company info...
@@ -133,7 +139,7 @@ export function QuickBooksCompanySelector() {
             variant="ghost"
             size="sm"
             onClick={() => refetch()}
-            disabled={companyInfoLoading}
+            disabled={companyInfoLoading || needsReauth}
             title="Refresh company info"
           >
             {companyInfoLoading ? (
@@ -143,6 +149,18 @@ export function QuickBooksCompanySelector() {
             )}
           </Button>
         </div>
+
+        {needsReauth && (
+          <div className="p-4 rounded-lg bg-destructive/10 text-destructive text-sm flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <p className="font-medium">QuickBooks token revoked.</p>
+              <p className="text-destructive/80">
+                Disconnect and reconnect QuickBooks to select the correct company again.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Multi-company info box */}
         <div className="p-4 rounded-lg bg-muted/30 border border-dashed space-y-2">
