@@ -6,7 +6,57 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const QB_BASE_URL = "https://quickbooks.api.intuit.com/v3/company";
+const QB_BASE_URL_PROD = "https://quickbooks.api.intuit.com/v3/company";
+const QB_BASE_URL_SANDBOX = "https://sandbox-quickbooks.api.intuit.com/v3/company";
+
+const looksLikeEnvMismatchOrAuthFailure = (status: number, errorText: string) => {
+  return (
+    status === 401 ||
+    status === 403 ||
+    errorText.includes("ApplicationAuthorizationFailed") ||
+    errorText.includes('"code":"3100"') ||
+    errorText.includes("errorCode=003100")
+  );
+};
+
+const fetchWithSandboxFallback = async (
+  urlForBase: (baseUrl: string) => string,
+  qbHeaders: Record<string, string>
+) => {
+  // Many Intuit developer setups use Sandbox companies. Those require calling
+  // `sandbox-quickbooks.api.intuit.com`. If we call the prod endpoint with a
+  // sandbox realm/token, Intuit returns 403/3100 (ApplicationAuthorizationFailed).
+  const bases = [QB_BASE_URL_PROD, QB_BASE_URL_SANDBOX];
+
+  let lastErrorText = "";
+  let lastStatus = 500;
+
+  for (let i = 0; i < bases.length; i++) {
+    const baseUrl = bases[i];
+    const url = urlForBase(baseUrl);
+    const res = await fetch(url, { headers: qbHeaders });
+    if (res.ok) {
+      return { res, baseUrl };
+    }
+
+    const errorText = await res.text();
+    lastErrorText = errorText;
+    lastStatus = res.status;
+
+    const isAuthish = looksLikeEnvMismatchOrAuthFailure(res.status, errorText);
+
+    // If the first attempt (prod) looks like auth/env mismatch, try sandbox next.
+    if (i === 0 && isAuthish) {
+      console.warn("QB API Error on prod endpoint; retrying sandbox...", errorText);
+      continue;
+    }
+
+    // Otherwise, stop immediately.
+    break;
+  }
+
+  return { res: null, baseUrl: null, errorText: lastErrorText, status: lastStatus };
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -108,23 +158,23 @@ Deno.serve(async (req) => {
         break;
       case "companies":
         // Get company info instead of query
-        const companyInfoUrl = `${QB_BASE_URL}/${realm_id}/companyinfo/${realm_id}`;
-        const companyRes = await fetch(companyInfoUrl, { headers: qbHeaders });
-        if (!companyRes.ok) {
-          const errorText = await companyRes.text();
-          const authFailed =
-            companyRes.status === 401 ||
-            companyRes.status === 403 ||
-            errorText.includes("ApplicationAuthorizationFailed") ||
-            errorText.includes('"code":"3100"') ||
-            errorText.includes("errorCode=003100");
+        const companyAttempt = await fetchWithSandboxFallback(
+          (baseUrl) => `${baseUrl}/${realm_id}/companyinfo/${realm_id}`,
+          qbHeaders
+        );
 
-          console.error("QB API Error (companyinfo):", errorText);
+        if (!companyAttempt.res) {
+          const authFailed = looksLikeEnvMismatchOrAuthFailure(
+            companyAttempt.status ?? 500,
+            companyAttempt.errorText ?? ""
+          );
+
+          console.error("QB API Error (companyinfo):", companyAttempt.errorText);
           return new Response(
             JSON.stringify({
               error: "Failed to fetch company info",
               needsReauth: authFailed ? true : undefined,
-              details: errorText,
+              details: companyAttempt.errorText,
             }),
             {
               status: authFailed ? 401 : 500,
@@ -133,7 +183,7 @@ Deno.serve(async (req) => {
           );
         }
 
-        const companyData = await companyRes.json();
+        const companyData = await companyAttempt.res.json();
         return new Response(
           JSON.stringify({
             entities: [
@@ -152,25 +202,24 @@ Deno.serve(async (req) => {
         );
     }
 
-    const queryUrl = `${QB_BASE_URL}/${realm_id}/query?query=${encodeURIComponent(query)}`;
-    const response = await fetch(queryUrl, { headers: qbHeaders });
+    const queryAttempt = await fetchWithSandboxFallback(
+      (baseUrl) => `${baseUrl}/${realm_id}/query?query=${encodeURIComponent(query)}`,
+      qbHeaders
+    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("QB API Error:", errorText);
+    if (!queryAttempt.res) {
+      console.error("QB API Error:", queryAttempt.errorText);
 
-      const authFailed =
-        response.status === 401 ||
-        response.status === 403 ||
-        errorText.includes("ApplicationAuthorizationFailed") ||
-        errorText.includes('"code":"3100"') ||
-        errorText.includes("errorCode=003100");
+      const authFailed = looksLikeEnvMismatchOrAuthFailure(
+        queryAttempt.status ?? 500,
+        queryAttempt.errorText ?? ""
+      );
 
       return new Response(
         JSON.stringify({
           error: "Failed to fetch from QuickBooks",
           needsReauth: authFailed ? true : undefined,
-          details: errorText,
+          details: queryAttempt.errorText,
         }),
         {
           status: authFailed ? 401 : 500,
@@ -179,7 +228,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const data = await response.json();
+    const data = await queryAttempt.res.json();
     const entities = data.QueryResponse?.[resultKey] || [];
 
     // Format response based on entity type

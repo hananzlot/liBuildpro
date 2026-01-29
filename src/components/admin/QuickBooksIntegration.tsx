@@ -16,6 +16,22 @@ export function QuickBooksIntegration() {
   const queryClient = useQueryClient();
   const [isConnecting, setIsConnecting] = useState(false);
 
+  const navigateToQuickBooksAuth = (authUrl: string) => {
+    // Intuit blocks being loaded in an iframe (X-Frame-Options / CSP), which is
+    // what the Lovable preview uses. If we're in an iframe, open in a new tab.
+    try {
+      const isInIframe = window.self !== window.top;
+      if (isInIframe) {
+        window.open(authUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      window.location.assign(authUrl);
+    } catch {
+      window.open(authUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
   // Fetch connection status
   const { data: connection, isLoading } = useQuery({
     queryKey: ["quickbooks-connection", companyId],
@@ -55,7 +71,7 @@ export function QuickBooksIntegration() {
       return data.authUrl;
     },
     onSuccess: (authUrl) => {
-      window.location.href = authUrl;
+      navigateToQuickBooksAuth(authUrl);
     },
     onError: (error) => {
       toast.error(error.message);
