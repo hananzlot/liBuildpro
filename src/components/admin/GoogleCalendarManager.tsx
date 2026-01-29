@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { 
   Calendar, 
@@ -17,7 +18,10 @@ import {
   Check, 
   AlertCircle,
   ExternalLink,
-  Loader2
+  Loader2,
+  ChevronDown,
+  Save,
+  Key
 } from "lucide-react";
 import {
   AlertDialog,
@@ -30,6 +34,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Separator } from "@/components/ui/separator";
 import { CalendarFieldMappings } from "./CalendarFieldMappings";
 
 interface GoogleCalendarConnection {
@@ -53,6 +63,8 @@ export function GoogleCalendarManager() {
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [editedCredentials, setEditedCredentials] = useState<Record<string, string>>({});
+  const [isSavingCredential, setIsSavingCredential] = useState<string | null>(null);
 
   // Fetch connections
   const { data: connections, isLoading } = useQuery({
@@ -71,20 +83,25 @@ export function GoogleCalendarManager() {
     enabled: !!companyId,
   });
 
-  // Check if Google credentials are configured
-  const { data: hasCredentials } = useQuery({
-    queryKey: ['google-credentials-check', companyId],
+  // Fetch Google OAuth credentials
+  const { data: credentials } = useQuery({
+    queryKey: ['google-credentials', companyId],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('company_settings')
-        .select('setting_key')
+        .select('setting_key, setting_value')
         .eq('company_id', companyId)
         .in('setting_key', ['google_client_id', 'google_client_secret']);
 
-      return data?.length === 2;
+      if (error) throw error;
+      return data as { setting_key: string; setting_value: string | null }[];
     },
     enabled: !!companyId,
   });
+
+  // Check if Google credentials are configured
+  const hasCredentials = credentials?.length === 2 && 
+    credentials.every(c => c.setting_value && c.setting_value.length > 0);
 
   // Listen for OAuth callback messages
   useEffect(() => {
@@ -119,6 +136,38 @@ export function GoogleCalendarManager() {
     },
     onError: (error) => {
       toast.error(`Failed to disconnect: ${error.message}`);
+    },
+  });
+
+  // Save credential mutation
+  const saveCredentialMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      const { error } = await supabase
+        .from('company_settings')
+        .upsert({
+          company_id: companyId,
+          setting_key: key,
+          setting_value: value,
+          setting_type: 'secret',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'company_id,setting_key' });
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      toast.success(`${variables.key === 'google_client_id' ? 'Client ID' : 'Client Secret'} saved`);
+      queryClient.invalidateQueries({ queryKey: ['google-credentials'] });
+      setEditedCredentials(prev => {
+        const next = { ...prev };
+        delete next[variables.key];
+        return next;
+      });
+    },
+    onError: (error) => {
+      toast.error(`Failed to save: ${error.message}`);
+    },
+    onSettled: () => {
+      setIsSavingCredential(null);
     },
   });
 
@@ -223,203 +272,304 @@ export function GoogleCalendarManager() {
     }
   };
 
+  const getCredentialValue = (key: string) => {
+    if (key in editedCredentials) return editedCredentials[key];
+    return credentials?.find(c => c.setting_key === key)?.setting_value ?? '';
+  };
+
+  const hasCredentialChanges = (key: string) => {
+    const original = credentials?.find(c => c.setting_key === key)?.setting_value ?? '';
+    const edited = editedCredentials[key];
+    return edited !== undefined && edited !== original;
+  };
+
+  const handleSaveCredential = async (key: string) => {
+    const value = editedCredentials[key];
+    if (value === undefined) return;
+    setIsSavingCredential(key);
+    saveCredentialMutation.mutate({ key, value });
+  };
+
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <Collapsible defaultOpen={false} className="group">
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardTitle className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Google Calendar Integration
+                </span>
+                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </CardTitle>
+              <CardDescription>
+                Connect Google Calendars for two-way appointment sync
+              </CardDescription>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-medium">Google Calendar Integration</h3>
-          <p className="text-sm text-muted-foreground">
-            Connect Google Calendars for two-way appointment sync
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleConnect(false)}
-            disabled={isConnecting || !hasCredentials}
-          >
-            {isConnecting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4 mr-2" />
-            )}
-            Add Personal Calendar
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => handleConnect(true)}
-            disabled={isConnecting || !hasCredentials}
-          >
-            {isConnecting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4 mr-2" />
-            )}
-            Add Company Calendar
-          </Button>
-        </div>
-      </div>
-
-      {!hasCredentials && (
-        <Card className="border-warning/50 bg-warning/10">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-2 text-warning-foreground">
-              <AlertCircle className="h-5 w-5" />
-              <span>
-                Google API credentials not configured. Please add your Client ID and Secret in the{' '}
-                <strong>Custom</strong> tab above.
+    <Collapsible defaultOpen={false} className="group">
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Google Calendar Integration
               </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+            </CardTitle>
+            <CardDescription>
+              Connect Google Calendars for two-way appointment sync
+            </CardDescription>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-6 pt-0">
+            {/* OAuth Credentials Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Key className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-medium">OAuth Credentials</h4>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Configure Google OAuth credentials. Create these at{" "}
+                <a 
+                  href="https://console.cloud.google.com/apis/credentials" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  Google Cloud Console
+                </a>
+              </p>
 
-      {connections && connections.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-            <h4 className="text-lg font-medium mb-2">No calendars connected</h4>
-            <p className="text-sm text-muted-foreground text-center max-w-md">
-              Connect a Google Calendar to sync appointments. Company calendars are visible to all users,
-              while personal calendars are only visible to you.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {connections?.map((connection) => (
-            <Card key={connection.id}>
-              <CardHeader className="pb-3">
+              {/* Google Client ID */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <div>
-                      <CardTitle className="text-base">{connection.calendar_name}</CardTitle>
-                      <CardDescription>{connection.calendar_email}</CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={connection.is_company_calendar ? 'default' : 'secondary'}>
-                      {connection.is_company_calendar ? 'Company' : 'Personal'}
-                    </Badge>
-                    {connection.is_active ? (
-                      <Badge variant="outline" className="text-green-600 border-green-200">
-                        <Check className="h-3 w-3 mr-1" />
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-gray-500">
-                        Inactive
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    {connection.last_sync_at ? (
-                      <>Last synced: {new Date(connection.last_sync_at).toLocaleString()}</>
-                    ) : (
-                      <>Never synced</>
-                    )}
-                    {connection.sync_error && (
-                      <span className="text-red-500 ml-2">• Error: {connection.sync_error}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 mr-4">
-                      <Switch
-                        id={`active-${connection.id}`}
-                        checked={connection.is_active}
-                        onCheckedChange={(checked) =>
-                          toggleActiveMutation.mutate({ id: connection.id, isActive: checked })
-                        }
-                      />
-                      <Label htmlFor={`active-${connection.id}`} className="text-sm">
-                        Sync enabled
-                      </Label>
-                    </div>
+                  <Label htmlFor="google_client_id">Google Client ID</Label>
+                  {hasCredentialChanges("google_client_id") && (
                     <Button
-                      variant="outline"
                       size="sm"
-                      onClick={() => handleSync(connection.id)}
-                      disabled={isSyncing === connection.id || !connection.is_active}
+                      onClick={() => handleSaveCredential("google_client_id")}
+                      disabled={isSavingCredential === "google_client_id"}
                     >
-                      {isSyncing === connection.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                      {isSavingCredential === "google_client_id" ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        <RefreshCw className="h-4 w-4" />
+                        <Save className="h-3 w-3 mr-1" />
                       )}
+                      Save
                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive/80">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Disconnect Calendar?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will stop syncing with "{connection.calendar_name}". Existing appointments
-                            will not be deleted.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                            onClick={() => deleteMutation.mutate(connection.id)}
-                            className="bg-destructive hover:bg-destructive/90"
-                          >
-                            Disconnect
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                  )}
+                </div>
+                <Input
+                  id="google_client_id"
+                  type="password"
+                  value={getCredentialValue("google_client_id")}
+                  onChange={(e) => setEditedCredentials(prev => ({ ...prev, google_client_id: e.target.value }))}
+                  placeholder="xxxxx.apps.googleusercontent.com"
+                />
+                <p className="text-xs text-muted-foreground">OAuth 2.0 Client ID from Google Cloud Console</p>
+              </div>
+
+              {/* Google Client Secret */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="google_client_secret">Google Client Secret</Label>
+                  {hasCredentialChanges("google_client_secret") && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleSaveCredential("google_client_secret")}
+                      disabled={isSavingCredential === "google_client_secret"}
+                    >
+                      {isSavingCredential === "google_client_secret" ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Save className="h-3 w-3 mr-1" />
+                      )}
+                      Save
+                    </Button>
+                  )}
+                </div>
+                <Input
+                  id="google_client_secret"
+                  type="password"
+                  value={getCredentialValue("google_client_secret")}
+                  onChange={(e) => setEditedCredentials(prev => ({ ...prev, google_client_secret: e.target.value }))}
+                  placeholder="GOCSPX-..."
+                />
+                <p className="text-xs text-muted-foreground">OAuth 2.0 Client Secret from Google Cloud Console</p>
+              </div>
+
+              <div className="text-xs text-muted-foreground p-3 bg-muted rounded-lg">
+                <p className="font-medium mb-1">Setup Instructions:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Go to the Google Cloud Console and create a project</li>
+                  <li>Enable the Google Calendar API</li>
+                  <li>Configure the OAuth consent screen</li>
+                  <li>Create OAuth 2.0 credentials (Web application)</li>
+                  <li>
+                    Add this redirect URI:{' '}
+                    <code className="bg-background px-1 py-0.5 rounded text-xs">
+                      https://mspujwrfhbobrxhofxzv.supabase.co/functions/v1/google-auth-callback
+                    </code>
+                  </li>
+                </ol>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Calendar Connections Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-medium">Connected Calendars</h4>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleConnect(false)}
+                    disabled={isConnecting || !hasCredentials}
+                  >
+                    {isConnecting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-2" />
+                    )}
+                    Add Personal
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handleConnect(true)}
+                    disabled={isConnecting || !hasCredentials}
+                  >
+                    {isConnecting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4 mr-2" />
+                    )}
+                    Add Company
+                  </Button>
+                </div>
+              </div>
+
+              {!hasCredentials && (
+                <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10">
+                  <div className="flex items-center gap-2 text-destructive">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>Please configure OAuth credentials above first.</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+              )}
 
-      {/* Field Mappings for creating opportunities from calendar events */}
-      {connections && connections.length > 0 && <CalendarFieldMappings />}
-
-      <Card className="bg-muted/50">
-        <CardContent className="pt-4">
-          <div className="flex items-start gap-3">
-            <ExternalLink className="h-5 w-5 text-muted-foreground mt-0.5" />
-            <div className="text-sm">
-              <p className="font-medium mb-1">Setup Instructions</p>
-              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                <li>Go to the Google Cloud Console and create a project</li>
-                <li>Enable the Google Calendar API</li>
-                <li>Configure the OAuth consent screen</li>
-                <li>Create OAuth 2.0 credentials (Web application)</li>
-                <li>
-                  Add this redirect URI:{' '}
-                  <code className="bg-background px-1 py-0.5 rounded text-xs">
-                    https://mspujwrfhbobrxhofxzv.supabase.co/functions/v1/google-auth-callback
-                  </code>
-                </li>
-                <li>Add the Client ID and Secret in the Custom tab</li>
-              </ol>
+              {connections && connections.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h4 className="text-lg font-medium mb-2">No calendars connected</h4>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Connect a Google Calendar to sync appointments. Company calendars are visible to all users,
+                    while personal calendars are only visible to you.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {connections?.map((connection) => (
+                    <div key={connection.id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-5 w-5 text-primary" />
+                          <div>
+                            <div className="font-medium flex items-center gap-2">
+                              {connection.calendar_name}
+                              {connection.is_company_calendar && (
+                                <Badge variant="secondary" className="text-xs">Company</Badge>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {connection.calendar_email}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={connection.is_active}
+                            onCheckedChange={(checked) => 
+                              toggleActiveMutation.mutate({ id: connection.id, isActive: checked })
+                            }
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSync(connection.id)}
+                            disabled={isSyncing === connection.id}
+                          >
+                            {isSyncing === connection.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Disconnect Calendar?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will stop syncing appointments with this calendar.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteMutation.mutate(connection.id)}>
+                                  Disconnect
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                      {connection.sync_error && (
+                        <div className="mt-2 text-sm text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-4 w-4" />
+                          {connection.sync_error}
+                        </div>
+                      )}
+                      {connection.last_sync_at && (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          Last synced: {new Date(connection.last_sync_at).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        </CardContent>
+
+            <Separator />
+
+            {/* Field Mappings */}
+            <CalendarFieldMappings />
+          </CardContent>
+        </CollapsibleContent>
       </Card>
-    </div>
+    </Collapsible>
   );
 }
