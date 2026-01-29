@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompanyContext } from "@/hooks/useCompanyContext";
@@ -31,46 +31,9 @@ export function QuickBooksIntegration() {
     enabled: !!companyId,
   });
 
-  // Handle OAuth callback
-  useEffect(() => {
-    const handleCallback = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get("code");
-      const realmId = params.get("realmId");
-      const state = params.get("state");
-
-      if (code && realmId && state) {
-        try {
-          const { companyId: stateCompanyId } = JSON.parse(atob(state));
-          
-          const { data, error } = await supabase.functions.invoke("quickbooks-auth", {
-            body: {
-              action: "exchange-code",
-              code,
-              realmId,
-              companyId: stateCompanyId,
-              redirectUri: `${window.location.origin}/admin/settings`,
-            },
-          });
-
-          if (error || data?.error) {
-            toast.error(data?.error || "Failed to connect QuickBooks");
-          } else {
-            toast.success("QuickBooks connected successfully!");
-            queryClient.invalidateQueries({ queryKey: ["quickbooks-connection"] });
-          }
-        } catch (err) {
-          console.error("OAuth callback error:", err);
-          toast.error("Failed to process QuickBooks authorization");
-        } finally {
-          // Clean up URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }
-    };
-
-    handleCallback();
-  }, [queryClient]);
+  // NOTE: OAuth callback is now handled by useQuickBooksCallback hook
+  // which runs at a higher level (App.tsx) to ensure it processes
+  // even before company context is restored after page reload.
 
   // Connect mutation
   const connectMutation = useMutation({
