@@ -6219,6 +6219,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_valid_portal_token_for_company: {
+        Args: { target_company_id: string }
+        Returns: boolean
+      }
       has_valid_salesperson_portal_token: {
         Args: { target_company_id: string }
         Returns: boolean
