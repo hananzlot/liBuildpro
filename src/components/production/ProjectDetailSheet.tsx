@@ -49,11 +49,13 @@ import {
   Pencil,
   X,
   Settings2,
-  Send
+  Send,
+  Camera
 } from "lucide-react";
 import { FinanceSection } from "./FinanceSection";
 import { DocumentsSection } from "./DocumentsSection";
 import { NotesSection } from "./NotesSection";
+import { PhotosSection } from "./PhotosSection";
 import { DebouncedInput, DebouncedTextarea, DebouncedNumberInput } from "@/components/ui/debounced-input";
 import { CustomLeadCostsDialog, WeightedAverageTooltip } from "./CustomLeadCostsDialog";
 import { CustomerPortalCard } from "./CustomerPortalCard";
@@ -573,7 +575,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
         </SheetHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="text-xs">
               <Building2 className="h-3 w-3 mr-1" />
               Overview
@@ -585,6 +587,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             <TabsTrigger value="documents" className="text-xs">
               <FolderOpen className="h-3 w-3 mr-1" />
               Docs
+            </TabsTrigger>
+            <TabsTrigger value="photos" className="text-xs">
+              <Camera className="h-3 w-3 mr-1" />
+              Photos
             </TabsTrigger>
             <TabsTrigger value="checklist" className="text-xs">
               <CheckSquare className="h-3 w-3 mr-1" />
@@ -1507,6 +1513,10 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
             <DocumentsSection projectId={project.id} />
           </TabsContent>
 
+          {/* Photos Tab */}
+          <TabsContent value="photos" className="mt-4">
+            <PhotosSection projectId={project.id} />
+          </TabsContent>
 
           {/* Checklist Tab */}
           <TabsContent value="checklist" className="space-y-3 mt-4">
