@@ -314,14 +314,23 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
   });
 
   // Fetch compliance package enabled setting when we have company_id
+  // CRITICAL: Only run when portalData is fully loaded to prevent race conditions
   useEffect(() => {
+    // Don't run until portalData is loaded
+    if (!portalData) {
+      return;
+    }
+
     const fetchComplianceSetting = async () => {
       // IMPORTANT: client_portal_tokens.company_id can be null in some legacy rows.
       // Always fall back to the estimate's company_id so compliance can still work.
-      const effectiveCompanyId = portalData?.token?.company_id || portalData?.estimate?.company_id;
+      const effectiveCompanyId = portalData.token?.company_id || portalData.estimate?.company_id;
+
+      console.log('[Compliance] Fetching setting for company:', effectiveCompanyId);
 
       if (!effectiveCompanyId) {
         // Don't block the signing flow forever if company_id can't be resolved.
+        console.log('[Compliance] No company ID found, disabling compliance');
         setCompliancePackageEnabled(false);
         setComplianceSettingLoaded(true);
         return;
@@ -334,12 +343,17 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
         .eq('setting_key', 'compliance_package_enabled')
         .maybeSingle();
       
+      console.log('[Compliance] company_settings query result:', { data, error });
+      
       if (!error) {
         const enabled = String(data?.setting_value ?? '').toLowerCase() === 'true';
+        console.log('[Compliance] Setting enabled from company_settings:', enabled);
         setCompliancePackageEnabled(enabled);
+        setComplianceSettingLoaded(true);
       } else {
         // Fallback: if the setting isn't readable (e.g. permission/RLS), infer enablement
         // from whether the company has any active compliance templates.
+        console.log('[Compliance] Falling back to template check due to error:', error);
         const { data: template } = await supabase
           .from('compliance_document_templates')
           .select('id')
@@ -348,14 +362,15 @@ export function PortalEstimateView({ token, isMultiSigner = false, signerId, sig
           .limit(1)
           .maybeSingle();
 
-        setCompliancePackageEnabled(!!template?.id);
+        const enabled = !!template?.id;
+        console.log('[Compliance] Setting enabled from templates fallback:', enabled);
+        setCompliancePackageEnabled(enabled);
+        setComplianceSettingLoaded(true);
       }
-      // Mark as loaded regardless of result
-      setComplianceSettingLoaded(true);
     };
     
     fetchComplianceSetting();
-  }, [portalData?.token?.company_id, portalData?.estimate?.company_id]);
+  }, [portalData]);
 
   // Set initial signer info
   useEffect(() => {
