@@ -506,6 +506,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return data?.setting_value || "";
     },
     enabled: open && !estimateId, // Only fetch for new estimates
+    staleTime: 0, // Always fetch fresh settings
   });
 
   const { data: defaultMarkupSetting } = useQuery({
@@ -519,6 +520,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return data?.setting_value ? parseFloat(data.setting_value) : 50;
     },
     enabled: open && !estimateId, // Only fetch for new estimates
+    staleTime: 0, // Always fetch fresh settings
   });
 
   // Fetch default deposit settings, expiration days, and plans max size from company settings
@@ -552,6 +554,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return settings;
     },
     enabled: open && !estimateId && !!companyId, // Only fetch for new estimates
+    staleTime: 0, // Always fetch fresh settings
   });
 
   // Fetch plans max file size from company settings (with app_settings fallback)
@@ -583,6 +586,7 @@ export function EstimateBuilderDialog({ open, onOpenChange, estimateId, onSucces
       return 50;
     },
     enabled: open,
+    staleTime: 0, // Always fetch fresh settings
   });
 
   // Fetch existing estimate if editing or cloning
