@@ -1135,42 +1135,51 @@ export default function AdminSettings() {
                 {/* Stage Badge Mappings */}
                 <StageBadgeMappingsEditor />
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Settings className="h-5 w-5" />
-                      Dashboard KPI Visibility
-                    </CardTitle>
-                    <CardDescription>
-                      Control which KPI cards are visible on the main dashboard
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Leads Resell</Label>
-                        <p className="text-xs text-muted-foreground">Show the Leads Resell KPI card on dashboard</p>
-                      </div>
-                      <Switch
-                        checked={kpiVisibility.leads_resell_visible}
-                        onCheckedChange={toggleLeadsResell}
-                        disabled={isTogglingKPI}
-                      />
-                    </div>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Magazine Sales</Label>
-                        <p className="text-xs text-muted-foreground">Show the Magazine Sales KPI card on dashboard</p>
-                      </div>
-                      <Switch
-                        checked={kpiVisibility.magazine_sales_visible}
-                        onCheckedChange={toggleMagazineSales}
-                        disabled={isTogglingKPI}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
+                <Collapsible defaultOpen={false}>
+                  <Card>
+                    <CollapsibleTrigger asChild>
+                      <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardTitle className="flex items-center justify-between">
+                          <span className="flex items-center gap-2">
+                            <Settings className="h-5 w-5" />
+                            Dashboard KPI Visibility
+                          </span>
+                          <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </CardTitle>
+                        <CardDescription>
+                          Control which KPI cards are visible on the main dashboard
+                        </CardDescription>
+                      </CardHeader>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-4 pt-0">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Leads Resell</Label>
+                            <p className="text-xs text-muted-foreground">Show the Leads Resell KPI card on dashboard</p>
+                          </div>
+                          <Switch
+                            checked={kpiVisibility.leads_resell_visible}
+                            onCheckedChange={toggleLeadsResell}
+                            disabled={isTogglingKPI}
+                          />
+                        </div>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label>Magazine Sales</Label>
+                            <p className="text-xs text-muted-foreground">Show the Magazine Sales KPI card on dashboard</p>
+                          </div>
+                          <Switch
+                            checked={kpiVisibility.magazine_sales_visible}
+                            onCheckedChange={toggleMagazineSales}
+                            disabled={isTogglingKPI}
+                          />
+                        </div>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
 
               </div>
             )}
@@ -1179,53 +1188,62 @@ export default function AdminSettings() {
           {/* GHL Integrations Tab */}
           <TabsContent value="integrations" className="mt-6 space-y-6">
             {/* GHL Integration Toggle */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  GoHighLevel Integration
-                </CardTitle>
-                <CardDescription>
-                  Enable or disable GoHighLevel (GHL) integration. When disabled, the app works in local-only mode
-                  without syncing data to/from GHL.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="ghl-toggle">GHL Sync Enabled</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {isGHLEnabled 
-                        ? "GHL sync is enabled - data will sync with GoHighLevel" 
-                        : "GHL sync is disabled - app works in local-only mode"}
-                    </p>
-                  </div>
-                  <Switch
-                    id="ghl-toggle"
-                    checked={isGHLEnabled}
-                    onCheckedChange={(checked) => toggleGHLIntegration.mutate(checked)}
-                    disabled={toggleGHLIntegration.isPending}
-                  />
-                </div>
-                {!isGHLEnabled && (
-                  <div className="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
-                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                    <div className="text-amber-800 space-y-2">
-                      <p><strong>Local-Only Mode Active</strong></p>
-                      <p>The app is running without GoHighLevel integration. In this mode:</p>
-                      <ul className="list-disc list-inside space-y-1 ml-2">
-                        <li>Contacts, opportunities, and appointments are stored locally only</li>
-                        <li>No data syncs to/from GoHighLevel</li>
-                        <li>Conversations and notes are not fetched from GHL</li>
-                        <li>New records use local IDs (prefixed with "local_")</li>
-                        <li>The sync dropdown is hidden on the dashboard</li>
-                      </ul>
-                      <p className="mt-2">To enable GHL sync, toggle the switch above. Ensure GHL API keys are configured in Supabase secrets.</p>
+            <Collapsible defaultOpen={false}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Database className="h-5 w-5" />
+                        GoHighLevel Integration
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </CardTitle>
+                    <CardDescription>
+                      Enable or disable GoHighLevel (GHL) integration. When disabled, the app works in local-only mode
+                      without syncing data to/from GHL.
+                    </CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="ghl-toggle">GHL Sync Enabled</Label>
+                        <p className="text-xs text-muted-foreground">
+                          {isGHLEnabled 
+                            ? "GHL sync is enabled - data will sync with GoHighLevel" 
+                            : "GHL sync is disabled - app works in local-only mode"}
+                        </p>
+                      </div>
+                      <Switch
+                        id="ghl-toggle"
+                        checked={isGHLEnabled}
+                        onCheckedChange={(checked) => toggleGHLIntegration.mutate(checked)}
+                        disabled={toggleGHLIntegration.isPending}
+                      />
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    {!isGHLEnabled && (
+                      <div className="mt-4 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                        <div className="text-amber-800 space-y-2">
+                          <p><strong>Local-Only Mode Active</strong></p>
+                          <p>The app is running without GoHighLevel integration. In this mode:</p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li>Contacts, opportunities, and appointments are stored locally only</li>
+                            <li>No data syncs to/from GoHighLevel</li>
+                            <li>Conversations and notes are not fetched from GHL</li>
+                            <li>New records use local IDs (prefixed with "local_")</li>
+                            <li>The sync dropdown is hidden on the dashboard</li>
+                          </ul>
+                          <p className="mt-2">To enable GHL sync, toggle the switch above. Ensure GHL API keys are configured in Supabase secrets.</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
             <GHLIntegrationManager />
             <GHLFieldMappings />
           </TabsContent>
@@ -1233,151 +1251,160 @@ export default function AdminSettings() {
           {/* Custom Settings Tab */}
           <TabsContent value="custom" className="mt-6 space-y-6">
             {/* API Keys Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
-                  API Keys
-                </CardTitle>
-                <CardDescription>
-                  Configure API keys for external integrations. These keys are stored securely and used for AI features and email delivery.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* OpenAI API Key */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="openai_api_key">OpenAI API Key</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => testApiKey("openai")}
-                        disabled={testingApiKey === "openai" || !((editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value))}
-                      >
-                        {testingApiKey === "openai" ? (
-                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        ) : (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        )}
-                        Test
-                      </Button>
-                      {hasChanges("openai_api_key") && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSave("openai_api_key")}
-                          disabled={updateSetting.isPending}
-                        >
-                          {updateSetting.isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Save className="h-3 w-3 mr-1" />
+            <Collapsible defaultOpen={false}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Key className="h-5 w-5" />
+                        API Keys
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </CardTitle>
+                    <CardDescription>
+                      Configure API keys for external integrations. These keys are stored securely and used for AI features and email delivery.
+                    </CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 pt-0">
+                    {/* OpenAI API Key */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="openai_api_key">OpenAI API Key</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => testApiKey("openai")}
+                            disabled={testingApiKey === "openai" || !((editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value))}
+                          >
+                            {testingApiKey === "openai" ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                            )}
+                            Test
+                          </Button>
+                          {hasChanges("openai_api_key") && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave("openai_api_key")}
+                              disabled={updateSetting.isPending}
+                            >
+                              {updateSetting.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Save className="h-3 w-3 mr-1" />
+                              )}
+                              Save
+                            </Button>
                           )}
-                          Save
-                        </Button>
-                      )}
+                        </div>
+                      </div>
+                      <Input
+                        id="openai_api_key"
+                        type="password"
+                        value={editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value ?? ""}
+                        onChange={(e) => handleChange("openai_api_key", e.target.value)}
+                        placeholder="sk-..."
+                      />
+                      <p className="text-xs text-muted-foreground">Used for AI-powered features like estimate generation</p>
                     </div>
-                  </div>
-                  <Input
-                    id="openai_api_key"
-                    type="password"
-                    value={editedSettings["openai_api_key"] ?? apiKeySettings?.find(s => s.setting_key === "openai_api_key")?.setting_value ?? ""}
-                    onChange={(e) => handleChange("openai_api_key", e.target.value)}
-                    placeholder="sk-..."
-                  />
-                  <p className="text-xs text-muted-foreground">Used for AI-powered features like estimate generation</p>
-                </div>
 
-                {/* Note: Resend API Key has been moved to the Emails tab with encrypted storage */}
+                    {/* Note: Resend API Key has been moved to the Emails tab with encrypted storage */}
 
-                <Separator className="my-4" />
+                    <Separator className="my-4" />
 
-                {/* Google Calendar OAuth Credentials */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <h4 className="text-sm font-medium">Google Calendar Integration</h4>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Configure Google OAuth credentials for calendar sync. Create these at{" "}
-                    <a 
-                      href="https://console.cloud.google.com/apis/credentials" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-primary underline"
-                    >
-                      Google Cloud Console
-                    </a>
-                  </p>
-
-                  {/* Google Client ID */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="google_client_id">Google Client ID</Label>
-                      {hasChanges("google_client_id") && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSave("google_client_id")}
-                          disabled={updateSetting.isPending}
+                    {/* Google Calendar OAuth Credentials */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <h4 className="text-sm font-medium">Google Calendar Integration</h4>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Configure Google OAuth credentials for calendar sync. Create these at{" "}
+                        <a 
+                          href="https://console.cloud.google.com/apis/credentials" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary underline"
                         >
-                          {updateSetting.isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Save className="h-3 w-3 mr-1" />
-                          )}
-                          Save
-                        </Button>
-                      )}
-                    </div>
-                    <Input
-                      id="google_client_id"
-                      type="password"
-                      value={editedSettings["google_client_id"] ?? apiKeySettings?.find(s => s.setting_key === "google_client_id")?.setting_value ?? ""}
-                      onChange={(e) => handleChange("google_client_id", e.target.value)}
-                      placeholder="xxxxx.apps.googleusercontent.com"
-                    />
-                    <p className="text-xs text-muted-foreground">OAuth 2.0 Client ID from Google Cloud Console</p>
-                  </div>
+                          Google Cloud Console
+                        </a>
+                      </p>
 
-                  {/* Google Client Secret */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="google_client_secret">Google Client Secret</Label>
-                      {hasChanges("google_client_secret") && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSave("google_client_secret")}
-                          disabled={updateSetting.isPending}
-                        >
-                          {updateSetting.isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Save className="h-3 w-3 mr-1" />
+                      {/* Google Client ID */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="google_client_id">Google Client ID</Label>
+                          {hasChanges("google_client_id") && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave("google_client_id")}
+                              disabled={updateSetting.isPending}
+                            >
+                              {updateSetting.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Save className="h-3 w-3 mr-1" />
+                              )}
+                              Save
+                            </Button>
                           )}
-                          Save
-                        </Button>
-                      )}
-                    </div>
-                    <Input
-                      id="google_client_secret"
-                      type="password"
-                      value={editedSettings["google_client_secret"] ?? apiKeySettings?.find(s => s.setting_key === "google_client_secret")?.setting_value ?? ""}
-                      onChange={(e) => handleChange("google_client_secret", e.target.value)}
-                      placeholder="GOCSPX-..."
-                    />
-                    <p className="text-xs text-muted-foreground">OAuth 2.0 Client Secret from Google Cloud Console</p>
-                  </div>
-                </div>
+                        </div>
+                        <Input
+                          id="google_client_id"
+                          type="password"
+                          value={editedSettings["google_client_id"] ?? apiKeySettings?.find(s => s.setting_key === "google_client_id")?.setting_value ?? ""}
+                          onChange={(e) => handleChange("google_client_id", e.target.value)}
+                          placeholder="xxxxx.apps.googleusercontent.com"
+                        />
+                        <p className="text-xs text-muted-foreground">OAuth 2.0 Client ID from Google Cloud Console</p>
+                      </div>
 
-                <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                  <div className="text-muted-foreground">
-                    <strong>Security Note:</strong> API keys are stored encrypted in your company settings. 
-                    If left empty, platform-level keys will be used as fallback.
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                      {/* Google Client Secret */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="google_client_secret">Google Client Secret</Label>
+                          {hasChanges("google_client_secret") && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave("google_client_secret")}
+                              disabled={updateSetting.isPending}
+                            >
+                              {updateSetting.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Save className="h-3 w-3 mr-1" />
+                              )}
+                              Save
+                            </Button>
+                          )}
+                        </div>
+                        <Input
+                          id="google_client_secret"
+                          type="password"
+                          value={editedSettings["google_client_secret"] ?? apiKeySettings?.find(s => s.setting_key === "google_client_secret")?.setting_value ?? ""}
+                          onChange={(e) => handleChange("google_client_secret", e.target.value)}
+                          placeholder="GOCSPX-..."
+                        />
+                        <p className="text-xs text-muted-foreground">OAuth 2.0 Client Secret from Google Cloud Console</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 p-3 bg-muted border rounded-lg text-sm">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="text-muted-foreground">
+                        <strong>Security Note:</strong> API keys are stored encrypted in your company settings. 
+                        If left empty, platform-level keys will be used as fallback.
+                      </div>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
 
             <AIAnalysisSettings />
             
@@ -1391,7 +1418,7 @@ export default function AdminSettings() {
           {/* Emails Tab */}
           <TabsContent value="emails" className="mt-6 space-y-6">
             {/* Resend API Configuration - Collapsible */}
-            <Collapsible defaultOpen={!resendKeyConfigured}>
+            <Collapsible defaultOpen={false}>
               <Card>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
@@ -1503,65 +1530,75 @@ export default function AdminSettings() {
             </Collapsible>
 
             {/* Email Settings (Resend) */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mail className="h-5 w-5" />
-                  Email Sender Settings
-                </CardTitle>
-                <CardDescription>
-                  Configure email sending for proposals and notifications. Make sure your domain is verified at{" "}
-                  <a
-                    href="https://resend.com/domains"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary underline"
-                  >
-                    resend.com/domains
-                  </a>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {emailSettings?.map(renderSettingField)}
-
-                {/* Add notification_email if it doesn't exist */}
-                {!emailSettings?.some(s => s.setting_key === "notification_email") && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="notification_email">Notification Email(s)</Label>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          updateSetting.mutate({ key: "notification_email", value: editedSettings["notification_email"] || "" });
-                        }}
-                        disabled={updateSetting.isPending || !editedSettings["notification_email"]}
+            <Collapsible defaultOpen={false}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Mail className="h-5 w-5" />
+                        Email Sender Settings
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </CardTitle>
+                    <CardDescription>
+                      Configure email sending for proposals and notifications. Make sure your domain is verified at{" "}
+                      <a
+                        href="https://resend.com/domains"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <Save className="h-3 w-3 mr-1" />
-                        Save
-                      </Button>
-                    </div>
-                    <Input
-                      id="notification_email"
-                      value={editedSettings["notification_email"] ?? ""}
-                      onChange={(e) => handleChange("notification_email", e.target.value)}
-                      placeholder="admin@company.com, sales@company.com"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Comma-separated list of emails to receive proposal accepted/declined notifications
-                    </p>
-                  </div>
-                )}
+                        resend.com/domains
+                      </a>
+                    </CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-4 pt-0">
+                    {emailSettings?.map(renderSettingField)}
 
-                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                  <div className="text-amber-800">
-                    <strong>Important:</strong> The "From Email" must use a domain you've verified in Resend.
-                    For example, if you verified <code>caprobuilders.com</code>, use an email like{" "}
-                    <code>proposals@caprobuilders.com</code>.
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                    {/* Add notification_email if it doesn't exist */}
+                    {!emailSettings?.some(s => s.setting_key === "notification_email") && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="notification_email">Notification Email(s)</Label>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              updateSetting.mutate({ key: "notification_email", value: editedSettings["notification_email"] || "" });
+                            }}
+                            disabled={updateSetting.isPending || !editedSettings["notification_email"]}
+                          >
+                            <Save className="h-3 w-3 mr-1" />
+                            Save
+                          </Button>
+                        </div>
+                        <Input
+                          id="notification_email"
+                          value={editedSettings["notification_email"] ?? ""}
+                          onChange={(e) => handleChange("notification_email", e.target.value)}
+                          placeholder="admin@company.com, sales@company.com"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Comma-separated list of emails to receive proposal accepted/declined notifications
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <div className="text-amber-800">
+                        <strong>Important:</strong> The "From Email" must use a domain you've verified in Resend.
+                        For example, if you verified <code>caprobuilders.com</code>, use an email like{" "}
+                        <code>proposals@caprobuilders.com</code>.
+                      </div>
+                    </div>
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
 
             {/* Email Templates */}
             <EmailTemplatesManager />
@@ -1569,60 +1606,69 @@ export default function AdminSettings() {
 
           {/* Payables & Receivables Tab */}
           <TabsContent value="payables" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Payables & Receivables Settings
-                </CardTitle>
-                <CardDescription>
-                  Configure how AR and AP amounts are calculated and displayed in the sidebar
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {payablesReceivablesSettings?.map((setting) => (
-                  <div key={setting.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor={setting.setting_key}>Payment Focus Day</Label>
-                      {hasChanges(setting.setting_key) && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSave(setting.setting_key)}
-                          disabled={updateSetting.isPending}
-                        >
-                          {updateSetting.isPending ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <Save className="h-3 w-3 mr-1" />
+            <Collapsible defaultOpen={false}>
+              <Card>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" />
+                        Payables & Receivables Settings
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </CardTitle>
+                    <CardDescription>
+                      Configure how AR and AP amounts are calculated and displayed in the sidebar
+                    </CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="space-y-6 pt-0">
+                    {payablesReceivablesSettings?.map((setting) => (
+                      <div key={setting.id} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor={setting.setting_key}>Payment Focus Day</Label>
+                          {hasChanges(setting.setting_key) && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleSave(setting.setting_key)}
+                              disabled={updateSetting.isPending}
+                            >
+                              {updateSetting.isPending ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Save className="h-3 w-3 mr-1" />
+                              )}
+                              Save
+                            </Button>
                           )}
-                          Save
-                        </Button>
-                      )}
-                    </div>
-                    <Select
-                      value={getValue(setting)}
-                      onValueChange={(value) => handleChange(setting.setting_key, value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select day of week" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">Sunday</SelectItem>
-                        <SelectItem value="1">Monday</SelectItem>
-                        <SelectItem value="2">Tuesday</SelectItem>
-                        <SelectItem value="3">Wednesday</SelectItem>
-                        <SelectItem value="4">Thursday</SelectItem>
-                        <SelectItem value="5">Friday</SelectItem>
-                        <SelectItem value="6">Saturday</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      The sidebar will show AR/AP amounts due by this day each week. If today is the focus day, it shows today's dues. Otherwise, it shows dues by the next occurrence of this day.
-                    </p>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                        </div>
+                        <Select
+                          value={getValue(setting)}
+                          onValueChange={(value) => handleChange(setting.setting_key, value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select day of week" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">Sunday</SelectItem>
+                            <SelectItem value="1">Monday</SelectItem>
+                            <SelectItem value="2">Tuesday</SelectItem>
+                            <SelectItem value="3">Wednesday</SelectItem>
+                            <SelectItem value="4">Thursday</SelectItem>
+                            <SelectItem value="5">Friday</SelectItem>
+                            <SelectItem value="6">Saturday</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          The sidebar will show AR/AP amounts due by this day each week. If today is the focus day, it shows today's dues. Otherwise, it shows dues by the next occurrence of this day.
+                        </p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
 
             {/* Bank Management */}
             <BankManagement />
