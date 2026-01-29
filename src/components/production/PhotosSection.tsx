@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,7 @@ interface PhotosSectionProps {
 type ViewMode = 'grid' | 'timeline' | 'categorized';
 
 export function PhotosSection({ projectId, uploadLimitMb = 15 }: PhotosSectionProps) {
+  const { companyId } = useCompanyContext();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
@@ -99,8 +101,8 @@ export function PhotosSection({ projectId, uploadLimitMb = 15 }: PhotosSectionPr
           .upload(fileName, file);
 
         if (uploadError) {
-          console.error('Upload error:', uploadError);
-          toast.error(`Failed to upload ${file.name}`);
+          console.error('Storage upload error:', uploadError);
+          toast.error(`Failed to upload ${file.name}: ${uploadError.message}`);
           continue;
         }
 
@@ -116,12 +118,13 @@ export function PhotosSection({ projectId, uploadLimitMb = 15 }: PhotosSectionPr
             file_url: publicUrl,
             file_type: file.type,
             category: 'Project Photo',
-            notes: 'Uploaded via project detail'
+            notes: 'Uploaded via project detail',
+            company_id: companyId
           });
 
         if (dbError) {
-          console.error('DB error:', dbError);
-          toast.error(`Failed to save ${file.name}`);
+          console.error('DB insert error:', dbError);
+          toast.error(`Failed to save ${file.name}: ${dbError.message}`);
           continue;
         }
 
