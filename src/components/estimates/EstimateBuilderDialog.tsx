@@ -2725,122 +2725,59 @@ The more detail you provide, the more accurate the AI-generated estimate will be
                             The AI uses this + job site ZIP code for location-based pricing.
                           </p>
                           
-                          {/* Plans File Upload */}
-                          <div className="mt-4 pt-4 border-t">
+                          {/* Plans File Upload - Future Feature */}
+                          <div className="mt-4 pt-4 border-t opacity-50">
                             <Label className="text-sm font-medium flex items-center gap-2 mb-2">
                               <Upload className="h-4 w-4" />
                               Construction Plans (Optional)
+                              <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">Future Feature</span>
                             </Label>
                             <p className="text-xs text-muted-foreground mb-3">
                               Upload PDF/image or paste a Google Drive link. The AI will analyze plans to generate a more accurate estimate.
                             </p>
                             
-                            {plansFileUrl ? (
-                              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                                <FileIcon className="h-5 w-5 text-primary" />
-                                <span className="flex-1 text-sm truncate">{plansFileName}</span>
+                            <div className="space-y-3">
+                              {/* File Upload Option - Disabled */}
+                              <div className="relative">
                                 <Button
                                   type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => window.open(plansFileUrl, '_blank')}
-                                  className="h-8 w-8 p-0"
-                                  title="View plans"
+                                  variant="outline"
+                                  className="w-full cursor-not-allowed"
+                                  disabled
                                 >
-                                  <Eye className="h-4 w-4" />
+                                  <Upload className="mr-2 h-4 w-4" />
+                                  Upload Plans (PDF or Image)
                                 </Button>
+                              </div>
+                              
+                              {/* OR Divider */}
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-px bg-border" />
+                                <span className="text-xs text-muted-foreground">OR</span>
+                                <div className="flex-1 h-px bg-border" />
+                              </div>
+                              
+                              {/* Google Drive URL Input - Disabled */}
+                              <div className="flex gap-2">
+                                <Input
+                                  type="url"
+                                  placeholder="Paste Google Drive link..."
+                                  className="flex-1 text-sm"
+                                  disabled
+                                />
                                 <Button
                                   type="button"
-                                  variant="ghost"
+                                  variant="secondary"
                                   size="sm"
-                                  onClick={removePlansFile}
-                                  className="h-8 w-8 p-0"
-                                  title="Remove plans"
+                                  disabled
                                 >
-                                  <X className="h-4 w-4" />
+                                  Add
                                 </Button>
                               </div>
-                            ) : (
-                              <div className="space-y-3">
-                                {/* File Upload Option */}
-                                <div className="relative">
-                                  <input
-                                    type="file"
-                                    accept=".pdf,image/jpeg,image/png,image/webp"
-                                    onChange={handlePlansUpload}
-                                    disabled={isUploadingPlans}
-                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full"
-                                    disabled={isUploadingPlans}
-                                  >
-                                    {isUploadingPlans ? (
-                                      <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Uploading...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Upload Plans (PDF or Image)
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                                
-                                {/* OR Divider */}
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 h-px bg-border" />
-                                  <span className="text-xs text-muted-foreground">OR</span>
-                                  <div className="flex-1 h-px bg-border" />
-                                </div>
-                                
-                                {/* Google Drive URL Input */}
-                                <div className="flex gap-2">
-                                  <Input
-                                    type="url"
-                                    placeholder="Paste Google Drive link..."
-                                    className="flex-1 text-sm"
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        const input = e.currentTarget;
-                                        const url = input.value.trim();
-                                        if (url && url.includes('drive.google.com')) {
-                                          setPlansFileUrl(url);
-                                          setPlansFileName('Google Drive Link');
-                                          input.value = '';
-                                        }
-                                      }
-                                    }}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
-                                      const url = input?.value?.trim();
-                                      if (url && url.includes('drive.google.com')) {
-                                        setPlansFileUrl(url);
-                                        setPlansFileName('Google Drive Link');
-                                        input.value = '';
-                                      } else if (url) {
-                                        toast.error('Please enter a valid Google Drive link');
-                                      }
-                                    }}
-                                  >
-                                    Add
-                                  </Button>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  Make sure the file is shared as "Anyone with the link"
-                                </p>
-                              </div>
-                            )}
+                              <p className="text-xs text-muted-foreground">
+                                Make sure the file is shared as "Anyone with the link"
+                              </p>
+                            </div>
                           </div>
                         </CardContent>
                       </CollapsibleContent>
