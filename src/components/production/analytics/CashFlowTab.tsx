@@ -49,11 +49,13 @@ interface CashFlowTabProps {
   onPayablesSheetOpened?: () => void;
   openPayablesOnLoad?: boolean;
   onPayablesSheetClose?: () => void;
+  onPayablesSheetOpen?: () => void;
   hidePayablesCloseButton?: boolean;
   openARKPIOnLoad?: boolean;
   reopenARSheet?: boolean;
   onARSheetOpened?: () => void;
   onARSheetClose?: () => void;
+  onARSheetOpen?: () => void;
 }
 
 const getCashStatusColor = (status: string) => {
@@ -102,11 +104,13 @@ export function CashFlowTab({
   onPayablesSheetOpened,
   openPayablesOnLoad,
   onPayablesSheetClose,
+  onPayablesSheetOpen,
   hidePayablesCloseButton,
   openARKPIOnLoad,
   reopenARSheet,
   onARSheetOpened,
   onARSheetClose,
+  onARSheetOpen,
 }: CashFlowTabProps) {
   // Track if AR sheet was opened from URL (sidebar navigation)
   const [arOpenedFromUrl, setArOpenedFromUrl] = useState(false);
@@ -161,17 +165,23 @@ export function CashFlowTab({
   // Handle AR KPI sheet close
   const handleARSheetClose = (open: boolean) => {
     setKpiSheetOpen(open);
-    if (!open && arOpenedFromUrl && onARSheetClose) {
-      onARSheetClose();
-      setArOpenedFromUrl(false);
+    if (!open) {
+      if (selectedKPI === 'outstandingAR') {
+        onARSheetClose?.();
+      }
+      if (arOpenedFromUrl) {
+        setArOpenedFromUrl(false);
+      }
     }
   };
 
   const handlePayablesSheetOpenChange = (open: boolean) => {
     setPayablesSheetOpen(open);
-    if (!open && payablesOpenedFromUrl) {
+    if (!open) {
       onPayablesSheetClose?.();
-      setPayablesOpenedFromUrl(false);
+      if (payablesOpenedFromUrl) {
+        setPayablesOpenedFromUrl(false);
+      }
     }
   };
   
@@ -213,6 +223,11 @@ export function CashFlowTab({
   const handleKPIClick = (kpi: CashFlowKPIType) => {
     if (kpi === 'outstandingAP') {
       setPayablesSheetOpen(true);
+      onPayablesSheetOpen?.();
+    } else if (kpi === 'outstandingAR') {
+      setSelectedKPI(kpi);
+      setKpiSheetOpen(true);
+      onARSheetOpen?.();
     } else {
       setSelectedKPI(kpi);
       setKpiSheetOpen(true);

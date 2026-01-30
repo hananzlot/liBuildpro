@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DateRange } from "react-day-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,7 +30,11 @@ interface AnalyticsSectionProps {
 export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayablesSheetOpened, reopenARSheet, onARSheetOpened, initialTab, openPayablesOnLoad, initialKPI }: AnalyticsSectionProps) {
   const { isAdmin, isProduction } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  
+  // Get section from URL for AR/Payables routing
+  const urlSection = searchParams.get('section');
   
   // Check if user can view profitability tab (admin only, not production-only users)
   const canViewProfitability = isAdmin || !isProduction;
@@ -328,21 +332,42 @@ export function AnalyticsSection({ onProjectClick, reopenPayablesSheet, onPayabl
             onClearSchedule={handleClearSchedule}
             onMarkAsPaid={handleMarkAsPaid}
             reopenPayablesSheet={reopenPayablesSheet}
-            openPayablesOnLoad={openPayablesOnLoad}
+            openPayablesOnLoad={openPayablesOnLoad || urlSection === 'payables'}
             onPayablesSheetOpened={onPayablesSheetOpened}
             onPayablesSheetClose={() => {
+              // Clear section from URL when closing
+              const newParams = new URLSearchParams(searchParams);
+              newParams.delete('section');
+              setSearchParams(newParams, { replace: true });
               if (!isAdmin) {
                 navigate('/production?view=projects', { replace: true });
               }
             }}
+            onPayablesSheetOpen={() => {
+              // Add section to URL when opening
+              const newParams = new URLSearchParams(searchParams);
+              newParams.set('section', 'payables');
+              setSearchParams(newParams, { replace: true });
+            }}
             hidePayablesCloseButton={false}
-            openARKPIOnLoad={initialKPI === 'outstandingAR'}
+            openARKPIOnLoad={initialKPI === 'outstandingAR' || urlSection === 'ar'}
             reopenARSheet={reopenARSheet}
             onARSheetOpened={onARSheetOpened}
             onARSheetClose={() => {
+              // Clear section from URL when closing
+              const newParams = new URLSearchParams(searchParams);
+              newParams.delete('section');
+              newParams.delete('kpi');
+              setSearchParams(newParams, { replace: true });
               if (!isAdmin) {
                 navigate('/production?view=projects');
               }
+            }}
+            onARSheetOpen={() => {
+              // Add section to URL when opening
+              const newParams = new URLSearchParams(searchParams);
+              newParams.set('section', 'ar');
+              setSearchParams(newParams, { replace: true });
             }}
           />
         </TabsContent>
