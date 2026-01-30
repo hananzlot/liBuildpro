@@ -269,17 +269,35 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Map payment method
-      let paymentMethod = "other";
-      const qbPaymentMethodName = qbPayment.PaymentMethodRef?.name?.toLowerCase() || "";
-      if (qbPaymentMethodName.includes("check")) {
-        paymentMethod = "check";
-      } else if (qbPaymentMethodName.includes("cash")) {
-        paymentMethod = "cash";
-      } else if (qbPaymentMethodName.includes("credit") || qbPaymentMethodName.includes("card")) {
-        paymentMethod = "credit_card";
-      } else if (qbPaymentMethodName.includes("ach") || qbPaymentMethodName.includes("transfer") || qbPaymentMethodName.includes("wire")) {
-        paymentMethod = "ach";
+      // Look up mapped local bank name from QB deposit account
+      let bankName: string | null = null;
+      const qbDepositAccountId = qbPayment.DepositToAccountRef?.value;
+      
+      if (qbDepositAccountId) {
+        // Find bank mapping: source_value is local bank name, qbo_id is QB account ID
+        const { data: bankMapping } = await supabase
+          .from("quickbooks_mappings")
+          .select("source_value")
+          .eq("company_id", companyId)
+          .eq("mapping_type", "bank")
+          .eq("qbo_id", qbDepositAccountId)
+          .maybeSingle();
+
+        if (bankMapping?.source_value) {
+          bankName = bankMapping.source_value;
+          log("info", "Mapped QB deposit account to local bank", { 
+            qbAccountId: qbDepositAccountId, 
+            qbAccountName: qbPayment.DepositToAccountRef?.name,
+            localBankName: bankName 
+          });
+        } else {
+          // Fallback to QB account name if no mapping found
+          bankName = qbPayment.DepositToAccountRef?.name || null;
+          log("warn", "No bank mapping found, using QB account name", { 
+            qbAccountId: qbDepositAccountId,
+            qbAccountName: bankName 
+          });
+        }
       }
 
       // Create the payment in our database
@@ -293,7 +311,7 @@ Deno.serve(async (req) => {
           projected_received_date: qbPayment.TxnDate || new Date().toISOString().split("T")[0],
           payment_status: "Received",
           check_number: qbPayment.PaymentRefNum || null,
-          bank_name: qbPayment.DepositToAccountRef?.name || null,
+          bank_name: bankName,
           deposit_verified: true,
         })
         .select()
