@@ -168,34 +168,43 @@ Deno.serve(async (req) => {
     let query = "";
     let resultKey = "";
 
-    switch (entityType) {
+    // Normalize entityType to handle different casing/plurality
+    const normalizedEntityType = entityType?.toLowerCase?.() || "";
+
+    switch (normalizedEntityType) {
       case "accounts":
+      case "account":
         // Get income and expense accounts
         query = "SELECT * FROM Account WHERE AccountType IN ('Income', 'Other Income', 'Expense', 'Other Expense', 'Cost of Goods Sold', 'Other Current Liability') MAXRESULTS 500";
         resultKey = "Account";
         break;
-      case "allAccounts":
+      case "allaccounts":
         // Get ALL accounts for full GL mapping
         query = "SELECT * FROM Account WHERE Active = true MAXRESULTS 1000";
         resultKey = "Account";
         break;
       case "items":
+      case "item":
         query = "SELECT * FROM Item WHERE Type IN ('Service', 'NonInventory', 'Inventory') AND Active = true MAXRESULTS 500";
         resultKey = "Item";
         break;
-      case "paymentMethods":
+      case "paymentmethods":
+      case "paymentmethod":
         query = "SELECT * FROM PaymentMethod WHERE Active = true MAXRESULTS 100";
         resultKey = "PaymentMethod";
         break;
       case "vendors":
+      case "vendor":
         query = "SELECT * FROM Vendor WHERE Active = true MAXRESULTS 500";
         resultKey = "Vendor";
         break;
       case "customers":
+      case "customer":
         query = "SELECT * FROM Customer WHERE Active = true MAXRESULTS 500";
         resultKey = "Customer";
         break;
       case "companies":
+      case "company":
         // Get company info instead of query
         let companyAttempt = await fetchWithSandboxFallback(
           (baseUrl) => `${baseUrl}/${realm_id}/companyinfo/${realm_id}`,
