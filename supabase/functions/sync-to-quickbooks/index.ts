@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { companyId, syncType, recordId, syncAll } = await req.json();
+    const { companyId, syncType, recordId, syncAll, syncSelected, selectedRecords } = await req.json();
 
     if (!companyId) {
       return new Response(
@@ -37,6 +37,11 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // If syncSelected mode, we only sync the specific IDs provided
+    const selectedInvoiceIds = syncSelected ? (selectedRecords?.invoices || []) : null;
+    const selectedPaymentIds = syncSelected ? (selectedRecords?.payments || []) : null;
+    const selectedBillIds = syncSelected ? (selectedRecords?.bills || []) : null;
 
     // Get QuickBooks tokens
     const { data: tokenData, error: tokenError } = await supabase.rpc("get_quickbooks_tokens", {
@@ -170,29 +175,36 @@ Deno.serve(async (req) => {
 
     // Sync invoices
     if (!syncType || syncType === "invoice") {
-      let invoiceQuery = supabase
-        .from("project_invoices")
-        .select("*, projects!inner(project_name, project_address, project_number)")
-        .eq("projects.company_id", companyId);
+      // Skip if syncSelected mode and no invoices selected
+      if (syncSelected && (!selectedInvoiceIds || selectedInvoiceIds.length === 0)) {
+        // Skip invoices
+      } else {
+        let invoiceQuery = supabase
+          .from("project_invoices")
+          .select("*, projects!inner(project_name, project_address, project_number)")
+          .eq("projects.company_id", companyId)
+          .eq("exclude_from_qb", false);
 
-      if (recordId) {
-        invoiceQuery = invoiceQuery.eq("id", recordId);
-      } else if (!syncAll) {
-        // Only sync unsynced records
-        const { data: syncedIds } = await supabase
-          .from("quickbooks_sync_log")
-          .select("record_id")
-          .eq("company_id", companyId)
-          .eq("record_type", "invoice")
-          .eq("sync_status", "synced");
+        if (syncSelected && selectedInvoiceIds) {
+          invoiceQuery = invoiceQuery.in("id", selectedInvoiceIds);
+        } else if (recordId) {
+          invoiceQuery = invoiceQuery.eq("id", recordId);
+        } else if (!syncAll) {
+          // Only sync unsynced records
+          const { data: syncedIds } = await supabase
+            .from("quickbooks_sync_log")
+            .select("record_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "invoice")
+            .eq("sync_status", "synced");
 
-        const alreadySynced = (syncedIds || []).map((s) => s.record_id);
-        if (alreadySynced.length > 0) {
-          invoiceQuery = invoiceQuery.not("id", "in", `(${alreadySynced.join(",")})`);
+          const alreadySynced = (syncedIds || []).map((s) => s.record_id);
+          if (alreadySynced.length > 0) {
+            invoiceQuery = invoiceQuery.not("id", "in", `(${alreadySynced.join(",")})`);
+          }
         }
-      }
 
-      const { data: invoices } = await invoiceQuery;
+        const { data: invoices } = await invoiceQuery;
 
       for (const invoice of invoices || []) {
         try {
@@ -262,21 +274,29 @@ Deno.serve(async (req) => {
           const errMsg = err instanceof Error ? err.message : "Unknown error";
           results.errors.push(`Invoice ${invoice.id}: ${errMsg}`);
         }
+        }
       }
     }
 
     // Sync payments
     if (!syncType || syncType === "payment") {
-      let paymentQuery = supabase
-        .from("project_payments")
-        .select("*, projects!inner(project_name, project_address, project_number, company_id)")
-        .eq("projects.company_id", companyId);
+      // Skip if syncSelected mode and no payments selected
+      if (syncSelected && (!selectedPaymentIds || selectedPaymentIds.length === 0)) {
+        // Skip payments
+      } else {
+        let paymentQuery = supabase
+          .from("project_payments")
+          .select("*, projects!inner(project_name, project_address, project_number, company_id)")
+          .eq("projects.company_id", companyId)
+          .eq("exclude_from_qb", false);
 
-      if (recordId) {
-        paymentQuery = paymentQuery.eq("id", recordId);
-      }
+        if (syncSelected && selectedPaymentIds) {
+          paymentQuery = paymentQuery.in("id", selectedPaymentIds);
+        } else if (recordId) {
+          paymentQuery = paymentQuery.eq("id", recordId);
+        }
 
-      const { data: payments } = await paymentQuery;
+        const { data: payments } = await paymentQuery;
 
       for (const payment of payments || []) {
         try {
@@ -330,21 +350,29 @@ Deno.serve(async (req) => {
           const errMsg = err instanceof Error ? err.message : "Unknown error";
           results.errors.push(`Payment ${payment.id}: ${errMsg}`);
         }
+        }
       }
     }
 
     // Sync bills
     if (!syncType || syncType === "bill") {
-      let billQuery = supabase
-        .from("project_bills")
-        .select("*, projects!inner(project_name, company_id), subcontractors(name)")
-        .eq("projects.company_id", companyId);
+      // Skip if syncSelected mode and no bills selected
+      if (syncSelected && (!selectedBillIds || selectedBillIds.length === 0)) {
+        // Skip bills
+      } else {
+        let billQuery = supabase
+          .from("project_bills")
+          .select("*, projects!inner(project_name, company_id), subcontractors(company_name)")
+          .eq("projects.company_id", companyId)
+          .eq("exclude_from_qb", false);
 
-      if (recordId) {
-        billQuery = billQuery.eq("id", recordId);
-      }
+        if (syncSelected && selectedBillIds) {
+          billQuery = billQuery.in("id", selectedBillIds);
+        } else if (recordId) {
+          billQuery = billQuery.eq("id", recordId);
+        }
 
-      const { data: bills } = await billQuery;
+        const { data: bills } = await billQuery;
 
       for (const bill of bills || []) {
         try {
@@ -402,6 +430,7 @@ Deno.serve(async (req) => {
           results.failed++;
           const errMsg = err instanceof Error ? err.message : "Unknown error";
           results.errors.push(`Bill ${bill.id}: ${errMsg}`);
+        }
         }
       }
     }
