@@ -700,8 +700,59 @@ async function processEntityChange(
           log("info", `✓ Created sync log entry for new ${entityType} ${qbId}`);
         }
       }
-    } else {
-      log("info", `Update for ${entityType} ${qbId} but no sync log exists - may be external record`);
+    } else if (operation === "Update") {
+      // Update operation but no sync log - try to find and update the local record
+      log("info", `Update for ${entityType} ${qbId} without sync log - attempting to find and update local record`);
+      
+      if (entityType === "Invoice") {
+        try {
+          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-invoice", {
+            body: {
+              companyId,
+              qbInvoiceId: qbId,
+              realmId,
+              action: "update-existing"
+            }
+          });
+
+          if (fetchResult.error) {
+            log("error", `Failed to update invoice ${qbId}`, { error: fetchResult.error });
+          } else if (fetchResult.data?.error) {
+            log("warn", `Invoice update returned error`, { error: fetchResult.data.error });
+          } else {
+            log("info", `✓ Successfully updated invoice ${qbId}`, fetchResult.data);
+          }
+        } catch (err) {
+          log("error", `Exception updating invoice ${qbId}`, { 
+            error: err instanceof Error ? err.message : String(err) 
+          });
+        }
+      } else if (entityType === "Payment") {
+        try {
+          const fetchResult = await supabase.functions.invoke("quickbooks-fetch-payment", {
+            body: {
+              companyId,
+              qbPaymentId: qbId,
+              realmId,
+              action: "update-existing"
+            }
+          });
+
+          if (fetchResult.error) {
+            log("error", `Failed to update payment ${qbId}`, { error: fetchResult.error });
+          } else if (fetchResult.data?.error) {
+            log("warn", `Payment update returned error`, { error: fetchResult.data.error });
+          } else {
+            log("info", `✓ Successfully updated payment ${qbId}`, fetchResult.data);
+          }
+        } catch (err) {
+          log("error", `Exception updating payment ${qbId}`, { 
+            error: err instanceof Error ? err.message : String(err) 
+          });
+        }
+      } else {
+        log("info", `Update for ${entityType} ${qbId} but no sync log exists - may be external record`);
+      }
     }
   }
 }
