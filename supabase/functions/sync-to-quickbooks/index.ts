@@ -339,6 +339,18 @@ Deno.serve(async (req) => {
             results.newEntities?.push({ type: "customer", name: customerResult.name });
           }
 
+          // Check if this invoice was already synced to QB
+          const { data: existingSync } = await supabase
+            .from("quickbooks_sync_log")
+            .select("quickbooks_id")
+            .eq("company_id", companyId)
+            .eq("record_type", "invoice")
+            .eq("record_id", invoice.id)
+            .eq("sync_status", "synced")
+            .single();
+
+          const existingQbId = existingSync?.quickbooks_id;
+
           // Get configured mappings
           const itemMapping = getMapping("default_item");
 
@@ -376,28 +388,74 @@ Deno.serve(async (req) => {
 
           stripNullishDeep(qbInvoice);
 
-          // Log the final payload for debugging
-          console.log(`Invoice ${invoice.invoice_number} - Final QB payload:`, JSON.stringify(qbInvoice, null, 2));
+          let syncRes: Response;
+          let syncData: any;
 
-          const createRes = await fetch(`${QB_BASE_URL}/${realm_id}/invoice`, {
-            method: "POST",
-            headers: qbHeaders,
-            body: JSON.stringify(qbInvoice),
-          });
+          if (existingQbId) {
+            // UPDATE existing invoice - need to fetch SyncToken first
+            console.log(`Invoice ${invoice.invoice_number} already exists in QB (ID: ${existingQbId}), updating...`);
+            
+            const fetchRes = await fetch(`${QB_BASE_URL}/${realm_id}/invoice/${existingQbId}`, {
+              headers: qbHeaders,
+            });
+            
+            if (!fetchRes.ok) {
+              const errText = await fetchRes.text();
+              console.error(`Failed to fetch existing invoice ${existingQbId}:`, errText);
+              results.failed++;
+              results.errors.push(`Invoice ${invoice.invoice_number}: Failed to fetch existing QB record`);
+              continue;
+            }
+            
+            const existingData = await fetchRes.json();
+            const syncToken = existingData.Invoice.SyncToken;
+            
+            // Add Id and SyncToken for update
+            qbInvoice.Id = existingQbId;
+            qbInvoice.SyncToken = syncToken;
+            qbInvoice.sparse = true; // Use sparse update
+            
+            console.log(`Invoice ${invoice.invoice_number} - Update payload:`, JSON.stringify(qbInvoice, null, 2));
+            
+            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/invoice`, {
+              method: "POST",
+              headers: qbHeaders,
+              body: JSON.stringify(qbInvoice),
+            });
+            
+            if (syncRes.ok) {
+              syncData = await syncRes.json();
+              console.log(`Updated invoice in QB, ID: ${syncData.Invoice.Id}`);
+            }
+          } else {
+            // CREATE new invoice
+            console.log(`Invoice ${invoice.invoice_number} - Creating new in QB:`, JSON.stringify(qbInvoice, null, 2));
+            
+            syncRes = await fetch(`${QB_BASE_URL}/${realm_id}/invoice`, {
+              method: "POST",
+              headers: qbHeaders,
+              body: JSON.stringify(qbInvoice),
+            });
+            
+            if (syncRes.ok) {
+              syncData = await syncRes.json();
+              console.log(`Created invoice in QB, ID: ${syncData.Invoice.Id}`);
+            }
+          }
 
-          if (createRes.ok) {
-            const created = await createRes.json();
+          if (syncRes.ok && syncData) {
             await supabase.from("quickbooks_sync_log").upsert({
               company_id: companyId,
               record_type: "invoice",
               record_id: invoice.id,
-              quickbooks_id: created.Invoice.Id,
+              quickbooks_id: syncData.Invoice.Id,
               sync_status: "synced",
               synced_at: new Date().toISOString(),
             });
             results.synced++;
           } else {
-            const errText = await createRes.text();
+            const errText = await syncRes.text();
+            console.error(`Failed to sync invoice ${invoice.invoice_number}:`, errText);
             results.failed++;
             results.errors.push(`Invoice ${invoice.invoice_number}: ${errText}`);
           }
