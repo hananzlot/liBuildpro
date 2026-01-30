@@ -62,9 +62,10 @@ export function QuickBooksSyncDialog({ open, onOpenChange, lastSyncAt }: QuickBo
           invoice_date, 
           amount,
           exclude_from_qb,
-          projects!inner(project_name, company_id)
+          projects!inner(project_name, company_id, auto_sync_to_quickbooks)
         `)
         .eq("projects.company_id", companyId)
+        .eq("projects.auto_sync_to_quickbooks", true)
         .order("invoice_date", { ascending: false });
 
       if (dateFrom) {
@@ -111,9 +112,10 @@ export function QuickBooksSyncDialog({ open, onOpenChange, lastSyncAt }: QuickBo
           projected_received_date,
           bank_name,
           exclude_from_qb,
-          projects!inner(project_name, company_id)
+          projects!inner(project_name, company_id, auto_sync_to_quickbooks)
         `)
         .eq("projects.company_id", companyId)
+        .eq("projects.auto_sync_to_quickbooks", true)
         .order("projected_received_date", { ascending: false });
 
       if (dateFrom) {
@@ -160,9 +162,10 @@ export function QuickBooksSyncDialog({ open, onOpenChange, lastSyncAt }: QuickBo
           installer_company,
           created_at,
           exclude_from_qb,
-          projects!inner(project_name, company_id)
+          projects!inner(project_name, company_id, auto_sync_to_quickbooks)
         `)
         .eq("projects.company_id", companyId)
+        .eq("projects.auto_sync_to_quickbooks", true)
         .order("created_at", { ascending: false });
 
       if (dateFrom) {
