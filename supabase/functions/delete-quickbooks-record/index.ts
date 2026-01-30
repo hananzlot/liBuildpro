@@ -179,11 +179,49 @@ Deno.serve(async (req) => {
           SyncToken: syncToken,
         };
       } else if (recordType === "payment") {
-        // Payments use operation=void query param
-        voidUrl = `${QB_BASE_URL}/${realm_id}/payment?operation=void`;
+        // For payments: First unapply from invoice by updating with empty Line array
+        // Then delete the payment (delete works better than void for unapplied payments)
+        
+        // Check if payment is applied to any invoices
+        const hasLinkedTxns = entity.Line && entity.Line.length > 0;
+        
+        if (hasLinkedTxns) {
+          console.log("Payment is applied to invoices, unapplying first...");
+          
+          // Update payment to remove all linked transactions (unapply from invoices)
+          const unapplyUrl = `${QB_BASE_URL}/${realm_id}/payment`;
+          const unapplyBody = {
+            Id: qbId,
+            SyncToken: syncToken,
+            sparse: true,
+            Line: [], // Empty Line array unapplies from all invoices
+          };
+          
+          console.log("Unapplying payment:", JSON.stringify(unapplyBody));
+          
+          const unapplyRes = await fetch(unapplyUrl, {
+            method: "POST",
+            headers: qbHeaders,
+            body: JSON.stringify(unapplyBody),
+          });
+          
+          if (!unapplyRes.ok) {
+            const errText = await unapplyRes.text();
+            console.error("Failed to unapply payment:", errText);
+            // Continue to try delete anyway - it might still work
+          } else {
+            const unapplyData = await unapplyRes.json();
+            console.log("Payment unapplied successfully, new SyncToken:", unapplyData.Payment?.SyncToken);
+            // Use new SyncToken for delete
+            entity.SyncToken = unapplyData.Payment?.SyncToken || syncToken;
+          }
+        }
+        
+        // Now delete the unapplied payment
+        voidUrl = `${QB_BASE_URL}/${realm_id}/payment?operation=delete`;
         voidBody = {
           Id: qbId,
-          SyncToken: syncToken,
+          SyncToken: entity.SyncToken, // Use updated SyncToken after unapply
         };
       } else if (recordType === "bill") {
         // Bills don't support void in QBO - we'll delete instead
