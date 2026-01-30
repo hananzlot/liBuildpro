@@ -68,7 +68,7 @@ const shouldPreventDismissOnWindowBlur = (event?: Event) => {
 };
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, hideCloseButton, onFocusOutside, onInteractOutside, ...props }, ref) => (
+  ({ side = "right", className, children, hideCloseButton, onFocusOutside, onInteractOutside, onEscapeKeyDown, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
@@ -88,6 +88,11 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
           if (!e.defaultPrevented && shouldPreventDismissOnWindowBlur(originalEvent as Event | undefined)) {
             e.preventDefault();
           }
+        }}
+        onEscapeKeyDown={(e) => {
+          onEscapeKeyDown?.(e);
+          // Prevent Escape key from closing sheets by default
+          if (!e.defaultPrevented) e.preventDefault();
         }}
         {...props}
       >
