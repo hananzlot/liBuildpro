@@ -1074,7 +1074,7 @@ export function ProjectDetailSheet({ project, open, onOpenChange, onUpdate, auto
                                       </div>
                                     ) : "No sources found."}
                                   </CommandEmpty>
-                                  <ScrollArea className="max-h-[250px]">
+                                  <ScrollArea className="h-[250px] overflow-y-auto">
                                     {/* Add New option at top when searching */}
                                     {leadSourceSearch && !existingLeadSources.some(s => s.toLowerCase() === leadSourceSearch.toLowerCase()) && (
                                       <CommandGroup heading="Add New">
