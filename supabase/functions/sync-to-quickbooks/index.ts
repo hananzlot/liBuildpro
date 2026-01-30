@@ -1135,7 +1135,8 @@ Deno.serve(async (req) => {
           qbCheck.PrintStatus = "PrintComplete"; // Already printed/issued
         }
 
-        // Add bank account if mapped
+        // Add bank account - REQUIRED for Check type Purchase
+        // For Purchase objects, the bank account goes in AccountRef (not BankAccountRef)
         if (commissionPayment.bank_name) {
           const { data: bankRecord } = await supabase
             .from("banks")
@@ -1148,11 +1149,29 @@ Deno.serve(async (req) => {
             const bankMapping = getMapping("bank", bankRecord.id);
             if (bankMapping) {
               console.log(`Mapping bank "${commissionPayment.bank_name}" to QB account: ${bankMapping.qbo_name}`);
-              qbCheck.BankAccountRef = {
-                value: bankMapping.qbo_id,
+              qbCheck.AccountRef = {
+                value: String(bankMapping.qbo_id),
                 name: bankMapping.qbo_name,
               };
             }
+          }
+        }
+        
+        // If no bank mapping found, we need a default bank account (AccountRef is required for Check)
+        if (!qbCheck.AccountRef) {
+          const defaultBankMapping = getMapping("default_bank");
+          if (defaultBankMapping) {
+            qbCheck.AccountRef = {
+              value: String(defaultBankMapping.qbo_id),
+              name: defaultBankMapping.qbo_name,
+            };
+          } else {
+            results.failed++;
+            results.errors.push(`Commission Payment: No bank account mapped. Please configure a bank account mapping in QuickBooks settings.`);
+            return new Response(
+              JSON.stringify({ success: false, ...results }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
           }
         }
 
