@@ -633,10 +633,8 @@ export function AppointmentsTable({
     <>
       <Card className="bg-card/50 backdrop-blur-sm border-border/50">
         <CardHeader className="flex flex-col gap-4">
-          <div className="flex flex-row items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Appointments</CardTitle>
-            <Badge variant="secondary" className="ml-auto">{dedupedAppointments.length}</Badge>
+          <div className="flex flex-row items-center justify-end gap-2">
+            <Badge variant="secondary">{dedupedAppointments.length}</Badge>
           </div>
           
           {/* Filters */}
