@@ -33,6 +33,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { OnboardingPromptBanner } from "@/components/onboarding";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -198,6 +199,9 @@ const Index = () => {
       }
     >
       <div className="px-6 py-6 space-y-6">
+        {/* Onboarding Banner for new admins */}
+        <OnboardingPromptBanner variant="dashboard" />
+        
         {/* Top Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />

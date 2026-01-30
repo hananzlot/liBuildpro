@@ -14,9 +14,10 @@ import { Switch } from '@/components/ui/switch';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Edit, Plus, RefreshCw, ChevronDown } from 'lucide-react';
+import { Edit, Plus, RefreshCw, ChevronDown, Mail } from 'lucide-react';
 import type { SubscriptionPlan, CompanySubscription, SubscriptionStatus } from '@/types/subscription';
 import { AddCompanyDialog } from '@/components/subscription/AddCompanyDialog';
+import { InviteCompanyAdminDialog } from '@/components/super-admin/InviteCompanyAdminDialog';
 import { AVAILABLE_FEATURES } from '@/constants/features';
 
 interface CompanyWithSubscription {
@@ -34,6 +35,8 @@ export default function SuperAdminTenants() {
   const [selectedCompany, setSelectedCompany] = useState<CompanyWithSubscription | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [inviteCompany, setInviteCompany] = useState<{ id: string; name: string } | null>(null);
   const [featuresOpen, setFeaturesOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     plan_id: '',
@@ -344,17 +347,30 @@ export default function SuperAdminTenants() {
                         }
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleEditClick(company)}
-                        >
-                          {company.subscription ? (
-                            <Edit className="h-4 w-4" />
-                          ) : (
-                            <Plus className="h-4 w-4" />
-                          )}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setInviteCompany({ id: company.id, name: company.name });
+                              setIsInviteDialogOpen(true);
+                            }}
+                            title="Invite Admin"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditClick(company)}
+                          >
+                            {company.subscription ? (
+                              <Edit className="h-4 w-4" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -507,6 +523,13 @@ export default function SuperAdminTenants() {
           open={isAddDialogOpen} 
           onOpenChange={setIsAddDialogOpen}
           plans={plans || []}
+        />
+
+        {/* Invite Admin Dialog */}
+        <InviteCompanyAdminDialog
+          open={isInviteDialogOpen}
+          onOpenChange={setIsInviteDialogOpen}
+          company={inviteCompany}
         />
       </div>
     </SuperAdminLayout>
