@@ -4529,19 +4529,22 @@ function BillPaymentHistoryDialog({
     bank_name: "",
   });
 
-  const { data: payments = [], isLoading } = useQuery({
-    queryKey: ["bill-payments", bill?.id],
+  // Stable reference to bill ID for query invalidation
+  const billId = bill?.id;
+
+  const { data: payments = [], isLoading, refetch: refetchPayments } = useQuery({
+    queryKey: ["bill-payments", billId],
     queryFn: async () => {
-      if (!bill?.id) return [];
+      if (!billId) return [];
       const { data, error } = await supabase
         .from("bill_payments")
         .select("*")
-        .eq("bill_id", bill.id)
+        .eq("bill_id", billId)
         .order("payment_date", { ascending: false });
       if (error) throw error;
       return data as BillPayment[];
     },
-    enabled: !!bill?.id && open,
+    enabled: !!billId && open,
   });
 
   // Fetch banks for dropdown
@@ -4619,7 +4622,9 @@ function BillPaymentHistoryDialog({
     },
     onSuccess: () => {
       toast.success("Payment deleted");
-      queryClient.invalidateQueries({ queryKey: ["bill-payments", bill?.id] });
+      // Use stable billId and also refetch directly for immediate update
+      refetchPayments();
+      queryClient.invalidateQueries({ queryKey: ["bill-payments", billId] });
       queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       setDeletePaymentId(null);
@@ -4674,7 +4679,8 @@ function BillPaymentHistoryDialog({
       } else {
         toast.success("Payment updated");
       }
-      queryClient.invalidateQueries({ queryKey: ["bill-payments", bill?.id] });
+      refetchPayments();
+      queryClient.invalidateQueries({ queryKey: ["bill-payments", billId] });
       queryClient.invalidateQueries({ queryKey: ["project-bills", projectId] });
       queryClient.invalidateQueries({ queryKey: ["all-project-bills"] });
       setEditingPayment(null);
