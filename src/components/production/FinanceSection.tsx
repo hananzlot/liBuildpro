@@ -2010,7 +2010,7 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="text-xs">Status</TableHead>
+                          <TableHead className="text-xs">Bill Ref</TableHead>
                           <TableHead className="text-xs">Company</TableHead>
                           <TableHead className="text-xs">Category</TableHead>
                           <TableHead className="text-xs text-right">Amount</TableHead>
@@ -2029,20 +2029,16 @@ export function FinanceSection({ projectId, estimatedCost, estimatedProjectCost,
                           return (
                           <TableRow key={bill.id} className={cn(bill.is_voided && "opacity-50 bg-muted/30", bill.offset_bill_id && "bg-primary/5")}>
                             <TableCell className="text-xs">
-                              {bill.is_voided ? (
-                                <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-medium">{bill.bill_ref || "-"}</span>
+                                {bill.is_voided ? (
                                   <Badge variant="destructive" className="text-[10px]">VOIDED</Badge>
-                                  <p className="text-[10px] text-muted-foreground mt-1">
-                                    {bill.voided_at ? formatDate(bill.voided_at) : ""}
-                                  </p>
-                                </div>
-                              ) : bill.offset_bill_id ? (
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px]">Offset</Badge>
-                              ) : (bill.balance || 0) <= 0 ? (
-                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-[10px]">Open</Badge>
-                              )}
+                                ) : bill.offset_bill_id ? (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[10px]">Offset</Badge>
+                                ) : (bill.balance || 0) <= 0 ? (
+                                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">Paid</Badge>
+                                ) : null}
+                              </div>
                             </TableCell>
                             <TableCell className="text-xs">
                               <div>
